@@ -366,6 +366,7 @@ const BulkImportResponseStatusModal = ({
                                     {/* Format info */}
                                     <div className="bg-default-100 dark:bg-default-800/50 rounded-lg p-3 sm:p-4">
                                         <p className="font-medium text-xs sm:text-sm mb-2">Expected Format:</p>
+                                        {/* Allow horizontal scroll on mobile for table readability */}
                                         <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                                             <table className="text-xs w-full">
                                                 <thead>
@@ -382,9 +383,9 @@ const BulkImportResponseStatusModal = ({
                                                         <td className="py-2 px-2 sm:px-3 text-default-600">2024-12-20</td>
                                                     </tr>
                                                     <tr>
-                                                        <td className="py-2 px-3 text-default-600">RFI-002</td>
-                                                        <td className="py-2 px-3 text-default-600">rejected</td>
-                                                        <td className="py-2 px-3 text-default-600">2024-12-21</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">RFI-002</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">rejected</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">2024-12-21</td>
                                                     </tr>
                                                 </tbody>
                                             </table>

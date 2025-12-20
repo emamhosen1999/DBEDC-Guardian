@@ -440,8 +440,7 @@ const ObjectionsModal = ({
                                     title={
                                         <div className="flex items-center gap-1 sm:gap-2">
                                             <ShieldExclamationIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                                            <span className="hidden sm:inline">Attached ({attachedObjections.length})</span>
-                                            <span className="sm:hidden">Attached ({attachedObjections.length})</span>
+                                            <span>Attached ({attachedObjections.length})</span>
                                         </div>
                                     }
                                 >

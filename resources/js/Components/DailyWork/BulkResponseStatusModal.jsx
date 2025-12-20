@@ -294,8 +294,9 @@ const BulkResponseStatusModal = ({
                                                             )}
                                                         </div>
                                                         {(work.active_objections_count || 0) > 0 && (
-                                                            <Chip size="sm" color="warning" variant="flat" className="text-[10px] sm:text-xs">
-                                                                {work.active_objections_count} obj{work.active_objections_count !== 1 ? 's' : ''}
+                                                            <Chip size="sm" color="warning" variant="flat" className="text-[10px] sm:text-xs flex-shrink-0">
+                                                                <span className="hidden sm:inline">{work.active_objections_count} objection{work.active_objections_count !== 1 ? 's' : ''}</span>
+                                                                <span className="sm:hidden">{work.active_objections_count}</span>
                                                             </Chip>
                                                         )}
                                                     </div>

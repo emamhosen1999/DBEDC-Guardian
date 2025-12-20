@@ -333,6 +333,7 @@ const BulkImportSubmitModal = ({
                                     {/* Format info */}
                                     <div className="bg-default-100 dark:bg-default-800/50 rounded-lg p-3 sm:p-4">
                                         <p className="font-medium text-xs sm:text-sm mb-2">Expected Format:</p>
+                                        {/* Allow horizontal scroll on mobile for table readability */}
                                         <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                                             <table className="text-xs w-full">
                                                 <thead>
