@@ -129,18 +129,22 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     // Show/Hide advanced filters panel
     const [showFilters, setShowFilters] = useState(false);
     
+    // Request ID counter for tracking active requests
+    const requestIdRef = useRef(0);
+    
     // Cancel any in-flight request before starting a new one
     const cancelPendingRequest = useCallback(() => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
         abortControllerRef.current = new AbortController();
-        return abortControllerRef.current.signal;
+        requestIdRef.current += 1;
+        return { signal: abortControllerRef.current.signal, requestId: requestIdRef.current };
     }, []);
     
     // Mobile data fetching - fetch all data for selected date without pagination
     const fetchMobileData = async (showLoader = true) => {
-        const signal = cancelPendingRequest();
+        const { signal, requestId } = cancelPendingRequest();
         
         if (showLoader && !modeSwitch) {
             setTableLoading(true);
@@ -157,32 +161,38 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             // Use the /daily-works-all endpoint to get all data without pagination
             const response = await axios.get('/daily-works-all', { params, signal });
             
-            // Check if request was aborted
-            if (signal.aborted) return;
+            // Check if this request is still the active one
+            if (requestId !== requestIdRef.current) return;
             
             const dailyWorks = response.data.dailyWorks || [];
             setData(Array.isArray(dailyWorks) ? dailyWorks : []);
             setTotalRows(dailyWorks.length);
             setLastPage(1);
+            
+            // Always set loading to false on success
+            setTableLoading(false);
+            setLoading(false);
+            setIsRefreshing(false);
         } catch (error) {
             // Ignore aborted requests
-            if (axios.isCancel(error) || error.name === 'AbortError') return;
+            if (axios.isCancel(error) || error.name === 'AbortError' || error.name === 'CanceledError') {
+                return;
+            }
             
             console.error('Error fetching mobile data:', error);
             setData([]);
             showToast.error('Failed to fetch data.');
-        } finally {
-            if (!signal.aborted) {
-                setTableLoading(false);
-                setLoading(false);
-                setIsRefreshing(false);
-            }
+            
+            // Set loading to false on error
+            setTableLoading(false);
+            setLoading(false);
+            setIsRefreshing(false);
         }
     };
 
     // Desktop data fetching - use pagination for date range
     const fetchDesktopData = async (showLoader = true) => {
-        const signal = cancelPendingRequest();
+        const { signal, requestId } = cancelPendingRequest();
         
         if (showLoader && !modeSwitch) {
             setTableLoading(true);
@@ -200,24 +210,29 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             
             const response = await axios.get('/daily-works-paginate', { params, signal });
             
-            // Check if request was aborted
-            if (signal.aborted) return;
+            // Check if this request is still the active one
+            if (requestId !== requestIdRef.current) return;
             
             setData(Array.isArray(response.data.data) ? response.data.data : []);
             setTotalRows(response.data.total || 0);
             setLastPage(response.data.last_page || 1);
+            
+            // Always set loading to false on success
+            setTableLoading(false);
+            setLoading(false);
         } catch (error) {
             // Ignore aborted requests
-            if (axios.isCancel(error) || error.name === 'AbortError') return;
+            if (axios.isCancel(error) || error.name === 'AbortError' || error.name === 'CanceledError') {
+                return;
+            }
             
             console.error('Error fetching desktop data:', error);
             setData([]);
             showToast.error('Failed to fetch data.');
-        } finally {
-            if (!signal.aborted) {
-                setTableLoading(false);
-                setLoading(false);
-            }
+            
+            // Set loading to false on error
+            setTableLoading(false);
+            setLoading(false);
         }
     };
 
@@ -692,9 +707,10 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
         setModeSwitch(true);
         setTableLoading(true);
         setCurrentPage(1);
+        
+        // fetchData handles its own loading state, but we need to reset modeSwitch
         fetchData(true).finally(() => {
             setModeSwitch(false);
-            setTableLoading(false);
             isInitialMount.current = false;
         });
     }, [isMobile]);
