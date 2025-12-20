@@ -26,6 +26,7 @@ class ObjectionController extends Controller
                 'createdBy:id,name,email',
                 'resolvedBy:id,name,email',
                 'dailyWorks:id,number,location',
+                'statusLogs.changedBy:id,name',
             ])
             ->withCount('dailyWorks');
 
@@ -255,43 +256,88 @@ class ObjectionController extends Controller
     }
 
     /**
-     * Suggest RFIs based on chainage range.
+     * Suggest RFIs based on chainage range using jurisdiction matching.
+     * Uses the same logic as daily works location/jurisdiction filtering.
      */
     public function suggestRfis(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'chainage_from' => 'required|string|max:50',
-            'chainage_to' => 'required|string|max:50',
+            'chainage_from' => 'nullable|string|max:50',
+            'chainage_to' => 'nullable|string|max:50',
+            'search' => 'nullable|string|max:255',
         ]);
 
         try {
-            // Parse chainage values to get KM numbers for comparison
-            // Chainage format: K23+500 means KM 23 at 500 meters
-            $fromKm = $this->parseChainageToMeters($validated['chainage_from']);
-            $toKm = $this->parseChainageToMeters($validated['chainage_to']);
+            $query = DailyWork::query()
+                ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
+                ->with('inchargeUser:id,name');
 
-            // Query Daily Works that have location field (chainage)
-            $rfis = DailyWork::query()
-                ->whereNotNull('location')
-                ->where('location', '!=', '')
-                ->select('id', 'number', 'location', 'description', 'type')
-                ->orderBy('location')
-                ->limit(100)
-                ->get()
-                ->filter(function ($rfi) use ($fromKm, $toKm) {
-                    // Parse the RFI location and check if it's in range
-                    $rfiKm = $this->parseChainageToMeters($rfi->location);
-                    if ($rfiKm === null) {
-                        return false;
-                    }
+            $chainageFrom = $validated['chainage_from'] ?? null;
+            $chainageTo = $validated['chainage_to'] ?? null;
+            $search = $validated['search'] ?? null;
 
-                    return $rfiKm >= $fromKm && $rfiKm <= $toKm;
-                })
-                ->values();
+            // If search term provided, search by number, location, or description
+            // This takes priority - return search results without chainage filtering
+            if (! empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('number', 'like', "%{$search}%")
+                        ->orWhere('location', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
 
+                // When searching, don't apply chainage filter - return all matching results
+                $rfis = $query->orderBy('location')
+                    ->orderBy('date', 'desc')
+                    ->limit(100)
+                    ->get();
+
+                return response()->json([
+                    'rfis' => $rfis,
+                    'count' => $rfis->count(),
+                    'total_found' => $rfis->count(),
+                ]);
+            }
+
+            // If chainage range provided (no search), use jurisdiction matching
+            if (! empty($chainageFrom) && ! empty($chainageTo)) {
+                $fromMeters = $this->parseChainageToMeters($chainageFrom);
+                $toMeters = $this->parseChainageToMeters($chainageTo);
+
+                if ($fromMeters !== null && $toMeters !== null) {
+                    // Get all RFIs with location and filter by chainage range
+                    $rfis = DailyWork::query()
+                        ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
+                        ->with('inchargeUser:id,name')
+                        ->whereNotNull('location')
+                        ->where('location', '!=', '')
+                        ->orderBy('location')
+                        ->orderBy('date', 'desc')
+                        ->limit(500)
+                        ->get()
+                        ->filter(function ($rfi) use ($fromMeters, $toMeters) {
+                            $rfiLocation = $this->parseChainageToMeters($rfi->location);
+                            if ($rfiLocation === null) {
+                                return false;
+                            }
+
+                            return $rfiLocation >= $fromMeters && $rfiLocation <= $toMeters;
+                        })
+                        ->take(100)
+                        ->values();
+
+                    return response()->json([
+                        'rfis' => $rfis,
+                        'count' => $rfis->count(),
+                        'total_found' => $rfis->count(),
+                    ]);
+                }
+            }
+
+            // No search and no chainage - return empty (user should search or have chainage set)
             return response()->json([
-                'rfis' => $rfis,
-                'count' => $rfis->count(),
+                'rfis' => [],
+                'count' => 0,
+                'total_found' => 0,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -350,6 +396,287 @@ class ObjectionController extends Controller
                     new RfiObjectionNotification($objection, $eventType, $rfi)
                 );
             }
+        }
+    }
+
+    /**
+     * Delete an objection.
+     */
+    public function destroy(RfiObjection $objection): JsonResponse
+    {
+        $this->authorize('delete', $objection);
+
+        try {
+            $objection->delete();
+
+            return response()->json([
+                'message' => 'Objection deleted successfully.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to delete objection.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Submit an objection for review.
+     */
+    public function submit(RfiObjection $objection): JsonResponse
+    {
+        $this->authorize('submit', $objection);
+
+        if ($objection->status !== RfiObjection::STATUS_DRAFT) {
+            return response()->json([
+                'error' => 'Only draft objections can be submitted.',
+            ], 422);
+        }
+
+        try {
+            $oldStatus = $objection->status;
+            $objection->update(['status' => RfiObjection::STATUS_SUBMITTED]);
+
+            // Log status change
+            $objection->statusLogs()->create([
+                'from_status' => $oldStatus,
+                'to_status' => RfiObjection::STATUS_SUBMITTED,
+                'notes' => 'Submitted for review',
+                'changed_by' => auth()->id(),
+                'changed_at' => now(),
+            ]);
+
+            return response()->json([
+                'message' => 'Objection submitted for review.',
+                'objection' => $objection->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to submit objection.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Start review of an objection.
+     */
+    public function review(RfiObjection $objection): JsonResponse
+    {
+        $this->authorize('review', $objection);
+
+        if ($objection->status !== RfiObjection::STATUS_SUBMITTED) {
+            return response()->json([
+                'error' => 'Only submitted objections can be put under review.',
+            ], 422);
+        }
+
+        try {
+            $oldStatus = $objection->status;
+            $objection->update(['status' => RfiObjection::STATUS_UNDER_REVIEW]);
+
+            // Log status change
+            $objection->statusLogs()->create([
+                'from_status' => $oldStatus,
+                'to_status' => RfiObjection::STATUS_UNDER_REVIEW,
+                'notes' => 'Review started',
+                'changed_by' => auth()->id(),
+                'changed_at' => now(),
+            ]);
+
+            return response()->json([
+                'message' => 'Objection is now under review.',
+                'objection' => $objection->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to start review.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Resolve an objection.
+     */
+    public function resolve(Request $request, RfiObjection $objection): JsonResponse
+    {
+        $this->authorize('review', $objection);
+
+        if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
+            return response()->json([
+                'error' => 'Only submitted or under-review objections can be resolved.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'resolution_notes' => 'required|string|max:5000',
+        ]);
+
+        try {
+            $oldStatus = $objection->status;
+            $objection->update([
+                'status' => RfiObjection::STATUS_RESOLVED,
+                'resolution_notes' => $validated['resolution_notes'],
+                'resolved_by' => auth()->id(),
+                'resolved_at' => now(),
+            ]);
+
+            // Log status change
+            $objection->statusLogs()->create([
+                'from_status' => $oldStatus,
+                'to_status' => RfiObjection::STATUS_RESOLVED,
+                'notes' => $validated['resolution_notes'],
+                'changed_by' => auth()->id(),
+                'changed_at' => now(),
+            ]);
+
+            // Notify creator and RFI incharges
+            $rfiIds = $objection->dailyWorks()->pluck('daily_works.id')->toArray();
+            if (! empty($rfiIds)) {
+                $this->notifyRfiIncharges($objection, $rfiIds, 'resolved');
+            }
+
+            return response()->json([
+                'message' => 'Objection resolved successfully.',
+                'objection' => $objection->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to resolve objection.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject an objection.
+     */
+    public function reject(Request $request, RfiObjection $objection): JsonResponse
+    {
+        $this->authorize('review', $objection);
+
+        if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
+            return response()->json([
+                'error' => 'Only submitted or under-review objections can be rejected.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'resolution_notes' => 'required|string|max:5000',
+        ]);
+
+        try {
+            $oldStatus = $objection->status;
+            $objection->update([
+                'status' => RfiObjection::STATUS_REJECTED,
+                'resolution_notes' => $validated['resolution_notes'],
+                'resolved_by' => auth()->id(),
+                'resolved_at' => now(),
+            ]);
+
+            // Log status change
+            $objection->statusLogs()->create([
+                'from_status' => $oldStatus,
+                'to_status' => RfiObjection::STATUS_REJECTED,
+                'notes' => $validated['resolution_notes'],
+                'changed_by' => auth()->id(),
+                'changed_at' => now(),
+            ]);
+
+            return response()->json([
+                'message' => 'Objection rejected.',
+                'objection' => $objection->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to reject objection.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Export objections with affected RFI details.
+     */
+    public function export(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', RfiObjection::class);
+
+        try {
+            $query = RfiObjection::query()
+                ->with([
+                    'createdBy:id,name',
+                    'resolvedBy:id,name',
+                    'dailyWorks:id,number,location,type,date,rfi_submission_date',
+                ]);
+
+            // Apply filters
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->filled('category')) {
+                $query->where('category', $request->category);
+            }
+
+            if ($request->filled('created_by')) {
+                $query->where('created_by', $request->created_by);
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+            }
+
+            if ($request->filled('date_to')) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+            }
+
+            // Option to filter only active objections
+            if ($request->boolean('only_active')) {
+                $query->active();
+            }
+
+            $objections = $query->orderBy('created_at', 'desc')->get();
+
+            $exportData = $objections->map(function ($objection) {
+                $affectedRfis = $objection->dailyWorks->map(function ($rfi) {
+                    $submissionStatus = $rfi->rfi_submission_date
+                        ? 'Submitted: '.$rfi->rfi_submission_date->format('Y-m-d')
+                        : 'Not Submitted';
+
+                    return "{$rfi->number} @ {$rfi->location} ({$submissionStatus})";
+                })->join(' | ');
+
+                return [
+                    'Title' => $objection->title,
+                    'Category' => RfiObjection::$categoryLabels[$objection->category] ?? $objection->category,
+                    'Status' => RfiObjection::$statusLabels[$objection->status] ?? $objection->status,
+                    'Chainage From' => $objection->chainage_from ?? 'N/A',
+                    'Chainage To' => $objection->chainage_to ?? 'N/A',
+                    'Description' => $objection->description,
+                    'Reason' => $objection->reason,
+                    'Created By' => $objection->createdBy?->name ?? 'N/A',
+                    'Created At' => $objection->created_at->format('Y-m-d H:i'),
+                    'Resolved By' => $objection->resolvedBy?->name ?? 'N/A',
+                    'Resolved At' => $objection->resolved_at?->format('Y-m-d H:i') ?? 'N/A',
+                    'Resolution Notes' => $objection->resolution_notes ?? 'N/A',
+                    'Affected RFIs Count' => $objection->dailyWorks->count(),
+                    'Affected RFIs' => $affectedRfis ?: 'None',
+                ];
+            });
+
+            return response()->json([
+                'data' => $exportData,
+                'filename' => 'objections_export_'.now()->format('Y_m_d_H_i_s'),
+                'total_records' => $exportData->count(),
+                'message' => 'Export data prepared successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Export failed.',
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 }

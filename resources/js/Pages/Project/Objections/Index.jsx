@@ -201,6 +201,30 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
     const [selectedRfis, setSelectedRfis] = useState([]);
     const [attachLoading, setAttachLoading] = useState(false);
     const [rfiSearchLoading, setRfiSearchLoading] = useState(false);
+    const [rfiSearchQuery, setRfiSearchQuery] = useState('');
+
+    // Edit modal state
+    const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+    const [editLoading, setEditLoading] = useState(false);
+    const [editObjection, setEditObjection] = useState(null);
+    const [editForm, setEditForm] = useState({
+        title: '',
+        category: 'other',
+        chainage_from: '',
+        chainage_to: '',
+        description: '',
+        reason: '',
+    });
+
+    // Status update modal state
+    const { isOpen: isStatusOpen, onOpen: onStatusOpen, onClose: onStatusClose } = useDisclosure();
+    const [statusLoading, setStatusLoading] = useState(false);
+    const [statusAction, setStatusAction] = useState(null); // 'submit', 'review', 'resolve', 'reject'
+    const [resolutionNotes, setResolutionNotes] = useState('');
+
+    // History modal state
+    const { isOpen: isHistoryOpen, onOpen: onHistoryOpen, onClose: onHistoryClose } = useDisclosure();
+    const [historyObjection, setHistoryObjection] = useState(null);
 
     // Statistics state
     const [apiStats, setApiStats] = useState(statistics || null);
@@ -379,20 +403,35 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
         }
     };
 
-    // Suggest RFIs by chainage
-    const handleSuggestRfis = async (chainageFrom, chainageTo) => {
-        if (!chainageFrom || !chainageTo) return;
-
+    // Suggest RFIs by chainage or search
+    const handleSuggestRfis = async (chainageFrom, chainageTo, searchQuery = '') => {
         setRfiSearchLoading(true);
         try {
-            const response = await axios.get(route('objections.suggestRfis'), {
-                params: { chainage_from: chainageFrom, chainage_to: chainageTo }
-            });
+            const params = {};
+            if (chainageFrom) params.chainage_from = chainageFrom;
+            if (chainageTo) params.chainage_to = chainageTo;
+            if (searchQuery) params.search = searchQuery;
+            
+            const response = await axios.get(route('objections.suggestRfis'), { params });
             setSuggestedRfis(response.data.rfis || []);
         } catch (error) {
             console.error('Failed to suggest RFIs:', error);
+            setSuggestedRfis([]);
         } finally {
             setRfiSearchLoading(false);
+        }
+    };
+
+    // Handle RFI search
+    const handleRfiSearch = () => {
+        if (selectedObjection) {
+            handleSuggestRfis(
+                selectedObjection.chainage_from,
+                selectedObjection.chainage_to,
+                rfiSearchQuery
+            );
+        } else if (rfiSearchQuery) {
+            handleSuggestRfis(null, null, rfiSearchQuery);
         }
     };
 
@@ -400,6 +439,10 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
     const openAttachModal = (objection) => {
         setSelectedObjection(objection);
         setSelectedRfis(objection.daily_works?.map(rfi => String(rfi.id)) || []);
+        setRfiSearchQuery('');
+        setSuggestedRfis([]);
+        
+        // Auto-search if chainage is set
         if (objection.chainage_from && objection.chainage_to) {
             handleSuggestRfis(objection.chainage_from, objection.chainage_to);
         }
@@ -426,6 +469,129 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
         } finally {
             setAttachLoading(false);
         }
+    };
+
+    // Open edit modal
+    const openEditModal = (objection) => {
+        setEditObjection(objection);
+        setEditForm({
+            title: objection.title || '',
+            category: objection.category || 'other',
+            chainage_from: objection.chainage_from || '',
+            chainage_to: objection.chainage_to || '',
+            description: objection.description || '',
+            reason: objection.reason || '',
+        });
+        onEditOpen();
+    };
+
+    // Handle edit objection
+    const handleEditObjection = async () => {
+        if (!editForm.title || !editForm.description || !editForm.reason) {
+            showToast.error('Please fill in all required fields');
+            return;
+        }
+
+        setEditLoading(true);
+        try {
+            const response = await axios.put(route('objections.update', editObjection.id), editForm);
+            showToast.success(response.data.message || 'Objection updated successfully');
+            onEditClose();
+            router.reload({ only: ['objections', 'statistics'] });
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to update objection');
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
+    // Open status modal
+    const openStatusModal = (objection, action) => {
+        setSelectedObjection(objection);
+        setStatusAction(action);
+        setResolutionNotes('');
+        onStatusOpen();
+    };
+
+    // Handle status change
+    const handleStatusChange = async () => {
+        if (!selectedObjection || !statusAction) return;
+
+        // Validate resolution notes for resolve/reject
+        if (['resolve', 'reject'].includes(statusAction) && !resolutionNotes.trim()) {
+            showToast.error('Please provide resolution notes');
+            return;
+        }
+
+        setStatusLoading(true);
+        try {
+            let response;
+            
+            switch (statusAction) {
+                case 'submit':
+                    response = await axios.post(route('objections.submit', selectedObjection.id));
+                    break;
+                case 'review':
+                    response = await axios.post(route('objections.review', selectedObjection.id));
+                    break;
+                case 'resolve':
+                    response = await axios.post(route('objections.resolve', selectedObjection.id), {
+                        resolution_notes: resolutionNotes,
+                    });
+                    break;
+                case 'reject':
+                    response = await axios.post(route('objections.reject', selectedObjection.id), {
+                        resolution_notes: resolutionNotes,
+                    });
+                    break;
+                default:
+                    throw new Error('Invalid action');
+            }
+            
+            showToast.success(response.data.message || 'Status updated successfully');
+            onStatusClose();
+            setResolutionNotes('');
+            router.reload({ only: ['objections', 'statistics'] });
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to update status');
+        } finally {
+            setStatusLoading(false);
+        }
+    };
+
+    // Delete objection
+    const handleDeleteObjection = async (objection) => {
+        if (!confirm('Are you sure you want to delete this objection?')) return;
+        
+        try {
+            const response = await axios.delete(route('objections.destroy', objection.id));
+            showToast.success(response.data.message || 'Objection deleted successfully');
+            router.reload({ only: ['objections', 'statistics'] });
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to delete objection');
+        }
+    };
+
+    // Get status action label
+    const getStatusActionLabel = (action) => {
+        switch (action) {
+            case 'submit': return 'Submit for Review';
+            case 'review': return 'Start Review';
+            case 'resolve': return 'Resolve Objection';
+            case 'reject': return 'Reject Objection';
+            default: return 'Update Status';
+        }
+    };
+
+    // Open history modal
+    const openHistoryModal = (objection) => {
+        setHistoryObjection(objection);
+        onHistoryOpen();
+    };
+
+    // Format status for display
+    const formatStatus = (status) => {
+        return statusConfig[status]?.label || status?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown';
     };
 
     // Effect for filter and pagination changes
@@ -583,8 +749,69 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
                                 <DropdownItem
                                     key="edit"
                                     startContent={<PencilIcon className="w-4 h-4" />}
+                                    onPress={() => openEditModal(objection)}
                                 >
                                     Edit
+                                </DropdownItem>
+                            )}
+                            {objection.status === 'draft' && (
+                                <DropdownItem
+                                    key="submit"
+                                    startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
+                                    color="primary"
+                                    onPress={() => openStatusModal(objection, 'submit')}
+                                >
+                                    Submit for Review
+                                </DropdownItem>
+                            )}
+                            {objection.status === 'submitted' && (
+                                <DropdownItem
+                                    key="review"
+                                    startContent={<ClockIcon className="w-4 h-4" />}
+                                    color="warning"
+                                    onPress={() => openStatusModal(objection, 'review')}
+                                >
+                                    Start Review
+                                </DropdownItem>
+                            )}
+                            {(objection.status === 'submitted' || objection.status === 'under_review') && (
+                                <DropdownItem
+                                    key="resolve"
+                                    startContent={<CheckCircleIcon className="w-4 h-4" />}
+                                    color="success"
+                                    onPress={() => openStatusModal(objection, 'resolve')}
+                                >
+                                    Resolve
+                                </DropdownItem>
+                            )}
+                            {(objection.status === 'submitted' || objection.status === 'under_review') && (
+                                <DropdownItem
+                                    key="reject"
+                                    startContent={<XCircleSolid className="w-4 h-4" />}
+                                    color="danger"
+                                    onPress={() => openStatusModal(objection, 'reject')}
+                                >
+                                    Reject
+                                </DropdownItem>
+                            )}
+                            {objection.status_logs?.length > 0 && (
+                                <DropdownItem
+                                    key="history"
+                                    startContent={<ClockIcon className="w-4 h-4" />}
+                                    onPress={() => openHistoryModal(objection)}
+                                >
+                                    View History
+                                </DropdownItem>
+                            )}
+                            {objection.status === 'draft' && (
+                                <DropdownItem
+                                    key="delete"
+                                    startContent={<TrashIcon className="w-4 h-4" />}
+                                    color="danger"
+                                    className="text-danger"
+                                    onPress={() => handleDeleteObjection(objection)}
+                                >
+                                    Delete
                                 </DropdownItem>
                             )}
                         </DropdownMenu>
@@ -664,6 +891,18 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
                                     </div>
 
                                     <div className="flex justify-between items-center">
+                                        <span className="text-default-400">Chainage:</span>
+                                        {objection.chainage_from && objection.chainage_to ? (
+                                            <div className="flex items-center gap-1">
+                                                <MapPinIcon className="w-3 h-3 text-default-400" />
+                                                <span>{objection.chainage_from} - {objection.chainage_to}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-default-400">Not set</span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
                                         <span className="text-default-400">Affected RFIs:</span>
                                         <Button
                                             size="sm"
@@ -704,26 +943,91 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
                                     )}
                                 </div>
 
-                                <div className="flex gap-2 mt-4">
+                                <div className="flex flex-wrap gap-2 mt-4">
                                     <Button
                                         size="sm"
                                         variant="flat"
                                         color="primary"
-                                        className="flex-1"
                                         startContent={<LinkIcon className="w-3 h-3" />}
                                         onPress={() => openAttachModal(objection)}
                                     >
                                         Manage RFIs
                                     </Button>
                                     {objection.status === 'draft' && (
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="default"
+                                                startContent={<PencilIcon className="w-3 h-3" />}
+                                                onPress={() => openEditModal(objection)}
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="primary"
+                                                startContent={<DocumentArrowUpIcon className="w-3 h-3" />}
+                                                onPress={() => openStatusModal(objection, 'submit')}
+                                            >
+                                                Submit
+                                            </Button>
+                                        </>
+                                    )}
+                                    {objection.status === 'submitted' && (
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color="warning"
+                                            startContent={<ClockIcon className="w-3 h-3" />}
+                                            onPress={() => openStatusModal(objection, 'review')}
+                                        >
+                                            Review
+                                        </Button>
+                                    )}
+                                    {objection.status === 'under_review' && (
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="success"
+                                                startContent={<CheckCircleIcon className="w-3 h-3" />}
+                                                onPress={() => openStatusModal(objection, 'resolve')}
+                                            >
+                                                Resolve
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="danger"
+                                                startContent={<XCircleSolid className="w-3 h-3" />}
+                                                onPress={() => openStatusModal(objection, 'reject')}
+                                            >
+                                                Reject
+                                            </Button>
+                                        </>
+                                    )}
+                                    {objection.status_logs?.length > 0 && (
                                         <Button
                                             size="sm"
                                             variant="flat"
                                             color="default"
-                                            className="flex-1"
-                                            startContent={<PencilIcon className="w-3 h-3" />}
+                                            startContent={<ClockIcon className="w-3 h-3" />}
+                                            onPress={() => openHistoryModal(objection)}
                                         >
-                                            Edit
+                                            History
+                                        </Button>
+                                    )}
+                                    {objection.status === 'draft' && (
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color="danger"
+                                            startContent={<TrashIcon className="w-3 h-3" />}
+                                            onPress={() => handleDeleteObjection(objection)}
+                                        >
+                                            Delete
                                         </Button>
                                     )}
                                 </div>
@@ -917,7 +1221,7 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
             <Modal
                 isOpen={isAttachOpen}
                 onClose={onAttachClose}
-                size="2xl"
+                size="3xl"
                 scrollBehavior="inside"
             >
                 <ModalContent>
@@ -931,48 +1235,83 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
                         )}
                     </ModalHeader>
                     <ModalBody>
-                        {selectedObjection?.chainage_from && selectedObjection?.chainage_to && (
-                            <div className="flex items-center gap-2 mb-4 p-3 bg-default-100 rounded-lg">
-                                <MapPinIcon className="w-5 h-5 text-default-500" />
-                                <span className="text-sm">
-                                    Chainage Range: <strong>{selectedObjection.chainage_from}</strong> - <strong>{selectedObjection.chainage_to}</strong>
-                                </span>
+                        <div className="space-y-4">
+                            {/* Chainage Range Info */}
+                            {selectedObjection?.chainage_from && selectedObjection?.chainage_to && (
+                                <div className="flex flex-wrap items-center gap-2 p-3 bg-default-100 rounded-lg">
+                                    <MapPinIcon className="w-5 h-5 text-default-500" />
+                                    <span className="text-sm">
+                                        Chainage Range: <strong>{selectedObjection.chainage_from}</strong> - <strong>{selectedObjection.chainage_to}</strong>
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Manual Search */}
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Search RFIs by number, location, or description..."
+                                    value={rfiSearchQuery}
+                                    onChange={(e) => setRfiSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleRfiSearch()}
+                                    startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
+                                    size="sm"
+                                    className="flex-1"
+                                />
                                 <Button
                                     size="sm"
+                                    color="primary"
                                     variant="flat"
                                     isLoading={rfiSearchLoading}
-                                    onPress={() => handleSuggestRfis(selectedObjection.chainage_from, selectedObjection.chainage_to)}
+                                    onPress={handleRfiSearch}
                                 >
-                                    Refresh Suggestions
+                                    Search
                                 </Button>
+                                {selectedObjection?.chainage_from && selectedObjection?.chainage_to && (
+                                    <Button
+                                        size="sm"
+                                        variant="flat"
+                                        isLoading={rfiSearchLoading}
+                                        onPress={() => {
+                                            setRfiSearchQuery('');
+                                            handleSuggestRfis(selectedObjection.chainage_from, selectedObjection.chainage_to);
+                                        }}
+                                    >
+                                        <ArrowPathIcon className="w-4 h-4" />
+                                    </Button>
+                                )}
                             </div>
-                        )}
 
-                        {rfiSearchLoading ? (
-                            <div className="flex justify-center py-8">
-                                <Spinner />
-                            </div>
-                        ) : suggestedRfis.length > 0 ? (
-                            <div className="space-y-2">
-                                <p className="text-sm text-default-600 mb-2">
-                                    Select RFIs to attach to this objection:
-                                </p>
-                                <CheckboxGroup
-                                    value={selectedRfis}
-                                    onValueChange={setSelectedRfis}
-                                >
-                                    <div className="grid gap-2 max-h-[400px] overflow-auto">
-                                        {suggestedRfis.map((rfi) => (
+                            {/* Currently Attached RFIs */}
+                            {selectedObjection?.daily_works?.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircleSolid className="w-4 h-4 text-success" />
+                                        <span className="text-sm font-medium text-success">
+                                            Currently Attached ({selectedObjection.daily_works.length})
+                                        </span>
+                                    </div>
+                                    <div className="grid gap-2 max-h-[150px] overflow-auto border border-success/30 rounded-lg p-2 bg-success-50/30 dark:bg-success-900/10">
+                                        {selectedObjection.daily_works.map((rfi) => (
                                             <div
                                                 key={rfi.id}
-                                                className="flex items-center gap-3 p-2 border border-divider rounded-lg hover:bg-default-100"
+                                                className="flex items-center gap-3 p-2 border border-divider rounded-lg bg-content1"
                                             >
-                                                <Checkbox value={String(rfi.id)} />
+                                                <Checkbox 
+                                                    value={String(rfi.id)} 
+                                                    isSelected={selectedRfis.includes(String(rfi.id))}
+                                                    onValueChange={(isSelected) => {
+                                                        if (isSelected) {
+                                                            setSelectedRfis(prev => [...prev, String(rfi.id)]);
+                                                        } else {
+                                                            setSelectedRfis(prev => prev.filter(id => id !== String(rfi.id)));
+                                                        }
+                                                    }}
+                                                />
                                                 <div className="flex-1 min-w-0">
                                                     <div className="font-medium text-sm">{rfi.number}</div>
                                                     <div className="text-xs text-default-500 flex items-center gap-2">
                                                         <MapPinIcon className="w-3 h-3" />
-                                                        {rfi.location}
+                                                        {rfi.location || 'No location'}
                                                         {rfi.type && (
                                                             <>
                                                                 <span>•</span>
@@ -980,24 +1319,96 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
                                                             </>
                                                         )}
                                                     </div>
-                                                    {rfi.description && (
-                                                        <p className="text-[10px] text-default-400 truncate mt-0.5">
-                                                            {rfi.description}
-                                                        </p>
-                                                    )}
                                                 </div>
+                                                <Chip size="sm" variant="flat" color="success">Attached</Chip>
                                             </div>
                                         ))}
                                     </div>
-                                </CheckboxGroup>
+                                </div>
+                            )}
+
+                            {/* Search Results / Suggested RFIs */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <MagnifyingGlassIcon className="w-4 h-4 text-default-500" />
+                                    <span className="text-sm font-medium">
+                                        {rfiSearchQuery ? 'Search Results' : 'Suggested RFIs'} 
+                                        {suggestedRfis.length > 0 && ` (${suggestedRfis.length})`}
+                                    </span>
+                                </div>
+
+                                {rfiSearchLoading ? (
+                                    <div className="flex justify-center py-8">
+                                        <Spinner />
+                                    </div>
+                                ) : suggestedRfis.length > 0 ? (
+                                    <CheckboxGroup
+                                        value={selectedRfis}
+                                        onValueChange={setSelectedRfis}
+                                    >
+                                        <div className="grid gap-2 max-h-[300px] overflow-auto border border-divider rounded-lg p-2">
+                                            {suggestedRfis.map((rfi) => {
+                                                const isAlreadyAttached = selectedObjection?.daily_works?.some(dw => dw.id === rfi.id);
+                                                return (
+                                                    <div
+                                                        key={rfi.id}
+                                                        className={`flex items-center gap-3 p-2 border rounded-lg hover:bg-default-100 ${
+                                                            isAlreadyAttached ? 'border-success/50 bg-success-50/20' : 'border-divider'
+                                                        }`}
+                                                    >
+                                                        <Checkbox value={String(rfi.id)} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-medium text-sm">{rfi.number}</span>
+                                                                {isAlreadyAttached && (
+                                                                    <Chip size="sm" variant="flat" color="success" className="h-4 text-[10px]">
+                                                                        Attached
+                                                                    </Chip>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-xs text-default-500 flex items-center gap-2">
+                                                                <MapPinIcon className="w-3 h-3" />
+                                                                {rfi.location || 'No location'}
+                                                                {rfi.type && (
+                                                                    <>
+                                                                        <span>•</span>
+                                                                        {rfi.type}
+                                                                    </>
+                                                                )}
+                                                                {rfi.incharge_user?.name && (
+                                                                    <>
+                                                                        <span>•</span>
+                                                                        <UserIcon className="w-3 h-3" />
+                                                                        {rfi.incharge_user.name}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            {rfi.description && (
+                                                                <p className="text-[10px] text-default-400 truncate mt-0.5">
+                                                                    {rfi.description}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </CheckboxGroup>
+                                ) : (
+                                    <div className="text-center py-8 text-default-500 border border-dashed border-divider rounded-lg">
+                                        <DocumentTextIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>
+                                            {rfiSearchQuery 
+                                                ? 'No RFIs found matching your search.' 
+                                                : selectedObjection?.chainage_from && selectedObjection?.chainage_to
+                                                    ? 'No RFIs found in the specified chainage range.'
+                                                    : 'Use the search box above to find RFIs.'}
+                                        </p>
+                                        <p className="text-xs mt-1">Try searching by RFI number, location, or description.</p>
+                                    </div>
+                                )}
                             </div>
-                        ) : (
-                            <div className="text-center py-8 text-default-500">
-                                <DocumentTextIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                <p>No RFIs found in the specified chainage range.</p>
-                                <p className="text-xs mt-1">Try adjusting the chainage range or search manually.</p>
-                            </div>
-                        )}
+                        </div>
                     </ModalBody>
                     <ModalFooter>
                         <div className="flex items-center justify-between w-full">
@@ -1018,6 +1429,265 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
                                 </Button>
                             </div>
                         </div>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Edit Objection Modal */}
+            <Modal
+                isOpen={isEditOpen}
+                onClose={onEditClose}
+                size="2xl"
+                scrollBehavior="inside"
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2">
+                        <PencilIcon className="w-5 h-5 text-primary" />
+                        Edit Objection
+                    </ModalHeader>
+                    <ModalBody>
+                        <div className="space-y-4">
+                            <Input
+                                label="Title"
+                                placeholder="Enter objection title"
+                                value={editForm.title}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                                isRequired
+                            />
+                            <Select
+                                label="Category"
+                                placeholder="Select category"
+                                selectedKeys={[editForm.category]}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                            >
+                                {Object.entries(categoryConfig).map(([key, conf]) => (
+                                    <SelectItem key={key} value={key}>
+                                        {conf.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input
+                                    label="Chainage From"
+                                    placeholder="e.g., K23+500"
+                                    value={editForm.chainage_from}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, chainage_from: e.target.value }))}
+                                />
+                                <Input
+                                    label="Chainage To"
+                                    placeholder="e.g., K24+600"
+                                    value={editForm.chainage_to}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, chainage_to: e.target.value }))}
+                                />
+                            </div>
+                            <Textarea
+                                label="Description"
+                                placeholder="Describe the objection in detail"
+                                value={editForm.description}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                minRows={3}
+                                isRequired
+                            />
+                            <Textarea
+                                label="Reason"
+                                placeholder="Explain the reason for raising this objection"
+                                value={editForm.reason}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, reason: e.target.value }))}
+                                minRows={2}
+                                isRequired
+                            />
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onEditClose}>
+                            Cancel
+                        </Button>
+                        <Button
+                            color="primary"
+                            onPress={handleEditObjection}
+                            isLoading={editLoading}
+                        >
+                            Save Changes
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Status Update Modal */}
+            <Modal
+                isOpen={isStatusOpen}
+                onClose={onStatusClose}
+                size="lg"
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2">
+                        {statusAction === 'submit' && <DocumentArrowUpIcon className="w-5 h-5 text-primary" />}
+                        {statusAction === 'review' && <ClockIcon className="w-5 h-5 text-warning" />}
+                        {statusAction === 'resolve' && <CheckCircleIcon className="w-5 h-5 text-success" />}
+                        {statusAction === 'reject' && <XCircleSolid className="w-5 h-5 text-danger" />}
+                        {getStatusActionLabel(statusAction)}
+                    </ModalHeader>
+                    <ModalBody>
+                        {selectedObjection && (
+                            <div className="space-y-4">
+                                <div className="p-3 bg-default-100 rounded-lg">
+                                    <p className="font-medium">{selectedObjection.title}</p>
+                                    <p className="text-sm text-default-500 mt-1">{selectedObjection.description}</p>
+                                </div>
+                                
+                                {statusAction === 'submit' && (
+                                    <p className="text-sm text-default-600">
+                                        Are you sure you want to submit this objection for review? 
+                                        Once submitted, you won't be able to edit it.
+                                    </p>
+                                )}
+                                
+                                {statusAction === 'review' && (
+                                    <p className="text-sm text-default-600">
+                                        This will mark the objection as "Under Review". 
+                                        You can then resolve or reject it after investigation.
+                                    </p>
+                                )}
+                                
+                                {(statusAction === 'resolve' || statusAction === 'reject') && (
+                                    <Textarea
+                                        label={statusAction === 'resolve' ? 'Resolution Notes' : 'Rejection Reason'}
+                                        placeholder={statusAction === 'resolve' 
+                                            ? 'Explain how the objection was resolved...'
+                                            : 'Explain why the objection is being rejected...'
+                                        }
+                                        value={resolutionNotes}
+                                        onChange={(e) => setResolutionNotes(e.target.value)}
+                                        minRows={3}
+                                        isRequired
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onStatusClose}>
+                            Cancel
+                        </Button>
+                        <Button
+                            color={statusAction === 'reject' ? 'danger' : statusAction === 'resolve' ? 'success' : 'primary'}
+                            onPress={handleStatusChange}
+                            isLoading={statusLoading}
+                        >
+                            {getStatusActionLabel(statusAction)}
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Status History Modal */}
+            <Modal
+                isOpen={isHistoryOpen}
+                onClose={onHistoryClose}
+                size="2xl"
+                scrollBehavior="inside"
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2">
+                        <ClockIcon className="w-5 h-5 text-primary" />
+                        Status History
+                    </ModalHeader>
+                    <ModalBody>
+                        {historyObjection && (
+                            <div className="space-y-4">
+                                {/* Current Status */}
+                                <div className="p-3 bg-default-100 rounded-lg">
+                                    <p className="font-medium">{historyObjection.title}</p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <span className="text-sm text-default-500">Current Status:</span>
+                                        <Chip
+                                            size="sm"
+                                            variant="flat"
+                                            color={statusConfig[historyObjection.status]?.color || 'default'}
+                                        >
+                                            {formatStatus(historyObjection.status)}
+                                        </Chip>
+                                    </div>
+                                </div>
+                                
+                                {/* Timeline */}
+                                <div className="relative">
+                                    <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-default-200"></div>
+                                    
+                                    {historyObjection.status_logs?.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {historyObjection.status_logs.map((log, index) => {
+                                                const toStatusConf = statusConfig[log.to_status] || {};
+                                                const StatusIcon = toStatusConf.icon || ClockIcon;
+                                                
+                                                return (
+                                                    <div key={log.id || index} className="relative flex gap-4 pl-8">
+                                                        {/* Timeline Dot */}
+                                                        <div 
+                                                            className={`absolute left-0 w-6 h-6 rounded-full flex items-center justify-center ${
+                                                                toStatusConf.bgColor || 'bg-default-100'
+                                                            }`}
+                                                        >
+                                                            <StatusIcon className={`w-3 h-3 ${toStatusConf.textColor || 'text-default-500'}`} />
+                                                        </div>
+                                                        
+                                                        {/* Content */}
+                                                        <div className="flex-1 pb-4">
+                                                            <div className="bg-content2 rounded-lg p-3 border border-divider/40">
+                                                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                                                    <Chip
+                                                                        size="sm"
+                                                                        variant="flat"
+                                                                        color={statusConfig[log.from_status]?.color || 'default'}
+                                                                    >
+                                                                        {formatStatus(log.from_status)}
+                                                                    </Chip>
+                                                                    <span className="text-default-400">→</span>
+                                                                    <Chip
+                                                                        size="sm"
+                                                                        variant="flat"
+                                                                        color={toStatusConf.color || 'default'}
+                                                                    >
+                                                                        {formatStatus(log.to_status)}
+                                                                    </Chip>
+                                                                </div>
+                                                                
+                                                                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-default-500">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <UserIcon className="w-3 h-3" />
+                                                                        {log.changed_by?.name || 'System'}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <CalendarIcon className="w-3 h-3" />
+                                                                        {new Date(log.changed_at).toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                                
+                                                                {log.notes && (
+                                                                    <div className="mt-2 pt-2 border-t border-divider/40">
+                                                                        <p className="text-sm text-default-600">{log.notes}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-default-500">
+                                            <ClockIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                            <p>No status changes recorded yet.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onHistoryClose}>
+                            Close
+                        </Button>
                     </ModalFooter>
                 </ModalContent>
             </Modal>

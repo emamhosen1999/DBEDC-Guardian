@@ -44,7 +44,6 @@ import DeleteDailyWorkForm from "@/Forms/DeleteDailyWorkForm.jsx";
 import EnhancedDailyWorksExportForm from "@/Forms/EnhancedDailyWorksExportForm.jsx";
 import DailyWorksUploadForm from "@/Forms/DailyWorksUploadForm.jsx";
 import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
-import PullToRefresh from "@/Components/Common/PullToRefresh.jsx";
 
 
 
@@ -230,17 +229,6 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             await fetchDesktopData(showLoader);
         }
     }, [isMobile, search, filterData, selectedDate, dateRange, currentPage, perPage]);
-
-    // Pull-to-refresh handler for mobile
-    const handlePullToRefresh = useCallback(async () => {
-        if (isRefreshing || !isMobile) return;
-        
-        setIsRefreshing(true);
-        setCurrentPage(1);
-        await fetchData(false);
-        await fetchStatistics();
-        showToast.success('Data refreshed');
-    }, [isRefreshing, isMobile, fetchData]);
 
     // Enhanced refresh function that handles mobile/desktop modes
     const refreshData = useCallback(() => {
@@ -1181,37 +1169,32 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                         onRetry={refreshData}
                                     >
                                         {isMobile ? (
-                                            <PullToRefresh 
-                                                onRefresh={handlePullToRefresh}
-                                                disabled={tableLoading || modeSwitch}
-                                            >
-                                                <DailyWorksTable
-                                                    setData={setData}
-                                                    filteredData={filteredData}
-                                                    setFilteredData={setFilteredData}
-                                                    reports={reports}
-                                                    setCurrentRow={setCurrentRow}
-                                                    currentPage={currentPage}
-                                                    setCurrentPage={setCurrentPage}
-                                                    onPageChange={handlePageChange}
-                                                    setLoading={setTableLoading}
-                                                    refreshStatistics={fetchStatistics}
-                                                    handleClickOpen={handleClickOpen}
-                                                    openModal={openModal}
-                                                    juniors={allData.juniors}
-                                                    totalRows={totalRows}
-                                                    lastPage={lastPage}
-                                                    loading={tableLoading}
-                                                    allData={data}
-                                                    allInCharges={allData.allInCharges}
-                                                    jurisdictions={jurisdictions}
-                                                    users={users}
-                                                    reports_with_daily_works={reports_with_daily_works}
-                                                    isMobile={isMobile}
-                                                    isRefreshing={isRefreshing}
-                                                    searchTerm={search}
-                                                />
-                                            </PullToRefresh>
+                                            <DailyWorksTable
+                                                setData={setData}
+                                                filteredData={filteredData}
+                                                setFilteredData={setFilteredData}
+                                                reports={reports}
+                                                setCurrentRow={setCurrentRow}
+                                                currentPage={currentPage}
+                                                setCurrentPage={setCurrentPage}
+                                                onPageChange={handlePageChange}
+                                                setLoading={setTableLoading}
+                                                refreshStatistics={fetchStatistics}
+                                                handleClickOpen={handleClickOpen}
+                                                openModal={openModal}
+                                                juniors={allData.juniors}
+                                                totalRows={totalRows}
+                                                lastPage={lastPage}
+                                                loading={tableLoading}
+                                                allData={data}
+                                                allInCharges={allData.allInCharges}
+                                                jurisdictions={jurisdictions}
+                                                users={users}
+                                                reports_with_daily_works={reports_with_daily_works}
+                                                isMobile={isMobile}
+                                                isRefreshing={isRefreshing}
+                                                searchTerm={search}
+                                            />
                                         ) : (
                                             <DailyWorksTable
                                                 setData={setData}

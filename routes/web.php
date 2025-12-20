@@ -133,6 +133,10 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/daily-works/status', [DailyWorkController::class, 'updateStatus'])->name('dailyWorks.updateStatus');
         Route::post('/daily-works/completion-time', [DailyWorkController::class, 'updateCompletionTime'])->name('dailyWorks.updateCompletionTime');
         Route::post('/daily-works/submission-time', [DailyWorkController::class, 'updateSubmissionTime'])->name('dailyWorks.updateSubmissionTime');
+        Route::post('/daily-works/bulk-submit', [DailyWorkController::class, 'bulkSubmit'])->name('dailyWorks.bulkSubmit');
+        Route::post('/daily-works/bulk-import-submit', [DailyWorkController::class, 'bulkImportSubmit'])->name('dailyWorks.bulkImportSubmit');
+        Route::get('/daily-works/bulk-import-template', [DailyWorkController::class, 'downloadBulkImportTemplate'])->name('dailyWorks.bulkImportTemplate');
+        Route::get('/daily-works/export-objected-rfis', [DailyWorkController::class, 'exportObjectedRfis'])->name('dailyWorks.exportObjectedRfis');
         Route::post('/daily-works/assigned', [DailyWorkController::class, 'updateAssigned'])->name('dailyWorks.updateAssigned');
         Route::post('/update-rfi-file', [DailyWorkController::class, 'uploadRFIFile'])->name('dailyWorks.uploadRFI');
         Route::post('/daily-works/inspection-details', [DailyWorkController::class, 'updateInspectionDetails'])->name('dailyWorks.updateInspectionDetails');
@@ -170,9 +174,19 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/workspace/objections', [ObjectionController::class, 'index'])->name('objections.index');
         Route::post('/workspace/objections', [ObjectionController::class, 'store'])->name('objections.store');
         Route::put('/workspace/objections/{objection}', [ObjectionController::class, 'update'])->name('objections.update');
+        Route::delete('/workspace/objections/{objection}', [ObjectionController::class, 'destroy'])->name('objections.destroy');
         Route::post('/workspace/objections/{objection}/attach-rfis', [ObjectionController::class, 'attachToRfis'])->name('objections.attachRfis');
         Route::post('/workspace/objections/{objection}/detach-rfis', [ObjectionController::class, 'detachFromRfis'])->name('objections.detachRfis');
         Route::get('/workspace/objections/suggest-rfis', [ObjectionController::class, 'suggestRfis'])->name('objections.suggestRfis');
+
+        // Status flow routes for Objections
+        Route::post('/workspace/objections/{objection}/submit', [ObjectionController::class, 'submit'])->name('objections.submit');
+        Route::post('/workspace/objections/{objection}/review', [ObjectionController::class, 'review'])->name('objections.review');
+        Route::post('/workspace/objections/{objection}/resolve', [ObjectionController::class, 'resolve'])->name('objections.resolve');
+        Route::post('/workspace/objections/{objection}/reject', [ObjectionController::class, 'reject'])->name('objections.reject');
+
+        // Objections Export
+        Route::get('/workspace/objections/export', [ObjectionController::class, 'export'])->name('objections.export');
     });
 
     Route::middleware(['permission:daily-works.create'])->group(function () {

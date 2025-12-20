@@ -160,7 +160,10 @@ class DailyWorkController extends Controller
             $user = User::with('designation')->find(Auth::id());
             $userDesignationTitle = $user->designation?->title;
 
-            $query = DailyWork::with(['inchargeUser', 'assignedUser', 'reports']);
+            $query = DailyWork::with(['inchargeUser', 'assignedUser', 'reports'])
+                ->withCount(['objections as active_objections_count' => function ($q) {
+                    $q->whereIn('status', ['draft', 'submitted', 'under_review']);
+                }]);
 
             // Apply user role filter
             if ($userDesignationTitle === 'Supervision Engineer') {
@@ -194,7 +197,22 @@ class DailyWorkController extends Controller
                 });
             }
 
+            // Filter to only RFIs with active objections if requested
+            if ($request->boolean('only_with_objections')) {
+                $query->has('objections', '>=', 1, 'and', function ($q) {
+                    $q->whereIn('status', ['draft', 'submitted', 'under_review']);
+                });
+            }
+
             $dailyWorks = $query->get();
+
+            // Load objection details if needed
+            if ($request->boolean('include_objection_details')) {
+                $dailyWorks->load(['objections' => function ($q) {
+                    $q->whereIn('status', ['draft', 'submitted', 'under_review'])
+                        ->select('rfi_objections.id', 'title', 'category', 'status', 'chainage_from', 'chainage_to');
+                }]);
+            }
 
             // Prepare export data based on selected columns
             $selectedColumns = $request->get('columns', [
@@ -249,6 +267,18 @@ class DailyWorkController extends Controller
                         case 'resubmission_count':
                             $row['Resubmission Count'] = $work->resubmission_count ?? 0;
                             break;
+                        case 'active_objections_count':
+                            $row['Active Objections'] = $work->active_objections_count ?? 0;
+                            break;
+                        case 'has_objections':
+                            $row['Has Objections'] = ($work->active_objections_count ?? 0) > 0 ? 'Yes' : 'No';
+                            break;
+                        case 'objection_titles':
+                            $row['Objection Titles'] = $work->objections?->pluck('title')->join('; ') ?? 'N/A';
+                            break;
+                        case 'objection_categories':
+                            $row['Objection Categories'] = $work->objections?->pluck('category')->unique()->join('; ') ?? 'N/A';
+                            break;
                     }
                 }
 
@@ -258,6 +288,80 @@ class DailyWorkController extends Controller
             return response()->json([
                 'data' => $exportData,
                 'filename' => 'daily_works_'.now()->format('Y_m_d_H_i_s'),
+                'total_records' => $exportData->count(),
+                'message' => 'Export data prepared successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Export failed: '.$e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Export only RFIs with active objections along with objection details.
+     */
+    public function exportObjectedRfis(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $user = User::with('designation')->find(Auth::id());
+            $userDesignationTitle = $user->designation?->title;
+
+            $query = DailyWork::with(['inchargeUser', 'assignedUser'])
+                ->with(['objections' => function ($q) {
+                    $q->whereIn('status', ['draft', 'submitted', 'under_review'])
+                        ->with('createdBy:id,name')
+                        ->select('rfi_objections.id', 'title', 'category', 'status', 'chainage_from', 'chainage_to', 'description', 'created_by', 'created_at');
+                }])
+                ->withCount(['objections as active_objections_count' => function ($q) {
+                    $q->whereIn('status', ['draft', 'submitted', 'under_review']);
+                }])
+                ->having('active_objections_count', '>', 0);
+
+            // Apply user role filter
+            if ($userDesignationTitle === 'Supervision Engineer') {
+                $query->where('incharge', $user->id);
+            }
+
+            // Apply filters
+            if ($request->has('startDate') && $request->has('endDate')) {
+                $query->whereBetween('date', [$request->startDate, $request->endDate]);
+            }
+
+            $inchargeFilter = $this->normalizeIdFilter($request->input('incharge'));
+            $jurisdictionFilter = $this->normalizeIdFilter($request->input('jurisdiction'));
+            $this->applyInchargeJurisdictionFilters($query, $inchargeFilter, $jurisdictionFilter);
+
+            if ($request->has('type') && $request->type !== 'all') {
+                $query->where('type', $request->type);
+            }
+
+            $dailyWorks = $query->orderBy('location')->get();
+
+            // Build export data - one row per RFI with all objection info combined
+            $exportData = $dailyWorks->map(function ($work) {
+                $objectionSummary = $work->objections->map(function ($obj) {
+                    $categoryLabel = \App\Models\RfiObjection::$categoryLabels[$obj->category] ?? $obj->category;
+                    $statusLabel = \App\Models\RfiObjection::$statusLabels[$obj->status] ?? $obj->status;
+
+                    return "{$obj->title} [{$categoryLabel}] - {$statusLabel}";
+                })->join(' | ');
+
+                return [
+                    'RFI Number' => $work->number,
+                    'Date' => $work->date->format('Y-m-d'),
+                    'Type' => $work->type,
+                    'Location' => $work->location,
+                    'Description' => $work->description,
+                    'Status' => ucfirst($work->status),
+                    'In Charge' => $work->inchargeUser?->name ?? 'N/A',
+                    'RFI Submission Date' => $work->rfi_submission_date?->format('Y-m-d') ?? 'Not Submitted',
+                    'Active Objections Count' => $work->active_objections_count,
+                    'Objection Details' => $objectionSummary ?: 'N/A',
+                ];
+            });
+
+            return response()->json([
+                'data' => $exportData,
+                'filename' => 'rfis_with_objections_'.now()->format('Y_m_d_H_i_s'),
                 'total_records' => $exportData->count(),
                 'message' => 'Export data prepared successfully',
             ]);
@@ -335,7 +439,7 @@ class DailyWorkController extends Controller
                 'rfi_submission_date' => 'required|date',
                 // Override confirmation fields (required when objections exist)
                 'override_confirmed' => 'sometimes|boolean',
-                'override_reason' => 'sometimes|required_if:override_confirmed,true|string|max:1000',
+                'override_reason' => 'nullable|required_if:override_confirmed,true|string|max:1000',
             ]);
 
             $dailyWork = DailyWork::findOrFail($request->id);
@@ -386,6 +490,462 @@ class DailyWorkController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Bulk submit RFIs with objection warnings.
+     */
+    public function bulkSubmit(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $request->validate([
+                'ids' => 'required|array|min:1',
+                'ids.*' => 'required|exists:daily_works,id',
+                'rfi_submission_date' => 'required|date',
+                'skip_objected' => 'sometimes|boolean',
+                'override_objected' => 'sometimes|boolean',
+                'override_reason' => 'nullable|required_if:override_objected,true|string|max:1000',
+            ]);
+
+            $ids = $request->ids;
+            $submissionDate = $request->rfi_submission_date;
+            $skipObjected = $request->boolean('skip_objected');
+            $overrideObjected = $request->boolean('override_objected');
+            $overrideReason = $request->override_reason;
+
+            // Get all daily works with their objection counts
+            $dailyWorks = DailyWork::whereIn('id', $ids)
+                ->withCount(['objections as active_objections_count' => function ($query) {
+                    $query->whereIn('status', ['draft', 'submitted', 'under_review']);
+                }])
+                ->get();
+
+            // Separate works with and without active objections
+            $worksWithObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count > 0);
+            $worksWithoutObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count === 0);
+
+            // If there are works with objections and user hasn't decided what to do
+            if ($worksWithObjections->count() > 0 && ! $skipObjected && ! $overrideObjected) {
+                return response()->json([
+                    'requires_decision' => true,
+                    'total_count' => $dailyWorks->count(),
+                    'objected_count' => $worksWithObjections->count(),
+                    'clean_count' => $worksWithoutObjections->count(),
+                    'objected_works' => $worksWithObjections->map(fn ($w) => [
+                        'id' => $w->id,
+                        'number' => $w->number,
+                        'location' => $w->location,
+                        'active_objections_count' => $w->active_objections_count,
+                    ])->values(),
+                    'message' => 'Some RFIs have active objections. Please choose to skip them or override with a reason.',
+                ], 422);
+            }
+
+            $submitted = [];
+            $skipped = [];
+            $failed = [];
+
+            // Process works without objections
+            foreach ($worksWithoutObjections as $work) {
+                try {
+                    $this->authorize('updateSubmissionTime', $work);
+                    $work->update(['rfi_submission_date' => $submissionDate]);
+                    $submitted[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                    ];
+                } catch (\Exception $e) {
+                    $failed[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'error' => 'Permission denied',
+                    ];
+                }
+            }
+
+            // Process works with objections based on user decision
+            foreach ($worksWithObjections as $work) {
+                if ($skipObjected) {
+                    $skipped[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'active_objections_count' => $work->active_objections_count,
+                    ];
+
+                    continue;
+                }
+
+                if ($overrideObjected) {
+                    try {
+                        $this->authorize('updateSubmissionTime', $work);
+
+                        // Log the override
+                        \App\Models\RfiSubmissionOverrideLog::logOverride(
+                            dailyWorkId: $work->id,
+                            oldDate: $work->rfi_submission_date?->format('Y-m-d'),
+                            newDate: $submissionDate,
+                            activeObjectionsCount: $work->active_objections_count,
+                            reason: $overrideReason.' (Bulk submission)',
+                            userId: auth()->id()
+                        );
+
+                        $work->update(['rfi_submission_date' => $submissionDate]);
+                        $submitted[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'override_logged' => true,
+                            'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                        ];
+                    } catch (\Exception $e) {
+                        $failed[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'error' => 'Permission denied',
+                        ];
+                    }
+                }
+            }
+
+            return response()->json([
+                'message' => $this->buildBulkSubmitMessage($submitted, $skipped, $failed),
+                'submitted' => $submitted,
+                'skipped' => $skipped,
+                'failed' => $failed,
+                'submitted_count' => count($submitted),
+                'skipped_count' => count($skipped),
+                'failed_count' => count($failed),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Build a human-readable message for bulk submit result.
+     */
+    private function buildBulkSubmitMessage(array $submitted, array $skipped, array $failed): string
+    {
+        $parts = [];
+
+        if (count($submitted) > 0) {
+            $parts[] = count($submitted).' RFI(s) submitted successfully';
+        }
+        if (count($skipped) > 0) {
+            $parts[] = count($skipped).' RFI(s) skipped (have objections)';
+        }
+        if (count($failed) > 0) {
+            $parts[] = count($failed).' RFI(s) failed';
+        }
+
+        return implode(', ', $parts).'.';
+    }
+
+    /**
+     * Import RFI submission dates from Excel file.
+     * Excel should have two columns: RFI Number and Submission Date.
+     */
+    public function bulkImportSubmit(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $request->validate([
+                'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+                'skip_objected' => 'sometimes|boolean',
+                'override_objected' => 'sometimes|boolean',
+                'override_reason' => 'nullable|required_if:override_objected,true|string|max:1000',
+            ]);
+
+            $skipObjected = $request->boolean('skip_objected');
+            $overrideObjected = $request->boolean('override_objected');
+            $overrideReason = $request->override_reason;
+
+            // Read the Excel file
+            $file = $request->file('file');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $worksheet = $spreadsheet->getActiveSheet();
+            $rows = $worksheet->toArray();
+
+            // Skip header row if it looks like a header
+            $startRow = 0;
+            if (count($rows) > 0) {
+                $firstRow = $rows[0];
+                // Check if first cell looks like a header
+                if (is_string($firstRow[0] ?? '') &&
+                    (stripos($firstRow[0], 'rfi') !== false || stripos($firstRow[0], 'number') !== false)) {
+                    $startRow = 1;
+                }
+            }
+
+            $parsed = [];
+            $notFound = [];
+            $invalid = [];
+
+            for ($i = $startRow; $i < count($rows); $i++) {
+                $row = $rows[$i];
+                $rfiNumber = trim($row[0] ?? '');
+                $dateValue = $row[1] ?? null;
+
+                if (empty($rfiNumber)) {
+                    continue;
+                }
+
+                // Parse the date
+                $submissionDate = null;
+                if (! empty($dateValue)) {
+                    // Handle Excel numeric date format
+                    if (is_numeric($dateValue)) {
+                        try {
+                            $submissionDate = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateValue)->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            $invalid[] = [
+                                'row' => $i + 1,
+                                'rfi_number' => $rfiNumber,
+                                'error' => 'Invalid date format',
+                            ];
+
+                            continue;
+                        }
+                    } else {
+                        // Try to parse string date
+                        try {
+                            $submissionDate = \Carbon\Carbon::parse($dateValue)->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            $invalid[] = [
+                                'row' => $i + 1,
+                                'rfi_number' => $rfiNumber,
+                                'error' => 'Invalid date format: '.$dateValue,
+                            ];
+
+                            continue;
+                        }
+                    }
+                } else {
+                    $invalid[] = [
+                        'row' => $i + 1,
+                        'rfi_number' => $rfiNumber,
+                        'error' => 'Missing submission date',
+                    ];
+
+                    continue;
+                }
+
+                // Find the daily work by RFI number
+                $dailyWork = DailyWork::where('number', $rfiNumber)->first();
+
+                if (! $dailyWork) {
+                    $notFound[] = [
+                        'row' => $i + 1,
+                        'rfi_number' => $rfiNumber,
+                    ];
+
+                    continue;
+                }
+
+                $parsed[] = [
+                    'row' => $i + 1,
+                    'daily_work' => $dailyWork,
+                    'submission_date' => $submissionDate,
+                ];
+            }
+
+            if (count($parsed) === 0) {
+                return response()->json([
+                    'error' => 'No valid RFIs found in the file',
+                    'not_found' => $notFound,
+                    'invalid' => $invalid,
+                ], 422);
+            }
+
+            // Load objection counts for found works
+            $ids = collect($parsed)->pluck('daily_work.id')->toArray();
+            $dailyWorks = DailyWork::whereIn('id', $ids)
+                ->withCount(['objections as active_objections_count' => function ($query) {
+                    $query->whereIn('status', ['draft', 'submitted', 'under_review']);
+                }])
+                ->get()
+                ->keyBy('id');
+
+            // Separate works with and without objections
+            $worksWithObjections = [];
+            $worksWithoutObjections = [];
+
+            foreach ($parsed as $item) {
+                $work = $dailyWorks[$item['daily_work']->id] ?? null;
+                if ($work && $work->active_objections_count > 0) {
+                    $worksWithObjections[] = [
+                        'row' => $item['row'],
+                        'daily_work' => $work,
+                        'submission_date' => $item['submission_date'],
+                    ];
+                } else {
+                    $worksWithoutObjections[] = [
+                        'row' => $item['row'],
+                        'daily_work' => $work,
+                        'submission_date' => $item['submission_date'],
+                    ];
+                }
+            }
+
+            // If there are works with objections and user hasn't decided what to do
+            if (count($worksWithObjections) > 0 && ! $skipObjected && ! $overrideObjected) {
+                return response()->json([
+                    'requires_decision' => true,
+                    'total_count' => count($parsed),
+                    'objected_count' => count($worksWithObjections),
+                    'clean_count' => count($worksWithoutObjections),
+                    'not_found_count' => count($notFound),
+                    'invalid_count' => count($invalid),
+                    'objected_works' => collect($worksWithObjections)->map(fn ($item) => [
+                        'row' => $item['row'],
+                        'id' => $item['daily_work']->id,
+                        'number' => $item['daily_work']->number,
+                        'location' => $item['daily_work']->location,
+                        'submission_date' => $item['submission_date'],
+                        'active_objections_count' => $item['daily_work']->active_objections_count,
+                    ])->values(),
+                    'not_found' => $notFound,
+                    'invalid' => $invalid,
+                    'message' => 'Some RFIs have active objections. Please choose to skip them or override with a reason.',
+                ], 422);
+            }
+
+            $submitted = [];
+            $skipped = [];
+            $failed = [];
+
+            // Process works without objections
+            foreach ($worksWithoutObjections as $item) {
+                $work = $item['daily_work'];
+
+                try {
+                    $this->authorize('updateSubmissionTime', $work);
+                    $work->update(['rfi_submission_date' => $item['submission_date']]);
+                    $submitted[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'submission_date' => $item['submission_date'],
+                        'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                    ];
+                } catch (\Exception $e) {
+                    $failed[] = [
+                        'row' => $item['row'],
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'error' => 'Permission denied',
+                    ];
+                }
+            }
+
+            // Process works with objections based on user decision
+            foreach ($worksWithObjections as $item) {
+                $work = $item['daily_work'];
+
+                if ($skipObjected) {
+                    $skipped[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'active_objections_count' => $work->active_objections_count,
+                    ];
+
+                    continue;
+                }
+
+                if ($overrideObjected) {
+                    try {
+                        $this->authorize('updateSubmissionTime', $work);
+
+                        // Log the override
+                        \App\Models\RfiSubmissionOverrideLog::logOverride(
+                            dailyWorkId: $work->id,
+                            oldDate: $work->rfi_submission_date?->format('Y-m-d'),
+                            newDate: $item['submission_date'],
+                            activeObjectionsCount: $work->active_objections_count,
+                            reason: $overrideReason.' (Excel import)',
+                            userId: auth()->id()
+                        );
+
+                        $work->update(['rfi_submission_date' => $item['submission_date']]);
+                        $submitted[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'submission_date' => $item['submission_date'],
+                            'override_logged' => true,
+                            'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                        ];
+                    } catch (\Exception $e) {
+                        $failed[] = [
+                            'row' => $item['row'],
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'error' => 'Permission denied',
+                        ];
+                    }
+                }
+            }
+
+            return response()->json([
+                'message' => $this->buildBulkSubmitMessage($submitted, $skipped, $failed),
+                'submitted' => $submitted,
+                'skipped' => $skipped,
+                'failed' => $failed,
+                'not_found' => $notFound,
+                'invalid' => $invalid,
+                'submitted_count' => count($submitted),
+                'skipped_count' => count($skipped),
+                'failed_count' => count($failed),
+                'not_found_count' => count($notFound),
+                'invalid_count' => count($invalid),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Bulk Import Submit Error', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json(['error' => 'An error occurred: '.$e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Download template for bulk import submission.
+     */
+    public function downloadBulkImportTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Set headers
+        $sheet->setCellValue('A1', 'RFI Number');
+        $sheet->setCellValue('B1', 'Submission Date');
+
+        // Style headers
+        $headerStyle = [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'E0E0E0'],
+            ],
+        ];
+        $sheet->getStyle('A1:B1')->applyFromArray($headerStyle);
+
+        // Add example rows
+        $sheet->setCellValue('A2', 'RFI-001');
+        $sheet->setCellValue('B2', date('Y-m-d'));
+
+        $sheet->setCellValue('A3', 'RFI-002');
+        $sheet->setCellValue('B3', date('Y-m-d', strtotime('+1 day')));
+
+        // Auto-size columns
+        $sheet->getColumnDimension('A')->setAutoSize(true);
+        $sheet->getColumnDimension('B')->setAutoSize(true);
+
+        // Create temp file
+        $tempFile = tempnam(sys_get_temp_dir(), 'rfi_import_');
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, 'rfi_submission_import_template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function updateInspectionDetails(UpdateInspectionDetailsRequest $request): \Illuminate\Http\JsonResponse

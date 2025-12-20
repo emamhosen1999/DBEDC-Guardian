@@ -11,6 +11,8 @@ import RfiFilesModal from '@/Components/DailyWork/RfiFilesModal';
 import StatusUpdateModal from '@/Components/StatusUpdateModal';
 import ObjectionsModal from '@/Components/DailyWork/ObjectionsModal';
 import ObjectionWarningModal from '@/Components/DailyWork/ObjectionWarningModal';
+import BulkSubmitModal from '@/Components/DailyWork/BulkSubmitModal';
+import BulkImportSubmitModal from '@/Components/DailyWork/BulkImportSubmitModal';
 
 import {
     Table,
@@ -59,6 +61,7 @@ import {
     ArrowPathIcon,
     NoSymbolIcon,
     DocumentArrowUpIcon,
+    DocumentArrowDownIcon,
     DocumentCheckIcon,
     XCircleIcon,
     PlusIcon,
@@ -172,6 +175,62 @@ const DailyWorksTable = ({
         activeObjections: [],
         isLoading: false,
     });
+
+    // Bulk selection state
+    const [selectedKeys, setSelectedKeys] = useState(new Set([]));
+    const [bulkSubmitModalOpen, setBulkSubmitModalOpen] = useState(false);
+    const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
+
+    // Get selected works for bulk operations
+    const selectedWorks = useMemo(() => {
+        if (selectedKeys === "all") {
+            return allData || [];
+        }
+        return (allData || []).filter(work => selectedKeys.has(String(work.id)));
+    }, [selectedKeys, allData]);
+
+    // Handle bulk submit success - update local state without page reload
+    const handleBulkSubmitSuccess = useCallback((result) => {
+        // Clear selection
+        setSelectedKeys(new Set([]));
+        
+        // Update local state with the submitted works from the response
+        if (result?.submitted && result.submitted.length > 0 && setData) {
+            const updatedWorksMap = new Map(
+                result.submitted
+                    .filter(item => item.dailyWork)
+                    .map(item => [item.dailyWork.id, item.dailyWork])
+            );
+            
+            if (updatedWorksMap.size > 0) {
+                setData(prevWorks =>
+                    prevWorks.map(w =>
+                        updatedWorksMap.has(w.id) ? updatedWorksMap.get(w.id) : w
+                    )
+                );
+            }
+        }
+    }, [setData]);
+
+    // Handle bulk import success - update local state without page reload
+    const handleBulkImportSuccess = useCallback((result) => {
+        // Update local state with the submitted works from the response
+        if (result?.submitted && result.submitted.length > 0 && setData) {
+            const updatedWorksMap = new Map(
+                result.submitted
+                    .filter(item => item.dailyWork)
+                    .map(item => [item.dailyWork.id, item.dailyWork])
+            );
+            
+            if (updatedWorksMap.size > 0) {
+                setData(prevWorks =>
+                    prevWorks.map(w =>
+                        updatedWorksMap.has(w.id) ? updatedWorksMap.get(w.id) : w
+                    )
+                );
+            }
+        }
+    }, [setData]);
     
     // Function to open Status Update modal
     const openStatusModal = useCallback((work) => {
@@ -1086,7 +1145,7 @@ const DailyWorksTable = ({
                 const response = await axios.post(route('dailyWorks.updateSubmissionTime'), {
                     id: work.id,
                     rfi_submission_date: newSubmissionDate,
-                    confirm_override: true,
+                    override_confirmed: true,
                     override_reason: overrideReason,
                 });
 
@@ -2587,8 +2646,22 @@ const DailyWorksTable = ({
     if (isMobile) {
         return (
             <div className="space-y-3">
+                {/* Mobile Header with Import Button */}
+                <div className="flex items-center justify-between px-2">
+                    <h3 className="text-base font-semibold text-default-700">Daily Works</h3>
+                    <Button
+                        variant="flat"
+                        color="secondary"
+                        size="sm"
+                        radius={getThemeRadius()}
+                        onPress={() => setBulkImportModalOpen(true)}
+                        startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
+                    >
+                        Import RFI Submission
+                    </Button>
+                </div>
                 <ScrollShadow 
-                    className="max-h-[calc(100vh-280px)] min-h-[300px]"
+                    className="max-h-[calc(100vh-320px)] min-h-[300px]"
                     hideScrollBar
                 >
                     <MobileDailyWorkCard 
@@ -2673,35 +2746,94 @@ const DailyWorksTable = ({
                     isLoading={objectionWarningModal.isLoading}
                     onConfirm={handleSubmissionTimeOverride}
                 />
+                
+                {/* Bulk Submit Modal */}
+                <BulkSubmitModal
+                    isOpen={bulkSubmitModalOpen}
+                    onClose={() => setBulkSubmitModalOpen(false)}
+                    selectedWorks={selectedWorks}
+                    onSuccess={handleBulkSubmitSuccess}
+                />
+                
+                {/* Bulk Import Submit Modal */}
+                <BulkImportSubmitModal
+                    isOpen={bulkImportModalOpen}
+                    onClose={() => setBulkImportModalOpen(false)}
+                    onSuccess={handleBulkImportSuccess}
+                />
             </div>
         );
     }
 
     return (
         <div className="max-h-[84vh] overflow-y-auto">
-            {/* Table Header with Refresh Button */}
+            {/* Table Header with Actions */}
             <div className="flex items-center justify-between mb-4 px-2">
-                <h3 className="text-lg font-semibold text-default-700">Daily Works</h3>
-                <Button
-                    variant="flat"
-                    color="primary"
-                    size="sm"
-                    radius={getThemeRadius()}
-                    style={{
-                        backgroundColor: 'rgba(var(--color-primary), 0.1)',
-                        borderColor: 'rgba(var(--color-primary), 0.3)',
-                        color: 'var(--color-text)'
-                    }}
-                    onClick={handleRefresh}
-                    startContent={<ArrowPathIcon className="w-4 h-4" />}
-                >
-                    Refresh
+                <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-default-700">Daily Works</h3>
+                    {selectedKeys.size > 0 && (
+                        <Chip size="sm" color="primary" variant="flat">
+                            {selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size} selected
+                        </Chip>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {/* Bulk Actions */}
+                    {selectedKeys.size > 0 && (
+                        <>
+                            <Button
+                                variant="flat"
+                                color="primary"
+                                size="sm"
+                                radius={getThemeRadius()}
+                                onPress={() => setBulkSubmitModalOpen(true)}
+                                startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
+                            >
+                                Submit RFIs ({selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size})
+                            </Button>
+                            <Button
+                                variant="light"
+                                size="sm"
+                                radius={getThemeRadius()}
+                                onPress={() => setSelectedKeys(new Set([]))}
+                            >
+                                Clear
+                            </Button>
+                        </>
+                    )}
+                    <Button
+                        variant="flat"
+                        color="secondary"
+                        size="sm"
+                        radius={getThemeRadius()}
+                        onPress={() => setBulkImportModalOpen(true)}
+                        startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
+                    >
+                        Import RFI Submission
+                    </Button>
+                    <Button
+                        variant="flat"
+                        color="primary"
+                        size="sm"
+                        radius={getThemeRadius()}
+                        style={{
+                            backgroundColor: 'rgba(var(--color-primary), 0.1)',
+                            borderColor: 'rgba(var(--color-primary), 0.3)',
+                            color: 'var(--color-text)'
+                        }}
+                        onClick={handleRefresh}
+                        startContent={<ArrowPathIcon className="w-4 h-4" />}
+                    >
+                        Refresh
                 </Button>
+                </div>
             </div>
             
             <ScrollShadow className="max-h-[70vh]">
                 <Table
-                    selectionMode="none"
+                    selectionMode="multiple"
+                    selectedKeys={selectedKeys}
+                    onSelectionChange={setSelectedKeys}
                     isCompact
                     removeWrapper
                     isStriped
@@ -2834,6 +2966,21 @@ const DailyWorksTable = ({
                 activeObjections={objectionWarningModal.activeObjections}
                 isLoading={objectionWarningModal.isLoading}
                 onConfirm={handleSubmissionTimeOverride}
+            />
+            
+            {/* Bulk Submit Modal */}
+            <BulkSubmitModal
+                isOpen={bulkSubmitModalOpen}
+                onClose={() => setBulkSubmitModalOpen(false)}
+                selectedWorks={selectedWorks}
+                onSuccess={handleBulkSubmitSuccess}
+            />
+            
+            {/* Bulk Import Submit Modal */}
+            <BulkImportSubmitModal
+                isOpen={bulkImportModalOpen}
+                onClose={() => setBulkImportModalOpen(false)}
+                onSuccess={handleBulkImportSuccess}
             />
         </div>
     );
