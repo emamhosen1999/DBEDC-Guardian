@@ -15,6 +15,20 @@ use Inertia\Response;
 class ObjectionController extends Controller
 {
     /**
+     * Get statistics for objections.
+     */
+    private function getStatistics(): array
+    {
+        return [
+            'total' => RfiObjection::count(),
+            'active' => RfiObjection::whereIn('status', ['draft', 'submitted', 'under_review'])->count(),
+            'resolved' => RfiObjection::where('status', 'resolved')->count(),
+            'rejected' => RfiObjection::where('status', 'rejected')->count(),
+            'pending' => RfiObjection::whereIn('status', ['submitted', 'under_review'])->count(),
+        ];
+    }
+
+    /**
      * Display the objections management page.
      */
     public function index(Request $request): Response
@@ -83,6 +97,7 @@ class ObjectionController extends Controller
             'statuses' => RfiObjection::$statusLabels,
             'categories' => RfiObjection::$categoryLabels,
             'creators' => $creators,
+            'statistics' => $this->getStatistics(),
         ]);
     }
 
@@ -448,7 +463,8 @@ class ObjectionController extends Controller
 
             return response()->json([
                 'message' => 'Objection submitted for review.',
-                'objection' => $objection->fresh(),
+                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -486,7 +502,8 @@ class ObjectionController extends Controller
 
             return response()->json([
                 'message' => 'Objection is now under review.',
-                'objection' => $objection->fresh(),
+                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -539,7 +556,8 @@ class ObjectionController extends Controller
 
             return response()->json([
                 'message' => 'Objection resolved successfully.',
-                'objection' => $objection->fresh(),
+                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -586,7 +604,8 @@ class ObjectionController extends Controller
 
             return response()->json([
                 'message' => 'Objection rejected.',
-                'objection' => $objection->fresh(),
+                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                'statistics' => $this->getStatistics(),
             ]);
         } catch (\Exception $e) {
             return response()->json([

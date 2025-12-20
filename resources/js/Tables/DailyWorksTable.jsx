@@ -13,6 +13,8 @@ import ObjectionsModal from '@/Components/DailyWork/ObjectionsModal';
 import ObjectionWarningModal from '@/Components/DailyWork/ObjectionWarningModal';
 import BulkSubmitModal from '@/Components/DailyWork/BulkSubmitModal';
 import BulkImportSubmitModal from '@/Components/DailyWork/BulkImportSubmitModal';
+import BulkResponseStatusModal from '@/Components/DailyWork/BulkResponseStatusModal';
+import BulkImportResponseStatusModal from '@/Components/DailyWork/BulkImportResponseStatusModal';
 
 import {
     Table,
@@ -68,6 +70,7 @@ import {
     EyeIcon,
     FolderOpenIcon,
     ShieldExclamationIcon,
+    ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import {
     CheckCircleIcon as CheckCircleSolid,
@@ -180,6 +183,8 @@ const DailyWorksTable = ({
     const [selectedKeys, setSelectedKeys] = useState(new Set([]));
     const [bulkSubmitModalOpen, setBulkSubmitModalOpen] = useState(false);
     const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
+    const [bulkResponseStatusModalOpen, setBulkResponseStatusModalOpen] = useState(false);
+    const [bulkImportResponseStatusModalOpen, setBulkImportResponseStatusModalOpen] = useState(false);
 
     // Get selected works for bulk operations
     const selectedWorks = useMemo(() => {
@@ -218,6 +223,49 @@ const DailyWorksTable = ({
         if (result?.submitted && result.submitted.length > 0 && setData) {
             const updatedWorksMap = new Map(
                 result.submitted
+                    .filter(item => item.dailyWork)
+                    .map(item => [item.dailyWork.id, item.dailyWork])
+            );
+            
+            if (updatedWorksMap.size > 0) {
+                setData(prevWorks =>
+                    prevWorks.map(w =>
+                        updatedWorksMap.has(w.id) ? updatedWorksMap.get(w.id) : w
+                    )
+                );
+            }
+        }
+    }, [setData]);
+
+    // Handle bulk response status success - update local state without page reload
+    const handleBulkResponseStatusSuccess = useCallback((result) => {
+        // Clear selection
+        setSelectedKeys(new Set([]));
+        
+        // Update local state with the updated works from the response
+        if (result?.updated && result.updated.length > 0 && setData) {
+            const updatedWorksMap = new Map(
+                result.updated
+                    .filter(item => item.dailyWork)
+                    .map(item => [item.dailyWork.id, item.dailyWork])
+            );
+            
+            if (updatedWorksMap.size > 0) {
+                setData(prevWorks =>
+                    prevWorks.map(w =>
+                        updatedWorksMap.has(w.id) ? updatedWorksMap.get(w.id) : w
+                    )
+                );
+            }
+        }
+    }, [setData]);
+
+    // Handle bulk import response status success - update local state without page reload
+    const handleBulkImportResponseStatusSuccess = useCallback((result) => {
+        // Update local state with the updated works from the response
+        if (result?.updated && result.updated.length > 0 && setData) {
+            const updatedWorksMap = new Map(
+                result.updated
                     .filter(item => item.dailyWork)
                     .map(item => [item.dailyWork.id, item.dailyWork])
             );
@@ -2389,6 +2437,40 @@ const DailyWorksTable = ({
                     </TableCell>
                 );
 
+            case "rfi_response_status":
+                const responseStatusConfig = {
+                    approved: { label: 'Approved', color: 'success' },
+                    rejected: { label: 'Rejected', color: 'danger' },
+                    returned: { label: 'Returned', color: 'warning' },
+                    concurred: { label: 'Concurred', color: 'primary' },
+                    not_concurred: { label: 'Not Concurred', color: 'secondary' },
+                };
+                const statusCfg = responseStatusConfig[work.rfi_response_status] || null;
+                return (
+                    <TableCell>
+                        <div className="flex flex-col items-center gap-1">
+                            {work.rfi_response_status ? (
+                                <>
+                                    <Chip 
+                                        size="sm" 
+                                        color={statusCfg?.color || 'default'} 
+                                        variant="flat"
+                                    >
+                                        {statusCfg?.label || work.rfi_response_status}
+                                    </Chip>
+                                    {work.rfi_response_date && (
+                                        <span className="text-xs text-default-400">
+                                            {formatDate(work.rfi_response_date)}
+                                        </span>
+                                    )}
+                                </>
+                            ) : (
+                                <span className="text-sm text-default-400">-</span>
+                            )}
+                        </div>
+                    </TableCell>
+                );
+
             case "actions":
                 return (
                     <TableCell>
@@ -2487,6 +2569,7 @@ const DailyWorksTable = ({
         { name: "Inspection Details", uid: "inspection_details", icon: DocumentTextIcon, sortable: false, width: "w-48" },
         { name: "Completion Time", uid: "completion_time", icon: CheckCircleIcon, sortable: true, width: "w-56" },
         ...(shouldShowRfiColumn ? [{ name: "RFI Submission Date", uid: "rfi_submission_date", icon: CalendarDaysIcon, sortable: true, width: "w-36" }] : []),
+        ...(shouldShowRfiColumn ? [{ name: "RFI Response", uid: "rfi_response_status", icon: ClipboardDocumentCheckIcon, sortable: true, width: "w-44" }] : []),
         ...(shouldShowActions ? [{ name: "Actions", uid: "actions", sortable: false, width: "w-28" }] : [])
     ];
 
@@ -2646,19 +2729,31 @@ const DailyWorksTable = ({
     if (isMobile) {
         return (
             <div className="space-y-3">
-                {/* Mobile Header with Import Button */}
+                {/* Mobile Header with Import Buttons */}
                 <div className="flex items-center justify-between px-2">
                     <h3 className="text-base font-semibold text-default-700">Daily Works</h3>
-                    <Button
-                        variant="flat"
-                        color="secondary"
-                        size="sm"
-                        radius={getThemeRadius()}
-                        onPress={() => setBulkImportModalOpen(true)}
-                        startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
-                    >
-                        Import RFI Submission
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="flat"
+                            color="secondary"
+                            size="sm"
+                            radius={getThemeRadius()}
+                            onPress={() => setBulkImportModalOpen(true)}
+                            startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
+                        >
+                            Import Submit
+                        </Button>
+                        <Button
+                            variant="flat"
+                            color="primary"
+                            size="sm"
+                            radius={getThemeRadius()}
+                            onPress={() => setBulkImportResponseStatusModalOpen(true)}
+                            startContent={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
+                        >
+                            Import Status
+                        </Button>
+                    </div>
                 </div>
                 <ScrollShadow 
                     className="max-h-[calc(100vh-320px)] min-h-[300px]"
@@ -2761,6 +2856,21 @@ const DailyWorksTable = ({
                     onClose={() => setBulkImportModalOpen(false)}
                     onSuccess={handleBulkImportSuccess}
                 />
+
+                {/* Bulk Response Status Modal */}
+                <BulkResponseStatusModal
+                    isOpen={bulkResponseStatusModalOpen}
+                    onClose={() => setBulkResponseStatusModalOpen(false)}
+                    selectedWorks={selectedWorks}
+                    onSuccess={handleBulkResponseStatusSuccess}
+                />
+
+                {/* Bulk Import Response Status Modal */}
+                <BulkImportResponseStatusModal
+                    isOpen={bulkImportResponseStatusModalOpen}
+                    onClose={() => setBulkImportResponseStatusModalOpen(false)}
+                    onSuccess={handleBulkImportResponseStatusSuccess}
+                />
             </div>
         );
     }
@@ -2792,6 +2902,16 @@ const DailyWorksTable = ({
                                 Submit RFIs ({selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size})
                             </Button>
                             <Button
+                                variant="flat"
+                                color="secondary"
+                                size="sm"
+                                radius={getThemeRadius()}
+                                onPress={() => setBulkResponseStatusModalOpen(true)}
+                                startContent={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
+                            >
+                                Response Status ({selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size})
+                            </Button>
+                            <Button
                                 variant="light"
                                 size="sm"
                                 radius={getThemeRadius()}
@@ -2809,7 +2929,17 @@ const DailyWorksTable = ({
                         onPress={() => setBulkImportModalOpen(true)}
                         startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
                     >
-                        Import RFI Submission
+                        Import Submission
+                    </Button>
+                    <Button
+                        variant="flat"
+                        color="primary"
+                        size="sm"
+                        radius={getThemeRadius()}
+                        onPress={() => setBulkImportResponseStatusModalOpen(true)}
+                        startContent={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
+                    >
+                        Import Status
                     </Button>
                     <Button
                         variant="flat"
@@ -2981,6 +3111,21 @@ const DailyWorksTable = ({
                 isOpen={bulkImportModalOpen}
                 onClose={() => setBulkImportModalOpen(false)}
                 onSuccess={handleBulkImportSuccess}
+            />
+
+            {/* Bulk Response Status Modal */}
+            <BulkResponseStatusModal
+                isOpen={bulkResponseStatusModalOpen}
+                onClose={() => setBulkResponseStatusModalOpen(false)}
+                selectedWorks={selectedWorks}
+                onSuccess={handleBulkResponseStatusSuccess}
+            />
+
+            {/* Bulk Import Response Status Modal */}
+            <BulkImportResponseStatusModal
+                isOpen={bulkImportResponseStatusModalOpen}
+                onClose={() => setBulkImportResponseStatusModalOpen(false)}
+                onSuccess={handleBulkImportResponseStatusSuccess}
             />
         </div>
     );

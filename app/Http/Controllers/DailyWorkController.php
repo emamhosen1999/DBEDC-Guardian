@@ -665,14 +665,52 @@ class DailyWorkController extends Controller
             $worksheet = $spreadsheet->getActiveSheet();
             $rows = $worksheet->toArray();
 
-            // Skip header row if it looks like a header
+            // Detect column order - check if columns are swapped
+            $rfiColIndex = 0;
+            $dateColIndex = 1;
             $startRow = 0;
+
             if (count($rows) > 0) {
                 $firstRow = $rows[0];
-                // Check if first cell looks like a header
-                if (is_string($firstRow[0] ?? '') &&
-                    (stripos($firstRow[0], 'rfi') !== false || stripos($firstRow[0], 'number') !== false)) {
+
+                // Check header row to determine column order
+                $col0 = strtolower(trim($firstRow[0] ?? ''));
+                $col1 = strtolower(trim($firstRow[1] ?? ''));
+
+                // Check if first row is a header
+                $isHeader = (stripos($col0, 'rfi') !== false || stripos($col0, 'number') !== false ||
+                             stripos($col0, 'date') !== false || stripos($col0, 'submission') !== false ||
+                             stripos($col1, 'rfi') !== false || stripos($col1, 'number') !== false ||
+                             stripos($col1, 'date') !== false || stripos($col1, 'submission') !== false);
+
+                if ($isHeader) {
                     $startRow = 1;
+
+                    // Determine column order from headers
+                    if (stripos($col0, 'date') !== false || stripos($col0, 'submission') !== false) {
+                        // Date is in first column, swap
+                        $rfiColIndex = 1;
+                        $dateColIndex = 0;
+                    }
+                } else {
+                    // Auto-detect from data: check if first column looks like a date
+                    $firstVal = trim($firstRow[0] ?? '');
+                    $secondVal = trim($firstRow[1] ?? '');
+
+                    // Check if first column is numeric (Excel date) or looks like a date string
+                    $firstIsDate = is_numeric($firstVal) ||
+                        preg_match('/^\d{4}-\d{2}-\d{2}$/', $firstVal) ||
+                        preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $firstVal) ||
+                        preg_match('/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/', $firstVal);
+
+                    // Check if second column looks like an RFI number (contains letters)
+                    $secondIsRfi = ! empty($secondVal) && preg_match('/[A-Za-z]/', $secondVal);
+
+                    if ($firstIsDate && $secondIsRfi) {
+                        // Columns are swapped
+                        $rfiColIndex = 1;
+                        $dateColIndex = 0;
+                    }
                 }
             }
 
@@ -682,8 +720,8 @@ class DailyWorkController extends Controller
 
             for ($i = $startRow; $i < count($rows); $i++) {
                 $row = $rows[$i];
-                $rfiNumber = trim($row[0] ?? '');
-                $dateValue = $row[1] ?? null;
+                $rfiNumber = trim($row[$rfiColIndex] ?? '');
+                $dateValue = $row[$dateColIndex] ?? null;
 
                 if (empty($rfiNumber)) {
                     continue;
@@ -695,7 +733,9 @@ class DailyWorkController extends Controller
                     // Handle Excel numeric date format
                     if (is_numeric($dateValue)) {
                         try {
-                            $submissionDate = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateValue)->format('Y-m-d');
+                            // Excel dates: use timezone-safe parsing
+                            $dateObj = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateValue);
+                            $submissionDate = \Carbon\Carbon::instance($dateObj)->startOfDay()->format('Y-m-d');
                         } catch (\Exception $e) {
                             $invalid[] = [
                                 'row' => $i + 1,
@@ -706,9 +746,28 @@ class DailyWorkController extends Controller
                             continue;
                         }
                     } else {
-                        // Try to parse string date
+                        // Try to parse string date with explicit format to avoid timezone shifts
                         try {
-                            $submissionDate = \Carbon\Carbon::parse($dateValue)->format('Y-m-d');
+                            $dateStr = trim($dateValue);
+                            // Try common formats explicitly
+                            $formats = ['Y-m-d', 'd/m/Y', 'm/d/Y', 'd-m-Y', 'Y/m/d'];
+                            $parsed_date = null;
+                            foreach ($formats as $format) {
+                                try {
+                                    $parsed_date = \Carbon\Carbon::createFromFormat($format, $dateStr);
+                                    if ($parsed_date && $parsed_date->format($format) === $dateStr) {
+                                        break;
+                                    }
+                                    $parsed_date = null;
+                                } catch (\Exception $e) {
+                                    continue;
+                                }
+                            }
+                            if (! $parsed_date) {
+                                // Fallback to Carbon::parse but with startOfDay to avoid timezone shifts
+                                $parsed_date = \Carbon\Carbon::parse($dateStr)->startOfDay();
+                            }
+                            $submissionDate = $parsed_date->format('Y-m-d');
                         } catch (\Exception $e) {
                             $invalid[] = [
                                 'row' => $i + 1,
@@ -730,7 +789,11 @@ class DailyWorkController extends Controller
                 }
 
                 // Find the daily work by RFI number
-                $dailyWork = DailyWork::where('number', $rfiNumber)->first();
+                // Priority: 1) RFI with status 'completed', 2) Latest dated RFI with same number
+                $dailyWork = DailyWork::where('number', $rfiNumber)
+                    ->orderByRaw("CASE WHEN status = 'completed' THEN 0 ELSE 1 END") // Completed first
+                    ->orderBy('created_at', 'desc') // Then latest
+                    ->first();
 
                 if (! $dailyWork) {
                     $notFound[] = [
@@ -1213,5 +1276,527 @@ class DailyWorkController extends Controller
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Bulk update RFI response status with objection warnings.
+     */
+    public function bulkResponseStatusUpdate(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $request->validate([
+                'ids' => 'required|array|min:1',
+                'ids.*' => 'required|exists:daily_works,id',
+                'rfi_response_status' => 'required|string|in:'.implode(',', DailyWork::$rfiResponseStatuses),
+                'rfi_response_date' => 'required|date',
+                'skip_objected' => 'sometimes|boolean',
+                'override_objected' => 'sometimes|boolean',
+                'override_reason' => 'nullable|required_if:override_objected,true|string|max:1000',
+            ]);
+
+            $ids = $request->ids;
+            $responseStatus = $request->rfi_response_status;
+            $responseDate = $request->rfi_response_date;
+            $skipObjected = $request->boolean('skip_objected');
+            $overrideObjected = $request->boolean('override_objected');
+            $overrideReason = $request->override_reason;
+
+            // Get all daily works with their objection counts
+            $dailyWorks = DailyWork::whereIn('id', $ids)
+                ->withCount(['objections as active_objections_count' => function ($query) {
+                    $query->whereIn('status', ['draft', 'submitted', 'under_review']);
+                }])
+                ->get();
+
+            // Separate works with and without active objections
+            $worksWithObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count > 0);
+            $worksWithoutObjections = $dailyWorks->filter(fn ($w) => $w->active_objections_count === 0);
+
+            // If there are works with objections and user hasn't decided what to do
+            if ($worksWithObjections->count() > 0 && ! $skipObjected && ! $overrideObjected) {
+                return response()->json([
+                    'requires_decision' => true,
+                    'total_count' => $dailyWorks->count(),
+                    'objected_count' => $worksWithObjections->count(),
+                    'clean_count' => $worksWithoutObjections->count(),
+                    'objected_works' => $worksWithObjections->map(fn ($w) => [
+                        'id' => $w->id,
+                        'number' => $w->number,
+                        'location' => $w->location,
+                        'active_objections_count' => $w->active_objections_count,
+                    ])->values(),
+                    'message' => 'Some RFIs have active objections. Please choose to skip them or override with a reason.',
+                ], 422);
+            }
+
+            $updated = [];
+            $skipped = [];
+            $failed = [];
+
+            // Process works without objections
+            foreach ($worksWithoutObjections as $work) {
+                try {
+                    $work->update([
+                        'rfi_response_status' => $responseStatus,
+                        'rfi_response_date' => $responseDate,
+                    ]);
+                    $updated[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                    ];
+                } catch (\Exception $e) {
+                    $failed[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            // Process works with objections based on user decision
+            foreach ($worksWithObjections as $work) {
+                if ($skipObjected) {
+                    $skipped[] = [
+                        'id' => $work->id,
+                        'number' => $work->number,
+                        'active_objections_count' => $work->active_objections_count,
+                    ];
+
+                    continue;
+                }
+
+                if ($overrideObjected) {
+                    try {
+                        // Log the override
+                        \App\Models\RfiSubmissionOverrideLog::logOverride(
+                            dailyWorkId: $work->id,
+                            oldDate: $work->rfi_response_date?->format('Y-m-d'),
+                            newDate: $responseDate,
+                            activeObjectionsCount: $work->active_objections_count,
+                            reason: $overrideReason.' (Bulk response status: '.$responseStatus.')',
+                            userId: auth()->id()
+                        );
+
+                        $work->update([
+                            'rfi_response_status' => $responseStatus,
+                            'rfi_response_date' => $responseDate,
+                        ]);
+                        $updated[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'override_logged' => true,
+                            'dailyWork' => $work->fresh(['inchargeUser', 'assignedUser']),
+                        ];
+                    } catch (\Exception $e) {
+                        $failed[] = [
+                            'id' => $work->id,
+                            'number' => $work->number,
+                            'error' => $e->getMessage(),
+                        ];
+                    }
+                }
+            }
+
+            return response()->json([
+                'message' => $this->buildBulkResponseMessage($updated, $skipped, $failed, $responseStatus),
+                'updated' => $updated,
+                'skipped' => $skipped,
+                'failed' => $failed,
+                'updated_count' => count($updated),
+                'skipped_count' => count($skipped),
+                'failed_count' => count($failed),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Build a human-readable message for bulk response status result.
+     */
+    private function buildBulkResponseMessage(array $updated, array $skipped, array $failed, string $status): string
+    {
+        $statusLabels = [
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            'returned' => 'Returned',
+            'concurred' => 'Concurred',
+            'not_concurred' => 'Not Concurred',
+        ];
+        $statusLabel = $statusLabels[$status] ?? ucfirst($status);
+
+        $parts = [];
+
+        if (count($updated) > 0) {
+            $parts[] = count($updated).' RFI(s) marked as '.$statusLabel;
+        }
+        if (count($skipped) > 0) {
+            $parts[] = count($skipped).' RFI(s) skipped (have objections)';
+        }
+        if (count($failed) > 0) {
+            $parts[] = count($failed).' RFI(s) failed';
+        }
+
+        return implode(', ', $parts).'.';
+    }
+
+    /**
+     * Import RFI response statuses from Excel file.
+     * Excel should have three columns: RFI Number, Response Status, and Response Date.
+     */
+    public function bulkImportResponseStatus(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $request->validate([
+                'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+                'skip_objected' => 'sometimes|boolean',
+                'override_objected' => 'sometimes|boolean',
+                'override_reason' => 'nullable|required_if:override_objected,true|string|max:1000',
+            ]);
+
+            $skipObjected = $request->boolean('skip_objected');
+            $overrideObjected = $request->boolean('override_objected');
+            $overrideReason = $request->override_reason;
+
+            // Load the Excel file
+            $file = $request->file('file');
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+
+            if (count($rows) < 2) {
+                return response()->json(['error' => 'File must contain at least a header row and one data row'], 422);
+            }
+
+            // Parse header to detect column order
+            $header = array_map('strtolower', array_map('trim', $rows[0]));
+            $rfiNumberCol = null;
+            $statusCol = null;
+            $dateCol = null;
+
+            foreach ($header as $index => $colName) {
+                // Check for RFI number column
+                if ($rfiNumberCol === null && preg_match('/rfi.*number|number.*rfi|rfi/i', $colName)) {
+                    $rfiNumberCol = $index;
+                }
+                // Check for status column (must contain 'status' but not 'date')
+                elseif ($statusCol === null && preg_match('/status/i', $colName) && ! preg_match('/date/i', $colName)) {
+                    $statusCol = $index;
+                }
+                // Check for date column
+                elseif ($dateCol === null && preg_match('/date/i', $colName)) {
+                    $dateCol = $index;
+                }
+            }
+
+            // If headers not detected, assume order: RFI Number, Status, Date
+            if ($rfiNumberCol === null) {
+                $rfiNumberCol = 0;
+            }
+            if ($statusCol === null) {
+                $statusCol = 1;
+            }
+            if ($dateCol === null) {
+                $dateCol = 2;
+            }
+
+            $dataRows = array_slice($rows, 1);
+            $parsedData = [];
+            $validationErrors = [];
+
+            foreach ($dataRows as $rowIndex => $row) {
+                $rowNum = $rowIndex + 2;
+                $rfiNumber = trim($row[$rfiNumberCol] ?? '');
+                $status = strtolower(trim($row[$statusCol] ?? ''));
+                $dateValue = $row[$dateCol] ?? null;
+
+                if (empty($rfiNumber) && empty($status)) {
+                    continue;
+                }
+
+                if (empty($rfiNumber)) {
+                    $validationErrors[] = "Row {$rowNum}: RFI Number is required";
+
+                    continue;
+                }
+
+                // Normalize status values
+                $statusMap = [
+                    'approved' => 'approved',
+                    'approve' => 'approved',
+                    'rejected' => 'rejected',
+                    'reject' => 'rejected',
+                    'returned' => 'returned',
+                    'return' => 'returned',
+                    'concurred' => 'concurred',
+                    'concur' => 'concurred',
+                    'not_concurred' => 'not_concurred',
+                    'not concurred' => 'not_concurred',
+                    'notconcurred' => 'not_concurred',
+                    'not-concurred' => 'not_concurred',
+                ];
+
+                $normalizedStatus = $statusMap[$status] ?? null;
+                if (! $normalizedStatus) {
+                    $validationErrors[] = "Row {$rowNum}: Invalid status '{$status}'. Valid values: approved, rejected, returned, concurred, not_concurred";
+
+                    continue;
+                }
+
+                // Parse date
+                $parsedDate = null;
+                if ($dateValue) {
+                    if (is_numeric($dateValue)) {
+                        try {
+                            $parsedDate = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateValue)
+                                ->setTime(0, 0, 0)
+                                ->format('Y-m-d');
+                        } catch (\Exception $e) {
+                            $validationErrors[] = "Row {$rowNum}: Invalid date format";
+
+                            continue;
+                        }
+                    } else {
+                        $dateFormats = ['Y-m-d', 'd/m/Y', 'm/d/Y', 'd-m-Y', 'm-d-Y', 'Y/m/d'];
+                        foreach ($dateFormats as $format) {
+                            $parsed = \DateTime::createFromFormat($format, trim($dateValue));
+                            if ($parsed !== false) {
+                                $parsedDate = $parsed->setTime(0, 0, 0)->format('Y-m-d');
+                                break;
+                            }
+                        }
+                        if (! $parsedDate) {
+                            $validationErrors[] = "Row {$rowNum}: Could not parse date '{$dateValue}'";
+
+                            continue;
+                        }
+                    }
+                } else {
+                    $parsedDate = now()->format('Y-m-d');
+                }
+
+                $parsedData[] = [
+                    'rfi_number' => $rfiNumber,
+                    'status' => $normalizedStatus,
+                    'date' => $parsedDate,
+                    'row' => $rowNum,
+                ];
+            }
+
+            if (! empty($validationErrors)) {
+                return response()->json([
+                    'validation_errors' => $validationErrors,
+                    'message' => 'Some rows have validation errors. Please fix them and try again.',
+                ], 422);
+            }
+
+            if (empty($parsedData)) {
+                return response()->json(['error' => 'No valid data rows found in the file'], 422);
+            }
+
+            // Find daily works by RFI numbers
+            $rfiNumbers = array_column($parsedData, 'rfi_number');
+            $dailyWorks = DailyWork::whereIn('number', $rfiNumbers)
+                ->withCount(['objections as active_objections_count' => function ($query) {
+                    $query->whereIn('status', ['draft', 'submitted', 'under_review']);
+                }])
+                ->get()
+                ->keyBy('number');
+
+            // Separate into found/not found
+            $notFound = [];
+            $foundData = [];
+            foreach ($parsedData as $data) {
+                if (! isset($dailyWorks[$data['rfi_number']])) {
+                    $notFound[] = [
+                        'rfi_number' => $data['rfi_number'],
+                        'row' => $data['row'],
+                    ];
+                } else {
+                    $foundData[] = array_merge($data, ['work' => $dailyWorks[$data['rfi_number']]]);
+                }
+            }
+
+            // Check for objections
+            $worksWithObjections = array_filter($foundData, fn ($d) => ($d['work']->active_objections_count ?? 0) > 0);
+            $worksWithoutObjections = array_filter($foundData, fn ($d) => ($d['work']->active_objections_count ?? 0) === 0);
+
+            if (count($worksWithObjections) > 0 && ! $skipObjected && ! $overrideObjected) {
+                return response()->json([
+                    'requires_decision' => true,
+                    'total_count' => count($foundData),
+                    'objected_count' => count($worksWithObjections),
+                    'clean_count' => count($worksWithoutObjections),
+                    'not_found_count' => count($notFound),
+                    'objected_works' => array_map(fn ($d) => [
+                        'id' => $d['work']->id,
+                        'number' => $d['work']->number,
+                        'location' => $d['work']->location,
+                        'active_objections_count' => $d['work']->active_objections_count,
+                        'status' => $d['status'],
+                    ], array_values($worksWithObjections)),
+                    'message' => 'Some RFIs have active objections. Please choose to skip them or override with a reason.',
+                ], 422);
+            }
+
+            $updated = [];
+            $skipped = [];
+            $failed = [];
+
+            // Process works without objections
+            foreach ($worksWithoutObjections as $data) {
+                try {
+                    $data['work']->update([
+                        'rfi_response_status' => $data['status'],
+                        'rfi_response_date' => $data['date'],
+                    ]);
+                    $updated[] = [
+                        'id' => $data['work']->id,
+                        'number' => $data['work']->number,
+                        'status' => $data['status'],
+                        'dailyWork' => $data['work']->fresh(['inchargeUser', 'assignedUser']),
+                    ];
+                } catch (\Exception $e) {
+                    $failed[] = [
+                        'id' => $data['work']->id,
+                        'number' => $data['work']->number,
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            // Process works with objections
+            foreach ($worksWithObjections as $data) {
+                if ($skipObjected) {
+                    $skipped[] = [
+                        'id' => $data['work']->id,
+                        'number' => $data['work']->number,
+                        'active_objections_count' => $data['work']->active_objections_count,
+                    ];
+
+                    continue;
+                }
+
+                if ($overrideObjected) {
+                    try {
+                        \App\Models\RfiSubmissionOverrideLog::logOverride(
+                            dailyWorkId: $data['work']->id,
+                            oldDate: $data['work']->rfi_response_date?->format('Y-m-d'),
+                            newDate: $data['date'],
+                            activeObjectionsCount: $data['work']->active_objections_count,
+                            reason: $overrideReason.' (Import response status: '.$data['status'].')',
+                            userId: auth()->id()
+                        );
+
+                        $data['work']->update([
+                            'rfi_response_status' => $data['status'],
+                            'rfi_response_date' => $data['date'],
+                        ]);
+                        $updated[] = [
+                            'id' => $data['work']->id,
+                            'number' => $data['work']->number,
+                            'status' => $data['status'],
+                            'override_logged' => true,
+                            'dailyWork' => $data['work']->fresh(['inchargeUser', 'assignedUser']),
+                        ];
+                    } catch (\Exception $e) {
+                        $failed[] = [
+                            'id' => $data['work']->id,
+                            'number' => $data['work']->number,
+                            'error' => $e->getMessage(),
+                        ];
+                    }
+                }
+            }
+
+            return response()->json([
+                'message' => 'Import completed. '.count($updated).' RFI(s) updated, '.count($skipped).' skipped, '.count($failed).' failed.',
+                'updated' => $updated,
+                'skipped' => $skipped,
+                'failed' => $failed,
+                'not_found' => $notFound,
+                'updated_count' => count($updated),
+                'skipped_count' => count($skipped),
+                'failed_count' => count($failed),
+                'not_found_count' => count($notFound),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Bulk Import Response Status Error', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json(['error' => 'An error occurred: '.$e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Download template for bulk import response status.
+     */
+    public function downloadResponseStatusTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Set headers
+        $sheet->setCellValue('A1', 'RFI Number');
+        $sheet->setCellValue('B1', 'Response Status');
+        $sheet->setCellValue('C1', 'Response Date');
+
+        // Style headers
+        $headerStyle = [
+            'font' => ['bold' => true],
+            'fill' => [
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'E0E0E0'],
+            ],
+        ];
+        $sheet->getStyle('A1:C1')->applyFromArray($headerStyle);
+
+        // Add example rows with valid status values
+        $sheet->setCellValue('A2', 'RFI-001');
+        $sheet->setCellValue('B2', 'approved');
+        $sheet->setCellValue('C2', date('Y-m-d'));
+
+        $sheet->setCellValue('A3', 'RFI-002');
+        $sheet->setCellValue('B3', 'rejected');
+        $sheet->setCellValue('C3', date('Y-m-d'));
+
+        $sheet->setCellValue('A4', 'RFI-003');
+        $sheet->setCellValue('B4', 'returned');
+        $sheet->setCellValue('C4', date('Y-m-d'));
+
+        $sheet->setCellValue('A5', 'RFI-004');
+        $sheet->setCellValue('B5', 'concurred');
+        $sheet->setCellValue('C5', date('Y-m-d'));
+
+        $sheet->setCellValue('A6', 'RFI-005');
+        $sheet->setCellValue('B6', 'not_concurred');
+        $sheet->setCellValue('C6', date('Y-m-d'));
+
+        // Add instructions sheet
+        $instructionSheet = $spreadsheet->createSheet();
+        $instructionSheet->setTitle('Instructions');
+        $instructionSheet->setCellValue('A1', 'Valid Response Status Values:');
+        $instructionSheet->setCellValue('A2', '- approved');
+        $instructionSheet->setCellValue('A3', '- rejected');
+        $instructionSheet->setCellValue('A4', '- returned');
+        $instructionSheet->setCellValue('A5', '- concurred');
+        $instructionSheet->setCellValue('A6', '- not_concurred');
+        $instructionSheet->setCellValue('A8', 'Date Format: YYYY-MM-DD (e.g., 2024-12-20)');
+
+        // Auto-size columns
+        $sheet->getColumnDimension('A')->setAutoSize(true);
+        $sheet->getColumnDimension('B')->setAutoSize(true);
+        $sheet->getColumnDimension('C')->setAutoSize(true);
+
+        // Create temp file
+        $tempFile = tempnam(sys_get_temp_dir(), 'rfi_response_');
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, 'rfi_response_status_import_template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 }

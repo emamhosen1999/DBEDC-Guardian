@@ -12,7 +12,6 @@ import {
     Card,
     CardBody,
     ScrollShadow,
-    Progress,
 } from "@heroui/react";
 import {
     ExclamationTriangleIcon,
@@ -23,9 +22,9 @@ import {
     DocumentArrowUpIcon,
     ArrowDownTrayIcon,
     DocumentArrowDownIcon,
-    ExclamationCircleIcon,
     QuestionMarkCircleIcon,
     ArrowPathIcon,
+    ClipboardDocumentCheckIcon,
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import { getThemeRadius } from '@/Hooks/useThemeRadius';
@@ -33,10 +32,21 @@ import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 
 /**
- * BulkImportSubmitModal - Modal for importing RFI submission dates from Excel.
- * Excel should have two columns: RFI Number and Submission Date.
+ * Response Status config for display
  */
-const BulkImportSubmitModal = ({
+const RESPONSE_STATUS_CONFIG = {
+    approved: { label: 'Approved', color: 'success' },
+    rejected: { label: 'Rejected', color: 'danger' },
+    returned: { label: 'Returned', color: 'warning' },
+    concurred: { label: 'Concurred', color: 'primary' },
+    not_concurred: { label: 'Not Concurred', color: 'secondary' },
+};
+
+/**
+ * BulkImportResponseStatusModal - Modal for importing RFI response statuses from Excel.
+ * Excel should have three columns: RFI Number, Response Status, and Response Date.
+ */
+const BulkImportResponseStatusModal = ({
     isOpen,
     onClose,
     onSuccess,
@@ -131,7 +141,7 @@ const BulkImportSubmitModal = ({
                 formData.append('override_reason', overrideReason);
             }
 
-            const response = await axios.post(route('dailyWorks.bulkImportSubmit'), formData, {
+            const response = await axios.post(route('dailyWorks.bulkImportResponseStatus'), formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
@@ -145,7 +155,6 @@ const BulkImportSubmitModal = ({
                     objected: response.data.objected_count,
                     clean: response.data.clean_count,
                     notFound: response.data.not_found_count || 0,
-                    invalid: response.data.invalid_count || 0,
                 });
                 setStep('objection-decision');
             } else {
@@ -162,17 +171,13 @@ const BulkImportSubmitModal = ({
                     objected: error.response.data.objected_count,
                     clean: error.response.data.clean_count,
                     notFound: error.response.data.not_found_count || 0,
-                    invalid: error.response.data.invalid_count || 0,
-                    notFoundList: error.response.data.not_found || [],
-                    invalidList: error.response.data.invalid || [],
                 });
                 setStep('objection-decision');
-            } else if (error.response?.data?.invalid || error.response?.data?.not_found) {
+            } else if (error.response?.data?.validation_errors) {
                 // Show validation errors step
                 setValidationErrors({
-                    error: error.response?.data?.error || 'Validation errors found',
-                    invalid: error.response?.data?.invalid || [],
-                    notFound: error.response?.data?.not_found || [],
+                    error: error.response?.data?.message || 'Validation errors found',
+                    errors: error.response?.data?.validation_errors || [],
                 });
                 setStep('validation-errors');
             } else {
@@ -196,7 +201,7 @@ const BulkImportSubmitModal = ({
     };
 
     const handleDownloadTemplate = () => {
-        window.location.href = route('dailyWorks.bulkImportTemplate');
+        window.location.href = route('dailyWorks.downloadResponseStatusTemplate');
     };
 
     const handleClose = () => {
@@ -204,6 +209,34 @@ const BulkImportSubmitModal = ({
             onSuccess?.(result);
         }
         onClose();
+    };
+
+    const handleDownloadSkipped = () => {
+        if (!result?.skipped?.length) return;
+
+        const csvContent = [
+            ['RFI Number', 'Objections Count'].join(','),
+            ...result.skipped.map(w => [w.number, w.active_objections_count || ''].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `skipped_rfis_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const getStatusChip = (status) => {
+        const config = RESPONSE_STATUS_CONFIG[status] || { label: status, color: 'default' };
+        return (
+            <Chip size="sm" color={config.color} variant="flat">
+                {config.label}
+            </Chip>
+        );
     };
 
     return (
@@ -221,10 +254,10 @@ const BulkImportSubmitModal = ({
                         <ModalHeader className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
                                 <DocumentArrowDownIcon className="w-6 h-6 text-primary" />
-                                <span className="font-bold">Import RFI Submissions</span>
+                                <span className="font-bold">Import RFI Response Status</span>
                             </div>
                             <p className="text-xs text-default-500 font-normal">
-                                Upload an Excel file with RFI numbers and submission dates
+                                Upload an Excel file with RFI numbers, response status, and date
                             </p>
                         </ModalHeader>
 
@@ -241,7 +274,7 @@ const BulkImportSubmitModal = ({
                                                     Need a template?
                                                 </p>
                                                 <p className="text-xs text-primary-700 dark:text-primary-400 mt-1">
-                                                    Download the Excel template with the correct format (RFI Number, Submission Date).
+                                                    Download the Excel template with the correct format (RFI Number, Response Status, Response Date).
                                                 </p>
                                                 <Button
                                                     size="sm"
@@ -329,21 +362,27 @@ const BulkImportSubmitModal = ({
                                                 <thead>
                                                     <tr className="border-b border-default-200">
                                                         <th className="text-left py-2 px-3 font-semibold">RFI Number</th>
-                                                        <th className="text-left py-2 px-3 font-semibold">Submission Date</th>
+                                                        <th className="text-left py-2 px-3 font-semibold">Response Status</th>
+                                                        <th className="text-left py-2 px-3 font-semibold">Response Date</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     <tr className="border-b border-default-100">
                                                         <td className="py-2 px-3 text-default-600">RFI-001</td>
+                                                        <td className="py-2 px-3 text-default-600">approved</td>
                                                         <td className="py-2 px-3 text-default-600">2024-12-20</td>
                                                     </tr>
                                                     <tr>
                                                         <td className="py-2 px-3 text-default-600">RFI-002</td>
+                                                        <td className="py-2 px-3 text-default-600">rejected</td>
                                                         <td className="py-2 px-3 text-default-600">2024-12-21</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
                                         </div>
+                                        <p className="text-xs text-default-500 mt-2">
+                                            Valid statuses: <span className="font-mono">approved, rejected, returned, concurred, not_concurred</span>
+                                        </p>
                                     </div>
                                 </div>
                             )}
@@ -358,66 +397,29 @@ const BulkImportSubmitModal = ({
                                             <span className="font-semibold">{validationErrors.error}</span>
                                         </div>
                                         <p className="text-sm text-danger-600/80 dark:text-danger-400/80 mt-2">
-                                            Please check your file format and try again. The expected format is:
-                                            <strong> Column A: RFI Number, Column B: Submission Date (YYYY-MM-DD)</strong>
+                                            Please check your file and try again.
                                         </p>
                                     </div>
 
-                                    {/* Invalid Rows */}
-                                    {validationErrors.invalid?.length > 0 && (
+                                    {/* Error List */}
+                                    {validationErrors.errors?.length > 0 && (
                                         <div className="space-y-2">
                                             <p className="font-medium text-sm text-danger-600 flex items-center gap-2">
                                                 <XCircleIcon className="w-4 h-4" />
-                                                Invalid Rows ({validationErrors.invalid.length})
+                                                Validation Errors ({validationErrors.errors.length})
                                             </p>
-                                            <div className="max-h-48 overflow-y-auto rounded-lg border border-danger-200 dark:border-danger-800">
-                                                <table className="w-full text-xs">
-                                                    <thead className="bg-danger-50 dark:bg-danger-900/30 sticky top-0">
-                                                        <tr>
-                                                            <th className="text-left py-2 px-3 font-semibold">Row</th>
-                                                            <th className="text-left py-2 px-3 font-semibold">RFI Number</th>
-                                                            <th className="text-left py-2 px-3 font-semibold">Error</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {validationErrors.invalid.map((item, idx) => (
-                                                            <tr key={idx} className="border-t border-danger-100 dark:border-danger-800/50">
-                                                                <td className="py-2 px-3 text-default-600">{item.row}</td>
-                                                                <td className="py-2 px-3 text-default-600 font-mono">{item.rfi_number}</td>
-                                                                <td className="py-2 px-3 text-danger-600">{item.error}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Not Found Rows */}
-                                    {validationErrors.notFound?.length > 0 && (
-                                        <div className="space-y-2">
-                                            <p className="font-medium text-sm text-warning-600 flex items-center gap-2">
-                                                <ExclamationTriangleIcon className="w-4 h-4" />
-                                                RFIs Not Found ({validationErrors.notFound.length})
-                                            </p>
-                                            <div className="max-h-32 overflow-y-auto rounded-lg border border-warning-200 dark:border-warning-800">
-                                                <table className="w-full text-xs">
-                                                    <thead className="bg-warning-50 dark:bg-warning-900/30 sticky top-0">
-                                                        <tr>
-                                                            <th className="text-left py-2 px-3 font-semibold">Row</th>
-                                                            <th className="text-left py-2 px-3 font-semibold">RFI Number</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {validationErrors.notFound.map((item, idx) => (
-                                                            <tr key={idx} className="border-t border-warning-100 dark:border-warning-800/50">
-                                                                <td className="py-2 px-3 text-default-600">{item.row}</td>
-                                                                <td className="py-2 px-3 text-default-600 font-mono">{item.rfi_number}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                            <ScrollShadow className="max-h-48">
+                                                <div className="space-y-1">
+                                                    {validationErrors.errors.map((error, idx) => (
+                                                        <div 
+                                                            key={idx} 
+                                                            className="p-2 rounded-lg text-sm bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-700"
+                                                        >
+                                                            <span className="text-danger-600">{error}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </ScrollShadow>
                                         </div>
                                     )}
 
@@ -448,7 +450,7 @@ const BulkImportSubmitModal = ({
                                             <Card className="bg-default-50 dark:bg-default-900/20 border border-default-200">
                                                 <CardBody className="p-3 text-center">
                                                     <p className="text-xl font-bold text-default-700">{parseSummary.total}</p>
-                                                    <p className="text-xs text-default-500">Total Parsed</p>
+                                                    <p className="text-xs text-default-500">Total Found</p>
                                                 </CardBody>
                                             </Card>
                                             <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200">
@@ -465,8 +467,8 @@ const BulkImportSubmitModal = ({
                                             </Card>
                                             <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200">
                                                 <CardBody className="p-3 text-center">
-                                                    <p className="text-xl font-bold text-danger">{parseSummary.notFound + parseSummary.invalid}</p>
-                                                    <p className="text-xs text-danger-600">Issues</p>
+                                                    <p className="text-xl font-bold text-danger">{parseSummary.notFound}</p>
+                                                    <p className="text-xs text-danger-600">Not Found</p>
                                                 </CardBody>
                                             </Card>
                                         </div>
@@ -492,17 +494,15 @@ const BulkImportSubmitModal = ({
                                         <p className="text-sm font-medium mb-2">RFIs with Objections:</p>
                                         <ScrollShadow className="max-h-32">
                                             <div className="space-y-1">
-                                                {objectedWorks.map((work) => (
+                                                {objectedWorks.map((work, idx) => (
                                                     <div 
-                                                        key={work.id || work.row} 
+                                                        key={work.id || idx} 
                                                         className="flex items-center justify-between p-2 rounded-lg text-sm bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-700"
                                                     >
                                                         <div className="flex items-center gap-2">
-                                                            <DocumentTextIcon className="w-4 h-4 text-warning-500" />
+                                                            <ShieldExclamationIcon className="w-4 h-4 text-warning-600 flex-shrink-0" />
                                                             <span className="font-medium">{work.number}</span>
-                                                            {work.location && (
-                                                                <span className="text-xs text-default-400">@ {work.location}</span>
-                                                            )}
+                                                            {work.status && getStatusChip(work.status)}
                                                         </div>
                                                         <Chip size="sm" color="warning" variant="flat">
                                                             {work.active_objections_count} objection{work.active_objections_count !== 1 ? 's' : ''}
@@ -515,132 +515,102 @@ const BulkImportSubmitModal = ({
 
                                     <Divider />
 
-                                    {/* Decision options */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {/* Skip option */}
+                                    {/* Override Reason */}
+                                    <div>
+                                        <Textarea
+                                            label="Override Reason (required to update objected RFIs)"
+                                            placeholder="Explain why you're updating RFIs that have active objections..."
+                                            value={overrideReason}
+                                            onChange={(e) => setOverrideReason(e.target.value)}
+                                            minRows={2}
+                                            description="This reason will be logged for audit purposes."
+                                        />
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="grid grid-cols-2 gap-3">
                                         <Card 
                                             isPressable 
                                             onPress={handleSkipObjected}
-                                            className="border-2 border-transparent hover:border-default-300 transition-colors"
+                                            className="border-2 border-default-200 hover:border-primary transition-colors"
                                         >
-                                            <CardBody className="p-4">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="p-2 bg-default-100 rounded-lg">
-                                                        <XCircleIcon className="w-5 h-5 text-default-600" />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="font-semibold">Skip Objected RFIs</p>
-                                                        <p className="text-xs text-default-500 mt-1">
-                                                            Only submit RFIs without objections. {parseSummary?.clean || 0} RFIs will be submitted.
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                            <CardBody className="p-4 text-center">
+                                                <CheckCircleIcon className="w-8 h-8 text-success mx-auto mb-2" />
+                                                <p className="font-semibold">Skip Objected RFIs</p>
+                                                <p className="text-xs text-default-500 mt-1">
+                                                    Update only {parseSummary?.clean || 0} RFI{(parseSummary?.clean || 0) !== 1 ? 's' : ''} without objections
+                                                </p>
                                             </CardBody>
                                         </Card>
 
-                                        {/* Override option */}
-                                        <Card className="border-2 border-warning-300 dark:border-warning-700">
-                                            <CardBody className="p-4">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="p-2 bg-warning-100 rounded-lg">
-                                                        <ExclamationTriangleIcon className="w-5 h-5 text-warning-600" />
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <p className="font-semibold text-warning-700 dark:text-warning-300">Override & Submit All</p>
-                                                        <p className="text-xs text-default-500 mt-1">
-                                                            Submit all RFIs including objected ones. Requires a reason.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <Textarea
-                                                    placeholder="Reason for overriding objections (required)..."
-                                                    value={overrideReason}
-                                                    onChange={(e) => setOverrideReason(e.target.value)}
-                                                    minRows={2}
-                                                    className="mt-3"
-                                                    radius={getThemeRadius()}
-                                                />
-                                                <Button
-                                                    color="warning"
-                                                    className="mt-2 w-full"
-                                                    radius={getThemeRadius()}
-                                                    onPress={handleOverrideObjected}
-                                                    isLoading={loading}
-                                                    isDisabled={!overrideReason.trim()}
-                                                >
-                                                    Override & Submit All ({parseSummary?.total || 0} RFIs)
-                                                </Button>
+                                        <Card 
+                                            isPressable 
+                                            onPress={handleOverrideObjected}
+                                            isDisabled={!overrideReason.trim()}
+                                            className={`border-2 transition-colors ${overrideReason.trim() ? 'border-warning-200 hover:border-warning' : 'border-default-200 opacity-60'}`}
+                                        >
+                                            <CardBody className="p-4 text-center">
+                                                <ExclamationTriangleIcon className="w-8 h-8 text-warning mx-auto mb-2" />
+                                                <p className="font-semibold">Override & Update All</p>
+                                                <p className="text-xs text-default-500 mt-1">
+                                                    Update all {parseSummary?.total || 0} RFI{(parseSummary?.total || 0) !== 1 ? 's' : ''} including objected
+                                                </p>
                                             </CardBody>
                                         </Card>
                                     </div>
-
-                                    {/* Issues info */}
-                                    {parseSummary && (parseSummary.notFound > 0 || parseSummary.invalid > 0) && (
-                                        <div className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-800 rounded-lg p-4">
-                                            <div className="flex items-start gap-3">
-                                                <ExclamationCircleIcon className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="font-medium text-danger-700 dark:text-danger-400 text-sm">
-                                                        Some rows have issues
-                                                    </p>
-                                                    <p className="text-xs text-danger-600 dark:text-danger-500 mt-1">
-                                                        {parseSummary.notFound > 0 && `${parseSummary.notFound} RFI(s) not found. `}
-                                                        {parseSummary.invalid > 0 && `${parseSummary.invalid} row(s) have invalid data.`}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
-                            {/* Step 3: Results */}
+                            {/* Step 3: Result */}
                             {step === 'result' && result && (
                                 <div className="space-y-4">
-                                    {/* Summary cards */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                    {/* Success Summary */}
+                                    <div className="text-center py-4">
+                                        <CheckCircleSolid className="w-16 h-16 text-success mx-auto mb-3" />
+                                        <h3 className="text-xl font-bold text-success-700 dark:text-success-400">
+                                            Import Complete
+                                        </h3>
+                                        <p className="text-default-500 mt-1">{result.message}</p>
+                                    </div>
+
+                                    {/* Results Grid */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                         <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200">
                                             <CardBody className="p-3 text-center">
-                                                <p className="text-xl font-bold text-success">{result.submitted_count}</p>
-                                                <p className="text-xs text-success-600">Submitted</p>
+                                                <p className="text-2xl font-bold text-success">{result.updated_count}</p>
+                                                <p className="text-xs text-success-600">Updated</p>
                                             </CardBody>
                                         </Card>
                                         <Card className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200">
                                             <CardBody className="p-3 text-center">
-                                                <p className="text-xl font-bold text-warning">{result.skipped_count}</p>
+                                                <p className="text-2xl font-bold text-warning">{result.skipped_count}</p>
                                                 <p className="text-xs text-warning-600">Skipped</p>
                                             </CardBody>
                                         </Card>
                                         <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200">
                                             <CardBody className="p-3 text-center">
-                                                <p className="text-xl font-bold text-danger">{result.failed_count}</p>
+                                                <p className="text-2xl font-bold text-danger">{result.failed_count}</p>
                                                 <p className="text-xs text-danger-600">Failed</p>
                                             </CardBody>
                                         </Card>
                                         <Card className="bg-default-50 dark:bg-default-900/20 border border-default-200">
                                             <CardBody className="p-3 text-center">
-                                                <p className="text-xl font-bold text-default-600">{result.not_found_count || 0}</p>
+                                                <p className="text-2xl font-bold text-default-600">{result.not_found_count}</p>
                                                 <p className="text-xs text-default-500">Not Found</p>
-                                            </CardBody>
-                                        </Card>
-                                        <Card className="bg-default-50 dark:bg-default-900/20 border border-default-200">
-                                            <CardBody className="p-3 text-center">
-                                                <p className="text-xl font-bold text-default-600">{result.invalid_count || 0}</p>
-                                                <p className="text-xs text-default-500">Invalid</p>
                                             </CardBody>
                                         </Card>
                                     </div>
 
-                                    {/* Submitted List */}
-                                    {result.submitted?.length > 0 && (
+                                    {/* Updated List */}
+                                    {result.updated?.length > 0 && (
                                         <div>
                                             <p className="text-sm font-medium mb-2 text-success-700 flex items-center gap-1">
                                                 <CheckCircleSolid className="w-4 h-4" />
-                                                Submitted Successfully ({result.submitted.length})
+                                                Updated Successfully ({result.updated.length})
                                             </p>
                                             <ScrollShadow className="max-h-24">
                                                 <div className="flex flex-wrap gap-1">
-                                                    {result.submitted.map((work) => (
+                                                    {result.updated.map((work) => (
                                                         <Chip key={work.id} size="sm" color="success" variant="flat">
                                                             {work.number}
                                                         </Chip>
@@ -662,21 +632,10 @@ const BulkImportSubmitModal = ({
                                                     size="sm"
                                                     variant="flat"
                                                     color="warning"
-                                                    startContent={<ArrowDownTrayIcon className="w-4 h-4" />}
-                                                    onPress={() => {
-                                                        // Download skipped RFIs as CSV
-                                                        const csvContent = "RFI Number,Objections Count\n" + 
-                                                            result.skipped.map(w => `${w.number},${w.active_objections_count || 'N/A'}`).join('\n');
-                                                        const blob = new Blob([csvContent], { type: 'text/csv' });
-                                                        const url = window.URL.createObjectURL(blob);
-                                                        const a = document.createElement('a');
-                                                        a.href = url;
-                                                        a.download = 'skipped_objected_rfis.csv';
-                                                        a.click();
-                                                        window.URL.revokeObjectURL(url);
-                                                    }}
+                                                    onPress={handleDownloadSkipped}
+                                                    startContent={<ArrowDownTrayIcon className="w-3 h-3" />}
                                                 >
-                                                    Download List
+                                                    Download
                                                 </Button>
                                             </div>
                                             <ScrollShadow className="max-h-24">
@@ -720,27 +679,8 @@ const BulkImportSubmitModal = ({
                                             <ScrollShadow className="max-h-24">
                                                 <div className="flex flex-wrap gap-1">
                                                     {result.not_found.map((item, idx) => (
-                                                        <Chip key={idx} size="sm" variant="flat">
-                                                            Row {item.row}: {item.rfi_number}
-                                                        </Chip>
-                                                    ))}
-                                                </div>
-                                            </ScrollShadow>
-                                        </div>
-                                    )}
-
-                                    {/* Invalid List */}
-                                    {result.invalid?.length > 0 && (
-                                        <div>
-                                            <p className="text-sm font-medium mb-2 text-default-600 flex items-center gap-1">
-                                                <ExclamationCircleIcon className="w-4 h-4" />
-                                                Invalid Rows ({result.invalid.length})
-                                            </p>
-                                            <ScrollShadow className="max-h-24">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {result.invalid.map((item, idx) => (
-                                                        <Chip key={idx} size="sm" variant="flat" color="danger">
-                                                            Row {item.row}: {item.error}
+                                                        <Chip key={idx} size="sm" color="default" variant="flat">
+                                                            {item.rfi_number}
                                                         </Chip>
                                                     ))}
                                                 </div>
@@ -762,11 +702,17 @@ const BulkImportSubmitModal = ({
                                         onPress={() => handleUpload(false, false)}
                                         isLoading={loading}
                                         isDisabled={!file}
-                                        startContent={!loading && <DocumentArrowUpIcon className="w-4 h-4" />}
+                                        startContent={!loading && <ClipboardDocumentCheckIcon className="w-4 h-4" />}
                                     >
-                                        Import & Submit
+                                        Import & Update
                                     </Button>
                                 </>
+                            )}
+
+                            {step === 'validation-errors' && (
+                                <Button variant="light" onPress={handleClose}>
+                                    Close
+                                </Button>
                             )}
 
                             {step === 'objection-decision' && (
@@ -788,4 +734,4 @@ const BulkImportSubmitModal = ({
     );
 };
 
-export default BulkImportSubmitModal;
+export default BulkImportResponseStatusModal;

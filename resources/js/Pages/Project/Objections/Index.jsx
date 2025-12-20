@@ -119,7 +119,7 @@ const categoryConfig = {
     'other': { label: 'Other', color: 'default' },
 };
 
-const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, statistics }) => {
+const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, categories, creators, statistics }) => {
     const { auth } = usePage().props;
     const isLargeScreen = useMediaQuery('(min-width: 1025px)');
     const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
@@ -145,8 +145,16 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
     const [tableLoading, setTableLoading] = useState(false);
     const [statsLoading, setStatsLoading] = useState(false);
     const [search, setSearch] = useState(filters?.search || '');
-    const [currentPage, setCurrentPage] = useState(objections?.current_page || 1);
+    const [currentPage, setCurrentPage] = useState(initialObjections?.current_page || 1);
     const [expandedItems, setExpandedItems] = useState(new Set());
+    
+    // Local objections state for smooth updates without page reload
+    const [objections, setObjections] = useState(initialObjections);
+    
+    // Sync with props when they change (e.g., on page navigation)
+    useEffect(() => {
+        setObjections(initialObjections);
+    }, [initialObjections]);
 
     // Filter state
     const [showFilters, setShowFilters] = useState(false);
@@ -549,9 +557,24 @@ const ObjectionsIndex = ({ objections, filters, statuses, categories, creators, 
             }
             
             showToast.success(response.data.message || 'Status updated successfully');
+            
+            // Update local state with the updated objection
+            if (response.data.objection) {
+                setObjections(prev => ({
+                    ...prev,
+                    data: prev.data.map(obj => 
+                        obj.id === response.data.objection.id ? response.data.objection : obj
+                    )
+                }));
+            }
+            
+            // Update statistics locally
+            if (response.data.statistics) {
+                setApiStats(response.data.statistics);
+            }
+            
             onStatusClose();
             setResolutionNotes('');
-            router.reload({ only: ['objections', 'statistics'] });
         } catch (error) {
             showToast.error(error.response?.data?.error || 'Failed to update status');
         } finally {
