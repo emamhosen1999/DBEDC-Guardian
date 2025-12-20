@@ -85,15 +85,7 @@ const ObjectionsModal = ({
     const [attaching, setAttaching] = useState(false);
     const [detaching, setDetaching] = useState(null);
 
-    // Fetch objections when modal opens
-    useEffect(() => {
-        if (isOpen && dailyWork?.id) {
-            fetchAttachedObjections();
-            fetchAvailableObjections();
-        }
-    }, [isOpen, dailyWork?.id]);
-
-    // Force unlock scroll on mobile
+    // Force unlock scroll - prevents scroll lock on both mobile and desktop
     const unlockScroll = useCallback(() => {
         // Remove all scroll-blocking styles
         document.body.style.overflow = '';
@@ -107,33 +99,43 @@ const ObjectionsModal = ({
         
         // Also remove any data attributes HeroUI might set
         document.body.removeAttribute('data-scroll-locked');
-        
-        // Force a reflow
-        window.scrollTo(window.scrollX, window.scrollY);
     }, []);
 
-    // Wrapped close handler that ensures scroll is unlocked
-    const handleClose = useCallback(() => {
-        unlockScroll();
-        onClose?.();
-    }, [onClose, unlockScroll]);
+    // Fetch objections when modal opens and ensure scroll is not locked
+    useEffect(() => {
+        if (isOpen && dailyWork?.id) {
+            fetchAttachedObjections();
+            fetchAvailableObjections();
+            
+            // Force unlock scroll immediately when modal opens (for both mobile and desktop)
+            // Use requestAnimationFrame to run after HeroUI applies its scroll lock
+            const unlockTimer = requestAnimationFrame(() => {
+                unlockScroll();
+            });
+            
+            // Also set an interval to continuously prevent scroll lock while modal is open
+            const intervalId = setInterval(unlockScroll, 100);
+            
+            return () => {
+                cancelAnimationFrame(unlockTimer);
+                clearInterval(intervalId);
+            };
+        }
+    }, [isOpen, dailyWork?.id, unlockScroll]);
 
-    // Reset state when modal closes and ensure scroll is restored
+    // Wrapped close handler
+    const handleClose = useCallback(() => {
+        onClose?.();
+    }, [onClose]);
+
+    // Reset state when modal closes
     useEffect(() => {
         if (!isOpen) {
             setActiveTab('attached');
             setSelectedObjections([]);
             setSearchTerm('');
-            
-            // Ensure body scroll is restored on mobile (fixes stuck scroll issue)
-            unlockScroll();
         }
-        
-        // Cleanup on unmount
-        return () => {
-            unlockScroll();
-        };
-    }, [isOpen, unlockScroll]);
+    }, [isOpen]);
 
     // Fetch objections attached to this RFI
     const fetchAttachedObjections = async () => {
@@ -399,11 +401,6 @@ const ObjectionsModal = ({
                 body: "px-4 sm:px-6",
                 header: "px-4 sm:px-6",
                 footer: "px-4 sm:px-6",
-            }}
-            onOpenChange={(open) => {
-                if (!open) {
-                    unlockScroll();
-                }
             }}
         >
             <ModalContent>
