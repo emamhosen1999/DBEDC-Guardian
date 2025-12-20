@@ -267,21 +267,21 @@ const ObjectionsModal = ({
                 shadow="sm"
                 radius={getThemeRadius()}
             >
-                <CardBody className="p-4">
+                <CardBody className="p-3 sm:p-4">
                     {/* Header */}
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                        <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
                                 {renderStatusChip(objection.status)}
-                                <Chip size="sm" variant="bordered" className="text-xs">
+                                <Chip size="sm" variant="bordered" className="text-[10px]">
                                     {CATEGORY_LABELS[objection.category] || objection.category}
                                 </Chip>
                             </div>
-                            <h4 className="font-semibold text-sm">{objection.title}</h4>
+                            <h4 className="font-semibold text-xs sm:text-sm truncate">{objection.title}</h4>
                             {objection.chainage_from && objection.chainage_to && (
                                 <div className="flex items-center gap-1 text-xs text-default-500 mt-1">
-                                    <MapPinIcon className="w-3 h-3" />
-                                    <span>{objection.chainage_from} - {objection.chainage_to}</span>
+                                    <MapPinIcon className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{objection.chainage_from} - {objection.chainage_to}</span>
                                 </div>
                             )}
                         </div>
@@ -293,6 +293,7 @@ const ObjectionsModal = ({
                                 color="danger"
                                 isLoading={detaching === objection.id}
                                 onPress={() => handleDetachObjection(objection.id)}
+                                className="flex-shrink-0"
                             >
                                 <XCircleIcon className="w-4 h-4" />
                             </Button>
@@ -392,6 +393,13 @@ const ObjectionsModal = ({
             radius={getThemeRadius()}
             shouldBlockScroll={false}
             hideCloseButton={false}
+            classNames={{
+                base: "max-h-[95vh] sm:max-h-[90vh] m-2 sm:m-4",
+                wrapper: "items-end sm:items-center",
+                body: "px-4 sm:px-6",
+                header: "px-4 sm:px-6",
+                footer: "px-4 sm:px-6",
+            }}
             onOpenChange={(open) => {
                 if (!open) {
                     unlockScroll();
@@ -401,37 +409,37 @@ const ObjectionsModal = ({
             <ModalContent>
                 {(onCloseModal) => (
                     <>
-                        <ModalHeader className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <ShieldExclamationIcon className="w-5 h-5 text-warning" />
-                                <span>RFI Objections - {dailyWork?.number}</span>
+                        <ModalHeader className="flex flex-col gap-2 pb-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <ShieldExclamationIcon className="w-5 h-5 text-warning flex-shrink-0" />
+                                <span className="text-sm sm:text-base font-semibold truncate">RFI Objections - {dailyWork?.number}</span>
                                 {activeCount > 0 && (
                                     <Chip size="sm" color="warning" variant="solid">
                                         {activeCount} Active
                                     </Chip>
                                 )}
                             </div>
-                            <p className="text-sm text-default-500 font-normal">
+                            <p className="text-xs sm:text-sm text-default-500 font-normal">
                                 View attached objections or attach existing ones to this RFI
                             </p>
                         </ModalHeader>
 
-                        <ModalBody>
+                        <ModalBody className="py-0">
                             <Tabs 
                                 selectedKey={activeTab} 
                                 onSelectionChange={setActiveTab}
                                 color="primary"
                                 variant="underlined"
                                 classNames={{
-                                    tabList: "gap-4",
-                                    tab: "px-0 h-10",
+                                    tabList: "gap-2 sm:gap-4",
+                                    tab: "px-2 sm:px-0 h-10 text-xs sm:text-sm",
                                 }}
                             >
                                 <Tab 
                                     key="attached" 
                                     title={
-                                        <div className="flex items-center gap-2">
-                                            <ShieldExclamationIcon className="w-4 h-4" />
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            <ShieldExclamationIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                                             <span>Attached ({attachedObjections.length})</span>
                                         </div>
                                     }
@@ -444,13 +452,13 @@ const ObjectionsModal = ({
                                         ) : attachedObjections.length === 0 ? (
                                             <div className="text-center py-8 text-default-400">
                                                 <ShieldExclamationIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                                <p>No objections attached to this RFI</p>
+                                                <p className="text-sm">No objections attached to this RFI</p>
                                                 <p className="text-xs mt-1">
                                                     Switch to "Add Objection" tab to attach existing objections
                                                 </p>
                                             </div>
                                         ) : (
-                                            <ScrollShadow className="max-h-[400px]">
+                                            <ScrollShadow className="max-h-[50vh] sm:max-h-[400px]">
                                                 <div className="space-y-2">
                                                     {attachedObjections.map(renderAttachedObjectionCard)}
                                                 </div>
@@ -462,16 +470,17 @@ const ObjectionsModal = ({
                                 <Tab 
                                     key="add" 
                                     title={
-                                        <div className="flex items-center gap-2">
-                                            <LinkIcon className="w-4 h-4" />
-                                            <span>Add Objection</span>
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            <LinkIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                                            <span className="hidden sm:inline">Add Objection</span>
+                                            <span className="sm:hidden">Add</span>
                                         </div>
                                     }
                                 >
-                                    <div className="py-4 space-y-4">
+                                    <div className="py-4 space-y-3 sm:space-y-4">
                                         {/* Info banner */}
-                                        <div className="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
-                                            <p className="text-sm text-primary-700 dark:text-primary-300">
+                                        <div className="p-2 sm:p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
+                                            <p className="text-xs sm:text-sm text-primary-700 dark:text-primary-300">
                                                 <strong>Note:</strong> Select from existing objections to attach to this RFI. 
                                                 To create a new objection, go to the{' '}
                                                 <button 
@@ -498,7 +507,7 @@ const ObjectionsModal = ({
                                         {filteredAvailableObjections.length === 0 ? (
                                             <div className="text-center py-8 text-default-400">
                                                 <DocumentIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                                <p>No available objections found</p>
+                                                <p className="text-sm">No available objections found</p>
                                                 <p className="text-xs mt-1">
                                                     Create objections on the Objections page first
                                                 </p>
@@ -515,27 +524,27 @@ const ObjectionsModal = ({
                                             </div>
                                         ) : (
                                             <>
-                                                <p className="text-sm text-default-600">
+                                                <p className="text-xs sm:text-sm text-default-600">
                                                     Select objections to attach ({selectedObjections.length} selected):
                                                 </p>
                                                 <CheckboxGroup
                                                     value={selectedObjections}
                                                     onValueChange={setSelectedObjections}
                                                 >
-                                                    <ScrollShadow className="max-h-[300px]">
+                                                    <ScrollShadow className="max-h-[40vh] sm:max-h-[300px]">
                                                         <div className="space-y-2">
                                                             {filteredAvailableObjections.map((objection) => (
                                                                 <div
                                                                     key={objection.id}
-                                                                    className={`flex items-start gap-3 p-3 border rounded-lg hover:bg-default-100 transition-colors ${
+                                                                    className={`flex items-start gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg hover:bg-default-100 transition-colors ${
                                                                         selectedObjections.includes(String(objection.id))
                                                                             ? 'border-primary bg-primary-50/50 dark:bg-primary-900/20'
                                                                             : 'border-divider'
                                                                     }`}
                                                                 >
-                                                                    <Checkbox value={String(objection.id)} className="mt-0.5" />
+                                                                    <Checkbox value={String(objection.id)} className="mt-0.5" size="sm" />
                                                                     <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap mb-1">
                                                                             {renderStatusChip(objection.status)}
                                                                             <Chip size="sm" variant="bordered" className="text-[10px]">
                                                                                 {CATEGORY_LABELS[objection.category] || objection.category}
@@ -566,8 +575,15 @@ const ObjectionsModal = ({
                                                         onPress={handleAttachObjections}
                                                         isLoading={attaching}
                                                         isDisabled={selectedObjections.length === 0}
+                                                        className="w-full sm:w-auto"
+                                                        size="md"
                                                     >
-                                                        Attach {selectedObjections.length > 0 ? `(${selectedObjections.length})` : ''} Objection{selectedObjections.length !== 1 ? 's' : ''}
+                                                        <span className="hidden sm:inline">
+                                                            Attach {selectedObjections.length > 0 ? `(${selectedObjections.length})` : ''} Objection{selectedObjections.length !== 1 ? 's' : ''}
+                                                        </span>
+                                                        <span className="sm:hidden">
+                                                            Attach {selectedObjections.length > 0 ? `(${selectedObjections.length})` : ''}
+                                                        </span>
                                                     </Button>
                                                 </div>
                                             </>
@@ -577,20 +593,24 @@ const ObjectionsModal = ({
                             </Tabs>
                         </ModalBody>
 
-                        <ModalFooter>
-                            <div className="flex items-center justify-between w-full">
+                        <ModalFooter className="py-3 sm:py-4">
+                            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between w-full gap-2">
                                 <Button
                                     variant="flat"
                                     size="sm"
                                     startContent={<ArrowTopRightOnSquareIcon className="w-4 h-4" />}
                                     onPress={goToObjectionsPage}
+                                    className="w-full sm:w-auto"
                                 >
-                                    Go to Objections Page
+                                    <span className="hidden sm:inline">Go to Objections Page</span>
+                                    <span className="sm:hidden">Objections Page</span>
                                 </Button>
                                 <Button color="primary" variant="light" onPress={() => {
                                     unlockScroll();
                                     onCloseModal();
-                                }}>
+                                }}
+                                className="w-full sm:w-auto"
+                                >
                                     Close
                                 </Button>
                             </div>

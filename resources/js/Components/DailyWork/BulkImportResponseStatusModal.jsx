@@ -247,14 +247,21 @@ const BulkImportResponseStatusModal = ({
             placement="center"
             isDismissable={!loading}
             scrollBehavior="inside"
+            classNames={{
+                base: "max-h-[95vh] sm:max-h-[90vh] m-2 sm:m-4",
+                wrapper: "items-end sm:items-center",
+                body: "px-4 sm:px-6 py-4",
+                header: "px-4 sm:px-6",
+                footer: "px-4 sm:px-6",
+            }}
         >
             <ModalContent>
                 {(onCloseModal) => (
                     <>
-                        <ModalHeader className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <DocumentArrowDownIcon className="w-6 h-6 text-primary" />
-                                <span className="font-bold">Import RFI Response Status</span>
+                        <ModalHeader className="flex flex-col gap-2 pb-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <DocumentArrowDownIcon className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                                <span className="font-bold text-sm sm:text-base">Import RFI Response Status</span>
                             </div>
                             <p className="text-xs text-default-500 font-normal">
                                 Upload an Excel file with RFI numbers, response status, and date
@@ -264,13 +271,13 @@ const BulkImportResponseStatusModal = ({
                         <ModalBody className="py-4">
                             {/* Step 1: Upload file */}
                             {step === 'upload' && (
-                                <div className="space-y-4">
+                                <div className="space-y-3 sm:space-y-4">
                                     {/* Template download */}
-                                    <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
-                                        <div className="flex items-start gap-3">
-                                            <QuestionMarkCircleIcon className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                                    <div className="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-3 sm:p-4">
+                                        <div className="flex items-start gap-2 sm:gap-3">
+                                            <QuestionMarkCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0 mt-0.5" />
                                             <div className="flex-1">
-                                                <p className="font-medium text-primary-800 dark:text-primary-300 text-sm">
+                                                <p className="font-medium text-primary-800 dark:text-primary-300 text-xs sm:text-sm">
                                                     Need a template?
                                                 </p>
                                                 <p className="text-xs text-primary-700 dark:text-primary-400 mt-1">
@@ -280,7 +287,7 @@ const BulkImportResponseStatusModal = ({
                                                     size="sm"
                                                     color="primary"
                                                     variant="flat"
-                                                    className="mt-2"
+                                                    className="mt-2 w-full sm:w-auto"
                                                     radius={getThemeRadius()}
                                                     onPress={handleDownloadTemplate}
                                                     startContent={<ArrowDownTrayIcon className="w-4 h-4" />}
@@ -293,7 +300,7 @@ const BulkImportResponseStatusModal = ({
 
                                     {/* File drop zone */}
                                     <div
-                                        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                                        className={`relative border-2 border-dashed rounded-lg p-6 sm:p-8 text-center transition-colors ${
                                             dragActive
                                                 ? 'border-primary bg-primary-50 dark:bg-primary-900/20'
                                                 : file
@@ -315,8 +322,8 @@ const BulkImportResponseStatusModal = ({
 
                                         {file ? (
                                             <div className="space-y-2">
-                                                <CheckCircleSolid className="w-12 h-12 text-success mx-auto" />
-                                                <p className="font-medium text-success-700 dark:text-success-400">
+                                                <CheckCircleSolid className="w-10 h-10 sm:w-12 sm:h-12 text-success mx-auto" />
+                                                <p className="font-medium text-success-700 dark:text-success-400 text-sm sm:text-base truncate px-4">
                                                     {file.name}
                                                 </p>
                                                 <p className="text-xs text-default-500">
@@ -327,23 +334,25 @@ const BulkImportResponseStatusModal = ({
                                                     variant="light"
                                                     color="danger"
                                                     onPress={() => setFile(null)}
+                                                    className="w-full sm:w-auto"
                                                 >
                                                     Remove
                                                 </Button>
                                             </div>
                                         ) : (
                                             <div className="space-y-2">
-                                                <DocumentArrowUpIcon className="w-12 h-12 text-default-400 mx-auto" />
-                                                <p className="font-medium text-default-700 dark:text-default-300">
+                                                <DocumentArrowUpIcon className="w-10 h-10 sm:w-12 sm:h-12 text-default-400 mx-auto" />
+                                                <p className="font-medium text-default-700 dark:text-default-300 text-sm sm:text-base">
                                                     Drag and drop your file here
                                                 </p>
-                                                <p className="text-sm text-default-500">or</p>
+                                                <p className="text-xs sm:text-sm text-default-500">or</p>
                                                 <Button
                                                     size="sm"
                                                     color="primary"
                                                     variant="flat"
                                                     radius={getThemeRadius()}
                                                     onPress={() => fileInputRef.current?.click()}
+                                                    className="w-full sm:w-auto"
                                                 >
                                                     Browse Files
                                                 </Button>
@@ -355,27 +364,28 @@ const BulkImportResponseStatusModal = ({
                                     </div>
 
                                     {/* Format info */}
-                                    <div className="bg-default-100 dark:bg-default-800/50 rounded-lg p-4">
-                                        <p className="font-medium text-sm mb-2">Expected Format:</p>
-                                        <div className="overflow-x-auto">
+                                    <div className="bg-default-100 dark:bg-default-800/50 rounded-lg p-3 sm:p-4">
+                                        <p className="font-medium text-xs sm:text-sm mb-2">Expected Format:</p>
+                                        {/* Allow horizontal scroll on mobile for table readability */}
+                                        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                                             <table className="text-xs w-full">
                                                 <thead>
                                                     <tr className="border-b border-default-200">
-                                                        <th className="text-left py-2 px-3 font-semibold">RFI Number</th>
-                                                        <th className="text-left py-2 px-3 font-semibold">Response Status</th>
-                                                        <th className="text-left py-2 px-3 font-semibold">Response Date</th>
+                                                        <th className="text-left py-2 px-2 sm:px-3 font-semibold">RFI Number</th>
+                                                        <th className="text-left py-2 px-2 sm:px-3 font-semibold">Response Status</th>
+                                                        <th className="text-left py-2 px-2 sm:px-3 font-semibold">Response Date</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     <tr className="border-b border-default-100">
-                                                        <td className="py-2 px-3 text-default-600">RFI-001</td>
-                                                        <td className="py-2 px-3 text-default-600">approved</td>
-                                                        <td className="py-2 px-3 text-default-600">2024-12-20</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">RFI-001</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">approved</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">2024-12-20</td>
                                                     </tr>
                                                     <tr>
-                                                        <td className="py-2 px-3 text-default-600">RFI-002</td>
-                                                        <td className="py-2 px-3 text-default-600">rejected</td>
-                                                        <td className="py-2 px-3 text-default-600">2024-12-21</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">RFI-002</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">rejected</td>
+                                                        <td className="py-2 px-2 sm:px-3 text-default-600">2024-12-21</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
