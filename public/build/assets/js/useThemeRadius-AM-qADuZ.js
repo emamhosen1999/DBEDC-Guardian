@@ -1,0 +1,1 @@
+import"./vendor-inertia-sUfCHI_5.js";const n=t=>t===0?"none":t<=4?"sm":t<=8?"md":t<=16?"lg":"full",s=()=>{var e;if(typeof window>"u")return"lg";const r=((e=getComputedStyle(document.documentElement).getPropertyValue("--borderRadius"))==null?void 0:e.trim())||"12px",o=parseInt(r);return n(o)};export{s as g};

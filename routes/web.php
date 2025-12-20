@@ -20,6 +20,7 @@ use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\LetterController;
 use App\Http\Controllers\LMSController;
 use App\Http\Controllers\ModuleController;
+use App\Http\Controllers\ObjectionController;
 use App\Http\Controllers\POSController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
@@ -144,23 +145,34 @@ Route::middleware($middlewareStack)->group(function () {
 
         // RFI Objection Routes - View and metadata
         Route::get('/daily-works/{dailyWork}/objections', [RfiObjectionController::class, 'index'])->name('dailyWorks.objections.index');
+        Route::get('/daily-works/{dailyWork}/objections/available', [RfiObjectionController::class, 'available'])->name('dailyWorks.objections.available');
         Route::get('/daily-works/{dailyWork}/objections/{objection}', [RfiObjectionController::class, 'show'])->name('dailyWorks.objections.show');
         Route::get('/daily-works/objections/metadata', [RfiObjectionController::class, 'getMetadata'])->name('dailyWorks.objections.metadata');
         Route::get('/daily-works/{dailyWork}/objections/{objection}/files', [RfiObjectionController::class, 'getFiles'])->name('dailyWorks.objections.files');
         Route::get('/daily-works/{dailyWork}/objections/{objection}/files/{mediaId}/download', [RfiObjectionController::class, 'downloadFile'])->name('dailyWorks.objections.files.download');
-        
+
         // RFI Objection Routes - Create and manage (authorization handled by policy)
         Route::post('/daily-works/{dailyWork}/objections', [RfiObjectionController::class, 'store'])->name('dailyWorks.objections.store');
+        Route::post('/daily-works/{dailyWork}/objections/attach', [RfiObjectionController::class, 'attach'])->name('dailyWorks.objections.attach');
+        Route::post('/daily-works/{dailyWork}/objections/detach', [RfiObjectionController::class, 'detach'])->name('dailyWorks.objections.detach');
         Route::put('/daily-works/{dailyWork}/objections/{objection}', [RfiObjectionController::class, 'update'])->name('dailyWorks.objections.update');
         Route::delete('/daily-works/{dailyWork}/objections/{objection}', [RfiObjectionController::class, 'destroy'])->name('dailyWorks.objections.destroy');
         Route::post('/daily-works/{dailyWork}/objections/{objection}/submit', [RfiObjectionController::class, 'submit'])->name('dailyWorks.objections.submit');
         Route::post('/daily-works/{dailyWork}/objections/{objection}/files', [RfiObjectionController::class, 'uploadFiles'])->name('dailyWorks.objections.files.upload');
         Route::delete('/daily-works/{dailyWork}/objections/{objection}/files/{mediaId}', [RfiObjectionController::class, 'deleteFile'])->name('dailyWorks.objections.files.delete');
-        
+
         // RFI Objection Routes - Review actions (authorization handled by policy)
         Route::post('/daily-works/{dailyWork}/objections/{objection}/review', [RfiObjectionController::class, 'startReview'])->name('dailyWorks.objections.review');
         Route::post('/daily-works/{dailyWork}/objections/{objection}/resolve', [RfiObjectionController::class, 'resolve'])->name('dailyWorks.objections.resolve');
         Route::post('/daily-works/{dailyWork}/objections/{objection}/reject', [RfiObjectionController::class, 'reject'])->name('dailyWorks.objections.reject');
+
+        // Dedicated Objections Management Routes (many-to-many architecture)
+        Route::get('/workspace/objections', [ObjectionController::class, 'index'])->name('objections.index');
+        Route::post('/workspace/objections', [ObjectionController::class, 'store'])->name('objections.store');
+        Route::put('/workspace/objections/{objection}', [ObjectionController::class, 'update'])->name('objections.update');
+        Route::post('/workspace/objections/{objection}/attach-rfis', [ObjectionController::class, 'attachToRfis'])->name('objections.attachRfis');
+        Route::post('/workspace/objections/{objection}/detach-rfis', [ObjectionController::class, 'detachFromRfis'])->name('objections.detachRfis');
+        Route::get('/workspace/objections/suggest-rfis', [ObjectionController::class, 'suggestRfis'])->name('objections.suggestRfis');
     });
 
     Route::middleware(['permission:daily-works.create'])->group(function () {

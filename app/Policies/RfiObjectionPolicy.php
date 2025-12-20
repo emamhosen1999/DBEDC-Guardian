@@ -33,22 +33,34 @@ class RfiObjectionPolicy
             return true;
         }
 
-        // Incharge or assigned user of the related RFI can view
-        return $this->isInchargeOrAssignedOfRfi($user, $objection->dailyWork);
+        // Creator can always view their own objections
+        if ($objection->created_by === $user->id) {
+            return true;
+        }
+
+        // Check if user is incharge or assigned to any of the related RFIs (many-to-many)
+        return $objection->dailyWorks->some(fn ($work) => $this->isInchargeOrAssignedOfRfi($user, $work));
     }
 
     /**
-     * Determine whether the user can create objections for an RFI.
-     * Only the RFI In-Charge or Assigned Engineer(s) can raise objections.
+     * Determine whether the user can create objections.
+     * For standalone objection creation (without a specific RFI), only admins can create.
+     * For RFI-specific creation, the RFI In-Charge or Assigned Engineer(s) can raise objections.
      */
-    public function create(User $user, DailyWork $dailyWork): bool
+    public function create(User $user, ?DailyWork $dailyWork = null): bool
     {
         // Admins can always create
         if ($this->isAdmin($user)) {
             return true;
         }
 
-        // Only incharge or assigned can create objections
+        // For standalone objection creation (many-to-many architecture)
+        if ($dailyWork === null) {
+            // Anyone with daily-works.view permission can create standalone objections
+            return $user->hasPermissionTo('daily-works.view');
+        }
+
+        // Only incharge or assigned can create objections for a specific RFI
         return $this->isInchargeOrAssignedOfRfi($user, $dailyWork);
     }
 
@@ -57,8 +69,13 @@ class RfiObjectionPolicy
      */
     public function update(User $user, RfiObjection $objection): bool
     {
-        // Admins can always update
-        if ($this->isAdmin($user)) {
+        // Admins and managers can update any objection (except resolved/rejected)
+        if ($this->isAdmin($user) || $this->isManager($user)) {
+            // Even admins cannot update resolved/rejected objections
+            if (in_array($objection->status, [RfiObjection::STATUS_RESOLVED, RfiObjection::STATUS_REJECTED])) {
+                return false;
+            }
+
             return true;
         }
 
@@ -76,8 +93,13 @@ class RfiObjectionPolicy
      */
     public function delete(User $user, RfiObjection $objection): bool
     {
-        // Admins can delete any
-        if ($this->isAdmin($user)) {
+        // Cannot delete resolved or rejected objections
+        if (in_array($objection->status, [RfiObjection::STATUS_RESOLVED, RfiObjection::STATUS_REJECTED])) {
+            return false;
+        }
+
+        // Admins and managers can delete any non-resolved/rejected objection
+        if ($this->isAdmin($user) || $this->isManager($user)) {
             return true;
         }
 
@@ -141,8 +163,13 @@ class RfiObjectionPolicy
             return false;
         }
 
-        // Creator or incharge/assigned can upload files
-        return $objection->created_by === $user->id || $this->isInchargeOrAssignedOfRfi($user, $objection->dailyWork);
+        // Creator can upload files
+        if ($objection->created_by === $user->id) {
+            return true;
+        }
+
+        // Check if user is incharge or assigned to any of the related RFIs (many-to-many)
+        return $objection->dailyWorks->some(fn ($work) => $this->isInchargeOrAssignedOfRfi($user, $work));
     }
 
     /**

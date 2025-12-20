@@ -225,11 +225,14 @@ class DailyWork extends Model implements HasMedia
     }
 
     /**
-     * Get all objections for this RFI.
+     * Get all objections for this RFI (many-to-many).
      */
     public function objections()
     {
-        return $this->hasMany(RfiObjection::class, 'daily_work_id')->orderBy('created_at', 'desc');
+        return $this->belongsToMany(RfiObjection::class, 'daily_work_objection')
+            ->withPivot(['attached_by', 'attached_at', 'attachment_notes'])
+            ->withTimestamps()
+            ->orderBy('daily_work_objection.attached_at', 'desc');
     }
 
     /**
@@ -237,9 +240,11 @@ class DailyWork extends Model implements HasMedia
      */
     public function activeObjections()
     {
-        return $this->hasMany(RfiObjection::class, 'daily_work_id')
-            ->whereIn('status', RfiObjection::$activeStatuses)
-            ->orderBy('created_at', 'desc');
+        return $this->belongsToMany(RfiObjection::class, 'daily_work_objection')
+            ->withPivot(['attached_by', 'attached_at', 'attachment_notes'])
+            ->withTimestamps()
+            ->whereIn('rfi_objections.status', RfiObjection::$activeStatuses)
+            ->orderBy('daily_work_objection.attached_at', 'desc');
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
@@ -19,19 +20,28 @@ class RfiObjection extends Model implements HasMedia
      * Status constants for objection workflow
      */
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_SUBMITTED = 'submitted';
+
     public const STATUS_UNDER_REVIEW = 'under_review';
+
     public const STATUS_RESOLVED = 'resolved';
+
     public const STATUS_REJECTED = 'rejected';
 
     /**
      * Category constants for objection types
      */
     public const CATEGORY_DESIGN_CONFLICT = 'design_conflict';
+
     public const CATEGORY_SITE_MISMATCH = 'site_mismatch';
+
     public const CATEGORY_MATERIAL_CHANGE = 'material_change';
+
     public const CATEGORY_SAFETY_CONCERN = 'safety_concern';
+
     public const CATEGORY_SPECIFICATION_ERROR = 'specification_error';
+
     public const CATEGORY_OTHER = 'other';
 
     /**
@@ -100,9 +110,10 @@ class RfiObjection extends Model implements HasMedia
     ];
 
     protected $fillable = [
-        'daily_work_id',
         'title',
         'category',
+        'chainage_from',
+        'chainage_to',
         'description',
         'reason',
         'status',
@@ -126,7 +137,7 @@ class RfiObjection extends Model implements HasMedia
     /**
      * Attributes to append to JSON serialization
      */
-    protected $appends = ['files_count', 'is_active', 'category_label', 'status_label'];
+    protected $appends = ['files_count', 'is_active', 'category_label', 'status_label', 'affected_rfis_count'];
 
     /**
      * Register media collections for objection files.
@@ -167,11 +178,13 @@ class RfiObjection extends Model implements HasMedia
     // ==================== Relationships ====================
 
     /**
-     * Get the daily work (RFI) this objection belongs to.
+     * Get the daily works (RFIs) this objection is attached to (many-to-many).
      */
-    public function dailyWork(): BelongsTo
+    public function dailyWorks(): BelongsToMany
     {
-        return $this->belongsTo(DailyWork::class);
+        return $this->belongsToMany(DailyWork::class, 'daily_work_objection')
+            ->withPivot(['attached_by', 'attached_at', 'attachment_notes'])
+            ->withTimestamps();
     }
 
     /**
@@ -424,7 +437,7 @@ class RfiObjection extends Model implements HasMedia
         $pow = min($pow, count($units) - 1);
         $bytes /= pow(1024, $pow);
 
-        return round($bytes, $precision) . ' ' . $units[$pow];
+        return round($bytes, $precision).' '.$units[$pow];
     }
 
     /**
@@ -438,14 +451,14 @@ class RfiObjection extends Model implements HasMedia
             // Validate status
             if ($objection->status && ! self::isValidStatus($objection->status)) {
                 throw new \InvalidArgumentException(
-                    "Invalid status '{$objection->status}'. Valid statuses are: " . implode(', ', self::$statuses)
+                    "Invalid status '{$objection->status}'. Valid statuses are: ".implode(', ', self::$statuses)
                 );
             }
 
             // Validate category
             if ($objection->category && ! self::isValidCategory($objection->category)) {
                 throw new \InvalidArgumentException(
-                    "Invalid category '{$objection->category}'. Valid categories are: " . implode(', ', self::$categories)
+                    "Invalid category '{$objection->category}'. Valid categories are: ".implode(', ', self::$categories)
                 );
             }
 
@@ -466,5 +479,64 @@ class RfiObjection extends Model implements HasMedia
                 $objection->status = self::STATUS_DRAFT;
             }
         });
+    }
+
+    // ==================== Many-to-Many Helper Methods ====================
+
+    /**
+     * Attach this objection to multiple RFIs.
+     *
+     * @param  array<int>  $rfiIds
+     */
+    public function attachToRfis(array $rfiIds, ?string $notes = null): void
+    {
+        $attachData = [];
+        foreach ($rfiIds as $rfiId) {
+            $attachData[$rfiId] = [
+                'attached_by' => auth()->id(),
+                'attached_at' => now(),
+                'attachment_notes' => $notes,
+            ];
+        }
+
+        $this->dailyWorks()->syncWithoutDetaching($attachData);
+    }
+
+    /**
+     * Detach this objection from specified RFIs.
+     *
+     * @param  array<int>  $rfiIds
+     * @return int Number of RFIs detached
+     */
+    public function detachFromRfis(array $rfiIds): int
+    {
+        return $this->dailyWorks()->detach($rfiIds);
+    }
+
+    /**
+     * Get count of affected RFIs.
+     */
+    public function getAffectedRfisCountAttribute(): int
+    {
+        return $this->dailyWorks()->count();
+    }
+
+    /**
+     * Suggest RFIs based on chainage range.
+     * Returns RFIs whose location falls within this objection's chainage range.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function suggestAffectedRfis()
+    {
+        if (! $this->chainage_from || ! $this->chainage_to) {
+            return collect([]);
+        }
+
+        // Query Daily Works that match the chainage range
+        return DailyWork::where(function ($query) {
+            $query->where('location', '>=', $this->chainage_from)
+                ->where('location', '<=', $this->chainage_to);
+        })->get();
     }
 }

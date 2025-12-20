@@ -202,11 +202,21 @@ const DailyWorksTable = ({
         setObjectionsModalOpen(true);
     }, []);
     
-    // Function to handle objections update
-    const handleObjectionsUpdated = useCallback(() => {
-        // Refresh data to get updated objection counts
-        router.reload({ only: ['allData'], preserveScroll: true });
-    }, []);
+    // Function to handle objections update - update local state without full reload
+    const handleObjectionsUpdated = useCallback((workId, newActiveCount) => {
+        if (workId && setData) {
+            // Update the local data to reflect new objection count
+            const updatedData = allData.map(w => 
+                w.id === workId ? { ...w, active_objections_count: newActiveCount } : w
+            );
+            setData(updatedData);
+            
+            // Also update the modal work if it's the same
+            if (objectionsModalWork?.id === workId) {
+                setObjectionsModalWork(prev => prev ? { ...prev, active_objections_count: newActiveCount } : prev);
+            }
+        }
+    }, [allData, setData, objectionsModalWork]);
     
     // Function to handle files update from modal
     const handleRfiFilesUpdated = useCallback((newCount) => {
@@ -281,8 +291,10 @@ const DailyWorksTable = ({
     };
     
     // Check if user can review objections (admin/manager level)
+    // Managers include: Super Admin, Admin, Project Manager, Consultant, HR Manager
     const canUserReviewObjections = () => {
-        return userIsAdmin;
+        const managerRoles = ['Super Administrator', 'Administrator', 'Project Manager', 'Consultant', 'HR Manager'];
+        return auth.roles?.some(role => managerRoles.includes(role)) || false;
     };
     
     // Check if user is only an incharge (not admin)
@@ -1627,19 +1639,17 @@ const DailyWorksTable = ({
                                     Files {work.rfi_files_count > 0 && `(${work.rfi_files_count})`}
                                 </Button>
                                 
-                                {/* Objections button - visible to incharge, assigned, and admins */}
-                                {canUserCreateObjections(work) && (
-                                    <Button
-                                        size="sm"
-                                        variant="flat"
-                                        color={work.active_objections_count > 0 ? "warning" : "default"}
-                                        radius={getThemeRadius()}
-                                        className="flex-1 h-7 text-[10px]"
-                                        onPress={() => openObjectionsModal(work)}
-                                    >
-                                        Objections {work.active_objections_count > 0 && `(${work.active_objections_count})`}
-                                    </Button>
-                                )}
+                                {/* Objections button - View/Add objections to this RFI */}
+                                <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color={work.active_objections_count > 0 ? "warning" : "default"}
+                                    radius={getThemeRadius()}
+                                    className="flex-1 h-7 text-[10px]"
+                                    onPress={() => openObjectionsModal(work)}
+                                >
+                                    Objections {work.active_objections_count > 0 && `(${work.active_objections_count})`}
+                                </Button>
                                 
                                 {shouldShowActions && (
                                     <>
@@ -2341,21 +2351,19 @@ const DailyWorksTable = ({
                                     )}
                                 </Button>
                             </Tooltip>
-                            {(canUserCreateObjections(work) || canUserReviewObjections()) && (
-                                <Tooltip content={work.active_objections_count > 0 ? `Objections (${work.active_objections_count})` : "Manage Objections"}>
-                                    <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="ghost"
-                                        color={work.active_objections_count > 0 ? "warning" : "default"}
-                                        radius={getThemeRadius()}
-                                        onPress={() => openObjectionsModal(work)}
-                                        className="min-w-8 h-8"
-                                    >
-                                        <ShieldExclamationIcon className={`w-4 h-4 ${work.active_objections_count > 0 ? 'animate-pulse' : ''}`} />
-                                    </Button>
-                                </Tooltip>
-                            )}
+                            <Tooltip content={work.active_objections_count > 0 ? `Objections (${work.active_objections_count})` : "View/Add Objections"}>
+                                <Button
+                                    isIconOnly
+                                    size="sm"
+                                    variant="ghost"
+                                    color={work.active_objections_count > 0 ? "warning" : "default"}
+                                    radius={getThemeRadius()}
+                                    onPress={() => openObjectionsModal(work)}
+                                    className="min-w-8 h-8"
+                                >
+                                    <ShieldExclamationIcon className={`w-4 h-4 ${work.active_objections_count > 0 ? 'animate-pulse' : ''}`} />
+                                </Button>
+                            </Tooltip>
                             <Tooltip content="Edit Work">
                                 <Button
                                     isIconOnly
@@ -2652,8 +2660,6 @@ const DailyWorksTable = ({
                     }}
                     dailyWork={objectionsModalWork}
                     onObjectionsUpdated={handleObjectionsUpdated}
-                    canCreate={objectionsModalWork ? canUserCreateObjections(objectionsModalWork) : false}
-                    canReview={canUserReviewObjections()}
                 />
                 
                 {/* Objection Warning Modal - for submission date changes */}

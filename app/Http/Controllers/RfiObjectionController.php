@@ -39,8 +39,8 @@ class RfiObjectionController extends Controller
      */
     public function show(DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        // Ensure objection belongs to the daily work
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        // Ensure objection is attached to the daily work (many-to-many)
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -79,7 +79,6 @@ class RfiObjectionController extends Controller
             DB::beginTransaction();
 
             $objection = new RfiObjection([
-                'daily_work_id' => $dailyWork->id,
                 'title' => $validated['title'],
                 'category' => $validated['category'] ?? RfiObjection::CATEGORY_OTHER,
                 'description' => $validated['description'],
@@ -89,6 +88,9 @@ class RfiObjectionController extends Controller
             ]);
 
             $objection->save();
+
+            // Attach to the daily work (many-to-many)
+            $objection->attachToRfis([$dailyWork->id]);
 
             // Log initial status
             $objection->statusLogs()->create([
@@ -126,7 +128,7 @@ class RfiObjectionController extends Controller
      */
     public function update(Request $request, DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -160,7 +162,7 @@ class RfiObjectionController extends Controller
      */
     public function destroy(DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -185,7 +187,7 @@ class RfiObjectionController extends Controller
      */
     public function submit(DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -217,7 +219,7 @@ class RfiObjectionController extends Controller
      */
     public function startReview(DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -246,7 +248,7 @@ class RfiObjectionController extends Controller
      */
     public function resolve(Request $request, DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -282,7 +284,7 @@ class RfiObjectionController extends Controller
      */
     public function reject(Request $request, DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -318,7 +320,7 @@ class RfiObjectionController extends Controller
      */
     public function uploadFiles(Request $request, DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -370,7 +372,7 @@ class RfiObjectionController extends Controller
      */
     public function getFiles(DailyWork $dailyWork, RfiObjection $objection): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -387,7 +389,7 @@ class RfiObjectionController extends Controller
      */
     public function deleteFile(DailyWork $dailyWork, RfiObjection $objection, int $mediaId): JsonResponse
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -416,7 +418,7 @@ class RfiObjectionController extends Controller
      */
     public function downloadFile(DailyWork $dailyWork, RfiObjection $objection, int $mediaId)
     {
-        if ($objection->daily_work_id !== $dailyWork->id) {
+        if (! $dailyWork->objections()->where('rfi_objections.id', $objection->id)->exists()) {
             return response()->json(['error' => 'Objection not found for this RFI.'], 404);
         }
 
@@ -429,6 +431,150 @@ class RfiObjectionController extends Controller
         }
 
         return response()->download($media->getPath(), $media->file_name);
+    }
+
+    /**
+     * Get available objections that can be attached to this RFI.
+     * This returns objections not already attached to this daily work.
+     */
+    public function available(DailyWork $dailyWork): JsonResponse
+    {
+        $this->authorize('viewAny', RfiObjection::class);
+
+        // Get IDs of objections already attached to this daily work
+        $attachedIds = $dailyWork->objections()->pluck('rfi_objections.id')->toArray();
+
+        // Get all objections not already attached, excluding resolved/rejected ones for clarity
+        $availableObjections = RfiObjection::query()
+            ->whereNotIn('id', $attachedIds)
+            ->whereIn('status', [RfiObjection::STATUS_DRAFT, RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])
+            ->with(['createdBy:id,name,email'])
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get()
+            ->map(function ($objection) {
+                return [
+                    'id' => $objection->id,
+                    'title' => $objection->title,
+                    'category' => $objection->category,
+                    'category_label' => $objection->category_label,
+                    'chainage_from' => $objection->chainage_from,
+                    'chainage_to' => $objection->chainage_to,
+                    'description' => $objection->description,
+                    'reason' => $objection->reason,
+                    'status' => $objection->status,
+                    'status_label' => $objection->status_label,
+                    'created_by' => $objection->createdBy,
+                    'created_at' => $objection->created_at,
+                ];
+            });
+
+        return response()->json([
+            'objections' => $availableObjections,
+            'count' => $availableObjections->count(),
+        ]);
+    }
+
+    /**
+     * Attach existing objections to this RFI (daily work).
+     */
+    public function attach(Request $request, DailyWork $dailyWork): JsonResponse
+    {
+        $this->authorize('viewAny', RfiObjection::class);
+
+        $validated = $request->validate([
+            'objection_ids' => 'required|array|min:1',
+            'objection_ids.*' => 'exists:rfi_objections,id',
+            'attachment_notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $attachedCount = 0;
+            $alreadyAttachedCount = 0;
+
+            foreach ($validated['objection_ids'] as $objectionId) {
+                $objection = RfiObjection::find($objectionId);
+
+                if ($objection) {
+                    // Check if already attached
+                    if (! $dailyWork->objections()->where('rfi_objections.id', $objectionId)->exists()) {
+                        // Use the model method to attach
+                        $objection->attachToRfis([$dailyWork->id], $validated['attachment_notes'] ?? null);
+                        $attachedCount++;
+                    } else {
+                        $alreadyAttachedCount++;
+                    }
+                }
+            }
+
+            $message = "Successfully attached {$attachedCount} objection(s) to this RFI.";
+            if ($alreadyAttachedCount > 0) {
+                $message .= " {$alreadyAttachedCount} objection(s) were already attached.";
+            }
+
+            // Calculate the new active objections count
+            $activeObjectionsCount = $dailyWork->objections()
+                ->whereIn('status', ['draft', 'submitted', 'under_review'])
+                ->count();
+
+            return response()->json([
+                'message' => $message,
+                'attached_count' => $attachedCount,
+                'already_attached_count' => $alreadyAttachedCount,
+                'active_objections_count' => $activeObjectionsCount,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to attach objections.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Detach objections from this RFI (daily work).
+     */
+    public function detach(Request $request, DailyWork $dailyWork): JsonResponse
+    {
+        $this->authorize('viewAny', RfiObjection::class);
+
+        $validated = $request->validate([
+            'objection_ids' => 'required|array|min:1',
+            'objection_ids.*' => 'exists:rfi_objections,id',
+        ]);
+
+        try {
+            $detachedCount = 0;
+
+            foreach ($validated['objection_ids'] as $objectionId) {
+                $objection = RfiObjection::find($objectionId);
+
+                if ($objection) {
+                    // Check if attached
+                    if ($dailyWork->objections()->where('rfi_objections.id', $objectionId)->exists()) {
+                        // Detach from this daily work
+                        $objection->detachFromRfis([$dailyWork->id]);
+                        $detachedCount++;
+                    }
+                }
+            }
+
+            // Calculate the new active objections count
+            $activeObjectionsCount = $dailyWork->objections()
+                ->whereIn('status', ['draft', 'submitted', 'under_review'])
+                ->count();
+
+            return response()->json([
+                'message' => "Successfully detached {$detachedCount} objection(s) from this RFI.",
+                'detached_count' => $detachedCount,
+                'active_objections_count' => $activeObjectionsCount,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to detach objections.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

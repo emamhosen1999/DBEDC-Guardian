@@ -19,6 +19,7 @@ import {
   ClipboardDocumentCheckIcon,
   DocumentDuplicateIcon,
   ShieldCheckIcon,
+  ShieldExclamationIcon,
   ComputerDesktopIcon,
   PhoneIcon,
   UserIcon,
@@ -51,6 +52,7 @@ export const getPages = (roles, permissions, auth = null) => {
     ...(permissions.includes('daily-works.view') ? [
       { name: 'Daily Work', icon: <DocumentTextIcon />, route: 'daily-works' },
       { name: 'Work Summary', icon: <ChartBarSquareIcon />, route: 'daily-works-summary' },
+      { name: 'Objections', icon: <ShieldExclamationIcon />, route: 'objections.index' },
     ] : []),
     
     ...(permissions.includes('attendance.own.view') ? [
