@@ -272,30 +272,30 @@ const BulkResponseStatusModal = ({
                                                 {selectedWorks.map((work) => (
                                                     <div 
                                                         key={work.id} 
-                                                        className={`flex items-center justify-between p-2 rounded-lg text-sm border ${
+                                                        className={`flex items-center justify-between p-2 rounded-lg text-xs sm:text-sm border ${
                                                             (work.active_objections_count || 0) > 0
                                                                 ? 'bg-warning-50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-700'
                                                                 : 'bg-default-50 dark:bg-default-900/10 border-default-200 dark:border-default-700'
                                                         }`}
                                                     >
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                            <DocumentTextIcon className="w-4 h-4 text-default-500 flex-shrink-0" />
+                                                            <DocumentTextIcon className="w-3 h-3 sm:w-4 sm:h-4 text-default-500 flex-shrink-0" />
                                                             <span className="font-medium truncate">{work.number}</span>
                                                             {work.location && (
-                                                                <span className="text-xs text-default-400 flex items-center gap-1">
+                                                                <span className="text-xs text-default-400 flex items-center gap-1 hidden sm:flex">
                                                                     <MapPinIcon className="w-3 h-3" />
                                                                     {work.location}
                                                                 </span>
                                                             )}
                                                             {work.rfi_response_status && (
-                                                                <Chip size="sm" color={getStatusConfig(work.rfi_response_status).color || 'default'} variant="flat">
+                                                                <Chip size="sm" color={getStatusConfig(work.rfi_response_status).color || 'default'} variant="flat" className="hidden sm:flex">
                                                                     {getStatusConfig(work.rfi_response_status).label || work.rfi_response_status}
                                                                 </Chip>
                                                             )}
                                                         </div>
                                                         {(work.active_objections_count || 0) > 0 && (
-                                                            <Chip size="sm" color="warning" variant="flat">
-                                                                {work.active_objections_count} objection{work.active_objections_count !== 1 ? 's' : ''}
+                                                            <Chip size="sm" color="warning" variant="flat" className="text-[10px] sm:text-xs">
+                                                                {work.active_objections_count} obj{work.active_objections_count !== 1 ? 's' : ''}
                                                             </Chip>
                                                         )}
                                                     </div>
@@ -309,14 +309,14 @@ const BulkResponseStatusModal = ({
                             {/* Step 2: Objection Decision */}
                             {step === 'objection-decision' && (
                                 <div className="space-y-4">
-                                    <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-4">
-                                        <div className="flex items-start gap-3">
-                                            <ShieldExclamationIcon className="w-6 h-6 text-warning-600 flex-shrink-0" />
+                                    <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-3 sm:p-4">
+                                        <div className="flex items-start gap-2 sm:gap-3">
+                                            <ShieldExclamationIcon className="w-5 h-5 sm:w-6 sm:h-6 text-warning-600 flex-shrink-0" />
                                             <div>
-                                                <p className="font-bold text-warning-800 dark:text-warning-300">
+                                                <p className="font-bold text-warning-800 dark:text-warning-300 text-sm sm:text-base">
                                                     Action Required: RFIs with Active Objections
                                                 </p>
-                                                <p className="text-sm text-warning-700 dark:text-warning-400 mt-1">
+                                                <p className="text-xs sm:text-sm text-warning-700 dark:text-warning-400 mt-1">
                                                     The following {objectedWorks.length} RFI{objectedWorks.length !== 1 ? 's have' : ' has'} active objections. 
                                                     Choose how to proceed:
                                                 </p>
@@ -325,8 +325,8 @@ const BulkResponseStatusModal = ({
                                     </div>
 
                                     {/* Selected Status Display */}
-                                    <div className="flex items-center gap-2 p-3 bg-default-100 dark:bg-default-800/50 rounded-lg">
-                                        <span className="text-sm text-default-600">Setting status to:</span>
+                                    <div className="flex items-center gap-2 p-2 sm:p-3 bg-default-100 dark:bg-default-800/50 rounded-lg">
+                                        <span className="text-xs sm:text-sm text-default-600">Setting status to:</span>
                                         <Chip size="sm" color={getStatusConfig(responseStatus).color || 'default'} variant="solid">
                                             {getStatusConfig(responseStatus).label || responseStatus}
                                         </Chip>
@@ -334,20 +334,20 @@ const BulkResponseStatusModal = ({
 
                                     {/* Objected RFIs List */}
                                     <div>
-                                        <p className="text-sm font-medium mb-2">RFIs with Objections:</p>
+                                        <p className="text-xs sm:text-sm font-medium mb-2">RFIs with Objections:</p>
                                         <ScrollShadow className="max-h-32">
                                             <div className="space-y-2">
                                                 {objectedWorks.map((work) => (
                                                     <div 
                                                         key={work.id} 
-                                                        className="flex items-center justify-between p-2 bg-warning-50 dark:bg-warning-900/20 rounded-lg text-sm border border-warning-200 dark:border-warning-700"
+                                                        className="flex items-center justify-between p-2 bg-warning-50 dark:bg-warning-900/20 rounded-lg text-xs sm:text-sm border border-warning-200 dark:border-warning-700"
                                                     >
-                                                        <div className="flex items-center gap-2">
-                                                            <ShieldExclamationIcon className="w-4 h-4 text-warning-600" />
-                                                            <span className="font-medium">{work.number}</span>
-                                                            <span className="text-xs text-default-400">{work.location}</span>
+                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                            <ShieldExclamationIcon className="w-3 h-3 sm:w-4 sm:h-4 text-warning-600 flex-shrink-0" />
+                                                            <span className="font-medium truncate">{work.number}</span>
+                                                            <span className="text-xs text-default-400 hidden sm:inline truncate">{work.location}</span>
                                                         </div>
-                                                        <Chip size="sm" color="warning" variant="flat">
+                                                        <Chip size="sm" color="warning" variant="flat" className="text-[10px] sm:text-xs flex-shrink-0">
                                                             {work.active_objections_count} objection{work.active_objections_count !== 1 ? 's' : ''}
                                                         </Chip>
                                                     </div>
@@ -371,15 +371,15 @@ const BulkResponseStatusModal = ({
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <Card 
                                             isPressable 
                                             onPress={handleSkipObjected}
                                             className="border-2 border-default-200 hover:border-primary transition-colors"
                                         >
-                                            <CardBody className="p-4 text-center">
-                                                <CheckCircleIcon className="w-8 h-8 text-success mx-auto mb-2" />
-                                                <p className="font-semibold">Skip Objected RFIs</p>
+                                            <CardBody className="p-3 sm:p-4 text-center">
+                                                <CheckCircleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-success mx-auto mb-2" />
+                                                <p className="font-semibold text-sm sm:text-base">Skip Objected RFIs</p>
                                                 <p className="text-xs text-default-500 mt-1">
                                                     Update only {cleanWorks.length} RFI{cleanWorks.length !== 1 ? 's' : ''} without objections
                                                 </p>
@@ -392,9 +392,9 @@ const BulkResponseStatusModal = ({
                                             isDisabled={!overrideReason.trim()}
                                             className={`border-2 transition-colors ${overrideReason.trim() ? 'border-warning-200 hover:border-warning' : 'border-default-200 opacity-60'}`}
                                         >
-                                            <CardBody className="p-4 text-center">
-                                                <ExclamationTriangleIcon className="w-8 h-8 text-warning mx-auto mb-2" />
-                                                <p className="font-semibold">Override & Update All</p>
+                                            <CardBody className="p-3 sm:p-4 text-center">
+                                                <ExclamationTriangleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-warning mx-auto mb-2" />
+                                                <p className="font-semibold text-sm sm:text-base">Override & Update All</p>
                                                 <p className="text-xs text-default-500 mt-1">
                                                     Update all {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''} including objected
                                                 </p>
@@ -409,31 +409,31 @@ const BulkResponseStatusModal = ({
                                 <div className="space-y-4">
                                     {/* Success Summary */}
                                     <div className="text-center py-4">
-                                        <CheckCircleSolid className="w-16 h-16 text-success mx-auto mb-3" />
-                                        <h3 className="text-xl font-bold text-success-700 dark:text-success-400">
+                                        <CheckCircleSolid className="w-12 h-12 sm:w-16 sm:h-16 text-success mx-auto mb-3" />
+                                        <h3 className="text-lg sm:text-xl font-bold text-success-700 dark:text-success-400">
                                             Bulk Update Complete
                                         </h3>
-                                        <p className="text-default-500 mt-1">{result.message}</p>
+                                        <p className="text-xs sm:text-sm text-default-500 mt-1">{result.message}</p>
                                     </div>
 
                                     {/* Results Grid */}
-                                    <div className="grid grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                         <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200">
-                                            <CardBody className="p-3 text-center">
-                                                <p className="text-2xl font-bold text-success">{result.updated_count}</p>
-                                                <p className="text-xs text-success-600">Updated</p>
+                                            <CardBody className="p-2 sm:p-3 text-center">
+                                                <p className="text-xl sm:text-2xl font-bold text-success">{result.updated_count}</p>
+                                                <p className="text-[10px] sm:text-xs text-success-600">Updated</p>
                                             </CardBody>
                                         </Card>
                                         <Card className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200">
-                                            <CardBody className="p-3 text-center">
-                                                <p className="text-2xl font-bold text-warning">{result.skipped_count}</p>
-                                                <p className="text-xs text-warning-600">Skipped</p>
+                                            <CardBody className="p-2 sm:p-3 text-center">
+                                                <p className="text-xl sm:text-2xl font-bold text-warning">{result.skipped_count}</p>
+                                                <p className="text-[10px] sm:text-xs text-warning-600">Skipped</p>
                                             </CardBody>
                                         </Card>
                                         <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200">
-                                            <CardBody className="p-3 text-center">
-                                                <p className="text-2xl font-bold text-danger">{result.failed_count}</p>
-                                                <p className="text-xs text-danger-600">Failed</p>
+                                            <CardBody className="p-2 sm:p-3 text-center">
+                                                <p className="text-xl sm:text-2xl font-bold text-danger">{result.failed_count}</p>
+                                                <p className="text-[10px] sm:text-xs text-danger-600">Failed</p>
                                             </CardBody>
                                         </Card>
                                     </div>
@@ -441,8 +441,8 @@ const BulkResponseStatusModal = ({
                                     {/* Updated List */}
                                     {result.updated?.length > 0 && (
                                         <div>
-                                            <p className="text-sm font-medium mb-2 text-success-700 flex items-center gap-1">
-                                                <CheckCircleSolid className="w-4 h-4" />
+                                            <p className="text-xs sm:text-sm font-medium mb-2 text-success-700 flex items-center gap-1">
+                                                <CheckCircleSolid className="w-3 h-3 sm:w-4 sm:h-4" />
                                                 Updated Successfully ({result.updated.length})
                                             </p>
                                             <ScrollShadow className="max-h-24">
@@ -498,10 +498,10 @@ const BulkResponseStatusModal = ({
                             )}
                         </ModalBody>
 
-                        <ModalFooter>
+                        <ModalFooter className="flex flex-col-reverse sm:flex-row gap-2 py-3 sm:py-4">
                             {step === 'confirm' && (
                                 <>
-                                    <Button variant="light" onPress={handleClose}>
+                                    <Button variant="light" onPress={handleClose} className="w-full sm:w-auto">
                                         Cancel
                                     </Button>
                                     <Button 
@@ -510,20 +510,22 @@ const BulkResponseStatusModal = ({
                                         isLoading={loading}
                                         isDisabled={!responseStatus}
                                         startContent={!loading && <ClipboardDocumentCheckIcon className="w-4 h-4" />}
+                                        className="w-full sm:w-auto"
                                     >
-                                        Update {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}
+                                        <span className="hidden sm:inline">Update {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}</span>
+                                        <span className="sm:hidden">Update ({selectedWorks.length})</span>
                                     </Button>
                                 </>
                             )}
 
                             {step === 'objection-decision' && (
-                                <Button variant="light" onPress={() => setStep('confirm')}>
+                                <Button variant="light" onPress={() => setStep('confirm')} className="w-full sm:w-auto">
                                     Back
                                 </Button>
                             )}
 
                             {step === 'result' && (
-                                <Button color="primary" onPress={handleClose}>
+                                <Button color="primary" onPress={handleClose} className="w-full sm:w-auto">
                                     Done
                                 </Button>
                             )}
