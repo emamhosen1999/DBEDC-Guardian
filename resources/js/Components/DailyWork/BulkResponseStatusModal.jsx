@@ -154,14 +154,21 @@ const BulkResponseStatusModal = ({
             placement="center"
             isDismissable={step !== 'loading'}
             scrollBehavior="inside"
+            classNames={{
+                base: "max-h-[95vh] sm:max-h-[90vh] m-2 sm:m-4",
+                wrapper: "items-end sm:items-center",
+                body: "px-4 sm:px-6 py-4",
+                header: "px-4 sm:px-6",
+                footer: "px-4 sm:px-6",
+            }}
         >
             <ModalContent>
                 {(onCloseModal) => (
                     <>
-                        <ModalHeader className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <ClipboardDocumentCheckIcon className="w-6 h-6 text-primary" />
-                                <span className="font-bold">Bulk RFI Response Status</span>
+                        <ModalHeader className="flex flex-col gap-2 pb-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <ClipboardDocumentCheckIcon className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                                <span className="font-bold text-sm sm:text-base">Bulk RFI Response Status</span>
                                 <Chip size="sm" color="primary" variant="flat">
                                     {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}
                                 </Chip>
@@ -202,16 +209,16 @@ const BulkResponseStatusModal = ({
                                     />
 
                                     {/* Summary */}
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800">
                                             <CardBody className="p-3">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <CheckCircleSolid className="w-5 h-5 text-success" />
-                                                    <span className="font-semibold text-success-700 dark:text-success-400">
+                                                    <CheckCircleSolid className="w-4 h-4 sm:w-5 sm:h-5 text-success flex-shrink-0" />
+                                                    <span className="font-semibold text-xs sm:text-sm text-success-700 dark:text-success-400">
                                                         Ready to Update
                                                     </span>
                                                 </div>
-                                                <p className="text-2xl font-bold text-success-800 dark:text-success-300">
+                                                <p className="text-xl sm:text-2xl font-bold text-success-800 dark:text-success-300">
                                                     {worksWithoutObjections.length}
                                                 </p>
                                                 <p className="text-xs text-success-600 dark:text-success-500">
@@ -225,12 +232,12 @@ const BulkResponseStatusModal = ({
                                             : 'bg-default-50 dark:bg-default-900/20 border-default-200 dark:border-default-800'}`}>
                                             <CardBody className="p-3">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <ShieldExclamationIcon className={`w-5 h-5 ${worksWithObjections.length > 0 ? 'text-warning' : 'text-default-400'}`} />
-                                                    <span className={`font-semibold ${worksWithObjections.length > 0 ? 'text-warning-700 dark:text-warning-400' : 'text-default-500'}`}>
+                                                    <ShieldExclamationIcon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${worksWithObjections.length > 0 ? 'text-warning' : 'text-default-400'}`} />
+                                                    <span className={`font-semibold text-xs sm:text-sm ${worksWithObjections.length > 0 ? 'text-warning-700 dark:text-warning-400' : 'text-default-500'}`}>
                                                         With Objections
                                                     </span>
                                                 </div>
-                                                <p className={`text-2xl font-bold ${worksWithObjections.length > 0 ? 'text-warning-800 dark:text-warning-300' : 'text-default-400'}`}>
+                                                <p className={`text-xl sm:text-2xl font-bold ${worksWithObjections.length > 0 ? 'text-warning-800 dark:text-warning-300' : 'text-default-400'}`}>
                                                     {worksWithObjections.length}
                                                 </p>
                                                 <p className={`text-xs ${worksWithObjections.length > 0 ? 'text-warning-600 dark:text-warning-500' : 'text-default-400'}`}>
@@ -242,11 +249,11 @@ const BulkResponseStatusModal = ({
 
                                     {/* Objection Warning */}
                                     {worksWithObjections.length > 0 && (
-                                        <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-4">
-                                            <div className="flex items-start gap-3">
-                                                <ExclamationTriangleIcon className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
+                                        <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-3 sm:p-4">
+                                            <div className="flex items-start gap-2 sm:gap-3">
+                                                <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-warning-600 flex-shrink-0 mt-0.5" />
                                                 <div>
-                                                    <p className="font-semibold text-warning-800 dark:text-warning-300 text-sm">
+                                                    <p className="font-semibold text-warning-800 dark:text-warning-300 text-xs sm:text-sm">
                                                         {worksWithObjections.length} RFI{worksWithObjections.length !== 1 ? 's have' : ' has'} active objections
                                                     </p>
                                                     <p className="text-xs text-warning-700 dark:text-warning-400 mt-1">

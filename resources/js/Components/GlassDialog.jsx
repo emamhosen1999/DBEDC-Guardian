@@ -27,12 +27,37 @@ const GlassDialog = forwardRef(({ children, ...props }, ref) => {
     <>
     <Modal
     {...props}
-    
-    
+    placement="center"
+    scrollBehavior="inside"
+    size={props.size || "2xl"}
+    classNames={{
+      base: "max-h-[95vh] sm:max-h-[90vh]",
+      wrapper: "items-center sm:items-center",
+    }}
+    motionProps={{
+      variants: {
+        enter: {
+          y: 0,
+          opacity: 1,
+          transition: {
+            duration: 0.3,
+            ease: "easeOut",
+          },
+        },
+        exit: {
+          y: -20,
+          opacity: 0,
+          transition: {
+            duration: 0.2,
+            ease: "easeIn",
+          },
+        },
+      }
+    }}
     >
       <ModalContent
       classNames={{
-      base: "backdrop-blur"
+      base: "backdrop-blur m-2 sm:m-4 max-w-full"
     }}
         
       >

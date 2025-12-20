@@ -213,15 +213,16 @@ const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalTyp
         <GlassDialog open={open} onClose={closeModal}>
             <ModalContent>
                 <form onSubmit={handleSubmit} noValidate>
-                    <ModalHeader className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-lg font-semibold">
+                    <ModalHeader className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center pb-4">
+                        <div className="flex items-center gap-2 flex-wrap pr-8 sm:pr-0">
+                            <h2 className="text-base sm:text-lg font-semibold">
                                 {modalType === 'add' ? 'Add Daily Work' : 'Edit Daily Work'}
                             </h2>
                             {isFormValid() && (
-                                <Chip size="sm" color="success" variant="flat">
+                                <Chip size="sm" color="success" variant="flat" className="flex items-center">
                                     <CheckCircle className="w-3 h-3 mr-1" />
-                                    Ready to submit
+                                    <span className="hidden sm:inline">Ready to submit</span>
+                                    <span className="sm:hidden">Ready</span>
                                 </Chip>
                             )}
                         </div>
@@ -231,13 +232,14 @@ const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalTyp
                             onPress={closeModal}
                             className="absolute top-2 right-2"
                             aria-label="Close dialog"
+                            size="sm"
                         >
-                            <X size={20} />
+                            <X size={18} />
                         </Button>
                     </ModalHeader>
 
-                    <ModalBody>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ModalBody className="px-4 sm:px-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <Input
                                 variant="bordered"
                                 label="RFI Date"
@@ -358,12 +360,12 @@ const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalTyp
 
                         {/* Display validation summary if there are errors */}
                         {Object.keys(validationErrors).length > 0 && (
-                            <div className="mt-4 p-3 bg-danger-50 border border-danger-200 rounded-lg">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <AlertCircle className="w-4 h-4 text-danger" />
-                                    <span className="text-sm font-medium text-danger">Please fix the following errors:</span>
+                            <div className="mt-4 p-3 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-700 rounded-lg">
+                                <div className="flex items-start gap-2 mb-2">
+                                    <AlertCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+                                    <span className="text-xs sm:text-sm font-medium text-danger">Please fix the following errors:</span>
                                 </div>
-                                <ul className="text-xs text-danger-600 ml-6 list-disc">
+                                <ul className="text-xs text-danger-600 dark:text-danger-400 ml-6 list-disc space-y-1">
                                     {Object.values(validationErrors).map((error, index) => (
                                         <li key={index}>{error}</li>
                                     ))}
@@ -372,11 +374,12 @@ const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalTyp
                         )}
                     </ModalBody>
 
-                    <ModalFooter className="flex justify-end gap-2">
+                    <ModalFooter className="flex flex-col-reverse sm:flex-row justify-end gap-2 px-4 sm:px-6 py-4">
                         <Button
                             variant="light"
                             onPress={closeModal}
                             isDisabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Cancel
                         </Button>
@@ -385,7 +388,7 @@ const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalTyp
                             type="submit"
                             isLoading={processing}
                             isDisabled={!isFormValid() || processing}
-                            className="min-w-24"
+                            className="min-w-24 w-full sm:w-auto"
                         >
                             {processing 
                                 ? (modalType === 'add' ? 'Creating...' : 'Updating...') 

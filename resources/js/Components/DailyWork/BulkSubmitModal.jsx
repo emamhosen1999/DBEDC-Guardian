@@ -141,14 +141,21 @@ const BulkSubmitModal = ({
             placement="center"
             isDismissable={step !== 'loading'}
             scrollBehavior="inside"
+            classNames={{
+                base: "max-h-[95vh] sm:max-h-[90vh] m-2 sm:m-4",
+                wrapper: "items-end sm:items-center",
+                body: "px-4 sm:px-6 py-4",
+                header: "px-4 sm:px-6",
+                footer: "px-4 sm:px-6",
+            }}
         >
             <ModalContent>
                 {(onCloseModal) => (
                     <>
-                        <ModalHeader className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <DocumentArrowUpIcon className="w-6 h-6 text-primary" />
-                                <span className="font-bold">Bulk RFI Submission</span>
+                        <ModalHeader className="flex flex-col gap-2 pb-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <DocumentArrowUpIcon className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
+                                <span className="font-bold text-sm sm:text-base">Bulk RFI Submission</span>
                                 <Chip size="sm" color="primary" variant="flat">
                                     {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}
                                 </Chip>
@@ -171,16 +178,16 @@ const BulkSubmitModal = ({
                                     </div>
 
                                     {/* Summary */}
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800">
                                             <CardBody className="p-3">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <CheckCircleSolid className="w-5 h-5 text-success" />
-                                                    <span className="font-semibold text-success-700 dark:text-success-400">
+                                                    <CheckCircleSolid className="w-4 h-4 sm:w-5 sm:h-5 text-success flex-shrink-0" />
+                                                    <span className="font-semibold text-xs sm:text-sm text-success-700 dark:text-success-400">
                                                         Ready to Submit
                                                     </span>
                                                 </div>
-                                                <p className="text-2xl font-bold text-success-800 dark:text-success-300">
+                                                <p className="text-xl sm:text-2xl font-bold text-success-800 dark:text-success-300">
                                                     {worksWithoutObjections.length}
                                                 </p>
                                                 <p className="text-xs text-success-600 dark:text-success-500">
@@ -194,12 +201,12 @@ const BulkSubmitModal = ({
                                             : 'bg-default-50 dark:bg-default-900/20 border-default-200 dark:border-default-800'}`}>
                                             <CardBody className="p-3">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <ShieldExclamationIcon className={`w-5 h-5 ${worksWithObjections.length > 0 ? 'text-warning' : 'text-default-400'}`} />
-                                                    <span className={`font-semibold ${worksWithObjections.length > 0 ? 'text-warning-700 dark:text-warning-400' : 'text-default-500'}`}>
+                                                    <ShieldExclamationIcon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${worksWithObjections.length > 0 ? 'text-warning' : 'text-default-400'}`} />
+                                                    <span className={`font-semibold text-xs sm:text-sm ${worksWithObjections.length > 0 ? 'text-warning-700 dark:text-warning-400' : 'text-default-500'}`}>
                                                         With Objections
                                                     </span>
                                                 </div>
-                                                <p className={`text-2xl font-bold ${worksWithObjections.length > 0 ? 'text-warning-800 dark:text-warning-300' : 'text-default-400'}`}>
+                                                <p className={`text-xl sm:text-2xl font-bold ${worksWithObjections.length > 0 ? 'text-warning-800 dark:text-warning-300' : 'text-default-400'}`}>
                                                     {worksWithObjections.length}
                                                 </p>
                                                 <p className={`text-xs ${worksWithObjections.length > 0 ? 'text-warning-600 dark:text-warning-500' : 'text-default-400'}`}>
@@ -211,11 +218,11 @@ const BulkSubmitModal = ({
 
                                     {/* Objection Warning */}
                                     {worksWithObjections.length > 0 && (
-                                        <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-4">
-                                            <div className="flex items-start gap-3">
-                                                <ExclamationTriangleIcon className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
+                                        <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-3 sm:p-4">
+                                            <div className="flex items-start gap-2 sm:gap-3">
+                                                <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-warning-600 flex-shrink-0 mt-0.5" />
                                                 <div>
-                                                    <p className="font-semibold text-warning-800 dark:text-warning-300 text-sm">
+                                                    <p className="font-semibold text-warning-800 dark:text-warning-300 text-xs sm:text-sm">
                                                         {worksWithObjections.length} RFI{worksWithObjections.length !== 1 ? 's have' : ' has'} active objections
                                                     </p>
                                                     <p className="text-xs text-warning-700 dark:text-warning-400 mt-1">
@@ -228,23 +235,23 @@ const BulkSubmitModal = ({
 
                                     {/* Selected RFIs List */}
                                     <div>
-                                        <p className="text-sm font-medium mb-2">Selected RFIs:</p>
+                                        <p className="text-xs sm:text-sm font-medium mb-2">Selected RFIs:</p>
                                         <ScrollShadow className="max-h-48">
                                             <div className="space-y-2">
                                                 {selectedWorks.map((work) => (
                                                     <div 
                                                         key={work.id} 
-                                                        className={`flex items-center justify-between p-2 rounded-lg text-sm border ${
+                                                        className={`flex items-center justify-between p-2 rounded-lg text-xs sm:text-sm border ${
                                                             (work.active_objections_count || 0) > 0
                                                                 ? 'bg-warning-50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-700'
                                                                 : 'bg-default-50 dark:bg-default-900/10 border-default-200 dark:border-default-700'
                                                         }`}
                                                     >
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                            <DocumentTextIcon className="w-4 h-4 text-default-500 flex-shrink-0" />
+                                                            <DocumentTextIcon className="w-3 h-3 sm:w-4 sm:h-4 text-default-500 flex-shrink-0" />
                                                             <span className="font-medium truncate">{work.number}</span>
                                                             {work.location && (
-                                                                <span className="text-xs text-default-400 flex items-center gap-1">
+                                                                <span className="text-xs text-default-400 flex items-center gap-1 hidden sm:flex">
                                                                     <MapPinIcon className="w-3 h-3" />
                                                                     {work.location}
                                                                 </span>
@@ -320,15 +327,15 @@ const BulkSubmitModal = ({
                                     </div>
 
                                     {/* Action Buttons */}
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <Card 
                                             isPressable 
                                             onPress={handleSkipObjected}
                                             className="border-2 border-default-200 hover:border-primary transition-colors"
                                         >
-                                            <CardBody className="p-4 text-center">
-                                                <CheckCircleIcon className="w-8 h-8 text-success mx-auto mb-2" />
-                                                <p className="font-semibold">Skip Objected RFIs</p>
+                                            <CardBody className="p-3 sm:p-4 text-center">
+                                                <CheckCircleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-success mx-auto mb-2" />
+                                                <p className="font-semibold text-sm sm:text-base">Skip Objected RFIs</p>
                                                 <p className="text-xs text-default-500 mt-1">
                                                     Submit only {cleanWorks.length} RFI{cleanWorks.length !== 1 ? 's' : ''} without objections
                                                 </p>
@@ -341,9 +348,9 @@ const BulkSubmitModal = ({
                                             isDisabled={!overrideReason.trim()}
                                             className={`border-2 transition-colors ${overrideReason.trim() ? 'border-warning-200 hover:border-warning' : 'border-default-200 opacity-60'}`}
                                         >
-                                            <CardBody className="p-4 text-center">
-                                                <ExclamationTriangleIcon className="w-8 h-8 text-warning mx-auto mb-2" />
-                                                <p className="font-semibold">Override & Submit All</p>
+                                            <CardBody className="p-3 sm:p-4 text-center">
+                                                <ExclamationTriangleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-warning mx-auto mb-2" />
+                                                <p className="font-semibold text-sm sm:text-base">Override & Submit All</p>
                                                 <p className="text-xs text-default-500 mt-1">
                                                     Submit all {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''} including objected
                                                 </p>
@@ -358,31 +365,31 @@ const BulkSubmitModal = ({
                                 <div className="space-y-4">
                                     {/* Success Summary */}
                                     <div className="text-center py-4">
-                                        <CheckCircleSolid className="w-16 h-16 text-success mx-auto mb-3" />
-                                        <h3 className="text-xl font-bold text-success-700 dark:text-success-400">
+                                        <CheckCircleSolid className="w-12 h-12 sm:w-16 sm:h-16 text-success mx-auto mb-3" />
+                                        <h3 className="text-lg sm:text-xl font-bold text-success-700 dark:text-success-400">
                                             Bulk Submission Complete
                                         </h3>
-                                        <p className="text-default-500 mt-1">{result.message}</p>
+                                        <p className="text-xs sm:text-sm text-default-500 mt-1">{result.message}</p>
                                     </div>
 
                                     {/* Results Grid */}
-                                    <div className="grid grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                         <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200">
-                                            <CardBody className="p-3 text-center">
-                                                <p className="text-2xl font-bold text-success">{result.submitted_count}</p>
-                                                <p className="text-xs text-success-600">Submitted</p>
+                                            <CardBody className="p-2 sm:p-3 text-center">
+                                                <p className="text-xl sm:text-2xl font-bold text-success">{result.submitted_count}</p>
+                                                <p className="text-[10px] sm:text-xs text-success-600">Submitted</p>
                                             </CardBody>
                                         </Card>
                                         <Card className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200">
-                                            <CardBody className="p-3 text-center">
-                                                <p className="text-2xl font-bold text-warning">{result.skipped_count}</p>
-                                                <p className="text-xs text-warning-600">Skipped</p>
+                                            <CardBody className="p-2 sm:p-3 text-center">
+                                                <p className="text-xl sm:text-2xl font-bold text-warning">{result.skipped_count}</p>
+                                                <p className="text-[10px] sm:text-xs text-warning-600">Skipped</p>
                                             </CardBody>
                                         </Card>
                                         <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200">
-                                            <CardBody className="p-3 text-center">
-                                                <p className="text-2xl font-bold text-danger">{result.failed_count}</p>
-                                                <p className="text-xs text-danger-600">Failed</p>
+                                            <CardBody className="p-2 sm:p-3 text-center">
+                                                <p className="text-xl sm:text-2xl font-bold text-danger">{result.failed_count}</p>
+                                                <p className="text-[10px] sm:text-xs text-danger-600">Failed</p>
                                             </CardBody>
                                         </Card>
                                     </div>
@@ -390,7 +397,7 @@ const BulkSubmitModal = ({
                                     {/* Submitted List */}
                                     {result.submitted?.length > 0 && (
                                         <div>
-                                            <p className="text-sm font-medium mb-2 text-success-700 flex items-center gap-1">
+                                            <p className="text-xs sm:text-sm font-medium mb-2 text-success-700 flex items-center gap-1">
                                                 <CheckCircleSolid className="w-4 h-4" />
                                                 Submitted Successfully ({result.submitted.length})
                                             </p>
@@ -447,10 +454,10 @@ const BulkSubmitModal = ({
                             )}
                         </ModalBody>
 
-                        <ModalFooter>
+                        <ModalFooter className="flex flex-col-reverse sm:flex-row gap-2 py-3 sm:py-4">
                             {step === 'confirm' && (
                                 <>
-                                    <Button variant="light" onPress={handleClose}>
+                                    <Button variant="light" onPress={handleClose} className="w-full sm:w-auto">
                                         Cancel
                                     </Button>
                                     <Button 
@@ -458,20 +465,22 @@ const BulkSubmitModal = ({
                                         onPress={() => handleSubmit(false, false)}
                                         isLoading={loading}
                                         startContent={!loading && <DocumentArrowUpIcon className="w-4 h-4" />}
+                                        className="w-full sm:w-auto"
                                     >
-                                        Submit {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}
+                                        <span className="hidden sm:inline">Submit {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}</span>
+                                        <span className="sm:hidden">Submit ({selectedWorks.length})</span>
                                     </Button>
                                 </>
                             )}
 
                             {step === 'objection-decision' && (
-                                <Button variant="light" onPress={() => setStep('confirm')}>
+                                <Button variant="light" onPress={() => setStep('confirm')} className="w-full sm:w-auto">
                                     Back
                                 </Button>
                             )}
 
                             {step === 'result' && (
-                                <Button color="primary" onPress={handleClose}>
+                                <Button color="primary" onPress={handleClose} className="w-full sm:w-auto">
                                     Done
                                 </Button>
                             )}
