@@ -1090,6 +1090,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onCreateClose}
                 size="lg"
                 scrollBehavior="inside"
+                placement="bottom-center"
+                classNames={{
+                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                    wrapper: "items-end sm:items-center",
+                }}
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1246,6 +1251,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onAttachClose}
                 size="3xl"
                 scrollBehavior="inside"
+                placement="bottom-center"
+                classNames={{
+                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                    wrapper: "items-end sm:items-center",
+                }}
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1462,6 +1472,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onEditClose}
                 size="2xl"
                 scrollBehavior="inside"
+                placement="bottom-center"
+                classNames={{
+                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                    wrapper: "items-end sm:items-center",
+                }}
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1541,6 +1556,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 isOpen={isStatusOpen}
                 onClose={onStatusClose}
                 size="lg"
+                placement="bottom-center"
+                classNames={{
+                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                    wrapper: "items-end sm:items-center",
+                }}
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1609,6 +1629,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onHistoryClose}
                 size="2xl"
                 scrollBehavior="inside"
+                placement="bottom-center"
+                classNames={{
+                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                    wrapper: "items-end sm:items-center",
+                }}
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
