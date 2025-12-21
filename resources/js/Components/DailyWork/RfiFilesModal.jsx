@@ -224,7 +224,11 @@ const RfiFilesModal = ({
                 onClose={onClose}
                 size="2xl"
                 scrollBehavior="inside"
-                placement="center"
+                placement="bottom-center"
+                classNames={{
+                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                    wrapper: "items-end sm:items-center",
+                }}
             >
                 <ModalContent>
                     {(onCloseModal) => (
@@ -381,7 +385,11 @@ const RfiFilesModal = ({
                     isOpen={!!previewFile}
                     onClose={() => setPreviewFile(null)}
                     size="4xl"
-                    placement="center"
+                    placement="bottom-center"
+                    classNames={{
+                        base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                        wrapper: "items-end sm:items-center",
+                    }}
                 >
                     <ModalContent>
                         {(onClosePreview) => (

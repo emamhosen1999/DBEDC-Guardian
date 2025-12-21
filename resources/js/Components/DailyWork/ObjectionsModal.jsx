@@ -391,14 +391,14 @@ const ObjectionsModal = ({
             onClose={handleClose}
             size="3xl"
             scrollBehavior="inside"
-            placement="top"
+            placement="bottom-center"
             radius={getThemeRadius()}
             shouldBlockScroll={false}
             hideCloseButton={false}
             classNames={{
-                base: "max-h-[95vh] sm:max-h-[90vh] m-2 sm:m-4",
-                wrapper: "items-start sm:items-center",
-                body: "px-4 sm:px-6",
+                base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                wrapper: "items-end sm:items-center",
+                body: "px-4 sm:px-6 overflow-y-auto",
                 header: "px-4 sm:px-6",
                 footer: "px-4 sm:px-6",
             }}

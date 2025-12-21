@@ -151,11 +151,11 @@ const BulkResponseStatusModal = ({
             isOpen={isOpen}
             onClose={handleClose}
             size="2xl"
-            placement="center"
+            placement="bottom-center"
             isDismissable={step !== 'loading'}
             scrollBehavior="inside"
             classNames={{
-                base: "max-h-[95vh] sm:max-h-[90vh] m-2 sm:m-4",
+                base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
                 wrapper: "items-end sm:items-center",
                 body: "px-4 sm:px-6 py-4",
                 header: "px-4 sm:px-6",
