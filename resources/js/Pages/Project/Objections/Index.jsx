@@ -1090,6 +1090,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onCreateClose}
                 size="lg"
                 scrollBehavior="inside"
+                placement="top"
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1246,6 +1247,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onAttachClose}
                 size="3xl"
                 scrollBehavior="inside"
+                placement="top"
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1462,6 +1464,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onEditClose}
                 size="2xl"
                 scrollBehavior="inside"
+                placement="top"
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1541,6 +1544,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 isOpen={isStatusOpen}
                 onClose={onStatusClose}
                 size="lg"
+                placement="top"
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
@@ -1609,6 +1613,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 onClose={onHistoryClose}
                 size="2xl"
                 scrollBehavior="inside"
+                placement="top"
             >
                 <ModalContent>
                     <ModalHeader className="flex items-center gap-2">
