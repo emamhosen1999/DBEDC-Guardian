@@ -394,10 +394,22 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
             formData.append('description', createForm.description);
             formData.append('reason', createForm.reason);
             formData.append('status', createForm.status);
-            if (createForm.chainage_from) {
+            
+            // Add chainage fields - use new fields if provided, otherwise fall back to legacy
+            if (createForm.specific_chainages) {
+                formData.append('specific_chainages', createForm.specific_chainages);
+            }
+            if (createForm.chainage_range_from) {
+                formData.append('chainage_range_from', createForm.chainage_range_from);
+            }
+            if (createForm.chainage_range_to) {
+                formData.append('chainage_range_to', createForm.chainage_range_to);
+            }
+            // Legacy support: if new fields not used, send legacy fields
+            if (!createForm.specific_chainages && !createForm.chainage_range_from && createForm.chainage_from) {
                 formData.append('chainage_from', createForm.chainage_from);
             }
-            if (createForm.chainage_to) {
+            if (!createForm.specific_chainages && !createForm.chainage_range_to && createForm.chainage_to) {
                 formData.append('chainage_to', createForm.chainage_to);
             }
             
@@ -491,11 +503,23 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     // Open edit modal
     const openEditModal = (objection) => {
         setEditObjection(objection);
+        
+        // Extract specific chainages and range from objection data
+        // The backend should load chainages relationship with chainage_summary
+        const chainageSummary = objection.chainage_summary || {};
+        const specificChainages = chainageSummary.specific_chainages || [];
+        const chainageRange = chainageSummary.chainage_range || {};
+        
         setEditForm({
             title: objection.title || '',
             category: objection.category || 'other',
-            chainage_from: objection.chainage_from || '',
-            chainage_to: objection.chainage_to || '',
+            // Legacy fields (keep for backward compatibility)
+            chainage_from: objection.chainage_from || chainageRange.from || '',
+            chainage_to: objection.chainage_to || chainageRange.to || '',
+            // New fields
+            specific_chainages: specificChainages.join(', ') || '',
+            chainage_range_from: chainageRange.from || objection.chainage_from || '',
+            chainage_range_to: chainageRange.to || objection.chainage_to || '',
             description: objection.description || '',
             reason: objection.reason || '',
         });
@@ -1133,19 +1157,37 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 ))}
                             </Select>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            {/* Chainage Section - Supports both specific chainages and ranges */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-default-700">
+                                    Chainages (Optional)
+                                </label>
+                                <p className="text-xs text-default-400 mb-2">
+                                    Add specific chainages (comma-separated) and/or a range
+                                </p>
+                                
                                 <Input
-                                    label="Chainage From"
-                                    placeholder="e.g., K23+500"
-                                    value={createForm.chainage_from}
-                                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, chainage_from: value }))}
+                                    label="Specific Chainages"
+                                    placeholder="e.g., K35+897, K36+987, K37+123"
+                                    description="Multiple chainages separated by commas"
+                                    value={createForm.specific_chainages}
+                                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, specific_chainages: value }))}
                                 />
-                                <Input
-                                    label="Chainage To"
-                                    placeholder="e.g., K24+600"
-                                    value={createForm.chainage_to}
-                                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, chainage_to: value }))}
-                                />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Input
+                                        label="Range From"
+                                        placeholder="e.g., K36+580"
+                                        value={createForm.chainage_range_from}
+                                        onValueChange={(value) => setCreateForm(prev => ({ ...prev, chainage_range_from: value }))}
+                                    />
+                                    <Input
+                                        label="Range To"
+                                        placeholder="e.g., K37+540"
+                                        value={createForm.chainage_range_to}
+                                        onValueChange={(value) => setCreateForm(prev => ({ ...prev, chainage_range_to: value }))}
+                                    />
+                                </div>
                             </div>
 
                             <Textarea
@@ -1513,20 +1555,40 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     </SelectItem>
                                 ))}
                             </Select>
-                            <div className="grid grid-cols-2 gap-4">
+                            
+                            {/* Chainage Section - Supports both specific chainages and ranges */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-default-700">
+                                    Chainages (Optional)
+                                </label>
+                                <p className="text-xs text-default-400 mb-2">
+                                    Add specific chainages (comma-separated) and/or a range
+                                </p>
+                                
                                 <Input
-                                    label="Chainage From"
-                                    placeholder="e.g., K23+500"
-                                    value={editForm.chainage_from}
-                                    onChange={(e) => setEditForm(prev => ({ ...prev, chainage_from: e.target.value }))}
+                                    label="Specific Chainages"
+                                    placeholder="e.g., K35+897, K36+987, K37+123"
+                                    description="Multiple chainages separated by commas"
+                                    value={editForm.specific_chainages}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, specific_chainages: e.target.value }))}
                                 />
-                                <Input
-                                    label="Chainage To"
-                                    placeholder="e.g., K24+600"
-                                    value={editForm.chainage_to}
-                                    onChange={(e) => setEditForm(prev => ({ ...prev, chainage_to: e.target.value }))}
-                                />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input
+                                        label="Range From"
+                                        placeholder="e.g., K36+580"
+                                        value={editForm.chainage_range_from}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, chainage_range_from: e.target.value }))}
+                                    />
+                                    <Input
+                                        label="Range To"
+                                        placeholder="e.g., K37+540"
+                                        value={editForm.chainage_range_to}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, chainage_range_to: e.target.value }))}
+                                    />
+                                </div>
                             </div>
+                            
                             <Textarea
                                 label="Description"
                                 placeholder="Describe the objection in detail"

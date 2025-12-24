@@ -44,6 +44,7 @@ class ObjectionController extends Controller
                 'resolvedBy:id,name,email',
                 'dailyWorks:id,number,location',
                 'statusLogs.changedBy:id,name',
+                'chainages', // Load chainages for proper display
             ])
             ->withCount('dailyWorks');
 

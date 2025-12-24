@@ -138,7 +138,7 @@ class RfiObjection extends Model implements HasMedia
     /**
      * Attributes to append to JSON serialization
      */
-    protected $appends = ['files_count', 'is_active', 'category_label', 'status_label', 'affected_rfis_count'];
+    protected $appends = ['files_count', 'is_active', 'category_label', 'status_label', 'affected_rfis_count', 'chainage_summary'];
 
     /**
      * Register media collections for objection files.
