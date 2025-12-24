@@ -6,6 +6,7 @@ use App\Models\DailyWork;
 use App\Models\RfiObjection;
 use App\Models\User;
 use App\Notifications\RfiObjectionNotification;
+use App\Traits\ChainageMatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class ObjectionController extends Controller
 {
+    use ChainageMatcher;
+
     /**
      * Get statistics for objections.
      */
@@ -111,8 +114,13 @@ class ObjectionController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'category' => 'nullable|string|in:'.implode(',', RfiObjection::$categories),
+            // Legacy fields (kept for backward compatibility, will be migrated to chainages table)
             'chainage_from' => 'nullable|string|max:50',
             'chainage_to' => 'nullable|string|max:50',
+            // New fields for multiple chainages
+            'specific_chainages' => 'nullable|string|max:500', // Comma-separated: K35+897, K36+987
+            'chainage_range_from' => 'nullable|string|max:50', // Range start: K36+580
+            'chainage_range_to' => 'nullable|string|max:50',   // Range end: K37+540
             'description' => 'required|string|max:5000',
             'reason' => 'required|string|max:5000',
             'status' => 'nullable|string|in:draft,submitted',
@@ -124,16 +132,24 @@ class ObjectionController extends Controller
         try {
             DB::beginTransaction();
 
+            // Use legacy fields if new fields not provided (backward compatibility)
+            $chainageFrom = $validated['chainage_range_from'] ?? $validated['chainage_from'] ?? null;
+            $chainageTo = $validated['chainage_range_to'] ?? $validated['chainage_to'] ?? null;
+
             $objection = RfiObjection::create([
                 'title' => $validated['title'],
                 'category' => $validated['category'] ?? RfiObjection::CATEGORY_OTHER,
-                'chainage_from' => $validated['chainage_from'] ?? null,
-                'chainage_to' => $validated['chainage_to'] ?? null,
+                'chainage_from' => $chainageFrom,
+                'chainage_to' => $chainageTo,
                 'description' => $validated['description'],
                 'reason' => $validated['reason'],
                 'status' => $validated['status'] ?? RfiObjection::STATUS_DRAFT,
                 'created_by' => auth()->id(),
             ]);
+
+            // Sync chainages to the new table
+            $specificChainages = $validated['specific_chainages'] ?? null;
+            $objection->syncChainages($specificChainages, $chainageFrom, $chainageTo);
 
             // Log initial status
             $objection->statusLogs()->create([
@@ -188,18 +204,43 @@ class ObjectionController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'category' => 'nullable|string|in:'.implode(',', RfiObjection::$categories),
+            // Legacy fields (kept for backward compatibility)
             'chainage_from' => 'nullable|string|max:50',
             'chainage_to' => 'nullable|string|max:50',
+            // New fields for multiple chainages
+            'specific_chainages' => 'nullable|string|max:500', // Comma-separated: K35+897, K36+987
+            'chainage_range_from' => 'nullable|string|max:50', // Range start: K36+580
+            'chainage_range_to' => 'nullable|string|max:50',   // Range end: K37+540
             'description' => 'sometimes|required|string|max:5000',
             'reason' => 'sometimes|required|string|max:5000',
         ]);
 
         try {
-            $objection->update($validated);
+            // Use new fields if provided, otherwise fall back to legacy
+            $chainageFrom = $validated['chainage_range_from'] ?? $validated['chainage_from'] ?? $objection->chainage_from;
+            $chainageTo = $validated['chainage_range_to'] ?? $validated['chainage_to'] ?? $objection->chainage_to;
+
+            // Update the model (use legacy fields for backward compatibility)
+            $updateData = array_filter([
+                'title' => $validated['title'] ?? null,
+                'category' => $validated['category'] ?? null,
+                'chainage_from' => $chainageFrom,
+                'chainage_to' => $chainageTo,
+                'description' => $validated['description'] ?? null,
+                'reason' => $validated['reason'] ?? null,
+            ], fn ($value) => $value !== null);
+
+            $objection->update($updateData);
+
+            // Sync chainages to the new table if any chainage fields were provided
+            if (isset($validated['specific_chainages']) || isset($validated['chainage_range_from']) || isset($validated['chainage_from'])) {
+                $specificChainages = $validated['specific_chainages'] ?? null;
+                $objection->syncChainages($specificChainages, $chainageFrom, $chainageTo);
+            }
 
             return response()->json([
                 'message' => 'Objection updated successfully.',
-                'objection' => $objection->fresh(['createdBy:id,name', 'dailyWorks:id,number']),
+                'objection' => $objection->fresh(['createdBy:id,name', 'dailyWorks:id,number', 'chainages']),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -271,37 +312,36 @@ class ObjectionController extends Controller
     }
 
     /**
-     * Suggest RFIs based on chainage range using jurisdiction matching.
-     * Uses the same logic as daily works location/jurisdiction filtering.
+     * Suggest RFIs based on chainage matching.
+     * Supports:
+     * - Multiple specific chainages (comma-separated in chainage_from)
+     * - Range chainages (chainage_from to chainage_to)
+     * - Search by number/location/description
      */
     public function suggestRfis(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'chainage_from' => 'nullable|string|max:50',
+            'chainage_from' => 'nullable|string|max:500', // Allow longer for multiple chainages
             'chainage_to' => 'nullable|string|max:50',
             'search' => 'nullable|string|max:255',
         ]);
 
         try {
-            $query = DailyWork::query()
-                ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
-                ->with('inchargeUser:id,name');
-
             $chainageFrom = $validated['chainage_from'] ?? null;
             $chainageTo = $validated['chainage_to'] ?? null;
             $search = $validated['search'] ?? null;
 
             // If search term provided, search by number, location, or description
-            // This takes priority - return search results without chainage filtering
             if (! empty($search)) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('number', 'like', "%{$search}%")
-                        ->orWhere('location', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%");
-                });
-
-                // When searching, don't apply chainage filter - return all matching results
-                $rfis = $query->orderBy('location')
+                $rfis = DailyWork::query()
+                    ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
+                    ->with('inchargeUser:id,name')
+                    ->where(function ($q) use ($search) {
+                        $q->where('number', 'like', "%{$search}%")
+                            ->orWhere('location', 'like', "%{$search}%")
+                            ->orWhere('description', 'like', "%{$search}%");
+                    })
+                    ->orderBy('location')
                     ->orderBy('date', 'desc')
                     ->limit(100)
                     ->get();
@@ -310,49 +350,77 @@ class ObjectionController extends Controller
                     'rfis' => $rfis,
                     'count' => $rfis->count(),
                     'total_found' => $rfis->count(),
+                    'match_type' => 'search',
                 ]);
             }
 
-            // If chainage range provided (no search), use jurisdiction matching
-            if (! empty($chainageFrom) && ! empty($chainageTo)) {
-                $fromMeters = $this->parseChainageToMeters($chainageFrom);
-                $toMeters = $this->parseChainageToMeters($chainageTo);
+            // Parse chainages
+            $specificMeters = [];
+            $rangeStart = null;
+            $rangeEnd = null;
 
-                if ($fromMeters !== null && $toMeters !== null) {
-                    // Get all RFIs with location and filter by chainage range
-                    $rfis = DailyWork::query()
-                        ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
-                        ->with('inchargeUser:id,name')
-                        ->whereNotNull('location')
-                        ->where('location', '!=', '')
-                        ->orderBy('location')
-                        ->orderBy('date', 'desc')
-                        ->limit(500)
-                        ->get()
-                        ->filter(function ($rfi) use ($fromMeters, $toMeters) {
-                            $rfiLocation = $this->parseChainageToMeters($rfi->location);
-                            if ($rfiLocation === null) {
-                                return false;
-                            }
+            // Check if it's multiple specific chainages (comma-separated) or a range
+            if (! empty($chainageFrom)) {
+                if (! empty($chainageTo)) {
+                    // Range mode: chainage_from to chainage_to
+                    $rangeStart = $this->parseChainageToMeters($chainageFrom);
+                    $rangeEnd = $this->parseChainageToMeters($chainageTo);
 
-                            return $rfiLocation >= $fromMeters && $rfiLocation <= $toMeters;
-                        })
-                        ->take(100)
-                        ->values();
-
-                    return response()->json([
-                        'rfis' => $rfis,
-                        'count' => $rfis->count(),
-                        'total_found' => $rfis->count(),
-                    ]);
+                    // Ensure proper order
+                    if ($rangeStart !== null && $rangeEnd !== null && $rangeStart > $rangeEnd) {
+                        $temp = $rangeStart;
+                        $rangeStart = $rangeEnd;
+                        $rangeEnd = $temp;
+                    }
+                } else {
+                    // Specific chainages mode (could be comma-separated)
+                    $specificMeters = $this->parseMultipleChainages($chainageFrom);
                 }
             }
 
-            // No search and no chainage - return empty (user should search or have chainage set)
+            // If no valid chainages, return empty
+            if (empty($specificMeters) && ($rangeStart === null || $rangeEnd === null)) {
+                return response()->json([
+                    'rfis' => [],
+                    'count' => 0,
+                    'total_found' => 0,
+                    'match_type' => 'none',
+                    'message' => 'No valid chainages provided',
+                ]);
+            }
+
+            // Get all RFIs with location and filter by chainage matching
+            $allRfis = DailyWork::query()
+                ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
+                ->with('inchargeUser:id,name')
+                ->whereNotNull('location')
+                ->where('location', '!=', '')
+                ->orderBy('location')
+                ->orderBy('date', 'desc')
+                ->limit(500)
+                ->get();
+
+            $matchedRfis = $allRfis->filter(function ($rfi) use ($specificMeters, $rangeStart, $rangeEnd) {
+                return $this->doesObjectionMatchRfi(
+                    $specificMeters,
+                    $rangeStart,
+                    $rangeEnd,
+                    $rfi->location
+                );
+            })->take(100)->values();
+
+            $matchType = ! empty($specificMeters) ? 'specific' : 'range';
+
             return response()->json([
-                'rfis' => [],
-                'count' => 0,
-                'total_found' => 0,
+                'rfis' => $matchedRfis,
+                'count' => $matchedRfis->count(),
+                'total_found' => $matchedRfis->count(),
+                'match_type' => $matchType,
+                'parsed_chainages' => [
+                    'specific' => $specificMeters,
+                    'range_start' => $rangeStart,
+                    'range_end' => $rangeEnd,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -363,10 +431,10 @@ class ObjectionController extends Controller
     }
 
     /**
-     * Parse chainage string to meters for comparison.
-     * Formats: K23+500, 23+500, KM23+500, K 23+500, etc.
+     * @deprecated Use ChainageMatcher trait instead
+     * Kept for backward compatibility
      */
-    protected function parseChainageToMeters(?string $chainage): ?float
+    protected function parseChainageToMetersLegacy(?string $chainage): ?float
     {
         if (empty($chainage)) {
             return null;

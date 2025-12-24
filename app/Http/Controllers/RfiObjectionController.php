@@ -435,7 +435,8 @@ class RfiObjectionController extends Controller
 
     /**
      * Get available objections that can be attached to this RFI.
-     * This returns objections not already attached to this daily work.
+     * This returns objections not already attached to this daily work,
+     * filtered by chainage matching with the RFI's location.
      */
     public function available(DailyWork $dailyWork): JsonResponse
     {
@@ -444,34 +445,71 @@ class RfiObjectionController extends Controller
         // Get IDs of objections already attached to this daily work
         $attachedIds = $dailyWork->objections()->pluck('rfi_objections.id')->toArray();
 
-        // Get all objections not already attached, excluding resolved/rejected ones for clarity
-        $availableObjections = RfiObjection::query()
+        // Get all objections not already attached, excluding resolved/rejected ones
+        $query = RfiObjection::query()
             ->whereNotIn('id', $attachedIds)
             ->whereIn('status', [RfiObjection::STATUS_DRAFT, RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])
-            ->with(['createdBy:id,name,email'])
+            ->with(['createdBy:id,name,email', 'chainages'])
             ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get()
-            ->map(function ($objection) {
-                return [
-                    'id' => $objection->id,
-                    'title' => $objection->title,
-                    'category' => $objection->category,
-                    'category_label' => $objection->category_label,
-                    'chainage_from' => $objection->chainage_from,
-                    'chainage_to' => $objection->chainage_to,
-                    'description' => $objection->description,
-                    'reason' => $objection->reason,
-                    'status' => $objection->status,
-                    'status_label' => $objection->status_label,
-                    'created_by' => $objection->createdBy,
-                    'created_at' => $objection->created_at,
-                ];
-            });
+            ->limit(200); // Fetch more to filter
+
+        $objections = $query->get();
+
+        // Filter by chainage matching if the RFI has a location
+        $rfiLocation = $dailyWork->location;
+        $matchedObjections = collect();
+        $unmatchedObjections = collect();
+
+        foreach ($objections as $objection) {
+            // Check if objection has chainages defined
+            $hasChainages = $objection->chainages->isNotEmpty()
+                || ! empty($objection->chainage_from);
+
+            if (! $hasChainages) {
+                // No chainages - include but mark as unmatched
+                $unmatchedObjections->push($objection);
+
+                continue;
+            }
+
+            // Check if objection matches the RFI location
+            if (! empty($rfiLocation) && $objection->matchesRfiLocation($rfiLocation)) {
+                $matchedObjections->push($objection);
+            } else {
+                $unmatchedObjections->push($objection);
+            }
+        }
+
+        // Prioritize matched objections, then include unmatched ones
+        $sortedObjections = $matchedObjections->merge($unmatchedObjections)->take(50);
+
+        $availableObjections = $sortedObjections->map(function ($objection) use ($matchedObjections) {
+            $chainageSummary = $objection->getChainageSummary();
+
+            return [
+                'id' => $objection->id,
+                'title' => $objection->title,
+                'category' => $objection->category,
+                'category_label' => $objection->category_label,
+                'chainage_from' => $objection->chainage_from,
+                'chainage_to' => $objection->chainage_to,
+                'specific_chainages' => $chainageSummary['specific'],
+                'chainage_range' => $chainageSummary['range'],
+                'description' => $objection->description,
+                'reason' => $objection->reason,
+                'status' => $objection->status,
+                'status_label' => $objection->status_label,
+                'created_by' => $objection->createdBy,
+                'created_at' => $objection->created_at,
+                'is_chainage_match' => $matchedObjections->contains('id', $objection->id),
+            ];
+        });
 
         return response()->json([
             'objections' => $availableObjections,
             'count' => $availableObjections->count(),
+            'matched_count' => $matchedObjections->count(),
+            'rfi_location' => $rfiLocation,
         ]);
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\ChainageMatcher;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class RfiObjection extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia, SoftDeletes;
+    use ChainageMatcher, HasFactory, InteractsWithMedia, SoftDeletes;
 
     /**
      * Status constants for objection workflow
@@ -227,6 +228,32 @@ class RfiObjection extends Model implements HasMedia
         return $this->hasMany(RfiObjectionStatusLog::class)->orderBy('changed_at', 'desc');
     }
 
+    /**
+     * Get all chainages for this objection.
+     */
+    public function chainages(): HasMany
+    {
+        return $this->hasMany(ObjectionChainage::class, 'objection_id');
+    }
+
+    /**
+     * Get specific chainages only.
+     */
+    public function specificChainages(): HasMany
+    {
+        return $this->hasMany(ObjectionChainage::class, 'objection_id')
+            ->where('entry_type', ObjectionChainage::TYPE_SPECIFIC);
+    }
+
+    /**
+     * Get range chainages only.
+     */
+    public function rangeChainages(): HasMany
+    {
+        return $this->hasMany(ObjectionChainage::class, 'objection_id')
+            ->whereIn('entry_type', [ObjectionChainage::TYPE_RANGE_START, ObjectionChainage::TYPE_RANGE_END]);
+    }
+
     // ==================== Accessors ====================
 
     /**
@@ -402,6 +429,160 @@ class RfiObjection extends Model implements HasMedia
         return $this->transitionTo(self::STATUS_REJECTED, $rejectionReason);
     }
 
+    // ==================== Chainage Management Methods ====================
+
+    /**
+     * Sync all chainages for this objection.
+     * Replaces all existing chainages with the provided data.
+     *
+     * @param  array<string>  $specificChainages  Array of specific chainage strings
+     * @param  string|null  $rangeFrom  Range start chainage
+     * @param  string|null  $rangeTo  Range end chainage
+     * @return array Summary of created entries
+     */
+    public function syncChainages(array $specificChainages = [], ?string $rangeFrom = null, ?string $rangeTo = null): array
+    {
+        // Delete existing chainages
+        $this->chainages()->delete();
+
+        $created = [
+            'specific' => [],
+            'range' => null,
+        ];
+
+        // Create specific chainages
+        foreach ($specificChainages as $chainage) {
+            $chainage = trim($chainage);
+            if (empty($chainage)) {
+                continue;
+            }
+
+            $entry = ObjectionChainage::createFromString($this->id, $chainage, ObjectionChainage::TYPE_SPECIFIC);
+            if ($entry) {
+                $created['specific'][] = $entry;
+            }
+        }
+
+        // Create range if both endpoints provided
+        if (! empty($rangeFrom) && ! empty($rangeTo)) {
+            $created['range'] = ObjectionChainage::createRange($this->id, $rangeFrom, $rangeTo);
+        }
+
+        return $created;
+    }
+
+    /**
+     * Add specific chainages from a comma-separated string.
+     *
+     * @param  string  $chainages  Comma-separated chainages (e.g., "K35+897, K36+987")
+     * @return array<ObjectionChainage> Created entries
+     */
+    public function addSpecificChainages(string $chainages): array
+    {
+        return ObjectionChainage::createMultipleSpecific($this->id, $chainages);
+    }
+
+    /**
+     * Set range chainages for this objection.
+     *
+     * @param  string  $from  Range start
+     * @param  string  $to  Range end
+     * @return array{start: ObjectionChainage|null, end: ObjectionChainage|null}
+     */
+    public function setRangeChainages(string $from, string $to): array
+    {
+        // Remove existing range entries
+        $this->chainages()->whereIn('entry_type', [
+            ObjectionChainage::TYPE_RANGE_START,
+            ObjectionChainage::TYPE_RANGE_END,
+        ])->delete();
+
+        return ObjectionChainage::createRange($this->id, $from, $to);
+    }
+
+    /**
+     * Get all specific chainage meters for matching.
+     *
+     * @return array<int>
+     */
+    public function getSpecificChainageMeters(): array
+    {
+        return $this->chainages()
+            ->where('entry_type', ObjectionChainage::TYPE_SPECIFIC)
+            ->pluck('chainage_meters')
+            ->toArray();
+    }
+
+    /**
+     * Get range start and end meters.
+     *
+     * @return array{start: int|null, end: int|null}
+     */
+    public function getRangeMeters(): array
+    {
+        $rangeEntries = $this->chainages()
+            ->whereIn('entry_type', [ObjectionChainage::TYPE_RANGE_START, ObjectionChainage::TYPE_RANGE_END])
+            ->get();
+
+        return [
+            'start' => $rangeEntries->firstWhere('entry_type', ObjectionChainage::TYPE_RANGE_START)?->chainage_meters,
+            'end' => $rangeEntries->firstWhere('entry_type', ObjectionChainage::TYPE_RANGE_END)?->chainage_meters,
+        ];
+    }
+
+    /**
+     * Check if this objection's chainages match a given RFI location.
+     *
+     * @param  string|null  $rfiLocation  The RFI's location string
+     * @return bool True if there's any chainage match
+     */
+    public function matchesRfiLocation(?string $rfiLocation): bool
+    {
+        if (empty($rfiLocation)) {
+            return false;
+        }
+
+        $specificMeters = $this->getSpecificChainageMeters();
+        $range = $this->getRangeMeters();
+
+        return $this->doesObjectionMatchRfi(
+            $specificMeters,
+            $range['start'],
+            $range['end'],
+            $rfiLocation
+        );
+    }
+
+    /**
+     * Get a formatted summary of chainages for display.
+     *
+     * @return array{specific: array<string>, range: string|null}
+     */
+    public function getChainageSummary(): array
+    {
+        $specific = $this->chainages()
+            ->where('entry_type', ObjectionChainage::TYPE_SPECIFIC)
+            ->pluck('chainage')
+            ->toArray();
+
+        $rangeStart = $this->chainages()
+            ->where('entry_type', ObjectionChainage::TYPE_RANGE_START)
+            ->first();
+        $rangeEnd = $this->chainages()
+            ->where('entry_type', ObjectionChainage::TYPE_RANGE_END)
+            ->first();
+
+        $range = null;
+        if ($rangeStart && $rangeEnd) {
+            $range = $rangeStart->chainage.' - '.$rangeEnd->chainage;
+        }
+
+        return [
+            'specific' => $specific,
+            'range' => $range,
+        ];
+    }
+
     /**
      * Check if status is valid.
      */
@@ -522,21 +703,48 @@ class RfiObjection extends Model implements HasMedia
     }
 
     /**
-     * Suggest RFIs based on chainage range.
-     * Returns RFIs whose location falls within this objection's chainage range.
+     * Suggest RFIs based on chainage matching.
+     * Returns RFIs whose location matches this objection's chainages.
      *
+     * @param  int  $limit  Maximum number of RFIs to return
      * @return \Illuminate\Database\Eloquent\Collection
      */
-    public function suggestAffectedRfis()
+    public function suggestAffectedRfis(int $limit = 100)
     {
-        if (! $this->chainage_from || ! $this->chainage_to) {
-            return collect([]);
+        $specificMeters = $this->getSpecificChainageMeters();
+        $range = $this->getRangeMeters();
+
+        // If no chainages defined, return empty collection
+        if (empty($specificMeters) && ($range['start'] === null || $range['end'] === null)) {
+            // Fall back to legacy chainage_from/chainage_to if no new chainages
+            if (! empty($this->chainage_from)) {
+                $specificMeters = $this->parseMultipleChainages($this->chainage_from);
+            }
+            if (! empty($this->chainage_from) && ! empty($this->chainage_to)) {
+                $range['start'] = $this->parseChainageToMeters($this->chainage_from);
+                $range['end'] = $this->parseChainageToMeters($this->chainage_to);
+            }
+
+            if (empty($specificMeters) && ($range['start'] === null || $range['end'] === null)) {
+                return collect([]);
+            }
         }
 
-        // Query Daily Works that match the chainage range
-        return DailyWork::where(function ($query) {
-            $query->where('location', '>=', $this->chainage_from)
-                ->where('location', '<=', $this->chainage_to);
-        })->get();
+        // Get RFIs with valid locations and filter by matching
+        return DailyWork::query()
+            ->whereNotNull('location')
+            ->where('location', '!=', '')
+            ->limit($limit * 5) // Fetch more to filter
+            ->get()
+            ->filter(function ($rfi) use ($specificMeters, $range) {
+                return $this->doesObjectionMatchRfi(
+                    $specificMeters,
+                    $range['start'],
+                    $range['end'],
+                    $rfi->location
+                );
+            })
+            ->take($limit)
+            ->values();
     }
 }
