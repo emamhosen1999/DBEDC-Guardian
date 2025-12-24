@@ -171,8 +171,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const [createForm, setCreateForm] = useState({
         title: '',
         category: 'other',
-        chainage_from: '',
-        chainage_to: '',
+        chainage_from: '', // Legacy - kept for backward compatibility
+        chainage_to: '',   // Legacy - kept for backward compatibility
+        specific_chainages: '', // New: comma-separated specific chainages
+        chainage_range_from: '', // New: range start
+        chainage_range_to: '',   // New: range end
         description: '',
         reason: '',
         status: 'draft',
@@ -193,8 +196,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         setCreateForm({
             title: '',
             category: 'other',
-            chainage_from: '',
-            chainage_to: '',
+            chainage_from: '', // Legacy
+            chainage_to: '',   // Legacy
+            specific_chainages: '', // New
+            chainage_range_from: '', // New
+            chainage_range_to: '',   // New
             description: '',
             reason: '',
             status: 'draft',
@@ -218,8 +224,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const [editForm, setEditForm] = useState({
         title: '',
         category: 'other',
-        chainage_from: '',
-        chainage_to: '',
+        chainage_from: '', // Legacy
+        chainage_to: '',   // Legacy
+        specific_chainages: '', // New
+        chainage_range_from: '', // New
+        chainage_range_to: '',   // New
         description: '',
         reason: '',
     });
