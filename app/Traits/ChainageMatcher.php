@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Log;
  * - With side (ignored): K35+897-RHS, K36+987-LHS
  * - Range: K35+560-K36+120, K05+560 - K05+660
  * - Multiple specific: K35+897, K36+987, K40+200
+ * - Any prefix: SCK0+260, DZ2+440, CK0+189.220, ZK27+612
+ * - Decimal meters: K14+036.00, CK0+189.220
  */
 trait ChainageMatcher
 {
@@ -19,11 +21,18 @@ trait ChainageMatcher
      * Parse a chainage string to meters.
      * Returns null if parsing fails.
      *
+     * Supports any prefix (K, SCK, DZ, CK, ZK, etc.) followed by km+meters format.
+     *
      * Examples:
      * - K35+897 → 35897
      * - K5+100 → 5100
      * - K05+560 → 5560
      * - K35+897-RHS → 35897 (side ignored)
+     * - SCK0+260 → 260
+     * - DZ2+440 → 2440
+     * - CK0+189.220 → 189 (decimal truncated)
+     * - ZK27+612 → 27612
+     * - K14+036.00 → 14036
      *
      * @param  string|null  $chainage  The chainage string to parse
      * @return int|null The chainage in meters, or null if invalid
@@ -37,29 +46,40 @@ trait ChainageMatcher
         // Clean the string
         $cleaned = strtoupper(trim($chainage));
 
-        // Remove side indicators (RHS, LHS, R, L, etc.)
-        $cleaned = preg_replace('/[\-\s]*(RHS|LHS|R|L|LEFT|RIGHT|SR|TR)[\-\s]*/i', '', $cleaned);
+        // Remove side indicators at end (RHS, LHS, R, L, CL, etc.)
+        $cleaned = preg_replace('/[\-\s]*(RHS|LHS|R|L|LEFT|RIGHT|SR|TR|CL|CENTER|CENTRE)\s*$/i', '', $cleaned);
 
-        // Remove common prefixes and trailing characters
-        $cleaned = preg_replace('/^(KM|K|km|k)\s*/i', '', $cleaned);
-        $cleaned = preg_replace('/[^0-9\+\.\s].*$/', '', $cleaned); // Remove anything after non-numeric
+        // Remove any prefix: letters at the start (K, SCK, DZ, CK, ZK, KM, etc.)
+        // This handles ANY alphabetic prefix before the numeric part
+        $cleaned = preg_replace('/^[A-Z]+\s*/i', '', $cleaned);
 
-        // Try to parse format like "35+897" or "35.897" or "35 897"
-        if (preg_match('/^(\d+)[\+\.\s](\d+)$/', $cleaned, $matches)) {
+        // Try to parse format like "35+897" or "35+897.50" (with optional decimal)
+        if (preg_match('/^(\d+)[\+](\d+)(?:\.(\d+))?$/', $cleaned, $matches)) {
             $km = (int) $matches[1];
             $meters = (int) $matches[2];
+            // Decimal part is ignored (truncated to integer meters)
 
-            // Normalize meters (handle cases like 35+50 meaning 35+050)
-            if ($meters < 10 && strlen($matches[2]) === 1) {
+            // Normalize meters based on digit count
+            $meterDigits = strlen($matches[2]);
+            if ($meterDigits === 1) {
                 $meters *= 100; // Single digit like +5 means +500
-            } elseif ($meters < 100 && strlen($matches[2]) === 2) {
+            } elseif ($meterDigits === 2) {
                 $meters *= 10; // Two digits like +50 means +500
             }
+            // Three digits like +897 stays as-is
 
             return ($km * 1000) + min($meters, 999);
         }
 
-        // Try to parse just kilometers "35" or "K35"
+        // Try format with dot separator: "35.897" (some systems use dot instead of +)
+        if (preg_match('/^(\d+)\.(\d{3})$/', $cleaned, $matches)) {
+            $km = (int) $matches[1];
+            $meters = (int) $matches[2];
+
+            return ($km * 1000) + min($meters, 999);
+        }
+
+        // Try to parse just kilometers "35"
         if (preg_match('/^(\d+)$/', $cleaned, $matches)) {
             return (int) $matches[1] * 1000;
         }
@@ -73,9 +93,13 @@ trait ChainageMatcher
      * Parse a location string that may be a single point or a range.
      * Returns an array with 'start' and 'end' meters (end is null for single points).
      *
+     * Supports any prefix (K, SCK, DZ, CK, ZK, etc.)
+     *
      * Examples:
      * - K35+897 → ['start' => 35897, 'end' => null, 'is_range' => false]
      * - K35+560-K36+120 → ['start' => 35560, 'end' => 36120, 'is_range' => true]
+     * - SCK0+260-SCK0+290 → ['start' => 260, 'end' => 290, 'is_range' => true]
+     * - DZ2+440-DZ2+475 → ['start' => 2440, 'end' => 2475, 'is_range' => true]
      *
      * @param  string|null  $location  The location string
      * @return array{start: int|null, end: int|null, is_range: bool}
@@ -90,9 +114,11 @@ trait ChainageMatcher
 
         $cleaned = strtoupper(trim($location));
 
-        // Check if it's a range (contains K...K pattern or hyphen between two chainages)
-        // Pattern: K35+560-K36+120 or K35+560 - K36+120
-        if (preg_match('/^(K?\d+[\+\.]\d+)\s*[\-–—]\s*(K?\d+[\+\.]\d+)/i', $cleaned, $matches)) {
+        // Check if it's a range - pattern: PREFIX###+### - PREFIX###+###
+        // Support any letter prefix (K, SCK, DZ, CK, ZK, etc.)
+        // Separators: hyphen (-), en-dash (–), em-dash (—), tilde (~)
+        // Pattern matches: K35+560-K36+120, SCK0+260-SCK0+290, DZ2+440-DZ2+475, K35+500~K36+500
+        if (preg_match('/^([A-Z]*\d+[\+\.]\d+(?:\.\d+)?)\s*[\-–—~]\s*([A-Z]*\d+[\+\.]\d+(?:\.\d+)?)/i', $cleaned, $matches)) {
             $result['start'] = $this->parseChainageToMeters($matches[1]);
             $result['end'] = $this->parseChainageToMeters($matches[2]);
             $result['is_range'] = $result['start'] !== null && $result['end'] !== null;
@@ -207,6 +233,7 @@ trait ChainageMatcher
 
     /**
      * Extract chainage from a location string, removing side indicators and other text.
+     * Supports any prefix (K, SCK, DZ, CK, ZK, etc.)
      *
      * @param  string|null  $location  Raw location string
      * @return string|null Clean chainage or null
@@ -217,8 +244,9 @@ trait ChainageMatcher
             return null;
         }
 
-        // Match chainage pattern: K followed by digits, optionally + and more digits
-        if (preg_match('/(K\d+(?:\+\d+)?)/i', $location, $matches)) {
+        // Match chainage pattern: optional letters followed by digits, + and more digits
+        // Supports: K35+897, SCK0+260, DZ2+440, ZK27+612, etc.
+        if (preg_match('/([A-Z]*\d+(?:\+\d+)?)/i', $location, $matches)) {
             return strtoupper($matches[1]);
         }
 
