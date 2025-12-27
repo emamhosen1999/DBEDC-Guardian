@@ -16,52 +16,61 @@ class DailyWorkSummaryController extends Controller
 
     public function index()
     {
-        $user = User::with('designation')->find(Auth::id());
+        $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
+        $userRoles = $user->roles->pluck('name')->toArray();
+        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
         // Get daily works based on user role
         $query = DailyWork::with(['inchargeUser', 'assignedUser']);
 
-        if ($userDesignationTitle === 'Supervision Engineer') {
+        if (! $isAdmin && $userDesignationTitle === 'Supervision Engineer') {
             $query->where('incharge', $user->id);
         }
 
         $dailyWorks = $query->get();
         $summaries = $this->generateSummariesFromDailyWorks($dailyWorks);
 
-        $inCharges = User::whereHas('designation', function ($q) {
-            $q->where('title', 'Supervision Engineer');
-        })->get();
+        // Calculate date boundaries from actual data (same as DailyWorks)
+        $overallStartDate = DailyWork::min('date');
+        $overallEndDate = DailyWork::max('date');
+
+        // Get incharges - only for admins
+        $inCharges = $isAdmin
+            ? User::whereHas('designation', fn ($q) => $q->where('title', 'Supervision Engineer'))->get()
+            : collect();
 
         return Inertia::render('Project/DailyWorkSummary', [
             'summary' => $summaries,
             'jurisdictions' => Jurisdiction::all(),
             'inCharges' => $inCharges,
+            'overallStartDate' => $overallStartDate,
+            'overallEndDate' => $overallEndDate,
             'title' => 'Daily Work Summary',
         ]);
     }
 
     public function filterSummary(Request $request)
     {
-        $user = User::with('designation')->find(Auth::id());
+        $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
+        $userRoles = $user->roles->pluck('name')->toArray();
+        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
         try {
             $query = DailyWork::with(['inchargeUser', 'assignedUser']);
 
             // Apply user role filter
-            if ($userDesignationTitle === 'Supervision Engineer') {
+            if (! $isAdmin && $userDesignationTitle === 'Supervision Engineer') {
                 $query->where('incharge', $user->id);
             }
 
-            // Apply date range filter
-            if ($request->has('startDate') && $request->has('endDate')) {
-                $query->whereBetween('date', [$request->startDate, $request->endDate]);
-            } elseif ($request->has('month')) {
-                $startDate = date('Y-m-01', strtotime($request->month));
-                $endDate = date('Y-m-t', strtotime($request->month));
-                $query->whereBetween('date', [$startDate, $endDate]);
-            }
+            // Apply filters using trait methods for consistency
+            $this->applyDateRangeFilter($query, $request->input('startDate'), $request->input('endDate'));
+            $this->applyMonthFilter($query, $request->input('month'));
+            $this->applyStatusFilter($query, $request->input('status'));
+            $this->applyTypeFilter($query, $request->input('type'));
+            $this->applySearchFilter($query, $request->input('search'));
 
             $inchargeFilter = $this->normalizeIdFilter($request->input('incharge'));
             $jurisdictionFilter = $this->normalizeIdFilter($request->input('jurisdiction'));
@@ -84,21 +93,24 @@ class DailyWorkSummaryController extends Controller
 
     public function exportDailySummary(Request $request)
     {
-        $user = User::with('designation')->find(Auth::id());
+        $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
+        $userRoles = $user->roles->pluck('name')->toArray();
+        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
         try {
             $query = DailyWork::with(['inchargeUser', 'assignedUser']);
 
             // Apply user role filter
-            if ($userDesignationTitle === 'Supervision Engineer') {
+            if (! $isAdmin && $userDesignationTitle === 'Supervision Engineer') {
                 $query->where('incharge', $user->id);
             }
 
-            // Apply filters from request
-            if ($request->has('startDate') && $request->has('endDate')) {
-                $query->whereBetween('date', [$request->startDate, $request->endDate]);
-            }
+            // Apply filters using trait methods for consistency
+            $this->applyDateRangeFilter($query, $request->input('startDate'), $request->input('endDate'));
+            $this->applyStatusFilter($query, $request->input('status'));
+            $this->applyTypeFilter($query, $request->input('type'));
+            $this->applySearchFilter($query, $request->input('search'));
 
             $inchargeFilter = $this->normalizeIdFilter($request->input('incharge'));
             $jurisdictionFilter = $this->normalizeIdFilter($request->input('jurisdiction'));
@@ -132,20 +144,37 @@ class DailyWorkSummaryController extends Controller
 
         foreach ($groupedByDate as $date => $works) {
             $totalWorks = $works->count();
-            $completed = $works->where('status', 'completed')->count();
+
+            // Properly count completed (including composite statuses like 'completed:pass')
+            $completed = $works->filter(function ($work) {
+                return $work->status === 'completed' || str_starts_with($work->status ?? '', 'completed:');
+            })->count();
+
+            // Count pending statuses correctly (not just totalWorks - completed)
+            $pending = $works->whereIn('status', ['new', 'pending', 'in-progress', 'resubmission'])->count();
+            $inProgress = $works->where('status', 'in-progress')->count();
+            $rejected = $works->where('status', 'rejected')->count();
+            $emergency = $works->where('status', 'emergency')->count();
+
             $rfiSubmissions = $works->whereNotNull('rfi_submission_date')->count();
 
             // Group by type
             $typeBreakdown = $works->groupBy('type');
 
+            // RFI percentage against completed (more meaningful metric)
+            $rfiSubmissionPercentage = $completed > 0 ? round(($rfiSubmissions / $completed) * 100, 1) : 0;
+
             $summary = [
                 'date' => $date,
                 'totalDailyWorks' => $totalWorks,
                 'completed' => $completed,
-                'pending' => $totalWorks - $completed,
+                'pending' => $pending,
+                'inProgress' => $inProgress,
+                'rejected' => $rejected,
+                'emergency' => $emergency,
                 'rfiSubmissions' => $rfiSubmissions,
                 'completionPercentage' => $totalWorks > 0 ? round(($completed / $totalWorks) * 100, 1) : 0,
-                'rfiSubmissionPercentage' => $totalWorks > 0 ? round(($rfiSubmissions / $totalWorks) * 100, 1) : 0,
+                'rfiSubmissionPercentage' => $rfiSubmissionPercentage,
                 'embankment' => $typeBreakdown->get('Embankment', collect())->count(),
                 'structure' => $typeBreakdown->get('Structure', collect())->count(),
                 'pavement' => $typeBreakdown->get('Pavement', collect())->count(),

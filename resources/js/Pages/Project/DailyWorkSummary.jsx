@@ -29,7 +29,8 @@ import {
     ArrowPathIcon,
     FunnelIcon,
     AdjustmentsHorizontalIcon,
-    MapPinIcon
+    MapPinIcon,
+    MagnifyingGlassIcon
 } from "@heroicons/react/24/outline";
 import App from "@/Layouts/App.jsx";
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
@@ -46,7 +47,7 @@ import { showToast } from '@/utils/toastUtils';
 dayjs.extend(minMax);
 dayjs.extend(isBetween);
 
-const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) => {
+const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, overallStartDate, overallEndDate }) => {
     // Responsive handling
     const isLargeScreen = useMediaQuery('(min-width: 1025px)');
     const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
@@ -71,6 +72,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
     const [filteredData, setFilteredData] = useState(summary);
     const [loading, setLoading] = useState(false);
     const [openModalType, setOpenModalType] = useState(null);
+    const [search, setSearch] = useState('');
     
     // Show/Hide advanced filters panel
     const [showFilters, setShowFilters] = useState(false);
@@ -82,14 +84,6 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
     const closeModal = useCallback(() => {
         setOpenModalType(null);
     }, []);
-
-    // Safe date calculation
-    const dates = useMemo(() => {
-        if (!dailyWorkSummary || dailyWorkSummary.length === 0) {
-            return [];
-        }
-        return dailyWorkSummary.map(work => dayjs(work.date)).filter(date => date.isValid());
-    }, [dailyWorkSummary]);
 
     const renderSelectedBadges = useCallback((selectedIds, options, placeholder, labelKey = 'name') => {
         if (!selectedIds || selectedIds.length === 0) {
@@ -123,10 +117,12 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
         })) ?? [];
     }, [jurisdictions]);
 
+    // Use backend-provided date boundaries (consistent with DailyWorks)
     const [filterData, setFilterData] = useState({
-        startDate: dates.length > 0 ? dayjs.min(...dates).format('YYYY-MM-DD') : dayjs().subtract(30, 'days').format('YYYY-MM-DD'),
-        endDate: dates.length > 0 ? dayjs.max(...dates).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
+        startDate: overallStartDate || dayjs().subtract(30, 'days').format('YYYY-MM-DD'),
+        endDate: overallEndDate || dayjs().format('YYYY-MM-DD'),
         status: 'all',
+        type: 'all',
         incharge: [], // Array for multi-select
         jurisdiction: [], // Array for multi-select
     });
@@ -138,6 +134,21 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
                 startDate: filterData.startDate,
                 endDate: filterData.endDate,
             };
+
+            // Include status filter if not 'all'
+            if (filterData.status && filterData.status !== 'all') {
+                payload.status = filterData.status;
+            }
+
+            // Include type filter if not 'all'
+            if (filterData.type && filterData.type !== 'all') {
+                payload.type = filterData.type;
+            }
+
+            // Include search if provided
+            if (search && search.trim()) {
+                payload.search = search.trim();
+            }
 
             if (filterData.incharge?.length) {
                 payload.incharge = filterData.incharge;
@@ -162,7 +173,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
         } finally {
             setLoading(false);
         }
-    }, [filterData]);
+    }, [filterData, search]);
 
     const handleRefresh = useCallback(async () => {
         const success = await fetchFilteredSummaries();
@@ -243,18 +254,6 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
         }] : [])
     ];
 
-
-    useEffect(() => {
-        // Set initial startDate and endDate only if not manually changed and dates are available
-        if (dates.length > 0 && (!filterData.startDate || !filterData.endDate)) {
-            setFilterData(prevState => ({
-                ...prevState,
-                startDate: dayjs.min(...dates).format('YYYY-MM-DD'),
-                endDate: dayjs.max(...dates).format('YYYY-MM-DD'),
-            }));
-        }
-    }, [dates]);
-
     useEffect(() => {
         fetchFilteredSummaries();
     }, [fetchFilteredSummaries]);
@@ -270,6 +269,15 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
                     closeModal={closeModal}
                     filteredData={filteredData}
                     inCharges={inCharges}
+                    currentFilters={{
+                        startDate: filterData.startDate,
+                        endDate: filterData.endDate,
+                        status: filterData.status,
+                        type: filterData.type,
+                        search: search,
+                        incharge: filterData.incharge,
+                        jurisdiction: filterData.jurisdiction,
+                    }}
                 />
             )}
 
@@ -397,13 +405,35 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
                                 <div className="flex flex-col gap-4">
                                     {/* Filter Controls Row */}
                                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                                        <div className="flex items-center gap-2">
-                                            <FunnelIcon className="w-5 h-5 text-default-500" />
-                                            <span className="text-sm font-medium text-foreground" style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}>
-                                                Quick Filters:
-                                            </span>
+                                        <div className="flex items-center gap-2 flex-1 max-w-md">
+                                            {/* Search Input */}
+                                            <Input
+                                                type="text"
+                                                placeholder="Search by number, location, description..."
+                                                value={search}
+                                                onChange={(e) => setSearch(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        fetchFilteredSummaries();
+                                                    }
+                                                }}
+                                                size="sm"
+                                                variant="bordered"
+                                                radius={getThemeRadius()}
+                                                isClearable
+                                                onClear={() => setSearch('')}
+                                                startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
+                                                classNames={{
+                                                    input: "text-foreground",
+                                                    inputWrapper: `bg-content2/50 hover:bg-content2/70 
+                                                                 focus-within:bg-content2/90 border-divider/50 
+                                                                 hover:border-divider data-[focus]:border-primary`,
+                                                }}
+                                                style={{
+                                                    fontFamily: `var(--fontFamily, "Inter")`,
+                                                }}
+                                                aria-label="Search daily works"
+                                            />
                                         </div>
                                         <div className="flex gap-2 items-end">
                                             <ButtonGroup 
@@ -480,6 +510,64 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
                                                                 fontFamily: `var(--fontFamily, "Inter")`,
                                                             }}
                                                         />
+
+                                                        {/* Status Filter */}
+                                                        <Select
+                                                            label="Status"
+                                                            placeholder="All Status"
+                                                            selectedKeys={filterData.status ? [filterData.status] : ['all']}
+                                                            onSelectionChange={(keys) => {
+                                                                const value = Array.from(keys)[0] || 'all';
+                                                                handleFilterChange('status', value);
+                                                            }}
+                                                            variant="bordered"
+                                                            size="sm"
+                                                            radius={getThemeRadius()}
+                                                            classNames={{
+                                                                trigger: "text-sm min-h-unit-10",
+                                                                value: "text-foreground",
+                                                            }}
+                                                            style={{
+                                                                fontFamily: `var(--fontFamily, "Inter")`,
+                                                            }}
+                                                            aria-label="Filter by status"
+                                                        >
+                                                            <SelectItem key="all" value="all">All Status</SelectItem>
+                                                            <SelectItem key="new" value="new">New</SelectItem>
+                                                            <SelectItem key="in-progress" value="in-progress">In Progress</SelectItem>
+                                                            <SelectItem key="completed" value="completed">Completed</SelectItem>
+                                                            <SelectItem key="rejected" value="rejected">Rejected</SelectItem>
+                                                            <SelectItem key="resubmission" value="resubmission">Resubmission</SelectItem>
+                                                            <SelectItem key="pending" value="pending">Pending</SelectItem>
+                                                            <SelectItem key="emergency" value="emergency">Emergency</SelectItem>
+                                                        </Select>
+
+                                                        {/* Type Filter */}
+                                                        <Select
+                                                            label="Work Type"
+                                                            placeholder="All Types"
+                                                            selectedKeys={filterData.type ? [filterData.type] : ['all']}
+                                                            onSelectionChange={(keys) => {
+                                                                const value = Array.from(keys)[0] || 'all';
+                                                                handleFilterChange('type', value);
+                                                            }}
+                                                            variant="bordered"
+                                                            size="sm"
+                                                            radius={getThemeRadius()}
+                                                            classNames={{
+                                                                trigger: "text-sm min-h-unit-10",
+                                                                value: "text-foreground",
+                                                            }}
+                                                            style={{
+                                                                fontFamily: `var(--fontFamily, "Inter")`,
+                                                            }}
+                                                            aria-label="Filter by work type"
+                                                        >
+                                                            <SelectItem key="all" value="all">All Types</SelectItem>
+                                                            <SelectItem key="Embankment" value="Embankment">Embankment</SelectItem>
+                                                            <SelectItem key="Structure" value="Structure">Structure</SelectItem>
+                                                            <SelectItem key="Pavement" value="Pavement">Pavement</SelectItem>
+                                                        </Select>
                                                         
                                                         {/* In Charge Filter - Multi-select */}
                                                         {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer') && (
@@ -567,12 +655,14 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges }) =>
                                                                 color="danger"
                                                                 onPress={() => {
                                                                     setFilterData({
-                                                                        startDate: dates.length > 0 ? dayjs.min(...dates).format('YYYY-MM-DD') : dayjs().subtract(30, 'days').format('YYYY-MM-DD'),
-                                                                        endDate: dates.length > 0 ? dayjs.max(...dates).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
+                                                                        startDate: overallStartDate || dayjs().subtract(30, 'days').format('YYYY-MM-DD'),
+                                                                        endDate: overallEndDate || dayjs().format('YYYY-MM-DD'),
                                                                         status: 'all',
+                                                                        type: 'all',
                                                                         incharge: [],
                                                                         jurisdiction: [],
                                                                     });
+                                                                    setSearch('');
                                                                 }}
                                                                 style={{
                                                                     fontFamily: `var(--fontFamily, "Inter")`,

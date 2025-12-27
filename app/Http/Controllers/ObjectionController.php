@@ -152,8 +152,12 @@ class ObjectionController extends Controller
             ]);
 
             // Sync chainages to the new table
-            $specificChainages = $validated['specific_chainages'] ?? null;
-            $specificChainagesArray = $this->parseMultipleChainages($specificChainages);
+            // Pass the raw chainage strings, not parsed meters
+            $specificChainagesStr = $validated['specific_chainages'] ?? '';
+            $specificChainagesArray = array_filter(
+                array_map('trim', preg_split('/\s*,\s*/', $specificChainagesStr)),
+                fn ($ch) => ! empty($ch)
+            );
             $objection->syncChainages($specificChainagesArray, $chainageFrom, $chainageTo);
 
             // Log initial status
@@ -239,8 +243,13 @@ class ObjectionController extends Controller
 
             // Sync chainages to the new table if any chainage fields were provided
             if (isset($validated['specific_chainages']) || isset($validated['chainage_range_from']) || isset($validated['chainage_from'])) {
-                $specificChainages = $validated['specific_chainages'] ?? null;
-                $objection->syncChainages($specificChainages, $chainageFrom, $chainageTo);
+                // Pass the raw chainage strings, not parsed meters
+                $specificChainagesStr = $validated['specific_chainages'] ?? '';
+                $specificChainagesArray = array_filter(
+                    array_map('trim', preg_split('/\s*,\s*/', $specificChainagesStr)),
+                    fn ($ch) => ! empty($ch)
+                );
+                $objection->syncChainages($specificChainagesArray, $chainageFrom, $chainageTo);
             }
 
             return response()->json([

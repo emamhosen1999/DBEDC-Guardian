@@ -59,14 +59,10 @@ trait ChainageMatcher
             $meters = (int) $matches[2];
             // Decimal part is ignored (truncated to integer meters)
 
-            // Normalize meters based on digit count
-            $meterDigits = strlen($matches[2]);
-            if ($meterDigits === 1) {
-                $meters *= 100; // Single digit like +5 means +500
-            } elseif ($meterDigits === 2) {
-                $meters *= 10; // Two digits like +50 means +500
-            }
-            // Three digits like +897 stays as-is
+            // In standard chainage notation:
+            // K23+60 means K23+060 (60 meters), NOT K23+600
+            // K23+5 means K23+005 (5 meters), NOT K23+500
+            // So we do NOT normalize - just use the meter value as-is
 
             return ($km * 1000) + min($meters, 999);
         }

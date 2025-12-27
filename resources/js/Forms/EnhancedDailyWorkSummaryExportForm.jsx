@@ -25,6 +25,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { showToast } from '@/utils/toastUtils';
+import { route } from 'ziggy-js';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { parseDate } from "@internationalized/date";
@@ -33,20 +34,22 @@ const EnhancedDailyWorkSummaryExportForm = ({
     open, 
     closeModal, 
     filteredData = [],
-    inCharges = [] 
+    inCharges = [],
+    currentFilters = {}
 }) => {
     const [exportSettings, setExportSettings] = useState({
         format: 'excel',
         columns: [
-            'date', 'totalDailyWorks', 'completed', 'pending', 
+            'date', 'totalDailyWorks', 'completed', 'pending', 'inProgress',
             'completionPercentage', 'rfiSubmissions', 'embankment', 
-            'structure', 'pavement', 'resubmissions'
+            'structure', 'pavement', 'resubmissions', 'emergency'
         ],
         includeCharts: false,
         groupBy: 'date' // date, incharge, type
     });
 
     const [isLoading, setIsLoading] = useState(false);
+    const [isFetchingData, setIsFetchingData] = useState(false);
 
     const exportFormats = [
         {
@@ -68,13 +71,16 @@ const EnhancedDailyWorkSummaryExportForm = ({
         { key: 'totalDailyWorks', label: 'Total Works', description: 'Total number of daily works' },
         { key: 'completed', label: 'Completed', description: 'Number of completed works' },
         { key: 'pending', label: 'Pending', description: 'Number of pending works' },
+        { key: 'inProgress', label: 'In Progress', description: 'Number of in-progress works' },
         { key: 'completionPercentage', label: 'Completion %', description: 'Completion percentage' },
         { key: 'rfiSubmissions', label: 'RFI Submissions', description: 'Number of RFI submissions' },
         { key: 'rfiSubmissionPercentage', label: 'RFI Submission %', description: 'RFI submission percentage' },
         { key: 'embankment', label: 'Embankment Works', description: 'Number of embankment works' },
         { key: 'structure', label: 'Structure Works', description: 'Number of structure works' },
         { key: 'pavement', label: 'Pavement Works', description: 'Number of pavement works' },
-        { key: 'resubmissions', label: 'Resubmissions', description: 'Number of resubmissions' }
+        { key: 'resubmissions', label: 'Resubmissions', description: 'Number of resubmissions' },
+        { key: 'rejected', label: 'Rejected', description: 'Number of rejected works' },
+        { key: 'emergency', label: 'Emergency', description: 'Number of emergency works' }
     ];
 
     const groupByOptions = [
@@ -83,13 +89,41 @@ const EnhancedDailyWorkSummaryExportForm = ({
         { key: 'overall', label: 'Overall Summary', description: 'Single overall summary' }
     ];
 
+    /**
+     * Fetch fresh data from backend with current filters
+     * This ensures export always uses up-to-date data from database
+     */
+    const fetchFreshExportData = async () => {
+        try {
+            const response = await axios.post(route('daily-works-summary.export'), {
+                startDate: currentFilters.startDate || null,
+                endDate: currentFilters.endDate || null,
+                status: currentFilters.status || null,
+                type: currentFilters.type || null,
+                search: currentFilters.search || null,
+                incharge: currentFilters.incharge || null,
+                jurisdiction: currentFilters.jurisdiction || null,
+            });
+            return response.data.data || [];
+        } catch (error) {
+            console.error('Failed to fetch fresh export data:', error);
+            // Fallback to filteredData if API fails
+            return filteredData;
+        }
+    };
+
     const handleExport = async () => {
         setIsLoading(true);
+        setIsFetchingData(true);
         
         const promise = new Promise(async (resolve, reject) => {
             try {
-                // Prepare export data based on settings
-                let exportData = prepareExportData();
+                // Fetch fresh data from backend with current filters
+                const freshData = await fetchFreshExportData();
+                setIsFetchingData(false);
+                
+                // Prepare export data based on settings using fresh data
+                let exportData = prepareExportData(freshData);
                 
                 const filename = `daily_work_summary_${new Date().toISOString().split('T')[0]}`;
                 
@@ -108,41 +142,49 @@ const EnhancedDailyWorkSummaryExportForm = ({
                 reject('Export failed: ' + error.message);
             } finally {
                 setIsLoading(false);
+                setIsFetchingData(false);
             }
         });
 
         showToast.promise(promise, {
-            loading: 'Exporting summary...',
+            loading: isFetchingData ? 'Fetching latest data...' : 'Exporting summary...',
             success: (msg) => msg,
             error: (msg) => msg,
         });
     };
 
-    const prepareExportData = () => {
-        let data = [...filteredData];
+    const prepareExportData = (sourceData) => {
+        let data = [...sourceData];
         
         if (exportSettings.groupBy === 'overall') {
             // Create overall summary
-            const totalWorks = data.reduce((sum, item) => sum + item.totalDailyWorks, 0);
-            const totalCompleted = data.reduce((sum, item) => sum + item.completed, 0);
-            const totalRFI = data.reduce((sum, item) => sum + item.rfiSubmissions, 0);
-            const totalEmbankment = data.reduce((sum, item) => sum + item.embankment, 0);
-            const totalStructure = data.reduce((sum, item) => sum + item.structure, 0);
-            const totalPavement = data.reduce((sum, item) => sum + item.pavement, 0);
-            const totalResubmissions = data.reduce((sum, item) => sum + item.resubmissions, 0);
+            const totalWorks = data.reduce((sum, item) => sum + (item.totalDailyWorks || 0), 0);
+            const totalCompleted = data.reduce((sum, item) => sum + (item.completed || 0), 0);
+            const totalPending = data.reduce((sum, item) => sum + (item.pending || 0), 0);
+            const totalInProgress = data.reduce((sum, item) => sum + (item.inProgress || 0), 0);
+            const totalRFI = data.reduce((sum, item) => sum + (item.rfiSubmissions || 0), 0);
+            const totalEmbankment = data.reduce((sum, item) => sum + (item.embankment || 0), 0);
+            const totalStructure = data.reduce((sum, item) => sum + (item.structure || 0), 0);
+            const totalPavement = data.reduce((sum, item) => sum + (item.pavement || 0), 0);
+            const totalResubmissions = data.reduce((sum, item) => sum + (item.resubmissions || 0), 0);
+            const totalRejected = data.reduce((sum, item) => sum + (item.rejected || 0), 0);
+            const totalEmergency = data.reduce((sum, item) => sum + (item.emergency || 0), 0);
             
             data = [{
                 date: 'Overall Summary',
                 totalDailyWorks: totalWorks,
                 completed: totalCompleted,
-                pending: totalWorks - totalCompleted,
+                pending: totalPending,
+                inProgress: totalInProgress,
                 completionPercentage: totalWorks > 0 ? ((totalCompleted / totalWorks) * 100).toFixed(1) + '%' : '0%',
                 rfiSubmissions: totalRFI,
-                rfiSubmissionPercentage: totalWorks > 0 ? ((totalRFI / totalWorks) * 100).toFixed(1) + '%' : '0%',
+                rfiSubmissionPercentage: totalCompleted > 0 ? ((totalRFI / totalCompleted) * 100).toFixed(1) + '%' : '0%',
                 embankment: totalEmbankment,
                 structure: totalStructure,
                 pavement: totalPavement,
-                resubmissions: totalResubmissions
+                resubmissions: totalResubmissions,
+                rejected: totalRejected,
+                emergency: totalEmergency
             }];
         } else if (exportSettings.groupBy === 'type') {
             // Group by work type
