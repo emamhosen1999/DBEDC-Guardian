@@ -119,7 +119,7 @@ class ObjectionController extends Controller
             'chainage_from' => 'nullable|string|max:50',
             'chainage_to' => 'nullable|string|max:50',
             // New fields for multiple chainages
-            'specific_chainages' => 'nullable|string|max:500', // Comma-separated: K35+897, K36+987
+            'specific_chainages' => 'nullable|string|max:10000', // Comma-separated: K35+897, K36+987
             'chainage_range_from' => 'nullable|string|max:50', // Range start: K36+580
             'chainage_range_to' => 'nullable|string|max:50',   // Range end: K37+540
             'description' => 'required|string|max:5000',
@@ -209,7 +209,7 @@ class ObjectionController extends Controller
             'chainage_from' => 'nullable|string|max:50',
             'chainage_to' => 'nullable|string|max:50',
             // New fields for multiple chainages
-            'specific_chainages' => 'nullable|string|max:500', // Comma-separated: K35+897, K36+987
+            'specific_chainages' => 'nullable|string|max:10000', // Comma-separated: K35+897, K36+987
             'chainage_range_from' => 'nullable|string|max:50', // Range start: K36+580
             'chainage_range_to' => 'nullable|string|max:50',   // Range end: K37+540
             'description' => 'sometimes|required|string|max:5000',
