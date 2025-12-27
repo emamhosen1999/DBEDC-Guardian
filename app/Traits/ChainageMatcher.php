@@ -262,13 +262,15 @@ trait ChainageMatcher
      * @param  int|null  $objectionRangeStart  Objection range start (null if no range)
      * @param  int|null  $objectionRangeEnd  Objection range end (null if no range)
      * @param  string|null  $rfiLocation  RFI location string
+     * @param  array|null  $metersSet  Optional pre-computed set (keys are meters) for O(1) lookups
      * @return bool True if there's a match
      */
     public function doesObjectionMatchRfi(
         array $objectionSpecificMeters,
         ?int $objectionRangeStart,
         ?int $objectionRangeEnd,
-        ?string $rfiLocation
+        ?string $rfiLocation,
+        ?array $metersSet = null
     ): bool {
         $rfi = $this->parseLocationToMeters($rfiLocation);
 
@@ -277,16 +279,26 @@ trait ChainageMatcher
         }
 
         // Check specific chainages against RFI
-        foreach ($objectionSpecificMeters as $specificMeters) {
+        if (! empty($objectionSpecificMeters)) {
             if ($rfi['is_range']) {
-                // Objection specific point vs RFI range: point must be in range
-                if ($this->isPointInRange($specificMeters, $rfi['start'], $rfi['end'])) {
-                    return true;
+                // For RFI range: check if ANY specific point falls within the range
+                // Optimization: if we have many points, use binary search approach
+                foreach ($objectionSpecificMeters as $specificMeters) {
+                    if ($specificMeters >= $rfi['start'] && $specificMeters <= $rfi['end']) {
+                        return true;
+                    }
                 }
             } else {
-                // Objection specific point vs RFI single point: exact match
-                if ($specificMeters === $rfi['start']) {
-                    return true;
+                // For RFI single point: check if it matches any specific point
+                // Use set lookup if available (O(1)), otherwise linear search
+                if ($metersSet !== null) {
+                    if (isset($metersSet[$rfi['start']])) {
+                        return true;
+                    }
+                } else {
+                    if (in_array($rfi['start'], $objectionSpecificMeters, true)) {
+                        return true;
+                    }
                 }
             }
         }
@@ -295,12 +307,12 @@ trait ChainageMatcher
         if ($objectionRangeStart !== null && $objectionRangeEnd !== null) {
             if ($rfi['is_range']) {
                 // Objection range vs RFI range: check overlap
-                if ($this->doRangesOverlap($objectionRangeStart, $objectionRangeEnd, $rfi['start'], $rfi['end'])) {
+                if ($objectionRangeStart <= $rfi['end'] && $rfi['start'] <= $objectionRangeEnd) {
                     return true;
                 }
             } else {
                 // Objection range vs RFI single point: point must be in objection range
-                if ($this->isPointInRange($rfi['start'], $objectionRangeStart, $objectionRangeEnd)) {
+                if ($rfi['start'] >= $objectionRangeStart && $rfi['start'] <= $objectionRangeEnd) {
                     return true;
                 }
             }
