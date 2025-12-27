@@ -227,6 +227,10 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const { isOpen: isHistoryOpen, onOpen: onHistoryOpen, onClose: onHistoryClose } = useDisclosure();
     const [historyObjection, setHistoryObjection] = useState(null);
 
+    // View details modal state
+    const { isOpen: isDetailsOpen, onOpen: onDetailsOpen, onClose: onDetailsClose } = useDisclosure();
+    const [detailsObjection, setDetailsObjection] = useState(null);
+
     // Statistics state
     const [apiStats, setApiStats] = useState(statistics || null);
 
@@ -649,6 +653,12 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         onHistoryOpen();
     };
 
+    // Open details modal
+    const openDetailsModal = (objection) => {
+        setDetailsObjection(objection);
+        onDetailsOpen();
+    };
+
     // Format status for display
     const formatStatus = (status) => {
         return statusConfig[status]?.label || status?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown';
@@ -798,6 +808,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             </Button>
                         </DropdownTrigger>
                         <DropdownMenu aria-label="Objection actions">
+                            <DropdownItem
+                                key="view"
+                                startContent={<DocumentTextIcon className="w-4 h-4" />}
+                                onPress={() => openDetailsModal(objection)}
+                            >
+                                View Details
+                            </DropdownItem>
                             <DropdownItem
                                 key="attach"
                                 startContent={<LinkIcon className="w-4 h-4" />}
@@ -1837,6 +1854,312 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                         <Button variant="light" onPress={onHistoryClose}>
                             Close
                         </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* View Details Modal */}
+            <Modal
+                isOpen={isDetailsOpen}
+                onClose={onDetailsClose}
+                size="4xl"
+                scrollBehavior="inside"
+                shouldBlockScroll={false}
+                placement="center"
+                classNames={{
+                    base: "max-h-[95vh] m-2 sm:m-4",
+                    wrapper: "items-center",
+                    body: "p-3 sm:p-6",
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex flex-col sm:flex-row sm:items-center gap-2 pb-2">
+                        <div className="flex items-center gap-2">
+                            <ShieldExclamationIcon className={`w-5 h-5 ${detailsObjection?.is_active ? 'text-warning' : 'text-success'}`} />
+                            <span className="font-semibold truncate">{detailsObjection?.title || 'Objection Details'}</span>
+                        </div>
+                        {detailsObjection && (
+                            <div className="flex items-center gap-2 mt-1 sm:mt-0 sm:ml-auto">
+                                {getStatusChip(detailsObjection.status)}
+                                {getCategoryChip(detailsObjection.category)}
+                            </div>
+                        )}
+                    </ModalHeader>
+                    <ModalBody>
+                        {detailsObjection && (
+                            <div className="space-y-4 sm:space-y-6">
+                                {/* Basic Info Grid - Responsive */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                    {/* Created By */}
+                                    <div className="p-3 bg-default-100 rounded-lg">
+                                        <div className="flex items-center gap-2 text-xs text-default-500 mb-1">
+                                            <UserIcon className="w-3 h-3" />
+                                            <span>Created By</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <ProfileAvatar
+                                                src={detailsObjection.created_by?.profile_image_url}
+                                                name={detailsObjection.created_by?.name || 'Unknown'}
+                                                size="sm"
+                                                className="w-6 h-6"
+                                            />
+                                            <span className="text-sm font-medium truncate">{detailsObjection.created_by?.name || 'Unknown'}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Created At */}
+                                    <div className="p-3 bg-default-100 rounded-lg">
+                                        <div className="flex items-center gap-2 text-xs text-default-500 mb-1">
+                                            <CalendarDaysIcon className="w-3 h-3" />
+                                            <span>Created At</span>
+                                        </div>
+                                        <p className="text-sm font-medium">
+                                            {new Date(detailsObjection.created_at).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </p>
+                                    </div>
+
+                                    {/* Chainage Range */}
+                                    <div className="p-3 bg-default-100 rounded-lg">
+                                        <div className="flex items-center gap-2 text-xs text-default-500 mb-1">
+                                            <MapPinIcon className="w-3 h-3" />
+                                            <span>Chainage</span>
+                                        </div>
+                                        {detailsObjection.chainage_summary ? (
+                                            <div className="text-sm font-medium">
+                                                {detailsObjection.chainage_summary.specific?.length > 0 && (
+                                                    <p>Specific: {detailsObjection.chainage_summary.specific.join(', ')}</p>
+                                                )}
+                                                {detailsObjection.chainage_summary.range && (
+                                                    <p>Range: {detailsObjection.chainage_summary.range}</p>
+                                                )}
+                                                {!detailsObjection.chainage_summary.specific?.length && !detailsObjection.chainage_summary.range && (
+                                                    <span className="text-default-400">Not specified</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-sm text-default-400">Not specified</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Affected RFIs */}
+                                <div className="p-3 sm:p-4 bg-primary-50/50 dark:bg-primary-900/10 border border-primary/20 rounded-lg">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2 text-xs text-primary">
+                                            <LinkIcon className="w-3 h-3" />
+                                            <span>Affected RFIs ({detailsObjection.daily_works?.length || 0})</span>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color="primary"
+                                            onPress={() => {
+                                                onDetailsClose();
+                                                openAttachModal(detailsObjection);
+                                            }}
+                                        >
+                                            Manage
+                                        </Button>
+                                    </div>
+                                    {detailsObjection.daily_works?.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {detailsObjection.daily_works.slice(0, 10).map((rfi) => (
+                                                <Chip key={rfi.id} size="sm" variant="flat" color="primary">
+                                                    {rfi.number}
+                                                </Chip>
+                                            ))}
+                                            {detailsObjection.daily_works.length > 10 && (
+                                                <Chip size="sm" variant="bordered" color="default">
+                                                    +{detailsObjection.daily_works.length - 10} more
+                                                </Chip>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-default-500">No RFIs attached to this objection.</p>
+                                    )}
+                                </div>
+
+                                {/* Description */}
+                                {detailsObjection.description && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            <DocumentTextIcon className="w-4 h-4 text-default-500" />
+                                            Description
+                                        </h4>
+                                        <div className="p-3 sm:p-4 bg-default-100 rounded-lg">
+                                            <p className="text-sm whitespace-pre-wrap">{detailsObjection.description}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Reason */}
+                                {detailsObjection.reason && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            <ExclamationTriangleIcon className="w-4 h-4 text-warning" />
+                                            Reason for Objection
+                                        </h4>
+                                        <div className="p-3 sm:p-4 bg-warning-50/50 dark:bg-warning-900/10 border border-warning/20 rounded-lg">
+                                            <p className="text-sm whitespace-pre-wrap">{detailsObjection.reason}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Resolution Notes (if resolved/rejected) */}
+                                {detailsObjection.resolution_notes && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            {detailsObjection.status === 'resolved' ? (
+                                                <CheckCircleSolid className="w-4 h-4 text-success" />
+                                            ) : (
+                                                <XCircleSolid className="w-4 h-4 text-danger" />
+                                            )}
+                                            Resolution Notes
+                                        </h4>
+                                        <div className={`p-3 sm:p-4 rounded-lg border ${
+                                            detailsObjection.status === 'resolved'
+                                                ? 'bg-success-50/50 dark:bg-success-900/10 border-success/20'
+                                                : 'bg-danger-50/50 dark:bg-danger-900/10 border-danger/20'
+                                        }`}>
+                                            <p className="text-sm whitespace-pre-wrap">{detailsObjection.resolution_notes}</p>
+                                            {detailsObjection.resolved_by && (
+                                                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-divider/40">
+                                                    <ProfileAvatar
+                                                        src={detailsObjection.resolved_by?.profile_image_url}
+                                                        name={detailsObjection.resolved_by?.name || 'Unknown'}
+                                                        size="sm"
+                                                        className="w-5 h-5"
+                                                    />
+                                                    <span className="text-xs text-default-500">
+                                                        {detailsObjection.status === 'resolved' ? 'Resolved' : 'Rejected'} by {detailsObjection.resolved_by?.name}
+                                                        {detailsObjection.resolved_at && (
+                                                            <> on {new Date(detailsObjection.resolved_at).toLocaleDateString()}</>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Attachments */}
+                                {detailsObjection.media?.length > 0 && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            <PhotoIcon className="w-4 h-4 text-default-500" />
+                                            Attachments ({detailsObjection.media.length})
+                                        </h4>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                                            {detailsObjection.media.map((file) => {
+                                                const isImage = file.mime_type?.startsWith('image/');
+                                                return (
+                                                    <a
+                                                        key={file.id}
+                                                        href={file.original_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="group relative aspect-square rounded-lg overflow-hidden border border-divider hover:border-primary transition-colors"
+                                                    >
+                                                        {isImage ? (
+                                                            <img
+                                                                src={file.preview_url || file.original_url}
+                                                                alt={file.file_name}
+                                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex flex-col items-center justify-center bg-default-100 p-2">
+                                                                <DocumentIcon className="w-8 h-8 text-default-400 mb-1" />
+                                                                <span className="text-[10px] text-center text-default-500 line-clamp-2">
+                                                                    {file.file_name}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                            <span className="opacity-0 group-hover:opacity-100 text-white text-xs bg-black/50 px-2 py-1 rounded">
+                                                                View
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Status Timeline Summary */}
+                                {detailsObjection.status_logs?.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-semibold flex items-center gap-2">
+                                                <ClockIcon className="w-4 h-4 text-default-500" />
+                                                Status History
+                                            </h4>
+                                            <Button
+                                                size="sm"
+                                                variant="light"
+                                                onPress={() => {
+                                                    onDetailsClose();
+                                                    openHistoryModal(detailsObjection);
+                                                }}
+                                            >
+                                                View Full History
+                                            </Button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {detailsObjection.status_logs.slice(-3).map((log, index) => (
+                                                <div key={log.id || index} className="flex items-center gap-1 text-xs">
+                                                    <Chip size="sm" variant="flat" color={statusConfig[log.from_status]?.color || 'default'}>
+                                                        {formatStatus(log.from_status)}
+                                                    </Chip>
+                                                    <span className="text-default-400">→</span>
+                                                    <Chip size="sm" variant="flat" color={statusConfig[log.to_status]?.color || 'default'}>
+                                                        {formatStatus(log.to_status)}
+                                                    </Chip>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </ModalBody>
+                    <ModalFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="light" onPress={onDetailsClose} className="w-full sm:w-auto">
+                            Close
+                        </Button>
+                        {detailsObjection?.status === 'draft' && (
+                            <Button
+                                color="primary"
+                                variant="flat"
+                                startContent={<PencilIcon className="w-4 h-4" />}
+                                onPress={() => {
+                                    onDetailsClose();
+                                    openEditModal(detailsObjection);
+                                }}
+                                className="w-full sm:w-auto"
+                            >
+                                Edit
+                            </Button>
+                        )}
+                        {detailsObjection?.status === 'draft' && (
+                            <Button
+                                color="primary"
+                                startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
+                                onPress={() => {
+                                    onDetailsClose();
+                                    openStatusModal(detailsObjection, 'submit');
+                                }}
+                                className="w-full sm:w-auto"
+                            >
+                                Submit for Review
+                            </Button>
+                        )}
                     </ModalFooter>
                 </ModalContent>
             </Modal>
