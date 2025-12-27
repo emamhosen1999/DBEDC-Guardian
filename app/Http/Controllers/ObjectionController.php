@@ -403,15 +403,42 @@ class ObjectionController extends Controller
                 ]);
             }
 
-            // Get all RFIs with location and filter by chainage matching
-            $allRfis = DailyWork::query()
+            // Extract unique kilometer prefixes from the chainages to pre-filter RFIs
+            $kmPrefixes = [];
+            if (! empty($specificMeters)) {
+                foreach ($specificMeters as $meters) {
+                    $km = intdiv($meters, 1000);
+                    $kmPrefixes["K{$km}+"] = true;
+                    $kmPrefixes['K'.sprintf('%02d', $km).'+'] = true; // Also try K01+ format
+                }
+            } elseif ($rangeStart !== null && $rangeEnd !== null) {
+                $startKm = intdiv($rangeStart, 1000);
+                $endKm = intdiv($rangeEnd, 1000);
+                for ($km = $startKm; $km <= $endKm; $km++) {
+                    $kmPrefixes["K{$km}+"] = true;
+                    $kmPrefixes['K'.sprintf('%02d', $km).'+'] = true;
+                }
+            }
+
+            // Build query to pre-filter RFIs by location prefix
+            $query = DailyWork::query()
                 ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
                 ->with('inchargeUser:id,name')
                 ->whereNotNull('location')
-                ->where('location', '!=', '')
-                ->orderBy('location')
+                ->where('location', '!=', '');
+
+            // Add location prefix filters if we have any
+            if (! empty($kmPrefixes)) {
+                $query->where(function ($q) use ($kmPrefixes) {
+                    foreach (array_keys($kmPrefixes) as $prefix) {
+                        $q->orWhere('location', 'like', $prefix.'%');
+                    }
+                });
+            }
+
+            $allRfis = $query->orderBy('location')
                 ->orderBy('date', 'desc')
-                ->limit(500)
+                ->limit(2000)
                 ->get();
 
             $matchedRfis = $allRfis->filter(function ($rfi) use ($specificMeters, $rangeStart, $rangeEnd) {
