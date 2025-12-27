@@ -110,13 +110,35 @@ trait ChainageMatcher
 
         $cleaned = strtoupper(trim($location));
 
+        // Normalize common formatting issues:
+        // - Remove spaces around + sign: "K23+ 330" → "K23+330"
+        // - Fix missing + in ranges: "K25+360-K25380" → handle via pattern
+        $cleaned = preg_replace('/\+\s+/', '+', $cleaned); // Remove space after +
+        $cleaned = preg_replace('/\s+\+/', '+', $cleaned); // Remove space before +
+
         // Check if it's a range - pattern: PREFIX###+### - PREFIX###+###
         // Support any letter prefix (K, SCK, DZ, CK, ZK, etc.)
         // Separators: hyphen (-), en-dash (–), em-dash (—), tilde (~)
         // Pattern matches: K35+560-K36+120, SCK0+260-SCK0+290, DZ2+440-DZ2+475, K35+500~K36+500
-        if (preg_match('/^([A-Z]*\d+[\+\.]\d+(?:\.\d+)?)\s*[\-–—~]\s*([A-Z]*\d+[\+\.]\d+(?:\.\d+)?)/i', $cleaned, $matches)) {
-            $result['start'] = $this->parseChainageToMeters($matches[1]);
-            $result['end'] = $this->parseChainageToMeters($matches[2]);
+        // Also handles: K23+370-K23-400 (- instead of +), K24+000-200 (short form)
+        if (preg_match('/^([A-Z]*\d+[\+\.\-]\d+(?:\.\d+)?)\s*[\-–—~]\s*([A-Z]*\d*[\+\.\-]?\d+(?:\.\d+)?)/i', $cleaned, $matches)) {
+            $startPart = $matches[1];
+            $endPart = $matches[2];
+
+            // If end part is just a number (like "200" in "K24+000-200"), infer the prefix from start
+            if (preg_match('/^\d+$/', $endPart)) {
+                // Extract km from start and apply to end
+                if (preg_match('/^([A-Z]*)(\d+)[\+\.\-]/', $startPart, $kmMatch)) {
+                    $endPart = $kmMatch[1].$kmMatch[2].'+'.$endPart;
+                }
+            }
+
+            // Fix - used instead of + in chainage (K23-400 → K23+400)
+            $startPart = preg_replace('/^([A-Z]*\d+)-(\d+)$/', '$1+$2', $startPart);
+            $endPart = preg_replace('/^([A-Z]*\d+)-(\d+)$/', '$1+$2', $endPart);
+
+            $result['start'] = $this->parseChainageToMeters($startPart);
+            $result['end'] = $this->parseChainageToMeters($endPart);
             $result['is_range'] = $result['start'] !== null && $result['end'] !== null;
 
             // Ensure start <= end

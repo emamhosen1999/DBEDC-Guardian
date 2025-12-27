@@ -445,14 +445,22 @@ class ObjectionController extends Controller
 
             \Log::debug('suggestRfis: query done', ['count' => $allRfis->count()]);
 
-            $matchedRfis = $allRfis->filter(function ($rfi) use ($specificMeters, $rangeStart, $rangeEnd) {
+            // Pre-compute set for O(1) lookups when we have many specific meters
+            $metersSet = ! empty($specificMeters) ? array_flip($specificMeters) : null;
+
+            \Log::debug('suggestRfis: starting filter', ['specificCount' => count($specificMeters)]);
+
+            $matchedRfis = $allRfis->filter(function ($rfi) use ($specificMeters, $rangeStart, $rangeEnd, $metersSet) {
                 return $this->doesObjectionMatchRfi(
                     $specificMeters,
                     $rangeStart,
                     $rangeEnd,
-                    $rfi->location
+                    $rfi->location,
+                    $metersSet
                 );
             })->take(100)->values();
+
+            \Log::debug('suggestRfis: filter done', ['matched' => $matchedRfis->count()]);
 
             $matchType = ! empty($specificMeters) ? 'specific' : 'range';
 
@@ -462,7 +470,7 @@ class ObjectionController extends Controller
                 'total_found' => $matchedRfis->count(),
                 'match_type' => $matchType,
                 'parsed_chainages' => [
-                    'specific' => $specificMeters,
+                    'specific_count' => count($specificMeters),
                     'range_start' => $rangeStart,
                     'range_end' => $rangeEnd,
                 ],
