@@ -409,16 +409,16 @@ class ObjectionController extends Controller
                 foreach ($specificMeters as $meters) {
                     $km = intdiv($meters, 1000);
                     $kmPrefixes["K{$km}+"] = true;
-                    $kmPrefixes['K'.sprintf('%02d', $km).'+'] = true; // Also try K01+ format
                 }
             } elseif ($rangeStart !== null && $rangeEnd !== null) {
                 $startKm = intdiv($rangeStart, 1000);
                 $endKm = intdiv($rangeEnd, 1000);
                 for ($km = $startKm; $km <= $endKm; $km++) {
                     $kmPrefixes["K{$km}+"] = true;
-                    $kmPrefixes['K'.sprintf('%02d', $km).'+'] = true;
                 }
             }
+
+            \Log::debug('suggestRfis: km prefixes', ['count' => count($kmPrefixes), 'prefixes' => array_keys($kmPrefixes)]);
 
             // Build query to pre-filter RFIs by location prefix
             $query = DailyWork::query()
@@ -436,10 +436,14 @@ class ObjectionController extends Controller
                 });
             }
 
+            \Log::debug('suggestRfis: executing query');
+
             $allRfis = $query->orderBy('location')
                 ->orderBy('date', 'desc')
                 ->limit(2000)
                 ->get();
+
+            \Log::debug('suggestRfis: query done', ['count' => $allRfis->count()]);
 
             $matchedRfis = $allRfis->filter(function ($rfi) use ($specificMeters, $rangeStart, $rangeEnd) {
                 return $this->doesObjectionMatchRfi(

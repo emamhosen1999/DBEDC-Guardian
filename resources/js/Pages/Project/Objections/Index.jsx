@@ -1889,7 +1889,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                         {detailsObjection && (
                             <div className="space-y-4 sm:space-y-6">
                                 {/* Basic Info Grid - Responsive */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     {/* Created By */}
                                     <div className="p-3 bg-default-100 rounded-lg">
                                         <div className="flex items-center gap-2 text-xs text-default-500 mb-1">
@@ -1923,29 +1923,48 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                             })}
                                         </p>
                                     </div>
+                                </div>
 
-                                    {/* Chainage Range */}
-                                    <div className="p-3 bg-default-100 rounded-lg">
-                                        <div className="flex items-center gap-2 text-xs text-default-500 mb-1">
-                                            <MapPinIcon className="w-3 h-3" />
-                                            <span>Chainage</span>
-                                        </div>
-                                        {detailsObjection.chainage_summary ? (
-                                            <div className="text-sm font-medium">
-                                                {detailsObjection.chainage_summary.specific?.length > 0 && (
-                                                    <p>Specific: {detailsObjection.chainage_summary.specific.join(', ')}</p>
-                                                )}
-                                                {detailsObjection.chainage_summary.range && (
-                                                    <p>Range: {detailsObjection.chainage_summary.range}</p>
-                                                )}
-                                                {!detailsObjection.chainage_summary.specific?.length && !detailsObjection.chainage_summary.range && (
-                                                    <span className="text-default-400">Not specified</span>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-sm text-default-400">Not specified</span>
-                                        )}
+                                {/* Chainage Section - Full Width with Scroll */}
+                                <div className="p-3 sm:p-4 bg-default-100 rounded-lg">
+                                    <div className="flex items-center gap-2 text-xs text-default-500 mb-2">
+                                        <MapPinIcon className="w-4 h-4" />
+                                        <span className="font-medium">Chainage Information</span>
                                     </div>
+                                    {detailsObjection.chainage_summary ? (
+                                        <div className="space-y-3">
+                                            {/* Specific Chainages */}
+                                            {detailsObjection.chainage_summary.specific?.length > 0 && (
+                                                <div>
+                                                    <p className="text-xs text-default-500 mb-1.5">Specific Chainages ({detailsObjection.chainage_summary.specific.length})</p>
+                                                    <ScrollShadow className="max-h-24" hideScrollBar>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {detailsObjection.chainage_summary.specific.map((chainage, idx) => (
+                                                                <Chip key={idx} size="sm" variant="flat" color="secondary" className="text-xs">
+                                                                    {chainage}
+                                                                </Chip>
+                                                            ))}
+                                                        </div>
+                                                    </ScrollShadow>
+                                                </div>
+                                            )}
+                                            {/* Chainage Range */}
+                                            {detailsObjection.chainage_summary.range && (
+                                                <div>
+                                                    <p className="text-xs text-default-500 mb-1.5">Chainage Range</p>
+                                                    <Chip size="sm" variant="bordered" color="primary" startContent={<MapPinIcon className="w-3 h-3" />}>
+                                                        {detailsObjection.chainage_summary.range}
+                                                    </Chip>
+                                                </div>
+                                            )}
+                                            {/* No chainage info */}
+                                            {!detailsObjection.chainage_summary.specific?.length && !detailsObjection.chainage_summary.range && (
+                                                <p className="text-sm text-default-400">No chainage information specified</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-default-400">No chainage information specified</p>
+                                    )}
                                 </div>
 
                                 {/* Affected RFIs */}
