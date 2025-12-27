@@ -452,13 +452,23 @@ class RfiObjection extends Model implements HasMedia
             'range' => null,
         ];
 
-        // Create specific chainages
+        // Deduplicate specific chainages (case-insensitive)
+        $seen = [];
+        $uniqueChainages = [];
         foreach ($specificChainages as $chainage) {
             $chainage = trim($chainage);
             if (empty($chainage)) {
                 continue;
             }
+            $key = strtoupper($chainage);
+            if (! isset($seen[$key])) {
+                $seen[$key] = true;
+                $uniqueChainages[] = $chainage;
+            }
+        }
 
+        // Create specific chainages
+        foreach ($uniqueChainages as $chainage) {
             $entry = ObjectionChainage::createFromString($this->id, $chainage, ObjectionChainage::TYPE_SPECIFIC);
             if ($entry) {
                 $created['specific'][] = $entry;
