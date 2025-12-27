@@ -150,7 +150,8 @@ class ObjectionController extends Controller
 
             // Sync chainages to the new table
             $specificChainages = $validated['specific_chainages'] ?? null;
-            $objection->syncChainages($specificChainages, $chainageFrom, $chainageTo);
+            $specificChainagesArray = $this->parseMultipleChainages($specificChainages);
+            $objection->syncChainages($specificChainagesArray, $chainageFrom, $chainageTo);
 
             // Log initial status
             $objection->statusLogs()->create([
