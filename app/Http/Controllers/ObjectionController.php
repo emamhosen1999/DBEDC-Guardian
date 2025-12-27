@@ -335,7 +335,7 @@ class ObjectionController extends Controller
     public function suggestRfis(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'chainage_from' => 'nullable|string|max:500', // Allow longer for multiple chainages
+            'chainage_from' => 'nullable|string|max:5000', // Allow longer for multiple chainages
             'chainage_to' => 'nullable|string|max:50',
             'search' => 'nullable|string|max:255',
         ]);

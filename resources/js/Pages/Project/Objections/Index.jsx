@@ -1439,8 +1439,19 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 </div>
 
                                 {rfiSearchLoading ? (
-                                    <div className="flex justify-center py-8">
-                                        <Spinner />
+                                    <div className="grid gap-2 border border-divider rounded-lg p-2">
+                                        {[1, 2, 3].map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="flex items-center gap-3 p-2 border border-divider rounded-lg"
+                                            >
+                                                <Skeleton className="w-5 h-5 rounded" />
+                                                <div className="flex-1 min-w-0 space-y-2">
+                                                    <Skeleton className="h-4 w-24 rounded" />
+                                                    <Skeleton className="h-3 w-48 rounded" />
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 ) : suggestedRfis.length > 0 ? (
                                     <CheckboxGroup
