@@ -208,7 +208,8 @@ class DailyWorkPaginationService
                                 ->orWhere('location', 'LIKE', "%{$word}%")
                                 ->orWhere('description', 'LIKE', "%{$word}%")
                                 ->orWhere('type', 'LIKE', "%{$word}%")
-                                ->orWhere('side', 'LIKE', "%{$word}%");
+                                ->orWhere('side', 'LIKE', "%{$word}%")
+                                ->orWhere('inspection_details', 'LIKE', "%{$word}%");
                         });
                     }
                 });

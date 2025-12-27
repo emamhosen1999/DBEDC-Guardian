@@ -85,6 +85,12 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
         end: overallEndDate
     });
     
+    // Dynamic date bounds - updated after import
+    const [dateBounds, setDateBounds] = useState({
+        min: overallStartDate,
+        max: overallEndDate
+    });
+    
     const renderSelectedBadges = useCallback((selectedIds, options, placeholder, labelKey = 'name') => {
         if (!selectedIds || selectedIds.length === 0) {
             return <span className="text-default-400 text-xs">{placeholder}</span>;
@@ -520,6 +526,11 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                             ...prev,
                             end: latestImportDate
                         }));
+                        // Update date bounds to allow selecting the new date
+                        setDateBounds(prev => ({
+                            ...prev,
+                            max: latestImportDate
+                        }));
                     } else {
                         // If within range, just set end to the imported date to show new data
                         setDateRange(prev => ({
@@ -545,14 +556,22 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     const [apiStats, setApiStats] = useState(null);
     const [statsLoading, setStatsLoading] = useState(false);
 
-    const fetchStatistics = async () => {
+    const fetchStatistics = async (withFilters = false) => {
         setStatsLoading(true);
         try {
-            const response = await axios.get('/daily-works/statistics');
+            const params = withFilters ? {
+                startDate: isMobile ? selectedDate : dateRange.start,
+                endDate: isMobile ? selectedDate : dateRange.end,
+                ...(filterData.status !== 'all' && { status: filterData.status }),
+                ...(filterData.incharge.length > 0 && { inCharge: filterData.incharge }),
+                ...(filterData.jurisdiction.length > 0 && { jurisdiction: filterData.jurisdiction }),
+            } : {};
+            
+            const response = await axios.get('/daily-works/statistics', { params });
             setApiStats(response.data);
         } catch (error) {
             console.error('Error fetching statistics:', error);
-            showToast.error('Failed to load statistics');
+            // Don't show error toast for stats - it's not critical
         } finally {
             setStatsLoading(false);
         }
@@ -789,7 +808,12 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                 <EnhancedDailyWorksExportForm
                     open={openModalType === 'exportDailyWorks'}
                     closeModal={closeModal}
-                    filterData={filterData}
+                    filterData={{
+                        ...filterData,
+                        startDate: isMobile ? selectedDate : dateRange.start,
+                        endDate: isMobile ? selectedDate : dateRange.end,
+                        search: search
+                    }}
                     users={users}
                     inCharges={allData.allInCharges}
                 />
@@ -927,11 +951,13 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                         color={showFilters ? 'primary' : 'default'}
                                         onPress={() => setShowFilters(!showFilters)}
                                         radius={getThemeRadius()}
-                                        className={`shrink-0 min-h-10 ${showFilters ? '' : 'border-divider/50'}`}
-                                        startContent={<AdjustmentsHorizontalIcon className="w-4 h-4" />}
+                                        className={`shrink-0 min-h-10 ${showFilters ? '' : 'border-divider/50'} ${isMobile ? 'min-w-10' : ''}`}
+                                        startContent={!isMobile && <AdjustmentsHorizontalIcon className="w-4 h-4" />}
+                                        isIconOnly={isMobile}
+                                        aria-label="Toggle filters"
                                         style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                     >
-                                        {isMobile ? '' : 'Filters'}
+                                        {isMobile ? <AdjustmentsHorizontalIcon className="w-4 h-4" /> : 'Filters'}
                                     </Button>
 
                                     {/* Date Selector - Second */}
@@ -945,8 +971,8 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                                 variant="bordered"
                                                 size="sm"
                                                 radius={getThemeRadius()}
-                                                min={overallStartDate}
-                                                max={overallEndDate}
+                                                min={dateBounds.min}
+                                                max={dateBounds.max}
                                                 classNames={{
                                                     base: "w-full",
                                                     input: "text-foreground text-sm",
@@ -965,8 +991,8 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                                     variant="bordered"
                                                     size="sm"
                                                     radius={getThemeRadius()}
-                                                    min={overallStartDate}
-                                                    max={overallEndDate}
+                                                    min={dateBounds.min}
+                                                    max={dateBounds.max}
                                                     classNames={{
                                                         base: "w-auto",
                                                         label: "text-xs text-default-500 whitespace-nowrap",
@@ -985,8 +1011,8 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                                     variant="bordered"
                                                     size="sm"
                                                     radius={getThemeRadius()}
-                                                    min={overallStartDate}
-                                                    max={overallEndDate}
+                                                    min={dateBounds.min}
+                                                    max={dateBounds.max}
                                                     classNames={{
                                                         base: "w-auto",
                                                         label: "text-xs text-default-500 whitespace-nowrap",
@@ -1010,6 +1036,24 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                             size="sm"
                                             radius={getThemeRadius()}
                                             startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400 shrink-0" />}
+                                            endContent={
+                                                tableLoading && search ? (
+                                                    <Spinner size="sm" color="primary" />
+                                                ) : search ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSearch('');
+                                                            setCurrentPage(1);
+                                                        }}
+                                                        className="text-default-400 hover:text-default-600 transition-colors"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                ) : null
+                                            }
                                             classNames={{
                                                 input: "text-foreground text-sm",
                                                 inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",

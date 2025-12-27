@@ -69,6 +69,7 @@ const EnhancedDailyWorksExportForm = ({
             status: filterData.status || 'all',
             incharge: filterData.incharge || 'all',
             type: filterData.type || 'all',
+            search: filterData.search || '',
         }
     });
 
@@ -117,10 +118,12 @@ const EnhancedDailyWorksExportForm = ({
     const statusOptions = [
         { key: 'all', label: 'All Statuses' },
         { key: 'new', label: 'New' },
-        { key: 'in_progress', label: 'In Progress' },
-        { key: 'review', label: 'Under Review' },
+        { key: 'in-progress', label: 'In Progress' },
+        { key: 'pending', label: 'Pending' },
         { key: 'completed', label: 'Completed' },
-        { key: 'rejected', label: 'Rejected' }
+        { key: 'rejected', label: 'Rejected' },
+        { key: 'resubmission', label: 'Resubmission' },
+        { key: 'emergency', label: 'Emergency' }
     ];
 
     const typeOptions = [
@@ -143,6 +146,9 @@ const EnhancedDailyWorksExportForm = ({
                     }),
                     ...(exportSettings.dateRange.end && { 
                         endDate: exportSettings.dateRange.end.toString() 
+                    }),
+                    ...(exportSettings.filters.search && { 
+                        search: exportSettings.filters.search 
                     })
                 };
 

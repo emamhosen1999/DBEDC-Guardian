@@ -203,7 +203,8 @@ class DailyWorkController extends Controller
                                     ->orWhere('description', 'like', "%{$word}%")
                                     ->orWhere('location', 'like', "%{$word}%")
                                     ->orWhere('type', 'like', "%{$word}%")
-                                    ->orWhere('side', 'like', "%{$word}%");
+                                    ->orWhere('side', 'like', "%{$word}%")
+                                    ->orWhere('inspection_details', 'like', "%{$word}%");
                             });
                         }
                     });

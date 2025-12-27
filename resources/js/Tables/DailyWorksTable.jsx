@@ -71,6 +71,7 @@ import {
     FolderOpenIcon,
     ShieldExclamationIcon,
     ClipboardDocumentCheckIcon,
+    ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import {
     CheckCircleIcon as CheckCircleSolid,
@@ -2750,30 +2751,66 @@ const DailyWorksTable = ({
     if (isMobile) {
         return (
             <div className="space-y-3">
-                {/* Mobile Header with Import Buttons */}
+                {/* Mobile Header with Import Buttons - Icon Only for mobile */}
                 <div className="flex items-center justify-between px-2">
-                    <h3 className="text-base font-semibold text-default-700">Daily Works</h3>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="flat"
-                            color="secondary"
-                            size="sm"
-                            radius={getThemeRadius()}
-                            onPress={() => setBulkImportModalOpen(true)}
-                            startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
-                        >
-                            Import Submit
-                        </Button>
-                        <Button
-                            variant="flat"
-                            color="primary"
-                            size="sm"
-                            radius={getThemeRadius()}
-                            onPress={() => setBulkImportResponseStatusModalOpen(true)}
-                            startContent={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
-                        >
-                            Import Status
-                        </Button>
+                    <h3 className="text-sm font-semibold text-default-700">Daily Works</h3>
+                    <div className="flex items-center gap-1.5">
+                        <Tooltip content="Import Submission" placement="bottom">
+                            <Button
+                                variant="flat"
+                                color="secondary"
+                                size="sm"
+                                radius={getThemeRadius()}
+                                isIconOnly
+                                onPress={() => setBulkImportModalOpen(true)}
+                                aria-label="Import Submission"
+                                className="min-w-8 h-8"
+                            >
+                                <DocumentArrowDownIcon className="w-4 h-4" />
+                            </Button>
+                        </Tooltip>
+                        <Tooltip content="Import Status" placement="bottom">
+                            <Button
+                                variant="flat"
+                                color="primary"
+                                size="sm"
+                                radius={getThemeRadius()}
+                                isIconOnly
+                                onPress={() => setBulkImportResponseStatusModalOpen(true)}
+                                aria-label="Import Status"
+                                className="min-w-8 h-8"
+                            >
+                                <ClipboardDocumentCheckIcon className="w-4 h-4" />
+                            </Button>
+                        </Tooltip>
+                        <Tooltip content="Export" placement="bottom">
+                            <Button
+                                variant="flat"
+                                color="success"
+                                size="sm"
+                                radius={getThemeRadius()}
+                                isIconOnly
+                                onPress={() => openModal('exportDailyWorks')}
+                                aria-label="Export"
+                                className="min-w-8 h-8"
+                            >
+                                <ArrowDownTrayIcon className="w-4 h-4" />
+                            </Button>
+                        </Tooltip>
+                        <Tooltip content="Refresh" placement="bottom">
+                            <Button
+                                variant="flat"
+                                color="default"
+                                size="sm"
+                                radius={getThemeRadius()}
+                                isIconOnly
+                                onPress={handleRefresh}
+                                aria-label="Refresh"
+                                className="min-w-8 h-8"
+                            >
+                                <ArrowPathIcon className="w-4 h-4" />
+                            </Button>
+                        </Tooltip>
                     </div>
                 </div>
                 <ScrollShadow 
@@ -2964,6 +3001,16 @@ const DailyWorksTable = ({
                     </Button>
                     <Button
                         variant="flat"
+                        color="success"
+                        size="sm"
+                        radius={getThemeRadius()}
+                        onPress={() => openModal('exportDailyWorks')}
+                        startContent={<ArrowDownTrayIcon className="w-4 h-4" />}
+                    >
+                        Export
+                    </Button>
+                    <Button
+                        variant="flat"
                         color="primary"
                         size="sm"
                         radius={getThemeRadius()}
@@ -2976,7 +3023,7 @@ const DailyWorksTable = ({
                         startContent={<ArrowPathIcon className="w-4 h-4" />}
                     >
                         Refresh
-                </Button>
+                    </Button>
                 </div>
             </div>
             
