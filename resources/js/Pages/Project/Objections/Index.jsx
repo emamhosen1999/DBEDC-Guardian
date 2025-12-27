@@ -454,11 +454,19 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     // Handle RFI search
     const handleRfiSearch = () => {
         if (selectedObjection) {
-            handleSuggestRfis(
-                selectedObjection.chainage_from,
-                selectedObjection.chainage_to,
-                rfiSearchQuery
-            );
+            const summary = selectedObjection.chainage_summary || {};
+            const specificChainages = summary.specific?.join(', ') || '';
+            const rangeFrom = summary.range?.split(' - ')[0] || selectedObjection.chainage_from;
+            const rangeTo = summary.range?.split(' - ')[1] || selectedObjection.chainage_to;
+            
+            if (rfiSearchQuery) {
+                // Search with query
+                handleSuggestRfis(null, null, rfiSearchQuery);
+            } else if (specificChainages) {
+                handleSuggestRfis(specificChainages, null);
+            } else {
+                handleSuggestRfis(rangeFrom, rangeTo, rfiSearchQuery);
+            }
         } else if (rfiSearchQuery) {
             handleSuggestRfis(null, null, rfiSearchQuery);
         }
@@ -471,9 +479,21 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         setRfiSearchQuery('');
         setSuggestedRfis([]);
         
-        // Auto-search if chainage is set
-        if (objection.chainage_from && objection.chainage_to) {
-            handleSuggestRfis(objection.chainage_from, objection.chainage_to);
+        // Auto-search using new chainage_summary or legacy fields
+        const summary = objection.chainage_summary || {};
+        const specificChainages = summary.specific?.join(', ') || '';
+        const rangeFrom = summary.range?.split(' - ')[0] || objection.chainage_from;
+        const rangeTo = summary.range?.split(' - ')[1] || objection.chainage_to;
+        
+        if (specificChainages) {
+            // Use specific chainages
+            handleSuggestRfis(specificChainages, null);
+        } else if (rangeFrom && rangeTo) {
+            // Use range
+            handleSuggestRfis(rangeFrom, rangeTo);
+        } else if (rangeFrom) {
+            // Single chainage
+            handleSuggestRfis(rangeFrom, null);
         }
         onAttachOpen();
     };
@@ -1350,14 +1370,25 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 >
                                     Search
                                 </Button>
-                                {selectedObjection?.chainage_from && selectedObjection?.chainage_to && (
+                                {(selectedObjection?.chainage_summary?.specific?.length > 0 || 
+                                  selectedObjection?.chainage_summary?.range ||
+                                  (selectedObjection?.chainage_from && selectedObjection?.chainage_to)) && (
                                     <Button
                                         size="sm"
                                         variant="flat"
                                         isLoading={rfiSearchLoading}
                                         onPress={() => {
                                             setRfiSearchQuery('');
-                                            handleSuggestRfis(selectedObjection.chainage_from, selectedObjection.chainage_to);
+                                            const summary = selectedObjection.chainage_summary || {};
+                                            const specificChainages = summary.specific?.join(', ') || '';
+                                            const rangeFrom = summary.range?.split(' - ')[0] || selectedObjection.chainage_from;
+                                            const rangeTo = summary.range?.split(' - ')[1] || selectedObjection.chainage_to;
+                                            
+                                            if (specificChainages) {
+                                                handleSuggestRfis(specificChainages, null);
+                                            } else {
+                                                handleSuggestRfis(rangeFrom, rangeTo);
+                                            }
                                         }}
                                     >
                                         <ArrowPathIcon className="w-4 h-4" />
