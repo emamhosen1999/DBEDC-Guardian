@@ -190,11 +190,24 @@ class DailyWorkController extends Controller
 
             if ($request->has('search')) {
                 $search = $request->search;
-                $query->where(function ($q) use ($search) {
-                    $q->where('number', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhere('location', 'like', "%{$search}%");
-                });
+                // Split search into words (handle multiple spaces)
+                $words = array_filter(preg_split('/\s+/', trim($search)));
+
+                if (! empty($words)) {
+                    $query->where(function ($q) use ($words) {
+                        foreach ($words as $word) {
+                            // Each word must match at least one column (AND between words)
+                            $q->where(function ($wordQuery) use ($word) {
+                                // Word can match any column (OR within each word)
+                                $wordQuery->where('number', 'like', "%{$word}%")
+                                    ->orWhere('description', 'like', "%{$word}%")
+                                    ->orWhere('location', 'like', "%{$word}%")
+                                    ->orWhere('type', 'like', "%{$word}%")
+                                    ->orWhere('side', 'like', "%{$word}%");
+                            });
+                        }
+                    });
+                }
             }
 
             // Filter to only RFIs with active objections if requested

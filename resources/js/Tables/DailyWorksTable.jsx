@@ -84,28 +84,49 @@ import {
 import axios from 'axios';
 import { jsPDF } from "jspdf";
 
-// Utility function to highlight matching text in search results
+// Utility function to highlight matching text in search results (supports multi-word search)
 const HighlightedText = ({ text, searchTerm }) => {
     if (!searchTerm || !text) return <>{text}</>;
     
     const textStr = String(text);
-    const searchLower = searchTerm.toLowerCase();
-    const textLower = textStr.toLowerCase();
-    const index = textLower.indexOf(searchLower);
     
-    if (index === -1) return <>{textStr}</>;
+    // Split search term into individual words and filter out empty strings
+    const searchWords = searchTerm.trim().split(/\s+/).filter(Boolean);
     
-    const before = textStr.slice(0, index);
-    const match = textStr.slice(index, index + searchTerm.length);
-    const after = textStr.slice(index + searchTerm.length);
+    if (searchWords.length === 0) return <>{textStr}</>;
+    
+    // Escape special regex characters in each word
+    const escapedWords = searchWords.map(word => 
+        word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    );
+    
+    // Create a regex that matches any of the search words (case insensitive)
+    const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi');
+    
+    // Split text by matches
+    const parts = textStr.split(regex);
+    
+    if (parts.length === 1) return <>{textStr}</>;
     
     return (
         <>
-            {before}
-            <mark className="bg-warning-200 text-warning-800 dark:bg-warning-800/40 dark:text-warning-200 px-0.5 rounded">
-                {match}
-            </mark>
-            {after}
+            {parts.map((part, index) => {
+                // Check if this part matches any of the search words
+                const isMatch = searchWords.some(word => 
+                    part.toLowerCase() === word.toLowerCase()
+                );
+                
+                return isMatch ? (
+                    <mark 
+                        key={index} 
+                        className="bg-warning-200 text-warning-800 dark:bg-warning-800/40 dark:text-warning-200 px-0.5 rounded"
+                    >
+                        {part}
+                    </mark>
+                ) : (
+                    <span key={index}>{part}</span>
+                );
+            })}
         </>
     );
 };

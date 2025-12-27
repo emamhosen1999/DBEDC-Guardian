@@ -193,14 +193,26 @@ class DailyWorkPaginationService
             }
         }
 
-        // Apply search LAST as it's least selective
+        // Apply multi-word search - each word must match at least one column
         if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('number', 'LIKE', "%{$search}%")
-                    ->orWhere('location', 'LIKE', "%{$search}%")
-                    ->orWhere('description', 'LIKE', "%{$search}%");
-                // Remove date search as it's handled above
-            });
+            // Split search into words (handle multiple spaces)
+            $words = array_filter(preg_split('/\s+/', trim($search)));
+
+            if (! empty($words)) {
+                $query->where(function ($q) use ($words) {
+                    foreach ($words as $word) {
+                        // Each word must match at least one column (AND between words)
+                        $q->where(function ($wordQuery) use ($word) {
+                            // Word can match any column (OR within each word)
+                            $wordQuery->where('number', 'LIKE', "%{$word}%")
+                                ->orWhere('location', 'LIKE', "%{$word}%")
+                                ->orWhere('description', 'LIKE', "%{$word}%")
+                                ->orWhere('type', 'LIKE', "%{$word}%")
+                                ->orWhere('side', 'LIKE', "%{$word}%");
+                        });
+                    }
+                });
+            }
         }
 
         return $query;
