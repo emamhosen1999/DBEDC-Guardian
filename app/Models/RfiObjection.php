@@ -555,10 +555,11 @@ class RfiObjection extends Model implements HasMedia
 
     /**
      * Get a formatted summary of chainages for display.
+     * Accessor: $objection->chainage_summary
      *
      * @return array{specific: array<string>, range: string|null}
      */
-    public function getChainageSummary(): array
+    public function getChainageSummaryAttribute(): array
     {
         $specific = $this->chainages()
             ->where('entry_type', ObjectionChainage::TYPE_SPECIFIC)
