@@ -2505,6 +2505,7 @@ const DailyWorksTable = ({
                                     color={work.rfi_files_count > 0 ? "success" : "default"}
                                     radius={getThemeRadius()}
                                     onPress={() => openRfiFilesModal(work)}
+                                    aria-label={work.rfi_files_count > 0 ? `Files (${work.rfi_files_count})` : "Manage Files"}
                                     className="min-w-8 h-8"
                                 >
                                     {work.rfi_files_count > 0 ? (
@@ -2522,6 +2523,7 @@ const DailyWorksTable = ({
                                     color={work.active_objections_count > 0 ? "warning" : "default"}
                                     radius={getThemeRadius()}
                                     onPress={() => openObjectionsModal(work)}
+                                    aria-label={work.active_objections_count > 0 ? `Objections (${work.active_objections_count})` : "View/Add Objections"}
                                     className="min-w-8 h-8"
                                 >
                                     <ShieldExclamationIcon className={`w-4 h-4 ${work.active_objections_count > 0 ? 'animate-pulse' : ''}`} />
@@ -2539,6 +2541,7 @@ const DailyWorksTable = ({
                                         setCurrentRow(work);
                                         openModal("editDailyWork");
                                     }}
+                                    aria-label="Edit Work"
                                     className="min-w-8 h-8"
                                 >
                                     <PencilIcon className="w-4 h-4" />
@@ -2556,6 +2559,7 @@ const DailyWorksTable = ({
                                         setCurrentRow(work);
                                         handleClickOpen(work.id, "deleteDailyWork");
                                     }}
+                                    aria-label="Delete Work"
                                     className="min-w-8 h-8"
                                 >
                                     <TrashIcon className="w-4 h-4" />

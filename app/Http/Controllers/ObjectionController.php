@@ -45,6 +45,7 @@ class ObjectionController extends Controller
                 'dailyWorks:id,number,location',
                 'statusLogs.changedBy:id,name',
                 'chainages', // Load chainages for proper display
+                'media', // Eager load media to prevent N+1 queries
             ])
             ->withCount('dailyWorks');
 
@@ -82,7 +83,9 @@ class ObjectionController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('reason', 'like', "%{$search}%");
+                    ->orWhere('reason', 'like', "%{$search}%")
+                    ->orWhere('chainage_from', 'like', "%{$search}%")
+                    ->orWhere('chainage_to', 'like', "%{$search}%");
             });
         }
 
@@ -512,30 +515,35 @@ class ObjectionController extends Controller
     {
         $this->authorize('submit', $objection);
 
-        if ($objection->status !== RfiObjection::STATUS_DRAFT) {
-            return response()->json([
-                'error' => 'Only draft objections can be submitted.',
-            ], 422);
-        }
-
         try {
-            $oldStatus = $objection->status;
-            $objection->update(['status' => RfiObjection::STATUS_SUBMITTED]);
+            return DB::transaction(function () use ($objection) {
+                // Lock the row to prevent race conditions
+                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
 
-            // Log status change
-            $objection->statusLogs()->create([
-                'from_status' => $oldStatus,
-                'to_status' => RfiObjection::STATUS_SUBMITTED,
-                'notes' => 'Submitted for review',
-                'changed_by' => auth()->id(),
-                'changed_at' => now(),
-            ]);
+                if ($objection->status !== RfiObjection::STATUS_DRAFT) {
+                    return response()->json([
+                        'error' => 'Only draft objections can be submitted. Status may have changed.',
+                    ], 409);
+                }
 
-            return response()->json([
-                'message' => 'Objection submitted for review.',
-                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                'statistics' => $this->getStatistics(),
-            ]);
+                $oldStatus = $objection->status;
+                $objection->update(['status' => RfiObjection::STATUS_SUBMITTED]);
+
+                // Log status change
+                $objection->statusLogs()->create([
+                    'from_status' => $oldStatus,
+                    'to_status' => RfiObjection::STATUS_SUBMITTED,
+                    'notes' => 'Submitted for review',
+                    'changed_by' => auth()->id(),
+                    'changed_at' => now(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Objection submitted for review.',
+                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                    'statistics' => $this->getStatistics(),
+                ]);
+            });
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to submit objection.',
@@ -551,30 +559,35 @@ class ObjectionController extends Controller
     {
         $this->authorize('review', $objection);
 
-        if ($objection->status !== RfiObjection::STATUS_SUBMITTED) {
-            return response()->json([
-                'error' => 'Only submitted objections can be put under review.',
-            ], 422);
-        }
-
         try {
-            $oldStatus = $objection->status;
-            $objection->update(['status' => RfiObjection::STATUS_UNDER_REVIEW]);
+            return DB::transaction(function () use ($objection) {
+                // Lock the row to prevent race conditions
+                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
 
-            // Log status change
-            $objection->statusLogs()->create([
-                'from_status' => $oldStatus,
-                'to_status' => RfiObjection::STATUS_UNDER_REVIEW,
-                'notes' => 'Review started',
-                'changed_by' => auth()->id(),
-                'changed_at' => now(),
-            ]);
+                if ($objection->status !== RfiObjection::STATUS_SUBMITTED) {
+                    return response()->json([
+                        'error' => 'Only submitted objections can be put under review. Status may have changed.',
+                    ], 409);
+                }
 
-            return response()->json([
-                'message' => 'Objection is now under review.',
-                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                'statistics' => $this->getStatistics(),
-            ]);
+                $oldStatus = $objection->status;
+                $objection->update(['status' => RfiObjection::STATUS_UNDER_REVIEW]);
+
+                // Log status change
+                $objection->statusLogs()->create([
+                    'from_status' => $oldStatus,
+                    'to_status' => RfiObjection::STATUS_UNDER_REVIEW,
+                    'notes' => 'Review started',
+                    'changed_by' => auth()->id(),
+                    'changed_at' => now(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Objection is now under review.',
+                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                    'statistics' => $this->getStatistics(),
+                ]);
+            });
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to start review.',
@@ -590,45 +603,50 @@ class ObjectionController extends Controller
     {
         $this->authorize('review', $objection);
 
-        if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
-            return response()->json([
-                'error' => 'Only submitted or under-review objections can be resolved.',
-            ], 422);
-        }
-
         $validated = $request->validate([
             'resolution_notes' => 'required|string|max:5000',
         ]);
 
         try {
-            $oldStatus = $objection->status;
-            $objection->update([
-                'status' => RfiObjection::STATUS_RESOLVED,
-                'resolution_notes' => $validated['resolution_notes'],
-                'resolved_by' => auth()->id(),
-                'resolved_at' => now(),
-            ]);
+            return DB::transaction(function () use ($objection, $validated) {
+                // Lock the row to prevent race conditions
+                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
 
-            // Log status change
-            $objection->statusLogs()->create([
-                'from_status' => $oldStatus,
-                'to_status' => RfiObjection::STATUS_RESOLVED,
-                'notes' => $validated['resolution_notes'],
-                'changed_by' => auth()->id(),
-                'changed_at' => now(),
-            ]);
+                if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
+                    return response()->json([
+                        'error' => 'Only submitted or under-review objections can be resolved. Status may have changed.',
+                    ], 409);
+                }
 
-            // Notify creator and RFI incharges
-            $rfiIds = $objection->dailyWorks()->pluck('daily_works.id')->toArray();
-            if (! empty($rfiIds)) {
-                $this->notifyRfiIncharges($objection, $rfiIds, 'resolved');
-            }
+                $oldStatus = $objection->status;
+                $objection->update([
+                    'status' => RfiObjection::STATUS_RESOLVED,
+                    'resolution_notes' => $validated['resolution_notes'],
+                    'resolved_by' => auth()->id(),
+                    'resolved_at' => now(),
+                ]);
 
-            return response()->json([
-                'message' => 'Objection resolved successfully.',
-                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                'statistics' => $this->getStatistics(),
-            ]);
+                // Log status change
+                $objection->statusLogs()->create([
+                    'from_status' => $oldStatus,
+                    'to_status' => RfiObjection::STATUS_RESOLVED,
+                    'notes' => $validated['resolution_notes'],
+                    'changed_by' => auth()->id(),
+                    'changed_at' => now(),
+                ]);
+
+                // Notify creator and RFI incharges
+                $rfiIds = $objection->dailyWorks()->pluck('daily_works.id')->toArray();
+                if (! empty($rfiIds)) {
+                    $this->notifyRfiIncharges($objection, $rfiIds, 'resolved');
+                }
+
+                return response()->json([
+                    'message' => 'Objection resolved successfully.',
+                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                    'statistics' => $this->getStatistics(),
+                ]);
+            });
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to resolve objection.',
@@ -644,39 +662,44 @@ class ObjectionController extends Controller
     {
         $this->authorize('review', $objection);
 
-        if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
-            return response()->json([
-                'error' => 'Only submitted or under-review objections can be rejected.',
-            ], 422);
-        }
-
         $validated = $request->validate([
             'resolution_notes' => 'required|string|max:5000',
         ]);
 
         try {
-            $oldStatus = $objection->status;
-            $objection->update([
-                'status' => RfiObjection::STATUS_REJECTED,
-                'resolution_notes' => $validated['resolution_notes'],
-                'resolved_by' => auth()->id(),
-                'resolved_at' => now(),
-            ]);
+            return DB::transaction(function () use ($objection, $validated) {
+                // Lock the row to prevent race conditions
+                $objection = RfiObjection::where('id', $objection->id)->lockForUpdate()->first();
 
-            // Log status change
-            $objection->statusLogs()->create([
-                'from_status' => $oldStatus,
-                'to_status' => RfiObjection::STATUS_REJECTED,
-                'notes' => $validated['resolution_notes'],
-                'changed_by' => auth()->id(),
-                'changed_at' => now(),
-            ]);
+                if (! in_array($objection->status, [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])) {
+                    return response()->json([
+                        'error' => 'Only submitted or under-review objections can be rejected. Status may have changed.',
+                    ], 409);
+                }
 
-            return response()->json([
-                'message' => 'Objection rejected.',
-                'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
-                'statistics' => $this->getStatistics(),
-            ]);
+                $oldStatus = $objection->status;
+                $objection->update([
+                    'status' => RfiObjection::STATUS_REJECTED,
+                    'resolution_notes' => $validated['resolution_notes'],
+                    'resolved_by' => auth()->id(),
+                    'resolved_at' => now(),
+                ]);
+
+                // Log status change
+                $objection->statusLogs()->create([
+                    'from_status' => $oldStatus,
+                    'to_status' => RfiObjection::STATUS_REJECTED,
+                    'notes' => $validated['resolution_notes'],
+                    'changed_by' => auth()->id(),
+                    'changed_at' => now(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Objection rejected.',
+                    'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
+                    'statistics' => $this->getStatistics(),
+                ]);
+            });
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Failed to reject objection.',

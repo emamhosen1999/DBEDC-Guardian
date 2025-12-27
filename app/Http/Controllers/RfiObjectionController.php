@@ -19,7 +19,7 @@ class RfiObjectionController extends Controller
         $this->authorize('viewAny', RfiObjection::class);
 
         $objections = $dailyWork->objections()
-            ->with(['createdBy:id,name,email', 'resolvedBy:id,name,email'])
+            ->with(['createdBy:id,name,email', 'resolvedBy:id,name,email', 'media'])
             ->get()
             ->map(function ($objection) {
                 return array_merge($objection->toArray(), [
@@ -290,12 +290,17 @@ class RfiObjectionController extends Controller
 
         $this->authorize('review', $objection);
 
+        // Accept both field names for backward compatibility
         $validated = $request->validate([
-            'rejection_reason' => 'required|string|max:5000',
+            'rejection_reason' => 'required_without:resolution_notes|string|max:5000',
+            'resolution_notes' => 'required_without:rejection_reason|string|max:5000',
         ]);
 
+        // Use whichever field was provided
+        $reason = $validated['resolution_notes'] ?? $validated['rejection_reason'];
+
         try {
-            $objection->reject($validated['rejection_reason']);
+            $objection->reject($reason);
 
             // Notify the objection creator
             $this->notifyStakeholders($objection, 'rejected');
@@ -449,7 +454,7 @@ class RfiObjectionController extends Controller
         $query = RfiObjection::query()
             ->whereNotIn('id', $attachedIds)
             ->whereIn('status', [RfiObjection::STATUS_DRAFT, RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW])
-            ->with(['createdBy:id,name,email', 'chainages'])
+            ->with(['createdBy:id,name,email', 'chainages', 'media'])
             ->orderBy('created_at', 'desc')
             ->limit(200); // Fetch more to filter
 
@@ -518,7 +523,20 @@ class RfiObjectionController extends Controller
      */
     public function attach(Request $request, DailyWork $dailyWork): JsonResponse
     {
+        // Check basic permission first
         $this->authorize('viewAny', RfiObjection::class);
+
+        // Verify user can manage this specific RFI (incharge, assigned, or admin)
+        $user = auth()->user();
+        $canManageRfi = $user->hasRole(['Super Admin', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
+            || $dailyWork->incharge === $user->id
+            || $dailyWork->assigned === $user->id;
+
+        if (! $canManageRfi) {
+            return response()->json([
+                'error' => 'You do not have permission to manage objections for this RFI.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'objection_ids' => 'required|array|min:1',
@@ -574,7 +592,20 @@ class RfiObjectionController extends Controller
      */
     public function detach(Request $request, DailyWork $dailyWork): JsonResponse
     {
+        // Check basic permission first
         $this->authorize('viewAny', RfiObjection::class);
+
+        // Verify user can manage this specific RFI (incharge, assigned, or admin)
+        $user = auth()->user();
+        $canManageRfi = $user->hasRole(['Super Admin', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
+            || $dailyWork->incharge === $user->id
+            || $dailyWork->assigned === $user->id;
+
+        if (! $canManageRfi) {
+            return response()->json([
+                'error' => 'You do not have permission to manage objections for this RFI.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'objection_ids' => 'required|array|min:1',
@@ -651,17 +682,24 @@ class RfiObjectionController extends Controller
     protected function notifyStakeholders(RfiObjection $objection, string $event): void
     {
         try {
-            $dailyWork = $objection->dailyWork;
+            // Use many-to-many relationship - get all linked daily works
+            $dailyWorks = $objection->dailyWorks()
+                ->with(['inchargeUser', 'assignedUser'])
+                ->get();
+
             $usersToNotify = collect();
 
-            // Get incharge user
-            if ($dailyWork->incharge && $dailyWork->inchargeUser) {
-                $usersToNotify->push($dailyWork->inchargeUser);
-            }
+            // Collect users from all linked daily works
+            foreach ($dailyWorks as $dailyWork) {
+                // Get incharge user
+                if ($dailyWork->incharge && $dailyWork->inchargeUser) {
+                    $usersToNotify->push($dailyWork->inchargeUser);
+                }
 
-            // Get assigned user
-            if ($dailyWork->assigned && $dailyWork->assignedUser && $dailyWork->assigned !== $dailyWork->incharge) {
-                $usersToNotify->push($dailyWork->assignedUser);
+                // Get assigned user
+                if ($dailyWork->assigned && $dailyWork->assignedUser && $dailyWork->assigned !== $dailyWork->incharge) {
+                    $usersToNotify->push($dailyWork->assignedUser);
+                }
             }
 
             // For submitted events, also notify managers/admins

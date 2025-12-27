@@ -41,25 +41,17 @@ import { showToast } from '@/utils/toastUtils';
 import { getThemeRadius } from '@/Hooks/useThemeRadius';
 import axios from 'axios';
 import { router } from '@inertiajs/react';
+import {
+    STATUS_CONFIG,
+    CATEGORY_CONFIG,
+    getStatusConfig,
+    getCategoryConfig,
+} from '@/Config/objectionConfig';
 
-// Category labels for display
-const CATEGORY_LABELS = {
-    'design_conflict': 'Design Conflict',
-    'site_mismatch': 'Site Condition Mismatch',
-    'material_change': 'Material Change',
-    'safety_concern': 'Safety Concern',
-    'specification_error': 'Specification Error',
-    'other': 'Other',
-};
-
-// Status colors and icons
-const STATUS_CONFIG = {
-    draft: { color: 'default', icon: DocumentIcon, label: 'Draft' },
-    submitted: { color: 'warning', icon: PaperAirplaneIcon, label: 'Submitted' },
-    under_review: { color: 'primary', icon: ClockIcon, label: 'Under Review' },
-    resolved: { color: 'success', icon: CheckCircleIcon, label: 'Resolved' },
-    rejected: { color: 'danger', icon: XCircleIcon, label: 'Rejected' },
-};
+// Category labels for display (mapped from shared config)
+const CATEGORY_LABELS = Object.fromEntries(
+    Object.entries(CATEGORY_CONFIG).map(([key, val]) => [key, val.label])
+);
 
 /**
  * ObjectionsModal - Modal for managing objections attached to an RFI/Daily Work
@@ -85,43 +77,13 @@ const ObjectionsModal = ({
     const [attaching, setAttaching] = useState(false);
     const [detaching, setDetaching] = useState(null);
 
-    // Force unlock scroll - prevents scroll lock on both mobile and desktop
-    const unlockScroll = useCallback(() => {
-        // Remove all scroll-blocking styles
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.width = '';
-        document.body.style.top = '';
-        document.body.style.touchAction = '';
-        document.body.style.overscrollBehavior = '';
-        document.documentElement.style.overflow = '';
-        document.documentElement.style.position = '';
-        
-        // Also remove any data attributes HeroUI might set
-        document.body.removeAttribute('data-scroll-locked');
-    }, []);
-
-    // Fetch objections when modal opens and ensure scroll is not locked
+    // Fetch objections when modal opens
     useEffect(() => {
         if (isOpen && dailyWork?.id) {
             fetchAttachedObjections();
             fetchAvailableObjections();
-            
-            // Force unlock scroll immediately when modal opens (for both mobile and desktop)
-            // Use requestAnimationFrame to run after HeroUI applies its scroll lock
-            const unlockTimer = requestAnimationFrame(() => {
-                unlockScroll();
-            });
-            
-            // Also set an interval to continuously prevent scroll lock while modal is open
-            const intervalId = setInterval(unlockScroll, 100);
-            
-            return () => {
-                cancelAnimationFrame(unlockTimer);
-                clearInterval(intervalId);
-            };
         }
-    }, [isOpen, dailyWork?.id, unlockScroll]);
+    }, [isOpen, dailyWork?.id]);
 
     // Wrapped close handler
     const handleClose = useCallback(() => {

@@ -1103,8 +1103,11 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                                         >
                                                             <SelectItem key="all" value="all">All Status</SelectItem>
                                                             <SelectItem key="new" value="new">New</SelectItem>
+                                                            <SelectItem key="in-progress" value="in-progress">In Progress</SelectItem>
                                                             <SelectItem key="completed" value="completed">Completed</SelectItem>
+                                                            <SelectItem key="rejected" value="rejected">Rejected</SelectItem>
                                                             <SelectItem key="resubmission" value="resubmission">Resubmission</SelectItem>
+                                                            <SelectItem key="pending" value="pending">Pending</SelectItem>
                                                             <SelectItem key="emergency" value="emergency">Emergency</SelectItem>
                                                         </Select>
                                                     </div>

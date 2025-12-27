@@ -79,45 +79,29 @@ import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
 import PullToRefresh from "@/Components/Common/PullToRefresh.jsx";
 import SwipeableCard from '@/Components/Common/SwipeableCard';
 import ProfileAvatar from '@/Components/ProfileAvatar';
+import {
+    STATUS_CONFIG,
+    CATEGORY_CONFIG,
+    getStatusConfig,
+    getCategoryConfig,
+} from '@/Config/objectionConfig';
 
-// Status configuration
-const statusConfig = {
-    'draft': {
-        color: 'default',
-        icon: ClockSolid,
-        label: 'Draft',
-    },
-    'submitted': {
-        color: 'primary',
-        icon: DocumentArrowUpIcon,
-        label: 'Submitted',
-    },
-    'under_review': {
-        color: 'warning',
-        icon: ExclamationTriangleSolid,
-        label: 'Under Review',
-    },
-    'resolved': {
-        color: 'success',
-        icon: CheckCircleSolid,
-        label: 'Resolved',
-    },
-    'rejected': {
-        color: 'danger',
-        icon: XCircleSolid,
-        label: 'Rejected',
-    },
-};
+// Status configuration (use shared config, map solidIcon to icon for local compatibility)
+const statusConfig = Object.fromEntries(
+    Object.entries(STATUS_CONFIG).map(([key, val]) => [key, {
+        color: val.color,
+        icon: val.solidIcon || val.icon,
+        label: val.label,
+    }])
+);
 
-// Category configuration
-const categoryConfig = {
-    'design_conflict': { label: 'Design Conflict', color: 'danger' },
-    'site_mismatch': { label: 'Site Mismatch', color: 'warning' },
-    'material_change': { label: 'Material Change', color: 'secondary' },
-    'safety_concern': { label: 'Safety Concern', color: 'danger' },
-    'specification_error': { label: 'Spec Error', color: 'primary' },
-    'other': { label: 'Other', color: 'default' },
-};
+// Category configuration (use shared config)
+const categoryConfig = Object.fromEntries(
+    Object.entries(CATEGORY_CONFIG).map(([key, val]) => [key, {
+        label: val.label,
+        color: val.color,
+    }])
+);
 
 const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, categories, creators, statistics }) => {
     const { auth } = usePage().props;
@@ -1247,7 +1231,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     Supporting Documents (Optional)
                                 </label>
                                 <p className="text-xs text-default-400">
-                                    Upload images, PDFs, Word, or Excel files
+                                    Upload images, PDFs, Word, or Excel files (max 10MB each)
                                 </p>
                                 <input
                                     type="file"

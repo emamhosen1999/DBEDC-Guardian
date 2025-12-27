@@ -336,11 +336,13 @@ class RfiObjection extends Model implements HasMedia
     }
 
     /**
-     * Scope by daily work.
+     * Scope by daily work (using many-to-many relationship).
      */
     public function scopeForDailyWork($query, int $dailyWorkId)
     {
-        return $query->where('daily_work_id', $dailyWorkId);
+        return $query->whereHas('dailyWorks', function ($q) use ($dailyWorkId) {
+            $q->where('daily_works.id', $dailyWorkId);
+        });
     }
 
     // ==================== Methods ====================
@@ -556,22 +558,24 @@ class RfiObjection extends Model implements HasMedia
     /**
      * Get a formatted summary of chainages for display.
      * Accessor: $objection->chainage_summary
+     * Optimized to use eager-loaded chainages relation when available.
      *
      * @return array{specific: array<string>, range: string|null}
      */
     public function getChainageSummaryAttribute(): array
     {
-        $specific = $this->chainages()
+        // Use eager-loaded relation if available, otherwise load once
+        $chainages = $this->relationLoaded('chainages')
+            ? $this->chainages
+            : $this->chainages()->get();
+
+        $specific = $chainages
             ->where('entry_type', ObjectionChainage::TYPE_SPECIFIC)
             ->pluck('chainage')
             ->toArray();
 
-        $rangeStart = $this->chainages()
-            ->where('entry_type', ObjectionChainage::TYPE_RANGE_START)
-            ->first();
-        $rangeEnd = $this->chainages()
-            ->where('entry_type', ObjectionChainage::TYPE_RANGE_END)
-            ->first();
+        $rangeStart = $chainages->firstWhere('entry_type', ObjectionChainage::TYPE_RANGE_START);
+        $rangeEnd = $chainages->firstWhere('entry_type', ObjectionChainage::TYPE_RANGE_END);
 
         $range = null;
         if ($rangeStart && $rangeEnd) {

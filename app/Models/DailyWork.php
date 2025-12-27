@@ -159,8 +159,9 @@ class DailyWork extends Model implements HasMedia
      * Append RFI files count and objection info to JSON serialization.
      * Note: rfi_files is not appended by default to avoid N+1 queries.
      * Use getRfiFilesAttribute() explicitly when needed.
+     * Note: active_objections_count is loaded via withCount in services, not appended.
      */
-    protected $appends = ['rfi_files_count', 'active_objections_count', 'has_active_objections'];
+    protected $appends = ['rfi_files_count', 'has_active_objections'];
 
     /**
      * Register media collections for RFI files.
@@ -284,9 +285,16 @@ class DailyWork extends Model implements HasMedia
 
     /**
      * Get count of active objections.
+     * Uses eager loaded withCount value if available, otherwise queries.
      */
     public function getActiveObjectionsCountAttribute(): int
     {
+        // Prefer the eager loaded withCount value if available
+        if (array_key_exists('active_objections_count', $this->attributes)) {
+            return (int) $this->attributes['active_objections_count'];
+        }
+
+        // Fallback to query if not eager loaded
         return $this->objections()
             ->whereIn('status', RfiObjection::$activeStatuses)
             ->count();
@@ -294,10 +302,17 @@ class DailyWork extends Model implements HasMedia
 
     /**
      * Check if RFI has any active objections.
+     * Uses eager loaded count first for performance.
      */
     public function getHasActiveObjectionsAttribute(): bool
     {
-        return $this->active_objections_count > 0;
+        // Prefer the eager loaded withCount value if available
+        if (array_key_exists('active_objections_count', $this->attributes)) {
+            return (int) $this->attributes['active_objections_count'] > 0;
+        }
+
+        // Fallback to exists check
+        return $this->activeObjections()->exists();
     }
 
     // Scopes
@@ -417,6 +432,11 @@ class DailyWork extends Model implements HasMedia
                     "Invalid inspection result '{$dailyWork->inspection_result}'. Valid results are: ".implode(', ', self::$inspectionResults)
                 );
             }
+        });
+
+        // Detach all objections when soft-deleting to prevent orphan pivot entries
+        static::deleting(function ($dailyWork) {
+            $dailyWork->objections()->detach();
         });
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\DailyWork;
 
 use App\Models\DailyWork;
+use App\Models\Jurisdiction;
 use App\Models\User;
 use App\Traits\DailyWorkFilterable;
 use Illuminate\Http\Request;
@@ -21,7 +22,10 @@ class DailyWorkPaginationService
     {
         $startTime = microtime(true);
 
-        $user = Auth::user();
+        // Load user with designation once to avoid redundant queries
+        $user = User::with('designation')->find(Auth::id());
+        $userDesignationTitle = $user->designation?->title;
+
         $perPage = (int) $request->get('perPage', 30);
         $page = $request->get('search') != '' ? 1 : $request->get('page', 1);
         $search = $request->get('search');
@@ -45,7 +49,7 @@ class DailyWorkPaginationService
             'jurisdictionFilter' => $jurisdictionFilter,
         ]);
 
-        $query = $this->buildBaseQuery($user);
+        $query = $this->buildBaseQuery($user, $userDesignationTitle);
         $query = $this->applyFilters($query, $search, $statusFilter, $inChargeFilter, $jurisdictionFilter, $startDate, $endDate);
 
         // Mobile mode detection: if perPage is very large (1000+), return all data without pagination
@@ -99,7 +103,10 @@ class DailyWorkPaginationService
      */
     public function getAllDailyWorks(Request $request): array
     {
-        $user = Auth::user();
+        // Load user with designation once to avoid redundant queries
+        $user = User::with('designation')->find(Auth::id());
+        $userDesignationTitle = $user->designation?->title;
+
         $search = $request->get('search');
         $statusFilter = $request->get('status');
         $inChargeFilter = $request->input('inCharge');
@@ -107,30 +114,26 @@ class DailyWorkPaginationService
         $startDate = $request->get('startDate');
         $endDate = $request->get('endDate');
 
-        $query = $this->buildBaseQuery($user);
+        $query = $this->buildBaseQuery($user, $userDesignationTitle);
         $query = $this->applyFilters($query, $search, $statusFilter, $inChargeFilter, $jurisdictionFilter, $startDate, $endDate);
 
         $dailyWorks = $query->orderBy('date', 'desc')->get();
 
         return [
             'dailyWorks' => $dailyWorks,
-            'role' => $this->getUserRole($user),
-            'userInfo' => $this->getUserInfo($user),
+            'role' => $this->getUserRole($user, $userDesignationTitle),
+            'userInfo' => $this->getUserInfo($user, $userDesignationTitle),
         ];
     }
 
     /**
      * Build base query based on user designation with optimized eager loading
      */
-    private function buildBaseQuery(User $user)
+    private function buildBaseQuery(User $user, ?string $userDesignationTitle = null)
     {
-        $userWithDesignation = User::with('designation')->find($user->id);
-        $userDesignationTitle = $userWithDesignation->designation?->title;
-
         // Use optimized eager loading to prevent N+1 queries
         // Include active objections count for RFI warning indicators
         $baseQuery = DailyWork::with([
-
             'inchargeUser:id,name', // Load user names for display
             'assignedUser:id,name',  // Load assigned user names
         ])->withCount(['activeObjections']);
@@ -222,11 +225,8 @@ class DailyWorkPaginationService
     /**
      * Get user role for response based on designation
      */
-    private function getUserRole(User $user): string
+    private function getUserRole(User $user, ?string $userDesignationTitle = null): string
     {
-        $userWithDesignation = User::with('designation')->find($user->id);
-        $userDesignationTitle = $userWithDesignation->designation?->title;
-
         if ($userDesignationTitle === 'Supervision Engineer') {
             return 'Supervision Engineer';
         }
@@ -253,11 +253,8 @@ class DailyWorkPaginationService
     /**
      * Get additional user info for response based on designation
      */
-    private function getUserInfo(User $user): array
+    private function getUserInfo(User $user, ?string $userDesignationTitle = null): array
     {
-        $userWithDesignation = User::with('designation')->find($user->id);
-        $userDesignationTitle = $userWithDesignation->designation?->title;
-
         if ($userDesignationTitle === 'Supervision Engineer') {
             return [
                 'allInCharges' => [],
