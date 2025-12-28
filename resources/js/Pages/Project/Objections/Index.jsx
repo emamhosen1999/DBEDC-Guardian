@@ -26,6 +26,7 @@ import {
     PhotoIcon,
     DocumentIcon,
     XMarkIcon,
+    ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import {
     CheckCircleIcon as CheckCircleSolid,
@@ -209,6 +210,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const [attachLoading, setAttachLoading] = useState(false);
     const [rfiSearchLoading, setRfiSearchLoading] = useState(false);
     const [rfiSearchQuery, setRfiSearchQuery] = useState('');
+    const [exportLoading, setExportLoading] = useState(false);
 
     // Edit modal state
     const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
@@ -536,6 +538,48 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
             showToast.error(error.response?.data?.error || 'Failed to attach RFIs');
         } finally {
             setAttachLoading(false);
+        }
+    };
+
+    // Export suggested RFIs to Excel
+    const handleExportSuggestedRfis = async () => {
+        if (suggestedRfis.length === 0) {
+            showToast.error('No RFIs to export');
+            return;
+        }
+
+        setExportLoading(true);
+        try {
+            const params = {
+                chainage_from: selectedObjection?.chainage_from || '',
+                chainage_to: selectedObjection?.chainage_to || '',
+                type: selectedObjection?.type || '',
+                search: rfiSearchQuery || '',
+                objection_id: selectedObjection?.id || '',
+            };
+
+            const response = await axios.get(route('objections.exportSuggestedRfis'), { params });
+            const { data, filename } = response.data;
+
+            // Export to Excel using xlsx library
+            if (typeof window !== 'undefined') {
+                const XLSX = await import('xlsx');
+                const worksheet = XLSX.utils.json_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Suggested RFIs');
+                
+                // Auto-size columns
+                const colWidths = Object.keys(data[0] || {}).map(() => ({ wch: 20 }));
+                worksheet['!cols'] = colWidths;
+
+                XLSX.writeFile(workbook, `${filename}.xlsx`);
+                showToast.success(`Exported ${data.length} RFIs successfully`);
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            showToast.error(error.response?.data?.error || 'Failed to export RFIs');
+        } finally {
+            setExportLoading(false);
         }
     };
 
@@ -1624,9 +1668,25 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     </ModalBody>
                     <ModalFooter>
                         <div className="flex items-center justify-between w-full">
-                            <span className="text-sm text-default-500">
-                                {selectedRfis.length} RFI(s) selected
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-default-500">
+                                    {selectedRfis.length} RFI(s) selected
+                                </span>
+                                {suggestedRfis.length > 0 && (
+                                    <Tooltip content="Export suggested RFIs to Excel">
+                                        <Button
+                                            variant="flat"
+                                            color="success"
+                                            size="sm"
+                                            isIconOnly
+                                            onPress={handleExportSuggestedRfis}
+                                            isLoading={exportLoading}
+                                        >
+                                            <ArrowDownTrayIcon className="w-4 h-4" />
+                                        </Button>
+                                    </Tooltip>
+                                )}
+                            </div>
                             <div className="flex gap-2">
                                 <Button variant="light" onPress={onAttachClose}>
                                     Cancel

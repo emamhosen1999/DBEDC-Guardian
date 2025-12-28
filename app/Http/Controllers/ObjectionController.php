@@ -537,6 +537,139 @@ class ObjectionController extends Controller
     }
 
     /**
+     * Export suggested RFIs for an objection (same logic as suggestRfis but formatted for export).
+     */
+    public function exportSuggestedRfis(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', RfiObjection::class);
+
+        try {
+            $chainageFrom = $request->input('chainage_from');
+            $chainageTo = $request->input('chainage_to');
+            $type = $request->input('type');
+            $search = $request->input('search');
+            $objectionId = $request->input('objection_id');
+
+            // Get the current objection if provided
+            $objection = null;
+            if ($objectionId) {
+                $objection = RfiObjection::find($objectionId);
+            }
+
+            // Build the query - same logic as suggestRfis
+            $query = DailyWork::query()
+                ->select('id', 'number', 'location', 'description', 'type', 'date', 'side', 'qty_layer', 'incharge', 'status', 'rfi_submission_date');
+
+            // Filter by type if provided
+            if (! empty($type)) {
+                $query->where('type', $type);
+            }
+
+            // If search is provided, use search-based matching
+            if (! empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('number', 'like', "%{$search}%")
+                        ->orWhere('location', 'like', "%{$search}%")
+                        ->orWhere('description', 'like', "%{$search}%");
+                });
+
+                $rfis = $query->orderBy('location')->orderBy('date', 'desc')->get();
+            } else {
+                // Use chainage-based matching
+                $specificMeters = [];
+                $rangeStart = null;
+                $rangeEnd = null;
+
+                if (! empty($chainageFrom)) {
+                    if (! empty($chainageTo)) {
+                        $rangeStart = $this->parseChainageToMeters($chainageFrom);
+                        $rangeEnd = $this->parseChainageToMeters($chainageTo);
+
+                        if ($rangeStart !== null && $rangeEnd !== null && $rangeStart > $rangeEnd) {
+                            $temp = $rangeStart;
+                            $rangeStart = $rangeEnd;
+                            $rangeEnd = $temp;
+                        }
+                    } else {
+                        $chainages = preg_split('/[,\s]+/', $chainageFrom, -1, PREG_SPLIT_NO_EMPTY);
+                        foreach ($chainages as $ch) {
+                            $meters = $this->parseChainageToMeters(trim($ch));
+                            if ($meters !== null) {
+                                $specificMeters[] = $meters;
+                            }
+                        }
+                    }
+                }
+
+                // Kilometer prefix filtering
+                $kilometerPrefixes = [];
+                if (! empty($specificMeters)) {
+                    foreach ($specificMeters as $m) {
+                        $kilometerPrefixes[] = 'K'.floor($m / 1000).'+';
+                    }
+                } elseif ($rangeStart !== null && $rangeEnd !== null) {
+                    $startKm = (int) floor($rangeStart / 1000);
+                    $endKm = (int) floor($rangeEnd / 1000);
+                    for ($km = $startKm; $km <= $endKm; $km++) {
+                        $kilometerPrefixes[] = 'K'.$km.'+';
+                    }
+                }
+
+                if (! empty($kilometerPrefixes)) {
+                    $kilometerPrefixes = array_unique($kilometerPrefixes);
+                    $query->where(function ($q) use ($kilometerPrefixes) {
+                        foreach ($kilometerPrefixes as $prefix) {
+                            $q->orWhere('location', 'like', $prefix.'%');
+                        }
+                    });
+                }
+
+                $allRfis = $query->orderBy('location')->orderBy('date', 'desc')->get();
+                $metersSet = ! empty($specificMeters) ? array_flip($specificMeters) : null;
+
+                $rfis = $allRfis->filter(function ($rfi) use ($specificMeters, $rangeStart, $rangeEnd, $metersSet) {
+                    return $this->doesObjectionMatchRfi($specificMeters, $rangeStart, $rangeEnd, $rfi->location, $metersSet);
+                })->values();
+            }
+
+            // Format data for export
+            $exportData = $rfis->map(function ($rfi) use ($objection) {
+                return [
+                    'RFI Number' => $rfi->number,
+                    'Date' => $rfi->date?->format('Y-m-d') ?? 'N/A',
+                    'Chainage' => $rfi->location ?? 'N/A',
+                    'Side' => $rfi->side ?? 'N/A',
+                    'Layer/Qty' => $rfi->qty_layer ?? 'N/A',
+                    'Type' => $rfi->type ?? 'N/A',
+                    'Description' => $rfi->description ?? 'N/A',
+                    'Status' => $rfi->status ?? 'N/A',
+                    'RFI Submission Date' => $rfi->rfi_submission_date?->format('Y-m-d') ?? 'N/A',
+                    'Objection Title' => $objection?->title ?? 'N/A',
+                    'Objection Chainage' => ($objection?->chainage_from ?? '').' - '.($objection?->chainage_to ?? ''),
+                ];
+            });
+
+            $filename = 'suggested_rfis';
+            if ($objection) {
+                $filename .= '_'.str_replace(['/', '\\', ' '], '_', $objection->title);
+            }
+            $filename .= '_'.now()->format('Y_m_d_H_i_s');
+
+            return response()->json([
+                'data' => $exportData,
+                'filename' => $filename,
+                'total_records' => $exportData->count(),
+                'message' => 'Export data prepared successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to export suggested RFIs.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * @deprecated Use ChainageMatcher trait instead
      * Kept for backward compatibility
      */

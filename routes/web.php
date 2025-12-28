@@ -181,6 +181,7 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/workspace/objections/{objection}/attach-rfis', [ObjectionController::class, 'attachToRfis'])->name('objections.attachRfis');
         Route::post('/workspace/objections/{objection}/detach-rfis', [ObjectionController::class, 'detachFromRfis'])->name('objections.detachRfis');
         Route::get('/workspace/objections/suggest-rfis', [ObjectionController::class, 'suggestRfis'])->name('objections.suggestRfis');
+        Route::get('/workspace/objections/export-suggested-rfis', [ObjectionController::class, 'exportSuggestedRfis'])->name('objections.exportSuggestedRfis');
 
         // Status flow routes for Objections
         Route::post('/workspace/objections/{objection}/submit', [ObjectionController::class, 'submit'])->name('objections.submit');
