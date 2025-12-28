@@ -118,6 +118,7 @@ class ObjectionController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'category' => 'nullable|string|in:'.implode(',', RfiObjection::$categories),
+            'type' => 'nullable|string|in:'.implode(',', RfiObjection::$types),
             // Legacy fields (kept for backward compatibility, will be migrated to chainages table)
             'chainage_from' => 'nullable|string|max:50',
             'chainage_to' => 'nullable|string|max:50',
@@ -143,6 +144,7 @@ class ObjectionController extends Controller
             $objection = RfiObjection::create([
                 'title' => $validated['title'],
                 'category' => $validated['category'] ?? RfiObjection::CATEGORY_OTHER,
+                'type' => $validated['type'] ?? null,
                 'chainage_from' => $chainageFrom,
                 'chainage_to' => $chainageTo,
                 'description' => $validated['description'],
@@ -213,6 +215,7 @@ class ObjectionController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'category' => 'nullable|string|in:'.implode(',', RfiObjection::$categories),
+            'type' => 'nullable|string|in:'.implode(',', RfiObjection::$types),
             // Legacy fields (kept for backward compatibility)
             'chainage_from' => 'nullable|string|max:50',
             'chainage_to' => 'nullable|string|max:50',
@@ -233,11 +236,12 @@ class ObjectionController extends Controller
             $updateData = array_filter([
                 'title' => $validated['title'] ?? null,
                 'category' => $validated['category'] ?? null,
+                'type' => array_key_exists('type', $validated) ? $validated['type'] : null,
                 'chainage_from' => $chainageFrom,
                 'chainage_to' => $chainageTo,
                 'description' => $validated['description'] ?? null,
                 'reason' => $validated['reason'] ?? null,
-            ], fn ($value) => $value !== null);
+            ], fn ($value, $key) => $value !== null || $key === 'type', ARRAY_FILTER_USE_BOTH);
 
             $objection->update($updateData);
 
@@ -337,27 +341,34 @@ class ObjectionController extends Controller
         $validated = $request->validate([
             'chainage_from' => 'nullable|string|max:5000', // Allow longer for multiple chainages
             'chainage_to' => 'nullable|string|max:50',
+            'type' => 'nullable|string|in:'.implode(',', RfiObjection::$types),
             'search' => 'nullable|string|max:255',
         ]);
 
         try {
             $chainageFrom = $validated['chainage_from'] ?? null;
             $chainageTo = $validated['chainage_to'] ?? null;
+            $type = $validated['type'] ?? null;
             $search = $validated['search'] ?? null;
 
             // If search term provided, search by number, location, or description
             if (! empty($search)) {
-                $rfis = DailyWork::query()
-                    ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
+                $query = DailyWork::query()
+                    ->select('id', 'number', 'location', 'description', 'type', 'date', 'side', 'qty_layer', 'incharge', 'status')
                     ->with('inchargeUser:id,name')
                     ->where(function ($q) use ($search) {
                         $q->where('number', 'like', "%{$search}%")
                             ->orWhere('location', 'like', "%{$search}%")
                             ->orWhere('description', 'like', "%{$search}%");
-                    })
-                    ->orderBy('location')
+                    });
+
+                // Filter by type if provided
+                if (! empty($type)) {
+                    $query->where('type', $type);
+                }
+
+                $rfis = $query->orderBy('location')
                     ->orderBy('date', 'desc')
-                    ->limit(100)
                     ->get();
 
                 // Map to simple array to avoid infinite recursion from media/relation serialization
@@ -369,6 +380,8 @@ class ObjectionController extends Controller
                         'description' => $rfi->description,
                         'type' => $rfi->type,
                         'date' => $rfi->date?->format('Y-m-d'),
+                        'side' => $rfi->side,
+                        'qty_layer' => $rfi->qty_layer,
                         'incharge' => $rfi->incharge,
                         'status' => $rfi->status,
                         'incharge_user' => $rfi->relationLoaded('inchargeUser') && $rfi->inchargeUser
@@ -439,10 +452,15 @@ class ObjectionController extends Controller
 
             // Build query to pre-filter RFIs by location prefix
             $query = DailyWork::query()
-                ->select('id', 'number', 'location', 'description', 'type', 'date', 'incharge', 'status')
+                ->select('id', 'number', 'location', 'description', 'type', 'date', 'side', 'qty_layer', 'incharge', 'status')
                 ->with('inchargeUser:id,name')
                 ->whereNotNull('location')
                 ->where('location', '!=', '');
+
+            // Filter by type if provided
+            if (! empty($type)) {
+                $query->where('type', $type);
+            }
 
             // Add location prefix filters if we have any
             if (! empty($kmPrefixes)) {
@@ -457,7 +475,6 @@ class ObjectionController extends Controller
 
             $allRfis = $query->orderBy('location')
                 ->orderBy('date', 'desc')
-                ->limit(2000)
                 ->get();
 
             \Log::debug('suggestRfis: query done', ['count' => $allRfis->count()]);
@@ -475,7 +492,7 @@ class ObjectionController extends Controller
                     $rfi->location,
                     $metersSet
                 );
-            })->take(100)->values();
+            })->values();
 
             \Log::debug('suggestRfis: filter done', ['matched' => $matchedRfis->count()]);
 
@@ -490,6 +507,8 @@ class ObjectionController extends Controller
                     'description' => $rfi->description,
                     'type' => $rfi->type,
                     'date' => $rfi->date?->format('Y-m-d'),
+                    'side' => $rfi->side,
+                    'qty_layer' => $rfi->qty_layer,
                     'incharge' => $rfi->incharge,
                     'status' => $rfi->status,
                     'incharge_user' => $rfi->relationLoaded('inchargeUser') && $rfi->inchargeUser

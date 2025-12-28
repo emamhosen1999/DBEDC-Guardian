@@ -46,6 +46,26 @@ class RfiObjection extends Model implements HasMedia
     public const CATEGORY_OTHER = 'other';
 
     /**
+     * Type constants (matching DailyWork types)
+     */
+    public const TYPE_EMBANKMENT = 'Embankment';
+
+    public const TYPE_STRUCTURE = 'Structure';
+
+    public const TYPE_PAVEMENT = 'Pavement';
+
+    /**
+     * Valid types for validation
+     *
+     * @var array<string>
+     */
+    public static array $types = [
+        self::TYPE_EMBANKMENT,
+        self::TYPE_STRUCTURE,
+        self::TYPE_PAVEMENT,
+    ];
+
+    /**
      * Valid statuses for validation
      *
      * @var array<string>
@@ -113,6 +133,7 @@ class RfiObjection extends Model implements HasMedia
     protected $fillable = [
         'title',
         'category',
+        'type',
         'chainage_from',
         'chainage_to',
         'description',

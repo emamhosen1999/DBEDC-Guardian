@@ -155,6 +155,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const [createForm, setCreateForm] = useState({
         title: '',
         category: 'other',
+        type: '', // Work type: Embankment, Structure, Pavement
         chainage_from: '', // Legacy - kept for backward compatibility
         chainage_to: '',   // Legacy - kept for backward compatibility
         specific_chainages: '', // New: comma-separated specific chainages
@@ -164,6 +165,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         reason: '',
         status: 'draft',
     });
+
+    // Work type config for objections (matching DailyWork types)
+    const workTypeConfig = {
+        'Embankment': { label: 'Embankment', icon: '🏔️', color: 'secondary' },
+        'Structure': { label: 'Structure', icon: '🏗️', color: 'primary' },
+        'Pavement': { label: 'Pavement', icon: '🛣️', color: 'success' },
+    };
 
     // File handlers for create modal
     const handleFileSelect = (event) => {
@@ -180,6 +188,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         setCreateForm({
             title: '',
             category: 'other',
+            type: '',
             chainage_from: '', // Legacy
             chainage_to: '',   // Legacy
             specific_chainages: '', // New
@@ -208,6 +217,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const [editForm, setEditForm] = useState({
         title: '',
         category: 'other',
+        type: '',
         chainage_from: '', // Legacy
         chainage_to: '',   // Legacy
         specific_chainages: '', // New
@@ -366,6 +376,18 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         );
     };
 
+    // Get type chip
+    const getTypeChip = (type) => {
+        if (!type) return null;
+        const config = workTypeConfig[type];
+        if (!config) return null;
+        return (
+            <Chip size="sm" variant="flat" color={config.color} className="text-xs" startContent={<span className="text-xs">{config.icon}</span>}>
+                {config.label}
+            </Chip>
+        );
+    };
+
     // Create objection
     const handleCreateObjection = async () => {
         if (!createForm.title || !createForm.description || !createForm.reason) {
@@ -379,6 +401,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
             const formData = new FormData();
             formData.append('title', createForm.title);
             formData.append('category', createForm.category);
+            if (createForm.type) {
+                formData.append('type', createForm.type);
+            }
             formData.append('description', createForm.description);
             formData.append('reason', createForm.reason);
             formData.append('status', createForm.status);
@@ -420,15 +445,16 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         }
     };
 
-    // Suggest RFIs by chainage or search
-    const handleSuggestRfis = async (chainageFrom, chainageTo, searchQuery = '') => {
-        console.log('handleSuggestRfis called:', { chainageFrom: chainageFrom?.substring(0, 50), chainageTo, searchQuery });
+    // Suggest RFIs by chainage or search (filtered by type if provided)
+    const handleSuggestRfis = async (chainageFrom, chainageTo, searchQuery = '', objectionType = null) => {
+        console.log('handleSuggestRfis called:', { chainageFrom: chainageFrom?.substring(0, 50), chainageTo, searchQuery, objectionType });
         setRfiSearchLoading(true);
         try {
             const params = {};
             if (chainageFrom) params.chainage_from = chainageFrom;
             if (chainageTo) params.chainage_to = chainageTo;
             if (searchQuery) params.search = searchQuery;
+            if (objectionType) params.type = objectionType;
             
             console.log('Calling API with params:', { ...params, chainage_from: params.chainage_from?.substring(0, 50) });
             const response = await axios.get(route('objections.suggestRfis'), { params });
@@ -449,14 +475,15 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
             const specificChainages = summary.specific?.join(', ') || '';
             const rangeFrom = summary.range?.split(' - ')[0] || selectedObjection.chainage_from;
             const rangeTo = summary.range?.split(' - ')[1] || selectedObjection.chainage_to;
+            const objType = selectedObjection.type;
             
             if (rfiSearchQuery) {
                 // Search with query
-                handleSuggestRfis(null, null, rfiSearchQuery);
+                handleSuggestRfis(null, null, rfiSearchQuery, objType);
             } else if (specificChainages) {
-                handleSuggestRfis(specificChainages, null);
+                handleSuggestRfis(specificChainages, null, '', objType);
             } else {
-                handleSuggestRfis(rangeFrom, rangeTo, rfiSearchQuery);
+                handleSuggestRfis(rangeFrom, rangeTo, rfiSearchQuery, objType);
             }
         } else if (rfiSearchQuery) {
             handleSuggestRfis(null, null, rfiSearchQuery);
@@ -475,16 +502,17 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         const specificChainages = summary.specific?.join(', ') || '';
         const rangeFrom = summary.range?.split(' - ')[0] || objection.chainage_from;
         const rangeTo = summary.range?.split(' - ')[1] || objection.chainage_to;
+        const objType = objection.type;
         
         if (specificChainages) {
             // Use specific chainages
-            handleSuggestRfis(specificChainages, null);
+            handleSuggestRfis(specificChainages, null, '', objType);
         } else if (rangeFrom && rangeTo) {
             // Use range
-            handleSuggestRfis(rangeFrom, rangeTo);
+            handleSuggestRfis(rangeFrom, rangeTo, '', objType);
         } else if (rangeFrom) {
             // Single chainage
-            handleSuggestRfis(rangeFrom, null);
+            handleSuggestRfis(rangeFrom, null, '', objType);
         }
         onAttachOpen();
     };
@@ -524,6 +552,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         setEditForm({
             title: objection.title || '',
             category: objection.category || 'other',
+            type: objection.type || '',
             // Legacy fields (keep for backward compatibility)
             chainage_from: objection.chainage_from || chainageRange.from || '',
             chainage_to: objection.chainage_to || chainageRange.to || '',
@@ -970,6 +999,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                         {getCategoryChip(objection.category)}
                                     </div>
 
+                                    {objection.type && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-default-400">Type:</span>
+                                            {getTypeChip(objection.type)}
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-between items-center">
                                         <span className="text-default-400">Chainage:</span>
                                         {objection.chainage_from && objection.chainage_to ? (
@@ -1182,6 +1218,23 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 ))}
                             </Select>
 
+                            <Select
+                                label="Work Type"
+                                placeholder="Select work type to filter RFIs"
+                                description="Only RFIs of this type will be matched"
+                                selectedKeys={createForm.type ? [createForm.type] : []}
+                                onSelectionChange={(keys) => {
+                                    const value = Array.from(keys)[0] || '';
+                                    setCreateForm(prev => ({ ...prev, type: value }));
+                                }}
+                            >
+                                {Object.entries(workTypeConfig).map(([key, conf]) => (
+                                    <SelectItem key={key} startContent={<span>{conf.icon}</span>}>
+                                        {conf.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+
                             {/* Chainage Section - Supports both specific chainages and ranges */}
                             <div className="space-y-3">
                                 <label className="text-sm font-medium text-default-700">
@@ -1325,17 +1378,18 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
             <Modal
                 isOpen={isAttachOpen}
                 onClose={onAttachClose}
-                size="3xl"
+                size="2xl"
                 scrollBehavior="inside"
                 shouldBlockScroll={false}
                 placement="center"
                 classNames={{
                     base: "max-h-[90vh] m-4",
                     wrapper: "items-center",
+                    body: "overflow-x-hidden",
                 }}
             >
                 <ModalContent>
-                    <ModalHeader className="flex items-center gap-2">
+                    <ModalHeader className="flex items-center gap-2 flex-wrap">
                         <LinkIcon className="w-5 h-5 text-primary" />
                         Manage Affected RFIs
                         {selectedObjection && (
@@ -1343,9 +1397,23 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 - {selectedObjection.title}
                             </span>
                         )}
+                        {selectedObjection?.type && (
+                            <Chip size="sm" variant="flat" color={workTypeConfig[selectedObjection.type]?.color || 'default'} className="text-xs">
+                                {workTypeConfig[selectedObjection.type]?.icon} {selectedObjection.type} only
+                            </Chip>
+                        )}
                     </ModalHeader>
                     <ModalBody>
                         <div className="space-y-4">
+                            {/* Type Filter Info */}
+                            {selectedObjection?.type && (
+                                <div className="flex flex-wrap items-center gap-2 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
+                                    <span className="text-sm text-primary-700 dark:text-primary-300">
+                                        🔍 Filtering RFIs by type: <strong>{selectedObjection.type}</strong>
+                                    </span>
+                                </div>
+                            )}
+
                             {/* Chainage Range Info */}
                             {selectedObjection?.chainage_from && selectedObjection?.chainage_to && (
                                 <div className="flex flex-wrap items-center gap-2 p-3 bg-default-100 rounded-lg">
@@ -1389,11 +1457,12 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                             const specificChainages = summary.specific?.join(', ') || '';
                                             const rangeFrom = summary.range?.split(' - ')[0] || selectedObjection.chainage_from;
                                             const rangeTo = summary.range?.split(' - ')[1] || selectedObjection.chainage_to;
+                                            const objType = selectedObjection.type;
                                             
                                             if (specificChainages) {
-                                                handleSuggestRfis(specificChainages, null);
+                                                handleSuggestRfis(specificChainages, null, '', objType);
                                             } else {
-                                                handleSuggestRfis(rangeFrom, rangeTo);
+                                                handleSuggestRfis(rangeFrom, rangeTo, '', objType);
                                             }
                                         }}
                                     >
@@ -1478,48 +1547,52 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                         value={selectedRfis}
                                         onValueChange={setSelectedRfis}
                                     >
-                                        <div className="grid gap-2 max-h-[300px] overflow-auto border border-divider rounded-lg p-2">
+                                        <div className="space-y-2 max-h-[300px] overflow-y-auto overflow-x-hidden border border-divider rounded-lg p-2">
                                             {suggestedRfis.map((rfi) => {
                                                 const isAlreadyAttached = selectedObjection?.daily_works?.some(dw => dw.id === rfi.id);
                                                 return (
                                                     <div
                                                         key={rfi.id}
-                                                        className={`flex items-center gap-3 p-2 border rounded-lg hover:bg-default-100 ${
+                                                        className={`flex items-start gap-3 p-3 border rounded-lg hover:bg-default-100 overflow-hidden ${
                                                             isAlreadyAttached ? 'border-success/50 bg-success-50/20' : 'border-divider'
                                                         }`}
                                                     >
-                                                        <Checkbox value={String(rfi.id)} />
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-medium text-sm">{rfi.number}</span>
+                                                        <Checkbox value={String(rfi.id)} className="mt-1" />
+                                                        <div className="flex-1 min-w-0 space-y-2">
+                                                            {/* Header: RFI Number + Attached Badge */}
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-semibold text-sm text-primary">{rfi.number}</span>
                                                                 {isAlreadyAttached && (
-                                                                    <Chip size="sm" variant="flat" color="success" className="h-4 text-[10px]">
+                                                                    <Chip size="sm" variant="flat" color="success" className="h-5 text-[10px]">
                                                                         Attached
                                                                     </Chip>
                                                                 )}
-                                                            </div>
-                                                            <div className="text-xs text-default-500 flex items-center gap-2">
-                                                                <MapPinIcon className="w-3 h-3" />
-                                                                {rfi.location || 'No location'}
                                                                 {rfi.type && (
-                                                                    <>
-                                                                        <span>•</span>
+                                                                    <Chip size="sm" variant="flat" color="secondary" className="h-5 text-[10px]">
                                                                         {rfi.type}
-                                                                    </>
-                                                                )}
-                                                                {rfi.incharge_user?.name && (
-                                                                    <>
-                                                                        <span>•</span>
-                                                                        <UserIcon className="w-3 h-3" />
-                                                                        {rfi.incharge_user.name}
-                                                                    </>
+                                                                    </Chip>
                                                                 )}
                                                             </div>
-                                                            {rfi.description && (
-                                                                <p className="text-[10px] text-default-400 truncate mt-0.5">
-                                                                    {rfi.description}
-                                                                </p>
-                                                            )}
+                                                            
+                                                            {/* Grid: Date, Chainage, Side, Layer/Qty */}
+                                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Date</span>
+                                                                    <span className="font-medium">{rfi.date || '-'}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Chainage</span>
+                                                                    <span className="font-medium truncate" title={rfi.location}>{rfi.location || '-'}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Side</span>
+                                                                    <span className="font-medium">{rfi.side || '-'}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Layer/Qty</span>
+                                                                    <span className="font-medium">{rfi.qty_layer || '-'}</span>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
@@ -1600,6 +1673,20 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             >
                                 {Object.entries(categoryConfig).map(([key, conf]) => (
                                     <SelectItem key={key} value={key}>
+                                        {conf.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+
+                            <Select
+                                label="Work Type"
+                                placeholder="Select work type to filter RFIs"
+                                description="Only RFIs of this type will be matched"
+                                selectedKeys={editForm.type ? [editForm.type] : []}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, type: e.target.value }))}
+                            >
+                                {Object.entries(workTypeConfig).map(([key, conf]) => (
+                                    <SelectItem key={key} value={key} startContent={<span>{conf.icon}</span>}>
                                         {conf.label}
                                     </SelectItem>
                                 ))}
@@ -1885,6 +1972,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             <div className="flex items-center gap-2 mt-1 sm:mt-0 sm:ml-auto">
                                 {getStatusChip(detailsObjection.status)}
                                 {getCategoryChip(detailsObjection.category)}
+                                {getTypeChip(detailsObjection.type)}
                             </div>
                         )}
                     </ModalHeader>
