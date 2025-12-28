@@ -360,10 +360,27 @@ class ObjectionController extends Controller
                     ->limit(100)
                     ->get();
 
+                // Map to simple array to avoid infinite recursion from media/relation serialization
+                $rfisData = $rfis->map(function ($rfi) {
+                    return [
+                        'id' => $rfi->id,
+                        'number' => $rfi->number,
+                        'location' => $rfi->location,
+                        'description' => $rfi->description,
+                        'type' => $rfi->type,
+                        'date' => $rfi->date?->format('Y-m-d'),
+                        'incharge' => $rfi->incharge,
+                        'status' => $rfi->status,
+                        'incharge_user' => $rfi->relationLoaded('inchargeUser') && $rfi->inchargeUser
+                            ? ['id' => $rfi->inchargeUser->id, 'name' => $rfi->inchargeUser->name]
+                            : null,
+                    ];
+                })->values();
+
                 return response()->json([
-                    'rfis' => $rfis,
-                    'count' => $rfis->count(),
-                    'total_found' => $rfis->count(),
+                    'rfis' => $rfisData,
+                    'count' => $rfisData->count(),
+                    'total_found' => $rfisData->count(),
                     'match_type' => 'search',
                 ]);
             }
@@ -464,10 +481,27 @@ class ObjectionController extends Controller
 
             $matchType = ! empty($specificMeters) ? 'specific' : 'range';
 
+            // Map to simple array to avoid infinite recursion from media/relation serialization
+            $rfisData = $matchedRfis->map(function ($rfi) {
+                return [
+                    'id' => $rfi->id,
+                    'number' => $rfi->number,
+                    'location' => $rfi->location,
+                    'description' => $rfi->description,
+                    'type' => $rfi->type,
+                    'date' => $rfi->date?->format('Y-m-d'),
+                    'incharge' => $rfi->incharge,
+                    'status' => $rfi->status,
+                    'incharge_user' => $rfi->relationLoaded('inchargeUser') && $rfi->inchargeUser
+                        ? ['id' => $rfi->inchargeUser->id, 'name' => $rfi->inchargeUser->name]
+                        : null,
+                ];
+            })->values();
+
             return response()->json([
-                'rfis' => $matchedRfis,
-                'count' => $matchedRfis->count(),
-                'total_found' => $matchedRfis->count(),
+                'rfis' => $rfisData,
+                'count' => $rfisData->count(),
+                'total_found' => $rfisData->count(),
                 'match_type' => $matchType,
                 'parsed_chainages' => [
                     'specific_count' => count($specificMeters),
