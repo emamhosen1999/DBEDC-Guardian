@@ -1593,6 +1593,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                                     <span className="font-medium">{rfi.qty_layer || '-'}</span>
                                                                 </div>
                                                             </div>
+                                                            
+                                                            {/* Description */}
+                                                            {rfi.description && (
+                                                                <p className="text-xs text-default-500 line-clamp-2">
+                                                                    {rfi.description}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 );
