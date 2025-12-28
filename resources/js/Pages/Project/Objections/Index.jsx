@@ -541,20 +541,22 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         }
     };
 
-    // Export selected RFIs to Excel
+    // Export selected RFIs to Excel (or all if none selected)
     const handleExportSelectedRfis = async () => {
-        if (selectedRfis.length === 0) {
-            showToast.error('Please select at least one RFI to export');
+        if (suggestedRfis.length === 0) {
+            showToast.error('No RFIs to export');
             return;
         }
 
         setExportLoading(true);
         try {
-            // Get the selected RFI data from suggestedRfis
-            const selectedRfiData = suggestedRfis.filter(rfi => selectedRfis.includes(String(rfi.id)));
+            // If no RFIs selected, export all; otherwise export only selected
+            const rfisToExport = selectedRfis.length > 0 
+                ? suggestedRfis.filter(rfi => selectedRfis.includes(String(rfi.id)))
+                : suggestedRfis;
             
             // Format data for export
-            const exportData = selectedRfiData.map(rfi => ({
+            const exportData = rfisToExport.map(rfi => ({
                 'RFI Number': rfi.number || '',
                 'Date': rfi.date || 'N/A',
                 'Chainage': rfi.location || 'N/A',
@@ -572,13 +574,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 const XLSX = await import('xlsx');
                 const worksheet = XLSX.utils.json_to_sheet(exportData);
                 const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected RFIs');
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'RFIs');
                 
                 // Auto-size columns
                 const colWidths = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
                 worksheet['!cols'] = colWidths;
 
-                const filename = `selected_rfis_${selectedObjection?.title?.replace(/[\/\\\s]/g, '_') || 'export'}_${new Date().toISOString().split('T')[0]}`;
+                const filename = `rfis_${selectedObjection?.title?.replace(/[\/\\\s]/g, '_') || 'export'}_${new Date().toISOString().split('T')[0]}`;
                 XLSX.writeFile(workbook, `${filename}.xlsx`);
                 showToast.success(`Exported ${exportData.length} RFIs successfully`);
             }
@@ -1679,8 +1681,8 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 <span className="text-sm text-default-500">
                                     {selectedRfis.length} RFI(s) selected
                                 </span>
-                                {selectedRfis.length > 0 && (
-                                    <Tooltip content="Export selected RFIs to Excel">
+                                {suggestedRfis.length > 0 && (
+                                    <Tooltip content={selectedRfis.length > 0 ? `Export ${selectedRfis.length} selected RFIs` : `Export all ${suggestedRfis.length} RFIs`}>
                                         <Button
                                             variant="flat"
                                             color="success"
