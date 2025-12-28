@@ -541,43 +541,50 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         }
     };
 
-    // Export suggested RFIs to Excel
-    const handleExportSuggestedRfis = async () => {
-        if (suggestedRfis.length === 0) {
-            showToast.error('No RFIs to export');
+    // Export selected RFIs to Excel
+    const handleExportSelectedRfis = async () => {
+        if (selectedRfis.length === 0) {
+            showToast.error('Please select at least one RFI to export');
             return;
         }
 
         setExportLoading(true);
         try {
-            const params = {
-                chainage_from: selectedObjection?.chainage_from || '',
-                chainage_to: selectedObjection?.chainage_to || '',
-                type: selectedObjection?.type || '',
-                search: rfiSearchQuery || '',
-                objection_id: selectedObjection?.id || '',
-            };
-
-            const response = await axios.get(route('objections.exportSuggestedRfis'), { params });
-            const { data, filename } = response.data;
+            // Get the selected RFI data from suggestedRfis
+            const selectedRfiData = suggestedRfis.filter(rfi => selectedRfis.includes(String(rfi.id)));
+            
+            // Format data for export
+            const exportData = selectedRfiData.map(rfi => ({
+                'RFI Number': rfi.number || '',
+                'Date': rfi.date || 'N/A',
+                'Chainage': rfi.location || 'N/A',
+                'Side': rfi.side || 'N/A',
+                'Layer/Qty': rfi.qty_layer || 'N/A',
+                'Type': rfi.type || 'N/A',
+                'Description': rfi.description || 'N/A',
+                'Status': rfi.status || 'N/A',
+                'Objection Title': selectedObjection?.title || 'N/A',
+                'Objection Chainage': `${selectedObjection?.chainage_from || ''} - ${selectedObjection?.chainage_to || ''}`,
+            }));
 
             // Export to Excel using xlsx library
             if (typeof window !== 'undefined') {
                 const XLSX = await import('xlsx');
-                const worksheet = XLSX.utils.json_to_sheet(data);
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
                 const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, 'Suggested RFIs');
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected RFIs');
                 
                 // Auto-size columns
-                const colWidths = Object.keys(data[0] || {}).map(() => ({ wch: 20 }));
+                const colWidths = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
                 worksheet['!cols'] = colWidths;
 
+                const filename = `selected_rfis_${selectedObjection?.title?.replace(/[\/\\\s]/g, '_') || 'export'}_${new Date().toISOString().split('T')[0]}`;
                 XLSX.writeFile(workbook, `${filename}.xlsx`);
-                showToast.success(`Exported ${data.length} RFIs successfully`);
+                showToast.success(`Exported ${exportData.length} RFIs successfully`);
             }
         } catch (error) {
             console.error('Export error:', error);
-            showToast.error(error.response?.data?.error || 'Failed to export RFIs');
+            showToast.error('Failed to export RFIs');
         } finally {
             setExportLoading(false);
         }
@@ -1672,14 +1679,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 <span className="text-sm text-default-500">
                                     {selectedRfis.length} RFI(s) selected
                                 </span>
-                                {suggestedRfis.length > 0 && (
-                                    <Tooltip content="Export suggested RFIs to Excel">
+                                {selectedRfis.length > 0 && (
+                                    <Tooltip content="Export selected RFIs to Excel">
                                         <Button
                                             variant="flat"
                                             color="success"
                                             size="sm"
                                             isIconOnly
-                                            onPress={handleExportSuggestedRfis}
+                                            onPress={handleExportSelectedRfis}
                                             isLoading={exportLoading}
                                         >
                                             <ArrowDownTrayIcon className="w-4 h-4" />
