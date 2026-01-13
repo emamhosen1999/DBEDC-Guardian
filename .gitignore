@@ -7,7 +7,7 @@
 /node_modules/
 /vendor/
 public/hot
-storage/app/public
+
 
 # Dependencies
 package-lock.json
@@ -50,9 +50,7 @@ storage/app/accessibility-audit.json
 
 # Cache directories
 .sass-cache/
-storage/framework/cache/
-storage/framework/sessions/
-storage/framework/views/
+
 
 
 # Testing
