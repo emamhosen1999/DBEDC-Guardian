@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('projects')) {
+            return;
+        }
+
         // Extend existing projects table with additional fields
         Schema::table('projects', function (Blueprint $table) {
             if (! Schema::hasColumn('projects', 'status')) {
@@ -134,6 +138,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('projects')) {
+            return;
+        }
+
         // Drop tables in reverse order
         Schema::dropIfExists('project_resources');
         Schema::dropIfExists('project_task_issues');

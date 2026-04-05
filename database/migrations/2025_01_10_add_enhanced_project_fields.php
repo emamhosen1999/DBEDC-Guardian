@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('projects')) {
+            return;
+        }
+
         Schema::table('projects', function (Blueprint $table) {
             // ISO 21500 & PMBOK Performance Metrics
             $table->decimal('spi', 5, 2)->default(1.00)->comment('Schedule Performance Index');
@@ -97,6 +101,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('projects')) {
+            return;
+        }
+
         Schema::table('projects', function (Blueprint $table) {
             // Drop indexes first
             $table->dropIndex(['status', 'priority']);

@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('project_tasks') || Schema::hasTable('project_task_dependencies')) {
+            return;
+        }
+
         Schema::create('project_task_dependencies', function (Blueprint $table) {
             $table->id();
             $table->foreignId('predecessor_id')->constrained('project_tasks')->onDelete('cascade');

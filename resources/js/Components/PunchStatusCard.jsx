@@ -217,7 +217,6 @@ const PunchStatusCard = React.memo(() => {
 
     const requiresQrCode = attendanceTypeBaseSlug === 'qr_code';
     const requiresNetworkValidation = attendanceTypeBaseSlug === 'wifi_ip';
-    const usesLocationRequirement = ['geo_polygon', 'route_waypoint'].includes(attendanceTypeBaseSlug) || requiresLocationForPunch;
 
     const requiresLocationForPunch = useMemo(() => {
         if (attendanceTypeBaseSlug === 'geo_polygon' || attendanceTypeBaseSlug === 'route_waypoint') {
@@ -230,6 +229,8 @@ const PunchStatusCard = React.memo(() => {
 
         return false;
     }, [attendanceTypeBaseSlug, attendanceTypeConfig, primaryQrConfig]);
+
+    const usesLocationRequirement = ['geo_polygon', 'route_waypoint'].includes(attendanceTypeBaseSlug) || requiresLocationForPunch;
 
     // Check if user's attendance type requires photo capture
     const requiresPhotoCapture = useMemo(() => {

@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('projects') || Schema::hasTable('project_budgets')) {
+            return;
+        }
+
         Schema::create('project_budgets', function (Blueprint $table) {
             $table->id();
             $table->foreignId('project_id')->constrained()->onDelete('cascade');
