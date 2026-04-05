@@ -195,13 +195,46 @@ const PunchStatusCard = React.memo(() => {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
 
+    const [qrCodeValue, setQrCodeValue] = useState('');
+
+    const attendanceType = user?.attendance_type;
+    const attendanceTypeConfig = attendanceType?.config || {};
+
+    const attendanceTypeBaseSlug = useMemo(() => {
+        if (!attendanceType?.slug) {
+            return '';
+        }
+
+        return attendanceType.slug.replace(/_\d+$/, '');
+    }, [attendanceType]);
+
+    const primaryQrConfig = useMemo(() => {
+        const configuredCodes = Array.isArray(attendanceTypeConfig.qr_codes) ? attendanceTypeConfig.qr_codes : [];
+        const activeCode = configuredCodes.find((code) => code?.is_active !== false);
+
+        return activeCode || configuredCodes[0] || null;
+    }, [attendanceTypeConfig]);
+
+    const requiresQrCode = attendanceTypeBaseSlug === 'qr_code';
+    const requiresNetworkValidation = attendanceTypeBaseSlug === 'wifi_ip';
+    const usesLocationRequirement = ['geo_polygon', 'route_waypoint'].includes(attendanceTypeBaseSlug) || requiresLocationForPunch;
+
+    const requiresLocationForPunch = useMemo(() => {
+        if (attendanceTypeBaseSlug === 'geo_polygon' || attendanceTypeBaseSlug === 'route_waypoint') {
+            return !(attendanceTypeConfig.allow_without_location ?? false);
+        }
+
+        if (attendanceTypeBaseSlug === 'qr_code') {
+            return Boolean(attendanceTypeConfig.require_location || primaryQrConfig?.require_location);
+        }
+
+        return false;
+    }, [attendanceTypeBaseSlug, attendanceTypeConfig, primaryQrConfig]);
+
     // Check if user's attendance type requires photo capture
     const requiresPhotoCapture = useMemo(() => {
-        const attendanceType = user?.attendance_type;
-        if (!attendanceType?.slug) return false;
-        const baseSlug = attendanceType.slug.replace(/_\d+$/, '');
-        return ['geo_polygon', 'route_waypoint'].includes(baseSlug);
-    }, [user?.attendance_type]);
+        return ['geo_polygon', 'route_waypoint'].includes(attendanceTypeBaseSlug);
+    }, [attendanceTypeBaseSlug]);
 
     // ===== LOCATION MANAGEMENT - SIMPLIFIED =====
 
@@ -365,6 +398,16 @@ const PunchStatusCard = React.memo(() => {
     }), [attendanceState.todayPunches, attendanceState.realtimeWorkTime]);
 
     const gpsChipConfig = useMemo(() => {
+        if (!requiresLocationForPunch) {
+            return {
+                color: locationState.status === GPS_STATUS.ACTIVE ? 'success' : 'default',
+                variant: 'flat',
+                text: locationState.status === GPS_STATUS.ACTIVE ? 'GPS Optional' : 'GPS Optional',
+                clickable: locationState.status === GPS_STATUS.DENIED || locationState.status === GPS_STATUS.INACTIVE,
+                tooltip: 'Location is optional for your attendance type.',
+            };
+        }
+
         switch (locationState.status) {
             case GPS_STATUS.CHECKING:
                 return {
@@ -407,7 +450,23 @@ const PunchStatusCard = React.memo(() => {
                     tooltip: 'Location status unknown'
                 };
         }
-    }, [locationState.status, locationState.coordinates?.accuracy]);
+    }, [locationState.status, locationState.coordinates?.accuracy, requiresLocationForPunch]);
+
+    const isPunchActionDisabled = useMemo(() => {
+        if (attendanceState.loading || attendanceState.userOnLeave) {
+            return true;
+        }
+
+        if (requiresLocationForPunch && locationState.status !== GPS_STATUS.ACTIVE) {
+            return true;
+        }
+
+        if (requiresQrCode && qrCodeValue.trim() === '') {
+            return true;
+        }
+
+        return false;
+    }, [attendanceState.loading, attendanceState.userOnLeave, requiresLocationForPunch, locationState.status, requiresQrCode, qrCodeValue]);
 
     // ===== CORE FUNCTIONS =====
 
@@ -720,6 +779,10 @@ const PunchStatusCard = React.memo(() => {
                     sessionDialogOpen: true
                 }));
 
+                if (requiresQrCode) {
+                    setQrCodeValue('');
+                }
+
                 // Immediately fetch latest data after successful punch
                 setTimeout(() => {
                     fetchCurrentStatus();
@@ -735,7 +798,7 @@ const PunchStatusCard = React.memo(() => {
             setAttendanceState(prev => ({ ...prev, loading: false }));
             setCameraState(prev => ({ ...prev, pendingPunchData: null, capturedPhoto: null }));
         }
-    }, [cameraState.capturedPhoto, cameraState.pendingPunchData, stopCamera, fetchCurrentStatus]);
+    }, [cameraState.capturedPhoto, cameraState.pendingPunchData, stopCamera, fetchCurrentStatus, requiresQrCode]);
 
     /**
      * Open camera modal and prepare punch data
@@ -762,17 +825,32 @@ const PunchStatusCard = React.memo(() => {
             return;
         }
 
-        // Check if location is active
-        if (locationState.status !== GPS_STATUS.ACTIVE) {
+        if (requiresLocationForPunch && locationState.status !== GPS_STATUS.ACTIVE) {
             showToast.error('Location access required for attendance. Please enable GPS and try again.');
+            return;
+        }
+
+        if (requiresQrCode && qrCodeValue.trim() === '') {
+            showToast.error('QR code is required for this attendance type.');
+
             return;
         }
 
         setAttendanceState(prev => ({ ...prev, loading: true }));
 
         try {
-            // Get fresh location data for the punch
-            const coordinates = await getLocation();
+            let coordinates = null;
+
+            if (requiresLocationForPunch) {
+                coordinates = await getLocation();
+            } else {
+                try {
+                    coordinates = await getLocation();
+                } catch (error) {
+                    coordinates = null;
+                }
+            }
+
             const deviceFingerprint = getDeviceFingerprint();
 
             // Get IP address
@@ -789,22 +867,29 @@ const PunchStatusCard = React.memo(() => {
                 ...prev,
                 sessionInfo: {
                     ip: currentIp,
-                    accuracy: coordinates.accuracy ? `${Math.round(coordinates.accuracy)}m` : 'N/A',
+                    accuracy: coordinates?.accuracy ? `${Math.round(coordinates.accuracy)}m` : 'N/A',
                     timestamp: new Date().toLocaleString()
                 }
             }));
 
             // Prepare punch data
             const punchData = {
-                lat: coordinates.latitude,
-                lng: coordinates.longitude,
-                accuracy: coordinates.accuracy,
                 ip: currentIp,
                 wifi_ssid: 'Unknown',
                 device_fingerprint: JSON.stringify(deviceFingerprint),
                 user_agent: navigator.userAgent,
                 timestamp: new Date().toISOString(),
             };
+
+            if (coordinates) {
+                punchData.lat = coordinates.latitude;
+                punchData.lng = coordinates.longitude;
+                punchData.accuracy = coordinates.accuracy;
+            }
+
+            if (requiresQrCode) {
+                punchData.qr_code = qrCodeValue.trim();
+            }
 
             // Check if photo capture is required (polygon/route types)
             if (requiresPhotoCapture) {
@@ -828,6 +913,10 @@ const PunchStatusCard = React.memo(() => {
                 setTimeout(() => {
                     fetchCurrentStatus();
                 }, 500);
+
+                if (requiresQrCode) {
+                    setQrCodeValue('');
+                }
             } else {
                 showToast.error(response.data.message);
             }
@@ -846,7 +935,7 @@ const PunchStatusCard = React.memo(() => {
         } finally {
             setAttendanceState(prev => ({ ...prev, loading: false }));
         }
-    }, [attendanceState.userOnLeave, locationState.status, getLocation, getDeviceFingerprint, fetchCurrentStatus, requiresPhotoCapture, openCameraForPunch]);
+    }, [attendanceState.userOnLeave, requiresLocationForPunch, locationState.status, requiresQrCode, qrCodeValue, getLocation, getDeviceFingerprint, fetchCurrentStatus, requiresPhotoCapture, openCameraForPunch]);
 
     /**
      * Handle GPS chip click
@@ -1172,16 +1261,12 @@ const PunchStatusCard = React.memo(() => {
                             size="lg"
                             fullWidth
                             onPress={handlePunch}
-                            isDisabled={
-                                attendanceState.loading || 
-                                attendanceState.userOnLeave || 
-                                locationState.status !== GPS_STATUS.ACTIVE
-                            }
+                            isDisabled={isPunchActionDisabled}
                             isLoading={attendanceState.loading}
                             startContent={!attendanceState.loading && statusConfig.icon}
                             className="mb-4 font-semibold"
                             style={{
-                                background: (attendanceState.userOnLeave || locationState.status !== GPS_STATUS.ACTIVE)
+                                background: isPunchActionDisabled
                                     ? 'var(--theme-default, #71717A)'
                                     : statusConfig.color === 'primary' 
                                         ? `linear-gradient(135deg, var(--theme-primary, #006FEE), var(--theme-primary-600, #005BC4))`
@@ -1194,71 +1279,129 @@ const PunchStatusCard = React.memo(() => {
                                 borderRadius: `var(--borderRadius, 8px)`,
                                 borderWidth: `var(--borderWidth, 2px)`,
                                 fontFamily: `var(--fontFamily, 'Inter')`,
-                                opacity: (attendanceState.loading || attendanceState.userOnLeave || locationState.status !== GPS_STATUS.ACTIVE) 
+                                opacity: isPunchActionDisabled 
                                     ? `var(--disabledOpacity, 0.5)` : '1',
                             }}
                         >
                             {attendanceState.loading ? 'Processing...' : statusConfig.action}
                         </Button>
 
-                        {/* Connection Status */}
+                        {requiresQrCode && (
+                            <Input
+                                label="Attendance QR Code"
+                                labelPlacement="outside"
+                                placeholder="Scan or enter QR code"
+                                value={qrCodeValue}
+                                onValueChange={setQrCodeValue}
+                                startContent={<QrCodeIcon className="w-4 h-4 text-default-400" />}
+                                variant="bordered"
+                                className="mb-4"
+                                style={{
+                                    fontFamily: `var(--fontFamily, 'Inter')`,
+                                }}
+                            />
+                        )}
+
+                        {/* Validation Requirement Chips */}
                         <div className="flex justify-center gap-2 mb-4">
-                            <Tooltip content={gpsChipConfig.tooltip}>
-                                <Chip 
-                                    size="sm" 
-                                    variant={gpsChipConfig.variant}
-                                    color={gpsChipConfig.color}
-                                    startContent={
-                                        locationState.status === GPS_STATUS.CHECKING ? 
-                                            <Spinner size="sm" className="w-3 h-3" /> :
-                                            <MapPinIcon className="w-3 h-3" />
-                                    }
-                                    className={`text-xs transition-all ${gpsChipConfig.clickable ? 'cursor-pointer hover:scale-105' : ''}`}
-                                    style={{
-                                        borderRadius: `var(--borderRadius, 8px)`,
-                                        fontFamily: `var(--fontFamily, 'Inter')`,
-                                    }}
-                                    onClick={gpsChipConfig.clickable ? handleGpsChipClick : undefined}
-                                >
-                                    {gpsChipConfig.text}
-                                </Chip>
-                            </Tooltip>
+                            {usesLocationRequirement && (
+                                <Tooltip content={gpsChipConfig.tooltip}>
+                                    <Chip 
+                                        size="sm" 
+                                        variant={gpsChipConfig.variant}
+                                        color={gpsChipConfig.color}
+                                        startContent={
+                                            locationState.status === GPS_STATUS.CHECKING ? 
+                                                <Spinner size="sm" className="w-3 h-3" /> :
+                                                <MapPinIcon className="w-3 h-3" />
+                                        }
+                                        className={`text-xs transition-all ${gpsChipConfig.clickable ? 'cursor-pointer hover:scale-105' : ''}`}
+                                        style={{
+                                            borderRadius: `var(--borderRadius, 8px)`,
+                                            fontFamily: `var(--fontFamily, 'Inter')`,
+                                        }}
+                                        onClick={gpsChipConfig.clickable ? handleGpsChipClick : undefined}
+                                    >
+                                        {gpsChipConfig.text}
+                                    </Chip>
+                                </Tooltip>
+                            )}
 
-                            <Tooltip content={`Network: ${systemState.connectionStatus.network ? 'Online' : 'Offline'}`}>
-                                <Chip 
-                                    size="sm" 
-                                    variant="flat"
-                                    color={systemState.connectionStatus.network ? 'success' : 'default'}
-                                    startContent={<WifiIcon className="w-3 h-3" />}
-                                    className="text-xs"
-                                    style={{
-                                        borderRadius: `var(--borderRadius, 8px)`,
-                                        fontFamily: `var(--fontFamily, 'Inter')`,
-                                    }}
-                                >
-                                    Net
-                                </Chip>
-                            </Tooltip>
+                            {requiresNetworkValidation && (
+                                <Tooltip content={`WiFi/IP attendance requires active network. Current network: ${systemState.connectionStatus.network ? 'Online' : 'Offline'}`}>
+                                    <Chip 
+                                        size="sm" 
+                                        variant="flat"
+                                        color={systemState.connectionStatus.network ? 'success' : 'danger'}
+                                        startContent={<WifiIcon className="w-3 h-3" />}
+                                        className="text-xs"
+                                        style={{
+                                            borderRadius: `var(--borderRadius, 8px)`,
+                                            fontFamily: `var(--fontFamily, 'Inter')`,
+                                        }}
+                                    >
+                                        IP Net
+                                    </Chip>
+                                </Tooltip>
+                            )}
 
-                            <Tooltip content="Device Security">
-                                <Chip 
-                                    size="sm" 
-                                    variant="flat"
-                                    color="success"
-                                    startContent={<ShieldCheckIcon className="w-3 h-3" />}
-                                    className="text-xs"
-                                    style={{
-                                        borderRadius: `var(--borderRadius, 8px)`,
-                                        fontFamily: `var(--fontFamily, 'Inter')`,
-                                    }}
-                                >
-                                    Secure
-                                </Chip>
-                            </Tooltip>
+                            {requiresQrCode && (
+                                <Tooltip content={qrCodeValue.trim() ? 'QR code entered and ready.' : 'QR code is required for this attendance type.'}>
+                                    <Chip 
+                                        size="sm" 
+                                        variant="flat"
+                                        color={qrCodeValue.trim() ? 'success' : 'warning'}
+                                        startContent={<QrCodeIcon className="w-3 h-3" />}
+                                        className="text-xs"
+                                        style={{
+                                            borderRadius: `var(--borderRadius, 8px)`,
+                                            fontFamily: `var(--fontFamily, 'Inter')`,
+                                        }}
+                                    >
+                                        QR
+                                    </Chip>
+                                </Tooltip>
+                            )}
+
+                            {requiresPhotoCapture && (
+                                <Tooltip content="Photo verification is required for this attendance type.">
+                                    <Chip 
+                                        size="sm" 
+                                        variant="flat"
+                                        color="warning"
+                                        startContent={<CameraIcon className="w-3 h-3" />}
+                                        className="text-xs"
+                                        style={{
+                                            borderRadius: `var(--borderRadius, 8px)`,
+                                            fontFamily: `var(--fontFamily, 'Inter')`,
+                                        }}
+                                    >
+                                        Photo
+                                    </Chip>
+                                </Tooltip>
+                            )}
+
+                            {!usesLocationRequirement && !requiresNetworkValidation && !requiresQrCode && !requiresPhotoCapture && (
+                                <Tooltip content="Standard attendance validation is active.">
+                                    <Chip 
+                                        size="sm" 
+                                        variant="flat"
+                                        color="success"
+                                        startContent={<ShieldCheckIcon className="w-3 h-3" />}
+                                        className="text-xs"
+                                        style={{
+                                            borderRadius: `var(--borderRadius, 8px)`,
+                                            fontFamily: `var(--fontFamily, 'Inter')`,
+                                        }}
+                                    >
+                                        Standard
+                                    </Chip>
+                                </Tooltip>
+                            )}
                         </div>
 
                         {/* Location Error Message */}
-                        {locationState.error && locationState.status !== GPS_STATUS.ACTIVE && (
+                        {requiresLocationForPunch && locationState.error && locationState.status !== GPS_STATUS.ACTIVE && (
                             <Card 
                                 className="p-3 mb-4"
                                 style={{

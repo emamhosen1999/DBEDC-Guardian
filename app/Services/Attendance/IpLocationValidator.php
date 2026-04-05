@@ -30,24 +30,6 @@ class IpLocationValidator extends BaseAttendanceValidator
         $validationMode = $config['validation_mode'] ?? 'any';
         $allowWithoutNetwork = $config['allow_without_network'] ?? false;
 
-        // Legacy support: single list format
-        if (empty($ipLocations)) {
-            $allowedIps = $config['allowed_ips'] ?? [];
-            $allowedRanges = $config['allowed_ranges'] ?? [];
-
-            if (! empty($allowedIps) || ! empty($allowedRanges)) {
-                $ipLocations = [
-                    [
-                        'id' => 'legacy_office',
-                        'name' => 'Office Network',
-                        'allowed_ips' => $allowedIps,
-                        'allowed_ranges' => $allowedRanges,
-                        'is_active' => true,
-                    ],
-                ];
-            }
-        }
-
         // Filter active locations
         $activeLocations = array_filter($ipLocations, fn ($l) => ($l['is_active'] ?? true));
 

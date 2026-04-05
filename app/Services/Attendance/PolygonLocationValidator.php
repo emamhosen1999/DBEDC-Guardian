@@ -19,18 +19,6 @@ class PolygonLocationValidator extends BaseAttendanceValidator
         $validationMode = $config['validation_mode'] ?? 'any';
         $allowWithoutLocation = $config['allow_without_location'] ?? false;
 
-        // Legacy support: single polygon format
-        if (empty($polygons) && isset($config['polygon'])) {
-            $polygons = [
-                [
-                    'id' => 'legacy_polygon',
-                    'name' => 'Primary Location',
-                    'points' => $config['polygon'],
-                    'is_active' => true,
-                ],
-            ];
-        }
-
         // Check if location data is missing
         if (! $lat || ! $lng) {
             if ($allowWithoutLocation) {

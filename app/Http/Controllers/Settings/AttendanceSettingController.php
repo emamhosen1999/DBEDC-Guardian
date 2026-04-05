@@ -109,15 +109,6 @@ class AttendanceSettingController extends Controller
                 'config.qr_codes.*.is_active' => 'sometimes|boolean',
                 'config.qr_codes.*.expires_at' => 'sometimes|nullable|date',
 
-                // Legacy support
-                'config.tolerance' => 'sometimes|integer|min:1|max:10000',
-                'config.waypoints' => 'sometimes|array',
-                'config.waypoints.*.lat' => 'sometimes|numeric|between:-90,90',
-                'config.waypoints.*.lng' => 'sometimes|numeric|between:-180,180',
-                'config.polygon' => 'sometimes|array',
-                'config.polygon.*.lat' => 'sometimes|numeric|between:-90,90',
-                'config.polygon.*.lng' => 'sometimes|numeric|between:-180,180',
-
                 // Global config options
                 'config.validation_mode' => 'sometimes|string|in:any,all',
                 'config.allow_without_location' => 'sometimes|boolean',
@@ -282,7 +273,9 @@ class AttendanceSettingController extends Controller
     {
         $type = AttendanceType::findOrFail($id);
 
-        if ($type->slug !== 'qr_code') {
+        $baseSlug = preg_replace('/_\d+$/', '', $type->slug);
+
+        if ($baseSlug !== 'qr_code') {
             return response()->json([
                 'message' => 'This attendance type does not support QR codes.',
             ], 422);

@@ -440,11 +440,32 @@ const AttendanceSettings = () => {
         return grouped;
     }, [filteredTypes, getBaseSlug]);
 
+    const getPrimaryIpLocationConfig = useCallback((config = {}) => {
+        const ipLocations = Array.isArray(config.ip_locations) ? config.ip_locations : [];
+        const activeLocation = ipLocations.find((location) => location?.is_active !== false);
+
+        return activeLocation || ipLocations[0] || null;
+    }, []);
+
+    const getPrimaryRouteConfig = useCallback((config = {}) => {
+        const routes = Array.isArray(config.routes) ? config.routes : [];
+        const activeRoute = routes.find((route) => route?.is_active !== false);
+
+        return activeRoute || routes[0] || null;
+    }, []);
+
+    const getPrimaryPolygonConfig = useCallback((config = {}) => {
+        const polygons = Array.isArray(config.polygons) ? config.polygons : [];
+        const activePolygon = polygons.find((polygon) => polygon?.is_active !== false);
+
+        return activePolygon || polygons[0] || null;
+    }, []);
+
     // Handle settings update
     const handleSettingsUpdate = useCallback(async (formData) => {
         setLoading(true);
         try {
-            const response = await axios.post('/settings/attendance/update', formData);
+            const response = await axios.post(route('attendance-settings.update'), formData);
             
             if (response.data.attendanceSettings) {
                 setSettings(response.data.attendanceSettings);
@@ -571,39 +592,74 @@ const AttendanceSettings = () => {
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
         
-        // Handle config based on type - now supporting multi-config structure
-        let config = editingType?.config || {};
+        // Handle config based on type - current multi-config schema only
+        const rawConfig = editingType?.config || {};
+        const {
+            waypoints: _legacyWaypoints,
+            polygon: _legacyPolygon,
+            allowed_ips: _legacyAllowedIps,
+            allowed_ranges: _legacyAllowedRanges,
+            tolerance: _legacyTolerance,
+            ...configWithoutLegacy
+        } = rawConfig;
+
+        let config = { ...configWithoutLegacy };
         
         const baseSlug = getBaseSlug(editingType?.slug);
         
         if (baseSlug === 'geo_polygon') {
-            // Keep existing polygons data (multi-polygon support)
+            const polygons = Array.isArray(config.polygons) ? config.polygons : [];
             config = { 
                 ...config,
+                polygons,
                 validation_mode: data.validation_mode || config.validation_mode || 'any',
                 allow_without_location: data.allow_without_location === 'true' || config.allow_without_location || false,
             };
         } else if (baseSlug === 'wifi_ip') {
-            // Parse allowed_ips and allowed_ranges from comma-separated string
+            const ipLocations = Array.isArray(config.ip_locations) ? config.ip_locations : [];
+            const primaryLocation = ipLocations[0] || {
+                id: `office_${Date.now()}`,
+                name: 'Primary Office',
+                is_active: true,
+            };
+
             const allowedIps = data.allowed_ips 
                 ? data.allowed_ips.split(',').map(ip => ip.trim()).filter(ip => ip)
-                : config.allowed_ips || [];
+                : (primaryLocation.allowed_ips || []);
             const allowedRanges = data.allowed_ranges
                 ? data.allowed_ranges.split(',').map(range => range.trim()).filter(range => range)
-                : config.allowed_ranges || [];
+                : (primaryLocation.allowed_ranges || []);
+
+            const updatedPrimaryLocation = {
+                ...primaryLocation,
+                allowed_ips: allowedIps,
+                allowed_ranges: allowedRanges,
+                is_active: primaryLocation.is_active ?? true,
+            };
             
             config = {
                 ...config,
-                allowed_ips: allowedIps,
-                allowed_ranges: allowedRanges,
+                ip_locations: [updatedPrimaryLocation, ...ipLocations.slice(1)],
                 validation_mode: data.validation_mode || config.validation_mode || 'any',
                 allow_without_network: data.allow_without_network === 'true' || config.allow_without_network || false,
             };
         } else if (baseSlug === 'route_waypoint') {
-            // Keep existing routes data (multi-route support)
+            const routes = Array.isArray(config.routes) ? config.routes : [];
+            const primaryRoute = routes[0] || {
+                id: `route_${Date.now()}`,
+                name: 'Primary Route',
+                waypoints: [],
+                is_active: true,
+            };
+
+            const updatedPrimaryRoute = {
+                ...primaryRoute,
+                tolerance: parseInt(data.tolerance) || primaryRoute.tolerance || 150,
+            };
+
             config = {
                 ...config,
-                tolerance: parseInt(data.tolerance) || config.tolerance || 150,
+                routes: [updatedPrimaryRoute, ...routes.slice(1)],
                 validation_mode: data.validation_mode || config.validation_mode || 'any',
                 allow_without_location: data.allow_without_location === 'true' || config.allow_without_location || false,
             };
@@ -622,19 +678,20 @@ const AttendanceSettings = () => {
             name: typeFormData.name,
             description: typeFormData.description,
             is_active: typeFormData.is_active,
-            config: config
+            config,
         };
         
         handleTypeUpdate(finalData);
-    }, [editingType, typeFormData, handleTypeUpdate]);
+    }, [editingType, typeFormData, handleTypeUpdate, getBaseSlug]);
 
     // Waypoint management - Single route with multiple waypoints
     const openWaypointModal = useCallback((type) => {
         setEditingType(type);
-        const waypoints = type.config?.waypoints || [];
+        const primaryRoute = getPrimaryRouteConfig(type.config || {});
+        const waypoints = primaryRoute?.waypoints || [];
         
         setWaypointForm({
-            tolerance: type.config?.tolerance || 150,
+            tolerance: primaryRoute?.tolerance || 150,
             waypoints: waypoints,
         });
         
@@ -649,7 +706,7 @@ const AttendanceSettings = () => {
         
         setIsAddingWaypoint(false);
         onWaypointModalOpen();
-    }, [onWaypointModalOpen]);
+    }, [onWaypointModalOpen, getPrimaryRouteConfig]);
 
     const addWaypoint = () => {
         setIsAddingWaypoint(true);
@@ -691,7 +748,8 @@ const AttendanceSettings = () => {
     // Polygon management - Single polygon with multiple points
     const openPolygonModal = useCallback((type) => {
         setEditingType(type);
-        const polygon = type.config?.polygon || [];
+        const primaryPolygon = getPrimaryPolygonConfig(type.config || {});
+        const polygon = primaryPolygon?.points || [];
         
         setPolygonForm({
             polygon: polygon,
@@ -710,7 +768,7 @@ const AttendanceSettings = () => {
         
         setIsAddingPolygonPoint(false);
         onPolygonModalOpen();
-    }, [onPolygonModalOpen]);
+    }, [onPolygonModalOpen, getPrimaryPolygonConfig]);
 
     const addPolygonPoint = () => {
         setIsAddingPolygonPoint(true);
@@ -759,9 +817,24 @@ const AttendanceSettings = () => {
         }
 
         try {
+            const currentConfig = editingType.config || {};
+            const existingPolygons = Array.isArray(currentConfig.polygons) ? currentConfig.polygons : [];
+            const primaryPolygon = getPrimaryPolygonConfig(currentConfig);
+
+            const updatedPrimaryPolygon = {
+                ...primaryPolygon,
+                id: primaryPolygon?.id || `polygon_${Date.now()}`,
+                name: primaryPolygon?.name || 'Primary Location',
+                points: validPoints,
+                is_active: primaryPolygon?.is_active ?? true,
+            };
+
+            const remainingPolygons = existingPolygons.filter((polygon) => polygon?.id !== primaryPolygon?.id);
+            const { polygon: _legacyPolygon, ...configWithoutLegacyPolygon } = currentConfig;
+
             const updatedConfig = {
-                ...editingType.config,
-                polygon: validPoints,
+                ...configWithoutLegacyPolygon,
+                polygons: [updatedPrimaryPolygon, ...remainingPolygons],
             };
             
             const response = await axios.put(`/settings/attendance-type/${editingType.id}`, { 
@@ -777,7 +850,7 @@ const AttendanceSettings = () => {
         } catch (error) {
             showToast.error('Failed to update polygon');
         }
-    }, [editingType, polygonForm, onPolygonModalClose]);
+    }, [editingType, polygonForm, onPolygonModalClose, getPrimaryPolygonConfig]);
 
     const handleWaypointSubmit = useCallback(async () => {
         // Validate waypoints
@@ -789,10 +862,25 @@ const AttendanceSettings = () => {
         }
 
         try {
-            const updatedConfig = {
-                ...editingType.config,
+            const currentConfig = editingType.config || {};
+            const existingRoutes = Array.isArray(currentConfig.routes) ? currentConfig.routes : [];
+            const primaryRoute = getPrimaryRouteConfig(currentConfig);
+
+            const updatedPrimaryRoute = {
+                ...primaryRoute,
+                id: primaryRoute?.id || `route_${Date.now()}`,
+                name: primaryRoute?.name || 'Primary Route',
                 waypoints: validWaypoints,
-                tolerance: waypointForm.tolerance || 150,
+                tolerance: waypointForm.tolerance || primaryRoute?.tolerance || 150,
+                is_active: primaryRoute?.is_active ?? true,
+            };
+
+            const remainingRoutes = existingRoutes.filter((route) => route?.id !== primaryRoute?.id);
+            const { waypoints: _legacyWaypoints, tolerance: _legacyTolerance, ...configWithoutLegacyRoute } = currentConfig;
+
+            const updatedConfig = {
+                ...configWithoutLegacyRoute,
+                routes: [updatedPrimaryRoute, ...remainingRoutes],
             };
             
             const response = await axios.put(`/settings/attendance-type/${editingType.id}`, { 
@@ -808,7 +896,7 @@ const AttendanceSettings = () => {
         } catch (error) {
             showToast.error('Failed to update waypoints');
         }
-    }, [editingType, waypointForm, onWaypointModalClose]);
+    }, [editingType, waypointForm, onWaypointModalClose, getPrimaryRouteConfig]);
 
     // Get status color and icon
     const getStatusDisplay = (isActive) => ({
@@ -1414,7 +1502,7 @@ const AttendanceSettings = () => {
                                                 key={`allowed_ips-${editingType?.id}`}
                                                 label="Allowed IPs (comma-separated)"
                                                 name="allowed_ips"
-                                                defaultValue={editingType?.config?.allowed_ips?.join(', ') || ""}
+                                                defaultValue={getPrimaryIpLocationConfig(editingType?.config || {})?.allowed_ips?.join(', ') || ""}
                                                 variant="bordered"
                                                 radius={getThemeRadius()}
                                                 placeholder="192.168.1.1, 10.0.0.1"
@@ -1426,7 +1514,7 @@ const AttendanceSettings = () => {
                                                 key={`allowed_ranges-${editingType?.id}`}
                                                 label="Allowed IP Ranges (comma-separated)"
                                                 name="allowed_ranges"
-                                                defaultValue={editingType?.config?.allowed_ranges?.join(', ') || ""}
+                                                defaultValue={getPrimaryIpLocationConfig(editingType?.config || {})?.allowed_ranges?.join(', ') || ""}
                                                 variant="bordered"
                                                 radius={getThemeRadius()}
                                                 placeholder="192.168.1.0/24, 10.0.0.0/16"
@@ -1445,7 +1533,7 @@ const AttendanceSettings = () => {
                                                 label="Tolerance (meters)"
                                                 name="tolerance"
                                                 type="number"
-                                                defaultValue={editingType?.config?.tolerance || 150}
+                                                defaultValue={getPrimaryRouteConfig(editingType?.config || {})?.tolerance || 150}
                                                 variant="bordered"
                                                 radius={getThemeRadius()}
                                                 min="10"
@@ -1455,7 +1543,7 @@ const AttendanceSettings = () => {
                                                 }}
                                             />
                                             <p className="text-sm text-default-500">
-                                                Current waypoints: {editingType?.config?.waypoints?.length || 0} configured
+                                                Current waypoints: {getPrimaryRouteConfig(editingType?.config || {})?.waypoints?.length || 0} configured
                                             </p>
                                         </div>
                                     )}

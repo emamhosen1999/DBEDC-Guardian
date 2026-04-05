@@ -56,6 +56,7 @@ class HandleInertiaRequests extends Middleware
                         'id' => $userWithRelations->attendanceType->id,
                         'name' => $userWithRelations->attendanceType->name,
                         'slug' => $userWithRelations->attendanceType->slug,
+                        'config' => $userWithRelations->attendanceType->config ?? [],
                     ] : null,
                 ] : null,
                 'isAuthenticated' => (bool) $user,

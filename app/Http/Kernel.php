@@ -69,6 +69,7 @@ class Kernel extends HttpKernel
         'role_hierarchy' => \App\Http\Middleware\RoleHierarchyMiddleware::class,
         // Module Permission Registry Middleware
         'module' => \App\Http\Middleware\CheckModuleAccess::class,
+        'attendance.rate_limit' => \App\Http\Middleware\AttendanceRateLimit::class,
         // Device auth is now global middleware - no need for alias
     ];
 }

@@ -22,19 +22,6 @@ class RouteWaypointValidator extends BaseAttendanceValidator
         $validationMode = $config['validation_mode'] ?? 'any';
         $allowWithoutLocation = $config['allow_without_location'] ?? false;
 
-        // Legacy support: single waypoints array format
-        if (empty($routes) && isset($config['waypoints'])) {
-            $routes = [
-                [
-                    'id' => 'legacy_route',
-                    'name' => 'Primary Route',
-                    'waypoints' => $config['waypoints'],
-                    'tolerance' => $config['tolerance'] ?? 300,
-                    'is_active' => true,
-                ],
-            ];
-        }
-
         // Check if location data is missing
         if (! $userLat || ! $userLng) {
             if ($allowWithoutLocation) {

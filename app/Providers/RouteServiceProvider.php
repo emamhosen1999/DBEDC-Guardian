@@ -51,8 +51,10 @@ class RouteServiceProvider extends ServiceProvider
             Route::middleware('web')
                 ->group(base_path('routes/quality.php'));
 
-            Route::middleware('web')
-                ->group(base_path('routes/modules.php'));
+            if (config('features.commercial_stack')) {
+                Route::middleware('web')
+                    ->group(base_path('routes/modules.php'));
+            }
         });
     }
 }
