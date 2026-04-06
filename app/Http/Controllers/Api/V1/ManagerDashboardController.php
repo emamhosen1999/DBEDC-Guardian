@@ -9,8 +9,10 @@ use App\Models\HRM\Leave;
 use App\Models\RfiObjection;
 use App\Models\User;
 use App\Services\Leave\LeaveApprovalService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class ManagerDashboardController extends Controller
@@ -62,6 +64,8 @@ class ManagerDashboardController extends Controller
         $dailyWorkIds = (clone $dailyWorkBaseQuery)->pluck('id')->map(fn ($id) => (int) $id)->toArray();
 
         $objectionStats = $this->buildObjectionStats($dailyWorkIds);
+        $leaveWindows = $this->buildTeamLeaveWindows($teamMemberIds, $today);
+        $upcomingHolidays = $this->buildUpcomingHolidays($today);
 
         return response()->json([
             'success' => true,
@@ -84,8 +88,280 @@ class ManagerDashboardController extends Controller
                     'under_review' => $objectionStats['under_review'],
                     'total_active' => $objectionStats['total_active'],
                 ],
+                'leave_windows' => $leaveWindows,
+                'upcoming_holidays' => $upcomingHolidays,
             ],
         ]);
+    }
+
+    private function buildTeamLeaveWindows(array $teamMemberIds, string $today): array
+    {
+        $todayDate = Carbon::parse($today)->startOfDay();
+
+        $windowDefinitions = [
+            [
+                'key' => 'today',
+                'label' => 'Today',
+                'from' => $todayDate->copy(),
+                'to' => $todayDate->copy(),
+            ],
+            [
+                'key' => 'tomorrow',
+                'label' => 'Tomorrow',
+                'from' => $todayDate->copy()->addDay(),
+                'to' => $todayDate->copy()->addDay(),
+            ],
+            [
+                'key' => 'next-seven-days',
+                'label' => 'Next Seven Days',
+                'from' => $todayDate->copy()->addDays(2),
+                'to' => $todayDate->copy()->addDays(8),
+            ],
+        ];
+
+        if ($teamMemberIds === [] || ! Schema::hasTable('leaves')) {
+            return array_map(function (array $window): array {
+                return $this->buildEmptyLeaveWindow($window);
+            }, $windowDefinitions);
+        }
+
+        $userColumn = $this->resolveLeavesUserColumn();
+
+        if (! $userColumn) {
+            return array_map(function (array $window): array {
+                return $this->buildEmptyLeaveWindow($window);
+            }, $windowDefinitions);
+        }
+
+        $queryRangeStart = $windowDefinitions[0]['from']->toDateString();
+        $queryRangeEnd = $windowDefinitions[2]['to']->toDateString();
+
+        $leaveRows = DB::table('leaves')
+            ->leftJoin('users', "leaves.{$userColumn}", '=', 'users.id')
+            ->leftJoin('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
+            ->whereIn("leaves.{$userColumn}", $teamMemberIds)
+            ->whereDate('leaves.from_date', '<=', $queryRangeEnd)
+            ->whereDate('leaves.to_date', '>=', $queryRangeStart)
+            ->whereRaw("LOWER(COALESCE(leaves.status, '')) NOT IN ('declined', 'rejected', 'cancelled', 'canceled')")
+            ->select([
+                'leaves.id',
+                "leaves.{$userColumn} as user_id",
+                'leaves.leave_type',
+                'leaves.from_date',
+                'leaves.to_date',
+                'leaves.no_of_days',
+                'leaves.reason',
+                'leaves.status',
+                'leave_settings.type as leave_type_name',
+                'leave_settings.symbol as leave_type_symbol',
+                'users.id as employee_id',
+                'users.name as employee_name',
+                'users.employee_id as employee_code',
+                'users.profile_image as profile_image',
+            ])
+            ->orderBy('leaves.from_date')
+            ->orderBy('leaves.id')
+            ->get();
+
+        return array_map(function (array $window) use ($leaveRows): array {
+            $fromDate = $window['from']->toDateString();
+            $toDate = $window['to']->toDateString();
+
+            $matchingLeaves = $leaveRows->filter(function ($leaveRow) use ($fromDate, $toDate): bool {
+                $leaveFromDate = (string) ($leaveRow->from_date ?? '');
+                $leaveToDate = (string) ($leaveRow->to_date ?? '');
+
+                if ($leaveFromDate === '' || $leaveToDate === '') {
+                    return false;
+                }
+
+                return $this->hasDateOverlap($leaveFromDate, $leaveToDate, $fromDate, $toDate);
+            })->values();
+
+            $membersById = [];
+
+            foreach ($matchingLeaves as $leaveRow) {
+                $memberId = (int) ($leaveRow->user_id ?? 0);
+
+                if ($memberId <= 0) {
+                    continue;
+                }
+
+                $statusBucket = $this->normalizeLeaveStatusBucket((string) ($leaveRow->status ?? ''));
+
+                if (! isset($membersById[$memberId])) {
+                    $membersById[$memberId] = [
+                        'user_id' => $memberId,
+                        'employee' => [
+                            'id' => (int) ($leaveRow->employee_id ?? $memberId),
+                            'name' => (string) ($leaveRow->employee_name ?? 'Team Member'),
+                            'employee_id' => $leaveRow->employee_code,
+                            'profile_image' => $leaveRow->profile_image,
+                        ],
+                        'status_bucket' => $statusBucket,
+                        'leaves' => [],
+                    ];
+                }
+
+                $membersById[$memberId]['leaves'][] = [
+                    'id' => (int) ($leaveRow->id ?? 0),
+                    'leave_type' => (int) ($leaveRow->leave_type ?? 0),
+                    'leave_type_name' => $leaveRow->leave_type_name,
+                    'leave_type_symbol' => $leaveRow->leave_type_symbol,
+                    'from_date' => $leaveRow->from_date,
+                    'to_date' => $leaveRow->to_date,
+                    'no_of_days' => (int) ($leaveRow->no_of_days ?? 0),
+                    'reason' => $leaveRow->reason,
+                    'status' => $leaveRow->status,
+                    'status_bucket' => $statusBucket,
+                ];
+            }
+
+            $members = array_values(array_map(function (array $member): array {
+                $memberLeaves = collect($member['leaves']);
+
+                if ($memberLeaves->contains(function (array $leave): bool {
+                    return ($leave['status_bucket'] ?? '') === 'approved';
+                })) {
+                    $member['status_bucket'] = 'approved';
+                } elseif ($memberLeaves->contains(function (array $leave): bool {
+                    return ($leave['status_bucket'] ?? '') === 'pending';
+                })) {
+                    $member['status_bucket'] = 'pending';
+                }
+
+                return $member;
+            }, $membersById));
+
+            usort($members, function (array $first, array $second): int {
+                return strcmp((string) ($first['employee']['name'] ?? ''), (string) ($second['employee']['name'] ?? ''));
+            });
+
+            $approvedCount = collect($members)->filter(function (array $member): bool {
+                return ($member['status_bucket'] ?? '') === 'approved';
+            })->count();
+
+            $pendingCount = collect($members)->filter(function (array $member): bool {
+                return ($member['status_bucket'] ?? '') === 'pending';
+            })->count();
+
+            return [
+                'key' => $window['key'],
+                'label' => $window['label'],
+                'from' => $fromDate,
+                'to' => $toDate,
+                'window_label' => $this->formatWindowLabel($window['from'], $window['to']),
+                'total_count' => count($members),
+                'approved_count' => $approvedCount,
+                'pending_count' => $pendingCount,
+                'members' => $members,
+            ];
+        }, $windowDefinitions);
+    }
+
+    private function buildUpcomingHolidays(string $today): array
+    {
+        if (! Schema::hasTable('holidays')) {
+            return [];
+        }
+
+        $holidayQuery = DB::table('holidays')
+            ->whereDate('to_date', '>=', $today);
+
+        if (Schema::hasColumn('holidays', 'is_active')) {
+            $holidayQuery->where('is_active', true);
+        }
+
+        $holidayColumns = [
+            'id',
+            'title',
+            'from_date',
+            'to_date',
+        ];
+
+        if (Schema::hasColumn('holidays', 'description')) {
+            $holidayColumns[] = 'description';
+        } else {
+            $holidayColumns[] = DB::raw('NULL as description');
+        }
+
+        if (Schema::hasColumn('holidays', 'type')) {
+            $holidayColumns[] = 'type';
+        } else {
+            $holidayColumns[] = DB::raw('NULL as type');
+        }
+
+        return $holidayQuery
+            ->select($holidayColumns)
+            ->orderBy('from_date')
+            ->orderBy('id')
+            ->limit(8)
+            ->get()
+            ->map(function ($holiday): array {
+                return [
+                    'id' => (int) ($holiday->id ?? 0),
+                    'title' => $holiday->title,
+                    'description' => $holiday->description,
+                    'type' => $holiday->type,
+                    'from_date' => $holiday->from_date,
+                    'to_date' => $holiday->to_date,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function buildEmptyLeaveWindow(array $window): array
+    {
+        /** @var Carbon $fromDate */
+        $fromDate = $window['from'];
+        /** @var Carbon $toDate */
+        $toDate = $window['to'];
+
+        return [
+            'key' => $window['key'],
+            'label' => $window['label'],
+            'from' => $fromDate->toDateString(),
+            'to' => $toDate->toDateString(),
+            'window_label' => $this->formatWindowLabel($fromDate, $toDate),
+            'total_count' => 0,
+            'approved_count' => 0,
+            'pending_count' => 0,
+            'members' => [],
+        ];
+    }
+
+    private function formatWindowLabel(Carbon $fromDate, Carbon $toDate): string
+    {
+        if ($fromDate->isSameDay($toDate)) {
+            return $fromDate->format('M j');
+        }
+
+        return $fromDate->format('M j').' - '.$toDate->format('M j');
+    }
+
+    private function hasDateOverlap(string $rangeStart, string $rangeEnd, string $windowStart, string $windowEnd): bool
+    {
+        return $rangeStart <= $windowEnd && $rangeEnd >= $windowStart;
+    }
+
+    private function normalizeLeaveStatusBucket(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+
+        if ($normalized === 'approved') {
+            return 'approved';
+        }
+
+        if (in_array($normalized, ['new', 'pending'], true)) {
+            return 'pending';
+        }
+
+        if (in_array($normalized, ['rejected', 'declined', 'cancelled', 'canceled'], true)) {
+            return 'rejected';
+        }
+
+        return 'other';
     }
 
     private function resolveTeamMemberIds(User $user): array
