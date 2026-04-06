@@ -18,27 +18,34 @@ class LeaveApprovalService
      */
     public function buildApprovalChain(Leave $leave): array
     {
-        $user = $leave->user;
-        $leaveSetting = $leave->leaveSetting;
-        
-        // Check if approval is required for this leave type
-        if (!$leaveSetting->requires_approval) {
+        $user = $leave->employee;
+
+        if (! $user) {
             return [];
         }
-        
+
+        $leaveSetting = $leave->leaveSetting;
+
+        // Check if approval is required for this leave type
+        if (! $leaveSetting || ! $leaveSetting->requires_approval) {
+            return [];
+        }
+
         // Check if auto-approval is enabled for this leave type
         if ($leaveSetting->auto_approve) {
             return [];
         }
-        
+
         $approvalChain = [];
 
         // Level 1: Direct Manager (report_to)
-        if ($user->report_to_id) {
+        $directManagerId = $user->report_to ?? $user->report_to_id ?? null;
+
+        if ($directManagerId) {
             $approvalChain[] = [
                 'level' => 1,
-                'approver_id' => $user->report_to_id,
-                'approver_name' => $user->reportTo->name ?? 'Unknown',
+                'approver_id' => $directManagerId,
+                'approver_name' => $user->reportsTo->name ?? 'Unknown',
                 'status' => 'pending',
                 'approved_at' => null,
                 'comments' => null,
@@ -53,7 +60,9 @@ class LeaveApprovalService
                     ->whereColumn('id', 'users.designation_id');
             })
             ->where('id', '!=', $user->id)
-            ->where('id', '!=', $user->report_to_id)
+            ->when($directManagerId, function ($query) use ($directManagerId) {
+                $query->where('id', '!=', $directManagerId);
+            })
             ->first();
 
         if ($departmentHead) {
@@ -68,7 +77,7 @@ class LeaveApprovalService
         }
 
         // Level 3: HR Manager (for leaves > 5 days or special leave types)
-        if ($leave->no_of_days > 5 || in_array($leave->leave_type_id, $this->getSpecialLeaveTypes())) {
+        if ($leave->no_of_days > 5 || in_array($leave->leave_type, $this->getSpecialLeaveTypes())) {
             $hrManager = User::whereHas('roles', function ($query) {
                 $query->where('name', 'HR Manager')
                     ->orWhere('name', 'HR Head')
@@ -152,6 +161,8 @@ class LeaveApprovalService
 
             // Validate approver
             if (! $this->canApprove($leave, $approver)) {
+                DB::rollBack();
+
                 return [
                     'success' => false,
                     'message' => 'You are not authorized to approve this leave request.',
@@ -199,7 +210,15 @@ class LeaveApprovalService
                 ]);
 
                 // Notify employee
-                $leave->user->notify(new LeaveApprovedNotification($leave));
+                if ($leave->employee) {
+                    try {
+                        $leave->employee->notify(new LeaveApprovedNotification($leave));
+                    } catch (\Throwable $exception) {
+                        Log::warning("Leave #{$leave->id} approved but employee notification failed", [
+                            'error' => $exception->getMessage(),
+                        ]);
+                    }
+                }
 
                 DB::commit();
                 Log::info("Leave #{$leave->id} fully approved", [
@@ -234,6 +253,8 @@ class LeaveApprovalService
         DB::beginTransaction();
         try {
             if (! $this->canApprove($leave, $approver)) {
+                DB::rollBack();
+
                 return [
                     'success' => false,
                     'message' => 'You are not authorized to reject this leave request.',
@@ -261,7 +282,15 @@ class LeaveApprovalService
             ]);
 
             // Notify employee
-            $leave->user->notify(new LeaveRejectedNotification($leave, $reason));
+            if ($leave->employee) {
+                try {
+                    $leave->employee->notify(new LeaveRejectedNotification($leave, $reason));
+                } catch (\Throwable $exception) {
+                    Log::warning("Leave #{$leave->id} rejected but employee notification failed", [
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
 
             DB::commit();
             Log::info("Leave #{$leave->id} rejected", [
@@ -337,7 +366,14 @@ class LeaveApprovalService
         $approver = $this->getCurrentApprover($leave);
 
         if ($approver) {
-            $approver->notify(new LeaveApprovalNotification($leave));
+            try {
+                $approver->notify(new LeaveApprovalNotification($leave));
+            } catch (\Throwable $exception) {
+                Log::warning("Leave #{$leave->id} approver notification failed", [
+                    'approver_id' => $approver->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
         }
     }
 
@@ -347,7 +383,7 @@ class LeaveApprovalService
     protected function getSpecialLeaveTypes(): array
     {
         // Get IDs for maternity, paternity, unpaid leave, etc.
-        return LeaveSetting::whereIn('leave_type', [
+        return LeaveSetting::whereIn('type', [
             'Maternity Leave',
             'Paternity Leave',
             'Unpaid Leave',

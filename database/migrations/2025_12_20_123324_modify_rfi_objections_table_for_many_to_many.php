@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql' || ! Schema::hasTable('rfi_objections')) {
+            return;
+        }
+
         // Add chainage fields if they don't exist
         if (! Schema::hasColumn('rfi_objections', 'chainage_from')) {
             DB::statement('ALTER TABLE rfi_objections ADD COLUMN chainage_from VARCHAR(50) NULL AFTER category');
@@ -45,6 +49,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql' || ! Schema::hasTable('rfi_objections')) {
+            return;
+        }
+
         // Restore daily_work_id
         if (! Schema::hasColumn('rfi_objections', 'daily_work_id')) {
             DB::statement('ALTER TABLE rfi_objections ADD COLUMN daily_work_id BIGINT UNSIGNED NULL AFTER id');

@@ -11,9 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('leave_settings', function (Blueprint $table) {
-            $table->boolean('is_earned')->default(false)->after('earned_leave');
-            $table->index('is_earned');
+        if (! Schema::hasTable('leave_settings')) {
+            return;
+        }
+
+        $isMySql = Schema::getConnection()->getDriverName() === 'mysql';
+
+        Schema::table('leave_settings', function (Blueprint $table) use ($isMySql) {
+            if (! Schema::hasColumn('leave_settings', 'is_earned')) {
+                if ($isMySql) {
+                    $table->boolean('is_earned')->default(false)->after('earned_leave');
+                } else {
+                    $table->boolean('is_earned')->default(false);
+                }
+
+                $table->index('is_earned');
+            }
         });
     }
 
@@ -22,6 +35,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('leave_settings') || ! Schema::hasColumn('leave_settings', 'is_earned')) {
+            return;
+        }
+
         Schema::table('leave_settings', function (Blueprint $table) {
             $table->dropIndex(['is_earned']);
             $table->dropColumn('is_earned');

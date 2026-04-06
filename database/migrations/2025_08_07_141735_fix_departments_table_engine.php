@@ -10,6 +10,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // Convert departments table from MyISAM to InnoDB to support foreign key constraints
         DB::statement('ALTER TABLE departments ENGINE = InnoDB');
 

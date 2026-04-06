@@ -11,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // This migration uses MySQL-specific syntax and can be skipped on sqlite during tests.
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // First, check if users table exists and if id column needs to be fixed
         if (Schema::hasTable('users')) {
             // Check if the primary key already exists

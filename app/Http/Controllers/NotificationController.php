@@ -8,6 +8,32 @@ use Illuminate\Support\Facades\Log;
 
 class NotificationController extends Controller
 {
+    public function storeToken(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'fcm_token' => ['required', 'string', 'max:2048'],
+        ]);
+
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        $user->update([
+            'fcm_token' => $validated['fcm_token'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification token updated successfully.',
+            'fcm_token' => $user->fcm_token,
+        ]);
+    }
+
     public function sendPushNotification($token, $title, $body): \Illuminate\Http\JsonResponse
     {
 
@@ -57,7 +83,8 @@ class NotificationController extends Controller
         $credentials = json_decode(file_get_contents($keyFilePath), true);
 
         // Create JWT client and get the access token
-        $client = new \Google_Client;
+        $googleClientClass = '\\Google_Client';
+        $client = new $googleClientClass;
         $client->setAuthConfig($keyFilePath);
         $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
         $client->setSubject($credentials['client_email']);

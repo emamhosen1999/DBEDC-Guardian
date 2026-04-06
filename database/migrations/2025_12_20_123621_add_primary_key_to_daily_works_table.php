@@ -13,6 +13,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql' || ! Schema::hasTable('daily_works')) {
+            return;
+        }
+
         // Check if primary key already exists
         $indexes = DB::select("SHOW INDEX FROM daily_works WHERE Key_name = 'PRIMARY'");
 
@@ -30,6 +34,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql' || ! Schema::hasTable('daily_works')) {
+            return;
+        }
+
         // Drop the primary key
         Schema::table('daily_works', function (Blueprint $table) {
             $table->dropPrimary('PRIMARY');

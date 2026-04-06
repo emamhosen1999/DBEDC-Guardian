@@ -11,9 +11,28 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('leave_settings', function (Blueprint $table) {
-            $table->boolean('requires_approval')->default(true)->after('earned_leave');
-            $table->boolean('auto_approve')->default(false)->after('requires_approval');
+        if (! Schema::hasTable('leave_settings')) {
+            return;
+        }
+
+        $isMySql = Schema::getConnection()->getDriverName() === 'mysql';
+
+        Schema::table('leave_settings', function (Blueprint $table) use ($isMySql) {
+            if (! Schema::hasColumn('leave_settings', 'requires_approval')) {
+                if ($isMySql) {
+                    $table->boolean('requires_approval')->default(true)->after('earned_leave');
+                } else {
+                    $table->boolean('requires_approval')->default(true);
+                }
+            }
+
+            if (! Schema::hasColumn('leave_settings', 'auto_approve')) {
+                if ($isMySql) {
+                    $table->boolean('auto_approve')->default(false)->after('requires_approval');
+                } else {
+                    $table->boolean('auto_approve')->default(false);
+                }
+            }
         });
     }
 
@@ -22,8 +41,24 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('leave_settings')) {
+            return;
+        }
+
         Schema::table('leave_settings', function (Blueprint $table) {
-            $table->dropColumn(['requires_approval', 'auto_approve']);
+            $columnsToDrop = [];
+
+            if (Schema::hasColumn('leave_settings', 'requires_approval')) {
+                $columnsToDrop[] = 'requires_approval';
+            }
+
+            if (Schema::hasColumn('leave_settings', 'auto_approve')) {
+                $columnsToDrop[] = 'auto_approve';
+            }
+
+            if ($columnsToDrop !== []) {
+                $table->dropColumn($columnsToDrop);
+            }
         });
     }
 };
