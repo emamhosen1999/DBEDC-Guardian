@@ -135,30 +135,50 @@ class ManagerDashboardController extends Controller
 
         $queryRangeStart = $windowDefinitions[0]['from']->toDateString();
         $queryRangeEnd = $windowDefinitions[2]['to']->toDateString();
+        $hasLeaveSettingsTable = Schema::hasTable('leave_settings');
+        $hasLeaveSymbolColumn = $hasLeaveSettingsTable && Schema::hasColumn('leave_settings', 'symbol');
 
-        $leaveRows = DB::table('leaves')
+        $leaveQuery = DB::table('leaves')
             ->leftJoin('users', "leaves.{$userColumn}", '=', 'users.id')
-            ->leftJoin('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
             ->whereIn("leaves.{$userColumn}", $teamMemberIds)
             ->whereDate('leaves.from_date', '<=', $queryRangeEnd)
             ->whereDate('leaves.to_date', '>=', $queryRangeStart)
-            ->whereRaw("LOWER(COALESCE(leaves.status, '')) NOT IN ('declined', 'rejected', 'cancelled', 'canceled')")
-            ->select([
-                'leaves.id',
-                "leaves.{$userColumn} as user_id",
-                'leaves.leave_type',
-                'leaves.from_date',
-                'leaves.to_date',
-                'leaves.no_of_days',
-                'leaves.reason',
-                'leaves.status',
-                'leave_settings.type as leave_type_name',
-                'leave_settings.symbol as leave_type_symbol',
-                'users.id as employee_id',
-                'users.name as employee_name',
-                'users.employee_id as employee_code',
-                'users.profile_image as profile_image',
-            ])
+            ->whereRaw("LOWER(COALESCE(leaves.status, '')) NOT IN ('declined', 'rejected', 'cancelled', 'canceled')");
+
+        if ($hasLeaveSettingsTable) {
+            $leaveQuery->leftJoin('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id');
+        }
+
+        $selectColumns = [
+            'leaves.id',
+            "leaves.{$userColumn} as user_id",
+            'leaves.leave_type',
+            'leaves.from_date',
+            'leaves.to_date',
+            'leaves.no_of_days',
+            'leaves.reason',
+            'leaves.status',
+            'users.id as employee_id',
+            'users.name as employee_name',
+            'users.employee_id as employee_code',
+            'users.profile_image as profile_image',
+        ];
+
+        if ($hasLeaveSettingsTable) {
+            $selectColumns[] = 'leave_settings.type as leave_type_name';
+
+            if ($hasLeaveSymbolColumn) {
+                $selectColumns[] = 'leave_settings.symbol as leave_type_symbol';
+            } else {
+                $selectColumns[] = DB::raw('NULL as leave_type_symbol');
+            }
+        } else {
+            $selectColumns[] = DB::raw('NULL as leave_type_name');
+            $selectColumns[] = DB::raw('NULL as leave_type_symbol');
+        }
+
+        $leaveRows = $leaveQuery
+            ->select($selectColumns)
             ->orderBy('leaves.from_date')
             ->orderBy('leaves.id')
             ->get();
