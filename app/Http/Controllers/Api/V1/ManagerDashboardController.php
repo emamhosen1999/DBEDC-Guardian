@@ -137,6 +137,8 @@ class ManagerDashboardController extends Controller
         $queryRangeEnd = $windowDefinitions[2]['to']->toDateString();
         $hasLeaveSettingsTable = Schema::hasTable('leave_settings');
         $hasLeaveSymbolColumn = $hasLeaveSettingsTable && Schema::hasColumn('leave_settings', 'symbol');
+        $hasEmployeeCodeColumn = Schema::hasColumn('users', 'employee_id');
+        $hasProfileImageColumn = Schema::hasColumn('users', 'profile_image');
 
         $leaveQuery = DB::table('leaves')
             ->leftJoin('users', "leaves.{$userColumn}", '=', 'users.id')
@@ -160,9 +162,19 @@ class ManagerDashboardController extends Controller
             'leaves.status',
             'users.id as employee_id',
             'users.name as employee_name',
-            'users.employee_id as employee_code',
-            'users.profile_image as profile_image',
         ];
+
+        if ($hasEmployeeCodeColumn) {
+            $selectColumns[] = 'users.employee_id as employee_code';
+        } else {
+            $selectColumns[] = DB::raw('NULL as employee_code');
+        }
+
+        if ($hasProfileImageColumn) {
+            $selectColumns[] = 'users.profile_image as profile_image';
+        } else {
+            $selectColumns[] = DB::raw('NULL as profile_image');
+        }
 
         if ($hasLeaveSettingsTable) {
             $selectColumns[] = 'leave_settings.type as leave_type_name';
