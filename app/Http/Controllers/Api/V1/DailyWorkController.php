@@ -8,6 +8,8 @@ use App\Http\Requests\Api\V1\ListDailyWorksRequest;
 use App\Http\Requests\Api\V1\RejectDailyWorkObjectionRequest;
 use App\Http\Requests\Api\V1\ResolveDailyWorkObjectionRequest;
 use App\Http\Requests\Api\V1\StoreDailyWorkObjectionRequest;
+use App\Http\Requests\Api\V1\UpdateDailyWorkAssignedRequest;
+use App\Http\Requests\Api\V1\UpdateDailyWorkInchargeRequest;
 use App\Http\Requests\Api\V1\UpdateDailyWorkStatusRequest;
 use App\Http\Requests\Api\V1\UploadDailyWorkObjectionFilesRequest;
 use App\Models\DailyWork;
@@ -22,6 +24,16 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DailyWorkController extends Controller
 {
+    /**
+     * @var array<int, array<int, array{id:int,name:string}>>
+     */
+    private array $assigneeCandidatesCache = [];
+
+    /**
+     * @var array<int, array{id:int,name:string}>|null
+     */
+    private ?array $inchargeCandidatesCache = null;
+
     public function index(ListDailyWorksRequest $request): JsonResponse
     {
         $user = $request->user();
@@ -44,8 +56,8 @@ class DailyWorkController extends Controller
             'success' => true,
             'data' => [
                 'daily_works' => $dailyWorks->getCollection()
-                    ->map(function (DailyWork $dailyWork) {
-                        return $this->transformDailyWork($dailyWork);
+                    ->map(function (DailyWork $dailyWork) use ($user) {
+                        return $this->transformDailyWork($dailyWork, $user);
                     })
                     ->values(),
                 'pagination' => [
@@ -113,7 +125,7 @@ class DailyWorkController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $this->transformDailyWork($dailyWork),
+            'data' => $this->transformDailyWork($dailyWork, $request->user()),
         ]);
     }
 
@@ -164,7 +176,75 @@ class DailyWorkController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Daily work status updated successfully.',
-            'data' => $this->transformDailyWork($dailyWork),
+            'data' => $this->transformDailyWork($dailyWork, $request->user()),
+        ]);
+    }
+
+    public function updateIncharge(UpdateDailyWorkInchargeRequest $request, int $dailyWorkId): JsonResponse
+    {
+        $dailyWork = DailyWork::query()->find($dailyWorkId);
+
+        if (! $dailyWork) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Daily work not found.',
+            ], 404);
+        }
+
+        if (! $this->canUpdateIncharge($request->user())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to update incharge for this daily work.',
+            ], 403);
+        }
+
+        $dailyWork->update([
+            'incharge' => $request->input('incharge'),
+        ]);
+
+        $dailyWork->load([
+            'inchargeUser:id,name',
+            'assignedUser:id,name',
+        ])->loadCount(['activeObjections']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Daily work incharge updated successfully.',
+            'data' => $this->transformDailyWork($dailyWork, $request->user()),
+        ]);
+    }
+
+    public function updateAssigned(UpdateDailyWorkAssignedRequest $request, int $dailyWorkId): JsonResponse
+    {
+        $dailyWork = DailyWork::query()->find($dailyWorkId);
+
+        if (! $dailyWork) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Daily work not found.',
+            ], 404);
+        }
+
+        if (! $this->canUpdateAssigned($request->user(), $dailyWork)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to update assigned user for this daily work.',
+            ], 403);
+        }
+
+        $dailyWork->update([
+            'assigned' => $request->input('assigned'),
+        ]);
+
+        $dailyWork->load([
+            'inchargeUser:id,name',
+            'assignedUser:id,name',
+        ])->loadCount(['activeObjections']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Daily work assigned user updated successfully.',
+            'data' => $this->transformDailyWork($dailyWork, $request->user()),
         ]);
     }
 
@@ -772,8 +852,15 @@ class DailyWorkController extends Controller
     private function buildFilteredDailyWorksQuery(User $user, ListDailyWorksRequest $request): Builder
     {
         $query = DailyWork::query();
+        $userDesignationTitle = $this->getUserDesignationTitle($user);
 
-        if (! $this->isPrivilegedUser($user)) {
+        if ($this->isPrivilegedUser($user)) {
+            // Managers and admin roles can access all daily works.
+        } elseif ($userDesignationTitle === 'Supervision Engineer') {
+            $query->where('incharge', $user->id);
+        } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'], true)) {
+            $query->where('assigned', $user->id);
+        } else {
             $query->where(function ($dailyWorkQuery) use ($user) {
                 $dailyWorkQuery
                     ->where('incharge', $user->id)
@@ -822,6 +909,16 @@ class DailyWorkController extends Controller
     {
         if ($this->isPrivilegedUser($user)) {
             return true;
+        }
+
+        $userDesignationTitle = $this->getUserDesignationTitle($user);
+
+        if ($userDesignationTitle === 'Supervision Engineer') {
+            return (int) $dailyWork->incharge === (int) $user->id;
+        }
+
+        if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'], true)) {
+            return (int) $dailyWork->assigned === (int) $user->id;
         }
 
         return (int) $dailyWork->incharge === (int) $user->id
@@ -878,6 +975,7 @@ class DailyWorkController extends Controller
         return $user->hasRole([
             'Super Admin',
             'Admin',
+            'Daily Work Manager',
             'HR Manager',
             'Project Manager',
             'Consultant',
@@ -886,8 +984,46 @@ class DailyWorkController extends Controller
         ]);
     }
 
-    private function transformDailyWork(DailyWork $dailyWork): array
+    private function transformDailyWork(DailyWork $dailyWork, User $user): array
     {
+        $canUpdateIncharge = $this->canUpdateIncharge($user);
+        $canUpdateAssigned = $this->canUpdateAssigned($user, $dailyWork);
+        $canUpdateStatus = $this->canUpdateStatus($user, $dailyWork);
+        $canViewIncharge = $this->canViewIncharge($user);
+        $canViewAssigned = $this->canViewAssigned($user, $dailyWork);
+
+        $inchargeCandidates = $canUpdateIncharge ? $this->getInchargeCandidates() : [];
+
+        if ($canUpdateIncharge && $dailyWork->inchargeUser) {
+            $hasCurrentIncharge = collect($inchargeCandidates)->contains(function (array $candidate) use ($dailyWork): bool {
+                return (int) $candidate['id'] === (int) $dailyWork->inchargeUser->id;
+            });
+
+            if (! $hasCurrentIncharge) {
+                $inchargeCandidates[] = [
+                    'id' => (int) $dailyWork->inchargeUser->id,
+                    'name' => $dailyWork->inchargeUser->name,
+                ];
+            }
+        }
+
+        $assignedCandidates = $canUpdateAssigned
+            ? $this->getAssigneeCandidatesForIncharge($dailyWork->incharge ? (int) $dailyWork->incharge : null)
+            : [];
+
+        if ($canUpdateAssigned && $dailyWork->assignedUser) {
+            $hasCurrentAssigned = collect($assignedCandidates)->contains(function (array $candidate) use ($dailyWork): bool {
+                return (int) $candidate['id'] === (int) $dailyWork->assignedUser->id;
+            });
+
+            if (! $hasCurrentAssigned) {
+                $assignedCandidates[] = [
+                    'id' => (int) $dailyWork->assignedUser->id,
+                    'name' => $dailyWork->assignedUser->name,
+                ];
+            }
+        }
+
         return [
             'id' => (int) $dailyWork->id,
             'date' => $this->normalizeDate($dailyWork->date),
@@ -909,14 +1045,27 @@ class DailyWorkController extends Controller
             'rfi_submission_date' => $this->normalizeDate($dailyWork->rfi_submission_date),
             'active_objections_count' => (int) ($dailyWork->active_objections_count ?? 0),
             'has_active_objections' => (bool) $dailyWork->has_active_objections,
-            'incharge_user' => $dailyWork->inchargeUser ? [
+            'incharge' => $dailyWork->incharge ? (int) $dailyWork->incharge : null,
+            'assigned' => $dailyWork->assigned ? (int) $dailyWork->assigned : null,
+            'incharge_user' => ($canViewIncharge || $canUpdateIncharge) && $dailyWork->inchargeUser ? [
                 'id' => (int) $dailyWork->inchargeUser->id,
                 'name' => $dailyWork->inchargeUser->name,
             ] : null,
-            'assigned_user' => $dailyWork->assignedUser ? [
+            'assigned_user' => ($canViewAssigned || $canUpdateAssigned) && $dailyWork->assignedUser ? [
                 'id' => (int) $dailyWork->assignedUser->id,
                 'name' => $dailyWork->assignedUser->name,
             ] : null,
+            'permissions' => [
+                'can_update_status' => $canUpdateStatus,
+                'can_update_incharge' => $canUpdateIncharge,
+                'can_update_assigned' => $canUpdateAssigned,
+                'can_view_incharge' => $canViewIncharge,
+                'can_view_assigned' => $canViewAssigned,
+            ],
+            'assignment_options' => [
+                'incharge_candidates' => $inchargeCandidates,
+                'assigned_candidates' => $assignedCandidates,
+            ],
             'created_at' => $this->normalizeDateTime($dailyWork->created_at),
             'updated_at' => $this->normalizeDateTime($dailyWork->updated_at),
         ];
@@ -976,6 +1125,121 @@ class DailyWorkController extends Controller
         return $objection->media()
             ->where('collection_name', 'objection_files')
             ->count();
+    }
+
+    private function canUpdateStatus(User $user, DailyWork $dailyWork): bool
+    {
+        return $this->canAccessDailyWork($user, $dailyWork);
+    }
+
+    private function canUpdateIncharge(User $user): bool
+    {
+        return $this->isPrivilegedUser($user);
+    }
+
+    private function canUpdateAssigned(User $user, DailyWork $dailyWork): bool
+    {
+        if ($this->isPrivilegedUser($user)) {
+            return true;
+        }
+
+        return (int) $dailyWork->incharge === (int) $user->id;
+    }
+
+    private function canViewIncharge(User $user): bool
+    {
+        return $this->isPrivilegedUser($user);
+    }
+
+    private function canViewAssigned(User $user, DailyWork $dailyWork): bool
+    {
+        if ($this->isPrivilegedUser($user)) {
+            return true;
+        }
+
+        return (int) $dailyWork->incharge === (int) $user->id;
+    }
+
+    private function getUserDesignationTitle(User $user): string
+    {
+        if (! Schema::hasColumn('users', 'designation_id') || ! Schema::hasTable('designations')) {
+            return '';
+        }
+
+        if (! $user->relationLoaded('designation')) {
+            $user->load('designation:id,title');
+        }
+
+        return trim((string) ($user->designation?->title ?? ''));
+    }
+
+    /**
+     * @return array<int, array{id:int,name:string}>
+     */
+    private function getInchargeCandidates(): array
+    {
+        if ($this->inchargeCandidatesCache !== null) {
+            return $this->inchargeCandidatesCache;
+        }
+
+        $query = User::query()
+            ->where('active', true)
+            ->select(['id', 'name'])
+            ->orderBy('name');
+
+        if (Schema::hasColumn('users', 'designation_id') && Schema::hasTable('designations')) {
+            $query->whereHas('designation', function (Builder $designationQuery) {
+                $designationQuery->where('title', 'Supervision Engineer');
+            });
+        }
+
+        $candidates = $query
+            ->get()
+            ->map(function (User $candidate): array {
+                return [
+                    'id' => (int) $candidate->id,
+                    'name' => $candidate->name,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $this->inchargeCandidatesCache = $candidates;
+
+        return $this->inchargeCandidatesCache;
+    }
+
+    /**
+     * @return array<int, array{id:int,name:string}>
+     */
+    private function getAssigneeCandidatesForIncharge(?int $inchargeUserId): array
+    {
+        if (! $inchargeUserId) {
+            return [];
+        }
+
+        if (array_key_exists($inchargeUserId, $this->assigneeCandidatesCache)) {
+            return $this->assigneeCandidatesCache[$inchargeUserId];
+        }
+
+        $candidates = User::query()
+            ->where('active', true)
+            ->where('report_to', $inchargeUserId)
+            ->select(['id', 'name'])
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $candidate): array {
+                return [
+                    'id' => (int) $candidate->id,
+                    'name' => $candidate->name,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $this->assigneeCandidatesCache[$inchargeUserId] = $candidates;
+
+        return $this->assigneeCandidatesCache[$inchargeUserId];
     }
 
     private function normalizeDate(mixed $value): ?string

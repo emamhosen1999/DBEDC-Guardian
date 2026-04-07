@@ -193,6 +193,8 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/daily-works/objections/metadata', [MobileDailyWorkController::class, 'objectionMetadata'])->name('api.v1.daily-works.objections.metadata');
     Route::get('/daily-works/{dailyWorkId}', [MobileDailyWorkController::class, 'show'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.show');
     Route::patch('/daily-works/{dailyWorkId}/status', [MobileDailyWorkController::class, 'updateStatus'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.status.update');
+    Route::patch('/daily-works/{dailyWorkId}/incharge', [MobileDailyWorkController::class, 'updateIncharge'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.incharge.update');
+    Route::patch('/daily-works/{dailyWorkId}/assigned', [MobileDailyWorkController::class, 'updateAssigned'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.assigned.update');
     Route::get('/daily-works/{dailyWorkId}/objections', [MobileDailyWorkController::class, 'objections'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.objections.index');
     Route::post('/daily-works/{dailyWorkId}/objections', [MobileDailyWorkController::class, 'storeObjection'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.objections.store');
     Route::post('/daily-works/{dailyWorkId}/objections/{objectionId}/submit', [MobileDailyWorkController::class, 'submitObjection'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->name('api.v1.daily-works.objections.submit');

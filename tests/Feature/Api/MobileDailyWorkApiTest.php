@@ -3,6 +3,8 @@
 namespace Tests\Feature\Api;
 
 use App\Models\DailyWork;
+use App\Models\HRM\Department;
+use App\Models\HRM\Designation;
 use App\Models\RfiObjection;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +26,8 @@ class MobileDailyWorkApiTest extends TestCase
         $this->getJson('/api/v1/daily-works/selectable-dates')->assertUnauthorized();
         $this->getJson('/api/v1/daily-works/1')->assertUnauthorized();
         $this->patchJson('/api/v1/daily-works/1/status', [])->assertUnauthorized();
+        $this->patchJson('/api/v1/daily-works/1/incharge', [])->assertUnauthorized();
+        $this->patchJson('/api/v1/daily-works/1/assigned', [])->assertUnauthorized();
         $this->getJson('/api/v1/daily-works/1/objections')->assertUnauthorized();
         $this->postJson('/api/v1/daily-works/1/objections', [])->assertUnauthorized();
         $this->postJson('/api/v1/daily-works/1/objections/1/submit', [])->assertUnauthorized();
@@ -88,6 +92,164 @@ class MobileDailyWorkApiTest extends TestCase
             ->assertJsonPath('data.latest_date', '2025-12-19')
             ->assertJsonPath('data.dates.0', '2025-12-18')
             ->assertJsonPath('data.dates.1', '2025-12-19');
+    }
+
+    public function test_supervision_engineer_only_gets_incharge_daily_works_in_mobile_api(): void
+    {
+        if (! Schema::hasColumn('users', 'designation_id') || ! Schema::hasTable('designations')) {
+            $this->markTestSkipped('Designation-based scoping requires users.designation_id and designations table.');
+        }
+
+        $supervisionEngineerDesignationId = $this->createDesignation('Supervision Engineer');
+
+        $supervisionEngineer = User::factory()->create([
+            'active' => true,
+            'designation_id' => $supervisionEngineerDesignationId,
+        ]);
+        $otherUser = User::factory()->create(['active' => true]);
+
+        $inchargeWork = DailyWork::factory()->forUsers($supervisionEngineer, $otherUser)->create();
+        $assignedOnlyWork = DailyWork::factory()->forUsers($otherUser, $supervisionEngineer)->create();
+
+        Sanctum::actingAs($supervisionEngineer);
+
+        $response = $this->getJson('/api/v1/daily-works');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 1);
+
+        $dailyWorkIds = collect($response->json('data.daily_works'))->pluck('id');
+
+        $this->assertTrue($dailyWorkIds->contains($inchargeWork->id));
+        $this->assertFalse($dailyWorkIds->contains($assignedOnlyWork->id));
+    }
+
+    public function test_quality_control_inspector_only_gets_assigned_daily_works_in_mobile_api(): void
+    {
+        if (! Schema::hasColumn('users', 'designation_id') || ! Schema::hasTable('designations')) {
+            $this->markTestSkipped('Designation-based scoping requires users.designation_id and designations table.');
+        }
+
+        $qualityControlInspectorDesignationId = $this->createDesignation('Quality Control Inspector');
+
+        $qualityControlInspector = User::factory()->create([
+            'active' => true,
+            'designation_id' => $qualityControlInspectorDesignationId,
+        ]);
+        $otherUser = User::factory()->create(['active' => true]);
+
+        $inchargeOnlyWork = DailyWork::factory()->forUsers($qualityControlInspector, $otherUser)->create();
+        $assignedWork = DailyWork::factory()->forUsers($otherUser, $qualityControlInspector)->create();
+
+        Sanctum::actingAs($qualityControlInspector);
+
+        $response = $this->getJson('/api/v1/daily-works');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 1);
+
+        $dailyWorkIds = collect($response->json('data.daily_works'))->pluck('id');
+
+        $this->assertTrue($dailyWorkIds->contains($assignedWork->id));
+        $this->assertFalse($dailyWorkIds->contains($inchargeOnlyWork->id));
+    }
+
+    public function test_manager_can_update_incharge_and_assigned_on_mobile_api(): void
+    {
+        $manager = User::factory()->create(['active' => true]);
+        $this->assignManagerRole($manager);
+
+        $currentIncharge = User::factory()->create(['active' => true]);
+        $nextIncharge = User::factory()->create(['active' => true]);
+        $currentAssignee = User::factory()->create([
+            'active' => true,
+            'report_to' => $currentIncharge->id,
+        ]);
+        $nextAssignee = User::factory()->create([
+            'active' => true,
+            'report_to' => $nextIncharge->id,
+        ]);
+
+        $dailyWork = DailyWork::factory()->forUsers($currentIncharge, $currentAssignee)->create();
+
+        Sanctum::actingAs($manager);
+
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/incharge', [
+            'incharge' => $nextIncharge->id,
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.incharge_user.id', $nextIncharge->id)
+            ->assertJsonPath('data.permissions.can_update_incharge', true);
+
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/assigned', [
+            'assigned' => $nextAssignee->id,
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.assigned_user.id', $nextAssignee->id)
+            ->assertJsonPath('data.permissions.can_update_assigned', true);
+
+        $this->assertDatabaseHas('daily_works', [
+            'id' => $dailyWork->id,
+            'incharge' => $nextIncharge->id,
+            'assigned' => $nextAssignee->id,
+        ]);
+    }
+
+    public function test_incharge_can_update_assigned_but_cannot_update_incharge_on_mobile_api(): void
+    {
+        $incharge = User::factory()->create(['active' => true]);
+        $otherIncharge = User::factory()->create(['active' => true]);
+        $currentAssignee = User::factory()->create([
+            'active' => true,
+            'report_to' => $incharge->id,
+        ]);
+        $nextAssignee = User::factory()->create([
+            'active' => true,
+            'report_to' => $incharge->id,
+        ]);
+
+        $dailyWork = DailyWork::factory()->forUsers($incharge, $currentAssignee)->create();
+
+        Sanctum::actingAs($incharge);
+
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/assigned', [
+            'assigned' => $nextAssignee->id,
+        ])->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.assigned_user.id', $nextAssignee->id)
+            ->assertJsonPath('data.permissions.can_update_assigned', true);
+
+        $this->patchJson('/api/v1/daily-works/'.$dailyWork->id.'/incharge', [
+            'incharge' => $otherIncharge->id,
+        ])->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to update incharge for this daily work.');
+    }
+
+    public function test_assignee_cannot_view_incharge_or_assigned_columns_in_mobile_payload(): void
+    {
+        $incharge = User::factory()->create(['active' => true]);
+        $assignee = User::factory()->create([
+            'active' => true,
+            'report_to' => $incharge->id,
+        ]);
+
+        DailyWork::factory()->forUsers($incharge, $assignee)->create();
+
+        Sanctum::actingAs($assignee);
+
+        $response = $this->getJson('/api/v1/daily-works');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.daily_works.0.permissions.can_view_incharge', false)
+            ->assertJsonPath('data.daily_works.0.permissions.can_view_assigned', false)
+            ->assertJsonPath('data.daily_works.0.permissions.can_update_assigned', false)
+            ->assertJsonPath('data.daily_works.0.incharge_user', null)
+            ->assertJsonPath('data.daily_works.0.assigned_user', null);
     }
 
     public function test_selectable_dates_endpoint_applies_search_and_status_filters(): void
@@ -553,5 +715,16 @@ class MobileDailyWorkApiTest extends TestCase
     {
         Role::findOrCreate('Project Manager');
         $user->assignRole('Project Manager');
+    }
+
+    private function createDesignation(string $title): int
+    {
+        $department = Department::factory()->create();
+
+        return (int) Designation::query()->create([
+            'title' => $title,
+            'department_id' => $department->id,
+            'is_active' => true,
+        ])->id;
     }
 }
