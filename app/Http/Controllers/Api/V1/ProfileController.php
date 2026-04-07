@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\UploadProfileImageRequest;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
+use App\Http\Requests\Api\V1\UploadProfileImageRequest;
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -85,9 +86,12 @@ class ProfileController extends Controller
         ]);
     }
 
-    private function loadProfileRelations(Request $request)
+    private function loadProfileRelations(Request $request): User
     {
-        return $request->user()->loadMissing([
+        /** @var User $user */
+        $user = $request->user();
+
+        return $user->loadMissing([
             'department',
             'designation',
             'attendanceType',

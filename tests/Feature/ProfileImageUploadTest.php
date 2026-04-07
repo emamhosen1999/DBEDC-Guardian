@@ -21,7 +21,7 @@ class ProfileImageUploadTest extends TestCase
         parent::setUp();
 
         // Create roles
-        $this->artisan('db:seed', ['--class' => 'RolesAndPermissionsSeeder']);
+        $this->artisan('db:seed', ['--class' => 'ComprehensiveRolePermissionSeeder']);
 
         // Create admin user
         $this->admin = User::factory()->create();
