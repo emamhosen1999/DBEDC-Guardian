@@ -20,6 +20,11 @@ class MobileAttendanceApiTest extends TestCase
     public function test_guest_cannot_access_mobile_attendance_endpoints(): void
     {
         $this->getJson('/api/v1/attendance/today')->assertUnauthorized();
+        $this->getJson('/api/v1/attendance/present-users?date=2026-04-07')->assertUnauthorized();
+        $this->getJson('/api/v1/attendance/absent-users?date=2026-04-07')->assertUnauthorized();
+        $this->getJson('/api/v1/attendance/locations-today?date=2026-04-07')->assertUnauthorized();
+        $this->getJson('/api/v1/attendance/check-user-locations-updates/2026-04-07')->assertUnauthorized();
+        $this->getJson('/api/v1/attendance/check-timesheet-updates/2026-04-07/2026-04')->assertUnauthorized();
         $this->getJson('/api/v1/attendance/daily-timesheet')->assertUnauthorized();
         $this->getJson('/api/v1/attendance/team-locations')->assertUnauthorized();
         $this->getJson('/api/v1/attendance/monthly-summary')->assertUnauthorized();
@@ -44,6 +49,31 @@ class MobileAttendanceApiTest extends TestCase
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'You are not authorized to access team location data.');
+
+        $this->getJson('/api/v1/attendance/present-users?date=2026-04-07')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to access present users data.');
+
+        $this->getJson('/api/v1/attendance/absent-users?date=2026-04-07')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to access absent users data.');
+
+        $this->getJson('/api/v1/attendance/locations-today?date=2026-04-07')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to access team location data.');
+
+        $this->getJson('/api/v1/attendance/check-user-locations-updates/2026-04-07')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to check location updates.');
+
+        $this->getJson('/api/v1/attendance/check-timesheet-updates/2026-04-07/2026-04')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to check timesheet updates.');
     }
 
     public function test_authenticated_user_can_fetch_mobile_attendance_today_summary(): void
@@ -352,6 +382,201 @@ class MobileAttendanceApiTest extends TestCase
             ->assertJsonPath('data.locations.0.user_id', $employee->id)
             ->assertJsonPath('data.locations.0.requires_photo', true)
             ->assertJsonPath('data.locations.0.cycles.0.is_complete', false);
+    }
+
+    public function test_manager_can_fetch_mobile_present_users_payload(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        $employee = User::factory()->create([
+            'active' => true,
+            'employee_id' => 'EMP-2001',
+        ]);
+        $this->assignRole($employee, 'Employee');
+
+        Attendance::query()->create([
+            'user_id' => $employee->id,
+            'date' => '2026-04-07',
+            'punchin' => '09:00:00',
+            'punchout' => '11:00:00',
+        ]);
+
+        Attendance::query()->create([
+            'user_id' => $employee->id,
+            'date' => '2026-04-07',
+            'punchin' => '12:00:00',
+            'punchout' => null,
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/attendance/present-users?date=2026-04-07&page=1&perPage=10');
+
+        $response->assertOk()
+            ->assertJsonPath('current_page', 1)
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('attendances.0.user_id', $employee->id)
+            ->assertJsonPath('attendances.0.total_work_minutes', 120)
+            ->assertJsonPath('attendances.0.has_incomplete_punch', true);
+    }
+
+    public function test_manager_can_fetch_mobile_absent_users_payload(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        $presentEmployee = User::factory()->create([
+            'active' => true,
+            'employee_id' => 'EMP-3001',
+        ]);
+        $this->assignRole($presentEmployee, 'Employee');
+
+        $absentEmployee = User::factory()->create([
+            'active' => true,
+            'employee_id' => 'EMP-3002',
+        ]);
+        $this->assignRole($absentEmployee, 'Employee');
+
+        Attendance::query()->create([
+            'user_id' => $presentEmployee->id,
+            'date' => '2026-04-07',
+            'punchin' => '09:00:00',
+            'punchout' => '17:00:00',
+        ]);
+
+        $leaveTypeId = $this->createLeaveType([
+            'type' => 'DailyTimesheet',
+            'symbol' => 'DT',
+        ]);
+
+        $this->insertLeaveForUser($absentEmployee->id, $leaveTypeId, [
+            'from_date' => '2026-04-07',
+            'to_date' => '2026-04-07',
+            'status' => 'Approved',
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/attendance/absent-users?date=2026-04-07');
+
+        $response->assertOk()
+            ->assertJsonPath('total_absent', 1)
+            ->assertJsonPath('absent_users.0.id', $absentEmployee->id)
+            ->assertJsonPath('leaves.0.user_id', $absentEmployee->id)
+            ->assertJsonPath('leaves.0.leave_type_name', 'DailyTimesheet');
+    }
+
+    public function test_manager_can_fetch_mobile_locations_today_payload(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        $attendanceType = AttendanceType::factory()->create([
+            'name' => 'Geo Polygon Type 2',
+            'slug' => 'geo_polygon_2',
+            'is_active' => true,
+            'config' => [
+                'polygon' => [
+                    ['lat' => 23.7806, 'lng' => 90.4070],
+                    ['lat' => 23.7811, 'lng' => 90.4082],
+                ],
+            ],
+        ]);
+
+        $employee = User::factory()->create([
+            'active' => true,
+            'attendance_type_id' => $attendanceType->id,
+        ]);
+        $this->assignRole($employee, 'Employee');
+
+        Attendance::query()->create([
+            'user_id' => $employee->id,
+            'date' => '2026-04-07',
+            'punchin' => '09:00:00',
+            'punchout' => null,
+            'punchin_location' => json_encode([
+                'lat' => 23.7806,
+                'lng' => 90.4070,
+                'address' => 'Head Office',
+            ]),
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/attendance/locations-today?date=2026-04-07');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('date', '2026-04-07')
+            ->assertJsonPath('locations.0.user_id', $employee->id)
+            ->assertJsonPath('locations.0.requires_photo', true)
+            ->assertJsonPath('attendance_type_configs.0.id', $attendanceType->id);
+    }
+
+    public function test_manager_can_check_mobile_attendance_update_status(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        $employee = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($employee, 'Employee');
+
+        Attendance::query()->create([
+            'user_id' => $employee->id,
+            'date' => '2026-04-07',
+            'punchin' => '09:00:00',
+            'punchout' => null,
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $timesheetResponse = $this->getJson('/api/v1/attendance/check-timesheet-updates/2026-04-07/2026-04');
+
+        $timesheetResponse->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('has_updates', true)
+            ->assertJsonPath('has_records', true);
+
+        $this->assertNotNull($timesheetResponse->json('last_updated'));
+
+        $locationResponse = $this->getJson('/api/v1/attendance/check-user-locations-updates/2026-04-07');
+
+        $locationResponse->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('has_updates', true);
+
+        $this->assertNotNull($locationResponse->json('last_updated'));
+    }
+
+    public function test_mobile_attendance_update_status_validates_date_format_for_manager(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        Sanctum::actingAs($manager);
+
+        $this->getJson('/api/v1/attendance/check-timesheet-updates/07-04-2026/2026-04')
+            ->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invalid date format. Please use YYYY-MM-DD for date and YYYY-MM for month.');
+
+        $this->getJson('/api/v1/attendance/check-user-locations-updates/07-04-2026')
+            ->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invalid date format. Please use YYYY-MM-DD.');
     }
 
     private function assignRole(User $user, string $roleName): void

@@ -160,6 +160,11 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::post('/profile/image', [MobileProfileController::class, 'uploadImage'])->name('api.v1.profile.image.upload');
     Route::delete('/profile/image', [MobileProfileController::class, 'removeImage'])->name('api.v1.profile.image.remove');
     Route::get('/attendance/today', [MobileAttendanceController::class, 'today'])->name('api.v1.attendance.today');
+    Route::get('/attendance/present-users', [MobileAttendanceController::class, 'presentUsersForDate'])->name('api.v1.attendance.present-users');
+    Route::get('/attendance/absent-users', [MobileAttendanceController::class, 'absentUsersForDate'])->name('api.v1.attendance.absent-users');
+    Route::get('/attendance/locations-today', [MobileAttendanceController::class, 'userLocationsForDate'])->name('api.v1.attendance.locations-today');
+    Route::get('/attendance/check-user-locations-updates/{date}', [MobileAttendanceController::class, 'checkUserLocationUpdates'])->name('api.v1.attendance.check-user-locations-updates');
+    Route::get('/attendance/check-timesheet-updates/{date}/{month?}', [MobileAttendanceController::class, 'checkTimesheetUpdates'])->name('api.v1.attendance.check-timesheet-updates');
     Route::get('/attendance/daily-timesheet', [MobileAttendanceController::class, 'dailyTimesheet'])->name('api.v1.attendance.daily-timesheet');
     Route::get('/attendance/team-locations', [MobileAttendanceController::class, 'teamLocations'])->name('api.v1.attendance.team-locations');
     Route::get('/attendance/monthly-summary', [MobileAttendanceController::class, 'monthlySummary'])->name('api.v1.attendance.monthly-summary');

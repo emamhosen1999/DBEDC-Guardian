@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 
 class AttendanceController extends Controller
 {
@@ -409,6 +410,381 @@ class AttendanceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while retrieving daily timesheet data.',
+            ], 500);
+        }
+    }
+
+    public function presentUsersForDate(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access present users data.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'perPage' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'employee' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $selectedDate = (string) $validated['date'];
+        $page = (int) ($validated['page'] ?? 1);
+        $perPage = (int) ($validated['perPage'] ?? 10);
+        $employeeKeyword = trim((string) ($validated['employee'] ?? ''));
+
+        try {
+            $usersWithAttendanceQuery = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                })
+                ->whereHas('attendances', function ($query) use ($selectedDate) {
+                    $query->whereNotNull('punchin')
+                        ->whereDate('date', $selectedDate);
+                });
+
+            if ($employeeKeyword !== '') {
+                $usersWithAttendanceQuery->where(function ($query) use ($employeeKeyword) {
+                    $query->where('name', 'like', '%'.$employeeKeyword.'%')
+                        ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
+                });
+            }
+
+            $usersWithAttendance = $usersWithAttendanceQuery->get();
+            $paginatedUsers = $usersWithAttendance->forPage($page, $perPage);
+            $userIds = $paginatedUsers->pluck('id')->all();
+
+            $attendanceRecords = Attendance::query()
+                ->with('user')
+                ->whereNotNull('punchin')
+                ->whereDate('date', $selectedDate)
+                ->whereIn('user_id', $userIds)
+                ->orderBy('user_id')
+                ->orderBy('punchin')
+                ->get();
+
+            if ($attendanceRecords->isEmpty()) {
+                return response()->json([
+                    'message' => 'No attendance records found for the selected date.',
+                    'attendances' => [],
+                    'current_page' => (int) $page,
+                    'last_page' => 1,
+                    'total' => 0,
+                ]);
+            }
+
+            $groupedByUser = $attendanceRecords->groupBy('user_id')->map(function ($userAttendances) {
+                $firstRecord = $userAttendances->first();
+                $user = $firstRecord?->user;
+                $sortedPunches = $userAttendances->sortBy('punchin');
+
+                $totalWorkMinutes = 0;
+                $completePunches = 0;
+                $hasIncompletePunch = false;
+
+                $punches = $sortedPunches->map(function (Attendance $record) use (&$totalWorkMinutes, &$completePunches, &$hasIncompletePunch) {
+                    if ($record->punchin && $record->punchout) {
+                        $punchIn = Carbon::parse($record->punchin);
+                        $punchOut = Carbon::parse($record->punchout);
+
+                        if ($punchOut->lt($punchIn)) {
+                            $punchOut->addDay();
+                        }
+
+                        $totalWorkMinutes += $punchIn->diffInMinutes($punchOut);
+                        $completePunches++;
+                    } elseif ($record->punchin && ! $record->punchout) {
+                        $hasIncompletePunch = true;
+                    }
+
+                    return [
+                        'punch_in' => $record->punchin,
+                        'punch_out' => $record->punchout,
+                        'id' => $record->id,
+                        'date' => $record->date,
+                        'punchin_location' => $record->punchin_location_array,
+                        'punchout_location' => $record->punchout_location_array,
+                    ];
+                })->values();
+
+                $firstPunch = $sortedPunches->first();
+                $lastCompletePunch = $sortedPunches->whereNotNull('punchout')->last();
+
+                return [
+                    'id' => 'user-'.($user?->id ?? 'unknown'),
+                    'user_id' => (int) ($user?->id ?? 0),
+                    'user' => [
+                        'id' => (int) ($user?->id ?? 0),
+                        'name' => $user?->name,
+                        'employee_id' => $user?->employee_id,
+                        'phone' => $user?->phone,
+                        'profile_image' => $user?->profile_image,
+                        'profile_image_url' => $user?->profile_image_url,
+                    ],
+                    'date' => $firstRecord?->date,
+                    'punchin_time' => $firstPunch?->punchin,
+                    'punchout_time' => $lastCompletePunch?->punchout,
+                    'punchin_location' => $firstPunch?->punchin_location_array,
+                    'punchout_location' => $lastCompletePunch?->punchout_location_array,
+                    'total_work_minutes' => round($totalWorkMinutes, 2),
+                    'punch_count' => $userAttendances->count(),
+                    'complete_punches' => $completePunches,
+                    'has_incomplete_punch' => $hasIncompletePunch,
+                    'first_punch_date' => $firstRecord?->date,
+                    'last_punch_date' => $sortedPunches->last()?->date,
+                    'punches' => $punches,
+                ];
+            })->values();
+
+            $totalUsers = $usersWithAttendance->count();
+            $lastPage = (int) ceil($totalUsers / max($perPage, 1));
+
+            return response()->json([
+                'attendances' => $groupedByUser,
+                'current_page' => (int) $page,
+                'last_page' => max(1, $lastPage),
+                'total' => (int) $totalUsers,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'error' => 'An error occurred while retrieving present users data.',
+                'details' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function absentUsersForDate(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access absent users data.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'employee' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $selectedDate = (string) $validated['date'];
+        $employeeKeyword = trim((string) ($validated['employee'] ?? ''));
+
+        try {
+            $allUsersQuery = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                });
+
+            if ($employeeKeyword !== '') {
+                $allUsersQuery->where(function ($query) use ($employeeKeyword) {
+                    $query->where('name', 'like', '%'.$employeeKeyword.'%')
+                        ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
+                });
+            }
+
+            $allUsers = $allUsersQuery->get();
+
+            $presentUserIds = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                })
+                ->whereHas('attendances', function ($query) use ($selectedDate) {
+                    $query->whereNotNull('punchin')
+                        ->whereDate('date', $selectedDate);
+                })
+                ->pluck('id');
+
+            $absentUsers = $allUsers->filter(function (User $user) use ($presentUserIds) {
+                return ! $presentUserIds->contains($user->id);
+            })->values();
+
+            $leaveUserColumn = $this->resolveLeavesUserColumn();
+            $todayLeaves = collect();
+
+            if (
+                $leaveUserColumn
+                && Schema::hasTable('leaves')
+                && Schema::hasTable('leave_settings')
+                && $absentUsers->isNotEmpty()
+            ) {
+                $todayLeaves = DB::table('leaves')
+                    ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
+                    ->select('leaves.*', 'leave_settings.type as leave_type')
+                    ->whereDate('leaves.from_date', '<=', $selectedDate)
+                    ->whereDate('leaves.to_date', '>=', $selectedDate)
+                    ->whereIn("leaves.{$leaveUserColumn}", $absentUsers->pluck('id')->all())
+                    ->get()
+                    ->map(function ($leave) use ($leaveUserColumn) {
+                        return [
+                            'id' => (int) ($leave->id ?? 0),
+                            'user_id' => (int) ($leave->{$leaveUserColumn} ?? 0),
+                            'leave_type' => $leave->leave_type,
+                            'status' => $leave->status,
+                            'from_date' => $leave->from_date,
+                            'to_date' => $leave->to_date,
+                            'leave_type_name' => $leave->leave_type,
+                        ];
+                    })
+                    ->values();
+            }
+
+            $serializedAbsentUsers = $absentUsers->map(function (User $user) {
+                return [
+                    'id' => (int) $user->id,
+                    'name' => $user->name,
+                    'employee_id' => $user->employee_id,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'profile_image' => $user->profile_image,
+                    'profile_image_url' => $user->profile_image_url,
+                ];
+            })->values();
+
+            return response()->json([
+                'absent_users' => $serializedAbsentUsers,
+                'leaves' => $todayLeaves,
+                'total_absent' => $serializedAbsentUsers->count(),
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'error' => 'An error occurred while retrieving absent users data.',
+                'details' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function userLocationsForDate(Request $request): JsonResponse
+    {
+        $response = $this->teamLocations($request);
+        $payload = $response->getData(true);
+
+        if (($payload['success'] ?? false) !== true) {
+            return $response;
+        }
+
+        return response()->json([
+            'success' => true,
+            'date' => $payload['data']['date'] ?? null,
+            'locations' => $payload['data']['locations'] ?? [],
+            'attendance_type_configs' => $payload['data']['attendance_type_configs'] ?? [],
+        ]);
+    }
+
+    public function checkUserLocationUpdates(Request $request, string $date): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to check location updates.',
+            ], 403);
+        }
+
+        $validated = Validator::make(
+            ['date' => $date],
+            ['date' => 'required|date_format:Y-m-d']
+        );
+
+        if ($validated->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid date format. Please use YYYY-MM-DD.',
+            ], 400);
+        }
+
+        try {
+            $lastUpdate = Attendance::query()
+                ->whereDate('date', $date)
+                ->max('updated_at');
+
+            $lastUpdateTime = $lastUpdate ? Carbon::parse($lastUpdate) : null;
+
+            return response()->json([
+                'success' => true,
+                'has_updates' => $lastUpdate !== null,
+                'last_updated' => $lastUpdateTime?->toIso8601String(),
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check for location updates.',
+                'error' => $exception->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function checkTimesheetUpdates(Request $request, string $date, ?string $month = null): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to check timesheet updates.',
+            ], 403);
+        }
+
+        $validated = Validator::make(
+            [
+                'date' => $date,
+                'month' => $month,
+            ],
+            [
+                'date' => 'required|date_format:Y-m-d',
+                'month' => 'nullable|date_format:Y-m',
+            ]
+        );
+
+        if ($validated->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid date format. Please use YYYY-MM-DD for date and YYYY-MM for month.',
+            ], 400);
+        }
+
+        try {
+            $query = Attendance::query()->whereDate('date', $date);
+
+            if ($month) {
+                $year = (int) substr($month, 0, 4);
+                $monthNumber = (int) substr($month, 5, 2);
+
+                $query->orWhere(function ($orQuery) use ($year, $monthNumber) {
+                    $orQuery->whereYear('date', $year)
+                        ->whereMonth('date', $monthNumber);
+                });
+            }
+
+            $lastUpdate = $query->max('updated_at');
+            $hasRecords = Attendance::query()->whereDate('date', $date)->exists();
+
+            return response()->json([
+                'success' => true,
+                'has_updates' => $lastUpdate !== null,
+                'has_records' => $hasRecords,
+                'last_updated' => $lastUpdate ? Carbon::parse($lastUpdate)->toIso8601String() : null,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check for timesheet updates.',
+                'error' => $exception->getMessage(),
             ], 500);
         }
     }
