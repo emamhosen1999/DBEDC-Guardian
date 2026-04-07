@@ -13,6 +13,7 @@ use App\Http\Requests\Api\V1\UploadDailyWorkObjectionFilesRequest;
 use App\Models\DailyWork;
 use App\Models\RfiObjection;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,54 +27,12 @@ class DailyWorkController extends Controller
         $user = $request->user();
         $perPage = (int) $request->input('perPage', 10);
 
-        $query = DailyWork::query()
+        $query = $this->buildFilteredDailyWorksQuery($user, $request)
             ->with([
                 'inchargeUser:id,name',
                 'assignedUser:id,name',
             ])
             ->withCount(['activeObjections']);
-
-        if (! $this->isPrivilegedUser($user)) {
-            $query->where(function ($dailyWorkQuery) use ($user) {
-                $dailyWorkQuery
-                    ->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id);
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
-        }
-
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
-        }
-
-        if ($request->filled('date_from') && $request->filled('date_to')) {
-            $query->whereBetween('date', [$request->input('date_from'), $request->input('date_to')]);
-        } elseif ($request->filled('date_from')) {
-            $query->whereDate('date', '>=', $request->input('date_from'));
-        } elseif ($request->filled('date_to')) {
-            $query->whereDate('date', '<=', $request->input('date_to'));
-        }
-
-        if ($request->filled('search')) {
-            $search = (string) $request->input('search');
-
-            $query->where(function ($searchQuery) use ($search) {
-                $searchQuery
-                    ->where('number', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('location', 'like', "%{$search}%")
-                    ->orWhere('inspection_details', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->boolean('only_with_objections')) {
-            $query->whereHas('objections', function ($objectionQuery) {
-                $objectionQuery->whereIn('rfi_objections.status', RfiObjection::$activeStatuses);
-            });
-        }
 
         $dailyWorks = $query
             ->orderByDesc('date')
@@ -95,6 +54,35 @@ class DailyWorkController extends Controller
                     'per_page' => $dailyWorks->perPage(),
                     'total' => $dailyWorks->total(),
                 ],
+            ],
+        ]);
+    }
+
+    public function selectableDates(ListDailyWorksRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $query = $this->buildFilteredDailyWorksQuery($user, $request);
+
+        $dates = (clone $query)
+            ->whereNotNull('date')
+            ->distinct()
+            ->orderBy('date')
+            ->pluck('date')
+            ->map(function (mixed $dateValue) {
+                return $this->normalizeDate($dateValue);
+            })
+            ->filter()
+            ->unique()
+            ->values();
+
+        $latestDate = $dates->last();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'dates' => $dates,
+                'latest_date' => $latestDate,
+                'total_dates' => $dates->count(),
             ],
         ]);
     }
@@ -779,6 +767,55 @@ class DailyWorkController extends Controller
                 })->values(),
             ],
         ]);
+    }
+
+    private function buildFilteredDailyWorksQuery(User $user, ListDailyWorksRequest $request): Builder
+    {
+        $query = DailyWork::query();
+
+        if (! $this->isPrivilegedUser($user)) {
+            $query->where(function ($dailyWorkQuery) use ($user) {
+                $dailyWorkQuery
+                    ->where('incharge', $user->id)
+                    ->orWhere('assigned', $user->id);
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->input('type'));
+        }
+
+        if ($request->filled('date_from') && $request->filled('date_to')) {
+            $query->whereBetween('date', [$request->input('date_from'), $request->input('date_to')]);
+        } elseif ($request->filled('date_from')) {
+            $query->whereDate('date', '>=', $request->input('date_from'));
+        } elseif ($request->filled('date_to')) {
+            $query->whereDate('date', '<=', $request->input('date_to'));
+        }
+
+        if ($request->filled('search')) {
+            $search = (string) $request->input('search');
+
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery
+                    ->where('number', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('location', 'like', "%{$search}%")
+                    ->orWhere('inspection_details', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->boolean('only_with_objections')) {
+            $query->whereHas('objections', function ($objectionQuery) {
+                $objectionQuery->whereIn('rfi_objections.status', RfiObjection::$activeStatuses);
+            });
+        }
+
+        return $query;
     }
 
     private function canAccessDailyWork(User $user, DailyWork $dailyWork): bool

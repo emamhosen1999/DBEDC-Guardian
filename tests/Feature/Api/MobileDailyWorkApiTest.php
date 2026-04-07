@@ -21,6 +21,7 @@ class MobileDailyWorkApiTest extends TestCase
     public function test_guest_cannot_access_mobile_daily_work_endpoints(): void
     {
         $this->getJson('/api/v1/daily-works')->assertUnauthorized();
+        $this->getJson('/api/v1/daily-works/selectable-dates')->assertUnauthorized();
         $this->getJson('/api/v1/daily-works/1')->assertUnauthorized();
         $this->patchJson('/api/v1/daily-works/1/status', [])->assertUnauthorized();
         $this->getJson('/api/v1/daily-works/1/objections')->assertUnauthorized();
@@ -57,6 +58,67 @@ class MobileDailyWorkApiTest extends TestCase
         $this->assertTrue($dailyWorkIds->contains($ownedWork->id));
         $this->assertTrue($dailyWorkIds->contains($assignedWork->id));
         $this->assertFalse($dailyWorkIds->contains($unrelatedWork->id));
+    }
+
+    public function test_user_can_get_selectable_dates_for_owned_or_assigned_daily_works(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $otherUser = User::factory()->create(['active' => true]);
+
+        DailyWork::factory()->forUsers($user, $user)->create([
+            'date' => '2025-12-18',
+            'status' => DailyWork::STATUS_NEW,
+        ]);
+        DailyWork::factory()->forUsers($otherUser, $user)->create([
+            'date' => '2025-12-19',
+            'status' => DailyWork::STATUS_COMPLETED,
+        ]);
+        DailyWork::factory()->forUsers($otherUser, $otherUser)->create([
+            'date' => '2025-12-20',
+            'status' => DailyWork::STATUS_COMPLETED,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/daily-works/selectable-dates');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.total_dates', 2)
+            ->assertJsonPath('data.latest_date', '2025-12-19')
+            ->assertJsonPath('data.dates.0', '2025-12-18')
+            ->assertJsonPath('data.dates.1', '2025-12-19');
+    }
+
+    public function test_selectable_dates_endpoint_applies_search_and_status_filters(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+
+        DailyWork::factory()->forUsers($user, $user)->create([
+            'date' => '2025-11-01',
+            'status' => DailyWork::STATUS_NEW,
+            'description' => 'Bridge deck alignment issue',
+        ]);
+        DailyWork::factory()->forUsers($user, $user)->create([
+            'date' => '2025-11-03',
+            'status' => DailyWork::STATUS_COMPLETED,
+            'description' => 'Bridge deck alignment update',
+        ]);
+        DailyWork::factory()->forUsers($user, $user)->create([
+            'date' => '2025-11-05',
+            'status' => DailyWork::STATUS_COMPLETED,
+            'description' => 'Slope protection review',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/daily-works/selectable-dates?status=completed&search=Bridge');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.total_dates', 1)
+            ->assertJsonPath('data.latest_date', '2025-11-03')
+            ->assertJsonPath('data.dates.0', '2025-11-03');
     }
 
     public function test_user_can_view_owned_daily_work_but_not_unrelated_work(): void

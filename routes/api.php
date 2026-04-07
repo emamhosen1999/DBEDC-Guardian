@@ -189,6 +189,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/sync/pull', [MobileSyncController::class, 'pull'])->name('api.v1.sync.pull');
     Route::post('/sync/push', [MobileSyncController::class, 'push'])->name('api.v1.sync.push');
     Route::get('/daily-works', [MobileDailyWorkController::class, 'index'])->name('api.v1.daily-works.index');
+    Route::get('/daily-works/selectable-dates', [MobileDailyWorkController::class, 'selectableDates'])->name('api.v1.daily-works.selectable-dates');
     Route::get('/daily-works/objections/metadata', [MobileDailyWorkController::class, 'objectionMetadata'])->name('api.v1.daily-works.objections.metadata');
     Route::get('/daily-works/{dailyWorkId}', [MobileDailyWorkController::class, 'show'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.show');
     Route::patch('/daily-works/{dailyWorkId}/status', [MobileDailyWorkController::class, 'updateStatus'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.status.update');
