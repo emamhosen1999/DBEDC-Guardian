@@ -17,7 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\TrackSecurityActivity::class,
             \App\Http\Middleware\CheckSessionExpiry::class, // Add session expiry check
-        ]);        // Register custom middleware aliases
+        ]);
+
+        // Register custom middleware aliases
         $middleware->alias([
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'custom_permission' => \App\Http\Middleware\CheckPermission::class,
@@ -26,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api_security' => \App\Http\Middleware\ApiSecurityMiddleware::class,
             'security_headers' => \App\Http\Middleware\SecurityHeaders::class,
             'enhanced_rate_limit' => \App\Http\Middleware\EnhancedRateLimit::class,
+            'attendance.rate_limit' => \App\Http\Middleware\AttendanceRateLimit::class,
             'role_permission_sync' => \App\Http\Middleware\EnsureRolePermissionSync::class,
             'track_security' => \App\Http\Middleware\TrackSecurityActivity::class,
             'session_expiry' => \App\Http\Middleware\CheckSessionExpiry::class, // Register alias
