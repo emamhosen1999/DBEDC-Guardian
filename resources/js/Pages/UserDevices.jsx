@@ -45,8 +45,11 @@ import { format, formatDistanceToNow } from 'date-fns';
 import App from "@/Layouts/App.jsx";
 import { showToast } from '@/utils/toastUtils';
 
-const UserDevices = ({ user, devices }) => {
-  const [userState, setUserState] = useState(user);
+const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
+  const [userState, setUserState] = useState({
+    ...user,
+    ...(initialUserState ?? {}),
+  });
   const [deviceItems, setDeviceItems] = useState(devices ?? []);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -233,6 +236,17 @@ const UserDevices = ({ user, devices }) => {
     });
   }, [deviceItems, searchTerm, statusFilter, typeFilter, sortBy]);
 
+  const applyUserState = (nextUserState) => {
+    if (!nextUserState || typeof nextUserState !== 'object') {
+      return;
+    }
+
+    setUserState((previous) => ({
+      ...previous,
+      ...nextUserState,
+    }));
+  };
+
   const refreshDevices = async () => {
     setProcessing((previous) => ({ ...previous, refresh: true }));
 
@@ -245,6 +259,7 @@ const UserDevices = ({ user, devices }) => {
 
       if (response.data?.success) {
         setDeviceItems(Array.isArray(response.data.devices) ? response.data.devices : []);
+        applyUserState(response.data.user_state);
       }
     } catch (error) {
       showToast.error(error.response?.data?.message || 'Failed to refresh device history');
@@ -260,10 +275,14 @@ const UserDevices = ({ user, devices }) => {
       const response = await axios.post(route('admin.users.devices.toggle', { userId: userState.id }));
 
       if (response.data?.success) {
-        setUserState((previous) => ({
-          ...previous,
-          single_device_login_enabled: Boolean(response.data.single_device_login_enabled),
-        }));
+        applyUserState(response.data.user_state);
+
+        if (response.data.user_state === undefined) {
+          setUserState((previous) => ({
+            ...previous,
+            single_device_login_enabled: Boolean(response.data.single_device_login_enabled),
+          }));
+        }
 
         showToast.success(response.data.message || 'Device lock setting updated');
       }
@@ -285,11 +304,15 @@ const UserDevices = ({ user, devices }) => {
       });
 
       if (response.data?.success) {
-        setUserState((previous) => ({
-          ...previous,
-          device_reset_at: new Date().toISOString(),
-          device_reset_reason: reason || 'Admin reset via user device management',
-        }));
+        applyUserState(response.data.user_state);
+
+        if (response.data.user_state === undefined) {
+          setUserState((previous) => ({
+            ...previous,
+            device_reset_at: new Date().toISOString(),
+            device_reset_reason: reason || 'Admin reset via user device management',
+          }));
+        }
 
         setResetReason('');
         resetModal.onClose();
@@ -322,6 +345,7 @@ const UserDevices = ({ user, devices }) => {
       }));
 
       if (response.data?.success) {
+        applyUserState(response.data.user_state);
         showToast.success(response.data.message || 'Device deactivated successfully');
         deactivateModal.onClose();
         setDeviceToDeactivate(null);
