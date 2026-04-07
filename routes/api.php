@@ -160,6 +160,8 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::post('/profile/image', [MobileProfileController::class, 'uploadImage'])->name('api.v1.profile.image.upload');
     Route::delete('/profile/image', [MobileProfileController::class, 'removeImage'])->name('api.v1.profile.image.remove');
     Route::get('/attendance/today', [MobileAttendanceController::class, 'today'])->name('api.v1.attendance.today');
+    Route::get('/attendance/daily-timesheet', [MobileAttendanceController::class, 'dailyTimesheet'])->name('api.v1.attendance.daily-timesheet');
+    Route::get('/attendance/team-locations', [MobileAttendanceController::class, 'teamLocations'])->name('api.v1.attendance.team-locations');
     Route::get('/attendance/monthly-summary', [MobileAttendanceController::class, 'monthlySummary'])->name('api.v1.attendance.monthly-summary');
     Route::get('/attendance/history', [MobileAttendanceController::class, 'history'])->name('api.v1.attendance.history');
     Route::post('/attendance/punch', [MobileAttendanceController::class, 'punch'])->middleware('throttle:20,1')->name('api.v1.attendance.punch');

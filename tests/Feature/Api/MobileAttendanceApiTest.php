@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class MobileAttendanceApiTest extends TestCase
@@ -19,9 +20,30 @@ class MobileAttendanceApiTest extends TestCase
     public function test_guest_cannot_access_mobile_attendance_endpoints(): void
     {
         $this->getJson('/api/v1/attendance/today')->assertUnauthorized();
+        $this->getJson('/api/v1/attendance/daily-timesheet')->assertUnauthorized();
+        $this->getJson('/api/v1/attendance/team-locations')->assertUnauthorized();
         $this->getJson('/api/v1/attendance/monthly-summary')->assertUnauthorized();
         $this->getJson('/api/v1/attendance/history')->assertUnauthorized();
         $this->postJson('/api/v1/attendance/punch', [])->assertUnauthorized();
+    }
+
+    public function test_non_manager_cannot_access_mobile_daily_timesheet_endpoints(): void
+    {
+        $user = User::factory()->create([
+            'active' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/v1/attendance/daily-timesheet')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to access daily timesheet data.');
+
+        $this->getJson('/api/v1/attendance/team-locations')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to access team location data.');
     }
 
     public function test_authenticated_user_can_fetch_mobile_attendance_today_summary(): void
@@ -216,6 +238,126 @@ class MobileAttendanceApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['month']);
+    }
+
+    public function test_manager_can_fetch_mobile_daily_timesheet_payload(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        $presentEmployee = User::factory()->create([
+            'active' => true,
+            'employee_id' => 'EMP-1001',
+        ]);
+        $this->assignRole($presentEmployee, 'Employee');
+
+        $absentEmployee = User::factory()->create([
+            'active' => true,
+            'employee_id' => 'EMP-1002',
+        ]);
+        $this->assignRole($absentEmployee, 'Employee');
+
+        Attendance::query()->create([
+            'user_id' => $presentEmployee->id,
+            'date' => '2026-04-07',
+            'punchin' => '09:00:00',
+            'punchout' => '11:00:00',
+        ]);
+
+        Attendance::query()->create([
+            'user_id' => $presentEmployee->id,
+            'date' => '2026-04-07',
+            'punchin' => '12:00:00',
+            'punchout' => null,
+        ]);
+
+        $leaveTypeId = $this->createLeaveType([
+            'type' => 'DailyTimesheet',
+            'symbol' => 'DT',
+        ]);
+
+        $this->insertLeaveForUser($absentEmployee->id, $leaveTypeId, [
+            'from_date' => '2026-04-07',
+            'to_date' => '2026-04-07',
+            'status' => 'Approved',
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/attendance/daily-timesheet?date=2026-04-07&page=1&perPage=10');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.selected_date', '2026-04-07')
+            ->assertJsonPath('data.summary.present_count', 1)
+            ->assertJsonPath('data.summary.absent_count', 1)
+            ->assertJsonPath('data.summary.total_count', 2)
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.attendances.0.user.id', $presentEmployee->id)
+            ->assertJsonPath('data.attendances.0.total_work_minutes', 120)
+            ->assertJsonPath('data.attendances.0.has_incomplete_punch', true)
+            ->assertJsonPath('data.absent_users.0.id', $absentEmployee->id)
+            ->assertJsonPath('data.leaves.0.user_id', $absentEmployee->id);
+    }
+
+    public function test_manager_can_fetch_mobile_team_locations_payload(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        $attendanceType = AttendanceType::factory()->create([
+            'name' => 'Geo Polygon Type',
+            'slug' => 'geo_polygon_1',
+            'is_active' => true,
+            'config' => [
+                'polygon' => [
+                    ['lat' => 23.7806, 'lng' => 90.4070],
+                    ['lat' => 23.7811, 'lng' => 90.4082],
+                ],
+            ],
+        ]);
+
+        $employee = User::factory()->create([
+            'active' => true,
+            'attendance_type_id' => $attendanceType->id,
+        ]);
+        $this->assignRole($employee, 'Employee');
+
+        Attendance::query()->create([
+            'user_id' => $employee->id,
+            'date' => '2026-04-07',
+            'punchin' => '09:00:00',
+            'punchout' => null,
+            'punchin_location' => json_encode([
+                'lat' => 23.7806,
+                'lng' => 90.4070,
+                'address' => 'Head Office',
+            ]),
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/attendance/team-locations?date=2026-04-07');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.date', '2026-04-07')
+            ->assertJsonPath('data.stats.total', 1)
+            ->assertJsonPath('data.stats.checked_in', 1)
+            ->assertJsonPath('data.stats.completed', 0)
+            ->assertJsonPath('data.locations.0.user_id', $employee->id)
+            ->assertJsonPath('data.locations.0.requires_photo', true)
+            ->assertJsonPath('data.locations.0.cycles.0.is_complete', false);
+    }
+
+    private function assignRole(User $user, string $roleName): void
+    {
+        Role::findOrCreate($roleName);
+        $user->assignRole($roleName);
     }
 
     private function createLeaveType(array $overrides = []): int

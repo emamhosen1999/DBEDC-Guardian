@@ -7,6 +7,8 @@ use App\Http\Requests\Api\V1\AttendanceHistoryRequest;
 use App\Http\Requests\Api\V1\AttendanceMonthlySummaryRequest;
 use App\Http\Requests\Api\V1\PunchAttendanceRequest;
 use App\Models\HRM\Attendance;
+use App\Models\HRM\AttendanceType;
+use App\Models\User;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceValidatorFactory;
 use Carbon\Carbon;
@@ -189,6 +191,313 @@ class AttendanceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while retrieving attendance history.',
+            ], 500);
+        }
+    }
+
+    public function dailyTimesheet(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access daily timesheet data.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'perPage' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'employee' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $selectedDate = (string) ($validated['date'] ?? now()->toDateString());
+        $page = (int) ($validated['page'] ?? 1);
+        $perPage = (int) ($validated['perPage'] ?? 10);
+        $employeeKeyword = trim((string) ($validated['employee'] ?? ''));
+
+        try {
+            $usersWithAttendanceQuery = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                })
+                ->whereHas('attendances', function ($query) use ($selectedDate) {
+                    $query->whereNotNull('punchin')
+                        ->whereDate('date', $selectedDate);
+                });
+
+            if ($employeeKeyword !== '') {
+                $usersWithAttendanceQuery->where(function ($query) use ($employeeKeyword) {
+                    $query->where('name', 'like', '%'.$employeeKeyword.'%')
+                        ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
+                });
+            }
+
+            $usersWithAttendance = $usersWithAttendanceQuery->get();
+            $paginatedUsers = $usersWithAttendance->forPage($page, $perPage)->values();
+            $userIds = $paginatedUsers->pluck('id')->all();
+
+            $attendanceRecords = Attendance::query()
+                ->with(['user.designation'])
+                ->whereNotNull('punchin')
+                ->whereDate('date', $selectedDate)
+                ->whereIn('user_id', $userIds)
+                ->orderBy('user_id')
+                ->orderBy('punchin')
+                ->get();
+
+            $attendances = $attendanceRecords->groupBy('user_id')->map(function ($userAttendances) {
+                $firstRecord = $userAttendances->first();
+                $user = $firstRecord?->user;
+                $sortedPunches = $userAttendances->sortBy('punchin')->values();
+
+                $totalWorkMinutes = 0;
+                $completePunches = 0;
+                $hasIncompletePunch = false;
+
+                $punches = $sortedPunches->map(function (Attendance $record) use (&$totalWorkMinutes, &$completePunches, &$hasIncompletePunch) {
+                    if ($record->punchin && $record->punchout) {
+                        $punchIn = Carbon::parse($record->punchin);
+                        $punchOut = Carbon::parse($record->punchout);
+
+                        if ($punchOut->lt($punchIn)) {
+                            $punchOut->addDay();
+                        }
+
+                        $totalWorkMinutes += $punchIn->diffInMinutes($punchOut);
+                        $completePunches++;
+                    } elseif ($record->punchin && ! $record->punchout) {
+                        $hasIncompletePunch = true;
+                    }
+
+                    return [
+                        'id' => $record->id,
+                        'date' => $record->date,
+                        'punch_in' => $record->punchin,
+                        'punch_out' => $record->punchout,
+                        'punchin_location' => $record->punchin_location_array,
+                        'punchout_location' => $record->punchout_location_array,
+                    ];
+                })->values();
+
+                $firstPunch = $sortedPunches->first();
+                $lastCompletePunch = $sortedPunches->whereNotNull('punchout')->last();
+
+                return [
+                    'id' => 'user-'.($user?->id ?? 'unknown'),
+                    'user_id' => (int) ($user?->id ?? 0),
+                    'user' => $this->transformUserForAttendanceCards($user),
+                    'date' => $firstRecord?->date,
+                    'punchin_time' => $firstPunch?->punchin,
+                    'punchout_time' => $lastCompletePunch?->punchout,
+                    'punchin_location' => $firstPunch?->punchin_location_array,
+                    'punchout_location' => $lastCompletePunch?->punchout_location_array,
+                    'total_work_minutes' => round($totalWorkMinutes, 2),
+                    'punch_count' => $userAttendances->count(),
+                    'complete_punches' => $completePunches,
+                    'has_incomplete_punch' => $hasIncompletePunch,
+                    'first_punch_date' => $firstRecord?->date,
+                    'last_punch_date' => $sortedPunches->last()?->date,
+                    'punches' => $punches,
+                ];
+            })->values();
+
+            $totalUsers = $usersWithAttendance->count();
+            $lastPage = max(1, (int) ceil($totalUsers / max($perPage, 1)));
+
+            $allEmployeeUsersQuery = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                })
+                ->with('designation');
+
+            if ($employeeKeyword !== '') {
+                $allEmployeeUsersQuery->where(function ($query) use ($employeeKeyword) {
+                    $query->where('name', 'like', '%'.$employeeKeyword.'%')
+                        ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
+                });
+            }
+
+            $allEmployeeUsers = $allEmployeeUsersQuery->get();
+
+            $presentUserIds = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                })
+                ->whereHas('attendances', function ($query) use ($selectedDate) {
+                    $query->whereNotNull('punchin')
+                        ->whereDate('date', $selectedDate);
+                })
+                ->pluck('id');
+
+            $absentUsers = $allEmployeeUsers->filter(function (User $user) use ($presentUserIds) {
+                return ! $presentUserIds->contains($user->id);
+            })->values();
+
+            $absentUserIds = $absentUsers->pluck('id')->all();
+            $leaveUserColumn = $this->resolveLeavesUserColumn();
+            $leaves = collect();
+
+            if (
+                $absentUserIds !== []
+                && $leaveUserColumn
+                && Schema::hasTable('leaves')
+                && Schema::hasTable('leave_settings')
+            ) {
+                $leaves = DB::table('leaves')
+                    ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
+                    ->select(
+                        'leaves.id',
+                        "leaves.{$leaveUserColumn} as user_id",
+                        'leaves.leave_type',
+                        'leave_settings.type as leave_type_name',
+                        'leaves.from_date',
+                        'leaves.to_date',
+                        'leaves.no_of_days',
+                        'leaves.status'
+                    )
+                    ->whereDate('leaves.from_date', '<=', $selectedDate)
+                    ->whereDate('leaves.to_date', '>=', $selectedDate)
+                    ->whereIn("leaves.{$leaveUserColumn}", $absentUserIds)
+                    ->orderBy('leaves.from_date')
+                    ->orderBy('leaves.id')
+                    ->get()
+                    ->map(function ($leave) {
+                        return [
+                            'id' => (int) ($leave->id ?? 0),
+                            'user_id' => (int) ($leave->user_id ?? 0),
+                            'leave_type' => (int) ($leave->leave_type ?? 0),
+                            'leave_type_name' => $leave->leave_type_name,
+                            'from_date' => $leave->from_date,
+                            'to_date' => $leave->to_date,
+                            'no_of_days' => (int) ($leave->no_of_days ?? 0),
+                            'status' => $leave->status,
+                        ];
+                    })
+                    ->values();
+            }
+
+            $serializedAbsentUsers = $absentUsers->map(function (User $user) {
+                return $this->transformUserForAttendanceCards($user);
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'selected_date' => $selectedDate,
+                    'attendances' => $attendances,
+                    'absent_users' => $serializedAbsentUsers,
+                    'leaves' => $leaves,
+                    'pagination' => [
+                        'current_page' => $page,
+                        'last_page' => $lastPage,
+                        'per_page' => $perPage,
+                        'total' => $totalUsers,
+                    ],
+                    'summary' => [
+                        'present_count' => $attendances->count(),
+                        'absent_count' => $serializedAbsentUsers->count(),
+                        'total_count' => $attendances->count() + $serializedAbsentUsers->count(),
+                    ],
+                ],
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving daily timesheet data.',
+            ], 500);
+        }
+    }
+
+    public function teamLocations(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access team location data.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $selectedDate = (string) ($validated['date'] ?? now()->toDateString());
+
+        try {
+            $attendances = Attendance::query()
+                ->with(['user.designation', 'user.attendanceType', 'media'])
+                ->whereNotNull('punchin')
+                ->whereDate('date', $selectedDate)
+                ->orderBy('user_id')
+                ->orderBy('punchin')
+                ->get();
+
+            $attendanceTypeConfigs = $this->buildAttendanceTypeConfigs();
+
+            $locations = $attendances->groupBy('user_id')->map(function ($userPunches) {
+                $user = $userPunches->first()?->user;
+                $attendanceType = $user?->attendanceType;
+                $baseSlug = $attendanceType ? preg_replace('/_\d+$/', '', (string) $attendanceType->slug) : null;
+                $requiresPhoto = in_array($baseSlug, ['geo_polygon', 'route_waypoint'], true);
+
+                $cycles = $userPunches->map(function (Attendance $attendance) use ($requiresPhoto) {
+                    return [
+                        'attendance_id' => $attendance->id,
+                        'punchin_location' => $attendance->punchin_location_array,
+                        'punchout_location' => $attendance->punchout_location_array,
+                        'punchin_time' => $attendance->punchin,
+                        'punchout_time' => $attendance->punchout,
+                        'punchin_photo_url' => $requiresPhoto ? $attendance->punchin_photo_url : null,
+                        'punchout_photo_url' => $requiresPhoto ? $attendance->punchout_photo_url : null,
+                        'is_complete' => ! is_null($attendance->punchout),
+                    ];
+                })->values();
+
+                $lastCycle = $cycles->last();
+
+                return [
+                    'user_id' => (int) ($user?->id ?? 0),
+                    'name' => $user?->name ?? 'Unknown',
+                    'profile_image_url' => $user?->profile_image_url,
+                    'designation' => $user?->designation?->title ?? 'N/A',
+                    'attendance_type' => $attendanceType ? [
+                        'id' => (int) ($attendanceType->id ?? 0),
+                        'name' => $attendanceType->name,
+                        'slug' => $attendanceType->slug,
+                        'base_slug' => $baseSlug,
+                    ] : null,
+                    'requires_photo' => $requiresPhoto,
+                    'status' => ! empty($lastCycle['punchout_time']) ? 'completed' : 'active',
+                    'cycles' => $cycles,
+                    'punchin_location' => $lastCycle['punchin_location'] ?? null,
+                    'punchout_location' => $lastCycle['punchout_location'] ?? null,
+                    'punchin_time' => $lastCycle['punchin_time'] ?? null,
+                    'punchout_time' => $lastCycle['punchout_time'] ?? null,
+                ];
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'date' => $selectedDate,
+                    'locations' => $locations,
+                    'attendance_type_configs' => $attendanceTypeConfigs,
+                    'stats' => $this->resolveTeamLocationStats($locations),
+                ],
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving team location data.',
             ], 500);
         }
     }
@@ -423,6 +732,98 @@ class AttendanceController extends Controller
         }
 
         return response()->json(array_merge(['success' => true], $result));
+    }
+
+    private function transformUserForAttendanceCards(?User $user): array
+    {
+        if (! $user) {
+            return [
+                'id' => 0,
+                'name' => 'Unknown',
+                'employee_id' => null,
+                'email' => null,
+                'phone' => null,
+                'profile_image_url' => null,
+                'designation' => [
+                    'id' => null,
+                    'title' => null,
+                ],
+            ];
+        }
+
+        return [
+            'id' => (int) $user->id,
+            'name' => $user->name,
+            'employee_id' => $user->employee_id,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'profile_image_url' => $user->profile_image_url,
+            'designation' => [
+                'id' => $user->designation_id ? (int) $user->designation_id : null,
+                'title' => $user->designation?->title,
+            ],
+        ];
+    }
+
+    private function buildAttendanceTypeConfigs(): array
+    {
+        return AttendanceType::query()
+            ->where('is_active', true)
+            ->whereNotNull('config')
+            ->get()
+            ->map(function (AttendanceType $attendanceType) {
+                $baseSlug = preg_replace('/_\d+$/', '', (string) $attendanceType->slug);
+
+                if (! in_array($baseSlug, ['geo_polygon', 'route_waypoint'], true)) {
+                    return null;
+                }
+
+                $config = is_array($attendanceType->config) ? $attendanceType->config : [];
+                $hasPolygonData = ! empty($config['polygon']) || ! empty($config['polygons']);
+                $hasRouteData = ! empty($config['waypoints']) || ! empty($config['routes']);
+
+                if (! $hasPolygonData && ! $hasRouteData) {
+                    return null;
+                }
+
+                return [
+                    'id' => (int) $attendanceType->id,
+                    'name' => $attendanceType->name,
+                    'slug' => $attendanceType->slug,
+                    'base_slug' => $baseSlug,
+                    'config' => $config,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function resolveTeamLocationStats($locations): array
+    {
+        $total = $locations->count();
+        $active = $locations->filter(function ($location): bool {
+            return ($location['status'] ?? 'active') === 'active';
+        })->count();
+
+        return [
+            'total' => $total,
+            'checked_in' => $active,
+            'completed' => max(0, $total - $active),
+        ];
+    }
+
+    private function isManagerUser(User $user): bool
+    {
+        return $user->hasRole([
+            'Super Admin',
+            'Admin',
+            'HR Manager',
+            'Project Manager',
+            'Consultant',
+            'Super Administrator',
+            'Administrator',
+        ]);
     }
 
     private function normalizeWeekendDays(mixed $weekendDays): array
