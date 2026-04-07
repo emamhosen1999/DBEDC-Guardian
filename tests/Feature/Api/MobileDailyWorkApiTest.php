@@ -28,6 +28,7 @@ class MobileDailyWorkApiTest extends TestCase
         $this->patchJson('/api/v1/daily-works/1/status', [])->assertUnauthorized();
         $this->patchJson('/api/v1/daily-works/1/incharge', [])->assertUnauthorized();
         $this->patchJson('/api/v1/daily-works/1/assigned', [])->assertUnauthorized();
+        $this->getJson('/api/v1/daily-works/objections/my')->assertUnauthorized();
         $this->getJson('/api/v1/daily-works/1/objections')->assertUnauthorized();
         $this->postJson('/api/v1/daily-works/1/objections', [])->assertUnauthorized();
         $this->postJson('/api/v1/daily-works/1/objections/1/submit', [])->assertUnauthorized();
@@ -439,6 +440,83 @@ class MobileDailyWorkApiTest extends TestCase
             ])
             ->assertJsonFragment(['value' => RfiObjection::CATEGORY_OTHER])
             ->assertJsonFragment(['value' => RfiObjection::STATUS_DRAFT]);
+    }
+
+    public function test_user_can_list_only_own_objections_from_mobile_my_objections_endpoint(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $otherUser = User::factory()->create(['active' => true]);
+
+        $ownedDailyWork = DailyWork::factory()->forUsers($user, $user)->create();
+        $otherDailyWork = DailyWork::factory()->forUsers($otherUser, $otherUser)->create();
+
+        $ownedDraftId = $this->insertObjectionForDailyWork($ownedDailyWork, $user->id, [
+            'status' => RfiObjection::STATUS_DRAFT,
+            'title' => 'Owned draft objection',
+            'category' => RfiObjection::CATEGORY_SITE_MISMATCH,
+        ]);
+
+        $ownedResolvedId = $this->insertObjectionForDailyWork($ownedDailyWork, $user->id, [
+            'status' => RfiObjection::STATUS_RESOLVED,
+            'title' => 'Owned resolved objection',
+            'category' => RfiObjection::CATEGORY_DESIGN_CONFLICT,
+            'resolution_notes' => 'Resolved in field.',
+        ]);
+
+        $foreignObjectionId = $this->insertObjectionForDailyWork($otherDailyWork, $otherUser->id, [
+            'status' => RfiObjection::STATUS_DRAFT,
+            'title' => 'Other user objection',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/daily-works/objections/my');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 2)
+            ->assertJsonPath('data.statistics.total', 2)
+            ->assertJsonPath('data.statistics.active', 1)
+            ->assertJsonPath('data.statistics.resolved', 1);
+
+        $objectionIds = collect($response->json('data.objections'))->pluck('id');
+
+        $this->assertTrue($objectionIds->contains($ownedDraftId));
+        $this->assertTrue($objectionIds->contains($ownedResolvedId));
+        $this->assertFalse($objectionIds->contains($foreignObjectionId));
+
+        $response->assertJsonPath('data.objections.0.daily_works_count', 1)
+            ->assertJsonPath('data.objections.0.permissions.can_submit', false)
+            ->assertJsonPath('data.objections.1.permissions.can_submit', true);
+    }
+
+    public function test_user_can_filter_mobile_my_objections_by_status_category_and_search(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+        $dailyWork = DailyWork::factory()->forUsers($user, $user)->create();
+
+        $this->insertObjectionForDailyWork($dailyWork, $user->id, [
+            'status' => RfiObjection::STATUS_DRAFT,
+            'title' => 'Utility conflict at culvert',
+            'category' => RfiObjection::CATEGORY_SITE_MISMATCH,
+        ]);
+
+        $this->insertObjectionForDailyWork($dailyWork, $user->id, [
+            'status' => RfiObjection::STATUS_UNDER_REVIEW,
+            'title' => 'Bridge deck design mismatch',
+            'category' => RfiObjection::CATEGORY_DESIGN_CONFLICT,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $filteredResponse = $this->getJson('/api/v1/daily-works/objections/my?status=draft&category=site_mismatch&search=utility');
+
+        $filteredResponse->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.objections.0.status', RfiObjection::STATUS_DRAFT)
+            ->assertJsonPath('data.objections.0.category', RfiObjection::CATEGORY_SITE_MISMATCH)
+            ->assertJsonPath('data.objections.0.title', 'Utility conflict at culvert');
     }
 
     public function test_creator_can_submit_objection_and_manager_can_review_and_resolve(): void
