@@ -11,6 +11,31 @@ class MobileAuthApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function mobileDeviceSignature(array $overrides = []): array
+    {
+        return array_merge([
+            'signature' => 'fnv1a-9b71d224',
+            'platform' => 'android',
+            'os_version' => '14',
+            'model' => 'Pixel 8 Pro',
+            'manufacturer' => 'Google',
+            'brand' => 'google',
+            'hardware_id' => 'google-fingerprint-01',
+            'app_version' => '1.0.0',
+            'build_version' => '100',
+            'mac_address' => '',
+        ], $overrides);
+    }
+
+    private function mobileDevicePayload(array $overrides = []): array
+    {
+        return array_merge([
+            'device_name' => 'Pixel 8',
+            'device_id' => '7b25d7a4-6ee2-4e8d-98d0-3eb4bfef2f90',
+            'device_signature' => $this->mobileDeviceSignature(),
+        ], $overrides);
+    }
+
     public function test_mobile_login_returns_token_and_user_payload(): void
     {
         $user = User::factory()->create([
@@ -19,11 +44,10 @@ class MobileAuthApiTest extends TestCase
             'password' => Hash::make('secret-1234'),
         ]);
 
-        $response = $this->postJson('/api/v1/auth/login', [
+        $response = $this->postJson('/api/v1/auth/login', array_merge([
             'email' => 'mobile.user@example.com',
             'password' => 'secret-1234',
-            'device_name' => 'Pixel 8',
-        ]);
+        ], $this->mobileDevicePayload()));
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -47,10 +71,10 @@ class MobileAuthApiTest extends TestCase
             'password' => Hash::make('secret-1234'),
         ]);
 
-        $response = $this->postJson('/api/v1/auth/login', [
+        $response = $this->postJson('/api/v1/auth/login', array_merge([
             'email' => 'mobile.user@example.com',
             'password' => 'wrong-password',
-        ]);
+        ], $this->mobileDevicePayload()));
 
         $response->assertStatus(422)
             ->assertJsonPath('success', false)
@@ -65,10 +89,10 @@ class MobileAuthApiTest extends TestCase
             'password' => Hash::make('secret-1234'),
         ]);
 
-        $response = $this->postJson('/api/v1/auth/login', [
+        $response = $this->postJson('/api/v1/auth/login', array_merge([
             'email' => 'inactive.user@example.com',
             'password' => 'secret-1234',
-        ]);
+        ], $this->mobileDevicePayload()));
 
         $response->assertStatus(403)
             ->assertJsonPath('success', false)
@@ -112,6 +136,51 @@ class MobileAuthApiTest extends TestCase
         $response = $this->postJson('/api/v1/auth/login', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email', 'password']);
+            ->assertJsonValidationErrors(['email', 'password', 'device_id', 'device_signature']);
+    }
+
+    public function test_mobile_login_blocks_other_device_when_single_device_lock_is_enabled(): void
+    {
+        User::factory()->create([
+            'active' => true,
+            'single_device_login_enabled' => true,
+            'email' => 'locked.mobile.user@example.com',
+            'password' => Hash::make('secret-1234'),
+        ]);
+
+        $firstLogin = $this->postJson('/api/v1/auth/login', array_merge([
+            'email' => 'locked.mobile.user@example.com',
+            'password' => 'secret-1234',
+        ], $this->mobileDevicePayload([
+            'device_id' => '6f35e22a-568f-43f5-b66f-39f70f79d8c7',
+            'device_name' => 'Samsung S24',
+            'device_signature' => $this->mobileDeviceSignature([
+                'signature' => 'fnv1a-11111111',
+                'model' => 'SM-S921B',
+                'brand' => 'samsung',
+                'manufacturer' => 'Samsung',
+            ]),
+        ])));
+
+        $firstLogin->assertOk()->assertJsonPath('success', true);
+
+        $blockedLogin = $this->postJson('/api/v1/auth/login', array_merge([
+            'email' => 'locked.mobile.user@example.com',
+            'password' => 'secret-1234',
+        ], $this->mobileDevicePayload([
+            'device_id' => '9eeb2082-09e6-4748-b5b5-ce9c30123a80',
+            'device_name' => 'Pixel 9',
+            'device_signature' => $this->mobileDeviceSignature([
+                'signature' => 'fnv1a-22222222',
+                'model' => 'Pixel 9',
+                'brand' => 'google',
+                'manufacturer' => 'Google',
+            ]),
+        ])));
+
+        $blockedLogin->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 'device_locked')
+            ->assertJsonPath('data.blocked_device_info.device_name', 'Samsung S24');
     }
 }

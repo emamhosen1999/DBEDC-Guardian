@@ -71,5 +71,6 @@ class Kernel extends HttpKernel
         'module' => \App\Http\Middleware\CheckModuleAccess::class,
         'attendance.rate_limit' => \App\Http\Middleware\AttendanceRateLimit::class,
         // Device auth is now global middleware - no need for alias
+        'api.device' => \App\Http\Middleware\ApiDeviceAuthMiddleware::class,
     ];
 }

@@ -19,56 +19,28 @@ class DeviceAuthService
         $this->agent = new Agent;
     }
 
-    /**
-     * Generate secure device token using HMAC-SHA256.
-     *
-     * @param  string  $deviceId  UUIDv4 from frontend
-     * @param  int  $userId  User ID
-     * @return string 64-character hex string
-     */
     public function generateDeviceToken(string $deviceId, int $userId): string
     {
-        // Generate random salt for additional security
-        $salt = Str::random(32);
+        $data = $deviceId.'|'.$userId;
 
-        // Create data to sign
-        $data = $deviceId.$userId.$salt.config('app.key');
-
-        // Generate HMAC-SHA256 token
-        $token = hash_hmac('sha256', $data, config('app.key'));
-
-        // Store salt with the device record (we'll add it to the token or store separately)
-        // For simplicity, we're using a deterministic approach with APP_KEY
-        // In production, you might want to store the salt separately
-
-        return $token;
+        return hash_hmac('sha256', $data, (string) config('app.key'));
     }
 
-    /**
-     * Verify device token matches the stored one.
-     *
-     * @param  string  $deviceId  UUIDv4 from frontend
-     * @param  int  $userId  User ID
-     * @param  string  $storedToken  Token from database
-     */
     public function verifyDeviceToken(string $deviceId, int $userId, string $storedToken): bool
     {
-        // For deterministic verification, regenerate and compare
-        // Note: This simple version doesn't use salt - see production notes below
-        $data = $deviceId.$userId.config('app.key');
-        $calculatedToken = hash_hmac('sha256', $data, config('app.key'));
+        $data = $deviceId.'|'.$userId;
+        $calculatedToken = hash_hmac('sha256', $data, (string) config('app.key'));
 
         return hash_equals($storedToken, $calculatedToken);
     }
 
-    /**
-     * Register a new device for the user.
-     *
-     * @param  string  $deviceId  UUIDv4 from frontend
-     */
-    public function registerDevice(User $user, Request $request, string $deviceId): ?UserDevice
-    {
-        // Validate device_id format (UUIDv4)
+    public function registerDevice(
+        User $user,
+        Request $request,
+        string $deviceId,
+        ?array $deviceSignature = null,
+        ?string $deviceName = null
+    ): ?UserDevice {
         if (! $this->isValidUuid($deviceId)) {
             Log::warning('Invalid device_id format', [
                 'user_id' => $user->id,
@@ -78,31 +50,39 @@ class DeviceAuthService
             return null;
         }
 
-        // Generate secure device token
         $deviceToken = $this->generateDeviceToken($deviceId, $user->id);
+        $deviceInfo = $this->getDeviceInfo($request, $deviceSignature, $deviceName);
 
-        // Get device information
-        $deviceInfo = $this->getDeviceInfo($request);
-
-        // Check if device already exists
         $existingDevice = UserDevice::where('user_id', $user->id)
             ->where('device_id', $deviceId)
             ->first();
 
         if ($existingDevice) {
-            // Update existing device
             $existingDevice->update([
                 'device_token' => $deviceToken,
+                'device_name' => $deviceInfo['device_name'],
+                'device_type' => $deviceInfo['device_type'],
+                'browser' => $deviceInfo['browser'],
+                'platform' => $deviceInfo['platform'],
+                'device_model' => $deviceInfo['device_model'],
+                'device_manufacturer' => $deviceInfo['device_manufacturer'],
+                'device_brand' => $deviceInfo['device_brand'],
+                'os_version' => $deviceInfo['os_version'],
+                'app_version' => $deviceInfo['app_version'],
+                'build_version' => $deviceInfo['build_version'],
+                'hardware_id' => $deviceInfo['hardware_id'],
+                'mac_address' => $deviceInfo['mac_address'],
+                'signature_hash' => $deviceInfo['signature_hash'],
+                'signature_payload' => $deviceInfo['signature_payload'],
                 'is_active' => true,
                 'last_used_at' => Carbon::now(),
                 'ip_address' => $deviceInfo['ip_address'],
                 'user_agent' => $deviceInfo['user_agent'],
             ]);
 
-            return $existingDevice;
+            return $existingDevice->fresh();
         }
 
-        // Create new device
         return UserDevice::create([
             'user_id' => $user->id,
             'device_id' => $deviceId,
@@ -111,6 +91,16 @@ class DeviceAuthService
             'device_type' => $deviceInfo['device_type'],
             'browser' => $deviceInfo['browser'],
             'platform' => $deviceInfo['platform'],
+            'device_model' => $deviceInfo['device_model'],
+            'device_manufacturer' => $deviceInfo['device_manufacturer'],
+            'device_brand' => $deviceInfo['device_brand'],
+            'os_version' => $deviceInfo['os_version'],
+            'app_version' => $deviceInfo['app_version'],
+            'build_version' => $deviceInfo['build_version'],
+            'hardware_id' => $deviceInfo['hardware_id'],
+            'mac_address' => $deviceInfo['mac_address'],
+            'signature_hash' => $deviceInfo['signature_hash'],
+            'signature_payload' => $deviceInfo['signature_payload'],
             'ip_address' => $deviceInfo['ip_address'],
             'user_agent' => $deviceInfo['user_agent'],
             'is_active' => true,
@@ -118,15 +108,8 @@ class DeviceAuthService
         ]);
     }
 
-    /**
-     * Verify if user can login from this device.
-     *
-     * @param  string  $deviceId  UUIDv4 from frontend
-     * @return array ['allowed' => bool, 'message' => string, 'device' => UserDevice|null]
-     */
-    public function canLoginFromDevice(User $user, string $deviceId): array
+    public function canLoginFromDevice(User $user, string $deviceId, ?array $deviceSignature = null): array
     {
-        // Validate device_id format
         if (! $this->isValidUuid($deviceId)) {
             return [
                 'allowed' => false,
@@ -135,24 +118,21 @@ class DeviceAuthService
             ];
         }
 
-        // Check if single device login is enabled for this user
         if (! $user->hasSingleDeviceLoginEnabled()) {
-            // Single device login disabled - allow login but still track devices
             return [
                 'allowed' => true,
                 'message' => 'Login allowed (single device login disabled).',
                 'device' => null,
-                'track_only' => true, // Flag to indicate we should still register device for tracking
+                'track_only' => true,
             ];
         }
 
-        // Single device login is ENABLED - enforce device binding
-        // Check if user has any registered devices
         $registeredDevice = UserDevice::where('user_id', $user->id)
             ->where('is_active', true)
+            ->orderByDesc('last_used_at')
+            ->orderByDesc('id')
             ->first();
 
-        // If no devices registered, this is the first login - allow it
         if (! $registeredDevice) {
             return [
                 'allowed' => true,
@@ -161,8 +141,18 @@ class DeviceAuthService
             ];
         }
 
-        // Check if the provided device_id matches the registered one
         if ($registeredDevice->device_id === $deviceId) {
+            $incomingSignatureHash = $this->signatureHashFromPayload($deviceSignature);
+            $storedSignatureHash = (string) ($registeredDevice->signature_hash ?? '');
+
+            if ($storedSignatureHash !== '' && $incomingSignatureHash !== '' && ! hash_equals($storedSignatureHash, $incomingSignatureHash)) {
+                return [
+                    'allowed' => false,
+                    'message' => 'Device signature mismatch. Account is locked to another physical device.',
+                    'device' => $registeredDevice,
+                ];
+            }
+
             return [
                 'allowed' => true,
                 'message' => 'Login from registered device.',
@@ -170,7 +160,6 @@ class DeviceAuthService
             ];
         }
 
-        // Device mismatch - block login
         return [
             'allowed' => false,
             'message' => 'Device mismatch. Account is locked to another device.',
@@ -178,38 +167,11 @@ class DeviceAuthService
         ];
     }
 
-    /**
-     * Verify device on every authenticated request.
-     */
     public function verifyDeviceOnRequest(User $user, Request $request): bool
     {
-        $deviceId = $request->header('X-Device-ID') ?? $request->input('device_id');
-
-        if (! $deviceId) {
-            return false;
-        }
-
-        // Check if device exists and is active for this user
-        $device = UserDevice::where('user_id', $user->id)
-            ->where('device_id', $deviceId)
-            ->where('is_active', true)
-            ->first();
-
-        if (! $device) {
-            return false;
-        }
-
-        // Update last used timestamp
-        $device->markAsUsed();
-
-        return true;
+        return $this->verifyApiDeviceRequest($user, $request);
     }
 
-    /**
-     * Reset all devices for a user (admin function).
-     *
-     * @return int Number of devices deactivated
-     */
     public function resetUserDevices(User $user, ?string $reason = null): int
     {
         Log::info('Devices reset for user', [
@@ -221,54 +183,223 @@ class DeviceAuthService
             ->update(['is_active' => false]);
     }
 
-    /**
-     * Get device information from request.
-     */
-    protected function getDeviceInfo(Request $request): array
+    public function verifyApiDeviceRequest(User $user, Request $request): bool
+    {
+        $deviceId = $this->resolveDeviceId($request);
+
+        if (! $deviceId || ! $this->isValidUuid($deviceId)) {
+            return false;
+        }
+
+        $device = UserDevice::where('user_id', $user->id)
+            ->where('device_id', $deviceId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $device) {
+            return false;
+        }
+
+        if ($user->hasSingleDeviceLoginEnabled()) {
+            $lockedDevice = UserDevice::where('user_id', $user->id)
+                ->where('is_active', true)
+                ->orderByDesc('last_used_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if (! $lockedDevice || (int) $lockedDevice->id !== (int) $device->id) {
+                return false;
+            }
+        }
+
+        $incomingHeaderSignature = trim((string) $request->header('X-Device-Signature'));
+        $incomingPayloadSignatureHash = $this->signatureHashFromPayload($this->extractSignaturePayload($request));
+        $storedSignatureHash = trim((string) ($device->signature_hash ?? ''));
+        $storedSignaturePayload = is_array($device->signature_payload) ? $device->signature_payload : [];
+        $storedRawSignature = trim((string) ($storedSignaturePayload['signature'] ?? ''));
+
+        if ($storedRawSignature !== '' && $incomingHeaderSignature !== '' && ! hash_equals($storedRawSignature, $incomingHeaderSignature)) {
+            return false;
+        }
+
+        if ($incomingHeaderSignature === '' && $incomingPayloadSignatureHash !== '' && $storedSignatureHash !== '' && ! hash_equals($storedSignatureHash, $incomingPayloadSignatureHash)) {
+            return false;
+        }
+
+        $updatePayload = [
+            'last_used_at' => Carbon::now(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'is_active' => true,
+        ];
+
+        if ($storedRawSignature === '' && $incomingHeaderSignature !== '') {
+            $updatedSignaturePayload = $this->normalizedSignaturePayload($storedSignaturePayload);
+            $updatedSignaturePayload['signature'] = $incomingHeaderSignature;
+            $updatePayload['signature_payload'] = $updatedSignaturePayload;
+            $updatePayload['signature_hash'] = $this->signatureHashFromPayload($updatedSignaturePayload);
+        } elseif ($storedSignatureHash === '' && $incomingPayloadSignatureHash !== '') {
+            $updatePayload['signature_hash'] = $incomingPayloadSignatureHash;
+        }
+
+        $device->update($updatePayload);
+
+        return true;
+    }
+
+    public function signatureHashFromPayload(?array $signature): string
+    {
+        $normalized = $this->normalizedSignaturePayload($signature);
+        $hasSignal = collect($normalized)
+            ->filter(fn (string $value): bool => $value !== '')
+            ->isNotEmpty();
+
+        if (! $hasSignal) {
+            return '';
+        }
+
+        $fingerprint = implode('|', [
+            $normalized['signature'],
+            $normalized['platform'],
+            $normalized['os_version'],
+            $normalized['model'],
+            $normalized['manufacturer'],
+            $normalized['brand'],
+            $normalized['hardware_id'],
+            $normalized['app_version'],
+            $normalized['build_version'],
+            $normalized['mac_address'],
+        ]);
+
+        return hash_hmac('sha256', $fingerprint, (string) config('app.key'));
+    }
+
+    protected function getDeviceInfo(Request $request, ?array $deviceSignature = null, ?string $deviceName = null): array
     {
         $this->agent->setUserAgent($request->userAgent());
 
-        $deviceType = 'desktop';
-        if ($this->agent->isMobile()) {
-            $deviceType = 'mobile';
-        } elseif ($this->agent->isTablet()) {
-            $deviceType = 'tablet';
+        $incomingSignaturePayload = $this->normalizedSignaturePayload($deviceSignature);
+        $webSignaturePayload = $this->buildWebSignaturePayload($request, (string) ($this->resolveDeviceId($request) ?? ''));
+        $signaturePayload = $this->mergeSignaturePayload($webSignaturePayload, $incomingSignaturePayload);
+        $isWebClient = Str::lower($signaturePayload['platform']) === 'web';
+
+        $browser = $isWebClient
+            ? (string) ($this->agent->browser() ?: 'Web Browser')
+            : (string) ($this->agent->browser() ?: 'Mobile API');
+
+        $platform = $isWebClient
+            ? (string) ($this->agent->platform() ?: 'Web')
+            : ($signaturePayload['platform'] !== '' ? $signaturePayload['platform'] : (string) ($this->agent->platform() ?: 'Unknown'));
+
+        $deviceType = $this->resolveDeviceType($platform);
+        $resolvedDeviceName = trim((string) $deviceName);
+
+        if ($resolvedDeviceName === '') {
+            if ($isWebClient) {
+                $resolvedDeviceName = $this->generateDeviceName($browser, $platform, $deviceType);
+            } else {
+                $nameParts = array_filter([
+                    $signaturePayload['brand'],
+                    $signaturePayload['model'],
+                ]);
+
+                if ($nameParts !== []) {
+                    $resolvedDeviceName = implode(' ', array_unique($nameParts));
+                }
+            }
         }
 
-        $browser = $this->agent->browser();
-        $platform = $this->agent->platform();
+        if ($resolvedDeviceName === '') {
+            $resolvedDeviceName = $this->generateDeviceName($browser, $platform, $deviceType);
+        }
 
         return [
-            'device_name' => $this->generateDeviceName($browser, $platform, $deviceType),
+            'device_name' => $resolvedDeviceName,
             'device_type' => $deviceType,
             'browser' => $browser,
             'platform' => $platform,
+            'device_model' => $signaturePayload['model'],
+            'device_manufacturer' => $signaturePayload['manufacturer'],
+            'device_brand' => $signaturePayload['brand'],
+            'os_version' => $signaturePayload['os_version'],
+            'app_version' => $signaturePayload['app_version'],
+            'build_version' => $signaturePayload['build_version'],
+            'hardware_id' => $signaturePayload['hardware_id'],
+            'mac_address' => $signaturePayload['mac_address'],
+            'signature_hash' => $this->signatureHashFromPayload($signaturePayload),
+            'signature_payload' => $signaturePayload,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ];
     }
 
-    /**
-     * Generate human-readable device name.
-     */
+    protected function buildWebSignaturePayload(Request $request, string $deviceId = ''): array
+    {
+        $browser = (string) ($this->agent->browser() ?: 'Web Browser');
+        $platform = 'web';
+        $osVersion = (string) ($this->agent->platform() ?: 'Web');
+
+        $hardwareSeed = implode('|', [
+            $deviceId,
+            (string) $request->userAgent(),
+            (string) $request->header('Accept-Language'),
+            (string) $request->header('Sec-CH-UA-Platform'),
+            (string) $request->header('Sec-CH-UA'),
+            (string) $request->header('Sec-CH-UA-Mobile'),
+        ]);
+
+        $signatureSeed = implode('|', [
+            $browser,
+            $osVersion,
+            (string) $request->userAgent(),
+            (string) $request->header('Accept-Language'),
+        ]);
+
+        $headerSignature = trim((string) $request->header('X-Device-Signature'));
+
+        if ($headerSignature === '') {
+            $headerSignature = hash('sha256', $signatureSeed);
+        }
+
+        return [
+            'signature' => $headerSignature,
+            'platform' => $platform,
+            'os_version' => $osVersion,
+            'model' => $browser,
+            'manufacturer' => 'Web Browser',
+            'brand' => $browser,
+            'hardware_id' => hash('sha256', $hardwareSeed),
+            'app_version' => trim((string) $request->header('X-App-Version')),
+            'build_version' => trim((string) $request->header('X-App-Build')),
+            'mac_address' => '',
+        ];
+    }
+
+    protected function mergeSignaturePayload(array $basePayload, array $incomingPayload): array
+    {
+        $merged = $basePayload;
+
+        foreach ($incomingPayload as $key => $value) {
+            $normalized = trim((string) $value);
+
+            if ($normalized !== '') {
+                $merged[$key] = $normalized;
+            }
+        }
+
+        return $merged;
+    }
+
     protected function generateDeviceName(string $browser, string $platform, string $deviceType): string
     {
         return "{$browser} on {$platform} ".ucfirst($deviceType);
     }
 
-    /**
-     * Validate if string is a valid UUIDv4.
-     */
     protected function isValidUuid(string $uuid): bool
     {
-        return (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $uuid);
+        return (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uuid);
     }
 
-    /**
-     * Get all devices for a user.
-     *
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
     public function getUserDevices(User $user)
     {
         return UserDevice::where('user_id', $user->id)
@@ -276,9 +407,6 @@ class DeviceAuthService
             ->get();
     }
 
-    /**
-     * Deactivate a specific device.
-     */
     public function deactivateDevice(User $user, int $deviceId): bool
     {
         $device = UserDevice::where('user_id', $user->id)
@@ -290,5 +418,61 @@ class DeviceAuthService
         }
 
         return $device->deactivate();
+    }
+
+    protected function resolveDeviceType(string $platform): string
+    {
+        $platformLower = Str::lower($platform);
+
+        if (Str::contains($platformLower, ['android', 'ios', 'iphone'])) {
+            return 'mobile';
+        }
+
+        if (Str::contains($platformLower, ['ipad', 'tablet'])) {
+            return 'tablet';
+        }
+
+        if ($this->agent->isMobile()) {
+            return 'mobile';
+        }
+
+        if ($this->agent->isTablet()) {
+            return 'tablet';
+        }
+
+        return 'desktop';
+    }
+
+    protected function resolveDeviceId(Request $request): ?string
+    {
+        $deviceId = trim((string) ($request->header('X-Device-ID') ?: $request->input('device_id')));
+
+        return $deviceId !== '' ? $deviceId : null;
+    }
+
+    protected function extractSignaturePayload(Request $request): array
+    {
+        $payload = $request->input('device_signature');
+
+        return is_array($payload) ? $payload : [];
+    }
+
+    protected function normalizedSignaturePayload(?array $signature): array
+    {
+        $signature = is_array($signature) ? $signature : [];
+        $normalize = static fn (mixed $value): string => trim((string) ($value ?? ''));
+
+        return [
+            'signature' => $normalize($signature['signature'] ?? ''),
+            'platform' => $normalize($signature['platform'] ?? ''),
+            'os_version' => $normalize($signature['os_version'] ?? ''),
+            'model' => $normalize($signature['model'] ?? ''),
+            'manufacturer' => $normalize($signature['manufacturer'] ?? ''),
+            'brand' => $normalize($signature['brand'] ?? ''),
+            'hardware_id' => $normalize($signature['hardware_id'] ?? ''),
+            'app_version' => $normalize($signature['app_version'] ?? ''),
+            'build_version' => $normalize($signature['build_version'] ?? ''),
+            'mac_address' => $normalize($signature['mac_address'] ?? ''),
+        ];
     }
 }

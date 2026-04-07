@@ -32,7 +32,7 @@ import {
 } from '@heroui/react';
 import { showToast } from '@/utils/toastUtils';
 import { useTheme } from '@/Contexts/ThemeContext';
-import { getDeviceId, getDeviceHeaders } from '@/utils/deviceAuth';
+import { getDeviceHeaders, getDeviceLoginPayload } from '@/utils/deviceAuth';
 
 /**
  * Enterprise Login Component for ERP System
@@ -352,12 +352,13 @@ export default function Login({
         }));
 
         try {
-            // Prepare submission data with secure device_id (UUIDv4)
+            // Prepare submission data with unified device payload.
+            const deviceLoginPayload = getDeviceLoginPayload();
             const submissionData = {
                 email: formData.email.trim(),
                 password: formData.password,
                 remember: formData.remember,
-                device_id: getDeviceId(), // NEW: Secure UUIDv4 device identifier
+                ...deviceLoginPayload,
             };
             
             // Add device headers

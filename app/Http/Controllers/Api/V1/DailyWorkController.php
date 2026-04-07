@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ListDailyWorkObjectionsRequest;
 use App\Http\Requests\Api\V1\ListDailyWorksRequest;
 use App\Http\Requests\Api\V1\ListMyObjectionsRequest;
+use App\Http\Requests\Api\V1\ListObjectionQueueRequest;
 use App\Http\Requests\Api\V1\RejectDailyWorkObjectionRequest;
 use App\Http\Requests\Api\V1\ResolveDailyWorkObjectionRequest;
 use App\Http\Requests\Api\V1\StoreDailyWorkObjectionRequest;
@@ -105,8 +106,10 @@ class DailyWorkController extends Controller
         $user = $request->user();
         $perPage = (int) $request->input('perPage', 10);
 
-        $query = RfiObjection::query()
-            ->where('created_by', (int) $user->id)
+        $baseQuery = RfiObjection::query()
+            ->where('created_by', (int) $user->id);
+
+        $query = (clone $baseQuery)
             ->with([
                 'createdBy:id,name',
                 'dailyWorks:id,number,date,location,type,status',
@@ -140,66 +143,13 @@ class DailyWorkController extends Controller
             ->paginate($perPage)
             ->appends($request->query());
 
-        $myObjectionStatuses = RfiObjection::query()
-            ->where('created_by', (int) $user->id)
-            ->pluck('status');
-
-        $pendingStatuses = [
-            RfiObjection::STATUS_SUBMITTED,
-            RfiObjection::STATUS_UNDER_REVIEW,
-        ];
-
-        $statistics = [
-            'total' => $myObjectionStatuses->count(),
-            'active' => $myObjectionStatuses->filter(fn (mixed $status): bool => in_array((string) $status, RfiObjection::$activeStatuses, true))->count(),
-            'resolved' => $myObjectionStatuses->filter(fn (mixed $status): bool => (string) $status === RfiObjection::STATUS_RESOLVED)->count(),
-            'rejected' => $myObjectionStatuses->filter(fn (mixed $status): bool => (string) $status === RfiObjection::STATUS_REJECTED)->count(),
-            'pending' => $myObjectionStatuses->filter(fn (mixed $status): bool => in_array((string) $status, $pendingStatuses, true))->count(),
-        ];
+        $statistics = $this->buildObjectionStatistics($baseQuery);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'objections' => $objections->getCollection()
-                    ->map(function (RfiObjection $objection) use ($user): array {
-                        $transformedObjection = $this->transformObjection($objection);
-
-                        $dailyWorks = $objection->dailyWorks
-                            ->map(function (DailyWork $dailyWork): array {
-                                return [
-                                    'id' => (int) $dailyWork->id,
-                                    'number' => $dailyWork->number,
-                                    'date' => $this->normalizeDate($dailyWork->date),
-                                    'location' => $dailyWork->location,
-                                    'type' => $dailyWork->type,
-                                    'status' => $dailyWork->status,
-                                ];
-                            })
-                            ->values();
-
-                        $transformedObjection['daily_works'] = $dailyWorks;
-                        $transformedObjection['daily_works_count'] = $dailyWorks->count();
-                        $transformedObjection['primary_daily_work_id'] = $dailyWorks->isNotEmpty()
-                            ? (int) ($dailyWorks->first()['id'] ?? 0)
-                            : null;
-                        $canReviewObjection = $this->canReviewObjection($user);
-                        $canResolveOrReject = in_array(
-                            (string) $objection->status,
-                            [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW],
-                            true
-                        );
-
-                        $transformedObjection['permissions'] = [
-                            'can_submit' => $this->canSubmitObjection($user, $objection)
-                                && (string) $objection->status === RfiObjection::STATUS_DRAFT,
-                            'can_review' => $canReviewObjection
-                                && (string) $objection->status === RfiObjection::STATUS_SUBMITTED,
-                            'can_resolve' => $canReviewObjection && $canResolveOrReject,
-                            'can_reject' => $canReviewObjection && $canResolveOrReject,
-                        ];
-
-                        return $transformedObjection;
-                    })
+                    ->map(fn (RfiObjection $objection): array => $this->transformObjectionForMobileList($objection, $user))
                     ->values(),
                 'pagination' => [
                     'current_page' => $objections->currentPage(),
@@ -208,6 +158,92 @@ class DailyWorkController extends Controller
                     'total' => $objections->total(),
                 ],
                 'statistics' => $statistics,
+            ],
+        ]);
+    }
+
+    public function objectionQueue(ListObjectionQueueRequest $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $this->canReviewObjection($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access objection queue.',
+            ], 403);
+        }
+
+        $perPage = (int) $request->input('perPage', 10);
+        $baseQuery = RfiObjection::query();
+
+        $query = (clone $baseQuery)
+            ->with([
+                'createdBy:id,name',
+                'dailyWorks:id,number,date,location,type,status',
+            ])
+            ->withCount('dailyWorks');
+
+        if ($request->filled('status')) {
+            $query->where('status', (string) $request->input('status'));
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category', (string) $request->input('category'));
+        }
+
+        if ($request->filled('created_by')) {
+            $query->where('created_by', (int) $request->input('created_by'));
+        }
+
+        if ($request->filled('search')) {
+            $search = (string) $request->input('search');
+
+            $query->where(function (Builder $searchQuery) use ($search): void {
+                $searchQuery
+                    ->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('reason', 'like', "%{$search}%")
+                    ->orWhere('chainage_from', 'like', "%{$search}%")
+                    ->orWhere('chainage_to', 'like', "%{$search}%")
+                    ->orWhereHas('createdBy', function (Builder $creatorQuery) use ($search): void {
+                        $creatorQuery->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $objections = $query
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($perPage)
+            ->appends($request->query());
+
+        $creatorOptions = User::query()
+            ->whereIn('id', RfiObjection::query()->select('created_by')->whereNotNull('created_by')->distinct())
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $creator): array {
+                return [
+                    'id' => (int) $creator->id,
+                    'name' => $creator->name,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'objections' => $objections->getCollection()
+                    ->map(fn (RfiObjection $objection): array => $this->transformObjectionForMobileList($objection, $user))
+                    ->values(),
+                'pagination' => [
+                    'current_page' => $objections->currentPage(),
+                    'last_page' => $objections->lastPage(),
+                    'per_page' => $objections->perPage(),
+                    'total' => $objections->total(),
+                ],
+                'statistics' => $this->buildObjectionStatistics($baseQuery),
+                'creators' => $creatorOptions,
             ],
         ]);
     }
@@ -960,6 +996,65 @@ class DailyWorkController extends Controller
                 })->values(),
             ],
         ]);
+    }
+
+    private function buildObjectionStatistics(Builder $baseQuery): array
+    {
+        $statuses = (clone $baseQuery)->pluck('status');
+        $pendingStatuses = [
+            RfiObjection::STATUS_SUBMITTED,
+            RfiObjection::STATUS_UNDER_REVIEW,
+        ];
+
+        return [
+            'total' => $statuses->count(),
+            'active' => $statuses->filter(fn (mixed $status): bool => in_array((string) $status, RfiObjection::$activeStatuses, true))->count(),
+            'resolved' => $statuses->filter(fn (mixed $status): bool => (string) $status === RfiObjection::STATUS_RESOLVED)->count(),
+            'rejected' => $statuses->filter(fn (mixed $status): bool => (string) $status === RfiObjection::STATUS_REJECTED)->count(),
+            'pending' => $statuses->filter(fn (mixed $status): bool => in_array((string) $status, $pendingStatuses, true))->count(),
+        ];
+    }
+
+    private function transformObjectionForMobileList(RfiObjection $objection, User $user): array
+    {
+        $transformedObjection = $this->transformObjection($objection);
+
+        $dailyWorks = $objection->dailyWorks
+            ->map(function (DailyWork $dailyWork): array {
+                return [
+                    'id' => (int) $dailyWork->id,
+                    'number' => $dailyWork->number,
+                    'date' => $this->normalizeDate($dailyWork->date),
+                    'location' => $dailyWork->location,
+                    'type' => $dailyWork->type,
+                    'status' => $dailyWork->status,
+                ];
+            })
+            ->values();
+
+        $transformedObjection['daily_works'] = $dailyWorks;
+        $transformedObjection['daily_works_count'] = $dailyWorks->count();
+        $transformedObjection['primary_daily_work_id'] = $dailyWorks->isNotEmpty()
+            ? (int) ($dailyWorks->first()['id'] ?? 0)
+            : null;
+
+        $canReviewObjection = $this->canReviewObjection($user);
+        $canResolveOrReject = in_array(
+            (string) $objection->status,
+            [RfiObjection::STATUS_SUBMITTED, RfiObjection::STATUS_UNDER_REVIEW],
+            true
+        );
+
+        $transformedObjection['permissions'] = [
+            'can_submit' => $this->canSubmitObjection($user, $objection)
+                && (string) $objection->status === RfiObjection::STATUS_DRAFT,
+            'can_review' => $canReviewObjection
+                && (string) $objection->status === RfiObjection::STATUS_SUBMITTED,
+            'can_resolve' => $canReviewObjection && $canResolveOrReject,
+            'can_reject' => $canReviewObjection && $canResolveOrReject,
+        ];
+
+        return $transformedObjection;
     }
 
     private function buildFilteredDailyWorksQuery(User $user, ListDailyWorksRequest $request): Builder

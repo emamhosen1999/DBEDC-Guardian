@@ -52,6 +52,8 @@ class LoginController extends Controller
             'email' => 'required|string|email',
             'password' => 'required|string',
             'remember' => 'boolean',
+            'device_name' => 'nullable|string|max:120',
+            'device_signature' => 'nullable|array',
         ]);
 
         $email = $request->email;
@@ -134,6 +136,10 @@ class LoginController extends Controller
         // NEW SECURE DEVICE BINDING LOGIC
         // Get device_id from request (UUIDv4 from frontend)
         $deviceId = $request->input('device_id') ?? $request->header('X-Device-ID');
+        $deviceName = trim((string) $request->input('device_name', ''));
+        $deviceSignature = is_array($request->input('device_signature'))
+            ? $request->input('device_signature')
+            : null;
 
         if (! $deviceId) {
             throw ValidationException::withMessages([
@@ -142,7 +148,7 @@ class LoginController extends Controller
         }
 
         // Check if user can login from this device
-        $deviceCheck = $this->deviceAuthService->canLoginFromDevice($user, $deviceId);
+        $deviceCheck = $this->deviceAuthService->canLoginFromDevice($user, $deviceId, $deviceSignature);
 
         if (! $deviceCheck['allowed']) {
             $blockedDevice = $deviceCheck['device'] ?? null;
@@ -189,7 +195,13 @@ class LoginController extends Controller
         $request->session()->regenerate();
 
         // Register/update device with secure token
-        $device = $this->deviceAuthService->registerDevice($user, $request, $deviceId);
+        $device = $this->deviceAuthService->registerDevice(
+            $user,
+            $request,
+            $deviceId,
+            $deviceSignature,
+            $deviceName !== '' ? $deviceName : null
+        );
 
         if (! $device) {
             // If device registration failed, log out and throw error

@@ -178,4 +178,58 @@ class DeviceAuthenticationTest extends TestCase
 
         $this->assertFalse($result['allowed']);
     }
+
+    /**
+     * Test unified storage uses web metadata when signature is not provided.
+     */
+    public function test_register_device_uses_web_fallback_metadata_when_signature_missing(): void
+    {
+        $user = User::factory()->create();
+        $deviceId = $this->faker->uuid;
+
+        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36');
+        $request->server->set('REMOTE_ADDR', '127.0.0.1');
+
+        $device = $this->deviceAuthService->registerDevice($user, $request, $deviceId);
+
+        $this->assertNotNull($device);
+        $this->assertNotEmpty($device->browser);
+        $this->assertNotEmpty($device->signature_hash);
+        $this->assertEquals('web', data_get($device->signature_payload, 'platform'));
+    }
+
+    /**
+     * Test unified storage persists mobile-native metadata when provided.
+     */
+    public function test_register_device_uses_mobile_signature_metadata_when_provided(): void
+    {
+        $user = User::factory()->create();
+        $deviceId = $this->faker->uuid;
+
+        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request->server->set('HTTP_USER_AGENT', 'okhttp/4.12.0');
+        $request->server->set('REMOTE_ADDR', '127.0.0.1');
+
+        $signature = [
+            'signature' => 'fnv1a-test-mobile',
+            'platform' => 'android',
+            'os_version' => '14',
+            'model' => 'Pixel 8 Pro',
+            'manufacturer' => 'Google',
+            'brand' => 'google',
+            'hardware_id' => 'google-hw-123',
+            'app_version' => '1.0.0',
+            'build_version' => '100',
+            'mac_address' => '',
+        ];
+
+        $device = $this->deviceAuthService->registerDevice($user, $request, $deviceId, $signature, 'Pixel 8 Pro');
+
+        $this->assertNotNull($device);
+        $this->assertEquals('android', strtolower((string) $device->platform));
+        $this->assertEquals('Pixel 8 Pro', $device->device_model);
+        $this->assertEquals('Google', $device->device_manufacturer);
+        $this->assertEquals('android', data_get($device->signature_payload, 'platform'));
+    }
 }

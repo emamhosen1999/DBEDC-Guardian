@@ -19,6 +19,16 @@ class UserDevice extends Model
         'device_type',
         'browser',
         'platform',
+        'device_model',
+        'device_manufacturer',
+        'device_brand',
+        'os_version',
+        'app_version',
+        'build_version',
+        'hardware_id',
+        'mac_address',
+        'signature_hash',
+        'signature_payload',
         'ip_address',
         'user_agent',
         'is_active',
@@ -34,6 +44,7 @@ class UserDevice extends Model
             'is_trusted' => 'boolean',
             'last_used_at' => 'datetime',
             'verified_at' => 'datetime',
+            'signature_payload' => 'array',
         ];
     }
 

@@ -29,6 +29,7 @@ class MobileDailyWorkApiTest extends TestCase
         $this->patchJson('/api/v1/daily-works/1/incharge', [])->assertUnauthorized();
         $this->patchJson('/api/v1/daily-works/1/assigned', [])->assertUnauthorized();
         $this->getJson('/api/v1/daily-works/objections/my')->assertUnauthorized();
+        $this->getJson('/api/v1/daily-works/objections/queue')->assertUnauthorized();
         $this->getJson('/api/v1/daily-works/1/objections')->assertUnauthorized();
         $this->postJson('/api/v1/daily-works/1/objections', [])->assertUnauthorized();
         $this->postJson('/api/v1/daily-works/1/objections/1/submit', [])->assertUnauthorized();
@@ -517,6 +518,104 @@ class MobileDailyWorkApiTest extends TestCase
             ->assertJsonPath('data.objections.0.status', RfiObjection::STATUS_DRAFT)
             ->assertJsonPath('data.objections.0.category', RfiObjection::CATEGORY_SITE_MISMATCH)
             ->assertJsonPath('data.objections.0.title', 'Utility conflict at culvert');
+    }
+
+    public function test_manager_can_list_mobile_objection_queue_with_statistics_and_creators(): void
+    {
+        $manager = User::factory()->create(['active' => true]);
+        $this->assignManagerRole($manager);
+
+        $creatorOne = User::factory()->create(['active' => true]);
+        $creatorTwo = User::factory()->create(['active' => true]);
+
+        $dailyWorkOne = DailyWork::factory()->forUsers($creatorOne, $creatorOne)->create();
+        $dailyWorkTwo = DailyWork::factory()->forUsers($creatorTwo, $creatorTwo)->create();
+
+        $draftObjectionId = $this->insertObjectionForDailyWork($dailyWorkOne, $creatorOne->id, [
+            'status' => RfiObjection::STATUS_DRAFT,
+            'title' => 'Draft queue objection',
+        ]);
+
+        $reviewObjectionId = $this->insertObjectionForDailyWork($dailyWorkTwo, $creatorTwo->id, [
+            'status' => RfiObjection::STATUS_UNDER_REVIEW,
+            'title' => 'Review queue objection',
+            'category' => RfiObjection::CATEGORY_DESIGN_CONFLICT,
+        ]);
+
+        $resolvedObjectionId = $this->insertObjectionForDailyWork($dailyWorkOne, $creatorOne->id, [
+            'status' => RfiObjection::STATUS_RESOLVED,
+            'title' => 'Resolved queue objection',
+            'resolution_notes' => 'Completed fix in queue.',
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/daily-works/objections/queue');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 3)
+            ->assertJsonPath('data.statistics.total', 3)
+            ->assertJsonPath('data.statistics.active', 2)
+            ->assertJsonPath('data.statistics.pending', 1)
+            ->assertJsonPath('data.statistics.resolved', 1);
+
+        $objectionIds = collect($response->json('data.objections'))->pluck('id');
+        $creatorIds = collect($response->json('data.creators'))->pluck('id');
+
+        $this->assertTrue($objectionIds->contains($draftObjectionId));
+        $this->assertTrue($objectionIds->contains($reviewObjectionId));
+        $this->assertTrue($objectionIds->contains($resolvedObjectionId));
+        $this->assertTrue($creatorIds->contains($creatorOne->id));
+        $this->assertTrue($creatorIds->contains($creatorTwo->id));
+    }
+
+    public function test_manager_can_filter_mobile_objection_queue_by_status_category_creator_and_search(): void
+    {
+        $manager = User::factory()->create(['active' => true]);
+        $this->assignManagerRole($manager);
+
+        $creatorOne = User::factory()->create(['active' => true]);
+        $creatorTwo = User::factory()->create(['active' => true]);
+
+        $dailyWorkOne = DailyWork::factory()->forUsers($creatorOne, $creatorOne)->create();
+        $dailyWorkTwo = DailyWork::factory()->forUsers($creatorTwo, $creatorTwo)->create();
+
+        $this->insertObjectionForDailyWork($dailyWorkOne, $creatorOne->id, [
+            'status' => RfiObjection::STATUS_SUBMITTED,
+            'category' => RfiObjection::CATEGORY_SITE_MISMATCH,
+            'title' => 'Utility diversion issue',
+        ]);
+
+        $this->insertObjectionForDailyWork($dailyWorkTwo, $creatorTwo->id, [
+            'status' => RfiObjection::STATUS_SUBMITTED,
+            'category' => RfiObjection::CATEGORY_DESIGN_CONFLICT,
+            'title' => 'Bridge conflict issue',
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/daily-works/objections/queue?status=submitted&category=site_mismatch&created_by='.$creatorOne->id.'&search=utility');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 1)
+            ->assertJsonPath('data.objections.0.status', RfiObjection::STATUS_SUBMITTED)
+            ->assertJsonPath('data.objections.0.category', RfiObjection::CATEGORY_SITE_MISMATCH)
+            ->assertJsonPath('data.objections.0.created_by.id', $creatorOne->id)
+            ->assertJsonPath('data.objections.0.title', 'Utility diversion issue');
+    }
+
+    public function test_non_manager_cannot_access_mobile_objection_queue_endpoint(): void
+    {
+        $user = User::factory()->create(['active' => true]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/v1/daily-works/objections/queue')
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to access objection queue.');
     }
 
     public function test_creator_can_submit_objection_and_manager_can_review_and_resolve(): void

@@ -152,7 +152,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [MobileAuthController::class, 'login'])->name('api.v1.auth.login');
 });
 
-Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\ApiDeviceAuthMiddleware::class])->group(function () {
     Route::get('/auth/me', [MobileAuthController::class, 'me'])->name('api.v1.auth.me');
     Route::post('/auth/logout', [MobileAuthController::class, 'logout'])->name('api.v1.auth.logout');
     Route::get('/profile', [MobileProfileController::class, 'show'])->name('api.v1.profile.show');
@@ -192,6 +192,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/daily-works/selectable-dates', [MobileDailyWorkController::class, 'selectableDates'])->name('api.v1.daily-works.selectable-dates');
     Route::get('/daily-works/objections/metadata', [MobileDailyWorkController::class, 'objectionMetadata'])->name('api.v1.daily-works.objections.metadata');
     Route::get('/daily-works/objections/my', [MobileDailyWorkController::class, 'myObjections'])->name('api.v1.daily-works.objections.my');
+    Route::get('/daily-works/objections/queue', [MobileDailyWorkController::class, 'objectionQueue'])->name('api.v1.daily-works.objections.queue');
     Route::get('/daily-works/{dailyWorkId}', [MobileDailyWorkController::class, 'show'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.show');
     Route::patch('/daily-works/{dailyWorkId}/status', [MobileDailyWorkController::class, 'updateStatus'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.status.update');
     Route::patch('/daily-works/{dailyWorkId}/incharge', [MobileDailyWorkController::class, 'updateIncharge'])->whereNumber('dailyWorkId')->name('api.v1.daily-works.incharge.update');
