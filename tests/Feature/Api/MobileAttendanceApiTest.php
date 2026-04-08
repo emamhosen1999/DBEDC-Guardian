@@ -161,6 +161,7 @@ class MobileAttendanceApiTest extends TestCase
     {
         $user = User::factory()->create([
             'active' => true,
+            'single_device_login_enabled' => false,
         ]);
 
         Attendance::query()->create([
@@ -191,18 +192,21 @@ class MobileAttendanceApiTest extends TestCase
     {
         $manager = User::factory()->create([
             'active' => true,
+            'single_device_login_enabled' => false,
         ]);
         $this->assignRole($manager, 'Project Manager');
 
         $targetEmployee = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-9001',
+            'single_device_login_enabled' => false,
         ]);
         $this->assignRole($targetEmployee, 'Employee');
 
         $otherEmployee = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-9002',
+            'single_device_login_enabled' => false,
         ]);
         $this->assignRole($otherEmployee, 'Employee');
 
@@ -244,6 +248,7 @@ class MobileAttendanceApiTest extends TestCase
     {
         $user = User::factory()->create([
             'active' => true,
+            'single_device_login_enabled' => false,
         ]);
 
         Sanctum::actingAs($user);

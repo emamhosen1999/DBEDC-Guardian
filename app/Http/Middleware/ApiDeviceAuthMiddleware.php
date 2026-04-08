@@ -35,6 +35,7 @@ class ApiDeviceAuthMiddleware
             $currentToken = $user->currentAccessToken();
 
             if ($currentToken instanceof PersonalAccessToken) {
+                $this->deviceAuthService->markApiTokenSessionInactive((int) $currentToken->id);
                 $currentToken->delete();
             }
 

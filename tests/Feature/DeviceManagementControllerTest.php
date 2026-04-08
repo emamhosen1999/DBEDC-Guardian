@@ -127,6 +127,7 @@ class DeviceManagementControllerTest extends TestCase
         $this->assertNotNull($device);
 
         $token = $user->createToken('device-reset-test');
+        $tokenSessionId = 'api-token:'.$token->accessToken->id;
         $sessionId = (string) Str::uuid();
 
         DB::table('sessions')->insert([
@@ -136,6 +137,21 @@ class DeviceManagementControllerTest extends TestCase
             'user_agent' => 'Feature Test Agent',
             'payload' => 'test',
             'last_activity' => now()->timestamp,
+        ]);
+
+        DB::table('user_sessions')->insert([
+            'session_id' => $tokenSessionId,
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'Feature Test Agent',
+            'device_fingerprint' => 'api-session-fingerprint',
+            'device_info' => json_encode(['channel' => 'api', 'token_id' => $token->accessToken->id]),
+            'location_info' => json_encode(['country' => 'Unknown']),
+            'is_current' => true,
+            'last_activity' => now(),
+            'expires_at' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $response = $this->actingAs($admin)
@@ -153,6 +169,12 @@ class DeviceManagementControllerTest extends TestCase
         $this->assertDatabaseMissing('personal_access_tokens', [
             'id' => $token->accessToken->id,
             'tokenable_id' => $user->id,
+        ]);
+
+        $this->assertDatabaseHas('user_sessions', [
+            'session_id' => $tokenSessionId,
+            'user_id' => $user->id,
+            'is_current' => false,
         ]);
     }
 

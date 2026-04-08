@@ -211,6 +211,71 @@ class DeviceAuthService
         $this->invalidateUserApiTokens($user, $exceptTokenId);
     }
 
+    public function trackApiTokenSession(User $user, Request $request, int $tokenId): void
+    {
+        try {
+            $deviceId = $this->resolveDeviceId($request);
+            $signaturePayload = $this->normalizedSignaturePayload($this->extractSignaturePayload($request));
+            $deviceFingerprint = $this->signatureHashFromPayload($signaturePayload);
+
+            if ($deviceFingerprint === '') {
+                $deviceFingerprint = hash('sha256', implode('|', array_filter([
+                    (string) $request->userAgent(),
+                    (string) $request->ip(),
+                    (string) $deviceId,
+                    (string) $tokenId,
+                ])));
+            }
+
+            DB::table('user_sessions')->updateOrInsert(
+                ['session_id' => $this->buildApiTokenSessionId($tokenId)],
+                [
+                    'user_id' => $user->id,
+                    'ip_address' => (string) $request->ip(),
+                    'user_agent' => (string) ($request->userAgent() ?? ''),
+                    'device_fingerprint' => $deviceFingerprint,
+                    'device_info' => json_encode([
+                        'channel' => 'api',
+                        'token_id' => $tokenId,
+                        'device_id' => $deviceId,
+                        'platform' => $signaturePayload['platform'] !== '' ? $signaturePayload['platform'] : 'api',
+                        'model' => $signaturePayload['model'],
+                        'manufacturer' => $signaturePayload['manufacturer'],
+                        'brand' => $signaturePayload['brand'],
+                        'os_version' => $signaturePayload['os_version'],
+                        'app_version' => $signaturePayload['app_version'],
+                        'build_version' => $signaturePayload['build_version'],
+                        'hardware_id' => $signaturePayload['hardware_id'],
+                        'mac_address' => $signaturePayload['mac_address'],
+                    ]),
+                    'location_info' => json_encode([
+                        'country' => 'Unknown',
+                        'city' => 'Unknown',
+                        'timezone' => config('app.timezone'),
+                    ]),
+                    'is_current' => true,
+                    'last_activity' => now(),
+                    'expires_at' => null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('Failed to track API token session', [
+                'user_id' => $user->id,
+                'token_id' => $tokenId,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    public function markApiTokenSessionInactive(int $tokenId): void
+    {
+        $this->markTrackedSessionsInactive([
+            $this->buildApiTokenSessionId($tokenId),
+        ]);
+    }
+
     protected function invalidateUserWebSessions(User $user, ?string $exceptSessionId = null): void
     {
         $sessionQuery = DB::table((string) config('session.table', 'sessions'))
@@ -224,7 +289,8 @@ class DeviceAuthService
 
         $trackedSessionQuery = DB::table('user_sessions')
             ->where('user_id', $user->id)
-            ->where('is_current', true);
+            ->where('is_current', true)
+            ->where('session_id', 'not like', 'api-token:%');
 
         if ($exceptSessionId !== null && $exceptSessionId !== '') {
             $trackedSessionQuery->where('session_id', '!=', $exceptSessionId);
@@ -239,13 +305,62 @@ class DeviceAuthService
 
     protected function invalidateUserApiTokens(User $user, ?int $exceptTokenId = null): void
     {
-        $tokensQuery = $user->tokens();
+        $tokensToRevokeQuery = $user->tokens();
 
         if ($exceptTokenId !== null) {
-            $tokensQuery->where('id', '!=', $exceptTokenId);
+            $tokensToRevokeQuery->where('id', '!=', $exceptTokenId);
         }
 
-        $tokensQuery->delete();
+        $tokenIdsToRevoke = $tokensToRevokeQuery
+            ->pluck('id')
+            ->map(static fn (mixed $tokenId): int => (int) $tokenId)
+            ->all();
+
+        if ($tokenIdsToRevoke === []) {
+            return;
+        }
+
+        $tokensDeleteQuery = $user->tokens()->whereIn('id', $tokenIdsToRevoke);
+        $tokensDeleteQuery->delete();
+
+        $this->markApiTokenSessionsInactive($tokenIdsToRevoke);
+    }
+
+    protected function markApiTokenSessionsInactive(array $tokenIds): void
+    {
+        $sessionIds = collect($tokenIds)
+            ->map(static fn (mixed $tokenId): int => (int) $tokenId)
+            ->filter(static fn (int $tokenId): bool => $tokenId > 0)
+            ->map(fn (int $tokenId): string => $this->buildApiTokenSessionId($tokenId))
+            ->values()
+            ->all();
+
+        if ($sessionIds === []) {
+            return;
+        }
+
+        $this->markTrackedSessionsInactive($sessionIds);
+    }
+
+    protected function markTrackedSessionsInactive(array $sessionIds): void
+    {
+        if ($sessionIds === []) {
+            return;
+        }
+
+        DB::table('user_sessions')
+            ->whereIn('session_id', $sessionIds)
+            ->where('is_current', true)
+            ->update([
+                'is_current' => false,
+                'expires_at' => now(),
+                'updated_at' => now(),
+            ]);
+    }
+
+    protected function buildApiTokenSessionId(int $tokenId): string
+    {
+        return 'api-token:'.$tokenId;
     }
 
     public function verifyApiDeviceRequest(User $user, Request $request): bool

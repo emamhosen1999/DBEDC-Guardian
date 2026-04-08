@@ -253,6 +253,8 @@ class DeviceAuthenticationTest extends TestCase
 
         $oldToken = $user->createToken('old-token');
         $currentToken = $user->createToken('current-token');
+        $oldTokenSessionId = 'api-token:'.$oldToken->accessToken->id;
+        $currentTokenSessionId = 'api-token:'.$currentToken->accessToken->id;
 
         $oldSessionId = (string) Str::uuid();
         $currentSessionId = (string) Str::uuid();
@@ -273,6 +275,37 @@ class DeviceAuthenticationTest extends TestCase
                 'user_agent' => 'Test Agent',
                 'payload' => 'test',
                 'last_activity' => now()->timestamp,
+            ],
+        ]);
+
+        DB::table('user_sessions')->insert([
+            [
+                'session_id' => $oldTokenSessionId,
+                'user_id' => $user->id,
+                'ip_address' => '127.0.0.1',
+                'user_agent' => 'API Test Agent',
+                'device_fingerprint' => 'old-api-fingerprint',
+                'device_info' => json_encode(['channel' => 'api', 'token_id' => $oldToken->accessToken->id]),
+                'location_info' => json_encode(['country' => 'Unknown']),
+                'is_current' => true,
+                'last_activity' => now(),
+                'expires_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'session_id' => $currentTokenSessionId,
+                'user_id' => $user->id,
+                'ip_address' => '127.0.0.1',
+                'user_agent' => 'API Test Agent',
+                'device_fingerprint' => 'current-api-fingerprint',
+                'device_info' => json_encode(['channel' => 'api', 'token_id' => $currentToken->accessToken->id]),
+                'location_info' => json_encode(['country' => 'Unknown']),
+                'is_current' => true,
+                'last_activity' => now(),
+                'expires_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
         ]);
 
@@ -310,6 +343,86 @@ class DeviceAuthenticationTest extends TestCase
 
         $this->assertDatabaseMissing('personal_access_tokens', [
             'id' => $oldToken->accessToken->id,
+            'tokenable_id' => $user->id,
+        ]);
+
+        $this->assertDatabaseHas('user_sessions', [
+            'session_id' => $oldTokenSessionId,
+            'user_id' => $user->id,
+            'is_current' => false,
+        ]);
+
+        $this->assertDatabaseHas('user_sessions', [
+            'session_id' => $currentTokenSessionId,
+            'user_id' => $user->id,
+            'is_current' => true,
+        ]);
+    }
+
+    public function test_mobile_api_login_tracks_token_session_and_logout_marks_it_inactive(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('password'),
+            'active' => true,
+            'single_device_login_enabled' => false,
+        ]);
+
+        $deviceId = (string) Str::uuid();
+
+        $loginResponse = $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'device_name' => 'Moto G96 5G',
+            'device_id' => $deviceId,
+            'device_signature' => [
+                'signature' => 'fnv1a-mobile-signature',
+                'platform' => 'android',
+                'os_version' => '15',
+                'model' => 'moto g96 5G',
+                'manufacturer' => 'motorola',
+                'brand' => 'motorola',
+                'hardware_id' => 'motorola-hardware-001',
+                'app_version' => '1.0.0',
+                'build_version' => '2',
+                'mac_address' => '',
+            ],
+        ]);
+
+        $loginResponse
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $token = (string) data_get($loginResponse->json(), 'data.token');
+
+        $this->assertNotSame('', $token);
+
+        $currentTokenId = (int) DB::table('personal_access_tokens')
+            ->where('tokenable_id', $user->id)
+            ->max('id');
+
+        $apiSessionId = 'api-token:'.$currentTokenId;
+
+        $this->assertDatabaseHas('user_sessions', [
+            'session_id' => $apiSessionId,
+            'user_id' => $user->id,
+            'is_current' => true,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->withHeader('X-Device-ID', $deviceId)
+            ->withHeader('X-Device-Signature', 'fnv1a-mobile-signature')
+            ->postJson('/api/v1/auth/logout')
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('user_sessions', [
+            'session_id' => $apiSessionId,
+            'user_id' => $user->id,
+            'is_current' => false,
+        ]);
+
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'id' => $currentTokenId,
             'tokenable_id' => $user->id,
         ]);
     }

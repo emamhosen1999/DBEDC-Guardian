@@ -93,6 +93,10 @@ class AuthController extends Controller
             );
         }
 
+        if ($currentTokenId !== null) {
+            $this->deviceAuthService->trackApiTokenSession($user, $request, (int) $currentTokenId);
+        }
+
         $user->loadMissing([
             'department',
             'designation',
@@ -144,6 +148,7 @@ class AuthController extends Controller
         $accessToken = $request->user()?->currentAccessToken();
 
         if ($accessToken instanceof PersonalAccessToken) {
+            $this->deviceAuthService->markApiTokenSessionInactive((int) $accessToken->id);
             $accessToken->delete();
         }
 
