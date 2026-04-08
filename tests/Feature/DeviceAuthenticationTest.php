@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Services\DeviceAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class DeviceAuthenticationTest extends TestCase
@@ -231,5 +233,84 @@ class DeviceAuthenticationTest extends TestCase
         $this->assertEquals('Pixel 8 Pro', $device->device_model);
         $this->assertEquals('Google', $device->device_manufacturer);
         $this->assertEquals('android', data_get($device->signature_payload, 'platform'));
+    }
+
+    public function test_single_device_enforcement_revokes_other_sessions_tokens_and_devices(): void
+    {
+        $user = User::factory()->create([
+            'single_device_login_enabled' => true,
+        ]);
+
+        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
+        $request->server->set('REMOTE_ADDR', '127.0.0.1');
+
+        $allowedDevice = $this->deviceAuthService->registerDevice($user, $request, $this->faker->uuid);
+        $otherDevice = $this->deviceAuthService->registerDevice($user, $request, $this->faker->uuid);
+
+        $this->assertNotNull($allowedDevice);
+        $this->assertNotNull($otherDevice);
+
+        $oldToken = $user->createToken('old-token');
+        $currentToken = $user->createToken('current-token');
+
+        $oldSessionId = (string) Str::uuid();
+        $currentSessionId = (string) Str::uuid();
+
+        DB::table('sessions')->insert([
+            [
+                'id' => $oldSessionId,
+                'user_id' => $user->id,
+                'ip_address' => '127.0.0.1',
+                'user_agent' => 'Test Agent',
+                'payload' => 'test',
+                'last_activity' => now()->timestamp,
+            ],
+            [
+                'id' => $currentSessionId,
+                'user_id' => $user->id,
+                'ip_address' => '127.0.0.1',
+                'user_agent' => 'Test Agent',
+                'payload' => 'test',
+                'last_activity' => now()->timestamp,
+            ],
+        ]);
+
+        $this->deviceAuthService->enforceSingleDeviceSession(
+            $user,
+            $allowedDevice,
+            $currentSessionId,
+            $currentToken->accessToken->id
+        );
+
+        $this->assertDatabaseHas('user_devices', [
+            'id' => $allowedDevice->id,
+            'is_active' => true,
+        ]);
+
+        $this->assertDatabaseHas('user_devices', [
+            'id' => $otherDevice->id,
+            'is_active' => false,
+        ]);
+
+        $this->assertDatabaseHas('sessions', [
+            'id' => $currentSessionId,
+            'user_id' => $user->id,
+        ]);
+
+        $this->assertDatabaseMissing('sessions', [
+            'id' => $oldSessionId,
+            'user_id' => $user->id,
+        ]);
+
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'id' => $currentToken->accessToken->id,
+            'tokenable_id' => $user->id,
+        ]);
+
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'id' => $oldToken->accessToken->id,
+            'tokenable_id' => $user->id,
+        ]);
     }
 }

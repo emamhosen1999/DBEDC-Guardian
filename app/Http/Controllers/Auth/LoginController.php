@@ -193,6 +193,7 @@ class LoginController extends Controller
 
         // Regenerate session for security
         $request->session()->regenerate();
+        $request->session()->put('device_id', $deviceId);
 
         // Register/update device with secure token
         $device = $this->deviceAuthService->registerDevice(
@@ -210,6 +211,15 @@ class LoginController extends Controller
             throw ValidationException::withMessages([
                 'device_id' => 'Failed to register device. Please try again.',
             ]);
+        }
+
+        if ($user->hasSingleDeviceLoginEnabled()) {
+            $this->deviceAuthService->enforceSingleDeviceSession(
+                $user,
+                $device,
+                $request->session()->getId(),
+                null
+            );
         }
 
         // Update login statistics
@@ -237,18 +247,16 @@ class LoginController extends Controller
         $user = Auth::user();
 
         if ($user) {
-            // Get device_id from request
-            $deviceId = $request->header('X-Device-ID') ?? $request->input('device_id');
+            $deviceId = $request->header('X-Device-ID')
+                ?? $request->input('device_id')
+                ?? $request->session()->get('device_id');
 
             if ($deviceId) {
-                // Find and deactivate the device
-                $device = \App\Models\UserDevice::where('user_id', $user->id)
+                \App\Models\UserDevice::where('user_id', $user->id)
                     ->where('device_id', $deviceId)
-                    ->first();
-
-                if ($device) {
-                    $device->deactivate();
-                }
+                    ->update([
+                        'last_used_at' => now(),
+                    ]);
             }
 
             // Log logout event

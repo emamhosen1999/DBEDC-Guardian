@@ -35,9 +35,13 @@ axios.interceptors.request.use(
 axios.interceptors.response.use(
     (response) => response,
     (error) => {
+        const statusCode = Number(error.response?.status || 0);
+        const responsePayload = error.response?.data || {};
+        const mismatchReason = String(responsePayload.reason || responsePayload.code || '').trim().toLowerCase();
+
         // Check if error is device verification failure
-        if (error.response?.status === 403 && error.response?.data?.reason === 'invalid_device') {
-            handleDeviceMismatch(error.response.data.error);
+        if ((statusCode === 401 || statusCode === 403) && mismatchReason === 'invalid_device') {
+            handleDeviceMismatch(responsePayload.error || responsePayload.message || 'Your session is no longer valid for this device.');
         }
         return Promise.reject(error);
     }

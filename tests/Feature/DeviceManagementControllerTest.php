@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\DeviceAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -105,6 +106,53 @@ class DeviceManagementControllerTest extends TestCase
         $this->assertDatabaseHas('user_devices', [
             'id' => $device->id,
             'is_active' => false,
+        ]);
+    }
+
+    public function test_reset_devices_revokes_user_sessions_and_tokens(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->createOne();
+        /** @var User $user */
+        $user = User::factory()->createOne([
+            'single_device_login_enabled' => true,
+        ]);
+
+        $device = $this->deviceAuthService->registerDevice(
+            $user,
+            $this->makeDeviceRequest('okhttp/4.12.0'),
+            Str::uuid()->toString()
+        );
+
+        $this->assertNotNull($device);
+
+        $token = $user->createToken('device-reset-test');
+        $sessionId = (string) Str::uuid();
+
+        DB::table('sessions')->insert([
+            'id' => $sessionId,
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'Feature Test Agent',
+            'payload' => 'test',
+            'last_activity' => now()->timestamp,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->postJson(route('admin.users.devices.reset', ['userId' => $user->id]), [
+                'reason' => 'Forced logout verification',
+            ]);
+
+        $response->assertOk()->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('sessions', [
+            'id' => $sessionId,
+            'user_id' => $user->id,
+        ]);
+
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'id' => $token->accessToken->id,
+            'tokenable_id' => $user->id,
         ]);
     }
 

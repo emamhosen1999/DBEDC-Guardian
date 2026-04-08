@@ -27,7 +27,12 @@ class DeviceAuthMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         // Skip for login/register routes
-        if ($request->routeIs('login') || $request->routeIs('register')) {
+        if (
+            $request->routeIs('login')
+            || $request->routeIs('register')
+            || $request->routeIs('password.*')
+            || $request->routeIs('verification.*')
+        ) {
             return $next($request);
         }
 
@@ -44,7 +49,17 @@ class DeviceAuthMiddleware
         }
 
         // Get device_id from header or input
-        $deviceId = $request->header('X-Device-ID') ?? $request->input('device_id');
+        $deviceId = $request->header('X-Device-ID')
+            ?? $request->input('device_id')
+            ?? $request->session()->get('device_id');
+
+        if ($deviceId) {
+            $request->merge([
+                'device_id' => $deviceId,
+            ]);
+
+            $request->session()->put('device_id', $deviceId);
+        }
 
         // If no device_id is provided, log warning but allow (for backward compatibility during migration)
         if (! $deviceId) {
@@ -53,10 +68,21 @@ class DeviceAuthMiddleware
                 'route' => $request->path(),
             ]);
 
-            // In strict mode, you would return an error here:
-            // return response()->json(['error' => 'Device verification required'], 403);
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-            return $next($request);
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'error' => 'Device verification required. Please login again.',
+                    'reason' => 'missing_device_id',
+                ], 403);
+            }
+
+            return redirect()
+                ->route('login')
+                ->with('device_blocked', true)
+                ->with('device_message', 'Device verification is required. Please sign in again from this device.');
         }
 
         // Verify device
@@ -72,11 +98,20 @@ class DeviceAuthMiddleware
             // Log out the user
             Auth::logout();
 
-            // Return error response
-            return response()->json([
-                'error' => 'Device verification failed. Please login again.',
-                'reason' => 'invalid_device',
-            ], 403);
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            if ($request->expectsJson() || $request->wantsJson()) {
+                return response()->json([
+                    'error' => 'Device verification failed. Please login again.',
+                    'reason' => 'invalid_device',
+                ], 403);
+            }
+
+            return redirect()
+                ->route('login')
+                ->with('device_blocked', true)
+                ->with('device_message', 'Your session is no longer valid on this device. Please sign in again.');
         }
 
         return $next($request);

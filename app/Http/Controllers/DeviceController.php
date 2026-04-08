@@ -83,6 +83,7 @@ class DeviceController extends Controller
             : 'Admin reset via user device management';
 
         $count = $this->deviceAuthService->resetUserDevices($user, $persistedResetReason);
+        $this->deviceAuthService->terminateUserAccess($user);
 
         $user->update([
             'device_reset_at' => now(),
@@ -142,6 +143,10 @@ class DeviceController extends Controller
             ], 404);
         }
 
+        if ($user->hasSingleDeviceLoginEnabled()) {
+            $this->deviceAuthService->terminateUserAccess($user);
+        }
+
         $devices = collect($this->deviceAuthService->getUserDevices($user));
 
         return response()->json([
@@ -164,6 +169,17 @@ class DeviceController extends Controller
 
         if ($newStatus) {
             $user->enableSingleDeviceLogin('Enabled by admin');
+
+            $lockedDevice = $user->activeDevices()
+                ->orderByDesc('last_used_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($lockedDevice) {
+                $this->deviceAuthService->enforceSingleDeviceSession($user->fresh(), $lockedDevice);
+            } else {
+                $this->deviceAuthService->terminateUserAccess($user->fresh());
+            }
         } else {
             $user->disableSingleDeviceLogin('Disabled by admin');
         }

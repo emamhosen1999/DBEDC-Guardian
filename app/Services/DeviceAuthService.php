@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserDevice;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Jenssegers\Agent\Agent;
@@ -181,6 +182,70 @@ class DeviceAuthService
 
         return UserDevice::where('user_id', $user->id)
             ->update(['is_active' => false]);
+    }
+
+    public function enforceSingleDeviceSession(
+        User $user,
+        UserDevice $allowedDevice,
+        ?string $exceptSessionId = null,
+        ?int $exceptTokenId = null
+    ): void {
+        UserDevice::where('user_id', $user->id)
+            ->where('id', '!=', $allowedDevice->id)
+            ->where('is_active', true)
+            ->update([
+                'is_active' => false,
+            ]);
+
+        $allowedDevice->update([
+            'is_active' => true,
+            'last_used_at' => Carbon::now(),
+        ]);
+
+        $this->terminateUserAccess($user, $exceptSessionId, $exceptTokenId);
+    }
+
+    public function terminateUserAccess(User $user, ?string $exceptSessionId = null, ?int $exceptTokenId = null): void
+    {
+        $this->invalidateUserWebSessions($user, $exceptSessionId);
+        $this->invalidateUserApiTokens($user, $exceptTokenId);
+    }
+
+    protected function invalidateUserWebSessions(User $user, ?string $exceptSessionId = null): void
+    {
+        $sessionQuery = DB::table((string) config('session.table', 'sessions'))
+            ->where('user_id', $user->id);
+
+        if ($exceptSessionId !== null && $exceptSessionId !== '') {
+            $sessionQuery->where('id', '!=', $exceptSessionId);
+        }
+
+        $sessionQuery->delete();
+
+        $trackedSessionQuery = DB::table('user_sessions')
+            ->where('user_id', $user->id)
+            ->where('is_current', true);
+
+        if ($exceptSessionId !== null && $exceptSessionId !== '') {
+            $trackedSessionQuery->where('session_id', '!=', $exceptSessionId);
+        }
+
+        $trackedSessionQuery->update([
+            'is_current' => false,
+            'expires_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    protected function invalidateUserApiTokens(User $user, ?int $exceptTokenId = null): void
+    {
+        $tokensQuery = $user->tokens();
+
+        if ($exceptTokenId !== null) {
+            $tokensQuery->where('id', '!=', $exceptTokenId);
+        }
+
+        $tokensQuery->delete();
     }
 
     public function verifyApiDeviceRequest(User $user, Request $request): bool

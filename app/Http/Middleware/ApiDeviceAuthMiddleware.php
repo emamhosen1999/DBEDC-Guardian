@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\DeviceAuthService;
 use Closure;
 use Illuminate\Http\Request;
+use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpFoundation\Response;
 
 class ApiDeviceAuthMiddleware
@@ -31,11 +32,17 @@ class ApiDeviceAuthMiddleware
         }
 
         if (! $this->deviceAuthService->verifyApiDeviceRequest($user, $request)) {
+            $currentToken = $user->currentAccessToken();
+
+            if ($currentToken instanceof PersonalAccessToken) {
+                $currentToken->delete();
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Device verification failed. This account is locked to another device.',
                 'code' => 'invalid_device',
-            ], 403);
+            ], 401);
         }
 
         return $next($request);

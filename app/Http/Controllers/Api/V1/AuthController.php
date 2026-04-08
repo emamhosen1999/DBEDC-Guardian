@@ -80,7 +80,18 @@ class AuthController extends Controller
         }
 
         $tokenName = $deviceName !== '' ? $deviceName : ($device->device_name ?: 'mobile-app');
-        $token = $user->createToken($tokenName)->plainTextToken;
+        $newAccessToken = $user->createToken($tokenName);
+        $token = $newAccessToken->plainTextToken;
+        $currentTokenId = $newAccessToken->accessToken?->id;
+
+        if ($user->hasSingleDeviceLoginEnabled() && $currentTokenId !== null) {
+            $this->deviceAuthService->enforceSingleDeviceSession(
+                $user,
+                $device,
+                null,
+                (int) $currentTokenId
+            );
+        }
 
         $user->loadMissing([
             'department',
