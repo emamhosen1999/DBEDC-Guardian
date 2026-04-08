@@ -18,6 +18,8 @@ class AttendanceHistoryRequest extends FormRequest
             'currentYear' => ['nullable', 'integer', 'between:2000,2100'],
             'page' => ['nullable', 'integer', 'min:1'],
             'perPage' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'scope' => ['nullable', 'string', 'in:self,team'],
+            'employee' => ['nullable', 'string', 'max:120'],
         ];
     }
 }

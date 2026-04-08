@@ -94,14 +94,42 @@ class AttendanceController extends Controller
         $page = (int) $request->input('page', 1);
         $currentMonth = (int) $request->input('currentMonth', now()->month);
         $currentYear = (int) $request->input('currentYear', now()->year);
+        $scope = (string) $request->input('scope', 'self');
+        $employeeKeyword = trim((string) $request->input('employee', ''));
+        $isTeamScope = $scope === 'team';
+
+        if ($isTeamScope && ! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access team attendance history.',
+            ], 403);
+        }
 
         try {
-            $attendanceRecords = Attendance::query()
+            $attendanceQuery = Attendance::query()
+                ->with(['user.designation'])
                 ->whereNotNull('punchin')
-                ->where('user_id', $currentUser->id)
                 ->whereYear('date', $currentYear)
-                ->whereMonth('date', $currentMonth)
+                ->whereMonth('date', $currentMonth);
+
+            if ($isTeamScope) {
+                $attendanceQuery->whereHas('user.roles', function ($query) {
+                    $query->where('name', 'Employee');
+                });
+
+                if ($employeeKeyword !== '') {
+                    $attendanceQuery->whereHas('user', function ($query) use ($employeeKeyword) {
+                        $query->where('name', 'like', '%'.$employeeKeyword.'%')
+                            ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
+                    });
+                }
+            } else {
+                $attendanceQuery->where('user_id', $currentUser->id);
+            }
+
+            $attendanceRecords = $attendanceQuery
                 ->orderBy('date')
+                ->orderBy('user_id')
                 ->orderBy('punchin')
                 ->get();
 
@@ -120,56 +148,123 @@ class AttendanceController extends Controller
                 ]);
             }
 
-            $groupedByDate = $attendanceRecords->groupBy(function (Attendance $record) {
-                return Carbon::parse($record->date)->format('Y-m-d');
-            })->map(function ($dateAttendances, $date) {
-                $sortedPunches = $dateAttendances->sortBy('punchin');
+            if ($isTeamScope) {
+                $groupedByDate = $attendanceRecords->groupBy(function (Attendance $record) {
+                    return $record->user_id.'|'.Carbon::parse($record->date)->format('Y-m-d');
+                })->map(function ($employeeDateAttendances, $groupKey) {
+                    [, $date] = array_pad(explode('|', (string) $groupKey, 2), 2, null);
 
-                $totalWorkMinutes = 0;
-                $completePunches = 0;
-                $hasIncompletePunch = false;
+                    $sortedPunches = $employeeDateAttendances->sortBy('punchin');
 
-                $punches = $sortedPunches->map(function (Attendance $record) use (&$totalWorkMinutes, &$completePunches, &$hasIncompletePunch) {
-                    if ($record->punchin && $record->punchout) {
-                        $punchIn = Carbon::parse($record->punchin);
-                        $punchOut = Carbon::parse($record->punchout);
+                    $totalWorkMinutes = 0;
+                    $completePunches = 0;
+                    $hasIncompletePunch = false;
 
-                        if ($punchOut->lt($punchIn)) {
-                            $punchOut->addDay();
+                    $punches = $sortedPunches->map(function (Attendance $record) use (&$totalWorkMinutes, &$completePunches, &$hasIncompletePunch) {
+                        if ($record->punchin && $record->punchout) {
+                            $punchIn = Carbon::parse($record->punchin);
+                            $punchOut = Carbon::parse($record->punchout);
+
+                            if ($punchOut->lt($punchIn)) {
+                                $punchOut->addDay();
+                            }
+
+                            $totalWorkMinutes += $punchIn->diffInMinutes($punchOut);
+                            $completePunches++;
+                        } elseif ($record->punchin && ! $record->punchout) {
+                            $hasIncompletePunch = true;
                         }
 
-                        $totalWorkMinutes += $punchIn->diffInMinutes($punchOut);
-                        $completePunches++;
-                    } elseif ($record->punchin && ! $record->punchout) {
-                        $hasIncompletePunch = true;
-                    }
+                        return [
+                            'id' => $record->id,
+                            'date' => $record->date,
+                            'punch_in' => $record->punchin,
+                            'punch_out' => $record->punchout,
+                            'punchin_location' => $record->punchin_location_array,
+                            'punchout_location' => $record->punchout_location_array,
+                        ];
+                    })->values();
+
+                    $firstPunch = $sortedPunches->first();
+                    $user = $firstPunch?->user;
+                    $lastCompletePunch = $sortedPunches->where('punchout', '!=', null)->last();
 
                     return [
-                        'id' => $record->id,
-                        'date' => $record->date,
-                        'punch_in' => $record->punchin,
-                        'punch_out' => $record->punchout,
-                        'punchin_location' => $record->punchin_location_array,
-                        'punchout_location' => $record->punchout_location_array,
+                        'date' => $date,
+                        'user' => [
+                            'id' => (int) ($user?->id ?? 0),
+                            'name' => $user?->name ?? 'Unknown Employee',
+                            'employee_id' => $user?->employee_id,
+                            'designation' => $user?->designation?->title,
+                            'profile_image_url' => $user?->profile_image_url,
+                        ],
+                        'punchin_time' => $firstPunch?->punchin,
+                        'punchout_time' => $lastCompletePunch?->punchout,
+                        'total_work_minutes' => round($totalWorkMinutes, 2),
+                        'punch_count' => $employeeDateAttendances->count(),
+                        'complete_punches' => $completePunches,
+                        'has_incomplete_punch' => $hasIncompletePunch,
+                        'punches' => $punches,
                     ];
                 })->values();
+            } else {
+                $groupedByDate = $attendanceRecords->groupBy(function (Attendance $record) {
+                    return Carbon::parse($record->date)->format('Y-m-d');
+                })->map(function ($dateAttendances, $date) {
+                    $sortedPunches = $dateAttendances->sortBy('punchin');
 
-                $firstPunch = $sortedPunches->first();
-                $lastCompletePunch = $sortedPunches->where('punchout', '!=', null)->last();
+                    $totalWorkMinutes = 0;
+                    $completePunches = 0;
+                    $hasIncompletePunch = false;
 
-                return [
-                    'date' => $date,
-                    'punchin_time' => $firstPunch?->punchin,
-                    'punchout_time' => $lastCompletePunch?->punchout,
-                    'total_work_minutes' => round($totalWorkMinutes, 2),
-                    'punch_count' => $dateAttendances->count(),
-                    'complete_punches' => $completePunches,
-                    'has_incomplete_punch' => $hasIncompletePunch,
-                    'punches' => $punches,
-                ];
+                    $punches = $sortedPunches->map(function (Attendance $record) use (&$totalWorkMinutes, &$completePunches, &$hasIncompletePunch) {
+                        if ($record->punchin && $record->punchout) {
+                            $punchIn = Carbon::parse($record->punchin);
+                            $punchOut = Carbon::parse($record->punchout);
+
+                            if ($punchOut->lt($punchIn)) {
+                                $punchOut->addDay();
+                            }
+
+                            $totalWorkMinutes += $punchIn->diffInMinutes($punchOut);
+                            $completePunches++;
+                        } elseif ($record->punchin && ! $record->punchout) {
+                            $hasIncompletePunch = true;
+                        }
+
+                        return [
+                            'id' => $record->id,
+                            'date' => $record->date,
+                            'punch_in' => $record->punchin,
+                            'punch_out' => $record->punchout,
+                            'punchin_location' => $record->punchin_location_array,
+                            'punchout_location' => $record->punchout_location_array,
+                        ];
+                    })->values();
+
+                    $firstPunch = $sortedPunches->first();
+                    $lastCompletePunch = $sortedPunches->where('punchout', '!=', null)->last();
+
+                    return [
+                        'date' => $date,
+                        'punchin_time' => $firstPunch?->punchin,
+                        'punchout_time' => $lastCompletePunch?->punchout,
+                        'total_work_minutes' => round($totalWorkMinutes, 2),
+                        'punch_count' => $dateAttendances->count(),
+                        'complete_punches' => $completePunches,
+                        'has_incomplete_punch' => $hasIncompletePunch,
+                        'punches' => $punches,
+                    ];
+                })->values();
+            }
+
+            $sortedByDate = $groupedByDate->sortByDesc(function (array $attendanceEntry): string {
+                return sprintf(
+                    '%s|%010d',
+                    (string) ($attendanceEntry['date'] ?? '0000-00-00'),
+                    (int) ($attendanceEntry['user']['id'] ?? 0)
+                );
             })->values();
-
-            $sortedByDate = $groupedByDate->sortByDesc('date')->values();
             $paginatedData = $sortedByDate->forPage($page, $perPage)->values();
             $totalRecords = $sortedByDate->count();
             $lastPage = (int) ceil($totalRecords / $perPage);

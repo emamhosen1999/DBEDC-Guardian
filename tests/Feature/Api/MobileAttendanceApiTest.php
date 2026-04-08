@@ -187,6 +187,74 @@ class MobileAttendanceApiTest extends TestCase
             ->assertJsonCount(2, 'data.attendances');
     }
 
+    public function test_manager_can_fetch_team_monthly_mobile_attendance_history_with_employee_filter(): void
+    {
+        $manager = User::factory()->create([
+            'active' => true,
+        ]);
+        $this->assignRole($manager, 'Project Manager');
+
+        $targetEmployee = User::factory()->create([
+            'active' => true,
+            'employee_id' => 'EMP-9001',
+        ]);
+        $this->assignRole($targetEmployee, 'Employee');
+
+        $otherEmployee = User::factory()->create([
+            'active' => true,
+            'employee_id' => 'EMP-9002',
+        ]);
+        $this->assignRole($otherEmployee, 'Employee');
+
+        Attendance::query()->create([
+            'user_id' => $targetEmployee->id,
+            'date' => now()->startOfMonth()->addDays(4)->toDateString(),
+            'punchin' => '09:00:00',
+            'punchout' => '12:00:00',
+        ]);
+
+        Attendance::query()->create([
+            'user_id' => $targetEmployee->id,
+            'date' => now()->startOfMonth()->addDays(5)->toDateString(),
+            'punchin' => '09:30:00',
+            'punchout' => '17:30:00',
+        ]);
+
+        Attendance::query()->create([
+            'user_id' => $otherEmployee->id,
+            'date' => now()->startOfMonth()->addDays(5)->toDateString(),
+            'punchin' => '10:00:00',
+            'punchout' => '15:00:00',
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson(
+            '/api/v1/attendance/history?scope=team&currentMonth='.now()->month.'&currentYear='.now()->year.'&employee=EMP-9001&perPage=10&page=1'
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.pagination.total', 2)
+            ->assertJsonPath('data.attendances.0.user.employee_id', 'EMP-9001')
+            ->assertJsonPath('data.attendances.1.user.employee_id', 'EMP-9001');
+    }
+
+    public function test_non_manager_cannot_fetch_team_mobile_attendance_history(): void
+    {
+        $user = User::factory()->create([
+            'active' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/attendance/history?scope=team&currentMonth='.now()->month.'&currentYear='.now()->year);
+
+        $response->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You are not authorized to access team attendance history.');
+    }
+
     public function test_authenticated_user_can_fetch_monthly_mobile_attendance_summary(): void
     {
         Carbon::setTestNow(Carbon::create(2026, 4, 20, 12, 0, 0));
