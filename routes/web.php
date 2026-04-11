@@ -1,6 +1,4 @@
-// APK download endpoint (public)
-use App\Http\Controllers\ApkDownloadController;
-Route::get('/apk/latest.apk', [ApkDownloadController::class, 'latest'])->name('apk.download');
+
 <?php
 
 use App\Http\Controllers\AttendanceController;
