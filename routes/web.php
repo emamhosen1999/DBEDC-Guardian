@@ -1,3 +1,6 @@
+// APK download endpoint (public)
+use App\Http\Controllers\ApkDownloadController;
+Route::get('/apk/latest.apk', [ApkDownloadController::class, 'latest'])->name('apk.download');
 <?php
 
 use App\Http\Controllers\AttendanceController;
@@ -34,11 +37,17 @@ use App\Http\Controllers\SystemMonitoringController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
+// APK Install Gate (public, always accessible)
+use Inertia\Inertia;
+
+Route::get('/install-app', function () {
+    return Inertia::render('InstallApp');
+})->name('install-app');
 
 // Include authentication routes
 require __DIR__.'/auth.php';
 
-Route::redirect('/', '/dashboard');
+Route::redirect('/', '/install-app');
 
 Route::get('/session-check', function () {
     return response()->json(['authenticated' => auth()->check()]);
