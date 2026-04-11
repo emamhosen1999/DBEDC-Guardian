@@ -35,6 +35,7 @@ use App\Http\Controllers\SystemMonitoringController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 // APK Install Gate (public, always accessible)
 use Inertia\Inertia;
 
@@ -45,11 +46,11 @@ Route::get('/install-app', function () {
 // Include authentication routes
 require __DIR__.'/auth.php';
 
-Route::redirect('/', function (Request $request) {
+Route::get('/', function (Request $request) {
     $userAgent = $request->header('User-Agent', '');
     $isAndroid = stripos($userAgent, 'android') !== false;
 
-    return $isAndroid ? '/install-app' : '/dashboard';
+    return redirect($isAndroid ? '/install-app' : '/dashboard');
 });
 
 Route::get('/session-check', function () {
