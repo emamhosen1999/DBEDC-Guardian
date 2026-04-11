@@ -3,7 +3,7 @@ import { Head } from '@inertiajs/react';
 
 const APK_URL = '/apk/latest.apk';
 const APK_VERSION = '1.0.0';
-const APK_SIZE = '20 MB';
+const APK_SIZE = '90 MB';
 const APK_RELEASE_DATE = 'Apr 2025';
 
 const steps = [
