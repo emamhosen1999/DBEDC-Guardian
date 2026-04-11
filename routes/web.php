@@ -45,7 +45,12 @@ Route::get('/install-app', function () {
 // Include authentication routes
 require __DIR__.'/auth.php';
 
-Route::redirect('/', '/install-app');
+Route::redirect('/', function (Request $request) {
+    $userAgent = $request->header('User-Agent', '');
+    $isAndroid = stripos($userAgent, 'android') !== false;
+
+    return $isAndroid ? '/install-app' : '/dashboard';
+});
 
 Route::get('/session-check', function () {
     return response()->json(['authenticated' => auth()->check()]);
