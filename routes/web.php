@@ -753,6 +753,27 @@ Route::middleware(['auth', 'verified'])->prefix('admin/events')->group(function 
     });
 });
 
+// Letters Management Routes
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::middleware(['permission:letters.view'])->group(function () {
+        Route::get('/letters', [App\Http\Controllers\LettersController::class, 'index'])->name('letters.index');
+        Route::get('/letters/{letter}', [App\Http\Controllers\LettersController::class, 'show'])->name('letters.show');
+        Route::get('/letters/{letter}/attachment/{index}', [App\Http\Controllers\LettersController::class, 'downloadAttachment'])->name('letters.attachment.download');
+    });
+
+    Route::middleware(['permission:letters.create'])->post('/letters', [App\Http\Controllers\LettersController::class, 'store'])->name('letters.store');
+
+    Route::middleware(['permission:letters.update'])->group(function () {
+        Route::put('/letters/{letter}', [App\Http\Controllers\LettersController::class, 'update'])->name('letters.update');
+        Route::post('/letters/bulk-update', [App\Http\Controllers\LettersController::class, 'bulkUpdate'])->name('letters.bulk-update');
+        Route::post('/letters/{letter}/reply', [App\Http\Controllers\LettersController::class, 'sendReply'])->name('letters.reply');
+    });
+
+    Route::middleware(['permission:letters.delete'])->delete('/letters/{letter}', [App\Http\Controllers\LettersController::class, 'destroy'])->name('letters.destroy');
+
+    Route::middleware(['permission:letters.sync'])->post('/letters/sync-emails', [App\Http\Controllers\LettersController::class, 'syncEmails'])->name('letters.sync-emails');
+});
+
 // Include all module routes
 require __DIR__.'/compliance.php';
 require __DIR__.'/quality.php';

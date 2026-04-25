@@ -25,7 +25,7 @@ import {
 } from "@heroicons/react/24/outline"; 
   
 import { motion, AnimatePresence } from 'framer-motion';
-import logo from '/assets/images/logo.png';
+
 
 // Helper function to highlight search matches
 const highlightSearchMatch = (text, searchTerm) => {
@@ -666,7 +666,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                   }}
                 >
                   <img 
-                    src={logo} 
+                    src="/assets/images/logo.png" 
                     alt={`${app?.name || 'Company'} Logo`} 
                     className="w-8 h-8 object-contain"
                     onError={(e) => {

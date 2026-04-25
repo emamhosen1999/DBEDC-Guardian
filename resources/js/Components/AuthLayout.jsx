@@ -6,7 +6,7 @@ import {
 import GlassCard from '@/Components/GlassCard';
 import { useTheme } from '@/Contexts/ThemeContext';
 
-import logo from '/assets/images/logo.png';
+
 
 const AuthLayout = ({ children, title, subtitle }) => {
     const [isDesktop, setIsDesktop] = useState(false);
@@ -138,7 +138,7 @@ const AuthLayout = ({ children, title, subtitle }) => {
                                         transition={{ type: "spring", stiffness: 400, damping: 30 }}
                                     >
                                         <img 
-                                            src={logo} 
+                                            src="/assets/images/logo.png" 
                                             alt="Logo" 
                                             className="w-40 h-40 object-contain"
                                             onError={(e) => {

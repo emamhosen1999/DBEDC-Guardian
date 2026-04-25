@@ -46,9 +46,6 @@ class RouteServiceProvider extends ServiceProvider
                 ->group(base_path('routes/compliance.php'));
 
             Route::middleware('web')
-                ->group(base_path('routes/project-management.php'));
-
-            Route::middleware('web')
                 ->group(base_path('routes/quality.php'));
 
             if (config('features.commercial_stack')) {

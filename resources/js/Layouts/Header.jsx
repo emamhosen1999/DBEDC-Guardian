@@ -44,7 +44,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 
-import logo from '/assets/images/logo.png';
+
 
 /**
  * Custom hook for responsive device type detection
@@ -457,7 +457,7 @@ const MobileHeader = React.memo(({
                         }}
                       >
                         <img 
-                          src={logo} 
+                          src="/assets/images/logo.png" 
                           alt={`${app?.name || 'ERP System'} Logo`} 
                           className="object-contain"
                           style={{ 
@@ -1084,7 +1084,7 @@ const DesktopHeader = React.memo(({
                       }}
                     >
                       <img 
-                        src={logo} 
+                        src="/assets/images/logo.png" 
                         alt={`${app?.name || 'ERP System'} Logo`} 
                         className="object-contain w-9 h-9"
                         onError={(e) => {

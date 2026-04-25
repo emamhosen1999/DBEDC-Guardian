@@ -269,6 +269,15 @@ export const getPages = (roles, permissions, auth = null) => {
         ...(permissions.includes('quality.dashboard.view') ? [{ name: 'Analytics', icon: <ChartBarSquareIcon  />, route: 'quality.dashboard' }] : []),
       ]
     }] : []),
+    // 7. Incoming Letters
+    ...(permissions.includes('letters.view') ? [{
+      name: 'Incoming Letters',
+      icon: <EnvelopeIcon className="" />,
+      priority: 7,
+      module: 'letters',
+      route: 'letters.index'
+    }] : []),
+
     // 8. Admin (System Administration)
     ...(permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') ? [{
       name: 'Admin',
