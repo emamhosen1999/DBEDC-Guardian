@@ -44,7 +44,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 
-import logo from '../../../public/assets/images/logo.png';
+import logo from '/assets/images/logo.png';
 
 /**
  * Custom hook for responsive device type detection

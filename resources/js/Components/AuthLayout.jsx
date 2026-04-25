@@ -6,7 +6,7 @@ import {
 import GlassCard from '@/Components/GlassCard';
 import { useTheme } from '@/Contexts/ThemeContext';
 
-import logo from '../../../public/assets/images/logo.png';
+import logo from '/assets/images/logo.png';
 
 const AuthLayout = ({ children, title, subtitle }) => {
     const [isDesktop, setIsDesktop] = useState(false);

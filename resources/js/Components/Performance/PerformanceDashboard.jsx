@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import webVitalsMonitor from '../../utils/webVitals';
+import webVitalsMonitor from '@/utils/webVitals';
 
 /**
  * Glass ERP Performance Dashboard

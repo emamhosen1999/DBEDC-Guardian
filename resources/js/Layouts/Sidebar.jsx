@@ -25,7 +25,7 @@ import {
 } from "@heroicons/react/24/outline"; 
   
 import { motion, AnimatePresence } from 'framer-motion';
-import logo from '../../../public/assets/images/logo.png';
+import logo from '/assets/images/logo.png';
 
 // Helper function to highlight search matches
 const highlightSearchMatch = (text, searchTerm) => {
