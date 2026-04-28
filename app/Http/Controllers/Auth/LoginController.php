@@ -333,7 +333,7 @@ class LoginController extends Controller
             $request
         );
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->intended(route('dashboard.redirect'));
     }
 
     /**
