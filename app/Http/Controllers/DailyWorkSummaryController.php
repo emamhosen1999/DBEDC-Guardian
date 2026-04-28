@@ -185,9 +185,41 @@ class DailyWorkSummaryController extends Controller
                 }),
             ];
 
-            $summary = [
+            // Real-time counts from daily_works table
+            $realTimeEmbankment = $typeBreakdown->get('Embankment', collect())->count();
+            $realTimeStructure = $typeBreakdown->get('Structure', collect())->count();
+            $realTimePavement = $typeBreakdown->get('Pavement', collect())->count();
+            $realTimeResubmissions = $works->where('resubmission_count', '>', 0)->count();
+
+            // Use import snapshot when present (preserves what was actually imported);
+            // fall back to real-time aggregations from daily_works otherwise.
+            $totalDailyWorks = $importSnapshot['totalDailyWorks'] ?? $totalWorks;
+            $resubmissions = $importSnapshot['resubmissions'] ?? $realTimeResubmissions;
+            $embankment = $importSnapshot['embankment'] ?? $realTimeEmbankment;
+            $structure = $importSnapshot['structure'] ?? $realTimeStructure;
+            $pavement = $importSnapshot['pavement'] ?? $realTimePavement;
+
+            $completionPercentage = $totalDailyWorks > 0
+                ? round(($completed / $totalDailyWorks) * 100, 1)
+                : 0;
+
+            $summaries[] = [
                 'date' => $date,
-                // Real-time data from daily_works table
+                // Flat fields consumed by the frontend table/cards
+                'totalDailyWorks' => $totalDailyWorks,
+                'resubmissions' => $resubmissions,
+                'embankment' => $embankment,
+                'structure' => $structure,
+                'pavement' => $pavement,
+                'completed' => $completed,
+                'pending' => $pending,
+                'inProgress' => $inProgress,
+                'rejected' => $rejected,
+                'emergency' => $emergency,
+                'rfiSubmissions' => $rfiSubmissions,
+                'completionPercentage' => $completionPercentage,
+                'rfiSubmissionPercentage' => $rfiSubmissionPercentage,
+                // Supplementary nested objects (kept for UIs that want to compare)
                 'realTime' => [
                     'totalDailyWorks' => $totalWorks,
                     'completed' => $completed,
@@ -196,18 +228,13 @@ class DailyWorkSummaryController extends Controller
                     'rejected' => $rejected,
                     'emergency' => $emergency,
                     'rfiSubmissions' => $rfiSubmissions,
-                    'completionPercentage' => $totalWorks > 0 ? round(($completed / $totalWorks) * 100, 1) : 0,
-                    'rfiSubmissionPercentage' => $rfiSubmissionPercentage,
-                    'embankment' => $typeBreakdown->get('Embankment', collect())->count(),
-                    'structure' => $typeBreakdown->get('Structure', collect())->count(),
-                    'pavement' => $typeBreakdown->get('Pavement', collect())->count(),
-                    'resubmissions' => $works->where('resubmission_count', '>', 0)->count(),
+                    'embankment' => $realTimeEmbankment,
+                    'structure' => $realTimeStructure,
+                    'pavement' => $realTimePavement,
+                    'resubmissions' => $realTimeResubmissions,
                 ],
-                // Import snapshot from daily_work_summaries table (immutable)
                 'importSnapshot' => $importSnapshot,
             ];
-
-            $summaries[] = $summary;
         }
 
         // Sort by date descending
