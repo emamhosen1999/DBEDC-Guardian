@@ -533,11 +533,31 @@ export default function Login({
                 const script = document.createElement('script');
                 script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
                 script.async = true;
+                script.defer = true;
                 script.onload = () => {
                     setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
+                    
+                    // Render Turnstile widget after script loads
+                    if (turnstileRef.current && window.turnstile) {
+                        try {
+                            window.turnstile.render(turnstileRef.current, {
+                                sitekey: captcha.site_key,
+                                callback: (token) => {
+                                    setCaptchaState(prev => ({ ...prev, token }));
+                                },
+                                'error-callback': () => {
+                                    console.error('Turnstile error');
+                                    setCaptchaState(prev => ({ ...prev, token: null }));
+                                }
+                            });
+                        } catch (error) {
+                            console.error('Failed to render Turnstile widget:', error);
+                        }
+                    }
                 };
                 script.onerror = () => {
                     console.error('Failed to load Turnstile script');
+                    setCaptchaState(prev => ({ ...prev, isScriptLoaded: false }));
                 };
                 document.head.appendChild(script);
             };
