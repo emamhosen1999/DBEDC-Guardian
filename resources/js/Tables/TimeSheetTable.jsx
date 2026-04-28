@@ -43,7 +43,7 @@ import axios from 'axios';
 
 import { AbsentUsersInlineCard } from '@/Components/TimeSheet/AbsentUsersInlineCard';
 
-const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, externalFilterData, externalMember, onMarkAsPresent }) => {
+const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, externalFilterData, externalEmployee, onMarkAsPresent }) => {
     const { auth } = usePage().props;
     const { url } = usePage();
    
@@ -58,7 +58,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
     const [lastPage, setLastPage] = useState(0);
     const [perPage, setPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
-    const [employee, setMember] = useState(externalMember || '');
+    const [employee, setEmployee] = useState(externalEmployee || '');
     const [isLoaded, setIsLoaded] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const [lastUpdate, setLastUpdate] = useState(null);
@@ -68,7 +68,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
     const prevUpdateRef = useRef(null);
     const prevFilterData = useRef({
         currentMonth: dayjs().format('YYYY-MM'),
-        employee: externalMember || '',
+        employee: externalEmployee || '',
         filterData: externalFilterData || { currentMonth: dayjs().format('YYYY-MM') },
         selectedDate: selectedDate,
         perPage: 10,
@@ -221,7 +221,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
     // Fetch absent users data
     const getAbsentUsersForDate = async (selectedDate, employee) => {
         if (url === '/attendance-employee') {
-            // Member view doesn't need absent users
+            // Employee view doesn't need absent users
             setAbsentUsers([]);
             setLeaves([]);
             return;
@@ -258,7 +258,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
     };    // Add refresh functionality
     
     const handleSearch = (event) => {
-        setMember(event.target.value.toLowerCase());
+        setEmployee(event.target.value.toLowerCase());
     };
 
     const handlePageChange = (page) => {
@@ -363,9 +363,9 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
             { name: "Date", uid: "date", icon: CalendarDaysIcon, ariaLabel: "Attendance date" }
         ] : []),
         
-        // Member column - only shown in admin/manager view (when user can view all attendance and not on employee page)
+        // Employee column - only shown in admin/manager view (when user can view all attendance and not on employee page)
         ...(canViewAllAttendance && (url !== '/attendance-employee') ? [
-            { name: "Member", uid: "employee", icon: UserIcon, ariaLabel: "Member name and information" }
+            { name: "Employee", uid: "employee", icon: UserIcon, ariaLabel: "Employee name and information" }
         ] : []),
         { name: "Clock In", uid: "clockin_time", icon: ClockIcon, ariaLabel: "All clock in times" },
         { name: "Clock Out", uid: "clockout_time", icon: ClockIcon, ariaLabel: "All clock out times" },
@@ -690,10 +690,10 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
 
     // Sync external employee search
     useEffect(() => {
-        if (externalMember !== undefined) {
-            setMember(externalMember);
+        if (externalEmployee !== undefined) {
+            setEmployee(externalEmployee);
         }
-    }, [externalMember]);
+    }, [externalEmployee]);
 
      // Track if filter data has changed
     useEffect(() => {
@@ -726,7 +726,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
 
 
 
-    // Member view - render only table and pagination without wrapper
+    // Employee view - render only table and pagination without wrapper
 
     return (
     <>
@@ -919,10 +919,10 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
                                                     <div className="col-span-1">
                                                         <Input
                                                             type="text"
-                                                            label="Search Member"
+                                                            label="Search Employee"
                                                             placeholder="Enter employee name"
                                                             value={employee}
-                                                            onChange={(e) => setMember(e.target.value)}
+                                                            onChange={(e) => setEmployee(e.target.value)}
                                                             variant="bordered"
                                                             size="sm"
                                                             radius={getThemeRadius()}
@@ -1012,7 +1012,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
                                                                 className="w-5 h-5"
                                                                 style={{ color: 'var(--theme-success)' }}
                                                             />
-                                                            Present WorkForce ({totalRows})
+                                                            Present Employees ({totalRows})
                                                         </h6>
                                                     </div>
                                                     <div className="flex-1 min-h-0 flex flex-col">
@@ -1025,7 +1025,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
                                                             
                                                                 isCompact
                                                                 removeWrapper
-                                                                aria-label="Member attendance timesheet table"
+                                                                aria-label="Employee attendance timesheet table"
                                                                 isHeaderSticky
                                                                 radius={getThemeRadius()}
                                                                 classNames={{

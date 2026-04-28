@@ -60,7 +60,7 @@ const VALIDATION_CONFIG = {
         pattern: /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
     },
     password: {
-        minLength: 8,
+        minLength: 6,
         maxLength: 128
     }
 };
@@ -183,8 +183,7 @@ export default function Login({
     canResetPassword, 
     deviceBlocked, 
     deviceMessage, 
-    blockedDeviceInfo,
-    captcha
+    blockedDeviceInfo 
 }) {
     // ===== THEME ACCESS =====
     const { themeSettings } = useTheme();
@@ -209,21 +208,12 @@ export default function Login({
     const emailInputRef = useRef(null);
     const passwordInputRef = useRef(null);
     const submitTimeoutRef = useRef(null);
-    const turnstileRef = useRef(null);
-    const turnstileWidgetIdRef = useRef(null);
 
     // ===== CORE FORM STATE =====
     const [formData, setFormData] = useState({
         email: '',
         password: '',
         remember: false
-    });
-
-    // ===== CAPTCHA STATE =====
-    const [captchaState, setCaptchaState] = useState({
-        token: null,
-        isLoading: false,
-        isScriptLoaded: false
     });
 
     // ===== UI STATE =====
@@ -320,19 +310,6 @@ export default function Login({
     }, [validationResults.email.isValid, validationResults.password.isValid]);
 
     /**
-     * Get Turnstile CAPTCHA token from the rendered widget
-     * The widget auto-solves and provides token via callback
-     */
-    const executeCaptcha = useCallback(async () => {
-        if (!captcha?.enabled || !captcha?.required) {
-            return null;
-        }
-
-        // Return the token already captured by the widget callback
-        return captchaState.token;
-    }, [captcha, captchaState.token]);
-
-    /**
      * Main form submission handler
      * Isolated to prevent circular dependencies
      */
@@ -375,19 +352,12 @@ export default function Login({
         }));
 
         try {
-            // Execute CAPTCHA if required
-            let captchaToken = null;
-            if (captcha?.enabled && captcha?.required) {
-                captchaToken = await executeCaptcha();
-            }
-
             // Prepare submission data with unified device payload.
             const deviceLoginPayload = getDeviceLoginPayload();
             const submissionData = {
                 email: formData.email.trim(),
                 password: formData.password,
                 remember: formData.remember,
-                captcha_token: captchaToken,
                 ...deviceLoginPayload,
             };
             
@@ -502,98 +472,20 @@ export default function Login({
         validationResults.email.message, 
         validationResults.password.message,
         focusFirstInvalidField,
-        validationErrors,
-        executeCaptcha,
-        captcha
+        validationErrors
     ]);
 
     // ===== EFFECTS =====
     
-    // Load Turnstile script and render widget when CAPTCHA is enabled and required
-    useEffect(() => {
-        if (!captcha?.enabled || !captcha?.required || !captcha?.site_key) {
-            return;
-        }
-
-        const renderWidget = () => {
-            // Prevent duplicate rendering
-            if (turnstileWidgetIdRef.current !== null) {
-                return;
-            }
-            
-            if (turnstileRef.current && window.turnstile) {
-                try {
-                    // Clear container to avoid stale content
-                    turnstileRef.current.innerHTML = '';
-                    
-                    turnstileWidgetIdRef.current = window.turnstile.render(turnstileRef.current, {
-                        sitekey: captcha.site_key,
-                        callback: (token) => {
-                            setCaptchaState(prev => ({ ...prev, token }));
-                        },
-                        'error-callback': () => {
-                            console.error('Turnstile error');
-                            setCaptchaState(prev => ({ ...prev, token: null }));
-                        },
-                        'expired-callback': () => {
-                            setCaptchaState(prev => ({ ...prev, token: null }));
-                        }
-                    });
-                } catch (error) {
-                    console.error('Failed to render Turnstile widget:', error);
-                }
-            }
-        };
-
-        // If script is already loaded, just render
-        if (window.turnstile) {
-            setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
-            renderWidget();
-        } else {
-            // Check if script tag is already in DOM
-            const existingScript = document.querySelector('script[src*="turnstile/v0/api.js"]');
-            if (existingScript) {
-                existingScript.addEventListener('load', () => {
-                    setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
-                    renderWidget();
-                });
-            } else {
-                // Load script for the first time
-                const script = document.createElement('script');
-                script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
-                script.async = true;
-                script.defer = true;
-                script.onload = () => {
-                    setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
-                    renderWidget();
-                };
-                script.onerror = () => {
-                    console.error('Failed to load Turnstile script');
-                    setCaptchaState(prev => ({ ...prev, isScriptLoaded: false }));
-                };
-                document.head.appendChild(script);
-            }
-        }
-
-        // Cleanup: remove widget on unmount
-        return () => {
-            if (turnstileWidgetIdRef.current !== null && window.turnstile) {
-                try {
-                    window.turnstile.remove(turnstileWidgetIdRef.current);
-                } catch (e) {
-                    // Widget might already be removed
-                }
-                turnstileWidgetIdRef.current = null;
-            }
-        };
-    }, [captcha]);
-
     // Initialize component and ensure theme is applied
     useEffect(() => {
         setUiState(prevState => ({ ...prevState, isLoaded: true }));
         
+        // Force theme application after component mounts
         setTimeout(() => {
             if (typeof window !== 'undefined' && window.document) {
+                // The theme background should already be applied to document.body
+                // This is just to ensure timing is correct
                 console.log('Login component mounted, theme background should be applied');
             }
         }, 100);
@@ -1176,52 +1068,34 @@ export default function Login({
 
                                 {/* Sign In Button */}
                                 <motion.div variants={itemVariants}>
-                                    {/* CAPTCHA Indicator */}
-                                    {captcha?.enabled && captcha?.required && (
-                                        <motion.div 
-                                            initial={{ opacity: 0, y: -10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            className="mb-4"
-                                        >
-                                            {/* Turnstile Widget - rendered explicitly via turnstile.render() */}
-                                            <div 
-                                                ref={turnstileRef}
-                                                className="flex justify-center"
-                                            ></div>
-                                            
-                                            {/* Fallback message if widget doesn't load */}
-                                            {!captchaState.isScriptLoaded && (
-                                                <motion.div 
-                                                    className="mb-4 flex items-center gap-2 text-sm"
-                                                    style={{ color: 'var(--theme-foreground, #11181C)' }}
-                                                >
-                                                    <ShieldCheckIcon className="w-4 h-4" style={{ color: 'var(--theme-primary, #006FEE)' }} />
-                                                    <span>Protected by Turnstile</span>
-                                                    {captchaState.isLoading && <Spinner size="sm" />}
-                                                </motion.div>
-                                            )}
-                                        </motion.div>
-                                    )}
-
                                     <Button
                                         type="submit"
                                         color="primary"
                                         size="lg"
                                         className="w-full font-semibold transition-all duration-300"
-                                        isLoading={uiState.isSubmitting || captchaState.isLoading}
-                                        disabled={uiState.isSubmitting || captchaState.isLoading}
+                                        isLoading={uiState.isSubmitting}
+                                        disabled={uiState.isSubmitting}
                                         spinner={<Spinner size="sm" color="white" />}
-                                        endContent={!uiState.isSubmitting && !captchaState.isLoading && <ArrowRightIcon className="w-4 h-4" />}
+                                        endContent={!uiState.isSubmitting && <ArrowRightIcon className="w-4 h-4" />}
                                         style={{
-                                            background: 'var(--theme-primary, #006FEE)',
-                                            color: 'var(--theme-primary-foreground, #FFFFFF)',
+                                            background: uiState.isSubmitting 
+                                                ? 'color-mix(in srgb, var(--theme-primary, #006FEE) 70%, transparent)' 
+                                                : `linear-gradient(135deg, 
+                                                    var(--theme-primary, #006FEE), 
+                                                    color-mix(in srgb, var(--theme-primary, #006FEE) 90%, var(--theme-secondary, #7C3AED))
+                                                  )`,
+                                            boxShadow: uiState.isSubmitting 
+                                                ? 'none' 
+                                                : `0 8px 24px color-mix(in srgb, var(--theme-primary, #006FEE) 30%, transparent)`,
+                                            transform: uiState.isSubmitting ? 'scale(0.98)' : `scale(var(--scale, 1))`,
                                             borderRadius: `var(--borderRadius, 12px)`,
+                                            fontFamily: 'var(--fontFamily, "Inter")',
                                             borderWidth: 'var(--borderWidth, 2px)',
                                             borderStyle: 'solid',
                                             borderColor: 'transparent'
                                         }}
                                     >
-                                        {(uiState.isSubmitting || captchaState.isLoading) ? 'Verifying...' : 'Sign In'}
+                                        {uiState.isSubmitting ? 'Signing in...' : 'Sign In'}
                                     </Button>
                                 </motion.div>
 

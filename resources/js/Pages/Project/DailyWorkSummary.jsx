@@ -570,7 +570,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                                                         </Select>
                                                         
                                                         {/* In Charge Filter - Multi-select */}
-                                                        {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administratoristrator') || auth.designation === 'Supervision Engineer') && (
+                                                        {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer') && (
                                                             <Select
                                                                 label="In Charge"
                                                                 placeholder="Select in charge..."
@@ -609,7 +609,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                                                         )}
 
                                                         {/* Jurisdiction Filter - Multi-select */}
-                                                        {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administratoristrator') || auth.designation === 'Supervision Engineer') && (
+                                                        {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer') && (
                                                             <Select
                                                                 label="Jurisdiction"
                                                                 placeholder="Select jurisdiction..."

@@ -104,7 +104,7 @@ class PerformanceReview extends Model
     {
         $statusMap = [
             'draft' => 'Draft',
-            'pending_employee' => 'Pending Member Review',
+            'pending_employee' => 'Pending Employee Review',
             'pending_manager' => 'Pending Manager Review',
             'completed' => 'Completed',
             'cancelled' => 'Cancelled',

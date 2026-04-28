@@ -13,8 +13,8 @@
     "Leaves": "请假",
     "Communications": "通讯",
     
-    "WorkForce": "员工",
-    "Member": "员工",
+    "Employees": "员工",
+    "Employee": "员工",
     "Departments": "部门",
     "Designations": "职位",
     
@@ -124,7 +124,7 @@
     "Break": "休息",
     
     "Welcome back, :name!": "欢迎回来，:name！",
-    "Total WorkForce": "员工总数",
+    "Total Employees": "员工总数",
     "Present Today": "今日出勤",
     "On Leave": "请假中",
     "Pending Approvals": "待审批"

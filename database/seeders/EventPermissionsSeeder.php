@@ -29,8 +29,8 @@ class EventPermissionsSeeder extends Seeder
             );
         }
 
-        // Assign permissions to Super Administratoristrator role
-        $superAdmin = Role::where('name', 'Super Administratoristrator')->first();
+        // Assign permissions to Super Administrator role
+        $superAdmin = Role::where('name', 'Super Administrator')->first();
         if ($superAdmin) {
             $superAdmin->givePermissionTo(array_keys($permissions));
         }

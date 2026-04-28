@@ -12,15 +12,6 @@ use Inertia\Inertia;
 
 class DepartmentController extends Controller
 {
-    public function __construct()
-    {
-        // Apply authorization middleware for department management
-        $this->middleware('can:departments.view')->only(['index', 'show', 'getStats']);
-        $this->middleware('can:departments.create')->only(['store']);
-        $this->middleware('can:departments.update')->only(['update', 'updateUserDepartment']);
-        $this->middleware('can:departments.delete')->only(['destroy']);
-    }
-
     /**
      * Display a listing of departments
      */
@@ -46,14 +37,8 @@ class DepartmentController extends Controller
         // Get departments with pagination
         $departments = $query->paginate(10);
 
-        // Scope managers based on permissions
-        $user = Auth::user();
-        if ($user->hasPermissionTo('users.view')) {
-            $managers = User::orderBy('name')->get(['id', 'name']);
-        } else {
-            // Non-admin users only see themselves as potential manager
-            $managers = User::where('id', $user->id)->get(['id', 'name']);
-        }
+        // Get all employees for manager dropdown
+        $managers = User::orderBy('name')->get(['id', 'name']);
 
         // Get parent departments for dropdown
         $parentDepartments = Department::whereNull('parent_id')

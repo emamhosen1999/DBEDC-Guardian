@@ -60,7 +60,7 @@ class TrainingController extends Controller
     {
         return Inertia::render('HR/Training/Create', [
             'categories' => TrainingCategory::where('is_active', true)->get(['id', 'name']),
-            'instructors' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Member'])->get(['id', 'name']),
+            'instructors' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Employee'])->get(['id', 'name']),
             'departments' => Department::all(['id', 'name']),
             'types' => [
                 ['id' => 'course', 'name' => 'Course'],
@@ -161,7 +161,7 @@ class TrainingController extends Controller
         return Inertia::render('HR/Training/Edit', [
             'training' => $training,
             'categories' => TrainingCategory::where('is_active', true)->get(['id', 'name']),
-            'instructors' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Member'])->get(['id', 'name']),
+            'instructors' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Employee'])->get(['id', 'name']),
             'departments' => Department::all(['id', 'name']),
             'types' => [
                 ['id' => 'course', 'name' => 'Course'],

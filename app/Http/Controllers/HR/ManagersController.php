@@ -15,7 +15,7 @@ class ManagersController extends Controller
     public function index()
     {
         // Use the same query as in RecruitmentController
-        $managers = User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])
+        $managers = User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])
             ->select('id', 'name')
             ->orderBy('name')
             ->get();

@@ -61,7 +61,7 @@ class RecruitmentController extends Controller
             'jobs' => $jobs,
             'filters' => $request->only(['search', 'status', 'department_id', 'job_type', 'sort_by', 'sort_order']),
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],
@@ -129,7 +129,7 @@ class RecruitmentController extends Controller
             'jobs' => $jobs,
             'filters' => $request->only(['search', 'status', 'department_id', 'job_type', 'sort_by', 'sort_order']),
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],
@@ -360,7 +360,7 @@ class RecruitmentController extends Controller
             'daysUntilClosing' => $job->daysUntilClosing(),
             // Add dropdown data for forms, same as in index method
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],
@@ -454,7 +454,7 @@ class RecruitmentController extends Controller
             'daysUntilClosing' => $job->daysUntilClosing(),
             // Add dropdown data for forms, same as in index and show methods
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],
@@ -724,7 +724,7 @@ class RecruitmentController extends Controller
             'existingUsers' => User::select('id', 'name', 'email', 'phone')->get(),
             'sources' => [
                 ['id' => 'internal', 'name' => 'Internal Posting'],
-                ['id' => 'referral', 'name' => 'Member Referral'],
+                ['id' => 'referral', 'name' => 'Employee Referral'],
                 ['id' => 'website', 'name' => 'Company Website'],
                 ['id' => 'linkedin', 'name' => 'LinkedIn'],
                 ['id' => 'indeed', 'name' => 'Indeed'],
@@ -906,7 +906,7 @@ class RecruitmentController extends Controller
             'job' => Job::findOrFail($id),
             'application' => $application,
             'interviews' => $interviews,
-            'interviewers' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Member'])->get(['id', 'name']),
+            'interviewers' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Employee'])->get(['id', 'name']),
             'interviewTypes' => [
                 ['id' => 'phone', 'name' => 'Phone Interview'],
                 ['id' => 'video', 'name' => 'Video Interview'],

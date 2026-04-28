@@ -20,7 +20,7 @@ class AssignSuperAdminRole extends Command
      *
      * @var string
      */
-    protected $description = 'Assign Super Administratoristrator role to a user';
+    protected $description = 'Assign Super Administrator role to a user';
 
     /**
      * Execute the console command.
@@ -46,18 +46,18 @@ class AssignSuperAdminRole extends Command
             }
         }
 
-        // Check if Super Administratoristrator role exists
-        $superAdminRole = Role::where('name', 'Super Administratoristrator')->first();
+        // Check if Super Administrator role exists
+        $superAdminRole = Role::where('name', 'Super Administrator')->first();
         if (! $superAdminRole) {
-            $this->error('Super Administratoristrator role not found. Please run the seeder first.');
+            $this->error('Super Administrator role not found. Please run the seeder first.');
 
             return 1;
         }
 
         // Assign the role
-        $user->assignRole('Super Administratoristrator');
+        $user->assignRole('Super Administrator');
 
-        $this->info("Super Administratoristrator role assigned to: {$user->name} ({$user->email})");
+        $this->info("Super Administrator role assigned to: {$user->name} ({$user->email})");
 
         return 0;
     }

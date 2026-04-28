@@ -1,6 +1,6 @@
 // filepath: d:\Laravel Projects\glassERP\resources\js\hooks/usePerformance.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import webVitalsMonitor, { measureFeatureLoad, measureComponentRender } from '@/utils/webVitals';
+import webVitalsMonitor, { measureFeatureLoad, measureComponentRender } from '../utils/webVitals';
 
 /**
  * Glass ERP Performance Hook

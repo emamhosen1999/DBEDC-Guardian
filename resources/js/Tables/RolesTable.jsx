@@ -115,7 +115,7 @@ const RolesTable = ({
                   <p className="font-semibold text-foreground text-left whitespace-nowrap">
                     {role.name}
                   </p>
-                  {role.name === 'Super Administratoristrator' && (
+                  {role.name === 'Super Administrator' && (
                     <Chip size="sm" color="warning" variant="flat">
                       System
                     </Chip>

@@ -227,7 +227,7 @@ class WebVitalsMonitor {
             '/administration': 'Administration',
             '/attendance': 'Attendance',
             '/communication': 'Communication',
-            '/employee-management': 'Member Management',
+            '/employee-management': 'Employee Management',
             '/events': 'Events',
             '/leave-management': 'Leave Management',
             '/project-management': 'Project Management'
@@ -261,7 +261,7 @@ class WebVitalsMonitor {
             'administration': { name: 'Administration', priority: 'high' },
             'attendance': { name: 'Attendance', priority: 'high' },
             'communication': { name: 'Communication', priority: 'medium' },
-            'employee-management': { name: 'Member Management', priority: 'high' },
+            'employee-management': { name: 'Employee Management', priority: 'high' },
             'events': { name: 'Events', priority: 'low' },
             'leave-management': { name: 'Leave Management', priority: 'high' },
             'project-management': { name: 'Project Management', priority: 'high' }

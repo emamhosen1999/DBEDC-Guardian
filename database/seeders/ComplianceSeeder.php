@@ -98,7 +98,7 @@ class ComplianceSeeder extends Seeder
         $complianceOfficer = Role::firstOrCreate(['name' => 'compliance-officer']);
         $employee = Role::firstOrCreate(['name' => 'employee']);
 
-        // Super Administrator gets all permissions
+        // Super Admin gets all permissions
         $superAdmin->givePermissionTo(Permission::where('name', 'like', 'compliance.%')->get());
 
         // Admin gets most permissions
@@ -160,7 +160,7 @@ class ComplianceSeeder extends Seeder
         ];
         $complianceOfficer->givePermissionTo($officerPermissions);
 
-        // Member gets basic view and acknowledge permissions
+        // Employee gets basic view and acknowledge permissions
         $employeePermissions = [
             'compliance.dashboard.view',
             'compliance.policies.view',

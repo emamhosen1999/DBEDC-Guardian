@@ -20,7 +20,7 @@ class AssignUserRoles extends Command
      *
      * @var string
      */
-    protected $description = 'Assign Super Administratoristrator role to specific user and Member role to all others';
+    protected $description = 'Assign Super Administrator role to specific user and Employee role to all others';
 
     /**
      * Execute the console command.
@@ -30,8 +30,8 @@ class AssignUserRoles extends Command
         $superAdminId = $this->argument('super-admin-id') ?? 18;
 
         // Check if roles exist
-        $superAdminRole = Role::where('name', 'Super Administratoristrator')->first();
-        $employeeRole = Role::where('name', 'Member')->first();
+        $superAdminRole = Role::where('name', 'Super Administrator')->first();
+        $employeeRole = Role::where('name', 'Employee')->first();
 
         if (! $superAdminRole || ! $employeeRole) {
             $this->error('Required roles not found. Please run the seeder first.');
@@ -65,31 +65,31 @@ class AssignUserRoles extends Command
             $user->syncRoles([]);
 
             if ($user->id == $superAdminId) {
-                $user->assignRole('Super Administratoristrator');
+                $user->assignRole('Super Administrator');
                 $superAdminUser = $user;
-                $this->info("✅ Super Administratoristrator role assigned to: {$user->name} (ID: {$user->id}, Email: {$user->email})");
+                $this->info("✅ Super Administrator role assigned to: {$user->name} (ID: {$user->id}, Email: {$user->email})");
             } else {
-                $user->assignRole('Member');
+                $user->assignRole('Employee');
                 $employeeCount++;
             }
         }
 
         if (! $superAdminUser) {
-            $this->warn("⚠️  User with ID {$superAdminId} not found. No Super Administratoristrator assigned.");
+            $this->warn("⚠️  User with ID {$superAdminId} not found. No Super Administrator assigned.");
         }
 
-        $this->info("✅ Member role assigned to {$employeeCount} users.");
+        $this->info("✅ Employee role assigned to {$employeeCount} users.");
         $this->info('🎉 Role assignment completed successfully!');
 
         // Verify the assignments
         $this->info('Verifying role assignments...');
 
-        // Check if user with provided ID has Super Administratoristrator role
+        // Check if user with provided ID has Super Administrator role
         $verificationSuperAdmin = User::find($superAdminId);
-        if ($verificationSuperAdmin && $verificationSuperAdmin->hasRole('Super Administratoristrator')) {
-            $this->info("✅ Verified: User {$superAdminId} has Super Administratoristrator role");
+        if ($verificationSuperAdmin && $verificationSuperAdmin->hasRole('Super Administrator')) {
+            $this->info("✅ Verified: User {$superAdminId} has Super Administrator role");
         } elseif ($verificationSuperAdmin) {
-            $this->error("❌ Verification failed: User {$superAdminId} does NOT have Super Administratoristrator role");
+            $this->error("❌ Verification failed: User {$superAdminId} does NOT have Super Administrator role");
         }
 
         // Reset permissions cache again

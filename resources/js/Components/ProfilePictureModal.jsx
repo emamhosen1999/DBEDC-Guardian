@@ -296,7 +296,7 @@ const ProfilePictureModal = ({
                                 Update Profile Picture
                             </h3>
                             <p className="text-sm text-gray-500">
-                                {employee?.name || 'Member'}
+                                {employee?.name || 'Employee'}
                             </p>
                         </div>
                     </div>
@@ -314,7 +314,7 @@ const ProfilePictureModal = ({
                 <div className="flex justify-center mb-6">
                     <ProfileAvatar
                         src={previewUrl || currentProfileImage || undefined}
-                        name={employee?.name || 'Member'}
+                        name={employee?.name || 'Employee'}
                         size="lg"
                         className="w-24 h-24"
                         showBorder

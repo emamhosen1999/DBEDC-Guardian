@@ -961,14 +961,28 @@ class SyncController extends Controller
         }
 
         $hasPivotTable = Schema::hasTable('daily_work_objection');
-        if (! $hasPivotTable) {
+        $hasLegacyColumn = Schema::hasColumn('rfi_objections', 'daily_work_id');
+
+        if (! $hasPivotTable && ! $hasLegacyColumn) {
             return null;
         }
 
         return RfiObjection::query()
             ->where('id', $objectionId)
-            ->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {
-                $dailyWorkQuery->where('daily_works.id', $dailyWorkId);
+            ->where(function ($objectionQuery) use ($dailyWorkId, $hasPivotTable, $hasLegacyColumn) {
+                if ($hasPivotTable) {
+                    $objectionQuery->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {
+                        $dailyWorkQuery->where('daily_works.id', $dailyWorkId);
+                    });
+                }
+
+                if ($hasLegacyColumn) {
+                    if ($hasPivotTable) {
+                        $objectionQuery->orWhere('daily_work_id', $dailyWorkId);
+                    } else {
+                        $objectionQuery->where('daily_work_id', $dailyWorkId);
+                    }
+                }
             })
             ->first();
     }
@@ -1166,12 +1180,12 @@ class SyncController extends Controller
     private function isPrivilegedUser(User $user): bool
     {
         return $user->hasRole([
-            'Super Administrator',
+            'Super Admin',
             'Admin',
             'HR Manager',
             'Project Manager',
             'Consultant',
-            'Super Administratoristrator',
+            'Super Administrator',
             'Administrator',
         ]);
     }

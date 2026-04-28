@@ -33,8 +33,8 @@ class OnboardingPolicy
             return $onboarding->employee && $onboarding->employee->department_id === $user->department_id;
         }
 
-        // WorkForce can only see their own onboarding
-        if ($user->hasRole('Member')) {
+        // Employees can only see their own onboarding
+        if ($user->hasRole('Employee')) {
             return $onboarding->employee_id === $user->id;
         }
 

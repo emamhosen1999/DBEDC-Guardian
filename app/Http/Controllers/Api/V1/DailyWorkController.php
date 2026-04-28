@@ -420,9 +420,16 @@ class DailyWorkController extends Controller
         $query = RfiObjection::query()
             ->select('rfi_objections.*')
             ->with(['createdBy:id,name'])
-            ->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWork) {
-                $dailyWorkQuery->where('daily_works.id', $dailyWork->id);
-            });
+            ->where(function ($objectionQuery) use ($dailyWork) {
+                $objectionQuery->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWork) {
+                    $dailyWorkQuery->where('daily_works.id', $dailyWork->id);
+                });
+
+                if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
+                    $objectionQuery->orWhere('daily_work_id', $dailyWork->id);
+                }
+            })
+            ->distinct();
 
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
@@ -496,15 +503,21 @@ class DailyWorkController extends Controller
                 $objection->chainage_to = $rangeTo;
             }
 
+            if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
+                $objection->setAttribute('daily_work_id', $dailyWork->id);
+            }
+
             $objection->save();
 
-            $objection->dailyWorks()->syncWithoutDetaching([
-                $dailyWork->id => [
-                    'attached_by' => $request->user()->id,
-                    'attached_at' => now(),
-                    'attachment_notes' => $request->input('attachment_notes'),
-                ],
-            ]);
+            if (Schema::hasTable('daily_work_objection')) {
+                $objection->dailyWorks()->syncWithoutDetaching([
+                    $dailyWork->id => [
+                        'attached_by' => $request->user()->id,
+                        'attached_at' => now(),
+                        'attachment_notes' => $request->input('attachment_notes'),
+                    ],
+                ]);
+            }
 
             if (Schema::hasTable('objection_chainages')) {
                 $specificChainages = array_values(array_filter(
@@ -1153,22 +1166,28 @@ class DailyWorkController extends Controller
         return RfiObjection::query()
             ->with(['createdBy:id,name'])
             ->where('id', $objectionId)
-            ->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {
-                $dailyWorkQuery->where('daily_works.id', $dailyWorkId);
+            ->where(function ($objectionQuery) use ($dailyWorkId) {
+                $objectionQuery->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {
+                    $dailyWorkQuery->where('daily_works.id', $dailyWorkId);
+                });
+
+                if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
+                    $objectionQuery->orWhere('daily_work_id', $dailyWorkId);
+                }
             })
             ->first();
     }
 
     private function isPrivilegedUser(User $user): bool
     {
-        return $user->hasRoleCached([
-            'Super Administrator',
+        return $user->hasRole([
+            'Super Admin',
             'Admin',
             'Daily Work Manager',
             'HR Manager',
             'Project Manager',
             'Consultant',
-            'Super Administratoristrator',
+            'Super Administrator',
             'Administrator',
         ]);
     }

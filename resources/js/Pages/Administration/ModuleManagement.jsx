@@ -139,7 +139,7 @@ const formatEntityDisplayName = (entityKey) => {
 
 /**
  * Format permission name to a readable display name
- * Converts "employees.view" to "View WorkForce"
+ * Converts "employees.view" to "View Employees"
  */
 const formatPermissionDisplayName = (permissionName) => {
     const parts = permissionName.split('.');

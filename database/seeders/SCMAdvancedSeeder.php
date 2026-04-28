@@ -63,7 +63,7 @@ class SCMAdvancedSeeder extends Seeder
         }
 
         // Assign permissions to roles
-        $superAdminRole = Role::where('name', 'Super Administrator')->first();
+        $superAdminRole = Role::where('name', 'Super Admin')->first();
         $adminRole = Role::where('name', 'Admin')->first();
         $managerRole = Role::where('name', 'Manager')->first();
         $userRole = Role::where('name', 'User')->first();

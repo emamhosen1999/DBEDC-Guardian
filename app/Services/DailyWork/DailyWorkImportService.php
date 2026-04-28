@@ -34,38 +34,26 @@ class DailyWorkImportService
         $path = $request->file('file')->store('temp');
         $importedSheets = Excel::toArray(new DailyWorkImport, $path);
 
-        // Validate all sheets and build preview summary
-        $preview = [];
-        $allDates = [];
-
+        // Validate all sheets
         foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
             if (empty($importedDailyWorks)) {
                 continue;
             }
 
             $this->validationService->validateImportedData($importedDailyWorks, $sheetIndex);
-
-            $date = $importedDailyWorks[0][0];
-            $allDates[] = $date;
-
-            $sheetSummary = $this->buildSheetPreview($importedDailyWorks, $date);
-            $preview[] = [
-                'sheet' => $sheetIndex + 1,
-                'date' => $date,
-                'total_rows' => count($importedDailyWorks),
-                'summary' => $sheetSummary,
-            ];
         }
 
-        // Check for duplicate dates
-        $existingDates = DailyWorkSummary::whereIn('date', $allDates)->pluck('date')->toArray();
-        if (!empty($existingDates)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'file' => 'Import contains data for dates that already exist in the system: '.implode(', ', $existingDates).'. Please remove these dates from the import file or delete existing data first.'
-            ]);
+        // Generate preview summary without processing
+        $summary = [];
+        foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
+            if (empty($importedDailyWorks)) {
+                continue;
+            }
+
+            $summary[] = $this->generateSheetSummary($importedDailyWorks, $sheetIndex);
         }
 
-        return $preview;
+        return $summary;
     }
 
     /**
@@ -78,23 +66,6 @@ class DailyWorkImportService
         $path = $request->file('file')->store('temp');
         $importedSheets = Excel::toArray(new DailyWorkImport, $path);
 
-        // Extract all dates for duplicate check
-        $allDates = [];
-        foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
-            if (empty($importedDailyWorks)) {
-                continue;
-            }
-            $allDates[] = $importedDailyWorks[0][0];
-        }
-
-        // Check for duplicate dates before processing
-        $existingDates = DailyWorkSummary::whereIn('date', $allDates)->pluck('date')->toArray();
-        if (!empty($existingDates)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'file' => 'Import contains data for dates that already exist in the system: '.implode(', ', $existingDates).'. Please remove these dates from the import file or delete existing data first.'
-            ]);
-        }
-
         // First pass: Validate all sheets
         foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
             if (empty($importedDailyWorks)) {
@@ -103,6 +74,9 @@ class DailyWorkImportService
 
             $this->validationService->validateImportedData($importedDailyWorks, $sheetIndex);
         }
+
+        // Check for duplicate dates before processing
+        $this->validateDuplicateDates($importedSheets);
 
         // Second pass: Process the data within a transaction
         return DB::transaction(function () use ($importedSheets) {
@@ -121,16 +95,14 @@ class DailyWorkImportService
     }
 
     /**
-     * Build preview summary for a sheet
+     * Generate summary for a single sheet (preview mode)
      */
-    private function buildSheetPreview(array $importedDailyWorks, string $date): array
+    private function generateSheetSummary(array $importedDailyWorks, int $sheetIndex): array
     {
-        $summary = [
-            'new_works' => 0,
-            'existing_works' => 0,
-            'resubmissions' => 0,
-            'skipped_completed' => 0,
-        ];
+        $date = $importedDailyWorks[0][0];
+        $newWorks = 0;
+        $resubmissions = 0;
+        $skipped = 0;
 
         foreach ($importedDailyWorks as $importedDailyWork) {
             $existingDailyWork = DailyWork::where('number', $importedDailyWork[1])->first();
@@ -138,18 +110,47 @@ class DailyWorkImportService
             if ($existingDailyWork) {
                 // Check if completed with pass/fail
                 if ($existingDailyWork->status === DailyWork::STATUS_COMPLETED &&
-                    in_array($existingDailyWork->inspection_result, [DailyWork::INSPECTION_PASS, DailyWork::INSPECTION_FAIL])) {
-                    $summary['skipped_completed']++;
+                    in_array($existingDailyWork->inspection_result, ['pass', 'fail'])) {
+                    $skipped++;
                 } else {
-                    $summary['resubmissions']++;
+                    $resubmissions++;
                 }
-                $summary['existing_works']++;
             } else {
-                $summary['new_works']++;
+                $newWorks++;
             }
         }
 
-        return $summary;
+        return [
+            'sheet' => $sheetIndex + 1,
+            'date' => $date,
+            'total_rows' => count($importedDailyWorks),
+            'new_works' => $newWorks,
+            'resubmissions' => $resubmissions,
+            'skipped' => $skipped,
+        ];
+    }
+
+    /**
+     * Validate that import dates don't already exist in daily_work_summaries
+     */
+    private function validateDuplicateDates(array $importedSheets): void
+    {
+        $dates = [];
+        foreach ($importedSheets as $importedDailyWorks) {
+            if (empty($importedDailyWorks)) {
+                continue;
+            }
+            $date = $importedDailyWorks[0][0];
+            $dates[] = $date;
+        }
+
+        $existingDates = DailyWorkSummary::whereIn('date', $dates)->pluck('date')->toArray();
+
+        if (! empty($existingDates)) {
+            throw ValidationException::withMessages([
+                'date' => 'Import contains data for dates that already exist in the system: '.implode(', ', $existingDates).'. Please remove these dates from the import file or delete existing data first.',
+            ]);
+        }
     }
 
     /**
@@ -168,7 +169,7 @@ class DailyWorkImportService
             }
         }
 
-        // Create daily summaries (immutable - use create instead of updateOrCreate)
+        // Create or update daily summaries
         $this->createDailySummaries($inChargeSummary, $date);
 
         return [
@@ -243,14 +244,14 @@ class DailyWorkImportService
     }
 
     /**
-     * Handle resubmission of existing daily work - update in-place
+     * Handle resubmission of existing daily work
      */
     private function handleResubmission(DailyWork $existingDailyWork, array $importedDailyWork, array &$summary, int $inChargeId): void
     {
-        // Check if existing work is completed with pass/fail - skip update
+        // Check if work is completed with pass/fail - skip update if so
         if ($existingDailyWork->status === DailyWork::STATUS_COMPLETED &&
-            in_array($existingDailyWork->inspection_result, [DailyWork::INSPECTION_PASS, DailyWork::INSPECTION_FAIL])) {
-            // Log::info('Skipping update for completed daily work: '.$existingDailyWork->number.' (inspection result: '.$existingDailyWork->inspection_result.')');
+            in_array($existingDailyWork->inspection_result, ['pass', 'fail'])) {
+            Log::info('Skipping update for completed work with pass/fail: '.$existingDailyWork->number);
             return;
         }
 
@@ -258,9 +259,10 @@ class DailyWorkImportService
         $resubmissionCount = ($existingDailyWork->resubmission_count ?? 0) + 1;
         $resubmissionDate = $this->getResubmissionDate($existingDailyWork, $resubmissionCount);
 
-        // Update existing record in-place
+        // Update existing record in-place instead of creating new one
         $existingDailyWork->update([
             'date' => $importedDailyWork[0], // Always use date from import file
+            'number' => $importedDailyWork[1],
             'type' => $importedDailyWork[2],
             'description' => $importedDailyWork[3],
             'location' => $importedDailyWork[4],

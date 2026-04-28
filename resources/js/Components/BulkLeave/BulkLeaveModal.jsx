@@ -24,7 +24,7 @@ import {
 import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
-import DepartmentMemberSelector from "@/Components/DepartmentMemberSelector.jsx";
+import DepartmentEmployeeSelector from "@/Components/DepartmentEmployeeSelector.jsx";
 import BulkCalendar from './BulkCalendar';
 import BulkValidationPreview from './BulkValidationPreview';
 
@@ -456,11 +456,11 @@ const BulkLeaveModal = ({
                                 <div className="flex flex-col gap-4">
                                     {/* Department & User Selection (Admin only) */}
                                     {isAdmin && allUsers.length > 0 && (
-                                        <DepartmentMemberSelector
+                                        <DepartmentEmployeeSelector
                                             selectedDepartmentId={selectedDepartmentId}
-                                            selectedMemberId={selectedUserId}
+                                            selectedEmployeeId={selectedUserId}
                                             onDepartmentChange={setSelectedDepartmentId}
-                                            onMemberChange={(empId) => {
+                                            onEmployeeChange={(empId) => {
                                                 setSelectedUserId(empId);
                                                 setSelectedLeaveType(''); // Reset leave type when user changes
                                                 setHasValidated(false);

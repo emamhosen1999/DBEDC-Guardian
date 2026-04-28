@@ -103,7 +103,7 @@ const TimeSheet = ({ title, allUsers }) => {
                 icon: <CheckCircleIcon className="w-5 h-5" />,
                 color: 'text-green-400',
                 iconBg: 'bg-green-500/20',
-                description: 'WorkForce present'
+                description: 'Employees present'
             },
             {
                 title: 'Absent Today',
@@ -111,10 +111,10 @@ const TimeSheet = ({ title, allUsers }) => {
                 icon: <UserPlusIcon className="w-5 h-5" />,
                 color: 'text-red-400',
                 iconBg: 'bg-red-500/20',
-                description: 'WorkForce absent'
+                description: 'Employees absent'
             },
             {
-                title: 'Total WorkForce',
+                title: 'Total Employees',
                 value: allUsers?.length || 0,
                 icon: <ChartBarIcon className="w-5 h-5" />,
                 color: 'text-blue-400',
@@ -158,7 +158,7 @@ const TimeSheet = ({ title, allUsers }) => {
                                                 selectedDate={selectedDate}
                                                 updateTimeSheet={updateTimeSheet}
                                                 externalFilterData={filterData}
-                                                externalMember=""
+                                                externalEmployee=""
                                                 onMarkAsPresent={handleMarkAsPresent}
                                             />
         </>

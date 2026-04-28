@@ -72,7 +72,7 @@ class Designation extends Model
     }
 
     // Accessors
-    public function getMemberCountAttribute(): int
+    public function getEmployeeCountAttribute(): int
     {
         return $this->users()->count(); // note: better to use withCount() outside
     }

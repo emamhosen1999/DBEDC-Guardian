@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\ModernAuthenticationService;
-use App\Services\PasswordPolicyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -19,12 +18,10 @@ use Inertia\Response;
 class PasswordResetController extends Controller
 {
     protected ModernAuthenticationService $authService;
-    protected PasswordPolicyService $passwordPolicyService;
 
-    public function __construct(ModernAuthenticationService $authService, PasswordPolicyService $passwordPolicyService)
+    public function __construct(ModernAuthenticationService $authService)
     {
         $this->authService = $authService;
-        $this->passwordPolicyService = $passwordPolicyService;
     }
 
     /**
@@ -105,7 +102,7 @@ class PasswordResetController extends Controller
             'token' => 'required',
             'email' => 'required|email',
             'verification_code' => 'required|string|size:6',
-            'password' => 'required|confirmed|min:8|max:128',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $email = $request->email;
@@ -129,14 +126,6 @@ class PasswordResetController extends Controller
             ]);
         }
 
-        // Password policy validation
-        $passwordErrors = $this->passwordPolicyService->validatePassword($password, $user);
-        if (! empty($passwordErrors)) {
-            throw ValidationException::withMessages([
-                'password' => implode(' ', $passwordErrors),
-            ]);
-        }
-
         // Verify token and code
         if (! $this->authService->verifyPasswordResetToken($email, $token, $verificationCode)) {
             $this->authService->logAuthenticationEvent(
@@ -152,9 +141,10 @@ class PasswordResetController extends Controller
             ]);
         }
 
-        // Update password with history tracking
-        $hashedPassword = Hash::make($password);
-        $this->passwordPolicyService->updatePasswordHistory($user, $hashedPassword);
+        // Update password
+        $user->update([
+            'password' => Hash::make($password),
+        ]);
 
         // Clean up reset tokens for this email
         DB::table('password_reset_tokens_secure')

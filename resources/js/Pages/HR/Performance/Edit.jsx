@@ -33,7 +33,7 @@ export default function PerformanceEdit({ review, employees = [], reviewers = []
                 <form onSubmit={submit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-gray-700">Member</label>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">Employee</label>
                             <select value={data.employee_id} onChange={(e) => setData('employee_id', e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
                                 <option value="">Select employee</option>
                                 {employees.map((emp) => (

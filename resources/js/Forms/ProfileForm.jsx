@@ -535,7 +535,7 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                 </div>
                                 <div>
                                     <Input
-                                        label="Member ID"
+                                        label="Employee ID"
                                         value={changedUserData.employee_id || initialUserData.employee_id || ''}
                                         onChange={(e) => handleChange('employee_id', e.target.value)}
                                         isInvalid={Boolean(errors.employee_id)}

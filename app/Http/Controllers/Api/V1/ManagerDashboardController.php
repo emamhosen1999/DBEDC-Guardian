@@ -137,7 +137,7 @@ class ManagerDashboardController extends Controller
         $queryRangeEnd = $windowDefinitions[2]['to']->toDateString();
         $hasLeaveSettingsTable = Schema::hasTable('leave_settings');
         $hasLeaveSymbolColumn = $hasLeaveSettingsTable && Schema::hasColumn('leave_settings', 'symbol');
-        $hasMemberCodeColumn = Schema::hasColumn('users', 'employee_id');
+        $hasEmployeeCodeColumn = Schema::hasColumn('users', 'employee_id');
         $hasProfileImageColumn = Schema::hasColumn('users', 'profile_image');
 
         $leaveQuery = DB::table('leaves')
@@ -164,7 +164,7 @@ class ManagerDashboardController extends Controller
             'users.name as employee_name',
         ];
 
-        if ($hasMemberCodeColumn) {
+        if ($hasEmployeeCodeColumn) {
             $selectColumns[] = 'users.employee_id as employee_code';
         } else {
             $selectColumns[] = DB::raw('NULL as employee_code');
@@ -465,7 +465,9 @@ class ManagerDashboardController extends Controller
         }
 
         $hasPivotTable = Schema::hasTable('daily_work_objection');
-        if (! $hasPivotTable) {
+        $hasLegacyColumn = Schema::hasColumn('rfi_objections', 'daily_work_id');
+
+        if (! $hasPivotTable && ! $hasLegacyColumn) {
             return [
                 'submitted' => 0,
                 'under_review' => 0,
@@ -475,8 +477,20 @@ class ManagerDashboardController extends Controller
 
         $objections = RfiObjection::query()
             ->select('rfi_objections.id', 'rfi_objections.status')
-            ->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkIds) {
-                $dailyWorkQuery->whereIn('daily_works.id', $dailyWorkIds);
+            ->where(function ($query) use ($dailyWorkIds, $hasLegacyColumn, $hasPivotTable) {
+                if ($hasPivotTable) {
+                    $query->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkIds) {
+                        $dailyWorkQuery->whereIn('daily_works.id', $dailyWorkIds);
+                    });
+                }
+
+                if ($hasLegacyColumn) {
+                    if ($hasPivotTable) {
+                        $query->orWhereIn('daily_work_id', $dailyWorkIds);
+                    } else {
+                        $query->whereIn('daily_work_id', $dailyWorkIds);
+                    }
+                }
             })
             ->distinct()
             ->get();
@@ -523,12 +537,12 @@ class ManagerDashboardController extends Controller
     private function isManagerUser(User $user): bool
     {
         return $user->hasRole([
-            'Super Administrator',
+            'Super Admin',
             'Admin',
             'HR Manager',
             'Project Manager',
             'Consultant',
-            'Super Administratoristrator',
+            'Super Administrator',
             'Administrator',
         ]);
     }
@@ -536,10 +550,10 @@ class ManagerDashboardController extends Controller
     private function isAdminLikeUser(User $user): bool
     {
         return $user->hasRole([
-            'Super Administrator',
+            'Super Admin',
             'Admin',
             'HR Manager',
-            'Super Administratoristrator',
+            'Super Administrator',
             'Administrator',
         ]);
     }

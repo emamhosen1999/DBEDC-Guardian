@@ -1089,7 +1089,7 @@ const PunchStatusCard = React.memo(() => {
 
     // ===== RENDER =====
     return (
-        <div className="flex flex-col w-full h-full">
+        <div className="flex flex-col w-full h-full p-4">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@nextui-org/react';
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, EllipsisVerticalIcon } from '@heroicons/react/24/outline';
-import GlassCard from '@/Components/GlassCard';
+import GlassCard from '../GlassCard.jsx';
 
 
 const MetricsWidget = ({ 

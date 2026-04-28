@@ -95,14 +95,14 @@ class ExtendHrmModule extends Command
 
         $this->info('✅ HRM module has been extended with ISO-compliant features.');
         $this->info('The following features have been added:');
-        $this->info('1. Member Onboarding & Offboarding');
+        $this->info('1. Employee Onboarding & Offboarding');
         $this->info('2. Skills & Competency Management');
-        $this->info('3. Member Benefits Administration');
+        $this->info('3. Employee Benefits Administration');
         $this->info('4. Enhanced Time-off Management');
         $this->info('5. Workplace Health & Safety');
         $this->info('6. HR Analytics & Reporting');
         $this->info('7. HR Document Management');
-        $this->info('8. Enhanced Member Self-Service Portal');
+        $this->info('8. Enhanced Employee Self-Service Portal');
 
         // Show final migration status
         $this->info('Final migration status:');

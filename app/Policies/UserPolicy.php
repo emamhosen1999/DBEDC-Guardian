@@ -41,8 +41,8 @@ class UserPolicy
             return true;
         }
 
-        // Super Administrators can update anyone
-        if ($user->hasRole('Super Administratoristrator')) {
+        // Super admins can update anyone
+        if ($user->hasRole('Super Administrator')) {
             return true;
         }
 
@@ -70,8 +70,8 @@ class UserPolicy
             return false;
         }
 
-        // Super Administrators can delete anyone
-        if ($user->hasRole('Super Administratoristrator')) {
+        // Super admins can delete anyone
+        if ($user->hasRole('Super Administrator')) {
             return true;
         }
 
@@ -96,8 +96,8 @@ class UserPolicy
      */
     public function forceDelete(User $user, User $model): bool
     {
-        // Only Super Administratoristrators can permanently delete
-        return $user->hasRole('Super Administratoristrator');
+        // Only super administrators can permanently delete
+        return $user->hasRole('Super Administrator');
     }
 
     /**
@@ -111,7 +111,7 @@ class UserPolicy
         }
 
         return $user->hasPermissionTo('users.update') &&
-               $user->hasRole(['Super Administratoristrator', 'Administrator']);
+               $user->hasRole(['Super Administrator', 'Administrator']);
     }
 
     /**
@@ -147,7 +147,7 @@ class UserPolicy
     public function updateDepartment(User $user, User $model): bool
     {
         // HR managers and admins can update departments
-        return $user->hasRole(['Super Administratoristrator', 'Administrator', 'HR Manager']) &&
+        return $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) &&
                $user->hasPermissionTo('users.update');
     }
 
@@ -157,7 +157,7 @@ class UserPolicy
     public function updateDesignation(User $user, User $model): bool
     {
         // HR managers and admins can update designations
-        return $user->hasRole(['Super Administratoristrator', 'Administrator', 'HR Manager']) &&
+        return $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) &&
                $user->hasPermissionTo('users.update');
     }
 
@@ -167,7 +167,7 @@ class UserPolicy
     public function updateAttendanceType(User $user, User $model): bool
     {
         // HR managers and admins can update attendance types
-        return $user->hasRole(['Super Administratoristrator', 'Administrator', 'HR Manager']) &&
+        return $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) &&
                $user->hasPermissionTo('users.update');
     }
 }

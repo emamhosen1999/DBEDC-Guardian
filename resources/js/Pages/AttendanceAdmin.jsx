@@ -49,7 +49,7 @@ const getThemeRadius = () => {
 
 
 const AttendanceAdmin = React.memo(({title}) => {
-    // Custom media query logic - matching AttendanceMember
+    // Custom media query logic - matching AttendanceEmployee
     const [isMobile, setIsMobile] = useState(false);
     const [isTablet, setIsTablet] = useState(false);
     const [isLargeScreen, setIsLargeScreen] = useState(false);
@@ -77,7 +77,7 @@ const AttendanceAdmin = React.memo(({title}) => {
 
     const [totalRows, setTotalRows] = useState(0);
     const [lastPage, setLastPage] = useState(0);
-    const [employee, setMember] = useState('');
+    const [employee, setEmployee] = useState('');
     const [perPage, setPerPage] = useState(30);
     const [currentPage, setCurrentPage] = useState(1);
     const [downloading, setDownloading] = useState('');
@@ -172,7 +172,7 @@ const AttendanceAdmin = React.memo(({title}) => {
 
     const handleSearch = (event) => {
         const value = event.target.value.toLowerCase();
-        setMember(value);
+        setEmployee(value);
     };
 
     useEffect(() => {
@@ -250,8 +250,8 @@ const AttendanceAdmin = React.memo(({title}) => {
     // Prepare all stats data for StatsCards component - Monthly attendance focused
     const allStatsData = [
         { 
-            title: "Total WorkForce", 
-            value: stats.meta.totalWorkForce, // 17
+            title: "Total Employees", 
+            value: stats.meta.totalEmployees, // 17
             icon: <UserGroupIcon />, 
             color: "text-blue-600", 
             iconBg: "bg-blue-100",
@@ -311,7 +311,7 @@ const AttendanceAdmin = React.memo(({title}) => {
             icon: <CheckCircleIcon />, 
             color: "text-green-600", 
             iconBg: "bg-green-100",
-            description: "WorkForce with perfect attendance"
+            description: "Employees with perfect attendance"
         }
     ];
 
@@ -493,7 +493,7 @@ const AttendanceAdmin = React.memo(({title}) => {
                                             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
                                                 <div className="w-full sm:w-auto sm:min-w-[200px]">
                                                     <Input
-                                                        label="Search Member"
+                                                        label="Search Employee"
                                                         type="text"
                                                         value={employee}
                                                         onValueChange={handleSearch}
@@ -577,7 +577,7 @@ const AttendanceAdmin = React.memo(({title}) => {
                                                             fontFamily: `var(--fontFamily, "Inter")`,
                                                         }}
                                                     >
-                                                        Member Attendance Records
+                                                        Employee Attendance Records
                                                     </h1>
                                                 </div>
                                             )}

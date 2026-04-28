@@ -72,7 +72,7 @@ After applying the fix and rebuilding:
 
 ### ⚠️ OPEN: Issue #2 - Attendance Rate Calculation Showing 0%
 
-**Severity:** MEDIUM | **Status:** INVESTIGATING | **Components Affected:** AttendanceMember.jsx, getMonthlyAttendanceStats()
+**Severity:** MEDIUM | **Status:** INVESTIGATING | **Components Affected:** AttendanceEmployee.jsx, getMonthlyAttendanceStats()
 
 #### Problem
 The Attendance Rate metric consistently displays `0%` even when attendance records exist in the database for employees.
@@ -120,10 +120,10 @@ Monthly attendance percentage
 
 ### ⚠️ OPEN: Issue #3 - Calendar Display Shows All Red Indicators (All Days Absent)
 
-**Severity:** MEDIUM | **Status:** INVESTIGATING | **Components Affected:** AttendanceMemberTable.jsx, getUserAttendanceData()
+**Severity:** MEDIUM | **Status:** INVESTIGATING | **Components Affected:** AttendanceEmployeeTable.jsx, getUserAttendanceData()
 
 #### Problem
-The Member Attendance Records calendar displays **red absent indicators (●)** for **all dates**, regardless of actual attendance status. No visual distinction between:
+The Employee Attendance Records calendar displays **red absent indicators (●)** for **all dates**, regardless of actual attendance status. No visual distinction between:
 - Present days (should show green ✓)
 - Absent days (should show red ●)
 - On leave days (should show / symbol)
@@ -142,7 +142,7 @@ The issue could originate from:
      - Timezone differences
      - Query filtering issues
 
-2. **Frontend Rendering Issue (AttendanceMemberTable.jsx):**
+2. **Frontend Rendering Issue (AttendanceEmployeeTable.jsx):**
    - Symbol mapping might not be working correctly
    - CSS styling might not be applying colors per symbol
    - Data structure might be corrupted during transformation
@@ -252,7 +252,7 @@ $leaveQuery = DB::table('leaves')
 
 ### ⚠️ OPEN: Issue #6 - Missing Leave Type Distinction in Calendar View
 
-**Severity:** LOW | **Status:** DESIGN GAP | **Components Affected:** AttendanceMemberTable.jsx, getUserAttendanceData()
+**Severity:** LOW | **Status:** DESIGN GAP | **Components Affected:** AttendanceEmployeeTable.jsx, getUserAttendanceData()
 
 #### Problem
 The attendance calendar doesn't visually distinguish between different leave types (Sick, Casual, Earned, Weekend):
@@ -261,7 +261,7 @@ The attendance calendar doesn't visually distinguish between different leave typ
 - No tooltip/hover detail showing leave reason
 
 #### Impact
-- WorkForce can't see at a glance what type of leave they took
+- Employees can't see at a glance what type of leave they took
 - Managers can't quickly identify patterns (e.g., frequent sick leaves)
 - Analytics missing from Time > Analytics submenu
 
@@ -337,13 +337,13 @@ While the code attempts to integrate holidays, the visual representation may not
 2. **leaves** - Leave requests with approval status
 3. **leave_settings** - Leave types (Casual, Sick, Earned, etc.)
 4. **holidays** - Company-wide holidays
-5. **users** - Member records
+5. **users** - Employee records
 6. **attendance_settings** - Configuration (office hours, late grace period, weekend days)
 
 ### Controllers & Related Files
 - `AttendanceController` - Main logic
-- `AttendanceMember.jsx` - Member dashboard component
-- `AttendanceMemberTable.jsx` - Calendar display component
+- `AttendanceEmployee.jsx` - Employee dashboard component
+- `AttendanceEmployeeTable.jsx` - Calendar display component
 - `TimeSheet.jsx` - Timesheet alternative view
 
 ---

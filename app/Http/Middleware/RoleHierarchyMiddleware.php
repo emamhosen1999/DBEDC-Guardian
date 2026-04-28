@@ -67,13 +67,13 @@ class RoleHierarchyMiddleware
     private function getUserHierarchyLevel($user): int
     {
         $hierarchyLevels = [
-            'Super Administratoristrator' => 1,
+            'Super Administrator' => 1,
             'Administrator' => 2,
             'HR Manager' => 3,
             'Department Head' => 4,
             'Team Lead' => 5,
-            'Senior Member' => 6,
-            'Member' => 10,
+            'Senior Employee' => 6,
+            'Employee' => 10,
         ];
 
         $highestLevel = 999; // Default to lowest authority

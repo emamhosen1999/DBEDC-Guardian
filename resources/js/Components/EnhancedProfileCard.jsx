@@ -166,13 +166,13 @@ const EnhancedProfileCard = ({
         <CardBody className="pt-4">
           {/* Quick Info Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            {/* Member ID */}
+            {/* Employee ID */}
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
                 <HashtagIcon className="w-4 h-4 text-blue-400" />
               </div>
               <div>
-                <p className="text-xs text-default-500">Member ID</p>
+                <p className="text-xs text-default-500">Employee ID</p>
                 <p className="text-sm font-medium text-foreground">{user.employee_id || 'N/A'}</p>
               </div>
             </div>

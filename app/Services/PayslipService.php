@@ -193,7 +193,7 @@ class PayslipService
                 'name' => $employee->name,
                 'employee_id' => $employee->employee_id ?? $employee->id,
                 'email' => $employee->email,
-                'designation' => $employee->designation ?? 'Member',
+                'designation' => $employee->designation ?? 'Employee',
                 'department' => $employee->department ?? 'General',
                 'join_date' => $employee->created_at->format('d-m-Y'),
                 'bank_account' => $employee->bank_account ?? 'XXXX-XXXX-XXXX',
@@ -259,7 +259,7 @@ class PayslipService
             'income_tax' => 'Income Tax',
             'professional_tax' => 'Professional Tax',
             'pf_deduction' => 'Provident Fund',
-            'esi_deduction' => 'Member State Insurance',
+            'esi_deduction' => 'Employee State Insurance',
             'loan_deduction' => 'Loan Deduction',
             'advance_deduction' => 'Advance Salary',
         ];

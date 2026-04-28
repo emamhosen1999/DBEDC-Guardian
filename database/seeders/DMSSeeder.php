@@ -33,7 +33,7 @@ class DMSSeeder extends Seeder
         }
 
         // Assign permissions to roles
-        $superAdmin = Role::where('name', 'Super Administratoristrator')->first();
+        $superAdmin = Role::where('name', 'Super Administrator')->first();
         $admin = Role::where('name', 'Administrator')->first();
         $hrManager = Role::where('name', 'HR Manager')->first();
 
@@ -102,7 +102,7 @@ class DMSSeeder extends Seeder
         // Create default folders
         $folders = [
             [
-                'name' => 'Member Files',
+                'name' => 'Employee Files',
                 'description' => 'Individual employee documentation',
                 'parent_id' => null,
                 'created_by' => 1,

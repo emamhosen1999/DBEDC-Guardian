@@ -34,7 +34,7 @@ export default function SkillsIndex({ skills = [], stats, filters = {} }) {
                 {stats && (
                     <div className="grid gap-4 sm:grid-cols-3">
                         <StatCard title="Total Skills" value={stats.totalSkills || 0} />
-                        <StatCard title="WorkForce with Skills" value={stats.employeesWithSkills || 0} />
+                        <StatCard title="Employees with Skills" value={stats.employeesWithSkills || 0} />
                         <StatCard title="Skill Gap Areas" value={stats.skillGaps || 0} />
                     </div>
                 )}
@@ -64,7 +64,7 @@ export default function SkillsIndex({ skills = [], stats, filters = {} }) {
                                 <tr>
                                     <th className="px-4 py-3 text-left font-medium text-gray-600">Skill Name</th>
                                     <th className="px-4 py-3 text-left font-medium text-gray-600">Category</th>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-600">WorkForce</th>
+                                    <th className="px-4 py-3 text-left font-medium text-gray-600">Employees</th>
                                     <th className="px-4 py-3 text-left font-medium text-gray-600">Proficiency Level</th>
                                     <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
                                 </tr>

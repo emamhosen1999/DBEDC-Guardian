@@ -114,7 +114,7 @@ class AttendanceController extends Controller
 
             if ($isTeamScope) {
                 $attendanceQuery->whereHas('user.roles', function ($query) {
-                    $query->where('name', 'Member');
+                    $query->where('name', 'Employee');
                 });
 
                 if ($employeeKeyword !== '') {
@@ -193,7 +193,7 @@ class AttendanceController extends Controller
                         'date' => $date,
                         'user' => [
                             'id' => (int) ($user?->id ?? 0),
-                            'name' => $user?->name ?? 'Unknown Member',
+                            'name' => $user?->name ?? 'Unknown Employee',
                             'employee_id' => $user?->employee_id,
                             'designation' => $user?->designation?->title,
                             'profile_image_url' => $user?->profile_image_url,
@@ -317,7 +317,7 @@ class AttendanceController extends Controller
         try {
             $usersWithAttendanceQuery = User::query()
                 ->whereHas('roles', function ($query) {
-                    $query->where('name', 'Member');
+                    $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
@@ -403,24 +403,24 @@ class AttendanceController extends Controller
             $totalUsers = $usersWithAttendance->count();
             $lastPage = max(1, (int) ceil($totalUsers / max($perPage, 1)));
 
-            $allMemberUsersQuery = User::query()
+            $allEmployeeUsersQuery = User::query()
                 ->whereHas('roles', function ($query) {
-                    $query->where('name', 'Member');
+                    $query->where('name', 'Employee');
                 })
                 ->with('designation');
 
             if ($employeeKeyword !== '') {
-                $allMemberUsersQuery->where(function ($query) use ($employeeKeyword) {
+                $allEmployeeUsersQuery->where(function ($query) use ($employeeKeyword) {
                     $query->where('name', 'like', '%'.$employeeKeyword.'%')
                         ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
                 });
             }
 
-            $allMemberUsers = $allMemberUsersQuery->get();
+            $allEmployeeUsers = $allEmployeeUsersQuery->get();
 
             $presentUserIds = User::query()
                 ->whereHas('roles', function ($query) {
-                    $query->where('name', 'Member');
+                    $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
@@ -428,7 +428,7 @@ class AttendanceController extends Controller
                 })
                 ->pluck('id');
 
-            $absentUsers = $allMemberUsers->filter(function (User $user) use ($presentUserIds) {
+            $absentUsers = $allEmployeeUsers->filter(function (User $user) use ($presentUserIds) {
                 return ! $presentUserIds->contains($user->id);
             })->values();
 
@@ -535,7 +535,7 @@ class AttendanceController extends Controller
         try {
             $usersWithAttendanceQuery = User::query()
                 ->whereHas('roles', function ($query) {
-                    $query->where('name', 'Member');
+                    $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
@@ -676,7 +676,7 @@ class AttendanceController extends Controller
         try {
             $allUsersQuery = User::query()
                 ->whereHas('roles', function ($query) {
-                    $query->where('name', 'Member');
+                    $query->where('name', 'Employee');
                 });
 
             if ($employeeKeyword !== '') {
@@ -690,7 +690,7 @@ class AttendanceController extends Controller
 
             $presentUserIds = User::query()
                 ->whereHas('roles', function ($query) {
-                    $query->where('name', 'Member');
+                    $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
@@ -1287,12 +1287,12 @@ class AttendanceController extends Controller
     private function isManagerUser(User $user): bool
     {
         return $user->hasRole([
-            'Super Administrator',
+            'Super Admin',
             'Admin',
             'HR Manager',
             'Project Manager',
             'Consultant',
-            'Super Administratoristrator',
+            'Super Administrator',
             'Administrator',
         ]);
     }

@@ -69,7 +69,7 @@ const BulkMarkAsPresentForm = ({
 
     // Filter available users (employees only)
     const availableUsers = useMemo(() => {
-        return allUsers?.filter(user => user.roles?.some(role => role.name === 'Member')) || [];
+        return allUsers?.filter(user => user.roles?.some(role => role.name === 'Employee')) || [];
     }, [allUsers]);
 
     // Initialize form data
@@ -330,13 +330,13 @@ const BulkMarkAsPresentForm = ({
 
                                     <Divider style={{ background: `var(--theme-divider)` }} />
 
-                                    {/* Member Selection Section */}
+                                    {/* Employee Selection Section */}
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <UserGroupIcon className="w-5 h-5" style={{ color: 'var(--theme-primary)' }} />
                                                 <h3 className="text-base font-semibold" style={{ color: 'var(--theme-foreground)' }}>
-                                                    Select WorkForce ({formData.user_ids.length} of {availableUsers.length})
+                                                    Select Employees ({formData.user_ids.length} of {availableUsers.length})
                                                 </h3>
                                             </div>
                                             <Checkbox
@@ -525,7 +525,7 @@ const BulkMarkAsPresentForm = ({
                                         fontFamily: `var(--fontFamily, "Inter")`,
                                     }}
                                 >
-                                    {processing ? 'Processing...' : `Mark ${formData.user_ids.length} Member${formData.user_ids.length !== 1 ? 's' : ''} as Present`}
+                                    {processing ? 'Processing...' : `Mark ${formData.user_ids.length} Employee${formData.user_ids.length !== 1 ? 's' : ''} as Present`}
                                 </Button>
                             </ModalFooter>
                         </form>

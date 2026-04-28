@@ -15,8 +15,8 @@
     "Leaves": "Leaves",
     "Communications": "Communications",
     
-    "WorkForce": "WorkForce",
-    "Member": "Member",
+    "Employees": "Employees",
+    "Employee": "Employee",
     "Departments": "Departments",
     "Designations": "Designations",
     
@@ -126,7 +126,7 @@
     "Break": "Break",
     
     "Welcome back, :name!": "Welcome back, :name!",
-    "Total WorkForce": "Total WorkForce",
+    "Total Employees": "Total Employees",
     "Present Today": "Present Today",
     "On Leave": "On Leave",
     "Pending Approvals": "Pending Approvals"

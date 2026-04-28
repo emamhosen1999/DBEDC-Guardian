@@ -41,7 +41,7 @@ class HandleInertiaRequests extends Middleware
         }
 
         $user = $request->user();
-        $userWithRelations = $user ? \App\Models\User::with(['designation', 'attendanceType', 'department'])->find($user->id) : null;
+        $userWithRelations = $user ? \App\Models\User::with(['designation', 'attendanceType'])->find($user->id) : null;
 
         // Get company settings for global use
         $companySettings = CompanySetting::first();

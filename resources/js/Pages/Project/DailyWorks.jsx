@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
-import RealtimeService from '@/Services/RealtimeService.js';
 import { showToast } from '@/utils/toastUtils';
-import {
-    BriefcaseIcon,
+import { 
+    BriefcaseIcon, 
     PlusIcon,
     ChartBarIcon,
     DocumentArrowUpIcon,
@@ -19,9 +18,7 @@ import {
     UserIcon,
     MapPinIcon,
     ArrowPathIcon,
-    DocumentPlusIcon,
-    TableCellsIcon,
-    PresentationChartBarIcon
+    DocumentPlusIcon
 } from "@heroicons/react/24/outline";
 import { Head } from "@inertiajs/react";
 import App from "@/Layouts/App.jsx";
@@ -56,7 +53,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     const isMobile = useMediaQuery('(max-width: 640px)');
     
     // Role-based access control - includes Daily Work Manager role
-    const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administratoristrator') || auth.roles?.includes('Daily Work Manager') || false;
+    const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || auth.roles?.includes('Daily Work Manager') || false;
 
     // AbortController ref for cancelling in-flight requests
     const abortControllerRef = useRef(null);
@@ -65,11 +62,6 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     const [isRefreshing, setIsRefreshing] = useState(false);
     const pullStartY = useRef(0);
     const pullCurrentY = useRef(0);
-
-    // Search suggestions state
-    const [searchSuggestions, setSearchSuggestions] = useState([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-    const searchInputRef = useRef(null);
 
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -146,86 +138,6 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     // Request ID counter for tracking active requests
     const requestIdRef = useRef(0);
     
-    // Real-time service for updates
-    const [realtimeService, setRealtimeService] = useState(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [realtimeUpdates, setRealtimeUpdates] = useState([]);
-    const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState(null);
-
-    // Real-time connection setup
-    useEffect(() => {
-        if (!auth.user) return;
-
-        const service = new RealtimeService();
-        setRealtimeService(service);
-
-        // Set up event listeners
-        service.on('connected', (data) => {
-            console.log('Real-time service connected:', data);
-            setIsConnected(true);
-        });
-
-        service.on('daily-work-updated', (data) => {
-            console.log('Daily work updated:', data);
-            setRealtimeUpdates(prev => [data, ...prev].slice(0, 50)); // Keep last 50 updates
-            setLastRealtimeUpdate(data);
-            
-            // Invalidate cache and refresh data
-            if (cacheService) {
-                cacheService.invalidateDailyWorkCaches(data.daily_work?.id);
-            }
-            
-            // Refresh current data
-            if (data.action === 'created' || data.action === 'updated') {
-                fetchDailyWorks();
-            }
-            
-            // Refresh statistics on create/delete
-            if (data.action === 'created' || data.action === 'deleted') {
-                fetchStatistics();
-            }
-        });
-
-        service.on('heartbeat', (data) => {
-            console.log('Real-time heartbeat:', data);
-        });
-
-        // Connect to real-time updates
-        service.connect(auth.user).catch(error => {
-            console.error('Failed to connect to real-time updates:', error);
-        });
-
-        return () => {
-            if (service) {
-                service.disconnect();
-            }
-        };
-    }, [auth.user]);
-
-    // Handle real-time notifications
-    useEffect(() => {
-        if (lastRealtimeUpdate) {
-            const { action, daily_work, user_id } = lastRealtimeUpdate;
-            
-            // Don't show notification for own actions
-            if (user_id === auth.user?.id) return;
-            
-            const messages = {
-                created: `New daily work ${daily_work?.number} created`,
-                updated: `Daily work ${daily_work?.number} updated`,
-                deleted: `Daily work ${daily_work?.number} deleted`,
-                status_changed: `Status changed for ${daily_work?.number}`,
-            };
-            
-            if (messages[action]) {
-                showToast.info(messages[action]);
-            }
-        }
-    }, [lastRealtimeUpdate, auth.user?.id]);
-
-    // Debounce timer ref for search
-    const searchDebounceRef = useRef(null);
-
     // Cancel any in-flight request before starting a new one
     const cancelPendingRequest = useCallback(() => {
         if (abortControllerRef.current) {
@@ -234,44 +146,6 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
         abortControllerRef.current = new AbortController();
         requestIdRef.current += 1;
         return { signal: abortControllerRef.current.signal, requestId: requestIdRef.current };
-    }, []);
-
-    // Fetch search suggestions
-    const fetchSearchSuggestions = useCallback(async (query) => {
-        if (!query || query.length < 2) {
-            setSearchSuggestions([]);
-            setShowSuggestions(false);
-            return;
-        }
-
-        try {
-            // For now, we'll show some example suggestions
-            // In a real implementation, you might call an API endpoint
-            const exampleSuggestions = [
-                { text: `${query} - K14+500`, value: query, type: 'location' },
-                { text: `${query} - Structure work`, value: query, type: 'work_type' },
-                { text: `${query} - Embankment work`, value: query, type: 'work_type' },
-                { text: `RFI-${query}`, value: `RFI-${query}`, type: 'rfi_number' },
-            ].filter(item => item.text.toLowerCase().includes(query.toLowerCase()));
-
-            setSearchSuggestions(exampleSuggestions.slice(0, 5)); // Limit to 5 suggestions
-            setShowSuggestions(exampleSuggestions.length > 0);
-        } catch (error) {
-            console.error('Error fetching search suggestions:', error);
-            setSearchSuggestions([]);
-            setShowSuggestions(false);
-        }
-    }, []);
-
-    // Handle suggestion selection
-    const handleSuggestionSelect = useCallback((suggestion) => {
-        setSearch(suggestion.value);
-        setShowSuggestions(false);
-        setCurrentPage(1);
-        // Trigger search immediately
-        if (searchDebounceRef.current) {
-            clearTimeout(searchDebounceRef.current);
-        }
     }, []);
     
     // Mobile data fetching - fetch all data for selected date without pagination
@@ -375,7 +249,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
         } else {
             await fetchDesktopData(showLoader);
         }
-    }, [search, filterData, selectedDate, dateRange, currentPage, perPage, fetchMobileData, fetchDesktopData]);
+    }, [isMobile, search, filterData, selectedDate, dateRange, currentPage, perPage]);
 
     // Enhanced refresh function that handles mobile/desktop modes
     const refreshData = useCallback(() => {
@@ -394,27 +268,11 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     }, []);
 
     // Enhanced event handlers for mobile/desktop differences
-    const handleSearch = useCallback((event) => {
-        const value = event.target.value;
-        setSearch(value);
+    const handleSearch = (event) => {
+        setSearch(event.target.value);
         setCurrentPage(1);
-
-        // Fetch search suggestions
-        fetchSearchSuggestions(value);
-
-        // Clear existing debounce timer
-        if (searchDebounceRef.current) {
-            clearTimeout(searchDebounceRef.current);
-        }
-
-        // Set new debounce timer - immediate for empty search, delayed for non-empty
-        const delay = value.trim() === '' ? 0 : 300; // 300ms delay for search, instant for clear
-
-        searchDebounceRef.current = setTimeout(() => {
-            // Debounced search will trigger via useEffect
-            // Additional logic can be added here if needed
-        }, delay);
-    }, [fetchSearchSuggestions]);
+        // Will trigger via useEffect
+    };
 
     const handlePageChange = (page) => {
         setCurrentPage(page);
@@ -699,9 +557,24 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     const [statsLoading, setStatsLoading] = useState(false);
 
     const fetchStatistics = async (withFilters = false) => {
-        // Statistics endpoint has been moved to the dedicated Daily Works Analytics page.
-        // Stats here are computed from the local data (see useMemo below).
-        return;
+        setStatsLoading(true);
+        try {
+            const params = withFilters ? {
+                startDate: isMobile ? selectedDate : dateRange.start,
+                endDate: isMobile ? selectedDate : dateRange.end,
+                ...(filterData.status !== 'all' && { status: filterData.status }),
+                ...(filterData.incharge.length > 0 && { inCharge: filterData.incharge }),
+                ...(filterData.jurisdiction.length > 0 && { jurisdiction: filterData.jurisdiction }),
+            } : {};
+            
+            const response = await axios.get('/daily-works/statistics', { params });
+            setApiStats(response.data);
+        } catch (error) {
+            console.error('Error fetching statistics:', error);
+            // Don't show error toast for stats - it's not critical
+        } finally {
+            setStatsLoading(false);
+        }
     };
 
     // Enhanced statistics calculation with more actionable insights
@@ -1058,24 +931,17 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                         </CardHeader>
                         
                         <CardBody className="pt-6">
-                            <motion.div
-                                key="table-view"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.3 }}
-                            >
-                                        {/* Quick Stats */}
-                                        <div className="relative">
-                                            <StatsCards
-                                                stats={stats}
-                                                onRefresh={fetchStatistics}
-                                                isLoading={statsLoading}
-                                            />
-                                        </div>
-
-                                        {/* Search and Filters Section - Improved Layout */}
-                                        <div className="mb-4 space-y-4">
+                            {/* Quick Stats */}
+                            <div className="relative">
+                                <StatsCards 
+                                    stats={stats} 
+                                    onRefresh={fetchStatistics}
+                                    isLoading={statsLoading}
+                                />
+                            </div>
+                            
+                            {/* Search and Filters Section - Improved Layout */}
+                            <div className="mb-4 space-y-4">
                                 {/* Row 1: Filter Toggle + Date Selector + Search */}
                                 <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
                                     {/* Filter Toggle Button - First */}
@@ -1160,43 +1026,16 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                     </div>
 
                                     {/* Search Field - Last */}
-                                    <div className="flex-1 min-w-0 relative">
+                                    <div className="flex-1 min-w-0">
                                         <Input
-                                            ref={searchInputRef}
                                             type="text"
-                                            placeholder="Search by RFI number, location, description..."
+                                            placeholder="Search by description, location, or notes..."
                                             value={search}
                                             onChange={(e) => handleSearch(e)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    setShowSuggestions(false);
-                                                    fetchData(true);
-                                                } else if (e.key === 'Escape') {
-                                                    setShowSuggestions(false);
-                                                } else if (e.key === 'ArrowDown' && showSuggestions) {
-                                                    // Handle arrow navigation for suggestions
-                                                    e.preventDefault();
-                                                }
-                                            }}
-                                            onFocus={() => {
-                                                if (searchSuggestions.length > 0) {
-                                                    setShowSuggestions(true);
-                                                }
-                                            }}
-                                            onBlur={() => {
-                                                // Delay hiding suggestions to allow click events
-                                                setTimeout(() => setShowSuggestions(false), 200);
-                                            }}
                                             variant="bordered"
                                             size="sm"
                                             radius={getThemeRadius()}
-                                            isClearable
-                                            onClear={() => {
-                                                setSearch('');
-                                                setCurrentPage(1);
-                                                setShowSuggestions(false);
-                                            }}
-                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
+                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400 shrink-0" />}
                                             endContent={
                                                 tableLoading && search ? (
                                                     <Spinner size="sm" color="primary" />
@@ -1206,7 +1045,6 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                                         onClick={() => {
                                                             setSearch('');
                                                             setCurrentPage(1);
-                                                            setShowSuggestions(false);
                                                         }}
                                                         className="text-default-400 hover:text-default-600 transition-colors"
                                                     >
@@ -1218,38 +1056,10 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                             }
                                             classNames={{
                                                 input: "text-foreground text-sm",
-                                                inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider data-[focus]:border-primary",
+                                                inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",
                                             }}
                                             style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                            aria-label="Search daily works"
                                         />
-
-                                        {/* Search Suggestions Dropdown */}
-                                        {showSuggestions && searchSuggestions.length > 0 && (
-                                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-content1 border border-divider rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                                {searchSuggestions.map((suggestion, index) => (
-                                                    <button
-                                                        key={index}
-                                                        type="button"
-                                                        onClick={() => handleSuggestionSelect(suggestion)}
-                                                        className="w-full px-4 py-2 text-left hover:bg-primary/10 focus:bg-primary/10 focus:outline-none transition-colors"
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="flex-1">
-                                                                <span className="text-sm text-foreground">{suggestion.text}</span>
-                                                            </div>
-                                                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                                suggestion.type === 'location' ? 'bg-blue-100 text-blue-700' :
-                                                                suggestion.type === 'work_type' ? 'bg-green-100 text-green-700' :
-                                                                'bg-purple-100 text-purple-700'
-                                                            }`}>
-                                                                {suggestion.type}
-                                                            </span>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                                 
@@ -1473,17 +1283,15 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                                 reports_with_daily_works={reports_with_daily_works}
                                                 isMobile={isMobile}
                                                 searchTerm={search}
-                                             />
-                                         )}
-
-                                     </ErrorBoundary>
-                                     </CardBody>
-                                 </Card>
-                            </motion.div>
-                          </CardBody>
-                     </Card>
-                 </motion.div>
-             </div>
+                                            />
+                                        )}
+                                    </ErrorBoundary>
+                                </CardBody>
+                            </Card>
+                        </CardBody>
+                    </Card>
+                </motion.div>
+            </div>
         </>
     );
 };

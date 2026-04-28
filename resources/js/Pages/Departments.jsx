@@ -236,11 +236,11 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                             </div>
                         )}
                         
-                        {/* WorkForce Count */}
+                        {/* Employees Count */}
                         <div className="flex items-center gap-2 text-sm">
                             <UsersIcon className="w-4 h-4 text-default-400 shrink-0" />
                             <span className="text-default-600 text-xs">
-                                {department.employee_count || 0} {department.employee_count === 1 ? 'Member' : 'WorkForce'}
+                                {department.employee_count || 0} {department.employee_count === 1 ? 'Employee' : 'Employees'}
                             </span>
                         </div>
                     </div>

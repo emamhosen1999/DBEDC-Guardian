@@ -38,7 +38,7 @@ export default function OffboardingShow() {
           <div className="bg-white shadow-sm rounded-sm p-4">
             <h2 className="font-medium mb-3">Overview</h2>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <dt className="text-gray-600">Member</dt><dd>{offboarding.employee?.name}</dd>
+              <dt className="text-gray-600">Employee</dt><dd>{offboarding.employee?.name}</dd>
               <dt className="text-gray-600">Initiated</dt><dd>{offboarding.initiation_date}</dd>
               <dt className="text-gray-600">Last Working Date</dt><dd>{offboarding.last_working_date}</dd>
               <dt className="text-gray-600">Exit Interview</dt><dd>{offboarding.exit_interview_date ?? '—'}</dd>

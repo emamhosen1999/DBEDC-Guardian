@@ -77,30 +77,30 @@ class HrDocumentController extends Controller
 
     public function employeeDocuments($employeeId)
     {
-        return Inertia::render('HR/Documents/MemberDocuments', [
-            'title' => 'Member Documents',
+        return Inertia::render('HR/Documents/EmployeeDocuments', [
+            'title' => 'Employee Documents',
             'employeeId' => $employeeId,
             'documents' => [],
         ]);
     }
 
-    public function storeMemberDocument(Request $request, $employeeId)
+    public function storeEmployeeDocument(Request $request, $employeeId)
     {
         // Implementation for storing employee documents
-        return redirect()->back()->with('success', 'Member document uploaded successfully');
+        return redirect()->back()->with('success', 'Employee document uploaded successfully');
     }
 
-    public function showMemberDocument($employeeId, $documentId)
+    public function showEmployeeDocument($employeeId, $documentId)
     {
-        return Inertia::render('HR/Documents/ShowMemberDocument', [
-            'title' => 'Member Document',
+        return Inertia::render('HR/Documents/ShowEmployeeDocument', [
+            'title' => 'Employee Document',
             'document' => [],
         ]);
     }
 
-    public function destroyMemberDocument($employeeId, $documentId)
+    public function destroyEmployeeDocument($employeeId, $documentId)
     {
         // Implementation for deleting employee documents
-        return redirect()->back()->with('success', 'Member document deleted successfully');
+        return redirect()->back()->with('success', 'Employee document deleted successfully');
     }
 }

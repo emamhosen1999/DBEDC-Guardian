@@ -75,7 +75,7 @@ class TestRoleSystem extends Command
         // Test 3: Test role checks
         $this->info('🔐 Test 3: Role and Permission Checks');
         $checks = [
-            'Has Super Administratoristrator role' => $user->hasRole('Super Administratoristrator'),
+            'Has Super Administrator role' => $user->hasRole('Super Administrator'),
             'Has Administrator role' => $user->hasRole('Administrator'),
             'Can read roles' => $user->can('read roles'),
             'Can create roles' => $user->can('create roles'),

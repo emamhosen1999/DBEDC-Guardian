@@ -377,18 +377,25 @@ class MobileDailyWorkApiTest extends TestCase
         $objectionId = $response->json('data.id');
         $this->assertNotNull($objectionId);
 
-         $this->assertDatabaseHas('rfi_objections', [
-             'id' => $objectionId,
-             'title' => 'Unexpected utility line',
-             'created_by' => $user->id,
-         ]);
+        $this->assertDatabaseHas('rfi_objections', [
+            'id' => $objectionId,
+            'title' => 'Unexpected utility line',
+            'created_by' => $user->id,
+        ]);
 
-         if (Schema::hasTable('daily_work_objection')) {
-             $this->assertDatabaseHas('daily_work_objection', [
-                 'daily_work_id' => $dailyWork->id,
-                 'rfi_objection_id' => $objectionId,
-             ]);
-         }
+        if (Schema::hasTable('daily_work_objection')) {
+            $this->assertDatabaseHas('daily_work_objection', [
+                'daily_work_id' => $dailyWork->id,
+                'rfi_objection_id' => $objectionId,
+            ]);
+        }
+
+        if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
+            $this->assertDatabaseHas('rfi_objections', [
+                'id' => $objectionId,
+                'daily_work_id' => $dailyWork->id,
+            ]);
+        }
     }
 
     public function test_user_cannot_manage_objections_for_unrelated_daily_work(): void
@@ -846,33 +853,37 @@ class MobileDailyWorkApiTest extends TestCase
             'updated_by' => $creatorId,
             'created_at' => now(),
             'updated_at' => now(),
-         ], $overrides);
+        ], $overrides);
 
-         if (Schema::hasColumn('rfi_objections', 'type') && ! array_key_exists('type', $payload)) {
-             $payload['type'] = DailyWork::TYPE_STRUCTURE;
-         }
+        if (Schema::hasColumn('rfi_objections', 'type') && ! array_key_exists('type', $payload)) {
+            $payload['type'] = DailyWork::TYPE_STRUCTURE;
+        }
 
-         if (Schema::hasColumn('rfi_objections', 'chainage_from') && ! array_key_exists('chainage_from', $payload)) {
-             $payload['chainage_from'] = null;
-         }
+        if (Schema::hasColumn('rfi_objections', 'chainage_from') && ! array_key_exists('chainage_from', $payload)) {
+            $payload['chainage_from'] = null;
+        }
 
-         if (Schema::hasColumn('rfi_objections', 'chainage_to') && ! array_key_exists('chainage_to', $payload)) {
-             $payload['chainage_to'] = null;
-         }
+        if (Schema::hasColumn('rfi_objections', 'chainage_to') && ! array_key_exists('chainage_to', $payload)) {
+            $payload['chainage_to'] = null;
+        }
 
-         $objectionId = (int) DB::table('rfi_objections')->insertGetId($payload);
+        if (Schema::hasColumn('rfi_objections', 'daily_work_id') && ! array_key_exists('daily_work_id', $payload)) {
+            $payload['daily_work_id'] = $dailyWork->id;
+        }
 
-         if (Schema::hasTable('daily_work_objection')) {
-             DB::table('daily_work_objection')->insert([
-                 'daily_work_id' => $dailyWork->id,
-                 'rfi_objection_id' => $objectionId,
-                 'attached_by' => $creatorId,
-                 'attached_at' => now(),
-                 'attachment_notes' => null,
-                 'created_at' => now(),
-                 'updated_at' => now(),
-             ]);
-         }
+        $objectionId = (int) DB::table('rfi_objections')->insertGetId($payload);
+
+        if (Schema::hasTable('daily_work_objection')) {
+            DB::table('daily_work_objection')->insert([
+                'daily_work_id' => $dailyWork->id,
+                'rfi_objection_id' => $objectionId,
+                'attached_by' => $creatorId,
+                'attached_at' => now(),
+                'attachment_notes' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         return $objectionId;
     }

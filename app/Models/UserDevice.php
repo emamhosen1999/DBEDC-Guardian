@@ -44,8 +44,7 @@ class UserDevice extends Model
             'is_trusted' => 'boolean',
             'last_used_at' => 'datetime',
             'verified_at' => 'datetime',
-            'signature_hash' => 'encrypted',
-            'signature_payload' => 'encrypted:array',
+            'signature_payload' => 'array',
         ];
     }
 

@@ -13,8 +13,8 @@
     "Leaves": "ছুটি",
     "Communications": "যোগাযোগ",
     
-    "WorkForce": "কর্মচারী",
-    "Member": "কর্মচারী",
+    "Employees": "কর্মচারী",
+    "Employee": "কর্মচারী",
     "Departments": "বিভাগ",
     "Designations": "পদবী",
     
@@ -124,7 +124,7 @@
     "Break": "বিরতি",
     
     "Welcome back, :name!": "স্বাগতম, :name!",
-    "Total WorkForce": "মোট কর্মচারী",
+    "Total Employees": "মোট কর্মচারী",
     "Present Today": "আজ উপস্থিত",
     "On Leave": "ছুটিতে",
     "Pending Approvals": "অনুমোদনের অপেক্ষায়"

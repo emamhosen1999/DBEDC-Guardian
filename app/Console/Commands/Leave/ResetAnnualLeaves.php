@@ -51,7 +51,7 @@ class ResetAnnualLeaves extends Command
             $users = $userId
                 ? User::where('id', $userId)->get()
                 : User::whereHas('roles', function ($query) {
-                    $query->where('name', '!=', 'Super Administrator');
+                    $query->where('name', '!=', 'Super Admin');
                 })->get();
 
             $this->info("👥 Processing {$users->count()} users...");

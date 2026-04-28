@@ -194,16 +194,16 @@
             PAYSLIP FOR {{ strtoupper($payroll['pay_period']) }}
         </div>
 
-        <!-- Member Information -->
+        <!-- Employee Information -->
         <div class="employee-info">
             <div class="info-section">
-                <div class="info-title">Member Information</div>
+                <div class="info-title">Employee Information</div>
                 <div class="info-row">
-                    <span class="info-label">Member Name:</span>
+                    <span class="info-label">Employee Name:</span>
                     <span>{{ $employee['name'] }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Member ID:</span>
+                    <span class="info-label">Employee ID:</span>
                     <span>{{ $employee['employee_id'] }}</span>
                 </div>
                 <div class="info-row">

@@ -81,7 +81,7 @@ class LeaveApprovalService
             $hrManager = User::whereHas('roles', function ($query) {
                 $query->where('name', 'HR Manager')
                     ->orWhere('name', 'HR Head')
-                    ->orWhere('name', 'Super Administrator');
+                    ->orWhere('name', 'Super Admin');
             })->first();
 
             if ($hrManager) {

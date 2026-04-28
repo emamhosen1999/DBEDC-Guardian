@@ -33,8 +33,8 @@ class OffboardingPolicy
             return $offboarding->employee && $offboarding->employee->department_id === $user->department_id;
         }
 
-        // WorkForce can only see their own offboarding
-        if ($user->hasRole('Member')) {
+        // Employees can only see their own offboarding
+        if ($user->hasRole('Employee')) {
             return $offboarding->employee_id === $user->id;
         }
 

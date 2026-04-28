@@ -302,21 +302,13 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
     };
 
     const renderCell = React.useCallback((summary, columnKey) => {
-        const totalDailyWorks = summary.totalDailyWorks || 0;
-        const completed = summary.completed || 0;
-        const rfiSubmissions = summary.rfiSubmissions || 0;
-        const resubmissions = summary.resubmissions || 0;
-        const embankment = summary.embankment || 0;
-        const structure = summary.structure || 0;
-        const pavement = summary.pavement || 0;
-        
-        const completionPercentage = totalDailyWorks > 0
-            ? (completed / totalDailyWorks * 100).toFixed(1)
+        const completionPercentage = summary.totalDailyWorks > 0
+            ? (summary.completed / summary.totalDailyWorks * 100).toFixed(1)
             : 0;
-        const rfiSubmissionPercentage = rfiSubmissions > 0 && completed > 0
-            ? (rfiSubmissions / completed * 100).toFixed(1)
+        const rfiSubmissionPercentage = summary.rfiSubmissions > 0 && summary.completed > 0
+            ? (summary.rfiSubmissions / summary.completed * 100).toFixed(1)
             : 0;
-        const pending = totalDailyWorks - completed;
+        const pending = summary.totalDailyWorks - summary.completed;
 
         switch (columnKey) {
             case "date":

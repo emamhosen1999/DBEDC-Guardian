@@ -37,7 +37,7 @@ class CombinedSeeder extends Seeder
         // Seed HRM module data
         $this->createDocumentCategories();
         $this->seedSkillsAndCompetencies();
-        $this->seedMemberBenefits();
+        $this->seedEmployeeBenefits();
         $this->seedSafetyTrainingCategories();
 
         $this->command->info('✅ Database seeding completed successfully!');
@@ -262,7 +262,7 @@ class CombinedSeeder extends Seeder
                 'description' => 'Document templates for various purposes',
             ],
             [
-                'name' => 'Member Documents',
+                'name' => 'Employee Documents',
                 'description' => 'General employee document category',
             ],
             [
@@ -359,7 +359,7 @@ class CombinedSeeder extends Seeder
     /**
      * Seed employee benefits
      */
-    private function seedMemberBenefits(): void
+    private function seedEmployeeBenefits(): void
     {
         $this->command->info('Creating employee benefits...');
 
@@ -496,7 +496,7 @@ class CombinedSeeder extends Seeder
     }
 
     /**
-     * Create admin user and assign Super Administrator role
+     * Create admin user and assign super admin role
      */
     private function createAdminUser(): void
     {
@@ -520,19 +520,19 @@ class CombinedSeeder extends Seeder
             $this->command->info('Created admin user: admin@example.com / password');
         }
 
-        // Get the Super Administratoristrator role
-        $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Administratoristrator')->first();
+        // Get the Super Administrator role
+        $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Administrator')->first();
 
         if ($superAdminRole) {
             // Check if the user already has the role
-            if (! $user->hasRole('Super Administratoristrator')) {
+            if (! $user->hasRole('Super Administrator')) {
                 $user->assignRole($superAdminRole);
-                $this->command->info("Assigned Super Administratoristrator role to user: {$user->email}");
+                $this->command->info("Assigned Super Administrator role to user: {$user->email}");
             } else {
-                $this->command->info("User {$user->email} already has Super Administratoristrator role");
+                $this->command->info("User {$user->email} already has Super Administrator role");
             }
         } else {
-            $this->command->warn('Super Administratoristrator role not found.');
+            $this->command->warn('Super Administrator role not found.');
         }
     }
 }

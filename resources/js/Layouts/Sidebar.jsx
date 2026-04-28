@@ -25,7 +25,7 @@ import {
 } from "@heroicons/react/24/outline"; 
   
 import { motion, AnimatePresence } from 'framer-motion';
-
+import logo from '../../../public/assets/images/logo.png';
 
 // Helper function to highlight search matches
 const highlightSearchMatch = (text, searchTerm) => {
@@ -55,18 +55,12 @@ const highlightSearchMatch = (text, searchTerm) => {
 // Custom hook for sidebar layout state management with selective localStorage persistence
 const useSidebarState = () => {
   // Initialize sidebar layout state from localStorage for UI persistence only
-  // Default to expanded state for all sections
   const [openSubMenus, setOpenSubMenus] = useState(() => {
     try {
       const stored = localStorage.getItem('sidebar_open_submenus');
-      if (stored) {
-        return new Set(JSON.parse(stored));
-      }
-      // Default to expanded - all sections open by default
-      return new Set(['Main', 'My Workspace', 'Workforce', 'Administration', 'Settings']);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch {
-      // Default to expanded
-      return new Set(['Main', 'My Workspace', 'Workforce', 'Administration', 'Settings']);
+      return new Set();
     }
   });
 
@@ -143,17 +137,10 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
       allPages = filterPagesRecursively(pages);
     }
     
-    // Separate dashboard items to show at bottom
-    const navigationPages = allPages.filter(page => !page.category || page.category === 'navigation');
-    const dashboardPages = navigationPages.filter(page => page.name.includes('Dashboard'));
-    const nonDashboardPages = navigationPages.filter(page => !page.name.includes('Dashboard'));
+    const mainPages = allPages.filter(page => !page.category || page.category === 'main');
+    const settingsPages = allPages.filter(page => page.category === 'settings');
     
-    // New structure: pages are already organized by NavigationRegistry
-    return { 
-      mainPages: nonDashboardPages,
-      dashboardPages: dashboardPages,
-      settingsPages: allPages.filter(page => page.category === 'settings')
-    };
+    return { mainPages, settingsPages };
   })();
 
   // Auto-expand menus when searching
@@ -250,55 +237,6 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
     const textSize = level === 0 ? (isMobile ? 'text-sm' : 'text-sm') : level === 1 ? 'text-xs' : 'text-xs';
     
     if (page.subMenu) {
-      // Check if this is a section header (no route, has subMenu)
-      const isSectionHeader = !page.route && page.subMenu.length > 0;
-      
-      if (isSectionHeader) {
-        return (
-          <div 
-            key={`section-header-${page.name}-${level}`} 
-            className="w-full"
-          >
-            <div 
-              className={`flex items-center justify-between w-full ${paddingLeft} py-2 cursor-pointer transition-all duration-200`}
-              onClick={() => handleSubMenuToggle(page.name)}
-            >
-              <span 
-                className={`${textSize} font-medium whitespace-nowrap`} 
-                style={{ color: `var(--theme-foreground, #11181C)` }}
-              >
-                {highlightSearchMatch(page.name, searchTerm)}
-              </span>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-px" style={{ backgroundColor: `var(--theme-divider, #E4E4E7)` }}></div>
-                <ChevronRightIcon 
-                  className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-                  style={{ color: `var(--theme-foreground, #11181C)` }}
-                />
-              </div>
-            </div>
-            {/* Submenu with CSS transitions */}
-            <div
-              className={`overflow-hidden transition-all duration-200 ease-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
-            >
-              <div 
-                className={`${level === 0 ? (isMobile ? 'ml-8' : 'ml-6') : (isMobile ? 'ml-6' : 'ml-4')} mt-1 space-y-0.5 pl-3`}
-                style={{ 
-                  borderLeft: `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)`
-                }}
-              >
-                {page.subMenu.map((subPage, index) => (
-                  <div key={`subitem-${page.name}-${subPage.name}-${level}-${index}`}>
-                    {renderCompactMenuItem(subPage, true, level + 1)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      }
-      
-      // Regular submenu item (not section header) - use original button style
       return (
         <div 
           key={`menu-item-${page.name}-${level}`} 
@@ -309,7 +247,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
             color={hasActiveSubPage ? "primary" : "default"}
             startContent={
               <div style={{ color: hasActiveSubPage ? `var(--theme-primary, #006FEE)` : `var(--theme-foreground, #11181C)` }}>
-                {page.icon && typeof page.icon === 'function' ? <page.icon className={iconSize} /> : <HomeIcon className={iconSize} />}
+                {React.cloneElement(page.icon, { className: iconSize })}
               </div>
             }
             endContent={
@@ -393,7 +331,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
             variant="light"
             startContent={
               <div style={{ color: isActive ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
-                {page.icon && typeof page.icon === 'function' ? <page.icon className={iconSize} /> : <HomeIcon className={iconSize} />}
+                {React.cloneElement(page.icon, { className: iconSize })}
               </div>
             }
             className={`w-full justify-start ${height} ${paddingLeft} bg-transparent transition-all duration-200 mb-0.5`}
@@ -440,8 +378,8 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
           variant="light"
           color={hasActiveSubPage ? "primary" : "default"}
           startContent={
-            <div style={{ color: hasActiveSubPage ? `var(--theme-primary, #006FEE)` : `var(--theme-foreground, #11181C)` }}>
-              {page.icon && typeof page.icon === 'function' ? <page.icon className={iconSize} /> : <HomeIcon className={iconSize} />}
+            <div style={{ color: hasActiveSubPage ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
+              {React.cloneElement(page.icon, { className: iconSize })}
             </div>
           }
           endContent={
@@ -532,7 +470,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
             color={hasActiveSubPage ? "primary" : "default"}
             startContent={
               <div style={{ color: hasActiveSubPage ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
-                {page.icon && typeof page.icon === 'function' ? <page.icon className="w-4 h-4" /> : <HomeIcon className="w-4 h-4" />}
+                {page.icon}
               </div>
             }
             endContent={
@@ -625,7 +563,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
          
           startContent={
             <div style={{ color: isActive ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
-              {page.icon && typeof page.icon === 'function' ? <page.icon className="w-4 h-4" /> : <HomeIcon className="w-4 h-4" />}
+              {page.icon}
             </div>
           }
           color={isActive ? "primary" : "default"}
@@ -665,7 +603,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
         <div className={`${paddingLeft} pr-4 py-2`}>
           <div className="flex items-center gap-2">
             <div>
-              {page.icon && typeof page.icon === 'function' ? <page.icon className="w-4 h-4" /> : <HomeIcon className="w-4 h-4" />}
+              {page.icon}
             </div>
             <span className="text-sm font-semibold text-foreground/80">
               {highlightSearchMatch(page.name, searchTerm)}
@@ -728,7 +666,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                   }}
                 >
                   <img 
-                    src="/assets/images/logo.png" 
+                    src={logo} 
                     alt={`${app?.name || 'Company'} Logo`} 
                     className="w-8 h-8 object-contain"
                     onError={(e) => {
@@ -772,7 +710,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                   className="text-xs font-medium"
                   style={{ color: `var(--theme-foreground-500, #71717A)` }}
                 >
-                  DBEDC Guardian
+                  aeos365
                 </p>
               </div>
             </motion.div>
@@ -833,8 +771,8 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
               />
             </motion.div>
             
-            {/* Dashboard Section - Render dashboard pages at top */}
-            {groupedPages.dashboardPages.length > 0 && (
+            {/* Main Navigation - Enhanced */}
+            {groupedPages.mainPages.length > 0 && (
               <motion.div 
                 className="space-y-1"
                 initial={{ opacity: 0, x: -10 }}
@@ -850,16 +788,13 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                     className="font-bold text-xs uppercase tracking-wide"
                     style={{ color: `var(--theme-primary, #006FEE)` }}
                   >
-                    Dashboard
+                    Main
                   </span>
-                  <div 
-                    className="flex-1 h-px"
-                    style={{ backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)` }}
-                  ></div>
+                  <Divider className="flex-1" />
                 </div>
-                {groupedPages.dashboardPages.map((page, index) => (
+                {groupedPages.mainPages.map((page, index) => (
                   <motion.div
-                    key={`dashboard-page-${page.name}-${index}`}
+                    key={`main-page-${page.name}-${index}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.2, delay: 0.7 + (index * 0.05) }}
@@ -870,34 +805,13 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
               </motion.div>
             )}
 
-            {/* Main Navigation - Render all pages */}
-            {groupedPages.mainPages.length > 0 && (
-              <motion.div 
-                className="space-y-1 mt-4"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.8 }}
-              >
-                {groupedPages.mainPages.map((page, index) => (
-                  <motion.div
-                    key={`main-page-${page.name}-${index}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 0.9 + (index * 0.05) }}
-                  >
-                    {renderCompactMenuItem(page)}
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-
-            {/* Settings Section - Render settings pages */}
+            {/* Settings Section - Enhanced */}
             {groupedPages.settingsPages.length > 0 && (
               <motion.div 
                 className="space-y-1 mt-4"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 1.0 }}
+                transition={{ duration: 0.3, delay: 0.8 }}
               >
                 <div className="flex items-center gap-2 px-2 py-1">
                   <ShieldCheckIcon 
@@ -920,7 +834,35 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                     key={`settings-page-${page.name}-${index}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 1.1 + (index * 0.05) }}
+                    transition={{ duration: 0.2, delay: 0.9 + (index * 0.05) }}
+                  >
+                    {renderCompactMenuItem(page)}
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* All Pages fallback - Enhanced */}
+            {groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 && !searchTerm.trim() && (
+              <motion.div 
+                className="space-y-1"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.6 }}
+              >
+                <div className="flex items-center gap-2 px-2 py-1">
+                  <StarIcon className="w-3 h-3 text-secondary" />
+                  <span className="text-secondary font-bold text-xs uppercase tracking-wide">
+                    Modules
+                  </span>
+                  <div className="flex-1 h-px bg-secondary/20"></div>
+                </div>
+                {pages.map((page, index) => (
+                  <motion.div
+                    key={`all-page-${page.name}-${index}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: 0.7 + (index * 0.05) }}
                   >
                     {renderCompactMenuItem(page)}
                   </motion.div>

@@ -61,7 +61,7 @@ const TrainingForm = ({
         participants: []
     });
 
-    const [selectedMember, setSelectedMember] = useState('');
+    const [selectedEmployee, setSelectedEmployee] = useState('');
     const [errors, setErrors] = useState({});
     const [processing, setProcessing] = useState(false);
 
@@ -115,7 +115,7 @@ const TrainingForm = ({
                     participants: []
                 });
             }
-            setSelectedMember('');
+            setSelectedEmployee('');
             setErrors({});
         }
     }, [open, isEditMode, currentTraining]);
@@ -135,13 +135,13 @@ const TrainingForm = ({
 
     // Participant management
     const addParticipant = () => {
-        if (!selectedMember || formData.participants.includes(selectedMember)) return;
+        if (!selectedEmployee || formData.participants.includes(selectedEmployee)) return;
         
         setFormData(prev => ({
             ...prev,
-            participants: [...prev.participants, selectedMember]
+            participants: [...prev.participants, selectedEmployee]
         }));
-        setSelectedMember('');
+        setSelectedEmployee('');
     };
 
     const removeParticipant = (employeeId) => {
@@ -228,7 +228,7 @@ const TrainingForm = ({
     };
 
     // Get available employees (excluding already selected participants)
-    const availableWorkForce = employees?.filter(emp => 
+    const availableEmployees = employees?.filter(emp => 
         !formData.participants.includes(emp.id)
     ) || [];
 
@@ -470,17 +470,17 @@ const TrainingForm = ({
                                     <div className="flex gap-2">
                                         <Select
                                             placeholder="Select employee to add"
-                                            selectedKeys={selectedMember ? [selectedMember] : []}
+                                            selectedKeys={selectedEmployee ? [selectedEmployee] : []}
                                             onSelectionChange={(keys) => {
                                                 const key = Array.from(keys)[0];
-                                                setSelectedMember(key || '');
+                                                setSelectedEmployee(key || '');
                                             }}
                                             variant="bordered"
                                             size="sm"
                                             radius={getThemeRadius()}
                                             className="flex-1"
                                         >
-                                            {availableWorkForce.map((employee) => (
+                                            {availableEmployees.map((employee) => (
                                                 <SelectItem key={employee.id} value={employee.id}>
                                                     {employee.first_name} {employee.last_name} - {employee.employee_id}
                                                 </SelectItem>
@@ -491,7 +491,7 @@ const TrainingForm = ({
                                             variant="flat"
                                             size="sm"
                                             radius={getThemeRadius()}
-                                            isDisabled={!selectedMember}
+                                            isDisabled={!selectedEmployee}
                                             onPress={addParticipant}
                                         >
                                             Add

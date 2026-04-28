@@ -12,50 +12,35 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (! Schema::hasTable('rfi_objections')) {
+        if (DB::connection()->getDriverName() !== 'mysql' || ! Schema::hasTable('rfi_objections')) {
             return;
         }
 
         // Add chainage fields if they don't exist
         if (! Schema::hasColumn('rfi_objections', 'chainage_from')) {
-            if (DB::connection()->getDriverName() === 'mysql') {
-                DB::statement('ALTER TABLE rfi_objections ADD COLUMN chainage_from VARCHAR(50) NULL AFTER category');
-            } else {
-                DB::statement('ALTER TABLE rfi_objections ADD COLUMN chainage_from VARCHAR(50) NULL');
-            }
+            DB::statement('ALTER TABLE rfi_objections ADD COLUMN chainage_from VARCHAR(50) NULL AFTER category');
         }
         if (! Schema::hasColumn('rfi_objections', 'chainage_to')) {
-            if (DB::connection()->getDriverName() === 'mysql') {
-                DB::statement('ALTER TABLE rfi_objections ADD COLUMN chainage_to VARCHAR(50) NULL AFTER chainage_from');
-            } else {
-                DB::statement('ALTER TABLE rfi_objections ADD COLUMN chainage_to VARCHAR(50) NULL');
-            }
+            DB::statement('ALTER TABLE rfi_objections ADD COLUMN chainage_to VARCHAR(50) NULL AFTER chainage_from');
         }
 
         // Drop the daily_work_id column if it exists
         if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
-            if (DB::connection()->getDriverName() === 'mysql') {
-                // Check if foreign key exists before dropping
-                $foreignKeys = DB::select("
-                    SELECT CONSTRAINT_NAME 
-                    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
-                    WHERE TABLE_SCHEMA = DATABASE() 
-                    AND TABLE_NAME = 'rfi_objections' 
-                    AND COLUMN_NAME = 'daily_work_id' 
-                    AND REFERENCED_TABLE_NAME IS NOT NULL
-                ");
+            // Check if foreign key exists before dropping
+            $foreignKeys = DB::select("
+                SELECT CONSTRAINT_NAME 
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'rfi_objections' 
+                AND COLUMN_NAME = 'daily_work_id' 
+                AND REFERENCED_TABLE_NAME IS NOT NULL
+            ");
 
-                if (! empty($foreignKeys)) {
-                    DB::statement('ALTER TABLE rfi_objections DROP FOREIGN KEY '.$foreignKeys[0]->CONSTRAINT_NAME);
-                }
-
-                DB::statement('ALTER TABLE rfi_objections DROP COLUMN daily_work_id');
-            } else {
-                // For SQLite, we cannot easily drop a column with a foreign key constraint.
-                // Since we have removed all references to this column in the code, we can leave it as is.
-                // Log a warning for awareness.
-                \Illuminate\Support\Facades\Log::warning('Skipping drop of daily_work_id column in SQLite due to foreign key constraints.');
+            if (! empty($foreignKeys)) {
+                DB::statement('ALTER TABLE rfi_objections DROP FOREIGN KEY '.$foreignKeys[0]->CONSTRAINT_NAME);
             }
+
+            DB::statement('ALTER TABLE rfi_objections DROP COLUMN daily_work_id');
         }
     }
 

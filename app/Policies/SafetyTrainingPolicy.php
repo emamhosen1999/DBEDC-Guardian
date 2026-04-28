@@ -28,8 +28,8 @@ class SafetyTrainingPolicy
             return false;
         }
 
-        // WorkForce can view trainings they're enrolled in
-        if ($user->hasRole('Member')) {
+        // Employees can view trainings they're enrolled in
+        if ($user->hasRole('Employee')) {
             return $safetyTraining->participants()->where('user_id', $user->id)->exists() ||
                    $safetyTraining->trainer_id === $user->id;
         }

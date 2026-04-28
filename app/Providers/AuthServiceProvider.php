@@ -61,8 +61,8 @@ class AuthServiceProvider extends ServiceProvider
 
         // Define implicit permissions based on roles
         Gate::before(function ($user, $ability) {
-            // Super Administrator can do everything
-            if ($user->hasRole('Super Administratoristrator')) {
+            // Super Admin can do everything
+            if ($user->hasRole('Super Administrator')) {
                 return true;
             }
 

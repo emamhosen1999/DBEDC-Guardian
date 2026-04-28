@@ -145,7 +145,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'hr.employee.skills.update' => 'Update employee skills',
                 'hr.employee.skills.delete' => 'Remove employee skills',
 
-                // Member Benefits Administration
+                // Employee Benefits Administration
                 'hr.benefits.view' => 'View benefits programs',
                 'hr.benefits.create' => 'Create benefits programs',
                 'hr.benefits.update' => 'Update benefits programs',
@@ -199,7 +199,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'hr.employee.documents.create' => 'Create employee documents',
                 'hr.employee.documents.delete' => 'Delete employee documents',
 
-                // Enhanced Member Self-Service
+                // Enhanced Employee Self-Service
                 'hr.selfservice.view' => 'Access self-service portal',
                 'hr.selfservice.profile.view' => 'View own profile in self-service',
                 'hr.selfservice.profile.update' => 'Update own profile in self-service',
@@ -573,7 +573,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
     {
         $roles = [
             [
-                'name' => 'Super Administratoristrator',
+                'name' => 'Super Administrator',
                 'description' => 'Full system access with all privileges',
                 'hierarchy_level' => 1,
                 'is_system_role' => true,
@@ -609,13 +609,13 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'is_system_role' => false,
             ],
             [
-                'name' => 'Senior Member',
+                'name' => 'Senior Employee',
                 'description' => 'Senior level employee with extended access',
                 'hierarchy_level' => 50,
                 'is_system_role' => false,
             ],
             [
-                'name' => 'Member',
+                'name' => 'Employee',
                 'description' => 'Standard employee access to self-service functions',
                 'hierarchy_level' => 60,
                 'is_system_role' => false,
@@ -651,11 +651,11 @@ class ComprehensiveRolePermissionSeeder extends Seeder
      */
     private function assignPermissionsToRoles(): void
     {
-        // Super Administratoristrator - All permissions
-        $superAdmin = Role::findByName('Super Administratoristrator');
+        // Super Administrator - All permissions
+        $superAdmin = Role::findByName('Super Administrator');
         $superAdmin->givePermissionTo(Permission::all());
 
-        // Administrator - Most permissions except Super Administrator functions
+        // Administrator - Most permissions except super admin functions
         $admin = Role::findByName('Administrator');
         $adminPermissions = Permission::whereNotIn('name', [
             'users.impersonate',
@@ -753,8 +753,8 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ->get();
         $teamLead->givePermissionTo($teamPermissions);
 
-        // Senior Member - Extended self-service
-        $seniorMember = Role::findByName('Senior Member');
+        // Senior Employee - Extended self-service
+        $seniorEmployee = Role::findByName('Senior Employee');
         $seniorPermissions = Permission::whereIn('module', ['core', 'self-service'])
             ->orWhereIn('name', [
                 'daily-works.view',
@@ -772,10 +772,10 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'training-assignment-submissions.update',
             ])
             ->get();
-        $seniorMember->givePermissionTo($seniorPermissions);
+        $seniorEmployee->givePermissionTo($seniorPermissions);
 
-        // Member - Basic self-service
-        $employee = Role::findByName('Member');
+        // Employee - Basic self-service
+        $employee = Role::findByName('Employee');
         $employeePermissions = Permission::whereIn('module', ['core', 'self-service'])
             ->orWhereIn('name', [
                 'daily-works.view',

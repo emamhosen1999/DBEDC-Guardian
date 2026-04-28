@@ -28,7 +28,7 @@ export default function BenefitsShow({ benefit, employees = [] }) {
                         <p className="mt-1 text-sm font-medium text-gray-900">{benefit.company_contribution_rate}%</p>
                     </div>
                     <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">Member Contribution</p>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Employee Contribution</p>
                         <p className="mt-1 text-sm font-medium text-gray-900">{benefit.employee_contribution_rate}%</p>
                     </div>
                     <div>

@@ -18,19 +18,19 @@ class AttendancePaginateTest extends TestCase
         parent::setUp();
 
         // Create roles
-        Role::create(['name' => 'Member']);
+        Role::create(['name' => 'Employee']);
         Role::create(['name' => 'Admin']);
     }
 
     public function test_paginate_handles_null_punchout_gracefully(): void
     {
-        // Create a user with Member role
+        // Create a user with Employee role
         $user = User::create([
-            'name' => 'Test Member',
+            'name' => 'Test Employee',
             'email' => 'employee@test.com',
             'password' => bcrypt('password'),
         ]);
-        $user->assignRole('Member');
+        $user->assignRole('Employee');
 
         // Create an admin user to make the request
         $admin = User::create([
@@ -75,13 +75,13 @@ class AttendancePaginateTest extends TestCase
 
     public function test_paginate_with_multiple_punches_and_null_punchouts(): void
     {
-        // Create a user with Member role
+        // Create a user with Employee role
         $user = User::create([
-            'name' => 'Test Member 2',
+            'name' => 'Test Employee 2',
             'email' => 'employee2@test.com',
             'password' => bcrypt('password'),
         ]);
-        $user->assignRole('Member');
+        $user->assignRole('Employee');
 
         // Create an admin user to make the request
         $admin = User::create([

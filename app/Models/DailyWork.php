@@ -412,7 +412,7 @@ class DailyWork extends Model implements HasMedia
     }
 
     /**
-     * Boot method with validation and workflow automation.
+     * Boot method with validation.
      */
     protected static function boot()
     {
@@ -431,27 +431,6 @@ class DailyWork extends Model implements HasMedia
                 throw new \InvalidArgumentException(
                     "Invalid inspection result '{$dailyWork->inspection_result}'. Valid results are: ".implode(', ', self::$inspectionResults)
                 );
-            }
-        });
-
-        // Trigger workflow automation on status/result changes
-        static::updating(function ($dailyWork) {
-            $changedAttributes = $dailyWork->getDirty();
-
-            // Check if workflow-relevant attributes changed
-            $workflowAttributes = [
-                'status',
-                'inspection_result',
-                'rfi_response_status',
-                'completion_time'
-            ];
-
-            $hasRelevantChanges = array_intersect($workflowAttributes, array_keys($changedAttributes));
-
-            if ($hasRelevantChanges) {
-                // Use app() to resolve the service to avoid circular dependencies
-                $workflowService = app(\App\Services\DailyWork\DailyWorkWorkflowService::class);
-                $workflowService->handleAutomaticTransitions($dailyWork, $changedAttributes);
             }
         });
 

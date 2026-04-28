@@ -38,7 +38,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Member Documents (for document assignments to employees)
+        // Employee Documents (for document assignments to employees)
         Schema::create('employee_documents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');

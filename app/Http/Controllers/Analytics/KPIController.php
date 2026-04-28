@@ -14,7 +14,7 @@ class KPIController extends Controller
         $kpis = [
             [
                 'id' => 1,
-                'name' => 'Member Retention Rate',
+                'name' => 'Employee Retention Rate',
                 'category' => 'HR',
                 'current_value' => 85,
                 'target_value' => 90,
@@ -99,7 +99,7 @@ class KPIController extends Controller
         // Fetch KPI data
         $kpi = [
             'id' => $id,
-            'name' => 'Member Retention Rate',
+            'name' => 'Employee Retention Rate',
             'description' => 'Measures the percentage of employees who remain with the company over a specified period',
             'category' => 'hr',
             'current_value' => 85,
@@ -133,7 +133,7 @@ class KPIController extends Controller
     {
         $kpi = [
             'id' => $id,
-            'name' => 'Member Retention Rate',
+            'name' => 'Employee Retention Rate',
             'description' => 'Measures the percentage of employees who remain with the company over a specified period',
             'category' => 'hr',
             'current_value' => 85,

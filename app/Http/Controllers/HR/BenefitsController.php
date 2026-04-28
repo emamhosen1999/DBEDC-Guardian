@@ -11,7 +11,7 @@ class BenefitsController extends Controller
     public function index()
     {
         return Inertia::render('HR/Benefits/Index', [
-            'title' => 'Member Benefits',
+            'title' => 'Employee Benefits',
             'benefits' => [],
         ]);
     }
@@ -59,8 +59,8 @@ class BenefitsController extends Controller
 
     public function employeeBenefits($employeeId)
     {
-        return Inertia::render('HR/Benefits/MemberBenefits', [
-            'title' => 'Member Benefits',
+        return Inertia::render('HR/Benefits/EmployeeBenefits', [
+            'title' => 'Employee Benefits',
             'employeeId' => $employeeId,
             'benefits' => [],
         ]);
@@ -72,13 +72,13 @@ class BenefitsController extends Controller
         return redirect()->back()->with('success', 'Benefit assigned to employee successfully');
     }
 
-    public function updateMemberBenefit(Request $request, $employeeId, $benefitId)
+    public function updateEmployeeBenefit(Request $request, $employeeId, $benefitId)
     {
         // Implementation for updating employee benefits
-        return redirect()->back()->with('success', 'Member benefit updated successfully');
+        return redirect()->back()->with('success', 'Employee benefit updated successfully');
     }
 
-    public function removeMemberBenefit($employeeId, $benefitId)
+    public function removeEmployeeBenefit($employeeId, $benefitId)
     {
         // Implementation for removing employee benefits
         return redirect()->back()->with('success', 'Benefit removed from employee successfully');

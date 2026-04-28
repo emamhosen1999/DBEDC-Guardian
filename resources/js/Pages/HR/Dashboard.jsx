@@ -92,12 +92,12 @@ const HRDashboard = ({
   // Stats data for StatsCards component
   const dashboardStats = useMemo(() => [
     {
-      title: "Total WorkForce",
-      value: stats?.totalWorkForce || 142,
+      title: "Total Employees",
+      value: stats?.totalEmployees || 142,
       icon: <UsersIcon />,
       color: "text-blue-400",
       iconBg: "bg-blue-500/20",
-      description: `${stats?.activeWorkForce || 138} active`
+      description: `${stats?.activeEmployees || 138} active`
     },
     {
       title: "Active Reviews",
@@ -144,7 +144,7 @@ const HRDashboard = ({
   // Quick action buttons
   const quickActions = [
     {
-      title: "Add Member",
+      title: "Add Employee",
       description: "Onboard new team member",
       icon: <UserPlusIcon className="w-4 h-4" />,
       color: "primary",
@@ -196,7 +196,7 @@ const HRDashboard = ({
   // Module cards for navigation
   const moduleCards = [
     {
-      title: "Member Management",
+      title: "Employee Management",
       description: "Manage employee profiles, departments, and organizational structure",
       icon: <UsersIcon className="w-6 h-6" />,
       color: "text-blue-500",
@@ -204,8 +204,8 @@ const HRDashboard = ({
       route: route('employees.index'),
       permission: "hr.employees.view",
       stats: [
-        { label: "Total", value: stats?.totalWorkForce || 142 },
-        { label: "Active", value: stats?.activeWorkForce || 138 }
+        { label: "Total", value: stats?.totalEmployees || 142 },
+        { label: "Active", value: stats?.activeEmployees || 138 }
       ]
     },
     {
@@ -730,7 +730,7 @@ const HRDashboard = ({
                                 {attendanceOverview?.todayPresent || 85}
                               </p>
                               <p className="text-sm text-default-600">
-                                out of {attendanceOverview?.totalWorkForce || 100} employees
+                                out of {attendanceOverview?.totalEmployees || 100} employees
                               </p>
                             </div>
                           </CardBody>

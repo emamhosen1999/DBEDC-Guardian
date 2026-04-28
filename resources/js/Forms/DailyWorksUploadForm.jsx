@@ -58,8 +58,8 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
     const [validationErrors, setValidationErrors] = useState([]);
     const [serverErrors, setServerErrors] = useState({});
     const [previewData, setPreviewData] = useState(null);
-    const [showPreview, setShowPreview] = useState(false);
-    const [confirmedImport, setConfirmedImport] = useState(false);
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
 
     // Validate file before processing
     const validateFile = (file) => {
@@ -98,8 +98,6 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
             setValidationErrors([]);
             setServerErrors({});
             setPreviewData(null);
-            setShowPreview(false);
-            setConfirmedImport(false);
         }
     }, []);
 
@@ -109,60 +107,57 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         setValidationErrors([]);
         setServerErrors({});
         setPreviewData(null);
-        setShowPreview(false);
-        setConfirmedImport(false);
+        setShowPreviewModal(false);
         setUploadProgress(0);
     };
 
-    // Handle preview import
+    // Handle preview
     const handlePreview = async () => {
         if (!file) {
-            showToast.error('Please select a file to upload');
+            showToast.error('Please select a file to preview');
             return;
         }
 
-        setProcessing(true);
-        setUploadProgress(0);
+        setPreviewLoading(true);
+        setServerErrors({});
 
         const formData = new FormData();
         formData.append('file', file);
 
         try {
-            const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content 
-                || document.querySelector('input[name="_token"]')?.value 
+            const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="_token"]')?.value
                 || window.Laravel?.csrfToken;
 
             const response = await axios.post(route('dailyWorks.previewImport'), formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
-                },
+                }
             });
 
             if (response.status === 200) {
-                setPreviewData(response.data.preview);
-                setShowPreview(true);
-                setServerErrors({});
-                showToast.success('Import preview generated successfully');
+                setPreviewData(response.data.summary);
+                setShowPreviewModal(true);
+                showToast.success('Preview generated successfully');
             }
         } catch (error) {
             console.error('Preview error:', error);
-            
+
             if (error.response) {
                 if (error.response.status === 422) {
                     setServerErrors(error.response.data.errors || {});
-                    showToast.error(error.response.data.error || 'Failed to generate preview');
+                    showToast.error('Validation failed');
                 } else {
-                    const errorMessage = error.response.data.error || error.response.data.message || 'An unexpected error occurred';
+                    const errorMessage = error.response.data.error || error.response.data.message || 'Preview failed';
                     setServerErrors({ general: [errorMessage] });
                     showToast.error(errorMessage);
                 }
             } else {
-                setServerErrors({ general: ['No response received from the server. Please check your internet connection.'] });
-                showToast.error('No response received from the server');
+                showToast.error('Failed to generate preview');
             }
         } finally {
-            setProcessing(false);
+            setPreviewLoading(false);
         }
     };
 
@@ -200,13 +195,14 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // Handle form submission
-    const handleSubmit = async () => {
+    // Handle form submission (actual import after preview confirmation)
+    const handleConfirmImport = async () => {
         if (!file) {
             showToast.error('Please select a file to upload');
             return;
         }
 
+        setShowPreviewModal(false);
         setProcessing(true);
         setUploadProgress(0);
 
@@ -216,8 +212,8 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         const promise = new Promise(async (resolve, reject) => {
             try {
                 // Get CSRF token safely
-                const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content 
-                    || document.querySelector('input[name="_token"]')?.value 
+                const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content
+                    || document.querySelector('input[name="_token"]')?.value
                     || window.Laravel?.csrfToken;
 
                 const response = await axios.post(route('dailyWorks.import'), formData, {
@@ -236,7 +232,7 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                     clearFile();
                     setServerErrors({});
                     closeModal();
-                    
+
                     // Call onSuccess callback with import results (includes date info)
                     // This allows parent to update date range/selectedDate
                     if (typeof onSuccess === 'function') {
@@ -253,17 +249,17 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                             refreshData();
                         }
                     }
-                    
+
                     resolve(response.data.message || 'Daily works imported successfully.');
                 }
             } catch (error) {
                 console.error('Upload error:', error);
-                
+
                 if (error.response) {
                     console.error('Error response status:', error.response.status);
                     console.error('Error response data:', error.response.data);
                     console.error('Error response headers:', error.response.headers);
-                    
+
                     if (error.response.status === 422) {
                         // Handle validation errors
                         setServerErrors(error.response.data.errors || {});
@@ -520,68 +516,6 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                                             </CardBody>
                                         </Card>
                                     )}
-
-                                    {/* Preview Summary */}
-                                    {showPreview && previewData && (
-                                        <Card className="border border-primary/20 bg-primary/5">
-                                            <CardBody className="p-4">
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <InformationCircleIcon className="w-5 h-5 text-primary" />
-                                                        <h4 className="font-medium text-primary">Import Preview Summary</h4>
-                                                    </div>
-                                                    
-                                                    {previewData.map((sheet, index) => (
-                                                        <div key={index} className="space-y-2 p-3 rounded-lg bg-default-50">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-sm font-medium">Sheet {sheet.sheet} - {sheet.date}</span>
-                                                                <Chip size="sm" color="primary" variant="flat">
-                                                                    {sheet.total_rows} rows
-                                                                </Chip>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-default-500">New Works:</span>
-                                                                    <span className="font-medium text-success">{sheet.summary.new_works}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-default-500">Existing Works:</span>
-                                                                    <span className="font-medium">{sheet.summary.existing_works}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-default-500">Resubmissions:</span>
-                                                                    <span className="font-medium text-warning">{sheet.summary.resubmissions}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-default-500">Skipped (Completed):</span>
-                                                                    <span className="font-medium text-default-400">{sheet.summary.skipped_completed}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-
-                                                    <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
-                                                        <ExclamationTriangleIcon className="w-4 h-4 text-warning mt-0.5" />
-                                                        <div className="text-xs text-warning-700">
-                                                            <strong>Important:</strong> Once imported, data for these dates cannot be re-imported. 
-                                                            Please review the summary above before confirming.
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex justify-end">
-                                                        <Button
-                                                            size="sm"
-                                                            color="primary"
-                                                            variant="flat"
-                                                            onPress={() => setConfirmedImport(true)}
-                                                        >
-                                                            I confirm, proceed with import
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                    )}
                                 </div>
 
                                 <Divider />
@@ -717,18 +651,158 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                             </Button>
                             <Button
                                 color="primary"
-                                onPress={showPreview ? handleSubmit : handlePreview}
-                                isLoading={processing}
-                                disabled={!file || validationErrors.length > 0 || (showPreview && !confirmedImport)}
+                                onPress={handlePreview}
+                                isLoading={previewLoading}
+                                disabled={!file || validationErrors.length > 0}
                                 radius={getThemeRadius()}
                                 size="sm"
-                                startContent={!processing ? (showPreview ? <CheckCircleIcon className="w-4 h-4" /> : <DocumentArrowUpIcon className="w-4 h-4" />) : null}
+                                startContent={!previewLoading ? <DocumentArrowUpIcon className="w-4 h-4" /> : null}
                                 style={{
                                     borderRadius: `var(--borderRadius, 8px)`,
                                     fontFamily: `var(--fontFamily, "Inter")`,
                                 }}
                             >
-                                {processing ? `Processing... ${uploadProgress}%` : (showPreview ? 'Confirm Import' : 'Preview Import')}
+                                {previewLoading ? 'Generating Preview...' : 'Preview Import'}
+                            </Button>
+                        </ModalFooter>
+                    </>
+                )}
+            </ModalContent>
+        </Modal>
+
+        {/* Preview Modal */}
+        <Modal
+            isOpen={showPreviewModal}
+            onClose={() => setShowPreviewModal(false)}
+            size="2xl"
+            radius={getThemeRadius()}
+            placement="center"
+            scrollBehavior="inside"
+            classNames={{
+                base: "backdrop-blur-md mx-2 my-2 sm:mx-4 sm:my-8 max-h-[95vh]",
+                backdrop: "bg-black/50 backdrop-blur-sm",
+                header: "border-b border-divider",
+                body: "overflow-y-auto",
+                footer: "border-t border-divider",
+                closeButton: "hover:bg-white/5 active:bg-white/10"
+            }}
+            style={{
+                border: `var(--borderWidth, 2px) solid var(--theme-divider, #E4E4E7)`,
+                borderRadius: `var(--borderRadius, 12px)`,
+                fontFamily: `var(--fontFamily, "Inter")`,
+            }}
+        >
+            <ModalContent>
+                {(onClose) => (
+                    <>
+                        <ModalHeader className="flex flex-col gap-1">
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className="p-2 rounded-lg"
+                                    style={{
+                                        background: `color-mix(in srgb, var(--theme-primary) 15%, transparent)`,
+                                        color: 'var(--theme-primary)'
+                                    }}
+                                >
+                                    <DocumentTextIcon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-foreground">
+                                        Import Preview
+                                    </h2>
+                                    <p className="text-sm text-default-500">
+                                        Review the import summary before confirming
+                                    </p>
+                                </div>
+                            </div>
+                        </ModalHeader>
+
+                        <ModalBody className="py-4 px-4 sm:py-6 sm:px-6">
+                            {previewData && (
+                                <div className="space-y-4">
+                                    {previewData.map((sheet, index) => (
+                                        <Card key={index} className="border border-default-200">
+                                            <CardBody className="p-4">
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <h3 className="font-semibold text-foreground">
+                                                            Sheet {sheet.sheet}
+                                                        </h3>
+                                                        <Chip size="sm" variant="flat" color="primary">
+                                                            {sheet.date}
+                                                        </Chip>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                                        <div className="p-3 rounded-lg bg-default-50">
+                                                            <div className="text-2xl font-bold text-foreground">
+                                                                {sheet.total_rows}
+                                                            </div>
+                                                            <div className="text-xs text-default-500">Total Rows</div>
+                                                        </div>
+                                                        <div className="p-3 rounded-lg bg-success/10">
+                                                            <div className="text-2xl font-bold text-success">
+                                                                {sheet.new_works}
+                                                            </div>
+                                                            <div className="text-xs text-default-500">New Works</div>
+                                                        </div>
+                                                        <div className="p-3 rounded-lg bg-warning/10">
+                                                            <div className="text-2xl font-bold text-warning">
+                                                                {sheet.resubmissions}
+                                                            </div>
+                                                            <div className="text-xs text-default-500">Resubmissions</div>
+                                                        </div>
+                                                        <div className="p-3 rounded-lg bg-danger/10">
+                                                            <div className="text-2xl font-bold text-danger">
+                                                                {sheet.skipped}
+                                                            </div>
+                                                            <div className="text-xs text-default-500">Skipped (Completed)</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardBody>
+                                        </Card>
+                                    ))}
+
+                                    {previewData.some(s => s.skipped > 0) && (
+                                        <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                                            <ExclamationTriangleIcon className="w-4 h-4 text-warning mt-0.5" />
+                                            <div className="text-xs text-warning-700">
+                                                <strong>Note:</strong> Some works will be skipped because they are already completed with a pass/fail inspection result. These works will not be updated.
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </ModalBody>
+
+                        <ModalFooter className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4">
+                            <Button
+                                color="default"
+                                variant="bordered"
+                                onPress={() => setShowPreviewModal(false)}
+                                radius={getThemeRadius()}
+                                size="sm"
+                                style={{
+                                    borderRadius: `var(--borderRadius, 8px)`,
+                                    fontFamily: `var(--fontFamily, "Inter")`,
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                color="primary"
+                                onPress={handleConfirmImport}
+                                isLoading={processing}
+                                radius={getThemeRadius()}
+                                size="sm"
+                                startContent={!processing ? <DocumentArrowUpIcon className="w-4 h-4" /> : null}
+                                style={{
+                                    borderRadius: `var(--borderRadius, 8px)`,
+                                    fontFamily: `var(--fontFamily, "Inter")`,
+                                }}
+                            >
+                                {processing ? `Importing... ${uploadProgress}%` : 'Confirm Import'}
                             </Button>
                         </ModalFooter>
                     </>

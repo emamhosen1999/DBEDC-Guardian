@@ -26,7 +26,7 @@ export default function OffboardingIndex() {
 
   return (
     <div className="space-y-6">
-      <Head title={props.title || 'Member Offboarding'} />
+      <Head title={props.title || 'Employee Offboarding'} />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Offboarding Processes</h1>
         <Link href={route('hr.offboarding.create')} className="btn btn-primary">New Offboarding</Link>
@@ -34,7 +34,7 @@ export default function OffboardingIndex() {
       <div className="bg-white rounded-sm shadow-sm divide-y">
         <div className="grid grid-cols-6 px-4 py-2 text-xs font-semibold tracking-wide text-gray-600 uppercase">
           <div>ID</div>
-          <div>Member</div>
+          <div>Employee</div>
           <div>Initiated</div>
           <div>Last Working</div>
           <div>Status</div>

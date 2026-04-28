@@ -54,7 +54,7 @@ class ModulePermissionSeeder extends Seeder
         [
             'code' => 'SELF_SERVICE',
             'name' => 'Self Service Portal',
-            'description' => 'Member self-service for attendance, leave, and profile management',
+            'description' => 'Employee self-service for attendance, leave, and profile management',
             'icon' => 'UserCircleIcon',
             'category' => Module::CATEGORY_SELF_SERVICE,
             'route_prefix' => '/self-service',
@@ -120,19 +120,19 @@ class ModulePermissionSeeder extends Seeder
             'sub_modules' => [
                 [
                     'code' => 'EMPLOYEES',
-                    'name' => 'WorkForce',
-                    'description' => 'Member management',
+                    'name' => 'Employees',
+                    'description' => 'Employee management',
                     'icon' => 'UsersIcon',
                     'route_prefix' => '/hr/employees',
                     'permissions' => ['employees.view', 'employees.create', 'employees.update', 'employees.delete', 'employees.import', 'employees.export'],
                     'components' => [
-                        ['code' => 'EMPLOYEES_LIST', 'name' => 'WorkForce List Page', 'type' => 'page', 'route_name' => 'employees.index', 'permissions' => ['employees.view']],
-                        ['code' => 'EMPLOYEE_DETAIL', 'name' => 'Member Detail Page', 'type' => 'page', 'route_name' => 'employees.show', 'permissions' => ['employees.view']],
-                        ['code' => 'CREATE_EMPLOYEE_BTN', 'name' => 'Create Member', 'type' => 'action', 'permissions' => ['employees.create']],
-                        ['code' => 'EDIT_EMPLOYEE_BTN', 'name' => 'Edit Member', 'type' => 'action', 'permissions' => ['employees.update']],
-                        ['code' => 'DELETE_EMPLOYEE_BTN', 'name' => 'Delete Member', 'type' => 'action', 'permissions' => ['employees.delete']],
-                        ['code' => 'IMPORT_EMPLOYEES_BTN', 'name' => 'Import WorkForce', 'type' => 'action', 'permissions' => ['employees.import']],
-                        ['code' => 'EXPORT_EMPLOYEES_BTN', 'name' => 'Export WorkForce', 'type' => 'action', 'permissions' => ['employees.export']],
+                        ['code' => 'EMPLOYEES_LIST', 'name' => 'Employees List Page', 'type' => 'page', 'route_name' => 'employees.index', 'permissions' => ['employees.view']],
+                        ['code' => 'EMPLOYEE_DETAIL', 'name' => 'Employee Detail Page', 'type' => 'page', 'route_name' => 'employees.show', 'permissions' => ['employees.view']],
+                        ['code' => 'CREATE_EMPLOYEE_BTN', 'name' => 'Create Employee', 'type' => 'action', 'permissions' => ['employees.create']],
+                        ['code' => 'EDIT_EMPLOYEE_BTN', 'name' => 'Edit Employee', 'type' => 'action', 'permissions' => ['employees.update']],
+                        ['code' => 'DELETE_EMPLOYEE_BTN', 'name' => 'Delete Employee', 'type' => 'action', 'permissions' => ['employees.delete']],
+                        ['code' => 'IMPORT_EMPLOYEES_BTN', 'name' => 'Import Employees', 'type' => 'action', 'permissions' => ['employees.import']],
+                        ['code' => 'EXPORT_EMPLOYEES_BTN', 'name' => 'Export Employees', 'type' => 'action', 'permissions' => ['employees.export']],
                     ],
                 ],
                 [
@@ -166,7 +166,7 @@ class ModulePermissionSeeder extends Seeder
                 [
                     'code' => 'ATTENDANCE',
                     'name' => 'Attendance Management',
-                    'description' => 'Member attendance tracking and management',
+                    'description' => 'Employee attendance tracking and management',
                     'icon' => 'ClockIcon',
                     'route_prefix' => '/hr/attendance',
                     'permissions' => ['attendance.view', 'attendance.create', 'attendance.update', 'attendance.delete', 'attendance.import', 'attendance.export'],
@@ -196,7 +196,7 @@ class ModulePermissionSeeder extends Seeder
                 [
                     'code' => 'LEAVES',
                     'name' => 'Leave Management',
-                    'description' => 'Member leave requests and approvals',
+                    'description' => 'Employee leave requests and approvals',
                     'icon' => 'CalendarDaysIcon',
                     'route_prefix' => '/hr/leaves',
                     'permissions' => ['leaves.view', 'leaves.create', 'leaves.update', 'leaves.delete', 'leaves.approve', 'leaves.analytics'],

@@ -9,13 +9,6 @@ use Illuminate\Validation\ValidationException;
 
 class DailyWorkValidationService
 {
-    private \App\Services\Cache\ReferenceDataCacheService $cacheService;
-
-    public function __construct(\App\Services\Cache\ReferenceDataCacheService $cacheService)
-    {
-        $this->cacheService = $cacheService;
-    }
-
     /**
      * Validate import file request
      */
@@ -61,29 +54,46 @@ class DailyWorkValidationService
      */
     public function validateAddRequest(Request $request): array
     {
-        $statuses = $this->cacheService->getDailyWorkStatuses();
-        $types = $this->cacheService->getDailyWorkTypes();
-        $sides = $this->cacheService->getDailyWorkSides();
+        $statusValidation = 'required|in:'.implode(',', DailyWork::$statuses);
+        $inspectionValidation = $request->input('status') === DailyWork::STATUS_COMPLETED
+            ? 'required|in:'.implode(',', DailyWork::$inspectionResults)
+            : 'nullable|in:'.implode(',', DailyWork::$inspectionResults);
+        $typeValidation = 'required|in:'.implode(',', DailyWork::$types);
+        $sideValidation = 'required|in:'.implode(',', DailyWork::$sides);
 
-        $validatedData = $request->validate([
+        return $request->validate([
             'date' => 'required|date',
             'number' => 'required|string',
-            'planned_time' => 'required|string|regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/',
-            'status' => 'required|in:'.implode(',', $statuses),
-            'inspection_result' => $this->getInspectionResultValidation($request),
-            'type' => 'required|in:'.implode(',', $types),
-            'description' => 'required|string|min:10|max:500',
-            'location' => 'required|string|enhanced_location',
-            'side' => 'required|in:'.implode(',', $sides),
-            'qty_layer' => $this->getQtyLayerValidation($request),
-            'completion_time' => $this->getCompletionTimeValidation($request),
+            'planned_time' => 'required|string',
+            'status' => $statusValidation,
+            'inspection_result' => $inspectionValidation,
+            'type' => $typeValidation,
+            'description' => 'required|string',
+            'location' => 'required|string|custom_location',
+            'side' => $sideValidation,
+            'qty_layer' => $request->input('type') === DailyWork::TYPE_EMBANKMENT ? 'required|string' : 'nullable|string',
+            'completion_time' => $request->input('status') === DailyWork::STATUS_COMPLETED ? 'required|string' : 'nullable|string',
             'inspection_details' => 'nullable|string|max:1000',
-        ], $this->getValidationMessages());
-
-        // Perform cross-field validation
-        $this->validateCrossFieldRules($validatedData);
-
-        return $validatedData;
+        ], [
+            'date.required' => 'RFI Date is required.',
+            'number.required' => 'RFI Number is required.',
+            'planned_time.required' => 'RFI Time is required.',
+            'planned_time.string' => 'RFI Time must be a string.',
+            'status.required' => 'Status is required.',
+            'status.in' => 'Status must be one of: '.implode(', ', DailyWork::$statuses).'.',
+            'inspection_result.required' => 'Inspection result is required for completed work.',
+            'inspection_result.in' => 'Inspection result must be one of: '.implode(', ', DailyWork::$inspectionResults).'.',
+            'type.required' => 'Type is required.',
+            'type.in' => 'Type must be one of: '.implode(', ', DailyWork::$types).'.',
+            'description.required' => 'Description is required.',
+            'location.required' => 'Location is required.',
+            'location.custom_location' => 'The :attribute must start with \'K\' and be in the range K0 to K48.',
+            'side.required' => 'Road Type is required.',
+            'side.in' => 'Road Type must be one of: '.implode(', ', DailyWork::$sides).'.',
+            'qty_layer.required' => 'Layer No. is required when the type is Embankment.',
+            'completion_time.required' => 'Completion time is required when status is completed.',
+            'inspection_details.max' => 'Inspection details cannot exceed 1000 characters.',
+        ]);
     }
 
     /**
@@ -91,34 +101,49 @@ class DailyWorkValidationService
      */
     public function validateUpdateRequest(Request $request): array
     {
-        $statuses = $this->cacheService->getDailyWorkStatuses();
-        $types = $this->cacheService->getDailyWorkTypes();
-        $sides = $this->cacheService->getDailyWorkSides();
+        $statusValidation = 'required|in:'.implode(',', DailyWork::$statuses);
+        $inspectionValidation = $request->input('status') === DailyWork::STATUS_COMPLETED
+            ? 'required|in:'.implode(',', DailyWork::$inspectionResults)
+            : 'nullable|in:'.implode(',', DailyWork::$inspectionResults);
+        $typeValidation = 'required|in:'.implode(',', DailyWork::$types);
+        $sideValidation = 'required|in:'.implode(',', DailyWork::$sides);
 
-        $validatedData = $request->validate([
+        return $request->validate([
             'id' => 'required|integer|exists:daily_works,id',
             'date' => 'required|date',
             'number' => 'required|string',
-            'planned_time' => 'required|string|regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/',
-            'status' => 'required|in:'.implode(',', $statuses),
-            'inspection_result' => $this->getInspectionResultValidation($request),
-            'type' => 'required|in:'.implode(',', $types),
-            'description' => 'required|string|min:10|max:500',
-            'location' => 'required|string|enhanced_location',
-            'side' => 'required|in:'.implode(',', $sides),
-            'qty_layer' => $this->getQtyLayerValidation($request),
-            'completion_time' => $this->getCompletionTimeValidation($request),
+            'planned_time' => 'required|string',
+            'status' => $statusValidation,
+            'inspection_result' => $inspectionValidation,
+            'type' => $typeValidation,
+            'description' => 'required|string',
+            'location' => 'required|string|custom_location',
+            'side' => $sideValidation,
+            'qty_layer' => $request->input('type') === DailyWork::TYPE_EMBANKMENT ? 'required|string' : 'nullable|string',
+            'completion_time' => $request->input('status') === DailyWork::STATUS_COMPLETED ? 'required|string' : 'nullable|string',
             'inspection_details' => 'nullable|string|max:1000',
-        ], array_merge($this->getValidationMessages(), [
+        ], [
             'id.required' => 'Daily Work ID is required.',
             'id.integer' => 'Daily Work ID must be an integer.',
             'id.exists' => 'Daily Work not found.',
-        ]));
-
-        // Perform cross-field validation
-        $this->validateCrossFieldRules($validatedData);
-
-        return $validatedData;
+            'date.required' => 'RFI Date is required.',
+            'number.required' => 'RFI Number is required.',
+            'planned_time.required' => 'RFI Time is required.',
+            'status.required' => 'Status is required.',
+            'status.in' => 'Status must be one of: '.implode(', ', DailyWork::$statuses).'.',
+            'inspection_result.required' => 'Inspection result is required for completed work.',
+            'inspection_result.in' => 'Inspection result must be one of: '.implode(', ', DailyWork::$inspectionResults).'.',
+            'type.required' => 'Type is required.',
+            'type.in' => 'Type must be one of: '.implode(', ', DailyWork::$types).'.',
+            'description.required' => 'Description is required.',
+            'location.required' => 'Location is required.',
+            'location.custom_location' => 'The :attribute must start with \'K\' and be in the range K0 to K48.',
+            'side.required' => 'Road Type is required.',
+            'side.in' => 'Road Type must be one of: '.implode(', ', DailyWork::$sides).'.',
+            'qty_layer.required' => 'Layer No. is required when the type is Embankment.',
+            'completion_time.required' => 'Completion time is required when status is completed.',
+            'inspection_details.max' => 'Inspection details cannot exceed 1000 characters.',
+        ]);
     }
 
     /**
@@ -147,8 +172,6 @@ class DailyWorkValidationService
      */
     private function getImportValidationRules(string $referenceDate): array
     {
-        $types = $this->cacheService->getDailyWorkTypes();
-
         return [
             '*.0' => [
                 'required',
@@ -160,9 +183,9 @@ class DailyWorkValidationService
                 },
             ],
             '*.1' => 'required|string',
-            '*.2' => 'required|string|in:'.implode(',', $types),
-            '*.3' => 'required|string|min:10|max:500',
-            '*.4' => 'required|string|enhanced_location',
+            '*.2' => 'required|string|in:'.implode(',', DailyWork::$types),
+            '*.3' => 'required|string',
+            '*.4' => 'required|string|custom_location',
         ];
     }
 
@@ -171,188 +194,6 @@ class DailyWorkValidationService
      */
     private function getImportValidationMessages(): array
     {
-        $types = $this->cacheService->getDailyWorkTypes();
-
-        return [
-            '*.0.required' => ':attribute must have a valid date.',
-            '*.0.date_format' => ':attribute must be in the format Y-m-d.',
-            '*.1.required' => ':attribute must have a value.',
-            '*.2.required' => ':attribute must have a value.',
-            '*.2.in' => ':attribute must be one of: '.implode(', ', $types).'.',
-            '*.3.required' => ':attribute must have a value.',
-            '*.3.min' => ':attribute must be at least 10 characters.',
-            '*.3.max' => ':attribute must not exceed 500 characters.',
-            '*.4.required' => ':attribute must have a value.',
-            '*.4.enhanced_location' => ':attribute must be a valid chainage format within jurisdiction.',
-        ];
-    }
-
-    /**
-     * Get inspection result validation rule
-     */
-    private function getInspectionResultValidation(Request $request): string
-    {
-        $status = $request->input('status');
-        $baseRule = 'nullable|in:'.implode(',', DailyWork::$inspectionResults);
-
-        if ($status === DailyWork::STATUS_COMPLETED) {
-            return 'required|in:'.implode(',', DailyWork::$inspectionResults);
-        }
-
-        return $baseRule;
-    }
-
-    /**
-     * Get qty_layer validation rule based on work type
-     */
-    private function getQtyLayerValidation(Request $request): string
-    {
-        $type = $request->input('type');
-
-        if ($type === DailyWork::TYPE_EMBANKMENT) {
-            return 'required|string|regex:/^[0-9]+(\.[0-9]+)?$/';
-        }
-
-        if ($type === DailyWork::TYPE_PAVEMENT) {
-            return 'nullable|string|regex:/^[0-9]+(\.[0-9]+)?$/';
-        }
-
-        return 'nullable|string';
-    }
-
-    /**
-     * Get completion time validation rule
-     */
-    private function getCompletionTimeValidation(Request $request): string
-    {
-        if ($request->input('status') === DailyWork::STATUS_COMPLETED) {
-            return 'required|string|regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/|after:planned_time';
-        }
-
-        return 'nullable|string|regex:/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/';
-    }
-
-    /**
-     * Get enhanced validation messages
-     */
-    private function getValidationMessages(): array
-    {
-        $statuses = $this->cacheService->getDailyWorkStatuses();
-        $inspectionResults = $this->cacheService->getInspectionResults();
-        $types = $this->cacheService->getDailyWorkTypes();
-        $sides = $this->cacheService->getDailyWorkSides();
-
-        return [
-            'date.required' => 'RFI Date is required.',
-            'number.required' => 'RFI Number is required.',
-            'planned_time.required' => 'RFI Time is required.',
-            'planned_time.regex' => 'RFI Time must be in HH:MM format (24-hour).',
-            'planned_time.string' => 'RFI Time must be a string.',
-            'status.required' => 'Status is required.',
-            'status.in' => 'Status must be one of: '.implode(', ', $statuses).'.',
-            'inspection_result.required' => 'Inspection result is required for completed work.',
-            'inspection_result.in' => 'Inspection result must be one of: '.implode(', ', $inspectionResults).'.',
-            'type.required' => 'Type is required.',
-            'type.in' => 'Type must be one of: '.implode(', ', $types).'.',
-            'description.required' => 'Description is required.',
-            'description.min' => 'Description must be at least 10 characters.',
-            'description.max' => 'Description cannot exceed 500 characters.',
-            'location.required' => 'Location is required.',
-            'location.enhanced_location' => 'Location must be a valid chainage format (e.g., K14+500, K30-K35) within valid jurisdiction.',
-            'side.required' => 'Road Type is required.',
-            'side.in' => 'Road Type must be one of: '.implode(', ', $sides).'.',
-            'qty_layer.required' => 'Layer No. is required for embankment work.',
-            'qty_layer.regex' => 'Layer No. must be a valid number.',
-            'completion_time.required' => 'Completion time is required when status is completed.',
-            'completion_time.regex' => 'Completion time must be in HH:MM format (24-hour).',
-            'completion_time.after' => 'Completion time must be after planned time.',
-            'inspection_details.max' => 'Inspection details cannot exceed 1000 characters.',
-        ];
-    }
-
-    /**
-     * Perform cross-field validation rules
-     */
-    private function validateCrossFieldRules(array $data): void
-    {
-        $errors = [];
-
-        // Validate embankment work requirements
-        if (($data['type'] ?? null) === DailyWork::TYPE_EMBANKMENT) {
-            if (empty($data['qty_layer'])) {
-                $errors['qty_layer'] = 'Layer number is required for embankment work.';
-            }
-
-            // Check if side is appropriate for embankment work
-            if (!in_array($data['side'] ?? null, ['TR-R', 'TR-L', 'Both'])) {
-                $errors['side'] = 'Embankment work must be on TR-R, TR-L, or Both sides.';
-            }
-        }
-
-        // Validate pavement work requirements
-        if (($data['type'] ?? null) === DailyWork::TYPE_PAVEMENT) {
-            // Pavement work typically requires specific chainage ranges
-            if (!preg_match('/K\d+\+/', $data['location'] ?? '')) {
-                $errors['location'] = 'Pavement work location should include specific chainage (e.g., K14+500).';
-            }
-        }
-
-        // Validate structure work requirements
-        if (($data['type'] ?? null) === DailyWork::TYPE_STRUCTURE) {
-            // Structure work should have specific location patterns
-            if (!preg_match('/K\d+/', $data['location'] ?? '')) {
-                $errors['location'] = 'Structure work location should specify kilometer (e.g., K25).';
-            }
-        }
-
-        // Validate status-specific requirements
-        if (($data['status'] ?? null) === DailyWork::STATUS_COMPLETED) {
-            if (empty($data['completion_time'])) {
-                $errors['completion_time'] = 'Completion time is required for completed work.';
-            }
-
-            if (empty($data['inspection_result'])) {
-                $errors['inspection_result'] = 'Inspection result is required for completed work.';
-            }
-        }
-
-        // Validate time logic
-        if (!empty($data['planned_time']) && !empty($data['completion_time'])) {
-            $plannedTime = strtotime($data['planned_time']);
-            $completionTime = strtotime($data['completion_time']);
-
-            if ($completionTime < $plannedTime) {
-                $errors['completion_time'] = 'Completion time cannot be before planned time.';
-            }
-        }
-
-        if (!empty($errors)) {
-            throw ValidationException::withMessages($errors);
-        }
-    }
-
-    /**
-     * Get import validation rules for update operations
-     */
-    private function getImportValidationRulesForUpdate(): array
-    {
-        return [
-            '*.0' => [
-                'required',
-                'date_format:Y-m-d',
-            ],
-            '*.1' => 'required|string',
-            '*.2' => 'required|string|in:'.implode(',', DailyWork::$types),
-            '*.3' => 'required|string|min:10|max:500',
-            '*.4' => 'required|string|enhanced_location',
-        ];
-    }
-
-    /**
-     * Get import validation messages for update operations
-     */
-    private function getImportValidationMessagesForUpdate(): array
-    {
         return [
             '*.0.required' => ':attribute must have a valid date.',
             '*.0.date_format' => ':attribute must be in the format Y-m-d.',
@@ -360,10 +201,7 @@ class DailyWorkValidationService
             '*.2.required' => ':attribute must have a value.',
             '*.2.in' => ':attribute must be one of: '.implode(', ', DailyWork::$types).'.',
             '*.3.required' => ':attribute must have a value.',
-            '*.3.min' => ':attribute must be at least 10 characters.',
-            '*.3.max' => ':attribute must not exceed 500 characters.',
             '*.4.required' => ':attribute must have a value.',
-            '*.4.enhanced_location' => ':attribute must be a valid chainage format within jurisdiction.',
         ];
     }
 }

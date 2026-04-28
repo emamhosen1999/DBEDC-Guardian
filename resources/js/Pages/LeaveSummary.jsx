@@ -139,7 +139,7 @@ const LeaveSummary = ({ title, summaryData }) => {
     // Statistics data for cards
     const statsData = useMemo(() => [
         {
-            title: 'Total WorkForce',
+            title: 'Total Employees',
             value: stats.total_employees || 0,
             icon: <UserGroupIcon className="w-5 h-5" />,
             color: 'text-blue-400',
@@ -283,7 +283,7 @@ const LeaveSummary = ({ title, summaryData }) => {
     };
 
     // Render employee cell content
-    const renderMemberCell = useCallback((employee, columnKey) => {
+    const renderEmployeeCell = useCallback((employee, columnKey) => {
       
         const cellValue = employee[columnKey];
 
@@ -474,7 +474,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                                 fontFamily: `var(--fontFamily, "Inter")`,
                                                             }}
                                                         >
-                                                            Member leave analytics and reporting
+                                                            Employee leave analytics and reporting
                                                         </p>
                                                     </div>
                                                 </div>
@@ -534,7 +534,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                         <div className="flex flex-col lg:flex-row gap-3">
                                             <div className="flex-1">
                                                 <Input
-                                                    label="Search WorkForce"
+                                                    label="Search Employees"
                                                     placeholder="Search by name or department..."
                                                     startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
                                                     value={searchValue}
@@ -746,7 +746,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                     title={
                                                         <div className="flex items-center space-x-2">
                                                             <UserGroupIcon className="w-4 h-4" />
-                                                            <span>Member Summary</span>
+                                                            <span>Employee Summary</span>
                                                         </div>
                                                     }
                                                 />
@@ -813,7 +813,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                     </div>
                                                 </div>
 
-                                                {/* Member Summary Table */}
+                                                {/* Employee Summary Table */}
                                                 {loading ? (
                                                     <TableLoadingSkeleton rows={10} columns={17} />
                                                 ) : filteredData.length > 0 ? (
@@ -824,7 +824,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                                 isCompact
                                                                 removeWrapper
                                                                 isStriped
-                                                                aria-label="Member leave summary table"
+                                                                aria-label="Employee leave summary table"
                                                                 isHeaderSticky
                                                                 radius={getThemeRadius()}
                                                             classNames={{
@@ -850,7 +850,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                                 >
                                                                     <div className="flex items-center gap-1 justify-start">
                                                                         <UserGroupIcon className="w-3 h-3" />
-                                                                        <span className="text-xs font-semibold">Member</span>
+                                                                        <span className="text-xs font-semibold">Employee</span>
                                                                     </div>
                                                                 </TableColumn>
                                                                 <TableColumn key="JAN" align="center" className="bg-default-100/80 backdrop-blur-md" style={{ minWidth: "60px", maxWidth: "60px", width: "60px" }}>
@@ -940,7 +940,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                                     <TableRow key={item.id}>
                                                                         {(columnKey) => (
                                                                             <TableCell className="whitespace-nowrap">
-                                                                                {renderMemberCell(item, columnKey)}
+                                                                                {renderEmployeeCell(item, columnKey)}
                                                                             </TableCell>
                                                                         )}
                                                                     </TableRow>
@@ -1055,7 +1055,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                             >
                                                                 <div className="flex items-center gap-1 justify-center">
                                                                     <UserGroupIcon className="w-3 h-3" />
-                                                                    <span className="text-xs font-semibold">WorkForce</span>
+                                                                    <span className="text-xs font-semibold">Employees</span>
                                                                 </div>
                                                             </TableColumn>
                                                             <TableColumn 
@@ -1090,7 +1090,7 @@ const LeaveSummary = ({ title, summaryData }) => {
                                                                 className="bg-default-100/80 backdrop-blur-md"
                                                                 style={{ minWidth: "100px", maxWidth: "100px", width: "100px" }}
                                                             >
-                                                                <span className="text-xs font-semibold">Avg per Member</span>
+                                                                <span className="text-xs font-semibold">Avg per Employee</span>
                                                             </TableColumn>
                                                         </TableHeader>
                                                         <TableBody>

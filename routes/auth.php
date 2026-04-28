@@ -4,7 +4,6 @@ use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
-use App\Http\Controllers\Auth\TwoFactorAuthenticationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -42,19 +41,6 @@ Route::middleware('auth')->group(function () {
     Route::post('email/verification-notification', [EmailVerificationController::class, 'send'])
         ->middleware('throttle:6,1')
         ->name('verification.send');
-
-    // Two-Factor Authentication Routes
-    Route::prefix('two-factor')->name('two-factor.')->group(function () {
-        Route::get('setup', [TwoFactorAuthenticationController::class, 'showSetup'])->name('setup');
-        Route::post('generate-qr', [TwoFactorAuthenticationController::class, 'generateQrCode'])->name('generate-qr');
-        Route::post('enable', [TwoFactorAuthenticationController::class, 'enable'])->name('enable');
-        Route::get('manage', [TwoFactorAuthenticationController::class, 'showManage'])->name('manage');
-        Route::post('disable', [TwoFactorAuthenticationController::class, 'disable'])->name('disable');
-        Route::get('recovery-codes', [TwoFactorAuthenticationController::class, 'showRecoveryCodes'])->name('recovery-codes');
-        Route::post('regenerate-recovery-codes', [TwoFactorAuthenticationController::class, 'regenerateRecoveryCodes'])->name('regenerate-recovery-codes');
-        Route::post('verify', [TwoFactorAuthenticationController::class, 'verify'])->name('verify');
-        Route::get('status', [TwoFactorAuthenticationController::class, 'status'])->name('status');
-    });
 
     // Logout Route
     Route::post('logout', [LoginController::class, 'destroy'])->name('logout');

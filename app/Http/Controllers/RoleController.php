@@ -55,11 +55,11 @@ class RoleController extends BaseController
 
             for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
                 try {
-                    // Get all roles (Super Administratoristrator can see all, others see limited)
+                    // Get all roles (Super Administrator can see all, others see limited)
                     $roles = Role::with(['permissions'])
-                        ->when(! $user->hasRole('Super Administratoristrator'), function ($query) {
-                            // If not Super Administrator, only show roles they can manage
-                            return $query->whereNotIn('name', ['Super Administratoristrator']);
+                        ->when(! $user->hasRole('Super Administrator'), function ($query) {
+                            // If not Super Admin, only show roles they can manage
+                            return $query->whereNotIn('name', ['Super Administrator']);
                         })
                         ->get();
 
@@ -94,7 +94,7 @@ class RoleController extends BaseController
                         'permissionsGrouped' => $permissionsGrouped, // Fixed prop name
                         'role_has_permissions' => $roleHasPermissions,
                         'enterprise_modules' => $this->rolePermissionService->getEnterpriseModules(),
-                        'can_manage_super_admin' => $user->hasRole('Super Administratoristrator'),
+                        'can_manage_super_admin' => $user->hasRole('Super Administrator'),
                         'server_info' => [
                             'environment' => app()->environment(),
                             'timestamp' => now()->toISOString(),
@@ -152,10 +152,10 @@ class RoleController extends BaseController
                     $roleHasPermissions = collect($frontendData['role_has_permissions'] ?? []);
                     $permissionsGrouped = $frontendData['permissionsGrouped'] ?? [];
 
-                    // Filter roles for non-Super Administratoristrators
-                    if (! $user->hasRole('Super Administratoristrator')) {
+                    // Filter roles for non-super administrators
+                    if (! $user->hasRole('Super Administrator')) {
                         $roles = $roles->filter(function ($role) {
-                            return ($role['name'] ?? '') !== 'Super Administratoristrator';
+                            return ($role['name'] ?? '') !== 'Super Administrator';
                         });
                     }
 
@@ -202,7 +202,7 @@ class RoleController extends BaseController
                         'permissionsGrouped' => $permissionsGrouped,
                         'role_has_permissions' => $roleHasPermissions->toArray(),
                         'enterprise_modules' => $this->rolePermissionService->getEnterpriseModules(),
-                        'can_manage_super_admin' => $user->hasRole('Super Administratoristrator'),
+                        'can_manage_super_admin' => $user->hasRole('Super Administrator'),
                         'users' => $users,
                         'server_info' => [
                             'environment' => app()->environment(),
@@ -262,7 +262,7 @@ class RoleController extends BaseController
                     'timestamp' => now()->toISOString(),
                     'suggested_actions' => [
                         'Check database connection and verify tables exist',
-                        'Run diagnostic: /admin/roles/debug (if Super Administrator)',
+                        'Run diagnostic: /admin/roles/debug (if Super Admin)',
                         'Clear caches: php artisan cache:clear',
                         'Check logs for detailed error information',
                         'Contact system administrator if issue persists',
@@ -293,8 +293,8 @@ class RoleController extends BaseController
 
         DB::beginTransaction();
 
-        try {            // Only Super Administratoristrator can create roles for security
-            if (! Auth::user()->hasRole('Super Administratoristrator')) {
+        try {            // Only Super Administrator can create roles for security
+            if (! Auth::user()->hasRole('Super Administrator')) {
                 return response()->json([
                     'error' => 'Insufficient permissions to create roles',
                 ], 403);
@@ -453,7 +453,7 @@ class RoleController extends BaseController
             }
 
             // Check if role is system role (prevent deletion of critical roles)
-            $systemRoles = ['Super Administratoristrator', 'Administrator'];
+            $systemRoles = ['Super Administrator', 'Administrator'];
             if (in_array($role->name, $systemRoles)) {
                 return response()->json([
                     'error' => 'Cannot delete system role',
@@ -802,9 +802,9 @@ class RoleController extends BaseController
     public function initializeEnterpriseSystem()
     {
         try {
-            if (! Auth::user()->hasRole('Super Administratoristrator')) {
+            if (! Auth::user()->hasRole('Super Administrator')) {
                 return response()->json([
-                    'error' => 'Only Super Administratoristrator can initialize the enterprise system',
+                    'error' => 'Only Super Administrator can initialize the enterprise system',
                 ], 403);
             }
 
@@ -831,7 +831,7 @@ class RoleController extends BaseController
     public function getRoleAudit()
     {
         try {
-            if (! Auth::user()->hasRole(['Super Administratoristrator', 'Administrator'])) {
+            if (! Auth::user()->hasRole(['Super Administrator', 'Administrator'])) {
                 return response()->json([
                     'error' => 'Insufficient permissions for role audit',
                 ], 403);
@@ -1030,7 +1030,7 @@ class RoleController extends BaseController
     public function exportRoles()
     {
         try {
-            if (! Auth::user()->hasRole(['Super Administratoristrator', 'Administrator'])) {
+            if (! Auth::user()->hasRole(['Super Administrator', 'Administrator'])) {
                 return response()->json([
                     'error' => 'Insufficient permissions for export',
                 ], 403);
@@ -1090,7 +1090,7 @@ class RoleController extends BaseController
     public function getEnhancedRoleAudit()
     {
         try {
-            if (! Auth::user()->hasRole(['Super Administratoristrator', 'Administrator'])) {
+            if (! Auth::user()->hasRole(['Super Administrator', 'Administrator'])) {
                 return response()->json([
                     'error' => 'Insufficient permissions for role audit',
                 ], 403);
@@ -1226,9 +1226,9 @@ class RoleController extends BaseController
      */
     private function canManageRole($user, Role $role): bool
     {
-        // Only Super Administratoristrator can manage other Super Administratoristrator roles
-        if ($role->name === 'Super Administratoristrator') {
-            return $user->hasRole('Super Administratoristrator');
+        // Only Super Administrator can manage other Super Administrator roles
+        if ($role->name === 'Super Administrator') {
+            return $user->hasRole('Super Administrator');
         }
 
         // Users with roles.update permission can manage other roles
@@ -1257,8 +1257,8 @@ class RoleController extends BaseController
             $user = Auth::user();
 
             $roles = Role::with(['permissions'])
-                ->when(! $user->hasRole('Super Administratoristrator'), function ($query) {
-                    return $query->whereNotIn('name', ['Super Administratoristrator']);
+                ->when(! $user->hasRole('Super Administrator'), function ($query) {
+                    return $query->whereNotIn('name', ['Super Administrator']);
                 })
                 ->get();
 

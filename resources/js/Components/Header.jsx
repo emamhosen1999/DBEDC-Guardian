@@ -29,14 +29,14 @@ import {
     XMarkIcon
 } from '@heroicons/react/24/outline';
 import { Link, usePage, router } from '@inertiajs/react';
-import { useTheme } from '@/Contexts/ThemeContext';
+import { useTheme } from '../Contexts/ThemeContext';
 import ThemeSettingDrawer from './ThemeSettingDrawer';
 import LanguageSwitcher from './LanguageSwitcher';
 import ProfileAvatar from './ProfileAvatar';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Header = ({ 
-    title = "DBEDC Guardian",
+    title = "AEOS365",
     showUserMenu = true,
     showNotifications = true,
     showThemeToggle = true,

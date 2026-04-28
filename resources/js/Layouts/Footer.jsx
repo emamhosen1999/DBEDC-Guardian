@@ -21,7 +21,7 @@ const Footer = () => {
 
     const quickLinks = [
         { label: 'Dashboard', href: '/dashboard' },
-        { label: 'WorkForce', href: '/employees' },
+        { label: 'Employees', href: '/employees' },
         { label: 'Attendance', href: '/attendances' },
         { label: 'Leaves', href: '/leaves' },
         { label: 'Timesheet', href: '/timesheet' },
@@ -75,7 +75,7 @@ const Footer = () => {
                                         </div>
                                         <div>
                                             <h3 className={`font-bold text-xl ${GRADIENT_PRESETS.gradientText}`}>
-                                                DBEDC Guardian
+                                                aeos365
                                             </h3>
                                             <p className="text-default-500 text-sm">
                                                 Enterprise Solution

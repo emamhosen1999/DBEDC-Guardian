@@ -21,7 +21,7 @@ export default function OnboardingShow() {
           <div className="bg-white shadow-sm rounded-sm p-4">
             <h2 className="font-medium mb-3">Overview</h2>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <dt className="text-gray-600">Member</dt><dd>{onboarding.employee?.name}</dd>
+              <dt className="text-gray-600">Employee</dt><dd>{onboarding.employee?.name}</dd>
               <dt className="text-gray-600">Start</dt><dd>{onboarding.start_date}</dd>
               <dt className="text-gray-600">Expected Completion</dt><dd>{onboarding.expected_completion_date}</dd>
               <dt className="text-gray-600">Actual Completion</dt><dd>{onboarding.actual_completion_date ?? '—'}</dd>

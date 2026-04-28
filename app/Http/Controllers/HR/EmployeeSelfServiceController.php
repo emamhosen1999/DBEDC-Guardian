@@ -6,12 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
-class MemberSelfServiceController extends Controller
+class EmployeeSelfServiceController extends Controller
 {
     public function index()
     {
         return Inertia::render('HR/SelfService/Index', [
-            'title' => 'Member Self-Service Portal',
+            'title' => 'Employee Self-Service Portal',
             'user' => auth()->user(),
         ]);
     }

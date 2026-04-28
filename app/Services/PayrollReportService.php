@@ -175,7 +175,7 @@ class PayrollReportService
                     'esi_number' => $employee->esi_number ?? 'N/A',
                     'gross_salary' => $payroll->gross_salary,
                     'employee_esi' => $esiAmount,
-                    'employer_esi' => $esiAmount * 3.25 / 0.75, // Employer: 3.25%, Member: 0.75%
+                    'employer_esi' => $esiAmount * 3.25 / 0.75, // Employer: 3.25%, Employee: 0.75%
                     'total_esi' => $esiAmount + ($esiAmount * 3.25 / 0.75),
                 ];
             }
@@ -359,7 +359,7 @@ class PayrollReportService
             'income_tax' => 'Income Tax',
             'professional_tax' => 'Professional Tax',
             'pf_deduction' => 'Provident Fund',
-            'esi_deduction' => 'Member State Insurance',
+            'esi_deduction' => 'Employee State Insurance',
             'loan_deduction' => 'Loan Deduction',
             'advance_deduction' => 'Advance Salary',
         ];

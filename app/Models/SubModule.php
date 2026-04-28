@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
 /**
  * SubModule Model
  *
- * Represents a functional area within a module (e.g., WorkForce within HRM)
+ * Represents a functional area within a module (e.g., Employees within HRM)
  * Contains components and has its own permission requirements.
  */
 class SubModule extends Model

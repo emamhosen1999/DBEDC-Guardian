@@ -42,7 +42,7 @@ export default function BenefitsIndex({ benefits = [], stats, filters = {} }) {
                 {stats && (
                     <div className="grid gap-4 sm:grid-cols-3">
                         <StatCard title="Total Benefits" value={stats.totalBenefits || 0} />
-                        <StatCard title="Enrolled WorkForce" value={stats.enrolledWorkForce || 0} />
+                        <StatCard title="Enrolled Employees" value={stats.enrolledEmployees || 0} />
                         <StatCard title="Active Plans" value={stats.activePlans || 0} />
                     </div>
                 )}

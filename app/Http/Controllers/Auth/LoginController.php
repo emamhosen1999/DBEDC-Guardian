@@ -4,9 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\CaptchaService;
 use App\Services\DeviceAuthService;
-use App\Services\GeoLocationService;
 use App\Services\ModernAuthenticationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,20 +18,15 @@ use Inertia\Response;
 class LoginController extends Controller
 {
     protected ModernAuthenticationService $authService;
+
     protected DeviceAuthService $deviceAuthService;
-    protected CaptchaService $captchaService;
-    protected GeoLocationService $geoLocationService;
 
     public function __construct(
         ModernAuthenticationService $authService,
-        DeviceAuthService $deviceAuthService,
-        CaptchaService $captchaService,
-        GeoLocationService $geoLocationService
+        DeviceAuthService $deviceAuthService
     ) {
         $this->authService = $authService;
         $this->deviceAuthService = $deviceAuthService;
-        $this->captchaService = $captchaService;
-        $this->geoLocationService = $geoLocationService;
     }
 
     /**
@@ -41,22 +34,12 @@ class LoginController extends Controller
      */
     public function create(): Response
     {
-        $isRequired = $this->captchaService->shouldTrigger(request());
-        
-        $captchaConfig = [
-            'enabled' => config('captcha.enabled') || $isRequired,
-            'provider' => config('captcha.provider'),
-            'site_key' => config('captcha.' . config('captcha.provider') . '.site_key'),
-            'required' => $isRequired,
-        ];
-
         return Inertia::render('Auth/Login', [
             'canResetPassword' => true,
             'status' => session('status'),
             'deviceBlocked' => session('device_blocked', false),
             'deviceMessage' => session('device_message'),
             'blockedDeviceInfo' => session('blocked_device_info'),
-            'captcha' => $captchaConfig,
         ]);
     }
 
@@ -71,31 +54,7 @@ class LoginController extends Controller
             'remember' => 'boolean',
             'device_name' => 'nullable|string|max:120',
             'device_signature' => 'nullable|array',
-            'captcha_token' => 'nullable|string',
         ]);
-
-        // CAPTCHA verification if required
-        if ($this->captchaService->shouldTrigger($request)) {
-            $captchaToken = $request->input('captcha_token');
-            
-            if (! $captchaToken) {
-                $this->captchaService->incrementFailedAttempts($request);
-                
-                throw ValidationException::withMessages([
-                    'captcha' => 'CAPTCHA verification is required.',
-                ]);
-            }
-
-            $captchaResult = $this->captchaService->verify($captchaToken, 'login');
-
-            if (! $captchaResult['success']) {
-                $this->captchaService->incrementFailedAttempts($request);
-
-                throw ValidationException::withMessages([
-                    'captcha' => 'CAPTCHA verification failed. Please try again.',
-                ]);
-            }
-        }
 
         $email = $request->email;
         $password = $request->password;
@@ -174,50 +133,6 @@ class LoginController extends Controller
             ]);
         }
 
-        // Geolocation verification
-        $currentLocation = $this->geoLocationService->getLocation($request->ip());
-        
-        if ($currentLocation && ! $currentLocation['is_private']) {
-            // Check for suspicious location
-            if ($this->geoLocationService->isSuspiciousLocation($user->id, $currentLocation)) {
-                $this->authService->logAuthenticationEvent(
-                    $user,
-                    'login_suspicious_location',
-                    'failure',
-                    $request,
-                    ['location' => $currentLocation]
-                );
-
-                throw ValidationException::withMessages([
-                    'email' => 'Login from an unusual location detected. Please contact administrator or use a known device.',
-                ]);
-            }
-
-            // Check for impossible travel
-            $knownLocations = $this->geoLocationService->getUserKnownLocations($user->id);
-            $previousLocation = null;
-            if (! empty($knownLocations)) {
-                $lastKey = array_key_last($knownLocations);
-                $previousLocation = $knownLocations[$lastKey];
-            }
-            if ($this->geoLocationService->isImpossibleTravel($user->id, $currentLocation, $previousLocation)) {
-                $this->authService->logAuthenticationEvent(
-                    $user,
-                    'login_impossible_travel',
-                    'failure',
-                    $request,
-                    [
-                        'current_location' => $currentLocation,
-                        'previous_location' => $previousLocation,
-                    ]
-                );
-
-                throw ValidationException::withMessages([
-                    'email' => 'Suspicious login pattern detected. Please verify your identity.',
-                ]);
-            }
-        }
-
         // NEW SECURE DEVICE BINDING LOGIC
         // Get device_id from request (UUIDv4 from frontend)
         $deviceId = $request->input('device_id') ?? $request->header('X-Device-ID');
@@ -273,18 +188,6 @@ class LoginController extends Controller
         // Clear rate limiting on successful login
         RateLimiter::clear($key);
 
-        // Reset CAPTCHA failed attempts
-        $this->captchaService->resetFailedAttempts($request);
-
-        // Register device as known
-        $this->captchaService->registerDevice($request);
-
-        // Record user location for geolocation tracking
-        if ($currentLocation && ! $currentLocation['is_private']) {
-            $this->geoLocationService->recordUserLocation($user->id, $currentLocation);
-            $this->geoLocationService->recordLastLoginTime($user->id);
-        }
-
         // Login user
         Auth::login($user, $remember);
 
@@ -333,7 +236,7 @@ class LoginController extends Controller
             $request
         );
 
-        return redirect()->intended(route('dashboard.redirect'));
+        return redirect()->intended(route('dashboard'));
     }
 
     /**

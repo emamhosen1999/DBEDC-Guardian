@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\DailyWork;
 use App\Models\Jurisdiction;
 use App\Models\User;
-use App\Services\DailyWork\DailyWorkCacheService;
 use App\Traits\DailyWorkFilterable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,19 +14,12 @@ class DailyWorkSummaryController extends Controller
 {
     use DailyWorkFilterable;
 
-    private DailyWorkCacheService $cacheService;
-
-    public function __construct(DailyWorkCacheService $cacheService)
-    {
-        $this->cacheService = $cacheService;
-    }
-
     public function index()
     {
         $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
         $userRoles = $user->roles->pluck('name')->toArray();
-        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
+        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
         // Get daily works based on user role
         $query = DailyWork::with(['inchargeUser', 'assignedUser']);
@@ -63,7 +55,7 @@ class DailyWorkSummaryController extends Controller
         $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
         $userRoles = $user->roles->pluck('name')->toArray();
-        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
+        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
         try {
             $query = DailyWork::with(['inchargeUser', 'assignedUser']);
@@ -104,7 +96,7 @@ class DailyWorkSummaryController extends Controller
         $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
         $userRoles = $user->roles->pluck('name')->toArray();
-        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
+        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
         try {
             $query = DailyWork::with(['inchargeUser', 'assignedUser']);
@@ -142,6 +134,7 @@ class DailyWorkSummaryController extends Controller
 
     /**
      * Generate summaries from daily works collection
+     * Combines import snapshot from daily_work_summaries with real-time data from daily_works
      */
     private function generateSummariesFromDailyWorks($dailyWorks)
     {
@@ -172,21 +165,46 @@ class DailyWorkSummaryController extends Controller
             // RFI percentage against completed (more meaningful metric)
             $rfiSubmissionPercentage = $completed > 0 ? round(($rfiSubmissions / $completed) * 100, 1) : 0;
 
+            // Fetch import snapshot from daily_work_summaries (immutable)
+            $importSummaries = \App\Models\DailyWorkSummary::where('date', $date)->get();
+            $importSnapshot = $importSummaries->isEmpty() ? null : [
+                'totalDailyWorks' => $importSummaries->sum('totalDailyWorks'),
+                'resubmissions' => $importSummaries->sum('resubmissions'),
+                'embankment' => $importSummaries->sum('embankment'),
+                'structure' => $importSummaries->sum('structure'),
+                'pavement' => $importSummaries->sum('pavement'),
+                'incharges' => $importSummaries->map(function ($s) {
+                    return [
+                        'incharge' => $s->incharge,
+                        'totalDailyWorks' => $s->totalDailyWorks,
+                        'resubmissions' => $s->resubmissions,
+                        'embankment' => $s->embankment,
+                        'structure' => $s->structure,
+                        'pavement' => $s->pavement,
+                    ];
+                }),
+            ];
+
             $summary = [
                 'date' => $date,
-                'totalDailyWorks' => $totalWorks,
-                'completed' => $completed,
-                'pending' => $pending,
-                'inProgress' => $inProgress,
-                'rejected' => $rejected,
-                'emergency' => $emergency,
-                'rfiSubmissions' => $rfiSubmissions,
-                'completionPercentage' => $totalWorks > 0 ? round(($completed / $totalWorks) * 100, 1) : 0,
-                'rfiSubmissionPercentage' => $rfiSubmissionPercentage,
-                'embankment' => $typeBreakdown->get('Embankment', collect())->count(),
-                'structure' => $typeBreakdown->get('Structure', collect())->count(),
-                'pavement' => $typeBreakdown->get('Pavement', collect())->count(),
-                'resubmissions' => $works->where('resubmission_count', '>', 0)->count(),
+                // Real-time data from daily_works table
+                'realTime' => [
+                    'totalDailyWorks' => $totalWorks,
+                    'completed' => $completed,
+                    'pending' => $pending,
+                    'inProgress' => $inProgress,
+                    'rejected' => $rejected,
+                    'emergency' => $emergency,
+                    'rfiSubmissions' => $rfiSubmissions,
+                    'completionPercentage' => $totalWorks > 0 ? round(($completed / $totalWorks) * 100, 1) : 0,
+                    'rfiSubmissionPercentage' => $rfiSubmissionPercentage,
+                    'embankment' => $typeBreakdown->get('Embankment', collect())->count(),
+                    'structure' => $typeBreakdown->get('Structure', collect())->count(),
+                    'pavement' => $typeBreakdown->get('Pavement', collect())->count(),
+                    'resubmissions' => $works->where('resubmission_count', '>', 0)->count(),
+                ],
+                // Import snapshot from daily_work_summaries table (immutable)
+                'importSnapshot' => $importSnapshot,
             ];
 
             $summaries[] = $summary;
@@ -211,12 +229,12 @@ class DailyWorkSummaryController extends Controller
 
         $query = DailyWork::query();
 
-        // Check if user is Super Administratoristrator or Administrator
-        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
+        // Check if user is Super Administrator or Administrator
+        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
         // Filter based on user role
         if ($isAdmin) {
-            // Super Administratoristrator and Administrator get all data - no filtering
+            // Super Administrator and Administrator get all data - no filtering
             // Query remains unfiltered to get all daily works
         } elseif ($userDesignationTitle === 'Supervision Engineer') {
             // Get works where user is incharge

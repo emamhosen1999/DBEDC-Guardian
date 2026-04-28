@@ -3,7 +3,6 @@
 use App\Http\Controllers\Api\V1\AttendanceController as MobileAttendanceController;
 use App\Http\Controllers\Api\V1\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\V1\DailyWorkController as MobileDailyWorkController;
-use App\Http\Controllers\Api\V1\DailyWorkAnalyticsController as MobileDailyWorkAnalyticsController;
 use App\Http\Controllers\Api\V1\LeaveController as MobileLeaveController;
 use App\Http\Controllers\Api\V1\ManagerDashboardController as MobileManagerDashboardController;
 use App\Http\Controllers\Api\V1\ProfileController as MobileProfileController;
@@ -24,17 +23,17 @@ Route::get('/user', function (Request $request) {
 Route::get('/version', [VersionController::class, 'current'])->name('api.version.current');
 Route::post('/version/check', [VersionController::class, 'check'])->name('api.version.check');
 
-// Error logging endpoint - secured with rate limiting
+// Error logging endpoint
 Route::post('/log-error', function (Request $request) {
     try {
         $validated = $request->validate([
-            'error_id' => 'required|string|max:255',
-            'message' => 'required|string|max:5000',
-            'stack' => 'nullable|string|max:10000',
-            'component_stack' => 'nullable|string|max:10000',
-            'url' => 'required|string|max:500',
-            'user_agent' => 'nullable|string|max:500',
-            'timestamp' => 'required|string|max:50',
+            'error_id' => 'required|string',
+            'message' => 'required|string',
+            'stack' => 'nullable|string',
+            'component_stack' => 'nullable|string',
+            'url' => 'required|string',
+            'user_agent' => 'nullable|string',
+            'timestamp' => 'required|string',
         ]);
 
         DB::table('error_logs')->insert([
@@ -60,7 +59,7 @@ Route::post('/log-error', function (Request $request) {
 
         return response()->json(['success' => false], 500);
     }
-})->middleware(['web', 'throttle:60,1'])->name('api.log-error');
+})->middleware(['web']);
 
 // Performance logging endpoint
 
@@ -109,7 +108,7 @@ Route::prefix('locale')->group(function () {
 // ============================================================================
 // RBAC API Routes - Role and Permission Management
 // ============================================================================
-Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:roles.manage'])->prefix('roles')->group(function () {
+Route::middleware(['web', 'auth'])->prefix('roles')->group(function () {
     // Role CRUD operations
     Route::get('/', [\App\Http\Controllers\RoleController::class, 'apiIndex'])->name('api.roles.index');
     Route::post('/', [\App\Http\Controllers\RoleController::class, 'storeRole'])->name('api.roles.store');
@@ -122,7 +121,7 @@ Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:roles.manage'])->
     Route::post('/{id}/permissions/sync', [\App\Http\Controllers\RoleController::class, 'syncRolePermissions'])->name('api.roles.permissions.sync');
 });
 
-Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:permissions.manage'])->prefix('permissions')->group(function () {
+Route::middleware(['web', 'auth'])->prefix('permissions')->group(function () {
     // Permission CRUD operations
     Route::get('/', [\App\Http\Controllers\PermissionController::class, 'index'])->name('api.permissions.index');
     Route::post('/', [\App\Http\Controllers\PermissionController::class, 'store'])->name('api.permissions.store');
@@ -134,7 +133,7 @@ Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:permissions.manag
     Route::get('/grouped/modules', [\App\Http\Controllers\PermissionController::class, 'groupedByModule'])->name('api.permissions.grouped');
 });
 
-Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:users.manage'])->prefix('users')->group(function () {
+Route::middleware(['web', 'auth'])->prefix('users')->group(function () {
     // User-Role assignment
     Route::get('/{id}/roles', [\App\Http\Controllers\UserController::class, 'getUserRoles'])->name('api.users.roles.index');
     Route::post('/{id}/roles', [\App\Http\Controllers\UserController::class, 'updateUserRole'])->name('api.users.roles.sync');
@@ -208,11 +207,5 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\ApiDeviceA
     Route::post('/daily-works/{dailyWorkId}/objections/{objectionId}/files', [MobileDailyWorkController::class, 'uploadObjectionFiles'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->name('api.v1.daily-works.objections.files.upload');
     Route::delete('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}', [MobileDailyWorkController::class, 'deleteObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.delete');
     Route::get('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}/download', [MobileDailyWorkController::class, 'downloadObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.download');
-
-    // Analytics endpoints
-    Route::get('/analytics/daily-works/completion-rates', [MobileDailyWorkAnalyticsController::class, 'completionRates'])->name('api.v1.analytics.daily-works.completion-rates');
-    Route::get('/analytics/daily-works/bottlenecks', [MobileDailyWorkAnalyticsController::class, 'bottlenecks'])->name('api.v1.analytics.daily-works.bottlenecks');
-    Route::get('/analytics/daily-works/trends', [MobileDailyWorkAnalyticsController::class, 'trends'])->name('api.v1.analytics.daily-works.trends');
-    Route::get('/analytics/daily-works/dashboard', [MobileDailyWorkAnalyticsController::class, 'dashboard'])->name('api.v1.analytics.daily-works.dashboard');
     Route::post('/notifications/token', [NotificationController::class, 'storeToken'])->name('api.v1.notifications.token.store');
 });

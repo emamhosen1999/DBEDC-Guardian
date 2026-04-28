@@ -503,15 +503,6 @@ export const applyThemeToDocument = (theme) => {
   }
 };
 
-/**
- * Get primary color from current theme
- */
-export const getThemePrimaryColor = (themeName = 'heroui', isDark = false) => {
-  const theme = getTheme(themeName);
-  const colors = isDark ? { ...theme.colors, ...darkModeColors } : theme.colors;
-  return typeof colors.primary === 'object' ? colors.primary.DEFAULT : colors.primary;
-};
-
 export default {
   heroUIThemes,
   darkModeColors,
@@ -521,6 +512,5 @@ export default {
   scalingOptions,
   getTheme,
   generateHeroUIConfig,
-  applyThemeToDocument,
-  getThemePrimaryColor
+  applyThemeToDocument
 };

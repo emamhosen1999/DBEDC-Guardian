@@ -34,7 +34,7 @@ class PayrollController extends Controller
 
     public function create()
     {
-        $employees = User::role('Member')->select('id', 'name', 'employee_id', 'email')->get();
+        $employees = User::role('Employee')->select('id', 'name', 'employee_id', 'email')->get();
 
         return Inertia::render('HR/Payroll/Create', [
             'title' => 'Generate Payroll',
@@ -288,7 +288,7 @@ class PayrollController extends Controller
 
     public function bulk()
     {
-        $employees = User::role('Member')->select('id', 'name', 'employee_id', 'email')->get();
+        $employees = User::role('Employee')->select('id', 'name', 'employee_id', 'email')->get();
 
         return Inertia::render('HR/Payroll/Bulk', [
             'title' => 'Bulk Payroll Generation',

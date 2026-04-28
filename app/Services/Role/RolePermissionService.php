@@ -38,7 +38,7 @@ class RolePermissionService
                 'leave.own.view', 'leave.own.create', 'leave.own.update', 'leave.own.delete',
                 'communications.own.view', 'profile.own.view', 'profile.own.update', 'profile.password.change',
             ],
-            'description' => 'Member self-service capabilities',
+            'description' => 'Employee self-service capabilities',
             'category' => 'self_service',
         ],
 
@@ -285,7 +285,7 @@ class RolePermissionService
      */
     private function formatPermissionDisplayName(string $permissionName): string
     {
-        // Convert "employees.view" to "View WorkForce"
+        // Convert "employees.view" to "View Employees"
         $parts = explode('.', $permissionName);
         if (count($parts) >= 2) {
             $resource = ucfirst(str_replace('-', ' ', $parts[0]));

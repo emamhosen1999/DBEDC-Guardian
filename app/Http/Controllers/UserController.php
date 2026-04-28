@@ -25,8 +25,8 @@ class UserController extends Controller
     public function index1(): \Inertia\Response
     {
 
-        return Inertia::render('WorkForce/MemberList', [
-            'title' => 'Member Management',
+        return Inertia::render('Employees/EmployeeList', [
+            'title' => 'Employee Management',
             'departments' => Department::all(),
             'designations' => Designation::all(),
             'attendanceTypes' => AttendanceType::where('is_active', true)->get(),
@@ -74,8 +74,8 @@ class UserController extends Controller
             if ($roles = $request->input('roles')) {
                 $user->syncRoles($roles);
             } else {
-                // Assign default Member role if no roles specified
-                $user->assignRole('Member');
+                // Assign default Employee role if no roles specified
+                $user->assignRole('Employee');
             }
 
             // Handle profile image
@@ -515,7 +515,7 @@ class UserController extends Controller
     /**
      * Paginate employees for the employee list page
      */
-    public function paginateWorkForce(Request $request): \Illuminate\Http\JsonResponse
+    public function paginateEmployees(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
             // Extract filter parameters
@@ -555,7 +555,7 @@ class UserController extends Controller
             $employees = $query->with('reportsTo')->paginate($perPage, ['*'], 'page', $page);
 
             // Transform employee data to include department and designation names
-            $transformedWorkForce = $employees->map(function ($employee) {
+            $transformedEmployees = $employees->map(function ($employee) {
                 return [
                     'id' => $employee->id,
                     'name' => $employee->name,
@@ -588,7 +588,7 @@ class UserController extends Controller
             });
 
             // Replace the items in the paginator with the transformed items
-            $employees->setCollection($transformedWorkForce);
+            $employees->setCollection($transformedEmployees);
 
             // Get stats
             $stats = [
@@ -638,9 +638,9 @@ class UserController extends Controller
     {
         try {
             // Basic employee counts
-            $totalWorkForce = User::count();
-            $activeWorkForce = User::where('active', 1)->count();
-            $inactiveWorkForce = User::where('active', 0)->count();
+            $totalEmployees = User::count();
+            $activeEmployees = User::where('active', 1)->count();
+            $inactiveEmployees = User::where('active', 0)->count();
 
             // Department and designation counts
             $departmentCount = Department::count();
@@ -688,11 +688,11 @@ class UserController extends Controller
                 'last_year' => User::where('created_at', '>=', $now->copy()->subYear())->count(),
             ];
 
-            // Member status ratios
+            // Employee status ratios
             $statusRatio = [
-                'active_percentage' => $totalWorkForce > 0 ? round(($activeWorkForce / $totalWorkForce) * 100, 1) : 0,
-                'inactive_percentage' => $totalWorkForce > 0 ? round(($inactiveWorkForce / $totalWorkForce) * 100, 1) : 0,
-                'retention_rate' => $totalWorkForce > 0 ? round(($activeWorkForce / $totalWorkForce) * 100, 1) : 0,
+                'active_percentage' => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
+                'inactive_percentage' => $totalEmployees > 0 ? round(($inactiveEmployees / $totalEmployees) * 100, 1) : 0,
+                'retention_rate' => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
             ];
 
             // Growth metrics
@@ -704,9 +704,9 @@ class UserController extends Controller
             $stats = [
                 // Basic counts
                 'overview' => [
-                    'total_employees' => $totalWorkForce,
-                    'active_employees' => $activeWorkForce,
-                    'inactive_employees' => $inactiveWorkForce,
+                    'total_employees' => $totalEmployees,
+                    'active_employees' => $activeEmployees,
+                    'inactive_employees' => $inactiveEmployees,
                     'total_departments' => $departmentCount,
                     'total_designations' => $designationCount,
                     'total_attendance_types' => AttendanceType::where('is_active', true)->count(),
@@ -735,7 +735,7 @@ class UserController extends Controller
 
                 // Quick metrics for dashboard
                 'quick_metrics' => [
-                    'headcount' => $totalWorkForce,
+                    'headcount' => $totalEmployees,
                     'active_ratio' => $statusRatio['active_percentage'],
                     'department_diversity' => $departmentCount,
                     'role_diversity' => $designationCount,

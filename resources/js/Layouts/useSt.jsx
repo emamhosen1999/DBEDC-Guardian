@@ -12,7 +12,7 @@ import '../../css/theme-transitions.css';
 import Sidebar from "@/Layouts/Sidebar.jsx";
 import { Inertia } from '@inertiajs/inertia';
 import { getDynamicPages } from '@/Props/dynamicNavigation.jsx';
-import { getSettingsPages } from '@/Services/NavigationRegistry.jsx';
+import { getSettingsPages } from '@/Props/settings.jsx';
 import { HeroUIProvider, Button } from "@heroui/react";
 import SessionExpiredModal from '@/Components/SessionExpiredModal.jsx';
 import { onMessageListener, requestNotificationPermission } from "@/firebase-config.js";

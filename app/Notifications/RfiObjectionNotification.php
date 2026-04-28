@@ -101,8 +101,7 @@ class RfiObjectionNotification extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
-        // Get the first daily work for backward compatibility with notifications
-        $dailyWork = $this->objection->dailyWorks->first();
+        $dailyWork = $this->objection->dailyWork;
 
         return [
             'type' => 'rfi_objection',
@@ -111,9 +110,9 @@ class RfiObjectionNotification extends Notification implements ShouldQueue
             'objection_title' => $this->objection->title,
             'objection_category' => $this->objection->category,
             'objection_status' => $this->objection->status,
-            'daily_work_id' => $dailyWork->id ?? null,
-            'daily_work_number' => $dailyWork->number ?? null,
-            'daily_work_location' => $dailyWork->location ?? null,
+            'daily_work_id' => $dailyWork->id,
+            'daily_work_number' => $dailyWork->number,
+            'daily_work_location' => $dailyWork->location,
             'created_by_id' => $this->objection->created_by,
             'created_by_name' => $this->objection->createdBy?->name,
             'resolved_by_id' => $this->objection->resolved_by,

@@ -27,7 +27,7 @@ export default function OnboardingIndex() {
 
   return (
     <div className="space-y-6">
-      <Head title={props.title || 'Member Onboarding'} />
+      <Head title={props.title || 'Employee Onboarding'} />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Onboarding Processes</h1>
         <div className="flex gap-2">
@@ -38,7 +38,7 @@ export default function OnboardingIndex() {
       <div className="bg-white rounded-sm shadow-sm divide-y">
         <div className="grid grid-cols-6 px-4 py-2 text-xs font-semibold tracking-wide text-gray-600 uppercase">
           <div>ID</div>
-          <div>Member</div>
+          <div>Employee</div>
           <div>Start</div>
           <div>Expected</div>
           <div>Status</div>

@@ -52,7 +52,7 @@ const checkSinglePermission = (permission, user) => {
         }
     }
     
-    // Check if user is Super Administrator (has all permissions)
+    // Check if user is super admin (has all permissions)
     if (user.is_super_admin || user.role === 'super_admin') {
         return true;
     }

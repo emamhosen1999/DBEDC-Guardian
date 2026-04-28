@@ -8,7 +8,7 @@ return [
 
     // Statistics Cards
     'statistics' => [
-        'total_employees' => 'Total WorkForce',
+        'total_employees' => 'Total Employees',
         'present_today' => 'Present Today',
         'on_leave' => 'On Leave',
         'pending_approvals' => 'Pending Approvals',
@@ -45,7 +45,7 @@ return [
     'timesheet' => [
         'title' => 'Time Sheet',
         'select_date' => 'Select Date',
-        'employee' => 'Member',
+        'employee' => 'Employee',
         'punch_in' => 'Punch In',
         'punch_out' => 'Punch Out',
         'working_hours' => 'Working Hours',
@@ -72,7 +72,7 @@ return [
         'events' => 'Upcoming Events',
         'holidays' => 'Upcoming Holidays',
         'birthdays' => 'Birthdays',
-        'new_employees' => 'New WorkForce',
+        'new_employees' => 'New Employees',
         'view_all' => 'View All',
         'no_updates' => 'No recent updates.',
     ],
