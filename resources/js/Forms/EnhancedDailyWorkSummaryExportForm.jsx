@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     Modal,
     ModalContent,
@@ -21,13 +21,13 @@ import {
     DocumentArrowDownIcon,
     ChartBarIcon,
     InformationCircleIcon,
-    CheckCircleIcon
+    CheckCircleIcon,
+    PhotoIcon
 } from "@heroicons/react/24/outline";
 import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { showToast } from '@/utils/toastUtils';
 import { route } from 'ziggy-js';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import { parseDate } from "@internationalized/date";
 
 const EnhancedDailyWorkSummaryExportForm = ({ 
@@ -35,7 +35,8 @@ const EnhancedDailyWorkSummaryExportForm = ({
     closeModal, 
     filteredData = [],
     inCharges = [],
-    currentFilters = {}
+    currentFilters = {},
+    analyticsRef = null
 }) => {
     const [exportSettings, setExportSettings] = useState({
         format: 'excel',
@@ -53,9 +54,15 @@ const EnhancedDailyWorkSummaryExportForm = ({
 
     const exportFormats = [
         {
+            key: 'pdf',
+            label: 'PDF Report',
+            description: 'Professional PDF with charts and branding',
+            icon: <DocumentArrowDownIcon className="w-5 h-5 text-red-600" />
+        },
+        {
             key: 'excel',
             label: 'Excel (.xlsx)',
-            description: 'Comprehensive spreadsheet with summary data',
+            description: 'Comprehensive spreadsheet with multi-sheet data',
             icon: <FileSpreadsheet size={20} className="text-green-600" />
         },
         {
@@ -114,40 +121,34 @@ const EnhancedDailyWorkSummaryExportForm = ({
 
     const handleExport = async () => {
         setIsLoading(true);
-        setIsFetchingData(true);
         
         const promise = new Promise(async (resolve, reject) => {
             try {
-                // Fetch fresh data from backend with current filters
-                const freshData = await fetchFreshExportData();
-                setIsFetchingData(false);
-                
-                // Prepare export data based on settings using fresh data
-                let exportData = prepareExportData(freshData);
-                
                 const filename = `daily_work_summary_${new Date().toISOString().split('T')[0]}`;
                 
                 switch (exportSettings.format) {
+                    case 'pdf':
+                        await exportToPDF(filename);
+                        break;
                     case 'excel':
-                        exportToExcel(exportData, filename);
+                        await exportToExcelServer(filename);
                         break;
                     case 'csv':
-                        exportToCSV(exportData, filename);
+                        await exportToCSVServer(filename);
                         break;
                 }
 
                 closeModal();
-                resolve(`Successfully exported ${exportData.length} summary records`);
+                resolve(`Successfully exported ${exportSettings.format.toUpperCase()} report`);
             } catch (error) {
                 reject('Export failed: ' + error.message);
             } finally {
                 setIsLoading(false);
-                setIsFetchingData(false);
             }
         });
 
         showToast.promise(promise, {
-            loading: isFetchingData ? 'Fetching latest data...' : 'Exporting summary...',
+            loading: 'Exporting summary...',
             success: (msg) => msg,
             error: (msg) => msg,
         });
@@ -226,42 +227,86 @@ const EnhancedDailyWorkSummaryExportForm = ({
         });
     };
 
-    const exportToExcel = (data, filename) => {
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Summary');
+    const exportToPDF = async (filename) => {
+        let chartImages = [];
         
-        // Auto-size columns
-        const cols = Object.keys(data[0] || {}).map(() => ({ wch: 20 }));
-        worksheet['!cols'] = cols;
-        
-        // Add styling for headers
-        const range = XLSX.utils.decode_range(worksheet['!ref']);
-        for (let col = range.s.c; col <= range.e.c; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
-            if (!worksheet[cellAddress]) continue;
-            worksheet[cellAddress].s = {
-                font: { bold: true },
-                fill: { fgColor: { rgb: "CCCCCC" } }
-            };
+        if (exportSettings.includeCharts && analyticsRef?.current) {
+            chartImages = await analyticsRef.current.captureCharts();
         }
         
-        XLSX.writeFile(workbook, `${filename}.xlsx`);
-    };
-
-    const exportToCSV = (data, filename) => {
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const csv = XLSX.utils.sheet_to_csv(worksheet);
+        const response = await axios.post(route('daily-works-summary.export-pdf'), {
+            startDate: currentFilters.startDate || null,
+            endDate: currentFilters.endDate || null,
+            status: currentFilters.status || null,
+            type: currentFilters.type || null,
+            search: currentFilters.search || null,
+            incharge: currentFilters.incharge || null,
+            jurisdiction: currentFilters.jurisdiction || null,
+            chartImages: chartImages,
+            includeCharts: exportSettings.includeCharts
+        }, {
+            responseType: 'blob'
+        });
         
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `${filename}.csv`);
-        link.style.visibility = 'hidden';
+        link.href = url;
+        link.setAttribute('download', `${filename}.pdf`);
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    };
+
+    const exportToExcelServer = async (filename) => {
+        const response = await axios.post(route('daily-works-summary.export-excel'), {
+            startDate: currentFilters.startDate || null,
+            endDate: currentFilters.endDate || null,
+            status: currentFilters.status || null,
+            type: currentFilters.type || null,
+            search: currentFilters.search || null,
+            incharge: currentFilters.incharge || null,
+            jurisdiction: currentFilters.jurisdiction || null,
+            columns: exportSettings.columns,
+            groupBy: exportSettings.groupBy
+        }, {
+            responseType: 'blob'
+        });
+        
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${filename}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    };
+
+    const exportToCSVServer = async (filename) => {
+        const response = await axios.post(route('daily-works-summary.export-excel'), {
+            startDate: currentFilters.startDate || null,
+            endDate: currentFilters.endDate || null,
+            status: currentFilters.status || null,
+            type: currentFilters.type || null,
+            search: currentFilters.search || null,
+            incharge: currentFilters.incharge || null,
+            jurisdiction: currentFilters.jurisdiction || null,
+            columns: exportSettings.columns,
+            groupBy: exportSettings.groupBy,
+            format: 'csv'
+        }, {
+            responseType: 'blob'
+        });
+        
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${filename}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
     };
 
     return (
@@ -312,46 +357,78 @@ const EnhancedDailyWorkSummaryExportForm = ({
                             </CardBody>
                         </Card>
 
-                        {/* Grouping Options */}
-                        <div>
-                            <h4 className="font-semibold mb-3">Grouping & Summary</h4>
-                            <RadioGroup
-                                value={exportSettings.groupBy}
-                                onValueChange={(value) => setExportSettings(prev => ({ ...prev, groupBy: value }))}
-                            >
-                                {groupByOptions.map((option) => (
-                                    <Radio key={option.key} value={option.key}>
+                        {/* Include Charts Option - Only for PDF */}
+                        {exportSettings.format === 'pdf' && (
+                            <Card className="bg-default-50">
+                                <CardBody>
+                                    <h4 className="font-semibold mb-3">Chart Options</h4>
+                                    <Checkbox
+                                        isSelected={exportSettings.includeCharts}
+                                        onValueChange={(value) => setExportSettings(prev => ({ ...prev, includeCharts: value }))}
+                                    >
                                         <div>
-                                            <div className="font-medium">{option.label}</div>
-                                            <div className="text-xs text-default-500">{option.description}</div>
-                                        </div>
-                                    </Radio>
-                                ))}
-                            </RadioGroup>
-                        </div>
-
-                        {/* Column Selection */}
-                        <div>
-                            <h4 className="font-semibold mb-3">Columns to Export</h4>
-                            <CheckboxGroup
-                                value={exportSettings.columns}
-                                onValueChange={(columns) => setExportSettings(prev => ({ 
-                                    ...prev, 
-                                    columns 
-                                }))}
-                            >
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {columnOptions.map((column) => (
-                                        <Checkbox key={column.key} value={column.key}>
-                                            <div>
-                                                <div className="font-medium">{column.label}</div>
-                                                <div className="text-xs text-default-500">{column.description}</div>
+                                            <div className="font-medium">Include Charts</div>
+                                            <div className="text-xs text-default-500">
+                                                Embed analytics charts in the PDF report
                                             </div>
-                                        </Checkbox>
+                                        </div>
+                                    </Checkbox>
+                                    {exportSettings.includeCharts && !analyticsRef && (
+                                        <div className="mt-2 p-2 bg-warning-50 text-warning-700 text-xs rounded-lg flex items-start gap-2">
+                                            <InformationCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                            <span>
+                                                Charts will only be included if you switch to the Analytics tab before exporting.
+                                            </span>
+                                        </div>
+                                    )}
+                                </CardBody>
+                            </Card>
+                        )}
+
+                        {/* Grouping Options - Only for Excel/CSV */}
+                        {exportSettings.format !== 'pdf' && (
+                            <div>
+                                <h4 className="font-semibold mb-3">Grouping & Summary</h4>
+                                <RadioGroup
+                                    value={exportSettings.groupBy}
+                                    onValueChange={(value) => setExportSettings(prev => ({ ...prev, groupBy: value }))}
+                                >
+                                    {groupByOptions.map((option) => (
+                                        <Radio key={option.key} value={option.key}>
+                                            <div>
+                                                <div className="font-medium">{option.label}</div>
+                                                <div className="text-xs text-default-500">{option.description}</div>
+                                            </div>
+                                        </Radio>
                                     ))}
-                                </div>
-                            </CheckboxGroup>
-                        </div>
+                                </RadioGroup>
+                            </div>
+                        )}
+
+                        {/* Column Selection - Only for Excel/CSV */}
+                        {exportSettings.format !== 'pdf' && (
+                            <div>
+                                <h4 className="font-semibold mb-3">Columns to Export</h4>
+                                <CheckboxGroup
+                                    value={exportSettings.columns}
+                                    onValueChange={(columns) => setExportSettings(prev => ({ 
+                                        ...prev, 
+                                        columns 
+                                    }))}
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {columnOptions.map((column) => (
+                                            <Checkbox key={column.key} value={column.key}>
+                                                <div>
+                                                    <div className="font-medium">{column.label}</div>
+                                                    <div className="text-xs text-default-500">{column.description}</div>
+                                                </div>
+                                            </Checkbox>
+                                        ))}
+                                    </div>
+                                </CheckboxGroup>
+                            </div>
+                        )}
 
                         {/* Export Summary */}
                         <Card className="bg-primary-50 border-primary-200">

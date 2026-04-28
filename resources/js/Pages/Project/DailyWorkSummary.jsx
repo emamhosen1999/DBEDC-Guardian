@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Head } from "@inertiajs/react";
 import { route } from 'ziggy-js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +12,9 @@ import {
     CardBody,
     Input,
     ScrollShadow,
-    Skeleton
+    Skeleton,
+    Tabs,
+    Tab
 } from "@heroui/react";
 import { 
     CalendarIcon, 
@@ -30,11 +32,14 @@ import {
     FunnelIcon,
     AdjustmentsHorizontalIcon,
     MapPinIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    TableCellsIcon,
+    PresentationChartLineIcon
 } from "@heroicons/react/24/outline";
 import App from "@/Layouts/App.jsx";
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import StatsCards from "@/Components/StatsCards.jsx";
+import DailyWorkSummaryAnalytics from "@/Components/DailyWorkSummaryAnalytics.jsx";
 import EnhancedDailyWorkSummaryExportForm from "@/Forms/EnhancedDailyWorkSummaryExportForm.jsx";
 
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
@@ -76,6 +81,12 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
     
     // Show/Hide advanced filters panel
     const [showFilters, setShowFilters] = useState(false);
+
+    // Active tab: 'table' or 'analytics'
+    const [activeTab, setActiveTab] = useState('table');
+
+    // Ref to the analytics component for capturing chart images during PDF export
+    const analyticsRef = useRef(null);
 
     const openModal = useCallback((modalType) => {
         setOpenModalType(modalType);
@@ -278,6 +289,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                         incharge: filterData.incharge,
                         jurisdiction: filterData.jurisdiction,
                     }}
+                    analyticsRef={analyticsRef}
                 />
             )}
 
@@ -679,29 +691,70 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                                 </div>
                             </div>
 
-                            {/* Daily Work Summary Table */}
-                            <Card 
+                            {/* Tabs for Table and Analytics */}
+                            <Tabs
+                                selectedKey={activeTab}
+                                onSelectionChange={setActiveTab}
                                 radius={getThemeRadius()}
-                                className="bg-content1/80 backdrop-blur-md border border-divider/20"
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                    borderRadius: `var(--borderRadius, 12px)`,
-                                    border: `var(--borderWidth, 1px) solid var(--theme-divider, #E4E4E7)`,
-                                    background: `linear-gradient(135deg, 
-                                        color-mix(in srgb, var(--theme-content1) 90%, transparent) 20%, 
-                                        color-mix(in srgb, var(--theme-content2) 60%, transparent) 10%)`,
+                                className="mb-4"
+                                classNames={{
+                                    tabList: "bg-content2/50 backdrop-blur-md border border-divider/20",
+                                    tab: "data-[selected=true]:bg-content1 data-[selected=true]:shadow-sm",
                                 }}
+                                style={{ borderRadius: `var(--borderRadius, 12px)` }}
                             >
-                                <CardBody className="p-0" style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}>
-                                    <DailyWorkSummaryTable
-                                        filteredData={filteredData}
-                                        onRefresh={handleRefresh}
-                                        loading={loading}
-                                    />
-                                </CardBody>
-                            </Card>
+                                <Tab
+                                    key="table"
+                                    title={
+                                        <div className="flex items-center space-x-2">
+                                            <TableCellsIcon className="w-4 h-4" />
+                                            <span>Table View</span>
+                                        </div>
+                                    }
+                                />
+                                <Tab
+                                    key="analytics"
+                                    title={
+                                        <div className="flex items-center space-x-2">
+                                            <PresentationChartLineIcon className="w-4 h-4" />
+                                            <span>Analytics</span>
+                                        </div>
+                                    }
+                                />
+                            </Tabs>
+
+                            {activeTab === 'table' && (
+                                <Card 
+                                    radius={getThemeRadius()}
+                                    className="bg-content1/80 backdrop-blur-md border border-divider/20"
+                                    style={{
+                                        fontFamily: `var(--fontFamily, "Inter")`,
+                                        borderRadius: `var(--borderRadius, 12px)`,
+                                        border: `var(--borderWidth, 1px) solid var(--theme-divider, #E4E4E7)`,
+                                        background: `linear-gradient(135deg, 
+                                            color-mix(in srgb, var(--theme-content1) 90%, transparent) 20%, 
+                                            color-mix(in srgb, var(--theme-content2) 60%, transparent) 10%)`,
+                                    }}
+                                >
+                                    <CardBody className="p-0" style={{
+                                        fontFamily: `var(--fontFamily, "Inter")`,
+                                    }}>
+                                        <DailyWorkSummaryTable
+                                            filteredData={filteredData}
+                                            onRefresh={handleRefresh}
+                                            loading={loading}
+                                        />
+                                    </CardBody>
+                                </Card>
+                            )}
+
+                            {activeTab === 'analytics' && (
+                                <DailyWorkSummaryAnalytics
+                                    ref={analyticsRef}
+                                    filters={filterData}
+                                    isVisible={activeTab === 'analytics'}
+                                />
+                            )}
                         </CardBody>
                     </Card>
                 </motion.div>

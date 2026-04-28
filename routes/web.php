@@ -222,6 +222,9 @@ Route::middleware($middlewareStack)->group(function () {
     Route::middleware(['permission:daily-works.export'])->group(function () {
         Route::post('/daily-works/export', [DailyWorkController::class, 'export'])->name('dailyWorks.export');
         Route::post('/daily-works-summary/export', [DailyWorkSummaryController::class, 'exportDailySummary'])->name('daily-works-summary.export');
+        Route::post('/daily-works-summary/export-excel', [DailyWorkSummaryController::class, 'exportExcel'])->name('daily-works-summary.export-excel');
+        Route::post('/daily-works-summary/export-pdf', [DailyWorkSummaryController::class, 'exportPdf'])->name('daily-works-summary.export-pdf');
+        Route::post('/daily-works-summary/analytics', [DailyWorkSummaryController::class, 'getAnalytics'])->name('daily-works-summary.analytics');
         Route::get('/daily-works-summary/statistics', [DailyWorkSummaryController::class, 'getStatistics'])->name('daily-works-summary.statistics');
     });
 
