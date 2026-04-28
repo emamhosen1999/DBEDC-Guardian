@@ -209,6 +209,7 @@ export default function Login({
     const emailInputRef = useRef(null);
     const passwordInputRef = useRef(null);
     const submitTimeoutRef = useRef(null);
+    const turnstileRef = useRef(null);
 
     // ===== CORE FORM STATE =====
     const [formData, setFormData] = useState({
@@ -318,7 +319,7 @@ export default function Login({
     }, [validationResults.email.isValid, validationResults.password.isValid]);
 
     /**
-     * Execute reCAPTCHA v3
+     * Execute Turnstile CAPTCHA
      */
     const executeCaptcha = useCallback(async () => {
         if (!captcha?.enabled || !captcha?.required || !captchaState.isScriptLoaded) {
@@ -329,9 +330,14 @@ export default function Login({
 
         try {
             const token = await new Promise((resolve, reject) => {
-                window.grecaptcha.execute(captcha.site_key, { action: 'login' })
-                    .then(resolve)
-                    .catch(reject);
+                if (window.turnstile) {
+                    window.turnstile.execute(captcha.site_key, {
+                        callback: (token) => resolve(token),
+                        'error-callback': () => reject(new Error('Turnstile failed'))
+                    });
+                } else {
+                    reject(new Error('Turnstile not loaded'));
+                }
             });
 
             setCaptchaState(prev => ({ ...prev, token, isLoading: false }));
@@ -520,18 +526,18 @@ export default function Login({
 
     // ===== EFFECTS =====
     
-    // Load reCAPTCHA script when CAPTCHA is enabled and required
+    // Load Turnstile script when CAPTCHA is enabled and required
     useEffect(() => {
         if (captcha?.enabled && captcha?.required && captcha?.site_key && !captchaState.isScriptLoaded) {
             const loadScript = () => {
                 const script = document.createElement('script');
-                script.src = `https://www.google.com/recaptcha/api.js?render=${captcha.site_key}`;
+                script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
                 script.async = true;
                 script.onload = () => {
                     setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
                 };
                 script.onerror = () => {
-                    console.error('Failed to load reCAPTCHA script');
+                    console.error('Failed to load Turnstile script');
                 };
                 document.head.appendChild(script);
             };
@@ -1135,12 +1141,32 @@ export default function Login({
                                         <motion.div 
                                             initial={{ opacity: 0, y: -10 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            className="mb-4 flex items-center gap-2 text-sm"
-                                            style={{ color: 'var(--theme-foreground, #11181C)' }}
+                                            className="mb-4"
                                         >
-                                            <ShieldCheckIcon className="w-4 h-4" style={{ color: 'var(--theme-primary, #006FEE)' }} />
-                                            <span>Protected by reCAPTCHA</span>
-                                            {captchaState.isLoading && <Spinner size="sm" />}
+                                            {/* Turnstile Widget */}
+                                            <div 
+                                                ref={turnstileRef}
+                                                className="cf-turnstile"
+                                                data-sitekey={captcha.site_key}
+                                                data-callback={(token) => {
+                                                    setCaptchaState(prev => ({ ...prev, token }));
+                                                }}
+                                                data-error-callback={() => {
+                                                    console.error('Turnstile error');
+                                                }}
+                                            ></div>
+                                            
+                                            {/* Fallback message if widget doesn't load */}
+                                            {!captchaState.isScriptLoaded && (
+                                                <motion.div 
+                                                    className="mb-4 flex items-center gap-2 text-sm"
+                                                    style={{ color: 'var(--theme-foreground, #11181C)' }}
+                                                >
+                                                    <ShieldCheckIcon className="w-4 h-4" style={{ color: 'var(--theme-primary, #006FEE)' }} />
+                                                    <span>Protected by Turnstile</span>
+                                                    {captchaState.isLoading && <Spinner size="sm" />}
+                                                </motion.div>
+                                            )}
                                         </motion.div>
                                     )}
 

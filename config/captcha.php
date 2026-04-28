@@ -21,7 +21,7 @@ return [
     | Supported: "recaptcha_v3", "hcaptcha", "turnstile"
     |
     */
-    'provider' => env('CAPTCHA_PROVIDER', 'recaptcha_v3'),
+    'provider' => env('CAPTCHA_PROVIDER', 'turnstile'),
 
     /*
     |--------------------------------------------------------------------------
