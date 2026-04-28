@@ -317,6 +317,7 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
 
 
     return (
+        <>
         <Modal 
             isOpen={open} 
             onClose={handleClose}
@@ -809,6 +810,7 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                 )}
             </ModalContent>
         </Modal>
+        </>
     );
 };
 
