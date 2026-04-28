@@ -210,6 +210,7 @@ export default function Login({
     const passwordInputRef = useRef(null);
     const submitTimeoutRef = useRef(null);
     const turnstileRef = useRef(null);
+    const turnstileWidgetIdRef = useRef(null);
 
     // ===== CORE FORM STATE =====
     const [formData, setFormData] = useState({
@@ -319,35 +320,17 @@ export default function Login({
     }, [validationResults.email.isValid, validationResults.password.isValid]);
 
     /**
-     * Execute Turnstile CAPTCHA
+     * Get Turnstile CAPTCHA token from the rendered widget
+     * The widget auto-solves and provides token via callback
      */
     const executeCaptcha = useCallback(async () => {
-        if (!captcha?.enabled || !captcha?.required || !captchaState.isScriptLoaded) {
+        if (!captcha?.enabled || !captcha?.required) {
             return null;
         }
 
-        setCaptchaState(prev => ({ ...prev, isLoading: true }));
-
-        try {
-            const token = await new Promise((resolve, reject) => {
-                if (window.turnstile) {
-                    window.turnstile.execute(captcha.site_key, {
-                        callback: (token) => resolve(token),
-                        'error-callback': () => reject(new Error('Turnstile failed'))
-                    });
-                } else {
-                    reject(new Error('Turnstile not loaded'));
-                }
-            });
-
-            setCaptchaState(prev => ({ ...prev, token, isLoading: false }));
-            return token;
-        } catch (error) {
-            console.error('CAPTCHA execution error:', error);
-            setCaptchaState(prev => ({ ...prev, isLoading: false }));
-            return null;
-        }
-    }, [captcha, captchaState.isScriptLoaded]);
+        // Return the token already captured by the widget callback
+        return captchaState.token;
+    }, [captcha, captchaState.token]);
 
     /**
      * Main form submission handler
@@ -526,54 +509,91 @@ export default function Login({
 
     // ===== EFFECTS =====
     
-    // Load Turnstile script when CAPTCHA is enabled and required
+    // Load Turnstile script and render widget when CAPTCHA is enabled and required
     useEffect(() => {
-        if (captcha?.enabled && captcha?.required && captcha?.site_key && !captchaState.isScriptLoaded) {
-            const loadScript = () => {
+        if (!captcha?.enabled || !captcha?.required || !captcha?.site_key) {
+            return;
+        }
+
+        const renderWidget = () => {
+            // Prevent duplicate rendering
+            if (turnstileWidgetIdRef.current !== null) {
+                return;
+            }
+            
+            if (turnstileRef.current && window.turnstile) {
+                try {
+                    // Clear container to avoid stale content
+                    turnstileRef.current.innerHTML = '';
+                    
+                    turnstileWidgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+                        sitekey: captcha.site_key,
+                        callback: (token) => {
+                            setCaptchaState(prev => ({ ...prev, token }));
+                        },
+                        'error-callback': () => {
+                            console.error('Turnstile error');
+                            setCaptchaState(prev => ({ ...prev, token: null }));
+                        },
+                        'expired-callback': () => {
+                            setCaptchaState(prev => ({ ...prev, token: null }));
+                        }
+                    });
+                } catch (error) {
+                    console.error('Failed to render Turnstile widget:', error);
+                }
+            }
+        };
+
+        // If script is already loaded, just render
+        if (window.turnstile) {
+            setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
+            renderWidget();
+        } else {
+            // Check if script tag is already in DOM
+            const existingScript = document.querySelector('script[src*="turnstile/v0/api.js"]');
+            if (existingScript) {
+                existingScript.addEventListener('load', () => {
+                    setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
+                    renderWidget();
+                });
+            } else {
+                // Load script for the first time
                 const script = document.createElement('script');
                 script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
                 script.async = true;
                 script.defer = true;
                 script.onload = () => {
                     setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
-                    
-                    // Render Turnstile widget after script loads
-                    if (turnstileRef.current && window.turnstile) {
-                        try {
-                            window.turnstile.render(turnstileRef.current, {
-                                sitekey: captcha.site_key,
-                                callback: (token) => {
-                                    setCaptchaState(prev => ({ ...prev, token }));
-                                },
-                                'error-callback': () => {
-                                    console.error('Turnstile error');
-                                    setCaptchaState(prev => ({ ...prev, token: null }));
-                                }
-                            });
-                        } catch (error) {
-                            console.error('Failed to render Turnstile widget:', error);
-                        }
-                    }
+                    renderWidget();
                 };
                 script.onerror = () => {
                     console.error('Failed to load Turnstile script');
                     setCaptchaState(prev => ({ ...prev, isScriptLoaded: false }));
                 };
                 document.head.appendChild(script);
-            };
-            loadScript();
+            }
         }
-    }, [captcha, captchaState.isScriptLoaded]);
+
+        // Cleanup: remove widget on unmount
+        return () => {
+            if (turnstileWidgetIdRef.current !== null && window.turnstile) {
+                try {
+                    window.turnstile.remove(turnstileWidgetIdRef.current);
+                } catch (e) {
+                    // Widget might already be removed
+                }
+                turnstileWidgetIdRef.current = null;
+            }
+        };
+    }, [captcha]);
 
     // Initialize component and ensure theme is applied
     useEffect(() => {
         setUiState(prevState => ({ ...prevState, isLoaded: true }));
         
-        // Force theme application after component mounts
         setTimeout(() => {
             if (typeof window !== 'undefined' && window.document) {
-                // The theme background should already be applied to document.body
-                // This is just to ensure timing is correct
                 console.log('Login component mounted, theme background should be applied');
             }
         }, 100);
@@ -1163,17 +1183,10 @@ export default function Login({
                                             animate={{ opacity: 1, y: 0 }}
                                             className="mb-4"
                                         >
-                                            {/* Turnstile Widget */}
+                                            {/* Turnstile Widget - rendered explicitly via turnstile.render() */}
                                             <div 
                                                 ref={turnstileRef}
-                                                className="cf-turnstile"
-                                                data-sitekey={captcha.site_key}
-                                                data-callback={(token) => {
-                                                    setCaptchaState(prev => ({ ...prev, token }));
-                                                }}
-                                                data-error-callback={() => {
-                                                    console.error('Turnstile error');
-                                                }}
+                                                className="flex justify-center"
                                             ></div>
                                             
                                             {/* Fallback message if widget doesn't load */}
