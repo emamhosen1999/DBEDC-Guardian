@@ -1162,13 +1162,13 @@ class DailyWorkController extends Controller
     private function isPrivilegedUser(User $user): bool
     {
         return $user->hasRoleCached([
-            'Super Admin',
+            'Super Administrator',
             'Admin',
             'Daily Work Manager',
             'HR Manager',
             'Project Manager',
             'Consultant',
-            'Super Administrator',
+            'Super Administratoristrator',
             'Administrator',
         ]);
     }

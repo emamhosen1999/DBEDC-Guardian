@@ -4,8 +4,11 @@
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
 use App\Http\Controllers\DailyWorkController;
+use App\Http\Controllers\DailyWorkRealtimeController;
 use App\Http\Controllers\DailyWorkSummaryController;
+use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DailyWorksAnalyticsController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\DeviceController;
@@ -50,7 +53,7 @@ Route::get('/', function (Request $request) {
     $userAgent = $request->header('User-Agent', '');
     $isAndroid = stripos($userAgent, 'android') !== false;
 
-    return redirect($isAndroid ? '/install-app' : '/dashboard');
+    return redirect($isAndroid ? '/install-app' : '/dashboard-redirect');
 });
 
 Route::get('/session-check', function () {
@@ -85,11 +88,44 @@ $middlewareStack = ['auth', 'verified'];
 
 Route::middleware($middlewareStack)->group(function () {
 
-    // Dashboard routes - require dashboard permission
-    Route::middleware(['permission:core.dashboard.view'])->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-        Route::get('/stats', [DashboardController::class, 'stats'])->name('stats');
+    // Dashboard redirect - redirects to appropriate dashboard based on role
+    Route::get('/dashboard-redirect', function () {
+        $user = auth()->user();
+        $roles = $user->roles->pluck('name')->toArray();
+        
+        if (in_array('Super Administrator', $roles)) {
+            return redirect('/admin/dashboard');
+        }
+        
+        if (in_array('Member', $roles)) {
+            return redirect('/employee/dashboard');
+        }
+        
+        // Fallback to member dashboard if no specific role
+        return redirect('/employee/dashboard');
+    })->name('dashboard.redirect');
+
+    // Admin Dashboard route
+    Route::get('/admin/dashboard', function () {
+        return inertia('AdminDashboard');
+    })->name('admin.dashboard');
+
+    // Admin Dashboard API routes
+    Route::prefix('admin/dashboard')->group(function () {
+        Route::get('/stats', [AdminDashboardController::class, 'stats'])->name('admin.dashboard.stats');
+        Route::get('/recent-activity', [AdminDashboardController::class, 'recentActivity'])->name('admin.dashboard.recent-activity');
+        Route::get('/attendance-trends', [AdminDashboardController::class, 'attendanceTrends'])->name('admin.dashboard.attendance-trends');
+        Route::get('/pending-approvals', [AdminDashboardController::class, 'pendingApprovals'])->name('admin.dashboard.pending-approvals');
+        Route::get('/system-health', [AdminDashboardController::class, 'systemHealth'])->name('admin.dashboard.system-health');
+        Route::get('/recent-members', [AdminDashboardController::class, 'recentMembers'])->name('admin.dashboard.recent-members');
+        Route::post('/approve-leave/{id}', [AdminDashboardController::class, 'approveLeave'])->name('admin.dashboard.approve-leave');
+        Route::post('/reject-leave/{id}', [AdminDashboardController::class, 'rejectLeave'])->name('admin.dashboard.reject-leave');
     });
+
+    // Member Dashboard route
+    Route::get('/employee/dashboard', function () {
+        return inertia('MemberDashboard');
+    })->name('employee.dashboard');
 
     // Security Dashboard route - available to authenticated users
     Route::get('/security/dashboard', function () {
@@ -136,9 +172,12 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/daily-works', [DailyWorkController::class, 'index'])->name('daily-works');
         Route::get('/daily-works-paginate', [DailyWorkController::class, 'paginate'])->name('dailyWorks.paginate');
         Route::get('/daily-works-all', [DailyWorkController::class, 'all'])->name('dailyWorks.all');
-        Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
-        Route::post('/daily-works-summary/filter', [DailyWorkSummaryController::class, 'filterSummary'])->name('daily-works-summary.filter');
-        Route::get('/daily-works/statistics', [DailyWorkSummaryController::class, 'getStatistics'])->name('dailyWorks.statistics');
+        
+        // Daily works analytics routes (consolidated)
+        Route::get('/daily-works-analytics', [DailyWorksAnalyticsController::class, 'index'])->name('daily-works-analytics');
+        Route::get('/daily-works-analytics/dashboard', [DailyWorksAnalyticsController::class, 'getDashboard'])->name('daily-works-analytics.dashboard');
+        Route::get('/daily-works-analytics/summary', [DailyWorksAnalyticsController::class, 'getSummary'])->name('daily-works-analytics.summary');
+        Route::get('/daily-works-analytics/analytics', [DailyWorksAnalyticsController::class, 'getAnalytics'])->name('daily-works-analytics.analytics');
 
         // Routes that incharge/assigned users can access (authorization checked in controller)
         Route::post('/daily-works/status', [DailyWorkController::class, 'updateStatus'])->name('dailyWorks.updateStatus');
@@ -151,6 +190,19 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/daily-works/bulk-import-response-status', [DailyWorkController::class, 'bulkImportResponseStatus'])->name('dailyWorks.bulkImportResponseStatus');
         Route::get('/daily-works/response-status-template', [DailyWorkController::class, 'downloadResponseStatusTemplate'])->name('dailyWorks.downloadResponseStatusTemplate');
         Route::get('/daily-works/export-objected-rfis', [DailyWorkController::class, 'exportObjectedRfis'])->name('dailyWorks.exportObjectedRfis');
+
+        // Mobile-optimized routes
+        Route::get('/mobile/daily-works', [DailyWorkController::class, 'mobileDailyWorks'])->name('dailyWorks.mobile.dailyWorks');
+        Route::get('/mobile/daily-works/recent', [DailyWorkController::class, 'mobileRecentWorks'])->name('dailyWorks.mobile.recentWorks');
+        Route::get('/mobile/daily-works/statistics', [DailyWorkController::class, 'mobileStatistics'])->name('dailyWorks.mobile.statistics');
+        Route::get('/mobile/daily-works/{id}', [DailyWorkController::class, 'mobileWorkDetails'])->name('dailyWorks.mobile.workDetails');
+        Route::get('/mobile/daily-works/realtime-stats', [DailyWorkController::class, 'mobileRealtimeStats'])->name('dailyWorks.mobile.realtimeStats');
+
+        // Real-time updates using Server-Sent Events (SSE)
+        Route::get('/daily-works/realtime/stream', [DailyWorkRealtimeController::class, 'stream'])->name('dailyWorks.realtime.stream');
+        Route::get('/daily-works/realtime/updates', [DailyWorkRealtimeController::class, 'getUpdates'])->name('dailyWorks.realtime.updates');
+        Route::get('/daily-works/realtime/test', [DailyWorkRealtimeController::class, 'test'])->name('dailyWorks.realtime.test');
+
         Route::post('/daily-works/assigned', [DailyWorkController::class, 'updateAssigned'])->name('dailyWorks.updateAssigned');
         Route::post('/update-rfi-file', [DailyWorkController::class, 'uploadRFIFile'])->name('dailyWorks.uploadRFI');
         Route::post('/daily-works/inspection-details', [DailyWorkController::class, 'updateInspectionDetails'])->name('dailyWorks.updateInspectionDetails');
@@ -210,7 +262,6 @@ Route::middleware($middlewareStack)->group(function () {
 
     Route::middleware(['permission:daily-works.update'])->group(function () {
         Route::post('/update-daily-work', [DailyWorkController::class, 'update'])->name('dailyWorks.update');
-        Route::post('/daily-works-summary/refresh', [DailyWorkSummaryController::class, 'refresh'])->name('daily-works-summary.refresh');
         Route::post('/daily-works/incharge', [DailyWorkController::class, 'updateIncharge'])->name('dailyWorks.updateIncharge');
         Route::post('/daily-works/assign', [DailyWorkController::class, 'assignWork'])->name('dailyWorks.assign');
     });
@@ -221,8 +272,7 @@ Route::middleware($middlewareStack)->group(function () {
 
     Route::middleware(['permission:daily-works.export'])->group(function () {
         Route::post('/daily-works/export', [DailyWorkController::class, 'export'])->name('dailyWorks.export');
-        Route::post('/daily-works-summary/export', [DailyWorkSummaryController::class, 'exportDailySummary'])->name('daily-works-summary.export');
-        Route::get('/daily-works-summary/statistics', [DailyWorkSummaryController::class, 'getStatistics'])->name('daily-works-summary.statistics');
+        Route::post('/daily-works-analytics/export', [DailyWorksAnalyticsController::class, 'exportFiltered'])->name('daily-works-analytics.export');
     });
 
     // Holiday routes (Legacy - redirects to Time Off Management)

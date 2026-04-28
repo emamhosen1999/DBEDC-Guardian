@@ -67,7 +67,7 @@ class RoleHierarchyMiddleware
     private function getUserHierarchyLevel($user): int
     {
         $hierarchyLevels = [
-            'Super Administrator' => 1,
+            'Super Administratoristrator' => 1,
             'Administrator' => 2,
             'HR Manager' => 3,
             'Department Head' => 4,

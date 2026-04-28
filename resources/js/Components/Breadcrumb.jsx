@@ -3,8 +3,7 @@ import { Breadcrumbs, BreadcrumbItem } from '@heroui/react';
 import { HomeIcon } from '@heroicons/react/24/outline';
 import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
-import { getPages } from '@/Props/pages.jsx';
-import { getSettingsPages } from '@/Props/settings.jsx';
+import { getPages, getSettingsPages } from '@/Services/NavigationRegistry.jsx';
 
 const Breadcrumb = () => {
     const { props, url } = usePage();
@@ -92,7 +91,7 @@ const Breadcrumb = () => {
                 // Three-level deep: Parent > SubParent > Current
                 breadcrumbs.push({
                     label: pageData.parent.name,
-                    icon: React.cloneElement(pageData.parent.icon, { className: "w-4 h-4" }),
+                    icon: <pageData.parent.icon className="w-4 h-4" />,
                     href: pageData.parent.route ? (() => {
                         try {
                             return route(pageData.parent.route);
@@ -104,7 +103,7 @@ const Breadcrumb = () => {
                 });
                 breadcrumbs.push({
                     label: pageData.subParent.name,
-                    icon: React.cloneElement(pageData.subParent.icon, { className: "w-4 h-4" }),
+                    icon: <pageData.subParent.icon className="w-4 h-4" />,
                     href: pageData.subParent.route ? (() => {
                         try {
                             return route(pageData.subParent.route);
@@ -116,7 +115,7 @@ const Breadcrumb = () => {
                 });
                 breadcrumbs.push({
                     label: pageData.page.name,
-                    icon: React.cloneElement(pageData.page.icon, { className: "w-4 h-4" }),
+                    icon: <pageData.page.icon className="w-4 h-4" />,
                     href: null, // Current page
                     key: 'current'
                 });
@@ -124,7 +123,7 @@ const Breadcrumb = () => {
                 // Two-level deep: Parent > Current
                 breadcrumbs.push({
                     label: pageData.parent.name,
-                    icon: React.cloneElement(pageData.parent.icon, { className: "w-4 h-4" }),
+                    icon: <pageData.parent.icon className="w-4 h-4" />,
                     href: pageData.parent.route ? (() => {
                         try {
                             return route(pageData.parent.route);
@@ -136,7 +135,7 @@ const Breadcrumb = () => {
                 });
                 breadcrumbs.push({
                     label: pageData.page.name,
-                    icon: React.cloneElement(pageData.page.icon, { className: "w-4 h-4" }),
+                    icon: <pageData.page.icon className="w-4 h-4" />,
                     href: null, // Current page
                     key: 'current'
                 });
@@ -144,7 +143,7 @@ const Breadcrumb = () => {
                 // Top-level page
                 breadcrumbs.push({
                     label: pageData.name,
-                    icon: React.cloneElement(pageData.icon, { className: "w-4 h-4" }),
+                    icon: <pageData.icon className="w-4 h-4" />,
                     href: null, // Current page
                     key: 'current'
                 });

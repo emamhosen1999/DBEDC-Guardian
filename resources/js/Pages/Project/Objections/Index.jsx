@@ -112,11 +112,11 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
 
     // Role-based access control
     const userIsAdmin = auth.roles?.includes('Administrator') ||
-                        auth.roles?.includes('Super Administrator') ||
+                        auth.roles?.includes('Super Administratoristrator') ||
                         auth.roles?.includes('Daily Work Manager') || false;
 
     const canReviewObjections = auth.roles?.some(role =>
-        ['Super Administrator', 'Administrator', 'Project Manager', 'Consultant', 'HR Manager'].includes(role)
+        ['Super Administratoristrator', 'Administrator', 'Project Manager', 'Consultant', 'HR Manager'].includes(role)
     );
 
     // AbortController ref for cancelling in-flight requests

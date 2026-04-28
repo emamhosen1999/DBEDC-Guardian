@@ -172,16 +172,16 @@ class DiagnoseRolePermissions extends Command
             }
 
             // Test specific role
-            $adminRole = Role::where('name', 'Super Administrator')->first();
+            $adminRole = Role::where('name', 'Super Administratoristrator')->first();
             if ($adminRole) {
                 $adminPermissions = $adminRole->permissions()->count();
-                $this->line("  Super Administrator has {$adminPermissions} permissions");
+                $this->line("  Super Administratoristrator has {$adminPermissions} permissions");
 
                 if ($adminPermissions === 0) {
-                    $issues[] = 'Super Administrator role has no permissions assigned';
+                    $issues[] = 'Super Administratoristrator role has no permissions assigned';
                 }
             } else {
-                $issues[] = 'Super Administrator role not found';
+                $issues[] = 'Super Administratoristrator role not found';
             }
 
         } catch (\Exception $e) {
@@ -336,16 +336,16 @@ class DiagnoseRolePermissions extends Command
                 }
             }
 
-            if (str_contains($issue, 'Super Administrator role has no permissions')) {
+            if (str_contains($issue, 'Super Administratoristrator role has no permissions')) {
                 try {
-                    $adminRole = Role::where('name', 'Super Administrator')->first();
+                    $adminRole = Role::where('name', 'Super Administratoristrator')->first();
                     if ($adminRole) {
                         $allPermissions = Permission::all();
                         $adminRole->syncPermissions($allPermissions);
-                        $fixes[] = 'Assigned all permissions to Super Administrator';
+                        $fixes[] = 'Assigned all permissions to Super Administratoristrator';
                     }
                 } catch (\Exception $e) {
-                    $this->error("Failed to fix Super Administrator permissions: {$e->getMessage()}");
+                    $this->error("Failed to fix Super Administratoristrator permissions: {$e->getMessage()}");
                 }
             }
         }

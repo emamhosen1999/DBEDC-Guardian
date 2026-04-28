@@ -468,7 +468,7 @@ const RoleManagement = (props) => {
         );
     }, [activeRole, permissionsGrouped, roleHasPermission]);    // Check if user can manage role
     const canManageRole = (role) => {
-        if (role.name === 'Super Administrator') {
+        if (role.name === 'Super Administratoristrator') {
             return canManageSuperAdmin;
         }
         return true; // Can manage all other roles if has access to role management

@@ -25,7 +25,7 @@ class ProfileImageUploadTest extends TestCase
 
         // Create admin user
         $this->admin = User::factory()->create();
-        $this->admin->assignRole('Super Administrator');
+        $this->admin->assignRole('Super Administratoristrator');
 
         // Create employee user
         $this->employee = User::factory()->create();

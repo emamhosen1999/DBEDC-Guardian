@@ -200,7 +200,7 @@ class DailyWorkPolicy
      */
     private function isAdmin(User $user): bool
     {
-        return $user->hasRole('Super Administrator') || $user->hasRole('Administrator');
+        return $user->hasRole('Super Administratoristrator') || $user->hasRole('Administrator');
     }
 
     /**

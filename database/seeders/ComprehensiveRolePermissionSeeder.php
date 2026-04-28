@@ -573,7 +573,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
     {
         $roles = [
             [
-                'name' => 'Super Administrator',
+                'name' => 'Super Administratoristrator',
                 'description' => 'Full system access with all privileges',
                 'hierarchy_level' => 1,
                 'is_system_role' => true,
@@ -651,11 +651,11 @@ class ComprehensiveRolePermissionSeeder extends Seeder
      */
     private function assignPermissionsToRoles(): void
     {
-        // Super Administrator - All permissions
-        $superAdmin = Role::findByName('Super Administrator');
+        // Super Administratoristrator - All permissions
+        $superAdmin = Role::findByName('Super Administratoristrator');
         $superAdmin->givePermissionTo(Permission::all());
 
-        // Administrator - Most permissions except super admin functions
+        // Administrator - Most permissions except Super Administrator functions
         $admin = Role::findByName('Administrator');
         $adminPermissions = Permission::whereNotIn('name', [
             'users.impersonate',

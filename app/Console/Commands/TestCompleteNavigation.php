@@ -100,19 +100,19 @@ class TestCompleteNavigation extends Command
         $this->newLine();
         $this->info('3. Testing Role System...');
 
-        $superAdmin = Role::where('name', 'Super Administrator')->first();
+        $superAdmin = Role::where('name', 'Super Administratoristrator')->first();
         $admin = Role::where('name', 'Administrator')->first();
         $employee = Role::where('name', 'Member')->first();
 
         if ($superAdmin && $admin && $employee) {
-            $this->info('✅ Core roles exist (Super Administrator, Administrator, Member)');
+            $this->info('✅ Core roles exist (Super Administratoristrator, Administrator, Member)');
 
             // Check permission counts
             $superAdminPerms = $superAdmin->permissions->count();
             $adminPerms = $admin->permissions->count();
             $employeePerms = $employee->permissions->count();
 
-            $this->info("   - Super Administrator: {$superAdminPerms} permissions");
+            $this->info("   - Super Administratoristrator: {$superAdminPerms} permissions");
             $this->info("   - Administrator: {$adminPerms} permissions");
             $this->info("   - Member: {$employeePerms} permissions");
 

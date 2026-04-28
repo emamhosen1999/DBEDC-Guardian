@@ -33,7 +33,7 @@ class DMSSeeder extends Seeder
         }
 
         // Assign permissions to roles
-        $superAdmin = Role::where('name', 'Super Administrator')->first();
+        $superAdmin = Role::where('name', 'Super Administratoristrator')->first();
         $admin = Role::where('name', 'Administrator')->first();
         $hrManager = Role::where('name', 'HR Manager')->first();
 

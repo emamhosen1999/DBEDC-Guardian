@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import RealtimeService from '@/Services/RealtimeService.js';
 import { showToast } from '@/utils/toastUtils';
 import {
     BriefcaseIcon,
@@ -39,7 +40,6 @@ import {
     ButtonGroup
 } from "@heroui/react";
 import StatsCards from "@/Components/StatsCards.jsx";
-import AnalyticsDashboard from "@/Components/AnalyticsDashboard.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { getThemeRadius } from '@/Hooks/useThemeRadius.js';
 import DailyWorkForm from "@/Forms/DailyWorkForm.jsx";
@@ -56,7 +56,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     const isMobile = useMediaQuery('(max-width: 640px)');
     
     // Role-based access control - includes Daily Work Manager role
-    const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || auth.roles?.includes('Daily Work Manager') || false;
+    const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administratoristrator') || auth.roles?.includes('Daily Work Manager') || false;
 
     // AbortController ref for cancelling in-flight requests
     const abortControllerRef = useRef(null);
@@ -145,9 +145,83 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     
     // Request ID counter for tracking active requests
     const requestIdRef = useRef(0);
+    
+    // Real-time service for updates
+    const [realtimeService, setRealtimeService] = useState(null);
+    const [isConnected, setIsConnected] = useState(false);
+    const [realtimeUpdates, setRealtimeUpdates] = useState([]);
+    const [lastRealtimeUpdate, setLastRealtimeUpdate] = useState(null);
 
-    // View mode state
-    const [viewMode, setViewMode] = useState('table'); // 'table' or 'analytics'
+    // Real-time connection setup
+    useEffect(() => {
+        if (!auth.user) return;
+
+        const service = new RealtimeService();
+        setRealtimeService(service);
+
+        // Set up event listeners
+        service.on('connected', (data) => {
+            console.log('Real-time service connected:', data);
+            setIsConnected(true);
+        });
+
+        service.on('daily-work-updated', (data) => {
+            console.log('Daily work updated:', data);
+            setRealtimeUpdates(prev => [data, ...prev].slice(0, 50)); // Keep last 50 updates
+            setLastRealtimeUpdate(data);
+            
+            // Invalidate cache and refresh data
+            if (cacheService) {
+                cacheService.invalidateDailyWorkCaches(data.daily_work?.id);
+            }
+            
+            // Refresh current data
+            if (data.action === 'created' || data.action === 'updated') {
+                fetchDailyWorks();
+            }
+            
+            // Refresh statistics on create/delete
+            if (data.action === 'created' || data.action === 'deleted') {
+                fetchStatistics();
+            }
+        });
+
+        service.on('heartbeat', (data) => {
+            console.log('Real-time heartbeat:', data);
+        });
+
+        // Connect to real-time updates
+        service.connect(auth.user).catch(error => {
+            console.error('Failed to connect to real-time updates:', error);
+        });
+
+        return () => {
+            if (service) {
+                service.disconnect();
+            }
+        };
+    }, [auth.user]);
+
+    // Handle real-time notifications
+    useEffect(() => {
+        if (lastRealtimeUpdate) {
+            const { action, daily_work, user_id } = lastRealtimeUpdate;
+            
+            // Don't show notification for own actions
+            if (user_id === auth.user?.id) return;
+            
+            const messages = {
+                created: `New daily work ${daily_work?.number} created`,
+                updated: `Daily work ${daily_work?.number} updated`,
+                deleted: `Daily work ${daily_work?.number} deleted`,
+                status_changed: `Status changed for ${daily_work?.number}`,
+            };
+            
+            if (messages[action]) {
+                showToast.info(messages[action]);
+            }
+        }
+    }, [lastRealtimeUpdate, auth.user?.id]);
 
     // Debounce timer ref for search
     const searchDebounceRef = useRef(null);
@@ -625,24 +699,9 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     const [statsLoading, setStatsLoading] = useState(false);
 
     const fetchStatistics = async (withFilters = false) => {
-        setStatsLoading(true);
-        try {
-            const params = withFilters ? {
-                startDate: isMobile ? selectedDate : dateRange.start,
-                endDate: isMobile ? selectedDate : dateRange.end,
-                ...(filterData.status !== 'all' && { status: filterData.status }),
-                ...(filterData.incharge.length > 0 && { inCharge: filterData.incharge }),
-                ...(filterData.jurisdiction.length > 0 && { jurisdiction: filterData.jurisdiction }),
-            } : {};
-            
-            const response = await axios.get('/daily-works/statistics', { params });
-            setApiStats(response.data);
-        } catch (error) {
-            console.error('Error fetching statistics:', error);
-            // Don't show error toast for stats - it's not critical
-        } finally {
-            setStatsLoading(false);
-        }
+        // Statistics endpoint has been moved to the dedicated Daily Works Analytics page.
+        // Stats here are computed from the local data (see useMemo below).
+        return;
     };
 
     // Enhanced statistics calculation with more actionable insights
@@ -779,14 +838,6 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             color: 'success',
             variant: 'flat',
             onPress: () => openModal('exportDailyWorks')
-        },
-        {
-            label: viewMode === 'table' ? 'Analytics' : 'Table View',
-            icon: viewMode === 'table' ? <PresentationChartBarIcon className="w-4 h-4" /> : <TableCellsIcon className="w-4 h-4" />,
-            color: 'default',
-            variant: 'flat',
-            onPress: () => setViewMode(viewMode === 'table' ? 'analytics' : 'table'),
-            className: 'hidden lg:flex' // Only show on large screens
         }
     ];
 
@@ -1007,16 +1058,13 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                         </CardHeader>
                         
                         <CardBody className="pt-6">
-                            {/* Conditional Content Rendering */}
-                            <AnimatePresence mode="wait">
-                                {viewMode === 'table' ? (
-                                    <motion.div
-                                        key="table-view"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
+                            <motion.div
+                                key="table-view"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                            >
                                         {/* Quick Stats */}
                                         <div className="relative">
                                             <StatsCards
@@ -1431,19 +1479,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                      </ErrorBoundary>
                                      </CardBody>
                                  </Card>
-                                     </motion.div>
-                                 ) : (
-                                     <motion.div
-                                         key="analytics-view"
-                                         initial={{ opacity: 0 }}
-                                         animate={{ opacity: 1 }}
-                                         exit={{ opacity: 0 }}
-                                         transition={{ duration: 0.3 }}
-                                     >
-                                         <AnalyticsDashboard auth={auth} />
-                                     </motion.div>
-                                  )}
-                              </AnimatePresence>
+                            </motion.div>
                           </CardBody>
                      </Card>
                  </motion.div>

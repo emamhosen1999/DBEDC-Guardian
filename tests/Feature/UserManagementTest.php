@@ -22,15 +22,15 @@ class UserManagementTest extends TestCase
     {
         parent::setUp();
 
-        // Create Super Administrator role
-        Role::create(['name' => 'Super Administrator']);
+        // Create Super Administratoristrator role
+        Role::create(['name' => 'Super Administratoristrator']);
         Role::create(['name' => 'Member']);
 
         // Create admin user with permission
         $this->adminUser = User::factory()->create([
             'email' => 'admin@test.com',
         ]);
-        $this->adminUser->assignRole('Super Administrator');
+        $this->adminUser->assignRole('Super Administratoristrator');
 
         $this->actingAs($this->adminUser);
     }

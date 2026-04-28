@@ -185,7 +185,7 @@ class RfiObjectionPolicy
      */
     protected function isAdmin(User $user): bool
     {
-        return $user->hasRole(['Super Admin', 'Admin', 'HR Manager']);
+        return $user->hasRole(['Super Administrator', 'Admin', 'HR Manager']);
     }
 
     /**
@@ -193,7 +193,7 @@ class RfiObjectionPolicy
      */
     protected function isManager(User $user): bool
     {
-        return $user->hasRole(['Super Admin', 'Admin', 'Project Manager', 'Consultant', 'HR Manager']);
+        return $user->hasRole(['Super Administrator', 'Admin', 'Project Manager', 'Consultant', 'HR Manager']);
     }
 
     /**

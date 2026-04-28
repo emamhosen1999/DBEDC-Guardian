@@ -221,8 +221,8 @@ class DailyWorkPaginationService
             return $baseQuery->where('assigned', $user->id);
         }
 
-        // Super Administrator and Administrator get all data
-        if ($user->hasRoleCached(['Super Administrator', 'Administrator'])) {
+        // Super Administratoristrator and Administrator get all data
+        if ($user->hasRoleCached(['Super Administratoristrator', 'Administrator'])) {
             return $baseQuery;
         }
 
@@ -296,8 +296,8 @@ class DailyWorkPaginationService
             return 'Asst. Quality Control Inspector';
         }
 
-        if ($user->hasRole('Super Administrator')) {
-            return 'Super Administrator';
+        if ($user->hasRole('Super Administratoristrator')) {
+            return 'Super Administratoristrator';
         }
 
         if ($user->hasRole('Administrator')) {
@@ -319,7 +319,7 @@ class DailyWorkPaginationService
             ];
         }
 
-        if ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')) {
+        if ($user->hasRole('Super Administratoristrator') || $user->hasRole('Administrator')) {
             return [
                 'allInCharges' => User::whereHas('designation', function ($q) {
                     $q->where('title', 'Supervision Engineer');

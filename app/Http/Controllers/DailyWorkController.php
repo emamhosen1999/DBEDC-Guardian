@@ -8,10 +8,14 @@ use App\Models\DailyWork;
 use App\Models\Jurisdiction;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\ApiResponseService;
+use App\Services\DailyWork\DailyWorkCacheService;
 use App\Services\DailyWork\DailyWorkCrudService;
 use App\Services\DailyWork\DailyWorkFileService;
 use App\Services\DailyWork\DailyWorkImportService;
+use App\Services\DailyWork\DailyWorkMobileService;
 use App\Services\DailyWork\DailyWorkPaginationService;
+use App\Services\DailyWork\DailyWorkRealtimeService;
 use App\Traits\DailyWorkFilterable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,16 +34,28 @@ class DailyWorkController extends Controller
 
     private DailyWorkFileService $fileService;
 
+    private DailyWorkCacheService $cacheService;
+
+    private DailyWorkRealtimeService $realtimeService;
+
+    private DailyWorkMobileService $mobileService;
+
     public function __construct(
         DailyWorkPaginationService $paginationService,
         DailyWorkImportService $importService,
         DailyWorkCrudService $crudService,
-        DailyWorkFileService $fileService
+        DailyWorkFileService $fileService,
+        DailyWorkCacheService $cacheService,
+        DailyWorkRealtimeService $realtimeService,
+        DailyWorkMobileService $mobileService
     ) {
         $this->paginationService = $paginationService;
         $this->importService = $importService;
         $this->crudService = $crudService;
         $this->fileService = $fileService;
+        $this->cacheService = $cacheService;
+        $this->realtimeService = $realtimeService;
+        $this->mobileService = $mobileService;
     }
 
     public function index()
@@ -55,7 +71,7 @@ class DailyWorkController extends Controller
             ]
             : (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])
                 ? []
-                : ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')
+                : ($user->hasRole('Super Administratoristrator') || $user->hasRole('Administrator')
                     ? [
                         'allInCharges' => User::whereHas('designation', function ($q) {
                             $q->where('title', 'Supervision Engineer');
@@ -95,11 +111,23 @@ class DailyWorkController extends Controller
     public function paginate(Request $request)
     {
         try {
-            $paginatedDailyWorks = $this->paginationService->getPaginatedDailyWorks($request);
+            // Use cache service for better performance
+            $params = [
+                'startDate' => $request->get('startDate'),
+                'endDate' => $request->get('endDate'),
+                'page' => $request->get('page', 1),
+                'perPage' => $request->get('perPage', 30),
+                'status' => $request->get('status'),
+                'search' => $request->get('search'),
+                'inCharge' => $request->get('inCharge'),
+                'jurisdiction' => $request->get('jurisdiction'),
+            ];
+            
+            $paginatedDailyWorks = $this->cacheService->getCachedPaginatedWorks($params);
 
-            return response()->json($paginatedDailyWorks);
+            return ApiResponseService::success($paginatedDailyWorks, 'Daily works retrieved successfully');
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return ApiResponseService::serverError('Failed to retrieve daily works: ' . $e->getMessage());
         }
     }
 
@@ -134,23 +162,48 @@ class DailyWorkController extends Controller
     {
         try {
             $result = $this->crudService->update($request);
+            
+            // Invalidate relevant caches
+            if (isset($result['dailyWork']) && $result['dailyWork']['id']) {
+                $this->cacheService->invalidateDailyWorkCaches($result['dailyWork']['id']);
+                
+                // Broadcast real-time update
+                $dailyWork = DailyWork::find($result['dailyWork']['id']);
+                if ($dailyWork) {
+                    $this->realtimeService->broadcastUpdate($dailyWork, 'updated');
+                }
+            }
 
-            return response()->json($result);
+            return ApiResponseService::updated($result, 'Daily work updated successfully');
         } catch (ValidationException $e) {
-            return response()->json(['errors' => $e->errors()], 422);
+            return ApiResponseService::validationError($e->errors());
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return ApiResponseService::serverError('Failed to update daily work: ' . $e->getMessage());
         }
     }
 
     public function delete(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
+            // Get the daily work before deletion for broadcasting
+            $dailyWorkId = $request->get('id');
+            $dailyWork = DailyWork::find($dailyWorkId);
+            
             $result = $this->crudService->delete($request);
+            
+            // Invalidate relevant caches
+            if (isset($result['id'])) {
+                $this->cacheService->invalidateDailyWorkCaches($result['id']);
+                
+                // Broadcast real-time update
+                if ($dailyWork) {
+                    $this->realtimeService->broadcastUpdate($dailyWork, 'deleted');
+                }
+            }
 
-            return response()->json($result);
+            return ApiResponseService::deleted($result, 'Daily work deleted successfully');
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return ApiResponseService::serverError('Failed to delete daily work: ' . $e->getMessage());
         }
     }
 
@@ -240,7 +293,7 @@ class DailyWorkController extends Controller
                 foreach ($selectedColumns as $column) {
                     switch ($column) {
                         case 'date':
-                            $row['Date'] = $work->date->format('Y-m-d');
+                            $row['Date'] = $work->date?->format('Y-m-d') ?? 'N/A';
                             break;
                         case 'number':
                             $row['RFI Number'] = $work->number;
@@ -361,7 +414,7 @@ class DailyWorkController extends Controller
 
                 return [
                     'RFI Number' => $work->number,
-                    'Date' => $work->date->format('Y-m-d'),
+                    'Date' => $work->date?->format('Y-m-d') ?? 'N/A',
                     'Type' => $work->type,
                     'Location' => $work->location,
                     'Description' => $work->description,
@@ -486,7 +539,7 @@ class DailyWorkController extends Controller
                 // Log the override for audit purposes
                 \App\Models\RfiSubmissionOverrideLog::logOverride(
                     dailyWorkId: $dailyWork->id,
-                    oldDate: $dailyWork->rfi_submission_date?->format('Y-m-d'),
+                    oldDate: $dailyWork->rfi_submission_date?->format('Y-m-d') ?? null,
                     newDate: $request->rfi_submission_date,
                     activeObjectionsCount: $activeObjectionsCount,
                     reason: $request->override_reason,
@@ -597,7 +650,7 @@ class DailyWorkController extends Controller
                         // Log the override
                         \App\Models\RfiSubmissionOverrideLog::logOverride(
                             dailyWorkId: $work->id,
-                            oldDate: $work->rfi_submission_date?->format('Y-m-d'),
+                            oldDate: $work->rfi_submission_date?->format('Y-m-d') ?? null,
                             newDate: $submissionDate,
                             activeObjectionsCount: $work->active_objections_count,
                             reason: $overrideReason.' (Bulk submission)',
@@ -1385,7 +1438,7 @@ class DailyWorkController extends Controller
                         // Log the override
                         \App\Models\RfiSubmissionOverrideLog::logOverride(
                             dailyWorkId: $work->id,
-                            oldDate: $work->rfi_response_date?->format('Y-m-d'),
+                            oldDate: $work->rfi_response_date?->format('Y-m-d') ?? null,
                             newDate: $responseDate,
                             activeObjectionsCount: $work->active_objections_count,
                             reason: $overrideReason.' (Bulk response status: '.$responseStatus.')',
@@ -1804,13 +1857,94 @@ class DailyWorkController extends Controller
         $sheet->getColumnDimension('B')->setAutoSize(true);
         $sheet->getColumnDimension('C')->setAutoSize(true);
 
-        // Create temp file
-        $tempFile = tempnam(sys_get_temp_dir(), 'rfi_response_');
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $writer->save($tempFile);
 
         return response()->download($tempFile, 'rfi_response_status_import_template.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Mobile-optimized endpoint for daily works by date
+     */
+    public function mobileDailyWorks(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $request->validate([
+                'date' => 'required|date',
+            ]);
+
+            $date = $request->get('date');
+            $mobileData = $this->mobileService->getMobileDataForDate($date);
+
+            return ApiResponseService::success($mobileData, 'Mobile daily works retrieved successfully');
+        } catch (\Exception $e) {
+            return ApiResponseService::serverError('Failed to retrieve mobile daily works: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mobile-optimized endpoint for recent daily works
+     */
+    public function mobileRecentWorks(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $request->validate([
+                'page' => 'sometimes|integer|min:1',
+                'per_page' => 'sometimes|integer|min:1|max:50',
+            ]);
+
+            $page = $request->get('page', 1);
+            $perPage = min($request->get('per_page', 20), 50); // Limit for mobile
+
+            $mobileData = $this->mobileService->getRecentMobileData($page, $perPage);
+
+            return ApiResponseService::success($mobileData, 'Mobile recent works retrieved successfully');
+        } catch (\Exception $e) {
+            return ApiResponseService::serverError('Failed to retrieve mobile recent works: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mobile-optimized endpoint for statistics
+     */
+    public function mobileStatistics(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $mobileStats = $this->mobileService->getMobileStatistics();
+
+            return ApiResponseService::statistics($mobileStats, 'Mobile statistics retrieved successfully');
+        } catch (\Exception $e) {
+            return ApiResponseService::serverError('Failed to retrieve mobile statistics: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mobile-optimized endpoint for work details
+     */
+    public function mobileWorkDetails(Request $request, int $id): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $mobileDetails = $this->mobileService->getMobileWorkDetails($id);
+
+            return ApiResponseService::success($mobileDetails, 'Mobile work details retrieved successfully');
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return ApiResponseService::forbidden('Access denied to this work');
+        } catch (\Exception $e) {
+            return ApiResponseService::serverError('Failed to retrieve mobile work details: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mobile endpoint for real-time statistics
+     */
+    public function mobileRealtimeStats(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $realtimeStats = $this->realtimeService->getRealtimeStats();
+
+            return ApiResponseService::success($realtimeStats, 'Real-time statistics retrieved successfully');
+        } catch (\Exception $e) {
+            return ApiResponseService::serverError('Failed to retrieve real-time statistics: ' . $e->getMessage());
+        }
     }
 }

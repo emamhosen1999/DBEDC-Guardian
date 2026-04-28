@@ -1287,12 +1287,12 @@ class AttendanceController extends Controller
     private function isManagerUser(User $user): bool
     {
         return $user->hasRole([
-            'Super Admin',
+            'Super Administrator',
             'Admin',
             'HR Manager',
             'Project Manager',
             'Consultant',
-            'Super Administrator',
+            'Super Administratoristrator',
             'Administrator',
         ]);
     }

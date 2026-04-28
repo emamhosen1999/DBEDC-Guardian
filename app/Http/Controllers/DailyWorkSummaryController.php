@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DailyWork;
 use App\Models\Jurisdiction;
 use App\Models\User;
+use App\Services\DailyWork\DailyWorkCacheService;
 use App\Traits\DailyWorkFilterable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,12 +15,19 @@ class DailyWorkSummaryController extends Controller
 {
     use DailyWorkFilterable;
 
+    private DailyWorkCacheService $cacheService;
+
+    public function __construct(DailyWorkCacheService $cacheService)
+    {
+        $this->cacheService = $cacheService;
+    }
+
     public function index()
     {
         $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
         $userRoles = $user->roles->pluck('name')->toArray();
-        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
+        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
 
         // Get daily works based on user role
         $query = DailyWork::with(['inchargeUser', 'assignedUser']);
@@ -55,7 +63,7 @@ class DailyWorkSummaryController extends Controller
         $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
         $userRoles = $user->roles->pluck('name')->toArray();
-        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
+        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
 
         try {
             $query = DailyWork::with(['inchargeUser', 'assignedUser']);
@@ -96,7 +104,7 @@ class DailyWorkSummaryController extends Controller
         $user = User::with(['designation', 'roles'])->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
         $userRoles = $user->roles->pluck('name')->toArray();
-        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
+        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
 
         try {
             $query = DailyWork::with(['inchargeUser', 'assignedUser']);
@@ -203,12 +211,12 @@ class DailyWorkSummaryController extends Controller
 
         $query = DailyWork::query();
 
-        // Check if user is Super Administrator or Administrator
-        $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
+        // Check if user is Super Administratoristrator or Administrator
+        $isAdmin = in_array('Super Administratoristrator', $userRoles) || in_array('Administrator', $userRoles);
 
         // Filter based on user role
         if ($isAdmin) {
-            // Super Administrator and Administrator get all data - no filtering
+            // Super Administratoristrator and Administrator get all data - no filtering
             // Query remains unfiltered to get all daily works
         } elseif ($userDesignationTitle === 'Supervision Engineer') {
             // Get works where user is incharge

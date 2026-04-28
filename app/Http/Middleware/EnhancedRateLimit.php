@@ -88,7 +88,7 @@ class EnhancedRateLimit
 
         // Cache user limits
         return Cache::remember("rate_limits_user_{$user->id}", 300, function () use ($user) {
-            if ($user->hasRole('Super Administrator')) {
+            if ($user->hasRole('Super Administratoristrator')) {
                 return ['requests_per_minute' => 200];
             }
 

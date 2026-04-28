@@ -224,8 +224,8 @@ class MemberController extends Controller
      */
     private function canModifyMember($currentUser, $employee)
     {
-        // Super admins can modify anyone
-        if ($currentUser->hasRole('Super Administrator')) {
+        // Super Administrators can modify anyone
+        if ($currentUser->hasRole('Super Administratoristrator')) {
             return true;
         }
 
@@ -263,8 +263,8 @@ class MemberController extends Controller
      */
     private function canDeleteMember($currentUser, $employee)
     {
-        // Super admins can delete anyone (except themselves)
-        if ($currentUser->hasRole('Super Administrator') && $currentUser->id !== $employee->id) {
+        // Super Administrators can delete anyone (except themselves)
+        if ($currentUser->hasRole('Super Administratoristrator') && $currentUser->id !== $employee->id) {
             return true;
         }
 

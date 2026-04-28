@@ -3,8 +3,7 @@ import { usePage } from "@inertiajs/react";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Inertia } from '@inertiajs/inertia';
-import { getPages } from '@/Props/pages.jsx';
-import { getSettingsPages } from '@/Props/settings.jsx';
+import { getPages, getSettingsPages } from '@/Services/NavigationRegistry.jsx';
 import { ScrollShadow, Divider } from "@heroui/react";
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -43,9 +42,6 @@ const StaticHeaderWrapper = React.memo(() => {
   const contextValue = React.useContext(LayoutContext);
   const [mounted, setMounted] = useState(false);
   
-  // Capture initial context values and freeze them
-  const frozenContext = useRef(contextValue);
-  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -54,10 +50,10 @@ const StaticHeaderWrapper = React.memo(() => {
   
   return (
     <Header
-      url={frozenContext.current.currentUrl}
-      pages={frozenContext.current.pages}
-      toggleSideBar={frozenContext.current.toggleSideBar}
-      sideBarOpen={frozenContext.current.sideBarOpen}
+      url={contextValue.currentUrl}
+      pages={contextValue.pages}
+      toggleSideBar={contextValue.toggleSideBar}
+      sideBarOpen={contextValue.sideBarOpen}
     />
   );
 }, () => true); // Always return true to prevent ANY re-renders
@@ -70,9 +66,6 @@ const StaticSidebarWrapper = React.memo(() => {
   const contextValue = React.useContext(LayoutContext);
   const [mounted, setMounted] = useState(false);
   
-  // Capture initial context values and freeze them
-  const frozenContext = useRef(contextValue);
-  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -81,10 +74,10 @@ const StaticSidebarWrapper = React.memo(() => {
   
   return (
     <Sidebar
-      url={frozenContext.current.currentUrl}
-      pages={frozenContext.current.pages}
-      toggleSideBar={frozenContext.current.toggleSideBar}
-      sideBarOpen={frozenContext.current.sideBarOpen}
+      url={contextValue.currentUrl}
+      pages={contextValue.pages}
+      toggleSideBar={contextValue.toggleSideBar}
+      sideBarOpen={contextValue.sideBarOpen}
     />
   );
 }, () => true); // Always return true to prevent ANY re-renders
@@ -148,8 +141,7 @@ const App = React.memo(({ children }) => {
     dismissUpdate
   } = useVersionManager();
 
-  // ===== STATIC REFERENCE DATA (Never Changes After Initial Calculation) =====
-  // These values are calculated ONCE and then frozen to prevent any re-renders
+  // ===== STATIC REFERENCE DATA (Recalculates when auth changes) =====
   const staticLayoutData = useMemo(() => {
     const currentAuth = {
       user: auth?.user,
@@ -163,8 +155,16 @@ const App = React.memo(({ children }) => {
     const roles = currentAuth?.roles || [];
     const isSettingsPage = url.startsWith('/settings') || url.includes('settings');
     const pages = isSettingsPage 
-      ? getSettingsPages(permissions, currentAuth) 
+      ? getSettingsPages(roles, permissions, currentAuth) 
       : getPages(roles, permissions, currentAuth);
+    
+    console.log('Navigation debug:', {
+      isSettingsPage,
+      permissions: permissions?.slice(0, 5),
+      roles: roles?.slice(0, 3),
+      pagesCount: pages?.length,
+      firstPage: pages?.[0]
+    });
 
     return {
       currentAuth,
@@ -174,7 +174,7 @@ const App = React.memo(({ children }) => {
       app,
       url
     };
-  }, []); // Empty dependency array - calculate ONLY ONCE
+  }, [auth?.user?.id, auth?.roles, url]); // Recalculate when user, roles, or URL changes
 
   // Responsive breakpoints
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -217,8 +217,7 @@ const App = React.memo(({ children }) => {
     }
   }, [forceUpdate]);
 
-  // ===== STATIC CONTEXT VALUE (Frozen After Initial Render) =====
-  // This context value is set ONCE and never changes to prevent any re-renders
+  // ===== STATIC CONTEXT VALUE (Updates when layout data changes) =====
   const staticContextValue = useMemo(() => ({
     sideBarOpen: false, // Always start with false - visual state managed by components internally
     toggleSideBar: staticToggleSideBar,
@@ -226,7 +225,7 @@ const App = React.memo(({ children }) => {
     pages: staticLayoutData.pages,
     auth: staticLayoutData.currentAuth,
     app: staticLayoutData.app
-  }), []); // Empty dependency array - freeze the context value
+  }), [staticLayoutData, staticToggleSideBar]); // Update when layout data changes
 
   // ===== EFFECTS (Same as before) =====
   // Firebase initialization

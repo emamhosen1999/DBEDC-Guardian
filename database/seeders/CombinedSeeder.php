@@ -496,7 +496,7 @@ class CombinedSeeder extends Seeder
     }
 
     /**
-     * Create admin user and assign super admin role
+     * Create admin user and assign Super Administrator role
      */
     private function createAdminUser(): void
     {
@@ -520,19 +520,19 @@ class CombinedSeeder extends Seeder
             $this->command->info('Created admin user: admin@example.com / password');
         }
 
-        // Get the Super Administrator role
-        $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Administrator')->first();
+        // Get the Super Administratoristrator role
+        $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Administratoristrator')->first();
 
         if ($superAdminRole) {
             // Check if the user already has the role
-            if (! $user->hasRole('Super Administrator')) {
+            if (! $user->hasRole('Super Administratoristrator')) {
                 $user->assignRole($superAdminRole);
-                $this->command->info("Assigned Super Administrator role to user: {$user->email}");
+                $this->command->info("Assigned Super Administratoristrator role to user: {$user->email}");
             } else {
-                $this->command->info("User {$user->email} already has Super Administrator role");
+                $this->command->info("User {$user->email} already has Super Administratoristrator role");
             }
         } else {
-            $this->command->warn('Super Administrator role not found.');
+            $this->command->warn('Super Administratoristrator role not found.');
         }
     }
 }

@@ -389,7 +389,7 @@ const DailyWorksTable = ({
     }, [allData]);
 
     // Permission-based access control using designations
-    const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || auth.roles?.includes('Daily Work Manager') || false;
+    const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administratoristrator') || auth.roles?.includes('Daily Work Manager') || false;
     const userIsSE = auth.designation === 'Supervision Engineer' || false;
     const userIsQCI = auth.designation === 'Quality Control Inspector' || auth.designation === 'Asst. Quality Control Inspector' || false;
     
@@ -420,9 +420,9 @@ const DailyWorksTable = ({
     };
     
     // Check if user can review objections (admin/manager level)
-    // Managers include: Super Admin, Admin, Project Manager, Consultant, HR Manager
+    // Managers include: Super Administrator, Admin, Project Manager, Consultant, HR Manager
     const canUserReviewObjections = () => {
-        const managerRoles = ['Super Administrator', 'Administrator', 'Project Manager', 'Consultant', 'HR Manager'];
+        const managerRoles = ['Super Administratoristrator', 'Administrator', 'Project Manager', 'Consultant', 'HR Manager'];
         return auth.roles?.some(role => managerRoles.includes(role)) || false;
     };
     

@@ -523,12 +523,12 @@ class ManagerDashboardController extends Controller
     private function isManagerUser(User $user): bool
     {
         return $user->hasRole([
-            'Super Admin',
+            'Super Administrator',
             'Admin',
             'HR Manager',
             'Project Manager',
             'Consultant',
-            'Super Administrator',
+            'Super Administratoristrator',
             'Administrator',
         ]);
     }
@@ -536,10 +536,10 @@ class ManagerDashboardController extends Controller
     private function isAdminLikeUser(User $user): bool
     {
         return $user->hasRole([
-            'Super Admin',
+            'Super Administrator',
             'Admin',
             'HR Manager',
-            'Super Administrator',
+            'Super Administratoristrator',
             'Administrator',
         ]);
     }

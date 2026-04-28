@@ -75,12 +75,12 @@ trait CachedPermissions
     }
 
     /**
-     * Check if user is privileged (Super Admin, Admin, etc.) with caching
+     * Check if user is privileged (Super Administrator, Admin, etc.) with caching
      */
     public function isPrivilegedUserCached(): bool
     {
         return $this->hasAnyRoleCached([
-            'Super Administrator',
+            'Super Administratoristrator',
             'Administrator',
             'Project Manager',
             'Consultant',

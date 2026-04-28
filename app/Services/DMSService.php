@@ -136,7 +136,7 @@ class DMSService
 
         // Filter by user access
         $userRoles = $user->roles->pluck('name')->toArray();
-        if (! in_array('Super Administrator', $userRoles) && ! in_array('Administrator', $userRoles)) {
+        if (! in_array('Super Administratoristrator', $userRoles) && ! in_array('Administrator', $userRoles)) {
             $query->where(function ($q) use ($user) {
                 $q->where('created_by', $user->id)
                     ->orWhere('visibility', 'public')

@@ -528,7 +528,7 @@ class RfiObjectionController extends Controller
 
         // Verify user can manage this specific RFI (incharge, assigned, or admin)
         $user = auth()->user();
-        $canManageRfi = $user->hasRole(['Super Admin', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
+        $canManageRfi = $user->hasRole(['Super Administrator', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
             || $dailyWork->incharge === $user->id
             || $dailyWork->assigned === $user->id;
 
@@ -597,7 +597,7 @@ class RfiObjectionController extends Controller
 
         // Verify user can manage this specific RFI (incharge, assigned, or admin)
         $user = auth()->user();
-        $canManageRfi = $user->hasRole(['Super Admin', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
+        $canManageRfi = $user->hasRole(['Super Administrator', 'Admin', 'HR Manager', 'Project Manager', 'Consultant'])
             || $dailyWork->incharge === $user->id
             || $dailyWork->assigned === $user->id;
 
@@ -704,7 +704,7 @@ class RfiObjectionController extends Controller
 
             // For submitted events, also notify managers/admins
             if ($event === 'submitted') {
-                $managers = \App\Models\User::role(['Super Admin', 'Admin', 'Project Manager', 'Consultant'])
+                $managers = \App\Models\User::role(['Super Administrator', 'Admin', 'Project Manager', 'Consultant'])
                     ->where('active', true)
                     ->get();
                 $usersToNotify = $usersToNotify->merge($managers);

@@ -61,7 +61,7 @@ class RecruitmentController extends Controller
             'jobs' => $jobs,
             'filters' => $request->only(['search', 'status', 'department_id', 'job_type', 'sort_by', 'sort_order']),
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],
@@ -129,7 +129,7 @@ class RecruitmentController extends Controller
             'jobs' => $jobs,
             'filters' => $request->only(['search', 'status', 'department_id', 'job_type', 'sort_by', 'sort_order']),
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],
@@ -360,7 +360,7 @@ class RecruitmentController extends Controller
             'daysUntilClosing' => $job->daysUntilClosing(),
             // Add dropdown data for forms, same as in index method
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],
@@ -454,7 +454,7 @@ class RecruitmentController extends Controller
             'daysUntilClosing' => $job->daysUntilClosing(),
             // Add dropdown data for forms, same as in index and show methods
             'departments' => Department::select('id', 'name')->get(),
-            'managers' => User::role(['Super Administrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
+            'managers' => User::role(['Super Administratoristrator', 'Administrator', 'HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'jobTypes' => [
                 ['id' => 'full_time', 'name' => 'Full Time'],
                 ['id' => 'part_time', 'name' => 'Part Time'],

@@ -20,7 +20,7 @@ class AssignUserRoles extends Command
      *
      * @var string
      */
-    protected $description = 'Assign Super Administrator role to specific user and Member role to all others';
+    protected $description = 'Assign Super Administratoristrator role to specific user and Member role to all others';
 
     /**
      * Execute the console command.
@@ -30,7 +30,7 @@ class AssignUserRoles extends Command
         $superAdminId = $this->argument('super-admin-id') ?? 18;
 
         // Check if roles exist
-        $superAdminRole = Role::where('name', 'Super Administrator')->first();
+        $superAdminRole = Role::where('name', 'Super Administratoristrator')->first();
         $employeeRole = Role::where('name', 'Member')->first();
 
         if (! $superAdminRole || ! $employeeRole) {
@@ -65,9 +65,9 @@ class AssignUserRoles extends Command
             $user->syncRoles([]);
 
             if ($user->id == $superAdminId) {
-                $user->assignRole('Super Administrator');
+                $user->assignRole('Super Administratoristrator');
                 $superAdminUser = $user;
-                $this->info("✅ Super Administrator role assigned to: {$user->name} (ID: {$user->id}, Email: {$user->email})");
+                $this->info("✅ Super Administratoristrator role assigned to: {$user->name} (ID: {$user->id}, Email: {$user->email})");
             } else {
                 $user->assignRole('Member');
                 $employeeCount++;
@@ -75,7 +75,7 @@ class AssignUserRoles extends Command
         }
 
         if (! $superAdminUser) {
-            $this->warn("⚠️  User with ID {$superAdminId} not found. No Super Administrator assigned.");
+            $this->warn("⚠️  User with ID {$superAdminId} not found. No Super Administratoristrator assigned.");
         }
 
         $this->info("✅ Member role assigned to {$employeeCount} users.");
@@ -84,12 +84,12 @@ class AssignUserRoles extends Command
         // Verify the assignments
         $this->info('Verifying role assignments...');
 
-        // Check if user with provided ID has Super Administrator role
+        // Check if user with provided ID has Super Administratoristrator role
         $verificationSuperAdmin = User::find($superAdminId);
-        if ($verificationSuperAdmin && $verificationSuperAdmin->hasRole('Super Administrator')) {
-            $this->info("✅ Verified: User {$superAdminId} has Super Administrator role");
+        if ($verificationSuperAdmin && $verificationSuperAdmin->hasRole('Super Administratoristrator')) {
+            $this->info("✅ Verified: User {$superAdminId} has Super Administratoristrator role");
         } elseif ($verificationSuperAdmin) {
-            $this->error("❌ Verification failed: User {$superAdminId} does NOT have Super Administrator role");
+            $this->error("❌ Verification failed: User {$superAdminId} does NOT have Super Administratoristrator role");
         }
 
         // Reset permissions cache again
