@@ -918,22 +918,17 @@ const DesktopHeader = React.memo(({
           <span className="text-xs text-default-500 leading-tight font-medium">
             {userGreeting},
           </span>
-          <span className="font-semibold text-sm text-foreground leading-tight truncate">
-            {auth.user.name || 'Unknown User'}
+          <span className="text-xs text-default-400 leading-tight truncate">
+            {auth.user.designation?.title || auth.user.role?.name || 'Team Member'}
           </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-default-400 leading-tight truncate">
-              {auth.user.designation?.title || auth.user.role?.name || 'Team Member'}
-            </span>
-            {auth.user.department && (
-              <Chip size="sm" variant="flat" color="primary" className="text-xs h-4">
-                {auth.user.department}
-              </Chip>
-            )}
-          </div>
+          {auth.user.department && (
+            <Chip size="sm" variant="flat" color="primary" className="text-xs h-4">
+              {typeof auth.user.department === 'string' ? auth.user.department : (auth.user.department?.name || auth.user.department?.title || 'Department')}
+            </Chip>
+          )}
         </div>
 
-        {/* Enhanced Chevron with Animation */}
+        {/* Chevron with Animation */}
         <motion.div
           animate={{ 
             rotate: isHovered ? 180 : 0,

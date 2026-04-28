@@ -18,6 +18,10 @@ class DeviceController extends Controller
     public function __construct(DeviceAuthService $deviceAuthService)
     {
         $this->deviceAuthService = $deviceAuthService;
+
+        // Apply authorization middleware for device management
+        $this->middleware('can:devices.manage')->only(['getUserDevices', 'resetDevices', 'adminDeactivateDevice', 'toggleSingleDeviceLogin']);
+        $this->middleware('can:devices.view')->only(['index']);
     }
 
     /**
@@ -28,9 +32,23 @@ class DeviceController extends Controller
         $user = Auth::user();
         $devices = collect($this->deviceAuthService->getUserDevices($user));
 
+        // Data minimization: Only expose necessary device fields
+        $minimizedDevices = $devices->map(function ($device) {
+            return [
+                'id' => $device->id,
+                'device_type' => $device->device_type,
+                'platform' => $device->platform,
+                'browser' => $device->browser,
+                'is_active' => (bool) $device->is_active,
+                'is_trusted' => (bool) $device->is_trusted,
+                'last_used_at' => $device->last_used_at ? $device->last_used_at->toDateTimeString() : null,
+                'created_at' => $device->created_at->toDateTimeString(),
+            ];
+        });
+
         return response()->json([
             'success' => true,
-            'devices' => $devices,
+            'devices' => $minimizedDevices,
             'summary' => $this->buildDeviceSummary($devices),
             'user_state' => $this->buildUserDeviceState($user),
         ]);
@@ -45,6 +63,20 @@ class DeviceController extends Controller
         $user = User::findOrFail($userId);
         $devices = collect($this->deviceAuthService->getUserDevices($user));
 
+        // Data minimization: Only expose necessary device fields
+        $minimizedDevices = $devices->map(function ($device) {
+            return [
+                'id' => $device->id,
+                'device_type' => $device->device_type,
+                'platform' => $device->platform,
+                'browser' => $device->browser,
+                'is_active' => (bool) $device->is_active,
+                'is_trusted' => (bool) $device->is_trusted,
+                'last_used_at' => $device->last_used_at ? $device->last_used_at->toDateTimeString() : null,
+                'created_at' => $device->created_at->toDateTimeString(),
+            ];
+        });
+
         $userState = $this->buildUserDeviceState($user);
         $summary = $this->buildDeviceSummary($devices);
 
@@ -52,7 +84,7 @@ class DeviceController extends Controller
         if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'devices' => $devices,
+                'devices' => $minimizedDevices,
                 'summary' => $summary,
                 'user_state' => $userState,
             ]);
@@ -61,7 +93,7 @@ class DeviceController extends Controller
         // Otherwise return Inertia page for browser navigation
         return Inertia::render('UserDevices', [
             'user' => $user,
-            'devices' => $devices,
+            'devices' => $minimizedDevices,
             'summary' => $summary,
             'userState' => $userState,
         ]);
@@ -90,14 +122,14 @@ class DeviceController extends Controller
             'device_reset_reason' => $persistedResetReason,
         ]);
 
-        $devices = collect($this->deviceAuthService->getUserDevices($user->fresh()));
+        $devices = collect($this->deviceAuthService->getUserDevices($user));
 
         return response()->json([
             'success' => true,
             'message' => "Successfully reset {$count} device(s) for user {$user->email}.",
             'devices_reset' => $count,
             'summary' => $this->buildDeviceSummary($devices),
-            'user_state' => $this->buildUserDeviceState($user->fresh()),
+            'user_state' => $this->buildUserDeviceState($user),
         ]);
     }
 
@@ -124,7 +156,7 @@ class DeviceController extends Controller
             'success' => true,
             'message' => 'Device deactivated successfully.',
             'summary' => $this->buildDeviceSummary($devices),
-            'user_state' => $this->buildUserDeviceState($user->fresh()),
+            'user_state' => $this->buildUserDeviceState($user),
         ]);
     }
 
@@ -153,7 +185,7 @@ class DeviceController extends Controller
             'success' => true,
             'message' => 'Device deactivated successfully.',
             'summary' => $this->buildDeviceSummary($devices),
-            'user_state' => $this->buildUserDeviceState($user->fresh()),
+            'user_state' => $this->buildUserDeviceState($user),
         ]);
     }
 

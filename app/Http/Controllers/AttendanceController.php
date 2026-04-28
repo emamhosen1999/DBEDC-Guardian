@@ -9,6 +9,7 @@ use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Holiday;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\AttendanceAuditService;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -21,6 +22,12 @@ use Throwable;
 
 class AttendanceController extends Controller
 {
+    protected AttendanceAuditService $auditService;
+
+    public function __construct(AttendanceAuditService $auditService)
+    {
+        $this->auditService = $auditService;
+    }
     public function index1(): \Inertia\Response
     {
         return Inertia::render('AttendanceAdmin', [
@@ -46,11 +53,20 @@ class AttendanceController extends Controller
     public function paginate(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            $perPage = (int) $request->get('perPage', 30);
-            $page = (int) $request->get('page', 1);
-            $employee = $request->get('employee');
-            $currentMonth = $request->get('currentMonth');
-            $currentYear = $request->get('currentYear');
+            // Validate input parameters
+            $validated = $request->validate([
+                'perPage' => 'nullable|integer|min:1|max:100',
+                'page' => 'nullable|integer|min:1',
+                'employee' => 'nullable|string|max:255',
+                'currentMonth' => 'nullable|integer|min:1|max:12',
+                'currentYear' => 'nullable|integer|min:2020|max:2100',
+            ]);
+
+            $perPage = (int) ($validated['perPage'] ?? 30);
+            $page = (int) ($validated['page'] ?? 1);
+            $employee = $validated['employee'] ?? null;
+            $currentMonth = $validated['currentMonth'] ?? now()->month;
+            $currentYear = $validated['currentYear'] ?? now()->year;
 
             $users = $this->getMemberUsersWithAttendanceAndLeaves($currentYear, $currentMonth);
             $leaveTypes = LeaveSetting::all();
@@ -272,9 +288,9 @@ class AttendanceController extends Controller
         try {
             // Validate the incoming request data
             $validatedData = $request->validate([
-                'user_id' => 'required|integer',
-                'date' => 'required|date',
-                'symbol' => 'required|string|max:255', // Add appropriate validation rules
+                'user_id' => 'required|integer|exists:users,id',
+                'date' => 'required|date|before_or_equal:today',
+                'symbol' => 'required|string|max:255|in:√,▼,#,/,○',
             ]);
 
             // Extract validated data
@@ -284,6 +300,13 @@ class AttendanceController extends Controller
 
             // Check if the attendance record already exists
             $attendance = Attendance::where('user_id', $userId)->whereDate('date', $date)->first();
+
+            // Store old values for audit log
+            $oldValues = $attendance ? [
+                'symbol' => $attendance->symbol,
+                'punchin' => $attendance->punchin,
+                'punchout' => $attendance->punchout,
+            ] : null;
 
             // If the record doesn't exist, create a new one
             if (! $attendance) {
@@ -295,6 +318,15 @@ class AttendanceController extends Controller
             // Update the symbol
             $attendance->symbol = $symbol;
             $attendance->save();
+
+            // Log the attendance update for audit trail
+            $this->auditService->logAttendanceUpdate(
+                Auth::id(),
+                $attendance->id,
+                $oldValues,
+                ['symbol' => $symbol],
+                'Manual attendance update via controller'
+            );
 
             // Return a success response
             return response()->json(['message' => 'Attendance updated successfully']);
@@ -365,14 +397,45 @@ class AttendanceController extends Controller
     public function getUserLocationsForDate(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
+            // Authorization check - user must have permission to view attendance
+            if (! $request->user()->can('attendance.view') && ! $request->user()->can('attendance.manage')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to location data.',
+                ], 403);
+            }
+
+            // Validate date parameter
+            $request->validate([
+                'date' => 'required|date|before_or_equal:today',
+            ]);
+
             $selectedDate = Carbon::parse($request->query('date'))->format('Y-m-d');
 
-            $attendances = Attendance::with(['user.designation', 'user.attendanceType', 'media'])
+            // Build attendance query with scope restriction
+            $attendanceQuery = Attendance::with(['user.designation', 'user.attendanceType', 'media'])
                 ->whereNotNull('punchin')
-                ->whereDate('date', $selectedDate)
-                ->orderBy('user_id')
-                ->orderBy('punchin')
-                ->get();
+                ->whereDate('date', $selectedDate);
+
+            // Apply scope restriction based on user role
+            if (! $request->user()->can('attendance.manage')) {
+                // Non-admin users can only see users in their department/jurisdiction
+                $userDepartmentId = $request->user()->department_id;
+                if ($userDepartmentId) {
+                    $attendanceQuery->whereHas('user', function ($query) use ($userDepartmentId) {
+                        $query->where('department_id', $userDepartmentId);
+                    });
+                }
+            }
+
+            $attendances = $attendanceQuery->orderBy('user_id')->orderBy('punchin')->get();
+
+            // Log location data access for audit trail
+            $this->auditService->logLocationAccess(
+                $request->user()->id,
+                $selectedDate,
+                $attendances->count()
+            );
 
             // Group attendances by user to handle multiple cycles
             $userAttendances = $attendances->groupBy('user_id');
@@ -1614,12 +1677,25 @@ class AttendanceController extends Controller
     {
         $date = $request->input('date');
 
+        // Log export for audit trail
+        $this->auditService->logAttendanceExport(
+            Auth::id(),
+            ['date' => $date, 'type' => 'excel']
+        );
+
         return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\AttendanceExport($date), 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.xlsx');
     }
 
     public function exportPdf(Request $request)
     {
         $date = $request->input('date');
+
+        // Log export for audit trail
+        $this->auditService->logAttendanceExport(
+            Auth::id(),
+            ['date' => $date, 'type' => 'pdf']
+        );
+
         $rows = (new AttendanceExport($date))->collection();
         $pdf = PDF::loadView('attendance_pdf', [
             'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($date)),
@@ -1634,12 +1710,25 @@ class AttendanceController extends Controller
     {
         $month = $request->get('month');
 
+        // Log export for audit trail
+        $this->auditService->logAttendanceExport(
+            Auth::id(),
+            ['month' => $month, 'type' => 'admin_excel']
+        );
+
         return (new AttendanceAdminExport)->export($month);
     }
 
     public function exportAdminPdf(Request $request)
     {
         $month = $request->get('month');
+
+        // Log export for audit trail
+        $this->auditService->logAttendanceExport(
+            Auth::id(),
+            ['month' => $month, 'type' => 'admin_pdf']
+        );
+
         $from = Carbon::parse($month.'-01');
         $to = $from->copy()->endOfMonth();
         $monthName = $from->format('F Y');

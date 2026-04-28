@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DailyWork\DeleteDailyWorkRequest;
+use App\Http\Requests\DailyWork\PaginateDailyWorkRequest;
 use App\Http\Requests\DailyWork\UpdateDailyWorkStatusRequest;
 use App\Http\Requests\DailyWork\UpdateInspectionDetailsRequest;
 use App\Models\DailyWork;
@@ -9,6 +11,7 @@ use App\Models\Jurisdiction;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\ApiResponseService;
+use App\Services\DailyWork\DailyWorkAuditService;
 use App\Services\DailyWork\DailyWorkCacheService;
 use App\Services\DailyWork\DailyWorkCrudService;
 use App\Services\DailyWork\DailyWorkFileService;
@@ -40,6 +43,8 @@ class DailyWorkController extends Controller
 
     private DailyWorkMobileService $mobileService;
 
+    private DailyWorkAuditService $auditService;
+
     public function __construct(
         DailyWorkPaginationService $paginationService,
         DailyWorkImportService $importService,
@@ -47,7 +52,8 @@ class DailyWorkController extends Controller
         DailyWorkFileService $fileService,
         DailyWorkCacheService $cacheService,
         DailyWorkRealtimeService $realtimeService,
-        DailyWorkMobileService $mobileService
+        DailyWorkMobileService $mobileService,
+        DailyWorkAuditService $auditService
     ) {
         $this->paginationService = $paginationService;
         $this->importService = $importService;
@@ -56,6 +62,7 @@ class DailyWorkController extends Controller
         $this->cacheService = $cacheService;
         $this->realtimeService = $realtimeService;
         $this->mobileService = $mobileService;
+        $this->auditService = $auditService;
     }
 
     public function index()
@@ -108,22 +115,23 @@ class DailyWorkController extends Controller
         ]);
     }
 
-    public function paginate(Request $request)
+    public function paginate(PaginateDailyWorkRequest $request)
     {
         try {
-            // Use cache service for better performance
+            // Use validated input from request
             $params = [
-                'startDate' => $request->get('startDate'),
-                'endDate' => $request->get('endDate'),
-                'page' => $request->get('page', 1),
-                'perPage' => $request->get('perPage', 30),
-                'status' => $request->get('status'),
-                'search' => $request->get('search'),
-                'inCharge' => $request->get('inCharge'),
-                'jurisdiction' => $request->get('jurisdiction'),
+                'startDate' => $request->validated('startDate'),
+                'endDate' => $request->validated('endDate'),
+                'page' => $request->validated('page', 1),
+                'perPage' => $request->validated('perPage', 30),
+                'status' => $request->validated('status'),
+                'search' => $request->validated('search'),
+                'inCharge' => $request->validated('inCharge'),
+                'jurisdiction' => $request->validated('jurisdiction'),
             ];
             
-            $paginatedDailyWorks = $this->cacheService->getCachedPaginatedWorks($params);
+            // Direct pagination without caching
+            $paginatedDailyWorks = $this->paginationService->getPaginatedDailyWorks($request);
 
             return ApiResponseService::success($paginatedDailyWorks, 'Daily works retrieved successfully');
         } catch (\Exception $e) {
@@ -137,6 +145,22 @@ class DailyWorkController extends Controller
             $result = $this->paginationService->getAllDailyWorks($request);
 
             return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function previewImport(Request $request)
+    {
+        try {
+            $preview = $this->importService->previewImport($request);
+
+            return response()->json([
+                'message' => 'Import preview generated successfully',
+                'preview' => $preview,
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
@@ -182,12 +206,25 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function delete(Request $request): \Illuminate\Http\JsonResponse
+    public function delete(DeleteDailyWorkRequest $request): \Illuminate\Http\JsonResponse
     {
         try {
             // Get the daily work before deletion for broadcasting
-            $dailyWorkId = $request->get('id');
+            $dailyWorkId = $request->validated('id');
             $dailyWork = DailyWork::find($dailyWorkId);
+            
+            // Authorization check - verify user can delete this record
+            if (! $dailyWork) {
+                return ApiResponseService::notFound('Daily work not found');
+            }
+            
+            // Check if user has permission to delete (admin or assigned/incharge)
+            $user = Auth::user();
+            if (! $user->can('daily-works.delete') && 
+                $dailyWork->incharge !== $user->id && 
+                $dailyWork->assigned !== $user->id) {
+                return ApiResponseService::forbidden('You do not have permission to delete this daily work');
+            }
             
             $result = $this->crudService->delete($request);
             
@@ -272,6 +309,18 @@ class DailyWorkController extends Controller
             }
 
             $dailyWorks = $query->get();
+
+            // Log export operation for audit trail
+            $this->auditService->logExport(
+                [
+                    'startDate' => $request->input('startDate'),
+                    'endDate' => $request->input('endDate'),
+                    'status' => $request->input('status'),
+                    'type' => $request->input('type'),
+                ],
+                $dailyWorks->count(),
+                ['user_id' => $user->id]
+            );
 
             // Load objection details if needed
             if ($request->boolean('include_objection_details')) {
@@ -1202,9 +1251,18 @@ class DailyWorkController extends Controller
     public function uploadRfiFiles(Request $request, DailyWork $dailyWork)
     {
         try {
+            // Authorization check - verify user can upload files for this daily work
+            $user = Auth::user();
+            if (! $user->can('daily-works.update') && 
+                $dailyWork->incharge !== $user->id && 
+                $dailyWork->assigned !== $user->id) {
+                return response()->json(['error' => 'You do not have permission to upload files for this daily work'], 403);
+            }
+
             // Debug logging - check what's coming in
             \Log::info('RFI Upload Request', [
                 'daily_work_id' => $dailyWork->id,
+                'user_id' => $user->id,
                 'has_files' => $request->hasFile('files'),
                 'all_files' => $request->allFiles(),
                 'content_type' => $request->header('Content-Type'),

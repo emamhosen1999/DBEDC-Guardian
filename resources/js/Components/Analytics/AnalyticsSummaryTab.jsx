@@ -5,6 +5,7 @@ import { route } from 'ziggy-js';
 import { showToast } from '@/utils/toastUtils';
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import AdvancedFilterPanel from '@/Components/Analytics/AdvancedFilterPanel.jsx';
+import ExportModal from '@/Components/Analytics/ExportModal.jsx';
 import {
     Button,
     Card,
@@ -15,7 +16,8 @@ import {
 import {
     MagnifyingGlassIcon,
     AdjustmentsHorizontalIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    DocumentArrowDownIcon
 } from "@heroicons/react/24/outline";
 
 // Helper function to get theme radius
@@ -50,6 +52,7 @@ const AnalyticsSummaryTab = ({ auth }) => {
     const [summaryData, setSummaryData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
     const [filters, setFilters] = useState({
         start_date: null,
         end_date: null,
@@ -103,6 +106,10 @@ const AnalyticsSummaryTab = ({ auth }) => {
         });
     };
 
+    const handleExport = () => {
+        setShowExportModal(true);
+    };
+
     const activeFilterCount = Object.values(filters).filter(value => 
         value !== null && value !== ''
     ).length;
@@ -153,6 +160,18 @@ const AnalyticsSummaryTab = ({ auth }) => {
                     <Button
                         size="sm"
                         variant="bordered"
+                        color="default"
+                        radius={getThemeRadius()}
+                        startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
+                        onPress={handleExport}
+                        className="font-semibold"
+                        style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                    >
+                        Export
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="bordered"
                         radius={getThemeRadius()}
                         isIconOnly
                         onPress={handleRefresh}
@@ -183,6 +202,13 @@ const AnalyticsSummaryTab = ({ auth }) => {
                 filteredData={summaryData || []}
                 onRefresh={handleRefresh}
                 loading={loading}
+            />
+
+            {/* Export Modal */}
+            <ExportModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                currentFilters={filters}
             />
         </div>
     );

@@ -116,4 +116,19 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-Factor Authentication
+    |--------------------------------------------------------------------------
+    |
+    | Configure MFA settings for privileged users.
+    |
+    */
+
+    'mfa' => [
+        'grace_period_days' => env('MFA_GRACE_PERIOD_DAYS', 7),
+        'enforced_roles' => ['Super Administrator', 'Administrator'],
+        'enforced_permissions' => ['finance.*', 'payroll.*', 'accounts.*', 'salary.*', 'payment.*'],
+    ],
+
 ];

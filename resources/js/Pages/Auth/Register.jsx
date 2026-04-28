@@ -113,9 +113,6 @@ export default function Register() {
                         isRequired
                         startContent={<UserIcon className="w-4 h-4 text-default-400" />}
                         InputProps={{
-                            startAdornment: (
-                                <UserIcon className="w-4 h-4 text-default-400 pointer-events-none shrink-0 mr-2" />
-                            ),
                             sx: {
                                 background: 'rgba(255, 255, 255, 0.05)',
                                 backdropFilter: 'blur(12px)',

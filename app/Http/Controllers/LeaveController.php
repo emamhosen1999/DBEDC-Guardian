@@ -50,22 +50,47 @@ class LeaveController extends Controller
         $this->queryService = $queryService;
         $this->summaryService = $summaryService;
         $this->approvalService = $approvalService;
+
+        // Apply authorization middleware for leave management
+        $this->middleware('can:leaves.view')->only(['index1', 'index2', 'paginate', 'stats']);
+        $this->middleware('can:leaves.create')->only(['create']);
+        $this->middleware('can:leaves.update')->only(['update']);
+        $this->middleware('can:leaves.delete')->only(['delete']);
+        $this->middleware('can:leaves.approve')->only(['approveLeave', 'rejectLeave', 'bulkApprove', 'bulkReject']);
     }
 
     public function index1(): \Inertia\Response
     {
+        // Scope users based on permissions - only load users the current user can view
+        $user = Auth::user();
+        if ($user->hasPermissionTo('users.view')) {
+            $allUsers = User::all();
+        } else {
+            // Non-admin users can only see themselves
+            $allUsers = User::where('id', $user->id)->get();
+        }
+
         return Inertia::render('LeavesMember', [
             'title' => 'Leaves',
-            'allUsers' => User::all(),
+            'allUsers' => $allUsers,
 
         ]);
     }
 
     public function index2(): \Inertia\Response
     {
+        // Scope users based on permissions - only load users the current user can view
+        $user = Auth::user();
+        if ($user->hasPermissionTo('users.view')) {
+            $allUsers = User::all();
+        } else {
+            // Non-admin users can only see themselves
+            $allUsers = User::where('id', $user->id)->get();
+        }
+
         return Inertia::render('LeavesAdmin', [
             'title' => 'Leaves',
-            'allUsers' => User::all(),
+            'allUsers' => $allUsers,
         ]);
     }
 
@@ -164,10 +189,10 @@ class LeaveController extends Controller
                     [
                         'month' => is_string($newLeave->from_date)
                             ? date('F', strtotime($newLeave->from_date))
-                            : $newLeave->from_date->format('F'),
+                            : \Carbon\Carbon::parse($newLeave->from_date)->format('F'),
                         'year' => is_string($newLeave->from_date)
                             ? date('Y', strtotime($newLeave->from_date))
-                            : $newLeave->from_date->year,
+                            : \Carbon\Carbon::parse($newLeave->from_date)->year,
                         'leave_type' => LeaveSetting::find($newLeave->leave_type)?->type,
                     ]
                 ),
@@ -202,10 +227,10 @@ class LeaveController extends Controller
                     [
                         'month' => is_string($updatedLeave->from_date)
                             ? date('F', strtotime($updatedLeave->from_date))
-                            : $updatedLeave->from_date->format('F'),
+                            : \Carbon\Carbon::parse($updatedLeave->from_date)->format('F'),
                         'year' => is_string($updatedLeave->from_date)
                             ? date('Y', strtotime($updatedLeave->from_date))
-                            : $updatedLeave->from_date->year,
+                            : \Carbon\Carbon::parse($updatedLeave->from_date)->year,
                         'leave_type' => LeaveSetting::find($updatedLeave->leave_type)?->type,
                     ]
                 ),
@@ -353,6 +378,18 @@ class LeaveController extends Controller
             'leave_type' => $request->input('leave_type'),
         ];
 
+        // Get record count to enforce export size limits
+        $summaryData = $this->summaryService->generateLeaveSummary($filters);
+        $recordCount = collect($summaryData)->flatten()->sum('count');
+
+        // Enforce maximum export limit of 10,000 records
+        if ($recordCount > 10000) {
+            return response()->json([
+                'error' => 'Export size exceeds maximum limit',
+                'message' => 'The export contains '.$recordCount.' records. Maximum allowed is 10,000 records. Please apply additional filters to reduce the export size.',
+            ], 400);
+        }
+
         return \Maatwebsite\Excel\Facades\Excel::download(
             new \App\Exports\LeaveSummaryExport($filters),
             'Leave_Summary_'.($filters['year'] ?? now()->year).'.xlsx'
@@ -370,6 +407,15 @@ class LeaveController extends Controller
         ];
 
         $summaryData = $this->summaryService->generateLeaveSummary($filters);
+
+        // Enforce maximum export limit of 10,000 records
+        $recordCount = collect($summaryData)->flatten()->sum('count');
+        if ($recordCount > 10000) {
+            return response()->json([
+                'error' => 'Export size exceeds maximum limit',
+                'message' => 'The export contains '.$recordCount.' records. Maximum allowed is 10,000 records. Please apply additional filters to reduce the export size.',
+            ], 400);
+        }
 
         $pdf = PDF::loadView('leave_summary_pdf', [
             'title' => 'Leave Summary - '.($filters['year'] ?? now()->year),

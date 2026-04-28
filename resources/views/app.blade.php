@@ -11,9 +11,24 @@
     <meta http-equiv="Expires" content="0" />
 
     <!-- Security & Performance -->
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com https://translate.google.com http://localhost:5173 https://aero-enterprise-suite.test:5173;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com;
+        img-src 'self' data: https: blob:;
+        font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com;
+        connect-src 'self' https://fonts.googleapis.com https://translate.google.com http://localhost:5173 https://aero-enterprise-suite.test:5173 ws://localhost:5173 ws://aero-enterprise-suite.test:5173;
+        media-src 'self';
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'self';
+        upgrade-insecure-requests;
+    ">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
     <!-- SEO & Social Meta -->

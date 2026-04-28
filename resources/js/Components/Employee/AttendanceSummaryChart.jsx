@@ -71,39 +71,26 @@ const AttendanceSummaryChart = () => {
                 setLoading(true);
                 setError(null);
                 
-                // Try admin dashboard trends endpoint first, fall back to employee attendance
-                let response;
-                try {
-                    response = await axios.get(route('admin.dashboard.attendance-trends'), {
-                        signal: controller.signal,
-                        timeout: 10000
-                    });
-                } catch (adminErr) {
-                    // If admin endpoint fails, try employee attendance endpoint
-                    const today = new Date();
-                    response = await axios.get(route('getCurrentUserAttendanceForDate'), {
-                        signal: controller.signal,
-                        params: {
-                            currentMonth: today.getMonth() + 1,
-                            currentYear: today.getFullYear(),
-                            perPage: 7,
-                            page: 1
-                        }
-                    });
-                    
-                    // Transform employee attendance data to match admin format
-                    if (response.data?.attendances) {
-                        const transformed = response.data.attendances.map(att => ({
-                            date: att.date,
-                            present: att.status === '√' || att.status === 'Present' ? 1 : 0,
-                            absent: att.status === '▼' || att.status === 'Absent' ? 1 : 0
-                        }));
-                        response.data = { trends: transformed };
+                // Fetch employee-specific attendance data
+                const today = new Date();
+                const response = await axios.get(route('getCurrentUserAttendanceForDate'), {
+                    signal: controller.signal,
+                    params: {
+                        currentMonth: today.getMonth() + 1,
+                        currentYear: today.getFullYear(),
+                        perPage: 7,
+                        page: 1
                     }
-                }
+                });
                 
-                if (isMounted && response.data?.trends) {
-                    setChartData(response.data.trends);
+                // Transform employee attendance data to match chart format
+                if (isMounted && response.data?.attendances) {
+                    const transformed = response.data.attendances.map(att => ({
+                        date: att.date,
+                        present: att.status === '√' || att.status === 'Present' ? 1 : 0,
+                        absent: att.status === '▼' || att.status === 'Absent' ? 1 : 0
+                    }));
+                    setChartData(transformed);
                 }
             } catch (err) {
                 if (isMounted && !controller.signal.aborted) {

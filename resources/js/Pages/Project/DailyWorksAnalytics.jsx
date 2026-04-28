@@ -13,8 +13,7 @@ import {
     ChartBarIcon,
     TableCellsIcon,
     PresentationChartBarIcon,
-    PresentationChartLineIcon,
-    DocumentArrowDownIcon
+    PresentationChartLineIcon
 } from "@heroicons/react/24/outline";
 import App from "@/Layouts/App.jsx";
 import AnalyticsOverviewTab from "@/Components/Analytics/AnalyticsOverviewTab.jsx";
@@ -162,23 +161,6 @@ const DailyWorksAnalytics = ({ title }) => {
                                                             Comprehensive analytics and reporting for daily works
                                                         </p>
                                                     </div>
-                                                </div>
-                                                
-                                                {/* Action Buttons */}
-                                                <div className="flex gap-2 flex-wrap">
-                                                    <Button
-                                                        color="default"
-                                                        variant="bordered"
-                                                        startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
-                                                        size={isMobile ? "sm" : "md"}
-                                                        className="font-semibold"
-                                                        style={{
-                                                            borderRadius: `var(--borderRadius, 8px)`,
-                                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                                        }}
-                                                    >
-                                                        Export
-                                                    </Button>
                                                 </div>
                                             </div>
                                         </div>

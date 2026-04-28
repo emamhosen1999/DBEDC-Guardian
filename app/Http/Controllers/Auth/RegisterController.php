@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\ModernAuthenticationService;
+use App\Services\PasswordPolicyService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,10 +19,12 @@ use Inertia\Response;
 class RegisterController extends Controller
 {
     protected ModernAuthenticationService $authService;
+    protected PasswordPolicyService $passwordPolicyService;
 
-    public function __construct(ModernAuthenticationService $authService)
+    public function __construct(ModernAuthenticationService $authService, PasswordPolicyService $passwordPolicyService)
     {
         $this->authService = $authService;
+        $this->passwordPolicyService = $passwordPolicyService;
     }
 
     /**
@@ -55,12 +58,21 @@ class RegisterController extends Controller
             ]);
         }
 
+        // Basic validation
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:users',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => 'required|confirmed|min:8|max:128',
             'terms' => 'required|accepted',
         ]);
+
+        // Password policy validation
+        $passwordErrors = $this->passwordPolicyService->validatePassword($request->password);
+        if (! empty($passwordErrors)) {
+            throw ValidationException::withMessages([
+                'password' => implode(' ', $passwordErrors),
+            ]);
+        }
 
         // Check if registration is allowed (you might want to add business logic here)
         if (! $this->isRegistrationAllowed($request)) {
@@ -78,11 +90,17 @@ class RegisterController extends Controller
         }
 
         try {
+            $hashedPassword = Hash::make($request->password);
+
             $user = User::create([
                 'name' => $request->name,
                 'user_name' => $request->name, // Using name as username for now
                 'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'password' => $hashedPassword,
+                'password_history' => [$hashedPassword],
+                'password_changed_at' => now(),
+                'password_expires_at' => $this->passwordPolicyService->calculatePasswordExpiration(),
+                'force_password_change' => config('password.force_change_on_first_login', false),
                 'is_active' => true,
                 'security_notifications' => true,
                 'notification_preferences' => json_encode([

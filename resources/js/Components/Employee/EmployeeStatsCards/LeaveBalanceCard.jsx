@@ -35,8 +35,14 @@ const getCardStyle = () => ({
 });
 
 const LeaveBalanceCard = ({ leaveBalance = {} }) => {
-    const { casual = 0, sick = 0, earned = 0, total = 0 } = leaveBalance;
-    
+    const { leaveTypes = [], userLeaveCounts = [] } = leaveBalance;
+
+    // Calculate totals across all leave types
+    const totalRemaining = userLeaveCounts.reduce(
+        (sum, count) => sum + (count.remaining_days || 0),
+        0
+    );
+
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -71,13 +77,13 @@ const LeaveBalanceCard = ({ leaveBalance = {} }) => {
                                     Leave Balance
                                 </h3>
                                 <p className="text-xs" style={{ color: `var(--theme-foreground-400, #A1A1AA)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                    Available Days
+                                    Remaining Days
                                 </p>
                             </div>
                         </div>
                         <div className="text-right">
                             <span className="text-2xl font-bold" style={{ color: `var(--theme-warning, #F59E0B)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                {total}
+                                {totalRemaining}
                             </span>
                             <p className="text-xs" style={{ color: `var(--theme-foreground-400, #A1A1AA)`, fontFamily: `var(--fontFamily, "Inter")` }}>
                                 Total Days
@@ -86,30 +92,26 @@ const LeaveBalanceCard = ({ leaveBalance = {} }) => {
                     </div>
                     
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs" style={{ color: `var(--theme-foreground-400, #A1A1AA)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                Casual Leave
-                            </span>
-                            <span className="text-sm font-semibold" style={{ color: `var(--theme-foreground, #11181C)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                {casual} days
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs" style={{ color: `var(--theme-foreground-400, #A1A1AA)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                Sick Leave
-                            </span>
-                            <span className="text-sm font-semibold" style={{ color: `var(--theme-foreground, #11181C)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                {sick} days
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs" style={{ color: `var(--theme-foreground-400, #A1A1AA)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                Earned Leave
-                            </span>
-                            <span className="text-sm font-semibold" style={{ color: `var(--theme-foreground, #11181C)`, fontFamily: `var(--fontFamily, "Inter")` }}>
-                                {earned} days
-                            </span>
-                        </div>
+                        {leaveTypes.length === 0 ? (
+                            <p className="text-xs text-center" style={{ color: `var(--theme-foreground-400, #A1A1AA)`, fontFamily: `var(--fontFamily, "Inter")` }}>
+                                No leave types available
+                            </p>
+                        ) : (
+                            leaveTypes.map(({ type }) => {
+                                const leaveCount = userLeaveCounts.find(c => c.leave_type === type) || {};
+                                const remainingDays = leaveCount.remaining_days || 0;
+                                return (
+                                    <div key={type} className="flex items-center justify-between">
+                                        <span className="text-xs" style={{ color: `var(--theme-foreground-400, #A1A1AA)`, fontFamily: `var(--fontFamily, "Inter")` }}>
+                                            {type}
+                                        </span>
+                                        <span className="text-sm font-semibold" style={{ color: `var(--theme-foreground, #11181C)`, fontFamily: `var(--fontFamily, "Inter")` }}>
+                                            {remainingDays} days
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </CardBody>
             </Card>

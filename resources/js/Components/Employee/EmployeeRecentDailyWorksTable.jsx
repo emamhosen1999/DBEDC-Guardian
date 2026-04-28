@@ -53,9 +53,8 @@ const EmployeeRecentDailyWorksTable = ({ auth }) => {
                     page,
                     perPage,
                     search: '',
-                    // Filter for current user's works
+                    // Filter for current user's works - either assigned or incharge
                     assigned: auth.user?.id,
-                    incharge: auth.user?.id
                 }
             });
             

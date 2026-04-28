@@ -143,10 +143,15 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
       allPages = filterPagesRecursively(pages);
     }
     
+    // Separate dashboard items to show at bottom
+    const navigationPages = allPages.filter(page => !page.category || page.category === 'navigation');
+    const dashboardPages = navigationPages.filter(page => page.name.includes('Dashboard'));
+    const nonDashboardPages = navigationPages.filter(page => !page.name.includes('Dashboard'));
+    
     // New structure: pages are already organized by NavigationRegistry
-    // No need to filter by category - just return all pages
     return { 
-      mainPages: allPages.filter(page => !page.category || page.category === 'navigation'),
+      mainPages: nonDashboardPages,
+      dashboardPages: dashboardPages,
       settingsPages: allPages.filter(page => page.category === 'settings')
     };
   })();
@@ -828,20 +833,57 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
               />
             </motion.div>
             
-            {/* Main Navigation - Render all pages */}
-            {groupedPages.mainPages.length > 0 && (
+            {/* Dashboard Section - Render dashboard pages at top */}
+            {groupedPages.dashboardPages.length > 0 && (
               <motion.div 
                 className="space-y-1"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.6 }}
               >
+                <div className="flex items-center gap-2 px-2 py-1">
+                  <HomeIcon 
+                    className="w-3 h-3" 
+                    style={{ color: `var(--theme-primary, #006FEE)` }}
+                  />
+                  <span 
+                    className="font-bold text-xs uppercase tracking-wide"
+                    style={{ color: `var(--theme-primary, #006FEE)` }}
+                  >
+                    Dashboard
+                  </span>
+                  <div 
+                    className="flex-1 h-px"
+                    style={{ backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)` }}
+                  ></div>
+                </div>
+                {groupedPages.dashboardPages.map((page, index) => (
+                  <motion.div
+                    key={`dashboard-page-${page.name}-${index}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: 0.7 + (index * 0.05) }}
+                  >
+                    {renderCompactMenuItem(page)}
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* Main Navigation - Render all pages */}
+            {groupedPages.mainPages.length > 0 && (
+              <motion.div 
+                className="space-y-1 mt-4"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.8 }}
+              >
                 {groupedPages.mainPages.map((page, index) => (
                   <motion.div
                     key={`main-page-${page.name}-${index}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 0.7 + (index * 0.05) }}
+                    transition={{ duration: 0.2, delay: 0.9 + (index * 0.05) }}
                   >
                     {renderCompactMenuItem(page)}
                   </motion.div>
@@ -855,7 +897,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                 className="space-y-1 mt-4"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.8 }}
+                transition={{ duration: 0.3, delay: 1.0 }}
               >
                 <div className="flex items-center gap-2 px-2 py-1">
                   <ShieldCheckIcon 
@@ -878,7 +920,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                     key={`settings-page-${page.name}-${index}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 0.9 + (index * 0.05) }}
+                    transition={{ duration: 0.2, delay: 1.1 + (index * 0.05) }}
                   >
                     {renderCompactMenuItem(page)}
                   </motion.div>

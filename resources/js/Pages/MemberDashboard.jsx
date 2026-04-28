@@ -4,10 +4,10 @@ import { motion } from 'framer-motion';
 import App from "@/Layouts/App.jsx";
 import PunchStatusCard from '@/Components/PunchStatusCard.jsx';
 import EmployeeWelcomeWidget from '@/Components/Employee/EmployeeWelcomeWidget.jsx';
-import AttendanceStatusCard from '@/Components/Employee/EmployeeStatsCards/AttendanceStatusCard.jsx';
 import DailyWorksStatsCard from '@/Components/Employee/EmployeeStatsCards/DailyWorksStatsCard.jsx';
 import LeaveBalanceCard from '@/Components/Employee/EmployeeStatsCards/LeaveBalanceCard.jsx';
 import UpcomingHolidayCard from '@/Components/Employee/EmployeeStatsCards/UpcomingEventCard.jsx';
+import DepartmentCard from '@/Components/Employee/EmployeeStatsCards/DepartmentCard.jsx';
 import RecentDailyWorksCard from '@/Components/Employee/RecentDailyWorksCard.jsx';
 import AttendanceSummaryChart from '@/Components/Employee/AttendanceSummaryChart.jsx';
 import QuickActionsCard from '@/Components/Employee/QuickActionsCard.jsx';
@@ -73,36 +73,72 @@ export default function MemberDashboard({ auth }) {
 
     const fetchDailyWorksStats = useCallback(async () => {
         try {
-            const response = await axios.get(route('admin.dashboard.stats'));
-            setDailyWorksStats(response.data?.statistics || {});
+            // Calculate employee-specific daily works stats from recent daily works
+            const response = await axios.get(route('dailyWorks.paginate'), {
+                params: { 
+                    page: 1,
+                    perPage: 1000,
+                    search: '',
+                    assigned: auth.user?.id,
+                    incharge: auth.user?.id
+                }
+            });
+            const data = response.data?.data || [];
+            const works = Array.isArray(data) ? data : [];
+            
+            const total = works.length;
+            const completed = works.filter(w => w.status === 'completed').length;
+            const pending = works.filter(w => w.status === 'pending').length;
+            const inProgress = works.filter(w => w.status === 'in-progress').length;
+            
+            setDailyWorksStats({
+                total,
+                completed,
+                pending,
+                inProgress,
+                completionRate: total > 0 ? Math.round((completed / total) * 100) : 0
+            });
         } catch (error) {
             console.error('Error fetching daily works stats:', error);
+            setDailyWorksStats({});
         }
-    }, []);
+    }, [auth.user?.id]);
 
     const fetchLeaveBalance = useCallback(async () => {
         try {
-            const response = await axios.get(route('leaves.stats'));
-            setLeaveBalance(response.data || {});
+            // Use the same endpoint as the My Leaves page for data consistency
+            const response = await axios.get(route('leaves.paginate'), {
+                params: {
+                    page: 1,
+                    perPage: 10,
+                    year: new Date().getFullYear(),
+                }
+            });
+            const leavesData = response.data?.leavesData || {};
+            const leaveTypes = leavesData.leaveTypes || [];
+            const userLeaveCounts = leavesData.leaveCountsByUser?.[auth.user?.id] || [];
+            setLeaveBalance({ leaveTypes, userLeaveCounts });
         } catch (error) {
             console.error('Error fetching leave balance:', error);
+            setLeaveBalance({ leaveTypes: [], userLeaveCounts: [] });
         }
-    }, []);
+    }, [auth.user?.id]);
 
     const fetchUpdates = useCallback(async () => {
         try {
             const response = await axios.get(route('updates'));
             setUpcomingHoliday(response.data?.upcomingHoliday || null);
-            // Deduplicate leaves by ID to prevent repeated data
+            // Filter leaves by current user and deduplicate by ID
             const leaves = response.data?.upcomingLeaves || [];
-            const uniqueLeaves = leaves.filter((leave, index, self) =>
+            const userLeaves = leaves.filter((leave) => leave.user_id === auth.user?.id);
+            const uniqueLeaves = userLeaves.filter((leave, index, self) =>
                 index === self.findIndex((l) => l.id === leave.id)
             );
             setUpcomingLeaves(uniqueLeaves);
         } catch (error) {
             console.error('Error fetching updates:', error);
         }
-    }, []);
+    }, [auth.user?.id]);
 
     const fetchRecentDailyWorks = useCallback(async () => {
         try {
@@ -111,6 +147,7 @@ export default function MemberDashboard({ auth }) {
                     page: 1,
                     perPage: 5,
                     search: '',
+                    // Filter for current user's works (either assigned or incharge)
                     assigned: auth.user?.id,
                     incharge: auth.user?.id
                 }
@@ -155,7 +192,7 @@ export default function MemberDashboard({ auth }) {
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="w-full p-8"
+                className="w-full p-4"
             >
                 <div className="w-full space-y-6">
                     {/* Welcome Widget */}
@@ -165,13 +202,15 @@ export default function MemberDashboard({ auth }) {
 
                     {/* Punch Status and Stats Row */}
                     <motion.div variants={itemVariants}>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* Left Column - Punch Status Card */}
-                            <PunchStatusCard handlePunchSuccess={handlePunchSuccess} />
+                            <div className="w-full">
+                                <PunchStatusCard handlePunchSuccess={handlePunchSuccess} />
+                            </div>
 
                             {/* Right Column - Stats Cards */}
                             <div className="grid grid-cols-2 gap-4">
-                                <AttendanceStatusCard punchData={punchData} />
+                                <DepartmentCard auth={auth} />
                                 <DailyWorksStatsCard stats={dailyWorksStats} />
                                 <LeaveBalanceCard leaveBalance={leaveBalance} />
                                 <UpcomingHolidayCard upcomingHoliday={upcomingHoliday} />

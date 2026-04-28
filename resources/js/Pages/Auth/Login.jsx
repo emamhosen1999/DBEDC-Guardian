@@ -60,7 +60,7 @@ const VALIDATION_CONFIG = {
         pattern: /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
     },
     password: {
-        minLength: 6,
+        minLength: 8,
         maxLength: 128
     }
 };
@@ -183,7 +183,8 @@ export default function Login({
     canResetPassword, 
     deviceBlocked, 
     deviceMessage, 
-    blockedDeviceInfo 
+    blockedDeviceInfo,
+    captcha
 }) {
     // ===== THEME ACCESS =====
     const { themeSettings } = useTheme();
@@ -214,6 +215,13 @@ export default function Login({
         email: '',
         password: '',
         remember: false
+    });
+
+    // ===== CAPTCHA STATE =====
+    const [captchaState, setCaptchaState] = useState({
+        token: null,
+        isLoading: false,
+        isScriptLoaded: false
     });
 
     // ===== UI STATE =====
@@ -310,6 +318,32 @@ export default function Login({
     }, [validationResults.email.isValid, validationResults.password.isValid]);
 
     /**
+     * Execute reCAPTCHA v3
+     */
+    const executeCaptcha = useCallback(async () => {
+        if (!captcha?.enabled || !captcha?.required || !captchaState.isScriptLoaded) {
+            return null;
+        }
+
+        setCaptchaState(prev => ({ ...prev, isLoading: true }));
+
+        try {
+            const token = await new Promise((resolve, reject) => {
+                window.grecaptcha.execute(captcha.site_key, { action: 'login' })
+                    .then(resolve)
+                    .catch(reject);
+            });
+
+            setCaptchaState(prev => ({ ...prev, token, isLoading: false }));
+            return token;
+        } catch (error) {
+            console.error('CAPTCHA execution error:', error);
+            setCaptchaState(prev => ({ ...prev, isLoading: false }));
+            return null;
+        }
+    }, [captcha, captchaState.isScriptLoaded]);
+
+    /**
      * Main form submission handler
      * Isolated to prevent circular dependencies
      */
@@ -352,12 +386,19 @@ export default function Login({
         }));
 
         try {
+            // Execute CAPTCHA if required
+            let captchaToken = null;
+            if (captcha?.enabled && captcha?.required) {
+                captchaToken = await executeCaptcha();
+            }
+
             // Prepare submission data with unified device payload.
             const deviceLoginPayload = getDeviceLoginPayload();
             const submissionData = {
                 email: formData.email.trim(),
                 password: formData.password,
                 remember: formData.remember,
+                captcha_token: captchaToken,
                 ...deviceLoginPayload,
             };
             
@@ -472,11 +513,32 @@ export default function Login({
         validationResults.email.message, 
         validationResults.password.message,
         focusFirstInvalidField,
-        validationErrors
+        validationErrors,
+        executeCaptcha,
+        captcha
     ]);
 
     // ===== EFFECTS =====
     
+    // Load reCAPTCHA script when CAPTCHA is enabled and required
+    useEffect(() => {
+        if (captcha?.enabled && captcha?.required && captcha?.site_key && !captchaState.isScriptLoaded) {
+            const loadScript = () => {
+                const script = document.createElement('script');
+                script.src = `https://www.google.com/recaptcha/api.js?render=${captcha.site_key}`;
+                script.async = true;
+                script.onload = () => {
+                    setCaptchaState(prev => ({ ...prev, isScriptLoaded: true }));
+                };
+                script.onerror = () => {
+                    console.error('Failed to load reCAPTCHA script');
+                };
+                document.head.appendChild(script);
+            };
+            loadScript();
+        }
+    }, [captcha, captchaState.isScriptLoaded]);
+
     // Initialize component and ensure theme is applied
     useEffect(() => {
         setUiState(prevState => ({ ...prevState, isLoaded: true }));
@@ -1068,34 +1130,39 @@ export default function Login({
 
                                 {/* Sign In Button */}
                                 <motion.div variants={itemVariants}>
+                                    {/* CAPTCHA Indicator */}
+                                    {captcha?.enabled && captcha?.required && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, y: -10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="mb-4 flex items-center gap-2 text-sm"
+                                            style={{ color: 'var(--theme-foreground, #11181C)' }}
+                                        >
+                                            <ShieldCheckIcon className="w-4 h-4" style={{ color: 'var(--theme-primary, #006FEE)' }} />
+                                            <span>Protected by reCAPTCHA</span>
+                                            {captchaState.isLoading && <Spinner size="sm" />}
+                                        </motion.div>
+                                    )}
+
                                     <Button
                                         type="submit"
                                         color="primary"
                                         size="lg"
                                         className="w-full font-semibold transition-all duration-300"
-                                        isLoading={uiState.isSubmitting}
-                                        disabled={uiState.isSubmitting}
+                                        isLoading={uiState.isSubmitting || captchaState.isLoading}
+                                        disabled={uiState.isSubmitting || captchaState.isLoading}
                                         spinner={<Spinner size="sm" color="white" />}
-                                        endContent={!uiState.isSubmitting && <ArrowRightIcon className="w-4 h-4" />}
+                                        endContent={!uiState.isSubmitting && !captchaState.isLoading && <ArrowRightIcon className="w-4 h-4" />}
                                         style={{
-                                            background: uiState.isSubmitting 
-                                                ? 'color-mix(in srgb, var(--theme-primary, #006FEE) 70%, transparent)' 
-                                                : `linear-gradient(135deg, 
-                                                    var(--theme-primary, #006FEE), 
-                                                    color-mix(in srgb, var(--theme-primary, #006FEE) 90%, var(--theme-secondary, #7C3AED))
-                                                  )`,
-                                            boxShadow: uiState.isSubmitting 
-                                                ? 'none' 
-                                                : `0 8px 24px color-mix(in srgb, var(--theme-primary, #006FEE) 30%, transparent)`,
-                                            transform: uiState.isSubmitting ? 'scale(0.98)' : `scale(var(--scale, 1))`,
+                                            background: 'var(--theme-primary, #006FEE)',
+                                            color: 'var(--theme-primary-foreground, #FFFFFF)',
                                             borderRadius: `var(--borderRadius, 12px)`,
-                                            fontFamily: 'var(--fontFamily, "Inter")',
                                             borderWidth: 'var(--borderWidth, 2px)',
                                             borderStyle: 'solid',
                                             borderColor: 'transparent'
                                         }}
                                     >
-                                        {uiState.isSubmitting ? 'Signing in...' : 'Sign In'}
+                                        {(uiState.isSubmitting || captchaState.isLoading) ? 'Verifying...' : 'Sign In'}
                                     </Button>
                                 </motion.div>
 

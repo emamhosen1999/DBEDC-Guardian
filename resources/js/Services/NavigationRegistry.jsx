@@ -220,7 +220,7 @@ class NavigationRegistry {
         return priorityA - priorityB;
       });
     } else {
-      // Ensure dashboards appear first by default
+      // Ensure dashboards appear at the top by default
       pages.sort((a, b) => {
         if (a.name.includes('Dashboard')) return -1;
         if (b.name.includes('Dashboard')) return 1;

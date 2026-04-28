@@ -76,7 +76,7 @@ export const getIcon = (iconName) => {
 export const NAVIGATION_MODULES = {
   core: {
     name: 'Core',
-    priority: 0,
+    priority: 99,
     items: [
       {
         id: 'admin-dashboard',
@@ -219,6 +219,13 @@ export const NAVIGATION_MODULES = {
         name: 'Daily Work',
         icon: 'document',
         route: 'daily-works',
+        roles: ['Super Administrator', 'Manager']
+      },
+      {
+        id: 'objections',
+        name: 'Objections',
+        icon: 'shieldExclamation',
+        route: 'objections.index',
         roles: ['Super Administrator', 'Manager']
       },
       {

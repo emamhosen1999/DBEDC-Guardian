@@ -375,7 +375,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
         } else {
             await fetchDesktopData(showLoader);
         }
-    }, [isMobile, search, filterData, selectedDate, dateRange, currentPage, perPage]);
+    }, [search, filterData, selectedDate, dateRange, currentPage, perPage, fetchMobileData, fetchDesktopData]);
 
     // Enhanced refresh function that handles mobile/desktop modes
     const refreshData = useCallback(() => {

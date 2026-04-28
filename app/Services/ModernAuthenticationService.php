@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,13 @@ class ModernAuthenticationService
 
     protected const SESSION_LIFETIME = 120; // minutes
 
+    protected AnomalyDetectionService $anomalyDetectionService;
+
+    public function __construct(AnomalyDetectionService $anomalyDetectionService)
+    {
+        $this->anomalyDetectionService = $anomalyDetectionService;
+    }
+
     /**
      * Log authentication events with comprehensive tracking
      */
@@ -29,6 +37,13 @@ class ModernAuthenticationService
     ): void {
         try {
             $riskLevel = $this->calculateRiskLevel($eventType, $status, $request, $user);
+
+            $eventData = array_merge($metadata, [
+                'email' => $user?->email ?? $metadata['email'] ?? null,
+                'ip' => $request->ip(),
+                'timestamp' => now(),
+                'location' => $metadata['location'] ?? null,
+            ]);
 
             DB::table('authentication_events')->insert([
                 'user_id' => $user?->id,
@@ -55,6 +70,15 @@ class ModernAuthenticationService
                 'risk_level' => $riskLevel,
                 'ip' => $request->ip(),
             ]);
+
+            // Analyze for anomalies on failed events
+            if ($status === 'failure') {
+                $analysis = $this->anomalyDetectionService->analyzeAuthenticationEvent($eventData);
+                
+                if ($analysis['action_required']) {
+                    $this->anomalyDetectionService->handleHighRiskEvent($eventData, $analysis);
+                }
+            }
         } catch (\Exception $e) {
             Log::error('Failed to log authentication event', [
                 'error' => $e->getMessage(),

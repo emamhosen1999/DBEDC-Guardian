@@ -122,6 +122,10 @@ class User extends Authenticatable implements HasMedia
         'device_reset_at',
         'device_reset_reason',
         'locale',
+        'password_history',
+        'password_changed_at',
+        'password_expires_at',
+        'force_password_change',
     ];
 
     /**
@@ -151,6 +155,10 @@ class User extends Authenticatable implements HasMedia
         'active' => 'boolean',
         'single_device_login_enabled' => 'boolean',
         'device_reset_at' => 'datetime',
+        'password_history' => 'array',
+        'password_changed_at' => 'datetime',
+        'password_expires_at' => 'datetime',
+        'force_password_change' => 'boolean',
     ];
 
     /**

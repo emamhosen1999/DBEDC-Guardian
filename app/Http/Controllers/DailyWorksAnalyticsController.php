@@ -7,6 +7,9 @@ use App\Services\DailyWork\DailyWorkAnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\DailyWorksExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class DailyWorksAnalyticsController extends Controller
 {
@@ -72,7 +75,7 @@ class DailyWorksAnalyticsController extends Controller
         $perPage = $request->get('per_page', 15);
         $page = $request->get('page', 1);
 
-        // Build query with filters
+        // Build base query with all filters
         $query = DailyWork::query();
 
         // Apply filters
@@ -111,10 +114,26 @@ class DailyWorksAnalyticsController extends Controller
             });
         }
 
+        // Clone query for total count before aggregation
         $total = $query->count();
-        $summaryData = $query->with(['inchargeUser', 'assignedUser'])
-            ->orderBy('date', 'desc')
-            ->paginate($perPage, ['*'], 'page', $page);
+
+        // Apply aggregation to the filtered query
+        $summaryQuery = $query
+            ->selectRaw('
+                date,
+                COUNT(*) as totalDailyWorks,
+                SUM(CASE WHEN status = "Completed" THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN LOWER(type) = "embankment" THEN 1 ELSE 0 END) as embankment,
+                SUM(CASE WHEN LOWER(type) = "structure" THEN 1 ELSE 0 END) as structure,
+                SUM(CASE WHEN LOWER(type) = "pavement" THEN 1 ELSE 0 END) as pavement,
+                SUM(COALESCE(resubmission_count, 0)) as resubmissions,
+                SUM(CASE WHEN rfi_submission_date IS NOT NULL THEN 1 ELSE 0 END) as rfiSubmissions
+            ')
+            ->groupBy('date')
+            ->orderBy('date', 'desc');
+
+        // Get paginated results
+        $summaryData = $summaryQuery->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'success' => true,
@@ -164,8 +183,10 @@ class DailyWorksAnalyticsController extends Controller
 
         $filters = $this->extractFilters($request);
         $format = $request->get('format', 'csv');
+        $columns = $request->get('columns', []);
+        $exportType = $request->get('export_type', 'summary'); // 'summary' or 'detailed'
 
-        // Build query with filters (same as getSummary)
+        // Build query with filters
         $query = DailyWork::query();
 
         if (!empty($filters['start_date'])) {
@@ -203,17 +224,100 @@ class DailyWorksAnalyticsController extends Controller
             });
         }
 
-        $data = $query->with(['inchargeUser', 'assignedUser'])
-            ->orderBy('date', 'desc')
-            ->get();
+        $fileName = 'daily_works_export_' . date('Y-m-d_H-i-s');
 
-        // Export logic (to be implemented based on format)
-        // For now, return the data
-        return response()->json([
-            'success' => true,
-            'data' => $data,
-            'format' => $format,
-        ]);
+        // Export based on type
+        if ($exportType === 'summary') {
+            // Aggregate data by date for summary export
+            $summaryQuery = clone $query;
+            $data = $summaryQuery
+                ->selectRaw('
+                    date,
+                    COUNT(*) as totalDailyWorks,
+                    SUM(CASE WHEN status = "Completed" THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN LOWER(type) = "embankment" THEN 1 ELSE 0 END) as embankment,
+                    SUM(CASE WHEN LOWER(type) = "structure" THEN 1 ELSE 0 END) as structure,
+                    SUM(CASE WHEN LOWER(type) = "pavement" THEN 1 ELSE 0 END) as pavement,
+                    SUM(COALESCE(resubmission_count, 0)) as resubmissions,
+                    SUM(CASE WHEN rfi_submission_date IS NOT NULL THEN 1 ELSE 0 END) as rfiSubmissions
+                ')
+                ->groupBy('date')
+                ->orderBy('date', 'desc')
+                ->get()
+                ->toArray();
+
+            // Filter columns if specified
+            if (!empty($columns)) {
+                $data = array_map(function($item) use ($columns) {
+                    return array_intersect_key($item, array_flip($columns));
+                }, $data);
+            }
+
+            $fileName = 'daily_works_summary_export_' . date('Y-m-d_H-i-s');
+
+            // Export based on format
+            switch ($format) {
+                case 'xlsx':
+                    return Excel::download(new DailyWorksSummaryExport($data, $columns), $fileName . '.xlsx');
+                case 'pdf':
+                    $pdf = Pdf::loadView('exports.daily_works_summary_pdf', [
+                        'data' => $data,
+                        'columns' => $columns,
+                        'fileName' => $fileName
+                    ])
+                    ->setPaper('a4', 'landscape')
+                    ->setOption('margin-top', '20mm')
+                    ->setOption('margin-bottom', '15mm')
+                    ->setOption('margin-left', '15mm')
+                    ->setOption('margin-right', '15mm');
+                    return $pdf->download($fileName . '.pdf');
+                case 'csv':
+                default:
+                    return Excel::download(new DailyWorksSummaryExport($data, $columns), $fileName . '.csv');
+            }
+        } else {
+            // Detailed export - individual records
+            $data = $query->with(['inchargeUser', 'assignedUser'])
+                ->orderBy('date', 'desc')
+                ->get()
+                ->toArray();
+
+            // Filter columns if specified
+            if (!empty($columns)) {
+                $data = array_map(function($item) use ($columns) {
+                    $filtered = [];
+                    foreach ($columns as $column) {
+                        if (str_contains($column, '.')) {
+                            $keys = explode('.', $column);
+                            $value = $item;
+                            foreach ($keys as $key) {
+                                $value = $value[$key] ?? '';
+                            }
+                            $filtered[$column] = $value;
+                        } else {
+                            $filtered[$column] = $item[$column] ?? '';
+                        }
+                    }
+                    return $filtered;
+                }, $data);
+            }
+
+            // Export based on format
+            switch ($format) {
+                case 'xlsx':
+                    return Excel::download(new DailyWorksExport($data, $columns), $fileName . '.xlsx');
+                case 'pdf':
+                    $pdf = Pdf::loadView('exports.daily_works_pdf', [
+                        'data' => $data,
+                        'columns' => $columns,
+                        'fileName' => $fileName
+                    ]);
+                    return $pdf->download($fileName . '.pdf');
+                case 'csv':
+                default:
+                    return Excel::download(new DailyWorksExport($data, $columns), $fileName . '.csv');
+            }
+        }
     }
 
     /**

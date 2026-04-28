@@ -157,11 +157,16 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/attendance/punch', [AttendanceController::class, 'punch'])->name('attendance.punch');
     });
 
-    // General access routes (available to all authenticated users)
-    Route::get('/attendance/export/excel', [AttendanceController::class, 'exportExcel'])->name('attendance.exportExcel');
-    Route::get('/admin/attendance/export/excel', [AttendanceController::class, 'exportAdminExcel'])->name('attendance.exportAdminExcel');
-    Route::get('/admin/attendance/export/pdf', [AttendanceController::class, 'exportAdminPdf'])->name('attendance.exportAdminPdf');
-    Route::get('/attendance/export/pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.exportPdf');
+    // Attendance export routes - secured with permissions and rate limiting
+    Route::middleware(['permission:attendance.export', 'throttle:10,1'])->group(function () {
+        Route::get('/attendance/export/excel', [AttendanceController::class, 'exportExcel'])->name('attendance.exportExcel');
+        Route::get('/attendance/export/pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.exportPdf');
+    });
+
+    Route::middleware(['permission:attendance.manage', 'throttle:10,1'])->group(function () {
+        Route::get('/admin/attendance/export/excel', [AttendanceController::class, 'exportAdminExcel'])->name('attendance.exportAdminExcel');
+        Route::get('/admin/attendance/export/pdf', [AttendanceController::class, 'exportAdminPdf'])->name('attendance.exportAdminPdf');
+    });
     Route::get('/get-all-users-attendance-for-date', [AttendanceController::class, 'getAllUsersAttendanceForDate'])->name('getAllUsersAttendanceForDate');
     Route::get('/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('getPresentUsersForDate');
     Route::get('/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('getAbsentUsersForDate');
@@ -189,7 +194,6 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/daily-works/bulk-response-status', [DailyWorkController::class, 'bulkResponseStatusUpdate'])->name('dailyWorks.bulkResponseStatusUpdate');
         Route::post('/daily-works/bulk-import-response-status', [DailyWorkController::class, 'bulkImportResponseStatus'])->name('dailyWorks.bulkImportResponseStatus');
         Route::get('/daily-works/response-status-template', [DailyWorkController::class, 'downloadResponseStatusTemplate'])->name('dailyWorks.downloadResponseStatusTemplate');
-        Route::get('/daily-works/export-objected-rfis', [DailyWorkController::class, 'exportObjectedRfis'])->name('dailyWorks.exportObjectedRfis');
 
         // Mobile-optimized routes
         Route::get('/mobile/daily-works', [DailyWorkController::class, 'mobileDailyWorks'])->name('dailyWorks.mobile.dailyWorks');
@@ -252,8 +256,10 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/workspace/objections/{objection}/resolve', [ObjectionController::class, 'resolve'])->name('objections.resolve');
         Route::post('/workspace/objections/{objection}/reject', [ObjectionController::class, 'reject'])->name('objections.reject');
 
-        // Objections Export
-        Route::get('/workspace/objections/export', [ObjectionController::class, 'export'])->name('objections.export');
+        // Objections Export - secured with permissions and rate limiting
+        Route::middleware(['permission:daily-works.export', 'throttle:10,1'])->group(function () {
+            Route::get('/workspace/objections/export', [ObjectionController::class, 'export'])->name('objections.export');
+        });
     });
 
     Route::middleware(['permission:daily-works.create'])->group(function () {
@@ -270,9 +276,10 @@ Route::middleware($middlewareStack)->group(function () {
         Route::delete('/delete-daily-work', [DailyWorkController::class, 'delete'])->name('dailyWorks.delete');
     });
 
-    Route::middleware(['permission:daily-works.export'])->group(function () {
+    Route::middleware(['permission:daily-works.export', 'throttle:10,1'])->group(function () {
         Route::post('/daily-works/export', [DailyWorkController::class, 'export'])->name('dailyWorks.export');
-        Route::post('/daily-works-analytics/export', [DailyWorksAnalyticsController::class, 'exportFiltered'])->name('daily-works-analytics.export');
+        Route::get('/daily-works-analytics/export', [DailyWorksAnalyticsController::class, 'exportFiltered'])->name('daily-works-analytics.export');
+        Route::get('/daily-works/export-objected-rfis', [DailyWorkController::class, 'exportObjectedRfis'])->name('dailyWorks.exportObjectedRfis');
     });
 
     // Holiday routes (Legacy - redirects to Time Off Management)
@@ -297,7 +304,12 @@ Route::middleware($middlewareStack)->group(function () {
 
         // New API endpoints for enhanced profile functionality (consistent with other modules)
         Route::get('/profile/{user}/stats', [ProfileController::class, 'stats'])->name('profile.stats');
-        Route::get('/profile/{user}/export', [ProfileController::class, 'export'])->name('profile.export');
+        
+        // Profile export - secured with permissions and rate limiting
+        Route::middleware(['permission:users.view', 'throttle:10,1'])->group(function () {
+            Route::get('/profile/{user}/export', [ProfileController::class, 'export'])->name('profile.export');
+        });
+        
         Route::post('/profile/{user}/track-view', [ProfileController::class, 'trackView'])->name('profile.trackView');
 
         // Education Routes:
@@ -331,9 +343,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/leave-summary', [LeaveController::class, 'leaveSummary'])->name('leave-summary');
         Route::post('/leave-update-status', [LeaveController::class, 'updateStatus'])->name('leave-update-status');
 
-        // Leave summary export routes
-        Route::get('/leave-summary/export/excel', [LeaveController::class, 'exportExcel'])->name('leave.summary.exportExcel');
-        Route::get('/leave-summary/export/pdf', [LeaveController::class, 'exportPdf'])->name('leave.summary.exportPdf');
+        // Leave summary export routes - secured with permissions and rate limiting
+        Route::middleware(['permission:leaves.export', 'throttle:10,1'])->group(function () {
+            Route::get('/leave-summary/export/excel', [LeaveController::class, 'exportExcel'])->name('leave.summary.exportExcel');
+            Route::get('/leave-summary/export/pdf', [LeaveController::class, 'exportPdf'])->name('leave.summary.exportPdf');
+        });
 
         // Leave analytics
         Route::get('/leaves/analytics', [LeaveController::class, 'getAnalytics'])->name('leaves.analytics');
@@ -393,6 +407,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:jurisdiction.view'])->get('/jurisdiction', [JurisdictionController::class, 'index'])->name('jurisdiction');
 
     // Daily works management routes
+    Route::middleware(['permission:daily-works.import'])->post('/preview-daily-works-import', [DailyWorkController::class, 'previewImport'])->name('dailyWorks.previewImport');
     Route::middleware(['permission:daily-works.import', 'throttle:10,1'])->post('/import-daily-works/', [DailyWorkController::class, 'import'])->name('dailyWorks.import');
     Route::middleware(['permission:daily-works.import'])->get('/download-daily-works-template', [DailyWorkController::class, 'downloadTemplate'])->name('dailyWorks.downloadTemplate');
     Route::middleware(['permission:daily-works.delete'])->delete('/delete-daily-work', [DailyWorkController::class, 'delete'])->name('dailyWorks.delete');
@@ -571,7 +586,12 @@ Route::middleware(['auth', 'verified', 'permission:roles.view', 'role_permission
     // Role Management Interface
     Route::get('/admin/roles-management', [RoleController::class, 'index'])->name('admin.roles-management');
     Route::get('/admin/roles/audit', [RoleController::class, 'getEnhancedRoleAudit'])->name('admin.roles.audit');
-    Route::get('/admin/roles/export', [RoleController::class, 'exportRoles'])->name('admin.roles.export');
+    
+    // Role export - secured with permissions and rate limiting
+    Route::middleware(['permission:roles.manage', 'throttle:10,1'])->group(function () {
+        Route::get('/admin/roles/export', [RoleController::class, 'exportRoles'])->name('admin.roles.export');
+    });
+    
     Route::get('/admin/roles/metrics', [RoleController::class, 'getRoleMetrics'])->name('admin.roles.metrics');
     Route::get('/admin/roles/snapshot', [RoleController::class, 'snapshot'])->name('admin.roles.snapshot');
 });
@@ -643,7 +663,12 @@ Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(funct
 Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(function () {
     Route::get('/admin/system-monitoring', [SystemMonitoringController::class, 'index'])->name('admin.system-monitoring');
     Route::post('/admin/errors/{errorId}/resolve', [SystemMonitoringController::class, 'resolveError'])->name('admin.errors.resolve');
-    Route::get('/admin/system-report', [SystemMonitoringController::class, 'exportReport'])->name('admin.system-report');
+    
+    // System report export - secured with permissions and rate limiting
+    Route::middleware(['permission:system.monitoring', 'throttle:10,1'])->group(function () {
+        Route::get('/admin/system-report', [SystemMonitoringController::class, 'exportReport'])->name('admin.system-report');
+    });
+    
     Route::get('/admin/optimization-report', [SystemMonitoringController::class, 'getOptimizationReport'])->name('admin.optimization-report');
 
 

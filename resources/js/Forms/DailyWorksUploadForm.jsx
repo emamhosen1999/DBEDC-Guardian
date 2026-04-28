@@ -58,6 +58,8 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
     const [validationErrors, setValidationErrors] = useState([]);
     const [serverErrors, setServerErrors] = useState({});
     const [previewData, setPreviewData] = useState(null);
+    const [showPreview, setShowPreview] = useState(false);
+    const [confirmedImport, setConfirmedImport] = useState(false);
 
     // Validate file before processing
     const validateFile = (file) => {
@@ -96,6 +98,8 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
             setValidationErrors([]);
             setServerErrors({});
             setPreviewData(null);
+            setShowPreview(false);
+            setConfirmedImport(false);
         }
     }, []);
 
@@ -105,7 +109,61 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         setValidationErrors([]);
         setServerErrors({});
         setPreviewData(null);
+        setShowPreview(false);
+        setConfirmedImport(false);
         setUploadProgress(0);
+    };
+
+    // Handle preview import
+    const handlePreview = async () => {
+        if (!file) {
+            showToast.error('Please select a file to upload');
+            return;
+        }
+
+        setProcessing(true);
+        setUploadProgress(0);
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content 
+                || document.querySelector('input[name="_token"]')?.value 
+                || window.Laravel?.csrfToken;
+
+            const response = await axios.post(route('dailyWorks.previewImport'), formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
+                },
+            });
+
+            if (response.status === 200) {
+                setPreviewData(response.data.preview);
+                setShowPreview(true);
+                setServerErrors({});
+                showToast.success('Import preview generated successfully');
+            }
+        } catch (error) {
+            console.error('Preview error:', error);
+            
+            if (error.response) {
+                if (error.response.status === 422) {
+                    setServerErrors(error.response.data.errors || {});
+                    showToast.error(error.response.data.error || 'Failed to generate preview');
+                } else {
+                    const errorMessage = error.response.data.error || error.response.data.message || 'An unexpected error occurred';
+                    setServerErrors({ general: [errorMessage] });
+                    showToast.error(errorMessage);
+                }
+            } else {
+                setServerErrors({ general: ['No response received from the server. Please check your internet connection.'] });
+                showToast.error('No response received from the server');
+            }
+        } finally {
+            setProcessing(false);
+        }
     };
 
     // Setup dropzone
@@ -462,6 +520,68 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                                             </CardBody>
                                         </Card>
                                     )}
+
+                                    {/* Preview Summary */}
+                                    {showPreview && previewData && (
+                                        <Card className="border border-primary/20 bg-primary/5">
+                                            <CardBody className="p-4">
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <InformationCircleIcon className="w-5 h-5 text-primary" />
+                                                        <h4 className="font-medium text-primary">Import Preview Summary</h4>
+                                                    </div>
+                                                    
+                                                    {previewData.map((sheet, index) => (
+                                                        <div key={index} className="space-y-2 p-3 rounded-lg bg-default-50">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-sm font-medium">Sheet {sheet.sheet} - {sheet.date}</span>
+                                                                <Chip size="sm" color="primary" variant="flat">
+                                                                    {sheet.total_rows} rows
+                                                                </Chip>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-default-500">New Works:</span>
+                                                                    <span className="font-medium text-success">{sheet.summary.new_works}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-default-500">Existing Works:</span>
+                                                                    <span className="font-medium">{sheet.summary.existing_works}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-default-500">Resubmissions:</span>
+                                                                    <span className="font-medium text-warning">{sheet.summary.resubmissions}</span>
+                                                                </div>
+                                                                <div className="flex justify-between">
+                                                                    <span className="text-default-500">Skipped (Completed):</span>
+                                                                    <span className="font-medium text-default-400">{sheet.summary.skipped_completed}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+
+                                                    <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                                                        <ExclamationTriangleIcon className="w-4 h-4 text-warning mt-0.5" />
+                                                        <div className="text-xs text-warning-700">
+                                                            <strong>Important:</strong> Once imported, data for these dates cannot be re-imported. 
+                                                            Please review the summary above before confirming.
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex justify-end">
+                                                        <Button
+                                                            size="sm"
+                                                            color="primary"
+                                                            variant="flat"
+                                                            onPress={() => setConfirmedImport(true)}
+                                                        >
+                                                            I confirm, proceed with import
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </CardBody>
+                                        </Card>
+                                    )}
                                 </div>
 
                                 <Divider />
@@ -597,18 +717,18 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                             </Button>
                             <Button
                                 color="primary"
-                                onPress={handleSubmit}
+                                onPress={showPreview ? handleSubmit : handlePreview}
                                 isLoading={processing}
-                                disabled={!file || validationErrors.length > 0}
+                                disabled={!file || validationErrors.length > 0 || (showPreview && !confirmedImport)}
                                 radius={getThemeRadius()}
                                 size="sm"
-                                startContent={!processing ? <DocumentArrowUpIcon className="w-4 h-4" /> : null}
+                                startContent={!processing ? (showPreview ? <CheckCircleIcon className="w-4 h-4" /> : <DocumentArrowUpIcon className="w-4 h-4" />) : null}
                                 style={{
                                     borderRadius: `var(--borderRadius, 8px)`,
                                     fontFamily: `var(--fontFamily, "Inter")`,
                                 }}
                             >
-                                {processing ? `Uploading... ${uploadProgress}%` : 'Import Daily Works'}
+                                {processing ? `Processing... ${uploadProgress}%` : (showPreview ? 'Confirm Import' : 'Preview Import')}
                             </Button>
                         </ModalFooter>
                     </>

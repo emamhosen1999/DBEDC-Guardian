@@ -24,17 +24,17 @@ Route::get('/user', function (Request $request) {
 Route::get('/version', [VersionController::class, 'current'])->name('api.version.current');
 Route::post('/version/check', [VersionController::class, 'check'])->name('api.version.check');
 
-// Error logging endpoint
+// Error logging endpoint - secured with rate limiting
 Route::post('/log-error', function (Request $request) {
     try {
         $validated = $request->validate([
-            'error_id' => 'required|string',
-            'message' => 'required|string',
-            'stack' => 'nullable|string',
-            'component_stack' => 'nullable|string',
-            'url' => 'required|string',
-            'user_agent' => 'nullable|string',
-            'timestamp' => 'required|string',
+            'error_id' => 'required|string|max:255',
+            'message' => 'required|string|max:5000',
+            'stack' => 'nullable|string|max:10000',
+            'component_stack' => 'nullable|string|max:10000',
+            'url' => 'required|string|max:500',
+            'user_agent' => 'nullable|string|max:500',
+            'timestamp' => 'required|string|max:50',
         ]);
 
         DB::table('error_logs')->insert([
@@ -60,7 +60,7 @@ Route::post('/log-error', function (Request $request) {
 
         return response()->json(['success' => false], 500);
     }
-})->middleware(['web']);
+})->middleware(['web', 'throttle:60,1'])->name('api.log-error');
 
 // Performance logging endpoint
 
@@ -109,7 +109,7 @@ Route::prefix('locale')->group(function () {
 // ============================================================================
 // RBAC API Routes - Role and Permission Management
 // ============================================================================
-Route::middleware(['web', 'auth'])->prefix('roles')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:roles.manage'])->prefix('roles')->group(function () {
     // Role CRUD operations
     Route::get('/', [\App\Http\Controllers\RoleController::class, 'apiIndex'])->name('api.roles.index');
     Route::post('/', [\App\Http\Controllers\RoleController::class, 'storeRole'])->name('api.roles.store');
@@ -122,7 +122,7 @@ Route::middleware(['web', 'auth'])->prefix('roles')->group(function () {
     Route::post('/{id}/permissions/sync', [\App\Http\Controllers\RoleController::class, 'syncRolePermissions'])->name('api.roles.permissions.sync');
 });
 
-Route::middleware(['web', 'auth'])->prefix('permissions')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:permissions.manage'])->prefix('permissions')->group(function () {
     // Permission CRUD operations
     Route::get('/', [\App\Http\Controllers\PermissionController::class, 'index'])->name('api.permissions.index');
     Route::post('/', [\App\Http\Controllers\PermissionController::class, 'store'])->name('api.permissions.store');
@@ -134,7 +134,7 @@ Route::middleware(['web', 'auth'])->prefix('permissions')->group(function () {
     Route::get('/grouped/modules', [\App\Http\Controllers\PermissionController::class, 'groupedByModule'])->name('api.permissions.grouped');
 });
 
-Route::middleware(['web', 'auth'])->prefix('users')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:30,1', 'permission:users.manage'])->prefix('users')->group(function () {
     // User-Role assignment
     Route::get('/{id}/roles', [\App\Http\Controllers\UserController::class, 'getUserRoles'])->name('api.users.roles.index');
     Route::post('/{id}/roles', [\App\Http\Controllers\UserController::class, 'updateUserRole'])->name('api.users.roles.sync');
