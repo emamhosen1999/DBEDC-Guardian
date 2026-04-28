@@ -17,7 +17,7 @@ import { X, CalendarIcon, UserIcon, ClockIcon } from 'lucide-react';
 
 import { showToast } from "@/utils/toastUtils";
 
-import DepartmentEmployeeSelector from "@/Components/DepartmentEmployeeSelector.jsx";
+import DepartmentMemberSelector from "@/Components/DepartmentMemberSelector.jsx";
 import ApprovalChain from "@/Components/Leave/ApprovalChain.jsx";
 import {router, usePage} from "@inertiajs/react";
 
@@ -519,14 +519,14 @@ const LeaveForm = ({
                                         />
                                     </div>
 
-                                    {/* Department & Employee Selection for Admin */}
+                                    {/* Department & Member Selection for Admin */}
                                     {route().current() === 'leaves' && (
                                         <div className="col-span-full">
-                                            <DepartmentEmployeeSelector
+                                            <DepartmentMemberSelector
                                                 selectedDepartmentId={selectedDepartmentId}
-                                                selectedEmployeeId={user_id}
+                                                selectedMemberId={user_id}
                                                 onDepartmentChange={setSelectedDepartmentId}
-                                                onEmployeeChange={setUserId}
+                                                onMemberChange={setUserId}
                                                 allUsers={allUsers}
                                                 departments={departments}
                                                 showSearch={true}

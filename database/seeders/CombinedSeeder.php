@@ -37,7 +37,7 @@ class CombinedSeeder extends Seeder
         // Seed HRM module data
         $this->createDocumentCategories();
         $this->seedSkillsAndCompetencies();
-        $this->seedEmployeeBenefits();
+        $this->seedMemberBenefits();
         $this->seedSafetyTrainingCategories();
 
         $this->command->info('✅ Database seeding completed successfully!');
@@ -262,7 +262,7 @@ class CombinedSeeder extends Seeder
                 'description' => 'Document templates for various purposes',
             ],
             [
-                'name' => 'Employee Documents',
+                'name' => 'Member Documents',
                 'description' => 'General employee document category',
             ],
             [
@@ -359,7 +359,7 @@ class CombinedSeeder extends Seeder
     /**
      * Seed employee benefits
      */
-    private function seedEmployeeBenefits(): void
+    private function seedMemberBenefits(): void
     {
         $this->command->info('Creating employee benefits...');
 

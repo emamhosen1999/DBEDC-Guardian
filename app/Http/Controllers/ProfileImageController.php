@@ -240,7 +240,7 @@ class ProfileImageController extends Controller
         }
 
         // HR users can update employee profiles
-        if ($currentUser->hasRole('HR Manager') && $user->hasRole('Employee')) {
+        if ($currentUser->hasRole('HR Manager') && $user->hasRole('Member')) {
             return true;
         }
 

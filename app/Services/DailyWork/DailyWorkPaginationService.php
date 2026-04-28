@@ -7,6 +7,7 @@ use App\Models\Jurisdiction;
 use App\Models\User;
 use App\Traits\DailyWorkFilterable;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -15,10 +16,20 @@ class DailyWorkPaginationService
 {
     use DailyWorkFilterable;
 
+    private DailyWorkSearchService $searchService;
+
+    public function __construct()
+    {
+        $this->searchService = app(DailyWorkSearchService::class);
+    }
+
     /**
      * Get paginated daily works based on user role and filters
+     * Returns CursorPaginator for very large datasets (>= 2000 perPage)
+     * Returns LengthAwarePaginator for mobile mode (500-1999 perPage)
+     * Returns standard paginated results for normal web usage (< 500 perPage)
      */
-    public function getPaginatedDailyWorks(Request $request): LengthAwarePaginator
+    public function getPaginatedDailyWorks(Request $request)
     {
         $startTime = microtime(true);
 
@@ -52,28 +63,55 @@ class DailyWorkPaginationService
         $query = $this->buildBaseQuery($user, $userDesignationTitle);
         $query = $this->applyFilters($query, $search, $statusFilter, $inChargeFilter, $jurisdictionFilter, $startDate, $endDate);
 
-        // Mobile mode detection: if perPage is very large (1000+), return all data without pagination
-        if ($perPage >= 1000) {
+        // Cursor-based pagination for extremely large datasets (perPage >= 2000)
+        if ($perPage >= 2000) {
+            Log::info('Cursor pagination mode: using cursor-based pagination for large dataset', [
+                'perPage' => $perPage,
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+            ]);
+
+            $cursorResults = $query->orderBy('date', 'desc')
+                ->orderBy('id', 'desc')
+                ->cursorPaginate($perPage);
+
+            $endTime = microtime(true);
+            Log::info('DailyWork cursor pagination query completed', [
+                'execution_time' => round(($endTime - $startTime) * 1000, 2).'ms',
+                'records_count' => $cursorResults->count(),
+                'has_more_pages' => $cursorResults->hasMorePages(),
+            ]);
+
+            return $cursorResults;
+        }
+
+        // Mobile mode detection: if perPage is large (500-1999), return all data without pagination
+        if ($perPage >= 500) {
             Log::info('Mobile mode: fetching all data without pagination', [
                 'startDate' => $startDate,
                 'endDate' => $endDate,
                 'statusFilter' => $statusFilter,
                 'inChargeFilter' => $inChargeFilter,
                 'search' => $search,
+                'perPage' => $perPage,
             ]);
 
-            // Limit to reasonable number to prevent memory issues (increased for daily work dates)
+            // Dynamic limit based on date range to prevent memory issues
+            $maxRecords = $this->calculateSafeLimit($startDate, $endDate);
+
             $allData = $query->orderBy('date', 'desc')
-                ->limit(2000) // Safety limit for mobile - increased to handle busy work days
+                ->orderBy('id', 'desc') // Secondary sort for consistent ordering
+                ->limit($maxRecords)
                 ->get();
 
             $endTime = microtime(true);
             Log::info('DailyWork mobile query completed', [
                 'execution_time' => round(($endTime - $startTime) * 1000, 2).'ms',
                 'records_count' => $allData->count(),
+                'max_limit_applied' => $maxRecords,
                 'startDate' => $startDate,
                 'endDate' => $endDate,
-                'records' => $allData->pluck('id')->toArray(),
+                'memory_usage' => round(memory_get_peak_usage(true) / 1024 / 1024, 2).'MB',
             ]);
 
             // Create a manual paginator with all data on page 1
@@ -99,7 +137,44 @@ class DailyWorkPaginationService
     }
 
     /**
-     * Get all daily works based on user role and filters
+     * Calculate safe limit for mobile queries based on date range
+     */
+    private function calculateSafeLimit(?string $startDate, ?string $endDate): int
+    {
+        // Base limit for safety
+        $baseLimit = 1000;
+
+        if (!$startDate && !$endDate) {
+            // No date filter - be conservative
+            return $baseLimit;
+        }
+
+        try {
+            $start = $startDate ? \Carbon\Carbon::parse($startDate) : now()->subMonths(1);
+            $end = $endDate ? \Carbon\Carbon::parse($endDate) : now();
+
+            $daysDiff = $start->diffInDays($end);
+
+            // Scale limit based on date range
+            // More days = higher limit, but capped for safety
+            $scaledLimit = min($baseLimit + ($daysDiff * 10), 3000);
+
+            return (int) $scaledLimit;
+
+        } catch (\Exception $e) {
+            // Fallback to base limit if date parsing fails
+            Log::warning('Failed to calculate safe limit from dates, using base limit', [
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $baseLimit;
+        }
+    }
+
+    /**
+     * Get user role for response based on designation
      */
     public function getAllDailyWorks(Request $request): array
     {
@@ -147,7 +222,7 @@ class DailyWorkPaginationService
         }
 
         // Super Administrator and Administrator get all data
-        if ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')) {
+        if ($user->hasRoleCached(['Super Administrator', 'Administrator'])) {
             return $baseQuery;
         }
 
@@ -196,27 +271,9 @@ class DailyWorkPaginationService
             }
         }
 
-        // Apply multi-word search - each word must match at least one column
+        // Apply optimized search using the search service
         if ($search) {
-            // Split search into words (handle multiple spaces)
-            $words = array_filter(preg_split('/\s+/', trim($search)));
-
-            if (! empty($words)) {
-                $query->where(function ($q) use ($words) {
-                    foreach ($words as $word) {
-                        // Each word must match at least one column (AND between words)
-                        $q->where(function ($wordQuery) use ($word) {
-                            // Word can match any column (OR within each word)
-                            $wordQuery->where('number', 'LIKE', "%{$word}%")
-                                ->orWhere('location', 'LIKE', "%{$word}%")
-                                ->orWhere('description', 'LIKE', "%{$word}%")
-                                ->orWhere('type', 'LIKE', "%{$word}%")
-                                ->orWhere('side', 'LIKE', "%{$word}%")
-                                ->orWhere('inspection_details', 'LIKE', "%{$word}%");
-                        });
-                    }
-                });
-            }
+            $query = $this->searchService->applySearch($query, $search);
         }
 
         return $query;

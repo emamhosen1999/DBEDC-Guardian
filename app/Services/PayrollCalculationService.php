@@ -132,7 +132,7 @@ class PayrollCalculationService
     }
 
     /**
-     * Calculate ESI (Employee State Insurance)
+     * Calculate ESI (Member State Insurance)
      */
     public function calculateESI($grossSalary, $employee)
     {
@@ -262,7 +262,7 @@ class PayrollCalculationService
             $deductions[] = [
                 'type' => 'esi_deduction',
                 'amount' => $esiAmount,
-                'description' => 'Employee State Insurance',
+                'description' => 'Member State Insurance',
             ];
         }
 

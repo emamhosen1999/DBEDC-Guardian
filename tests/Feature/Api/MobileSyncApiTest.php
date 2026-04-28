@@ -647,11 +647,8 @@ class MobileSyncApiTest extends TestCase
             'updated_by' => $creatorId,
             'created_at' => now(),
             'updated_at' => now(),
+            'type' => DailyWork::TYPE_STRUCTURE,
         ], $overrides);
-
-        if (Schema::hasColumn('rfi_objections', 'type') && ! array_key_exists('type', $payload)) {
-            $payload['type'] = DailyWork::TYPE_STRUCTURE;
-        }
 
         if (Schema::hasColumn('rfi_objections', 'chainage_from') && ! array_key_exists('chainage_from', $payload)) {
             $payload['chainage_from'] = null;
@@ -659,10 +656,6 @@ class MobileSyncApiTest extends TestCase
 
         if (Schema::hasColumn('rfi_objections', 'chainage_to') && ! array_key_exists('chainage_to', $payload)) {
             $payload['chainage_to'] = null;
-        }
-
-        if (Schema::hasColumn('rfi_objections', 'daily_work_id') && ! array_key_exists('daily_work_id', $payload)) {
-            $payload['daily_work_id'] = $dailyWork->id;
         }
 
         $objectionId = (int) DB::table('rfi_objections')->insertGetId($payload);

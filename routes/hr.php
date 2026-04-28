@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\HR\BenefitsController;
-use App\Http\Controllers\HR\EmployeeSelfServiceController;
+use App\Http\Controllers\HR\MemberSelfServiceController;
 use App\Http\Controllers\HR\HrAnalyticsController;
 use App\Http\Controllers\HR\HrDocumentController;
 use App\Http\Controllers\HR\OnboardingController;
@@ -115,7 +115,7 @@ Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(functi
         Route::delete('/recruitment/{id}/applications/{applicationId}/interviews/{interviewId}', [RecruitmentController::class, 'destroyInterview'])->name('recruitment.interviews.destroy');
     });
 
-    // Employee Onboarding & Offboarding
+    // Member Onboarding & Offboarding
     Route::middleware(['permission:hr.onboarding.view'])->group(function () {
         Route::get('/onboarding', [OnboardingController::class, 'index'])->name('onboarding.index');
         Route::get('/onboarding/create', [OnboardingController::class, 'create'])->name('onboarding.create');
@@ -153,11 +153,11 @@ Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(functi
         Route::put('/competencies/{id}', [SkillsController::class, 'updateCompetency'])->name('competencies.update');
         Route::delete('/competencies/{id}', [SkillsController::class, 'destroyCompetency'])->name('competencies.destroy');
 
-        // Employee Skills
+        // Member Skills
         Route::get('/employee-skills/{employeeId}', [SkillsController::class, 'employeeSkills'])->name('employee.skills.index');
-        Route::post('/employee-skills/{employeeId}', [SkillsController::class, 'storeEmployeeSkill'])->name('employee.skills.store');
-        Route::put('/employee-skills/{employeeId}/{skillId}', [SkillsController::class, 'updateEmployeeSkill'])->name('employee.skills.update');
-        Route::delete('/employee-skills/{employeeId}/{skillId}', [SkillsController::class, 'destroyEmployeeSkill'])->name('employee.skills.destroy');
+        Route::post('/employee-skills/{employeeId}', [SkillsController::class, 'storeMemberSkill'])->name('employee.skills.store');
+        Route::put('/employee-skills/{employeeId}/{skillId}', [SkillsController::class, 'updateMemberSkill'])->name('employee.skills.update');
+        Route::delete('/employee-skills/{employeeId}/{skillId}', [SkillsController::class, 'destroyMemberSkill'])->name('employee.skills.destroy');
     });
 
     // Time Off Management (Industry Standard)
@@ -181,7 +181,7 @@ Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(functi
         // Time Off Reports
         Route::get('/time-off/reports', [TimeOffManagementController::class, 'reports'])->name('timeoff.reports');
 
-        // Employee Self-Service Time Off
+        // Member Self-Service Time Off
         Route::get('/time-off/employee-requests', [TimeOffManagementController::class, 'employeeRequests'])->name('timeoff.employee-requests');
     });
 
@@ -197,7 +197,7 @@ Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(functi
         Route::put('/time-off-legacy/settings', [TimeOffController::class, 'updateSettings'])->name('timeoff-legacy.settings.update');
     });
 
-    // Employee Benefits Administration
+    // Member Benefits Administration
     Route::middleware(['permission:hr.benefits.view'])->group(function () {
         Route::get('/benefits', [BenefitsController::class, 'index'])->name('benefits.index');
         Route::get('/benefits/create', [BenefitsController::class, 'create'])->name('benefits.create');
@@ -207,11 +207,11 @@ Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(functi
         Route::put('/benefits/{id}', [BenefitsController::class, 'update'])->name('benefits.update');
         Route::delete('/benefits/{id}', [BenefitsController::class, 'destroy'])->name('benefits.destroy');
 
-        // Employee Benefits
+        // Member Benefits
         Route::get('/employee-benefits/{employeeId}', [BenefitsController::class, 'employeeBenefits'])->name('employee.benefits.index');
         Route::post('/employee-benefits/{employeeId}', [BenefitsController::class, 'assignBenefit'])->name('employee.benefits.assign');
-        Route::put('/employee-benefits/{employeeId}/{benefitId}', [BenefitsController::class, 'updateEmployeeBenefit'])->name('employee.benefits.update');
-        Route::delete('/employee-benefits/{employeeId}/{benefitId}', [BenefitsController::class, 'removeEmployeeBenefit'])->name('employee.benefits.remove');
+        Route::put('/employee-benefits/{employeeId}/{benefitId}', [BenefitsController::class, 'updateMemberBenefit'])->name('employee.benefits.update');
+        Route::delete('/employee-benefits/{employeeId}/{benefitId}', [BenefitsController::class, 'removeMemberBenefit'])->name('employee.benefits.remove');
     });
 
     // Enhanced Time-off Management
@@ -277,25 +277,25 @@ Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(functi
         Route::put('/document-categories/{id}', [HrDocumentController::class, 'updateCategory'])->name('documents.categories.update');
         Route::delete('/document-categories/{id}', [HrDocumentController::class, 'destroyCategory'])->name('documents.categories.destroy');
 
-        // Employee Documents
+        // Member Documents
         Route::get('/employee-documents/{employeeId}', [HrDocumentController::class, 'employeeDocuments'])->name('employee.documents.index');
-        Route::post('/employee-documents/{employeeId}', [HrDocumentController::class, 'storeEmployeeDocument'])->name('employee.documents.store');
-        Route::get('/employee-documents/{employeeId}/{documentId}', [HrDocumentController::class, 'showEmployeeDocument'])->name('employee.documents.show');
-        Route::delete('/employee-documents/{employeeId}/{documentId}', [HrDocumentController::class, 'destroyEmployeeDocument'])->name('employee.documents.destroy');
+        Route::post('/employee-documents/{employeeId}', [HrDocumentController::class, 'storeMemberDocument'])->name('employee.documents.store');
+        Route::get('/employee-documents/{employeeId}/{documentId}', [HrDocumentController::class, 'showMemberDocument'])->name('employee.documents.show');
+        Route::delete('/employee-documents/{employeeId}/{documentId}', [HrDocumentController::class, 'destroyMemberDocument'])->name('employee.documents.destroy');
     });
 
-    // Enhanced Employee Self-Service Portal
+    // Enhanced Member Self-Service Portal
     Route::middleware(['permission:hr.selfservice.view'])->group(function () {
-        Route::get('/self-service', [EmployeeSelfServiceController::class, 'index'])->name('selfservice.index');
-        Route::get('/self-service/profile', [EmployeeSelfServiceController::class, 'profile'])->name('selfservice.profile');
-        Route::put('/self-service/profile', [EmployeeSelfServiceController::class, 'updateProfile'])->name('selfservice.profile.update');
-        Route::get('/self-service/documents', [EmployeeSelfServiceController::class, 'documents'])->name('selfservice.documents');
-        Route::get('/self-service/benefits', [EmployeeSelfServiceController::class, 'benefits'])->name('selfservice.benefits');
-        Route::get('/self-service/time-off', [EmployeeSelfServiceController::class, 'timeOff'])->name('selfservice.timeoff');
-        Route::post('/self-service/time-off', [EmployeeSelfServiceController::class, 'requestTimeOff'])->name('selfservice.timeoff.request');
-        Route::get('/self-service/trainings', [EmployeeSelfServiceController::class, 'trainings'])->name('selfservice.trainings');
-        Route::get('/self-service/payslips', [EmployeeSelfServiceController::class, 'payslips'])->name('selfservice.payslips');
-        Route::get('/self-service/performance', [EmployeeSelfServiceController::class, 'performance'])->name('selfservice.performance');
+        Route::get('/self-service', [MemberSelfServiceController::class, 'index'])->name('selfservice.index');
+        Route::get('/self-service/profile', [MemberSelfServiceController::class, 'profile'])->name('selfservice.profile');
+        Route::put('/self-service/profile', [MemberSelfServiceController::class, 'updateProfile'])->name('selfservice.profile.update');
+        Route::get('/self-service/documents', [MemberSelfServiceController::class, 'documents'])->name('selfservice.documents');
+        Route::get('/self-service/benefits', [MemberSelfServiceController::class, 'benefits'])->name('selfservice.benefits');
+        Route::get('/self-service/time-off', [MemberSelfServiceController::class, 'timeOff'])->name('selfservice.timeoff');
+        Route::post('/self-service/time-off', [MemberSelfServiceController::class, 'requestTimeOff'])->name('selfservice.timeoff.request');
+        Route::get('/self-service/trainings', [MemberSelfServiceController::class, 'trainings'])->name('selfservice.trainings');
+        Route::get('/self-service/payslips', [MemberSelfServiceController::class, 'payslips'])->name('selfservice.payslips');
+        Route::get('/self-service/performance', [MemberSelfServiceController::class, 'performance'])->name('selfservice.performance');
     });
 
     // Payroll Management System
@@ -329,16 +329,16 @@ Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(functi
         Route::post('/payroll/reports/statutory', [PayrollController::class, 'statutoryReport'])->name('payroll.reports.statutory');
     });
 
-    // Employee Management - Core CRUD operations
+    // Member Management - Core CRUD operations
     Route::middleware(['permission:hr.employees.view'])->group(function () {
-        Route::get('/employees', [\App\Http\Controllers\EmployeeController::class, 'index'])->name('employees.index');
-        Route::get('/employees/paginate', [\App\Http\Controllers\EmployeeController::class, 'paginate'])->name('employees.paginate');
-        Route::get('/employees/stats', [\App\Http\Controllers\EmployeeController::class, 'stats'])->name('employees.stats');
-        Route::post('/employees', [\App\Http\Controllers\EmployeeController::class, 'store'])->name('employees.store');
-        Route::get('/employees/{id}', [\App\Http\Controllers\EmployeeController::class, 'show'])->name('employees.show');
-        Route::put('/employees/{id}', [\App\Http\Controllers\EmployeeController::class, 'update'])->name('employees.update');
-        Route::delete('/employees/{id}', [\App\Http\Controllers\EmployeeController::class, 'destroy'])->name('employees.destroy');
-        Route::post('/employees/{id}/restore', [\App\Http\Controllers\EmployeeController::class, 'restore'])->name('employees.restore');
+        Route::get('/employees', [\App\Http\Controllers\MemberController::class, 'index'])->name('employees.index');
+        Route::get('/employees/paginate', [\App\Http\Controllers\MemberController::class, 'paginate'])->name('employees.paginate');
+        Route::get('/employees/stats', [\App\Http\Controllers\MemberController::class, 'stats'])->name('employees.stats');
+        Route::post('/employees', [\App\Http\Controllers\MemberController::class, 'store'])->name('employees.store');
+        Route::get('/employees/{id}', [\App\Http\Controllers\MemberController::class, 'show'])->name('employees.show');
+        Route::put('/employees/{id}', [\App\Http\Controllers\MemberController::class, 'update'])->name('employees.update');
+        Route::delete('/employees/{id}', [\App\Http\Controllers\MemberController::class, 'destroy'])->name('employees.destroy');
+        Route::post('/employees/{id}/restore', [\App\Http\Controllers\MemberController::class, 'restore'])->name('employees.restore');
     });
 
     // Managers for dropdowns

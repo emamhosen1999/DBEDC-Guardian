@@ -192,7 +192,7 @@ class TimeOffManagementController extends Controller
     }
 
     /**
-     * Employee self-service time-off requests
+     * Member self-service time-off requests
      */
     public function employeeRequests()
     {

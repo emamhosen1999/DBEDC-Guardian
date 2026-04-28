@@ -12,7 +12,7 @@ class ProfileUpdateService
      * Field name mappings for human-readable messages
      */
     private array $fieldNames = [
-        'employee_id' => 'Employee ID',
+        'employee_id' => 'Member ID',
         'user_name' => 'User Name',
         'phone' => 'Phone Number',
         'dob' => 'Date of Birth',
@@ -50,12 +50,12 @@ class ProfileUpdateService
         'payment_type' => 'Payment Type',
         'pf_contribution' => 'PF Contribution',
         'pf_no' => 'PF Number',
-        'employee_pf_rate' => 'Employee PF Rate',
+        'employee_pf_rate' => 'Member PF Rate',
         'additional_pf_rate' => 'Additional PF Rate',
         'total_pf_rate' => 'Total PF Rate',
         'esi_contribution' => 'ESI Contribution',
         'esi_no' => 'ESI Number',
-        'employee_esi_rate' => 'Employee ESI Rate',
+        'employee_esi_rate' => 'Member ESI Rate',
         'additional_esi_rate' => 'Additional ESI Rate',
         'total_esi_rate' => 'Total ESI Rate',
     ];

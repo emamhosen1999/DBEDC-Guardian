@@ -13,7 +13,7 @@ export default function AnalyticsIndex({ stats = {} }) {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-4">
-                    <StatCard title="Total Employees" value={stats.totalEmployees || 0} />
+                    <StatCard title="Total WorkForce" value={stats.totalWorkForce || 0} />
                     <StatCard title="Active Listings" value={stats.activeJobs || 0} />
                     <StatCard title="Avg Salary" value={stats.averageSalary ? `$${(stats.averageSalary / 1000).toFixed(0)}k` : '-'} />
                     <StatCard title="Turnover Rate" value={`${stats.turnoverRate || 0}%`} />
@@ -21,7 +21,7 @@ export default function AnalyticsIndex({ stats = {} }) {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                     <chart className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
-                        <h3 className="mb-4 text-sm font-medium text-gray-900">Employee Distribution by Department</h3>
+                        <h3 className="mb-4 text-sm font-medium text-gray-900">Member Distribution by Department</h3>
                         <div className="space-y-3">
                             {stats.departmentDistribution && Object.entries(stats.departmentDistribution).map(([dept, count]) => (
                                 <div key={dept} className="flex items-center justify-between">

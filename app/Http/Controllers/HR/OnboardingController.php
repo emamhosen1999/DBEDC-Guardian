@@ -33,7 +33,7 @@ class OnboardingController extends Controller
             ->paginate(10);
 
         return Inertia::render('HR/Onboarding/Index', [
-            'title' => 'Employee Onboarding',
+            'title' => 'Member Onboarding',
             'onboardings' => $onboardings,
         ]);
     }
@@ -250,7 +250,7 @@ class OnboardingController extends Controller
             ->paginate(10);
 
         return Inertia::render('HR/Offboarding/Index', [
-            'title' => 'Employee Offboarding',
+            'title' => 'Member Offboarding',
             'offboardings' => $offboardings,
         ]);
     }

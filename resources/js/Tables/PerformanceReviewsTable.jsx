@@ -108,7 +108,7 @@ const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, o
     };
 
     const columns = [
-        { name: "Employee", uid: "employee" },
+        { name: "Member", uid: "employee" },
         { name: "Review Type", uid: "review_type" },
         { name: "Period", uid: "period" },
         { name: "Status", uid: "status" },

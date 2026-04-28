@@ -11,7 +11,7 @@ use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EducationController;
 use App\Http\Controllers\EmailController;
-use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ExperienceController;
 use App\Http\Controllers\FMSController;
 use App\Http\Controllers\HolidayController;
@@ -99,7 +99,7 @@ Route::middleware($middlewareStack)->group(function () {
     // Updates route - require updates permission
     Route::middleware(['permission:core.updates.view'])->get('/updates', [DashboardController::class, 'updates'])->name('updates');
 
-    // Employee self-service routes
+    // Member self-service routes
     Route::middleware(['permission:leave.own.view'])->group(function () {
         Route::get('/leaves-employee', [LeaveController::class, 'index1'])->name('leaves-employee');
         Route::post('/leave-add', [LeaveController::class, 'create'])->name('leave-add');
@@ -325,9 +325,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // HR Management routes
     Route::middleware(['permission:employees.view'])->group(function () {
-        Route::get('/employees', [\App\Http\Controllers\EmployeeController::class, 'index'])->name('employees');
-        Route::get('/employees/paginate', [\App\Http\Controllers\EmployeeController::class, 'paginate'])->name('employees.paginate');
-        Route::get('/employees/stats', [\App\Http\Controllers\EmployeeController::class, 'stats'])->name('employees.stats');
+        Route::get('/employees', [\App\Http\Controllers\MemberController::class, 'index'])->name('employees');
+        Route::get('/employees/paginate', [\App\Http\Controllers\MemberController::class, 'paginate'])->name('employees.paginate');
+        Route::get('/employees/stats', [\App\Http\Controllers\MemberController::class, 'stats'])->name('employees.stats');
     });
 
     // Department management routes
@@ -390,7 +390,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:users.delete'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
         // Legacy route for backward compatibility
-        Route::delete('/user/{id}', [EmployeeController::class, 'destroy'])->name('user.delete');
+        Route::delete('/user/{id}', [MemberController::class, 'destroy'])->name('user.delete');
     });
 
     // SECURE DEVICE MANAGEMENT ROUTES (NEW SYSTEM)
@@ -439,7 +439,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/attendance/bulk-mark-as-present', [AttendanceController::class, 'bulkMarkAsPresent'])->name('attendance.bulk-mark-as-present');
     });
 
-    // Employee attendance stats route
+    // Member attendance stats route
     Route::middleware(['permission:attendance.own.view'])->group(function () {
         Route::get('/attendance/my-monthly-stats', [AttendanceController::class, 'getMonthlyAttendanceStats'])->name('attendance.myMonthlyStats');
     });
@@ -655,130 +655,8 @@ Route::get('/service-worker.js', function () {
     abort(404);
 })->name('service-worker');
 
-// Temporary test route for debugging employee deletion authorization
-Route::middleware(['auth', 'verified'])->get('/test-employee-auth', function () {
-    $currentUser = \Illuminate\Support\Facades\Auth::user();
-    $employee = \App\Models\User::where('id', '!=', $currentUser->id)->first();
 
-    if (! $employee) {
-        return response()->json(['error' => 'No other employee found for testing']);
-    }
 
-    $controller = new \App\Http\Controllers\EmployeeController;
-    $reflection = new ReflectionClass($controller);
-    $method = $reflection->getMethod('canDeleteEmployee');
-    $method->setAccessible(true);
-    $canDelete = $method->invoke($controller, $currentUser, $employee);
 
-    return response()->json([
-        'current_user' => [
-            'id' => $currentUser->id,
-            'name' => $currentUser->name,
-            'roles' => $currentUser->roles->pluck('name'),
-            'has_users_delete_permission' => $currentUser->can('users.delete'),
-            'has_super_admin_role' => $currentUser->hasRole('Super Administrator'),
-            'has_hr_manager_role' => $currentUser->hasRole('HR Manager'),
-            'has_administrator_role' => $currentUser->hasRole('Administrator'),
-        ],
-        'target_employee' => [
-            'id' => $employee->id,
-            'name' => $employee->name,
-        ],
-        'can_delete' => $canDelete,
-        'authorization_result' => $canDelete ? 'AUTHORIZED' : 'UNAUTHORIZED',
-    ]);
-});
-
-// Event Management Public Routes (no authentication required)
-Route::prefix('events')->group(function () {
-    Route::get('/', [\App\Http\Controllers\PublicEventController::class, 'index'])->name('public.events.index');
-    Route::get('/{slug}', [\App\Http\Controllers\PublicEventController::class, 'show'])->name('public.events.show');
-    Route::post('/{slug}/register', [\App\Http\Controllers\PublicEventController::class, 'register'])->name('public.events.register');
-    Route::get('/{slug}/registration-success/{token}', [\App\Http\Controllers\PublicEventController::class, 'registrationSuccess'])->name('public.events.registration-success');
-    Route::get('/check-registration', [\App\Http\Controllers\PublicEventController::class, 'checkRegistration'])->name('public.events.check-registration');
-    Route::get('/token/{token}/download', [\App\Http\Controllers\PublicEventController::class, 'downloadToken'])->name('public.events.download-token');
-});
-
-// Event Management Admin Routes (require authentication and permissions)
-Route::middleware(['auth', 'verified'])->prefix('admin/events')->group(function () {
-    // Create route must come before {event} routes to avoid matching "create" as an event ID
-    Route::middleware(['permission:event.create'])->group(function () {
-        Route::get('/create', [\App\Http\Controllers\EventController::class, 'create'])->name('events.create');
-        Route::post('/', [\App\Http\Controllers\EventController::class, 'store'])->name('events.store');
-    });
-
-    // Event CRUD - View routes
-    Route::middleware(['permission:event.view'])->group(function () {
-        Route::get('/', [\App\Http\Controllers\EventController::class, 'index'])->name('events.index');
-        Route::get('/{event}/analytics', [\App\Http\Controllers\EventController::class, 'analytics'])->name('events.analytics');
-        Route::get('/{event}', [\App\Http\Controllers\EventController::class, 'show'])->name('events.show');
-    });
-
-    Route::middleware(['permission:event.create'])->group(function () {
-        Route::post('/{event}/duplicate', [\App\Http\Controllers\EventController::class, 'duplicate'])->name('events.duplicate');
-    });
-
-    Route::middleware(['permission:event.update'])->group(function () {
-        Route::get('/{event}/edit', [\App\Http\Controllers\EventController::class, 'edit'])->name('events.edit');
-        Route::put('/{event}', [\App\Http\Controllers\EventController::class, 'update'])->name('events.update');
-        Route::post('/{event}/toggle-publish', [\App\Http\Controllers\EventController::class, 'togglePublish'])->name('events.toggle-publish');
-    });
-
-    Route::middleware(['permission:event.delete'])->group(function () {
-        Route::delete('/{event}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('events.destroy');
-    });
-
-    // Sub-Events Management
-    Route::middleware(['permission:event.update'])->group(function () {
-        Route::post('/{event}/sub-events', [\App\Http\Controllers\SubEventController::class, 'store'])->name('sub-events.store');
-        Route::put('/{event}/sub-events/{subEvent}', [\App\Http\Controllers\SubEventController::class, 'update'])->name('sub-events.update');
-        Route::delete('/{event}/sub-events/{subEvent}', [\App\Http\Controllers\SubEventController::class, 'destroy'])->name('sub-events.destroy');
-        Route::post('/{event}/sub-events/reorder', [\App\Http\Controllers\SubEventController::class, 'reorder'])->name('sub-events.reorder');
-        Route::post('/{event}/sub-events/{subEvent}/toggle-active', [\App\Http\Controllers\SubEventController::class, 'toggleActive'])->name('sub-events.toggle-active');
-    });
-
-    // Registration Management
-    Route::middleware(['permission:event.registration.manage'])->group(function () {
-        Route::get('/{event}/registrations', [\App\Http\Controllers\EventRegistrationController::class, 'index'])->name('events.registrations.index');
-        Route::get('/{event}/registrations/{registration}', [\App\Http\Controllers\EventRegistrationController::class, 'show'])->name('events.registrations.show');
-        Route::post('/{event}/registrations/{registration}/approve', [\App\Http\Controllers\EventRegistrationController::class, 'approve'])->name('events.registrations.approve');
-        Route::post('/{event}/registrations/{registration}/reject', [\App\Http\Controllers\EventRegistrationController::class, 'reject'])->name('events.registrations.reject');
-        Route::post('/{event}/registrations/{registration}/cancel', [\App\Http\Controllers\EventRegistrationController::class, 'cancel'])->name('events.registrations.cancel');
-        Route::post('/{event}/registrations/{registration}/verify-payment', [\App\Http\Controllers\EventRegistrationController::class, 'verifyPayment'])->name('events.registrations.verify-payment');
-        Route::post('/{event}/registrations/bulk-approve', [\App\Http\Controllers\EventRegistrationController::class, 'bulkApprove'])->name('events.registrations.bulk-approve');
-        Route::post('/{event}/registrations/bulk-reject', [\App\Http\Controllers\EventRegistrationController::class, 'bulkReject'])->name('events.registrations.bulk-reject');
-        Route::get('/{event}/registrations/export/csv', [\App\Http\Controllers\EventRegistrationController::class, 'exportCsv'])->name('events.registrations.export-csv');
-        Route::get('/{event}/registrations/export/pdf', [\App\Http\Controllers\EventRegistrationController::class, 'exportPdf'])->name('events.registrations.export-pdf');
-        Route::get('/{event}/registrations/{registration}/print-token', [\App\Http\Controllers\EventRegistrationController::class, 'printToken'])->name('events.registrations.print-token');
-    });
-});
-
-// Letters Management Routes
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware(['permission:letters.view'])->group(function () {
-        Route::get('/letters', [App\Http\Controllers\LettersController::class, 'index'])->name('letters.index');
-        Route::get('/letters/{letter}', [App\Http\Controllers\LettersController::class, 'show'])->name('letters.show');
-        Route::get('/letters/{letter}/attachment/{index}', [App\Http\Controllers\LettersController::class, 'downloadAttachment'])->name('letters.attachment.download');
-    });
-
-    Route::middleware(['permission:letters.create'])->post('/letters', [App\Http\Controllers\LettersController::class, 'store'])->name('letters.store');
-
-    Route::middleware(['permission:letters.update'])->group(function () {
-        Route::put('/letters/{letter}', [App\Http\Controllers\LettersController::class, 'update'])->name('letters.update');
-        Route::post('/letters/bulk-update', [App\Http\Controllers\LettersController::class, 'bulkUpdate'])->name('letters.bulk-update');
-        Route::post('/letters/{letter}/reply', [App\Http\Controllers\LettersController::class, 'sendReply'])->name('letters.reply');
-    });
-
-    Route::middleware(['permission:letters.delete'])->delete('/letters/{letter}', [App\Http\Controllers\LettersController::class, 'destroy'])->name('letters.destroy');
-
-    Route::middleware(['permission:letters.sync'])->post('/letters/sync-emails', [App\Http\Controllers\LettersController::class, 'syncEmails'])->name('letters.sync-emails');
-});
-
-// Include all module routes
-require __DIR__.'/compliance.php';
-require __DIR__.'/quality.php';
-require __DIR__.'/analytics.php';
 require __DIR__.'/hr.php';
-require __DIR__.'/dms.php';
-
 require __DIR__.'/auth.php';

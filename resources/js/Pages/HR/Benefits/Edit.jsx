@@ -55,7 +55,7 @@ export default function BenefitsEdit({ benefit }) {
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-gray-700">Employee Contribution Rate (%)</label>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">Member Contribution Rate (%)</label>
                             <input type="number" step="0.01" value={data.employee_contribution_rate} onChange={(e) => setData('employee_contribution_rate', e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
                         </div>
 

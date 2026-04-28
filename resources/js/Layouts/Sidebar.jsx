@@ -710,7 +710,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
                   className="text-xs font-medium"
                   style={{ color: `var(--theme-foreground-500, #71717A)` }}
                 >
-                  aeos365
+                  DBEDC Guardian
                 </p>
               </div>
             </motion.div>

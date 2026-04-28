@@ -29,7 +29,7 @@ class ProfileImageUploadTest extends TestCase
 
         // Create employee user
         $this->employee = User::factory()->create();
-        $this->employee->assignRole('Employee');
+        $this->employee->assignRole('Member');
     }
 
     /** @test */
@@ -176,13 +176,13 @@ class ProfileImageUploadTest extends TestCase
     {
         Storage::fake('public');
 
-        $otherEmployee = User::factory()->create();
-        $otherEmployee->assignRole('Employee');
+        $otherMember = User::factory()->create();
+        $otherMember->assignRole('Member');
 
         $this->actingAs($this->employee);
 
         $response = $this->postJson(route('profile.image.upload'), [
-            'user_id' => $otherEmployee->id,
+            'user_id' => $otherMember->id,
             'profile_image' => UploadedFile::fake()->image('profile.jpg', 500, 500),
         ]);
 

@@ -760,7 +760,7 @@ export const BUSINESS_GLOSSARY = {
     },
 
     // ===== EMPLOYEE / HR =====
-    'Employee': {
+    'Member': {
         bn: 'কর্মচারী',
         ar: 'موظف',
         hi: 'कर्मचारी',
@@ -770,7 +770,7 @@ export const BUSINESS_GLOSSARY = {
         fr: 'Employé',
         de: 'Mitarbeiter',
     },
-    'Employees': {
+    'WorkForce': {
         bn: 'কর্মচারীগণ',
         ar: 'الموظفون',
         hi: 'कर्मचारी',

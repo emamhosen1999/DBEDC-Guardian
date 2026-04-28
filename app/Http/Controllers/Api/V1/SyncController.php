@@ -961,28 +961,14 @@ class SyncController extends Controller
         }
 
         $hasPivotTable = Schema::hasTable('daily_work_objection');
-        $hasLegacyColumn = Schema::hasColumn('rfi_objections', 'daily_work_id');
-
-        if (! $hasPivotTable && ! $hasLegacyColumn) {
+        if (! $hasPivotTable) {
             return null;
         }
 
         return RfiObjection::query()
             ->where('id', $objectionId)
-            ->where(function ($objectionQuery) use ($dailyWorkId, $hasPivotTable, $hasLegacyColumn) {
-                if ($hasPivotTable) {
-                    $objectionQuery->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {
-                        $dailyWorkQuery->where('daily_works.id', $dailyWorkId);
-                    });
-                }
-
-                if ($hasLegacyColumn) {
-                    if ($hasPivotTable) {
-                        $objectionQuery->orWhere('daily_work_id', $dailyWorkId);
-                    } else {
-                        $objectionQuery->where('daily_work_id', $dailyWorkId);
-                    }
-                }
+            ->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {
+                $dailyWorkQuery->where('daily_works.id', $dailyWorkId);
             })
             ->first();
     }

@@ -97,7 +97,7 @@ const AuthGuard = ({ children, auth, url }) => {
                         transition={{ delay: 0.2, duration: 0.6 }}
                         className="text-3xl font-bold text-white mb-4"
                     >
-                        aeos365
+                        DBEDC Guardian
                     </motion.div>
 
                     {/* Spinner */}

@@ -54,7 +54,7 @@ class LeaveController extends Controller
 
     public function index1(): \Inertia\Response
     {
-        return Inertia::render('LeavesEmployee', [
+        return Inertia::render('LeavesMember', [
             'title' => 'Leaves',
             'allUsers' => User::all(),
 

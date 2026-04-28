@@ -34,7 +34,7 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
         foreach ($data as $employee) {
             $row = [
                 'No.' => $counter++,
-                'Employee Name' => $employee['employee_name'] ?? 'N/A',
+                'Member Name' => $employee['employee_name'] ?? 'N/A',
                 'Department' => $employee['department'] ?? 'N/A',
                 'January' => $employee['JAN'] ?? '',
                 'February' => $employee['FEB'] ?? '',
@@ -75,7 +75,7 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
 
         $baseHeaders = [
             'No.',
-            'Employee Name',
+            'Member Name',
             'Department',
             'January',
             'February',
@@ -132,7 +132,7 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
 
                 $firstDataRow = 2;
                 $lastDataRow = $sheet->getHighestDataRow();
-                $totalEmployees = $stats['total_employees'] ?? 0;
+                $totalWorkForce = $stats['total_employees'] ?? 0;
                 $totalApproved = $stats['total_approved_leaves'] ?? 0;
                 $totalPending = $stats['total_pending_leaves'] ?? 0;
                 $totalDepartments = $stats['departments_count'] ?? 0;
@@ -153,7 +153,7 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
 
                 // ====== Summary statistics ======
                 $sheet->mergeCells("A3:{$lastColumn}3");
-                $summaryText = "Total Employees: {$totalEmployees} | Approved Leaves: {$totalApproved} | Pending Leaves: {$totalPending} | Departments: {$totalDepartments}";
+                $summaryText = "Total WorkForce: {$totalWorkForce} | Approved Leaves: {$totalApproved} | Pending Leaves: {$totalPending} | Departments: {$totalDepartments}";
                 $sheet->setCellValue('A3', $summaryText);
                 $sheet->getStyle('A3')->getAlignment()->setHorizontal('center');
                 $sheet->getStyle('A3')->getFont()->setBold(true);

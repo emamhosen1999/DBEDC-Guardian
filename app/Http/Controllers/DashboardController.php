@@ -77,7 +77,7 @@ class DashboardController extends Controller
 
         $users = User::with('roles:name')
             ->whereHas('roles', function ($query) {
-                $query->where('name', 'Employee');
+                $query->where('name', 'Member');
             })
             ->get()
             ->map(function ($user) {

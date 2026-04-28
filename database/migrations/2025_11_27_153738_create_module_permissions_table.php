@@ -11,7 +11,7 @@ return new class extends Migration
      *
      * Creates a comprehensive module permission registry system:
      * - Modules: Top-level application modules (HRM, CRM, DMS, etc.)
-     * - Sub-modules: Functional areas within modules (Employees, Departments, etc.)
+     * - Sub-modules: Functional areas within modules (WorkForce, Departments, etc.)
      * - Components: UI components or features that require specific access
      */
     public function up(): void

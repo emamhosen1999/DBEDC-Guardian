@@ -56,7 +56,7 @@ class LeaveQueryService
         }
 
         $this->applyDateFilters($leavesQuery, $year, $month, $isAdmin, $user->id);
-        $this->applyEmployeeFilter($leavesQuery, $employee);
+        $this->applyMemberFilter($leavesQuery, $employee);
         $this->applyStatusFilter($leavesQuery, $status);
         $this->applyLeaveTypeFilter($leavesQuery, $leaveType);
         $this->applyDepartmentFilter($leavesQuery, $department); // Apply department filter if provided
@@ -184,7 +184,7 @@ class LeaveQueryService
     /**
      * Apply employee filter to the query
      */
-    private function applyEmployeeFilter($query, ?string $employee): void
+    private function applyMemberFilter($query, ?string $employee): void
     {
         if ($employee) {
             $query->whereHas('employee', fn ($q) => $q->where('name', 'like', "%$employee%"));

@@ -1417,7 +1417,7 @@ const RoleManagement = (props) => {
                 </div>
             )}
 
-            {/* Main Container - Themed like EmployeeList */}
+            {/* Main Container - Themed like MemberList */}
             <div 
                 className="flex flex-col w-full h-full p-4"
                 role="main"

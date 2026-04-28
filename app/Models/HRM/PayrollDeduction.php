@@ -45,7 +45,7 @@ class PayrollDeduction extends Model
     {
         return [
             'provident_fund' => 'Provident Fund (PF)',
-            'employee_state_insurance' => 'Employee State Insurance (ESI)',
+            'employee_state_insurance' => 'Member State Insurance (ESI)',
             'income_tax' => 'Income Tax (TDS)',
             'professional_tax' => 'Professional Tax',
             'loan_deduction' => 'Loan Deduction',

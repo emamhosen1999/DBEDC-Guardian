@@ -42,7 +42,7 @@ import {
 import App from '@/Layouts/App.jsx';
 import PageHeader from '@/Components/PageHeader.jsx';
 import StatsCards from '@/Components/StatsCards.jsx';
-import LeaveEmployeeTable from '@/Tables/LeaveEmployeeTable.jsx';
+import LeaveMemberTable from '@/Tables/LeaveMemberTable.jsx';
 import LeaveForm from '@/Forms/LeaveForm.jsx';
 import DeleteLeaveForm from '@/Forms/DeleteLeaveForm.jsx';
 import BulkLeaveModal from '@/Components/BulkLeave/BulkLeaveModal.jsx';
@@ -506,7 +506,7 @@ const LeavesAdmin = ({ title, allUsers }) => {
         // Month filter
         const leaveMonth = dayjs(leave.from_date).format('YYYY-MM');
         if (filters.selectedMonth && leaveMonth !== filters.selectedMonth) return false;
-        // Employee filter
+        // Member filter
         if (filters.employee) {
             const user = allUsers?.find(u => String(u.id) === String(leave.user_id));
             const filterValue = filters.employee.trim().toLowerCase();
@@ -1050,11 +1050,11 @@ const LeavesAdmin = ({ title, allUsers }) => {
                                 <CardBody className="p-6">
                                     {/* Stats Cards */}
                                     <StatsCards stats={statsData} className="mb-6" />
-                                    {/* Filters Section - Matching Employee View */}
+                                    {/* Filters Section - Matching Member View */}
                                     <div className="flex flex-col sm:flex-row gap-4 mb-6">
                                         <div className="flex-1">
                                             <Input
-                                                label="Search Employee"
+                                                label="Search Member"
                                                 placeholder="Search by name or ID..."
                                                 value={filters.employee}
                                                 onChange={(e) => handleFilterChange('employee', e.target.value)}
@@ -1200,7 +1200,7 @@ const LeavesAdmin = ({ title, allUsers }) => {
                                                     <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
                                                     {filters.employee && (
                                                         <Chip variant="flat" color="primary" size="sm" onClose={() => handleFilterChange('employee', '')}>
-                                                        Employee: {filters.employee}
+                                                        Member: {filters.employee}
                                                         </Chip>
                                                     )}
                                                     {Array.isArray(filters.status) && filters.status.map(stat => (
@@ -1244,7 +1244,7 @@ const LeavesAdmin = ({ title, allUsers }) => {
                                             </Card>
                                         ) : leaves && leaves.length > 0 ? (
                                             <div className="overflow-hidden rounded-lg">
-                                                <LeaveEmployeeTable
+                                                <LeaveMemberTable
                                                     ref={leaveTableRef}
                                                     totalRows={totalRows}
                                                     lastPage={lastPage}

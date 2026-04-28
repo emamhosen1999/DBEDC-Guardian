@@ -109,7 +109,7 @@ const MarkAsPresentForm = ({
     const availableUsers = useMemo(() => {
         // This would ideally be filtered by the backend,
         // but for now we'll show all users and handle conflicts in the backend
-        return allUsers?.filter(user => user.roles?.some(role => role.name === 'Employee')) || [];
+        return allUsers?.filter(user => user.roles?.some(role => role.name === 'Member')) || [];
     }, [allUsers]);
 
     // Handle form field changes
@@ -227,7 +227,7 @@ const MarkAsPresentForm = ({
                                 <span className="text-lg font-semibold" style={{
                                     fontFamily: `var(--fontFamily, "Inter")`,
                                 }}>
-                                    Mark Employee as Present
+                                    Mark Member as Present
                                 </span>
                             </div>
                         </ModalHeader>
@@ -237,16 +237,16 @@ const MarkAsPresentForm = ({
                                 fontFamily: `var(--fontFamily, "Inter")`,
                             }}>
                                 <div className="space-y-6">
-                                    {/* Employee Selection Section */}
+                                    {/* Member Selection Section */}
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2">
                                             <UserPlusIcon className="w-5 h-5" style={{ color: 'var(--theme-primary)' }} />
                                             <h3 className="text-base font-semibold" style={{ color: 'var(--theme-foreground)' }}>
-                                                Employee Selection
+                                                Member Selection
                                             </h3>
                                         </div>                                        
                                         <div className="grid grid-cols-1 gap-4">
-                                            {/* Employee Selection */}
+                                            {/* Member Selection */}
                                             {currentUser ? (
                                                 // Show selected user when passed as prop
                                                 <div 
@@ -264,14 +264,14 @@ const MarkAsPresentForm = ({
                                                             showFallback: true,
                                                             name: currentUser.name,
                                                         }}
-                                                        description={`Employee ID: ${currentUser.employee_id}`}
+                                                        description={`Member ID: ${currentUser.employee_id}`}
                                                         name={currentUser.name}
                                                     />
                                                 </div>
                                             ) : (
                                                 // Show dropdown when no user is preselected
                                                 <Select
-                                                    label="Select Employee"
+                                                    label="Select Member"
                                                     placeholder="Choose an employee to mark as present"
                                                     selectedKeys={formData.user_id ? new Set([formData.user_id.toString()]) : new Set()}
                                                     onSelectionChange={(keys) => {

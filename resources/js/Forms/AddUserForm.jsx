@@ -472,7 +472,7 @@ const AddUserForm = ({user, allUsers, departments, designations,setUser, open, c
                         </Grid>
                         <Grid item xs={12} md={6}>
                             <Input
-                                label="Employee ID"
+                                label="Member ID"
                                 type={'text'}
                                 variant="bordered"
                                 fullWidth

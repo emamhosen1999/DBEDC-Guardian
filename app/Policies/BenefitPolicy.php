@@ -28,8 +28,8 @@ class BenefitPolicy
             return false;
         }
 
-        // Employees can only see their assigned benefits
-        if ($user->hasRole('Employee')) {
+        // WorkForce can only see their assigned benefits
+        if ($user->hasRole('Member')) {
             return $benefit->employees()->where('user_id', $user->id)->exists();
         }
 

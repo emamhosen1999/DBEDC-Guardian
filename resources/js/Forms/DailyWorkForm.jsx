@@ -50,12 +50,15 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
         id: currentRow?.id || '',
         date: currentRow?.date ? new Date(currentRow.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         number: currentRow?.number || (modalType === 'add' ? generateRFINumber() : ''),
-        planned_time: currentRow?.planned_time || 'Morning shift',
+        planned_time: currentRow?.planned_time || '',
         type: currentRow?.type || 'Structure',
         location: currentRow?.location || '',
         description: currentRow?.description || '',
         side: currentRow?.side || 'SR-R',
         qty_layer: currentRow?.qty_layer || '',
+        status: currentRow?.status || 'new',
+        inspection_result: currentRow?.inspection_result || '',
+        completion_time: currentRow?.completion_time || '',
     });
 
     const [errors, setErrors] = useState({});
@@ -72,7 +75,8 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
             icon: '🏗️',
             color: 'primary',
             suggestedSides: ['SR-R', 'SR-L', 'Both'],
-            suggestedTimes: ['Morning shift', 'Afternoon shift', 'Full day', '2-3 hours'],
+            suggestedTimes: ['08:00', '13:00', '07:00', '09:00'],
+            suggestedTimeLabels: ['Morning shift', 'Afternoon shift', 'Full day', '2-3 hours'],
             defaultLayers: 1
         },
         'Embankment': {
@@ -80,8 +84,9 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
             description: 'Earthwork, soil stabilization',
             icon: '🏔️',
             color: 'secondary',
-            suggestedSides: ['SR-R', 'SR-L', 'Both'],
-            suggestedTimes: ['Early morning', 'Morning shift', 'Full day', '4-5 hours'],
+            suggestedSides: ['TR-R', 'TR-L', 'Both'],
+            suggestedTimes: ['06:00', '08:00', '07:00', '10:00'],
+            suggestedTimeLabels: ['Early morning', 'Morning shift', 'Full day', '4-5 hours'],
             defaultLayers: 3
         },
         'Pavement': {
@@ -90,7 +95,8 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
             icon: '🛣️',
             color: 'success',
             suggestedSides: ['TR-R', 'TR-L', 'Both'],
-            suggestedTimes: ['Night shift', 'Early morning', 'Morning shift', '6-8 hours'],
+            suggestedTimes: ['22:00', '06:00', '08:00', '14:00'],
+            suggestedTimeLabels: ['Night shift', 'Early morning', 'Morning shift', '6-8 hours'],
             defaultLayers: 2
         }
     }), []);
@@ -104,7 +110,7 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
         'Both': { label: 'Both Sides', description: 'Both sides of the road' }
     }), []);
 
-    // Form validation with real-time feedback
+    // Enhanced form validation with backend-compatible rules
     const validateField = (name, value) => {
         const validations = {
             date: (val) => {
@@ -122,23 +128,93 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
             },
             location: (val) => {
                 if (!val) return 'Location is required';
-                if (val.length < 3) return 'Location must be at least 3 characters';
+
+                // Enhanced chainage format validation (matches backend)
+                const chainagePatterns = [
+                    /^[A-Z]*K\d+$/,                    // Single chainage: K14, SK14
+                    /^[A-Z]*K\d+\+\d+(\.\d+)?$/,      // Chainage with meters: K14+500, K14+500.5
+                    /^[A-Z]*K\d+-[A-Z]*K\d+(?:\+\d+(?:\.\d+)?)?$/, // Range: K14-K15, K14+500-K15+200
+                    /^[A-Z]*K\d+(?:\+\d+(?:\.\d+)?)?[RL]?(?:-[TR][RL])?$/, // With side indicators
+                ];
+
+                const isValidFormat = chainagePatterns.some(pattern => pattern.test(val));
+                if (!isValidFormat) {
+                    return 'Location must be a valid chainage format (e.g., K14, K14+500, K14-K15, K14+500R)';
+                }
+
                 return null;
             },
             description: (val) => {
                 if (!val) return 'Description is required';
                 if (val.length < 10) return 'Description must be at least 10 characters';
+                if (val.length > 500) return 'Description cannot exceed 500 characters';
                 return null;
             },
             planned_time: (val) => {
                 if (!val) return 'Planned time is required';
-                if (val.length < 2) return 'Planned time must be at least 2 characters';
+
+                // Enhanced time format validation (HH:MM 24-hour format)
+                const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+                if (!timeRegex.test(val)) {
+                    return 'Planned time must be in HH:MM format (24-hour)';
+                }
+
+                return null;
+            },
+            qty_layer: (val) => {
+                const workType = dailyWorkData.type;
+
+                // Required for embankment work
+                if (workType === 'Embankment') {
+                    if (!val || val.trim() === '') {
+                        return 'Layer number is required for embankment work';
+                    }
+
+                    // Must be a valid number
+                    const numberRegex = /^[0-9]+(\.[0-9]+)?$/;
+                    if (!numberRegex.test(val)) {
+                        return 'Layer number must be a valid number';
+                    }
+                }
+
+                // Optional for other work types but must be valid if provided
+                if (val && val.trim() !== '') {
+                    const numberRegex = /^[0-9]+(\.[0-9]+)?$/;
+                    if (!numberRegex.test(val)) {
+                        return 'Layer number must be a valid number';
+                    }
+                }
+
+                return null;
+            },
+            completion_time: (val) => {
+                // Only required if status is completed
+                if (dailyWorkData.status === 'completed') {
+                    if (!val) return 'Completion time is required for completed work';
+
+                    // Must be valid time format
+                    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+                    if (!timeRegex.test(val)) {
+                        return 'Completion time must be in HH:MM format (24-hour)';
+                    }
+
+                    // Must be after planned time
+                    if (dailyWorkData.planned_time) {
+                        const plannedTime = new Date(`1970-01-01T${dailyWorkData.planned_time}:00`);
+                        const completionTime = new Date(`1970-01-01T${val}:00`);
+
+                        if (completionTime <= plannedTime) {
+                            return 'Completion time must be after planned time';
+                        }
+                    }
+                }
+
                 return null;
             }
         };
 
         const error = validations[name]?.(value);
-        
+
         // For edit mode, don't show error initially if field has a value
         if (modalType === 'update' && value && value.toString().trim() !== '' && !error) {
             setValidationStatus(prev => ({
@@ -151,7 +227,7 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                 [name]: error ? 'error' : 'success'
             }));
         }
-        
+
         return error;
     };
 
@@ -191,7 +267,8 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                 setDailyWorkData(prev => ({
                     ...prev,
                     qty_layer: prev.qty_layer || String(config.defaultLayers),
-                    planned_time: prev.planned_time || config.suggestedTimes[0]
+                    planned_time: prev.planned_time || config.suggestedTimes[0],
+                    side: prev.side || config.suggestedSides[0]
                 }));
             }
         }
@@ -247,18 +324,52 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
         showToast.success('New RFI number generated!');
     };
 
-    // Validate entire form
+    // Enhanced form validation with cross-field business rules
     const validateForm = () => {
         const requiredFields = ['date', 'number', 'location', 'description', 'planned_time'];
         const newErrors = {};
-        
+
+        // Validate required fields
         requiredFields.forEach(field => {
             const error = validateField(field, dailyWorkData[field]);
             if (error) {
                 newErrors[field] = error;
             }
         });
-        
+
+        // Validate conditional fields
+        const qtyLayerError = validateField('qty_layer', dailyWorkData.qty_layer);
+        if (qtyLayerError) {
+            newErrors.qty_layer = qtyLayerError;
+        }
+
+        const completionTimeError = validateField('completion_time', dailyWorkData.completion_time);
+        if (completionTimeError) {
+            newErrors.completion_time = completionTimeError;
+        }
+
+        // Cross-field validation for work types
+        if (dailyWorkData.type === 'Embankment') {
+            // Embankment work must be on specific sides
+            if (!['TR-R', 'TR-L', 'Both'].includes(dailyWorkData.side)) {
+                newErrors.side = 'Embankment work must be on TR-R, TR-L, or Both sides';
+            }
+        }
+
+        if (dailyWorkData.type === 'Pavement') {
+            // Pavement work should include specific chainage
+            if (!/K\d+\+/.test(dailyWorkData.location)) {
+                newErrors.location = 'Pavement work location should include specific chainage (e.g., K14+500)';
+            }
+        }
+
+        if (dailyWorkData.type === 'Structure') {
+            // Structure work should specify kilometer
+            if (!/K\d+/.test(dailyWorkData.location)) {
+                newErrors.location = 'Structure work location should specify kilometer (e.g., K25)';
+            }
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -608,53 +719,143 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                                                 </Select>
                                             </div>
 
-                                            {/* Planned Time */}
-                                            <div className="col-span-1">
-                                                <Input
-                                                    label="Planned Time"
-                                                    type="text"
-                                                    placeholder="e.g., Morning shift, 2-3 hours, Full day"
-                                                    value={dailyWorkData.planned_time}
-                                                    onValueChange={(value) => handleChange('planned_time', value)}
-                                                    isInvalid={Boolean(errors.planned_time)}
-                                                    errorMessage={errors.planned_time}
-                                                    variant="bordered"
-                                                    size="sm"
-                                                    radius={getThemeRadius()}
-                                                    startContent={<ClockIcon size={16} className="text-default-400" />}
-                                                    endContent={getValidationIcon('planned_time')}
-                                                    classNames={{
-                                                        input: "text-small",
-                                                        inputWrapper: "min-h-unit-10"
-                                                    }}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                />
-                                            </div>
+                                             {/* Status */}
+                                             <div className="col-span-1">
+                                                 <Select
+                                                     label="Status"
+                                                     placeholder="Select Status"
+                                                     selectionMode="single"
+                                                     selectedKeys={dailyWorkData.status ? new Set([dailyWorkData.status]) : new Set()}
+                                                     onSelectionChange={(keys) => {
+                                                         const value = Array.from(keys)[0];
+                                                         handleChange('status', value || '');
+                                                     }}
+                                                     variant="bordered"
+                                                     size="sm"
+                                                     radius={getThemeRadius()}
+                                                     classNames={{
+                                                         trigger: "min-h-unit-10",
+                                                         value: "text-small"
+                                                     }}
+                                                     style={{
+                                                         fontFamily: `var(--fontFamily, "Inter")`,
+                                                     }}
+                                                 >
+                                                     <SelectItem key="new" value="new">New</SelectItem>
+                                                     <SelectItem key="in-progress" value="in-progress">In Progress</SelectItem>
+                                                     <SelectItem key="completed" value="completed">Completed</SelectItem>
+                                                     <SelectItem key="rejected" value="rejected">Rejected</SelectItem>
+                                                     <SelectItem key="resubmission" value="resubmission">Resubmission</SelectItem>
+                                                     <SelectItem key="pending" value="pending">Pending</SelectItem>
+                                                 </Select>
+                                             </div>
 
-                                            {/* Quantity/Layer */}
-                                            <div className="col-span-1">
-                                                <Input
-                                                    label="Quantity/Layer No."
-                                                    placeholder="e.g., 3 layers or 150 m³"
-                                                    value={dailyWorkData.qty_layer}
-                                                    onValueChange={(value) => handleChange('qty_layer', value)}
-                                                    isInvalid={Boolean(errors.qty_layer)}
-                                                    errorMessage={errors.qty_layer}
-                                                    variant="bordered"
-                                                    size="sm"
-                                                    radius={getThemeRadius()}
-                                                    startContent={<FileTextIcon size={16} className="text-default-400" />}
-                                                    classNames={{
-                                                        input: "text-small",
-                                                        inputWrapper: "min-h-unit-10"
-                                                    }}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                />
-                                            </div>
+                                             {/* Planned Time */}
+                                             <div className="col-span-1">
+                                                 <Input
+                                                     label="Planned Time"
+                                                     type="time"
+                                                     placeholder="HH:MM"
+                                                     value={dailyWorkData.planned_time}
+                                                     onValueChange={(value) => handleChange('planned_time', value)}
+                                                     isInvalid={Boolean(errors.planned_time)}
+                                                     errorMessage={errors.planned_time}
+                                                     variant="bordered"
+                                                     size="sm"
+                                                     radius={getThemeRadius()}
+                                                     startContent={<ClockIcon size={16} className="text-default-400" />}
+                                                     endContent={getValidationIcon('planned_time')}
+                                                     classNames={{
+                                                         input: "text-small",
+                                                         inputWrapper: "min-h-unit-10"
+                                                     }}
+                                                     style={{
+                                                         fontFamily: `var(--fontFamily, "Inter")`,
+                                                     }}
+                                                 />
+                                             </div>
+
+                                             {/* Completion Time (conditional) */}
+                                             {dailyWorkData.status === 'completed' && (
+                                                 <div className="col-span-1">
+                                                     <Input
+                                                         label="Completion Time *"
+                                                         type="time"
+                                                         placeholder="HH:MM"
+                                                         value={dailyWorkData.completion_time}
+                                                         onValueChange={(value) => handleChange('completion_time', value)}
+                                                         isInvalid={Boolean(errors.completion_time)}
+                                                         errorMessage={errors.completion_time}
+                                                         variant="bordered"
+                                                         size="sm"
+                                                         radius={getThemeRadius()}
+                                                         startContent={<ClockIcon size={16} className="text-default-400" />}
+                                                         endContent={getValidationIcon('completion_time')}
+                                                         classNames={{
+                                                             input: "text-small",
+                                                             inputWrapper: "min-h-unit-10"
+                                                         }}
+                                                         style={{
+                                                             fontFamily: `var(--fontFamily, "Inter")`,
+                                                         }}
+                                                     />
+                                                 </div>
+                                             )}
+
+                                             {/* Inspection Result (conditional) */}
+                                             {dailyWorkData.status === 'completed' && (
+                                                 <div className="col-span-1">
+                                                     <Select
+                                                         label="Inspection Result *"
+                                                         placeholder="Select Result"
+                                                         selectionMode="single"
+                                                         selectedKeys={dailyWorkData.inspection_result ? new Set([dailyWorkData.inspection_result]) : new Set()}
+                                                         onSelectionChange={(keys) => {
+                                                             const value = Array.from(keys)[0];
+                                                             handleChange('inspection_result', value || '');
+                                                         }}
+                                                         variant="bordered"
+                                                         size="sm"
+                                                         radius={getThemeRadius()}
+                                                         classNames={{
+                                                             trigger: "min-h-unit-10",
+                                                             value: "text-small"
+                                                         }}
+                                                         style={{
+                                                             fontFamily: `var(--fontFamily, "Inter")`,
+                                                         }}
+                                                     >
+                                                         <SelectItem key="pass" value="pass">Pass</SelectItem>
+                                                         <SelectItem key="approved" value="approved">Approved</SelectItem>
+                                                         <SelectItem key="fail" value="fail">Fail</SelectItem>
+                                                         <SelectItem key="rejected" value="rejected">Rejected</SelectItem>
+                                                     </Select>
+                                                 </div>
+                                             )}
+
+                                             {/* Quantity/Layer */}
+                                             <div className="col-span-1">
+                                                 <Input
+                                                     label={`Quantity/Layer No.${dailyWorkData.type === 'Embankment' ? ' *' : ''}`}
+                                                     placeholder={dailyWorkData.type === 'Embankment' ? 'Required for embankment (e.g., 3)' : 'Optional (e.g., 3 layers or 150 m³)'}
+                                                     value={dailyWorkData.qty_layer}
+                                                     onValueChange={(value) => handleChange('qty_layer', value)}
+                                                     isInvalid={Boolean(errors.qty_layer)}
+                                                     errorMessage={errors.qty_layer}
+                                                     variant="bordered"
+                                                     size="sm"
+                                                     radius={getThemeRadius()}
+                                                     startContent={<FileTextIcon size={16} className="text-default-400" />}
+                                                     endContent={getValidationIcon('qty_layer')}
+                                                     classNames={{
+                                                         input: "text-small",
+                                                         inputWrapper: "min-h-unit-10"
+                                                     }}
+                                                     style={{
+                                                         fontFamily: `var(--fontFamily, "Inter")`,
+                                                     }}
+                                                 />
+                                             </div>
 
                                             {/* Description */}
                                             <div className="col-span-full">
@@ -699,24 +900,24 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                                                                         Smart Suggestions for {workTypeConfigs[dailyWorkData.type].label}
                                                                     </h4>
                                                                     
-                                                                    {/* Suggested planned times */}
-                                                                    <div className="mb-2">
-                                                                        <p className="text-xs text-default-600 mb-1">Recommended times:</p>
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            {workTypeConfigs[dailyWorkData.type].suggestedTimes.map((time, index) => (
-                                                                                <Chip
-                                                                                    key={index}
-                                                                                    size="sm"
-                                                                                    variant="flat"
-                                                                                    color="primary"
-                                                                                    className="cursor-pointer hover:bg-primary/20 transition-colors"
-                                                                                    onClick={() => handleChange('planned_time', time)}
-                                                                                >
-                                                                                    {time}
-                                                                                </Chip>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
+                                                                     {/* Suggested planned times */}
+                                                                     <div className="mb-2">
+                                                                         <p className="text-xs text-default-600 mb-1">Recommended times:</p>
+                                                                         <div className="flex flex-wrap gap-1">
+                                                                             {workTypeConfigs[dailyWorkData.type].suggestedTimes.map((time, index) => (
+                                                                                 <Chip
+                                                                                     key={index}
+                                                                                     size="sm"
+                                                                                     variant="flat"
+                                                                                     color="primary"
+                                                                                     className="cursor-pointer hover:bg-primary/20 transition-colors"
+                                                                                     onClick={() => handleChange('planned_time', time)}
+                                                                                 >
+                                                                                     {workTypeConfigs[dailyWorkData.type].suggestedTimeLabels[index] || time}
+                                                                                 </Chip>
+                                                                             ))}
+                                                                         </div>
+                                                                     </div>
                                                                     
                                                                     <p className="text-xs text-default-600">
                                                                         Typical layers: {workTypeConfigs[dailyWorkData.type].defaultLayers}

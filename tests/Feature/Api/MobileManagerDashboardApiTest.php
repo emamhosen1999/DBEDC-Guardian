@@ -205,20 +205,17 @@ class MobileManagerDashboardApiTest extends TestCase
     private function insertObjectionForDailyWork(DailyWork $dailyWork, int $creatorId, string $status): int
     {
         $payload = [
-            'title' => 'Summary Objection '.strtoupper($status),
-            'category' => 'other',
-            'description' => 'Objection for summary metrics.',
-            'reason' => 'Need decision.',
-            'status' => $status,
-            'created_by' => $creatorId,
-            'updated_by' => $creatorId,
+            'title' => $faker->sentence,
+            'category' => RfiObjection::CATEGORY_DESIGN_CONFLICT,
+            'description' => $faker->paragraph,
+            'reason' => $faker->sentence,
+            'status' => RfiObjection::STATUS_DRAFT,
+            'created_by' => $factoryAdmin->id,
+            'updated_by' => $factoryAdmin->id,
             'created_at' => now(),
             'updated_at' => now(),
+            'type' => DailyWork::TYPE_STRUCTURE,
         ];
-
-        if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
-            $payload['daily_work_id'] = $dailyWork->id;
-        }
 
         if (Schema::hasColumn('rfi_objections', 'type')) {
             $payload['type'] = DailyWork::TYPE_STRUCTURE;

@@ -81,7 +81,7 @@ export default function PerformanceIndex({ reviews = [], stats, filters = {} }) 
                         <table className="min-w-full divide-y divide-gray-200 text-sm">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left font-medium text-gray-600">Employee</th>
+                                    <th className="px-4 py-3 text-left font-medium text-gray-600">Member</th>
                                     <th className="px-4 py-3 text-left font-medium text-gray-600">Reviewer</th>
                                     <th className="px-4 py-3 text-left font-medium text-gray-600">Period</th>
                                     <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>

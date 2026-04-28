@@ -92,7 +92,7 @@ class PerformanceReviewController extends Controller
     public function create()
     {
         return Inertia::render('HR/Performance/Create', [
-            'employees' => User::role('Employee')->get(['id', 'name']),
+            'employees' => User::role('Member')->get(['id', 'name']),
             'reviewers' => User::role(['HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'departments' => Department::all(['id', 'name']),
             'templates' => PerformanceReviewTemplate::where('is_active', true)->get(['id', 'name']),
@@ -154,7 +154,7 @@ class PerformanceReviewController extends Controller
 
         return Inertia::render('HR/Performance/Edit', [
             'review' => $review,
-            'employees' => User::role('Employee')->get(['id', 'name']),
+            'employees' => User::role('Member')->get(['id', 'name']),
             'reviewers' => User::role(['HR Manager', 'Department Manager', 'Team Lead'])->get(['id', 'name']),
             'departments' => Department::all(['id', 'name']),
             'templates' => PerformanceReviewTemplate::where('is_active', true)->get(['id', 'name']),

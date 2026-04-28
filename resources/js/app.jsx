@@ -105,7 +105,7 @@ createInertiaApp({
     
     title: (title) => {
         const page = window.Laravel?.inertiaProps || {};
-        const appName = page.app?.name || 'aeos365';
+        const appName = page.app?.name || 'DBEDC Guardian';
         return `${title} - ${appName}`;
     },
     resolve: (name) =>

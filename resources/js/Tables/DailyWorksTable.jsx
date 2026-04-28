@@ -2202,7 +2202,7 @@ const DailyWorksTable = ({
                                         <User
                                             size="sm"
                                             name={incharge.name}
-                                            description={`Employee ID: ${incharge.employee_id || 'N/A'}`}
+                                            description={`Member ID: ${incharge.employee_id || 'N/A'}`}
                                             avatarProps={{
                                                 size: "sm",
                                                 src: incharge.profile_image_url || incharge.profile_image,

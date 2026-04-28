@@ -102,7 +102,7 @@ class DMSSeeder extends Seeder
         // Create default folders
         $folders = [
             [
-                'name' => 'Employee Files',
+                'name' => 'Member Files',
                 'description' => 'Individual employee documentation',
                 'parent_id' => null,
                 'created_by' => 1,

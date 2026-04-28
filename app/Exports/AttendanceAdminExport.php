@@ -21,7 +21,7 @@ class AttendanceAdminExport
         $monthName = $from->format('F Y');
 
         $users = User::with(['attendances', 'leaves'])
-            ->role('Employee')
+            ->role('Member')
             ->where('active', 1)
             ->get();
 
@@ -34,7 +34,7 @@ class AttendanceAdminExport
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->getDefaultRowDimension()->setRowHeight(25);
 
-        $headerTitle = 'Dhaka Bypass Expressway Development Company Ltd. Attendance Record-DBEDC Site Office Employee';
+        $headerTitle = 'Dhaka Bypass Expressway Development Company Ltd. Attendance Record-DBEDC Site Office Member';
         $sheet->setCellValue('A1', $headerTitle);
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);

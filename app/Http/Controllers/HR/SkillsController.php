@@ -62,26 +62,26 @@ class SkillsController extends Controller
 
     public function employeeSkills($employeeId)
     {
-        return Inertia::render('HR/Skills/EmployeeSkills', [
-            'title' => 'Employee Skills',
+        return Inertia::render('HR/Skills/MemberSkills', [
+            'title' => 'Member Skills',
             'employeeId' => $employeeId,
             'skills' => [],
         ]);
     }
 
-    public function storeEmployeeSkill(Request $request, $employeeId)
+    public function storeMemberSkill(Request $request, $employeeId)
     {
         // Implementation for storing employee skills
         return redirect()->back()->with('success', 'Skill assigned to employee successfully');
     }
 
-    public function updateEmployeeSkill(Request $request, $employeeId, $skillId)
+    public function updateMemberSkill(Request $request, $employeeId, $skillId)
     {
         // Implementation for updating employee skills
-        return redirect()->back()->with('success', 'Employee skill updated successfully');
+        return redirect()->back()->with('success', 'Member skill updated successfully');
     }
 
-    public function destroyEmployeeSkill($employeeId, $skillId)
+    public function destroyMemberSkill($employeeId, $skillId)
     {
         // Implementation for removing employee skills
         return redirect()->back()->with('success', 'Skill removed from employee successfully');

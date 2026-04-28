@@ -1,0 +1,2722 @@
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
+import {
+    ShieldExclamationIcon,
+    PlusIcon,
+    ChartBarIcon,
+    MagnifyingGlassIcon,
+    CheckCircleIcon,
+    ClockIcon,
+    ExclamationTriangleIcon,
+    CalendarIcon,
+    AdjustmentsHorizontalIcon,
+    UserIcon,
+    MapPinIcon,
+    ArrowPathIcon,
+    LinkIcon,
+    PencilIcon,
+    TrashIcon,
+    EllipsisVerticalIcon,
+    DocumentTextIcon,
+    CalendarDaysIcon,
+    ChevronDownIcon,
+    DocumentArrowUpIcon,
+    PhotoIcon,
+    DocumentIcon,
+    XMarkIcon,
+    ArrowDownTrayIcon,
+} from "@heroicons/react/24/outline";
+import {
+    CheckCircleIcon as CheckCircleSolid,
+    XCircleIcon as XCircleSolid,
+    ClockIcon as ClockSolid,
+    ExclamationTriangleIcon as ExclamationTriangleSolid,
+    ShieldExclamationIcon as ShieldExclamationSolid,
+} from '@heroicons/react/24/solid';
+import { Head, router, usePage } from "@inertiajs/react";
+import App from "@/Layouts/App.jsx";
+import {
+    Card,
+    CardHeader,
+    CardBody,
+    Input,
+    Button,
+    Spinner,
+    ScrollShadow,
+    Skeleton,
+    Select,
+    SelectItem,
+    ButtonGroup,
+    Table,
+    TableHeader,
+    TableColumn,
+    TableBody,
+    TableRow,
+    TableCell,
+    Chip,
+    Tooltip,
+    Pagination,
+    Dropdown,
+    DropdownTrigger,
+    DropdownMenu,
+    DropdownItem,
+    Divider,
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    Textarea,
+    Checkbox,
+    CheckboxGroup,
+    useDisclosure
+} from "@heroui/react";
+import StatsCards from "@/Components/StatsCards.jsx";
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { getThemeRadius } from '@/Hooks/useThemeRadius.js';
+import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
+import PullToRefresh from "@/Components/Common/PullToRefresh.jsx";
+import SwipeableCard from '@/Components/Common/SwipeableCard';
+import ProfileAvatar from '@/Components/ProfileAvatar';
+import {
+    STATUS_CONFIG,
+    CATEGORY_CONFIG,
+    getStatusConfig,
+    getCategoryConfig,
+} from '@/Config/objectionConfig';
+
+// Status configuration (use shared config, map solidIcon to icon for local compatibility)
+const statusConfig = Object.fromEntries(
+    Object.entries(STATUS_CONFIG).map(([key, val]) => [key, {
+        color: val.color,
+        icon: val.solidIcon || val.icon,
+        label: val.label,
+    }])
+);
+
+// Category configuration (use shared config)
+const categoryConfig = Object.fromEntries(
+    Object.entries(CATEGORY_CONFIG).map(([key, val]) => [key, {
+        label: val.label,
+        color: val.color,
+    }])
+);
+
+const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, categories, creators, statistics }) => {
+    const { auth } = usePage().props;
+    const isLargeScreen = useMediaQuery('(min-width: 1025px)');
+    const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
+    const isMobile = useMediaQuery('(max-width: 640px)');
+
+    // Role-based access control
+    const userIsAdmin = auth.roles?.includes('Administrator') ||
+                        auth.roles?.includes('Super Administrator') ||
+                        auth.roles?.includes('Daily Work Manager') || false;
+
+    const canReviewObjections = auth.roles?.some(role =>
+        ['Super Administrator', 'Administrator', 'Project Manager', 'Consultant', 'HR Manager'].includes(role)
+    );
+
+    // AbortController ref for cancelling in-flight requests
+    const abortControllerRef = useRef(null);
+
+    // Pull-to-refresh state for mobile
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // State
+    const [loading, setLoading] = useState(false);
+    const [tableLoading, setTableLoading] = useState(false);
+    const [statsLoading, setStatsLoading] = useState(false);
+    const [search, setSearch] = useState(filters?.search || '');
+    const [currentPage, setCurrentPage] = useState(initialObjections?.current_page || 1);
+    const [expandedItems, setExpandedItems] = useState(new Set());
+    
+    // Local objections state for smooth updates without page reload
+    const [objections, setObjections] = useState(initialObjections);
+    
+    // Sync with props when they change (e.g., on page navigation)
+    useEffect(() => {
+        setObjections(initialObjections);
+    }, [initialObjections]);
+
+    // Filter state
+    const [showFilters, setShowFilters] = useState(false);
+    const [filterData, setFilterData] = useState({
+        status: filters?.status || 'all',
+        category: filters?.category || 'all',
+        creator: filters?.creator || '',
+    });
+
+    // Create modal state
+    const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+    const [createLoading, setCreateLoading] = useState(false);
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [createForm, setCreateForm] = useState({
+        title: '',
+        category: 'other',
+        type: '', // Work type: Embankment, Structure, Pavement
+        chainage_from: '', // Legacy - kept for backward compatibility
+        chainage_to: '',   // Legacy - kept for backward compatibility
+        specific_chainages: '', // New: comma-separated specific chainages
+        chainage_range_from: '', // New: range start
+        chainage_range_to: '',   // New: range end
+        description: '',
+        reason: '',
+        status: 'draft',
+    });
+
+    // Work type config for objections (matching DailyWork types)
+    const workTypeConfig = {
+        'Embankment': { label: 'Embankment', icon: '🏔️', color: 'secondary' },
+        'Structure': { label: 'Structure', icon: '🏗️', color: 'primary' },
+        'Pavement': { label: 'Pavement', icon: '🛣️', color: 'success' },
+    };
+
+    // File handlers for create modal
+    const handleFileSelect = (event) => {
+        const files = Array.from(event.target.files);
+        setSelectedFiles(prev => [...prev, ...files]);
+        event.target.value = ''; // Reset input
+    };
+
+    const removeSelectedFile = (index) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const resetCreateForm = () => {
+        setCreateForm({
+            title: '',
+            category: 'other',
+            type: '',
+            chainage_from: '', // Legacy
+            chainage_to: '',   // Legacy
+            specific_chainages: '', // New
+            chainage_range_from: '', // New
+            chainage_range_to: '',   // New
+            description: '',
+            reason: '',
+            status: 'draft',
+        });
+        setSelectedFiles([]);
+    };
+
+    // Attach RFIs modal state
+    const { isOpen: isAttachOpen, onOpen: onAttachOpen, onClose: onAttachClose } = useDisclosure();
+    const [selectedObjection, setSelectedObjection] = useState(null);
+    const [suggestedRfis, setSuggestedRfis] = useState([]);
+    const [selectedRfis, setSelectedRfis] = useState([]);
+    const [attachLoading, setAttachLoading] = useState(false);
+    const [rfiSearchLoading, setRfiSearchLoading] = useState(false);
+    const [rfiSearchQuery, setRfiSearchQuery] = useState('');
+    const [exportLoading, setExportLoading] = useState(false);
+
+    // Edit modal state
+    const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+    const [editLoading, setEditLoading] = useState(false);
+    const [editObjection, setEditObjection] = useState(null);
+    const [editForm, setEditForm] = useState({
+        title: '',
+        category: 'other',
+        type: '',
+        chainage_from: '', // Legacy
+        chainage_to: '',   // Legacy
+        specific_chainages: '', // New
+        chainage_range_from: '', // New
+        chainage_range_to: '',   // New
+        description: '',
+        reason: '',
+    });
+
+    // Status update modal state
+    const { isOpen: isStatusOpen, onOpen: onStatusOpen, onClose: onStatusClose } = useDisclosure();
+    const [statusLoading, setStatusLoading] = useState(false);
+    const [statusAction, setStatusAction] = useState(null); // 'submit', 'review', 'resolve', 'reject'
+    const [resolutionNotes, setResolutionNotes] = useState('');
+
+    // History modal state
+    const { isOpen: isHistoryOpen, onOpen: onHistoryOpen, onClose: onHistoryClose } = useDisclosure();
+    const [historyObjection, setHistoryObjection] = useState(null);
+
+    // View details modal state
+    const { isOpen: isDetailsOpen, onOpen: onDetailsOpen, onClose: onDetailsClose } = useDisclosure();
+    const [detailsObjection, setDetailsObjection] = useState(null);
+
+    // Statistics state
+    const [apiStats, setApiStats] = useState(statistics || null);
+
+    // Cancel any in-flight request before starting a new one
+    const cancelPendingRequest = useCallback(() => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+        return abortControllerRef.current.signal;
+    }, []);
+
+    // Build filter params for API calls
+    const buildFilterParams = useCallback(() => {
+        const params = {};
+        if (search) params.search = search;
+        if (filterData.status && filterData.status !== 'all') params.status = filterData.status;
+        if (filterData.category && filterData.category !== 'all') params.category = filterData.category;
+        if (filterData.creator) params.creator = filterData.creator;
+        params.page = currentPage;
+        return params;
+    }, [search, filterData, currentPage]);
+
+    // Fetch data
+    const fetchData = useCallback(async (showLoader = true) => {
+        if (showLoader) setTableLoading(true);
+
+        const params = buildFilterParams();
+
+        router.get(route('objections.index'), params, {
+            preserveState: true,
+            preserveScroll: true,
+            onFinish: () => {
+                setTableLoading(false);
+                setIsRefreshing(false);
+            }
+        });
+    }, [buildFilterParams]);
+
+    // Refresh data
+    const refreshData = useCallback(() => {
+        setCurrentPage(1);
+        fetchData();
+    }, [fetchData]);
+
+    // Pull-to-refresh handler for mobile
+    const handlePullToRefresh = useCallback(async () => {
+        if (isRefreshing || !isMobile) return;
+        setIsRefreshing(true);
+        refreshData();
+        showToast.success('Data refreshed');
+    }, [isRefreshing, isMobile, refreshData]);
+
+    // Debounced search handler
+    const searchTimeoutRef = useRef(null);
+    const handleSearch = (event) => {
+        const value = event.target.value;
+        setSearch(value);
+        setCurrentPage(1);
+
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = setTimeout(() => {
+            fetchData();
+        }, 300);
+    };
+
+    // Handle filter changes
+    const handleFilterChange = (key, value) => {
+        setFilterData(prev => ({ ...prev, [key]: value }));
+        setCurrentPage(1);
+    };
+
+    // Handle page change
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
+    // Toggle expanded state
+    const toggleExpanded = (id) => {
+        setExpandedItems(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    // Format date
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        try {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        } catch {
+            return 'Invalid date';
+        }
+    };
+
+    // Get status chip
+    const getStatusChip = (status) => {
+        const config = statusConfig[status] || statusConfig['draft'];
+        const StatusIcon = config.icon;
+
+        return (
+            <Chip
+                size="sm"
+                variant="flat"
+                color={config.color}
+                startContent={<StatusIcon className="w-3 h-3" />}
+                classNames={{
+                    base: "h-6",
+                    content: "text-xs font-medium"
+                }}
+            >
+                {config.label}
+            </Chip>
+        );
+    };
+
+    // Get category chip
+    const getCategoryChip = (category) => {
+        const config = categoryConfig[category] || categoryConfig['other'];
+        return (
+            <Chip size="sm" variant="flat" color={config.color} className="text-xs">
+                {config.label}
+            </Chip>
+        );
+    };
+
+    // Get type chip
+    const getTypeChip = (type) => {
+        if (!type) return null;
+        const config = workTypeConfig[type];
+        if (!config) return null;
+        return (
+            <Chip size="sm" variant="flat" color={config.color} className="text-xs" startContent={<span className="text-xs">{config.icon}</span>}>
+                {config.label}
+            </Chip>
+        );
+    };
+
+    // Create objection
+    const handleCreateObjection = async () => {
+        if (!createForm.title || !createForm.description || !createForm.reason) {
+            showToast.error('Please fill in all required fields');
+            return;
+        }
+
+        setCreateLoading(true);
+        try {
+            // Use FormData to support file uploads
+            const formData = new FormData();
+            formData.append('title', createForm.title);
+            formData.append('category', createForm.category);
+            if (createForm.type) {
+                formData.append('type', createForm.type);
+            }
+            formData.append('description', createForm.description);
+            formData.append('reason', createForm.reason);
+            formData.append('status', createForm.status);
+            
+            // Add chainage fields - use new fields if provided, otherwise fall back to legacy
+            if (createForm.specific_chainages) {
+                formData.append('specific_chainages', createForm.specific_chainages);
+            }
+            if (createForm.chainage_range_from) {
+                formData.append('chainage_range_from', createForm.chainage_range_from);
+            }
+            if (createForm.chainage_range_to) {
+                formData.append('chainage_range_to', createForm.chainage_range_to);
+            }
+            // Legacy support: if new fields not used, send legacy fields
+            if (!createForm.specific_chainages && !createForm.chainage_range_from && createForm.chainage_from) {
+                formData.append('chainage_from', createForm.chainage_from);
+            }
+            if (!createForm.specific_chainages && !createForm.chainage_range_to && createForm.chainage_to) {
+                formData.append('chainage_to', createForm.chainage_to);
+            }
+            
+            // Append files
+            selectedFiles.forEach((file) => {
+                formData.append('files[]', file);
+            });
+
+            const response = await axios.post(route('objections.store'), formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            showToast.success(response.data.message || 'Objection created successfully');
+            onCreateClose();
+            resetCreateForm();
+            router.reload({ only: ['objections', 'statistics'] });
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to create objection');
+        } finally {
+            setCreateLoading(false);
+        }
+    };
+
+    // Suggest RFIs by chainage or search (filtered by type if provided)
+    const handleSuggestRfis = async (chainageFrom, chainageTo, searchQuery = '', objectionType = null) => {
+        console.log('handleSuggestRfis called:', { chainageFrom: chainageFrom?.substring(0, 50), chainageTo, searchQuery, objectionType });
+        setRfiSearchLoading(true);
+        try {
+            const params = {};
+            if (chainageFrom) params.chainage_from = chainageFrom;
+            if (chainageTo) params.chainage_to = chainageTo;
+            if (searchQuery) params.search = searchQuery;
+            if (objectionType) params.type = objectionType;
+            
+            console.log('Calling API with params:', { ...params, chainage_from: params.chainage_from?.substring(0, 50) });
+            const response = await axios.get(route('objections.suggestRfis'), { params });
+            console.log('API response:', { count: response.data.rfis?.length, matchType: response.data.match_type });
+            setSuggestedRfis(response.data.rfis || []);
+        } catch (error) {
+            console.error('Failed to suggest RFIs:', error);
+            setSuggestedRfis([]);
+        } finally {
+            setRfiSearchLoading(false);
+        }
+    };
+
+    // Handle RFI search
+    const handleRfiSearch = () => {
+        if (selectedObjection) {
+            const summary = selectedObjection.chainage_summary || {};
+            const specificChainages = summary.specific?.join(', ') || '';
+            const rangeFrom = summary.range?.split(' - ')[0] || selectedObjection.chainage_from;
+            const rangeTo = summary.range?.split(' - ')[1] || selectedObjection.chainage_to;
+            const objType = selectedObjection.type;
+            
+            if (rfiSearchQuery) {
+                // Search with query
+                handleSuggestRfis(null, null, rfiSearchQuery, objType);
+            } else if (specificChainages) {
+                handleSuggestRfis(specificChainages, null, '', objType);
+            } else {
+                handleSuggestRfis(rangeFrom, rangeTo, rfiSearchQuery, objType);
+            }
+        } else if (rfiSearchQuery) {
+            handleSuggestRfis(null, null, rfiSearchQuery);
+        }
+    };
+
+    // Open attach modal
+    const openAttachModal = (objection) => {
+        setSelectedObjection(objection);
+        setSelectedRfis(objection.daily_works?.map(rfi => String(rfi.id)) || []);
+        setRfiSearchQuery('');
+        setSuggestedRfis([]);
+        
+        // Auto-search using new chainage_summary or legacy fields
+        const summary = objection.chainage_summary || {};
+        const specificChainages = summary.specific?.join(', ') || '';
+        const rangeFrom = summary.range?.split(' - ')[0] || objection.chainage_from;
+        const rangeTo = summary.range?.split(' - ')[1] || objection.chainage_to;
+        const objType = objection.type;
+        
+        if (specificChainages) {
+            // Use specific chainages
+            handleSuggestRfis(specificChainages, null, '', objType);
+        } else if (rangeFrom && rangeTo) {
+            // Use range
+            handleSuggestRfis(rangeFrom, rangeTo, '', objType);
+        } else if (rangeFrom) {
+            // Single chainage
+            handleSuggestRfis(rangeFrom, null, '', objType);
+        }
+        onAttachOpen();
+    };
+
+    // Attach RFIs to objection
+    const handleAttachRfis = async () => {
+        if (!selectedObjection || selectedRfis.length === 0) {
+            showToast.error('Please select at least one RFI');
+            return;
+        }
+
+        setAttachLoading(true);
+        try {
+            const response = await axios.post(route('objections.attachRfis', selectedObjection.id), {
+                rfi_ids: selectedRfis.map(id => parseInt(id)),
+            });
+            showToast.success(response.data.message || 'RFIs attached successfully');
+            onAttachClose();
+            router.reload({ only: ['objections'] });
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to attach RFIs');
+        } finally {
+            setAttachLoading(false);
+        }
+    };
+
+    // Export selected RFIs to Excel (or all if none selected)
+    const handleExportSelectedRfis = async () => {
+        if (suggestedRfis.length === 0) {
+            showToast.error('No RFIs to export');
+            return;
+        }
+
+        setExportLoading(true);
+        try {
+            // If no RFIs selected, export all; otherwise export only selected
+            const rfisToExport = selectedRfis.length > 0 
+                ? suggestedRfis.filter(rfi => selectedRfis.includes(String(rfi.id)))
+                : suggestedRfis;
+            
+            // Format data for export
+            const exportData = rfisToExport.map(rfi => ({
+                'RFI Number': rfi.number || '',
+                'Date': rfi.date || 'N/A',
+                'Chainage': rfi.location || 'N/A',
+                'Side': rfi.side || 'N/A',
+                'Layer/Qty': rfi.qty_layer || 'N/A',
+                'Type': rfi.type || 'N/A',
+                'Description': rfi.description || 'N/A',
+                'Status': rfi.status || 'N/A',
+                'Objection Title': selectedObjection?.title || 'N/A',
+                'Objection Chainage': `${selectedObjection?.chainage_from || ''} - ${selectedObjection?.chainage_to || ''}`,
+            }));
+
+            // Export to Excel using xlsx library
+            if (typeof window !== 'undefined') {
+                const XLSX = await import('xlsx');
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'RFIs');
+                
+                // Auto-size columns
+                const colWidths = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
+                worksheet['!cols'] = colWidths;
+
+                const filename = `rfis_${selectedObjection?.title?.replace(/[\/\\\s]/g, '_') || 'export'}_${new Date().toISOString().split('T')[0]}`;
+                XLSX.writeFile(workbook, `${filename}.xlsx`);
+                showToast.success(`Exported ${exportData.length} RFIs successfully`);
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            showToast.error('Failed to export RFIs');
+        } finally {
+            setExportLoading(false);
+        }
+    };
+
+    // Open edit modal
+    const openEditModal = (objection) => {
+        setEditObjection(objection);
+        
+        // Extract specific chainages and range from objection data
+        // The backend should load chainages relationship with chainage_summary
+        const chainageSummary = objection.chainage_summary || {};
+        const specificChainages = chainageSummary.specific_chainages || [];
+        const chainageRange = chainageSummary.chainage_range || {};
+        
+        setEditForm({
+            title: objection.title || '',
+            category: objection.category || 'other',
+            type: objection.type || '',
+            // Legacy fields (keep for backward compatibility)
+            chainage_from: objection.chainage_from || chainageRange.from || '',
+            chainage_to: objection.chainage_to || chainageRange.to || '',
+            // New fields
+            specific_chainages: specificChainages.join(', ') || '',
+            chainage_range_from: chainageRange.from || objection.chainage_from || '',
+            chainage_range_to: chainageRange.to || objection.chainage_to || '',
+            description: objection.description || '',
+            reason: objection.reason || '',
+        });
+        onEditOpen();
+    };
+
+    // Handle edit objection
+    const handleEditObjection = async () => {
+        if (!editForm.title || !editForm.description || !editForm.reason) {
+            showToast.error('Please fill in all required fields');
+            return;
+        }
+
+        setEditLoading(true);
+        try {
+            const response = await axios.put(route('objections.update', editObjection.id), editForm);
+            showToast.success(response.data.message || 'Objection updated successfully');
+            onEditClose();
+            router.reload({ only: ['objections', 'statistics'] });
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to update objection');
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
+    // Open status modal
+    const openStatusModal = (objection, action) => {
+        setSelectedObjection(objection);
+        setStatusAction(action);
+        setResolutionNotes('');
+        onStatusOpen();
+    };
+
+    // Handle status change
+    const handleStatusChange = async () => {
+        if (!selectedObjection || !statusAction) return;
+
+        // Validate resolution notes for resolve/reject
+        if (['resolve', 'reject'].includes(statusAction) && !resolutionNotes.trim()) {
+            showToast.error('Please provide resolution notes');
+            return;
+        }
+
+        setStatusLoading(true);
+        try {
+            let response;
+            
+            switch (statusAction) {
+                case 'submit':
+                    response = await axios.post(route('objections.submit', selectedObjection.id));
+                    break;
+                case 'review':
+                    response = await axios.post(route('objections.review', selectedObjection.id));
+                    break;
+                case 'resolve':
+                    response = await axios.post(route('objections.resolve', selectedObjection.id), {
+                        resolution_notes: resolutionNotes,
+                    });
+                    break;
+                case 'reject':
+                    response = await axios.post(route('objections.reject', selectedObjection.id), {
+                        resolution_notes: resolutionNotes,
+                    });
+                    break;
+                default:
+                    throw new Error('Invalid action');
+            }
+            
+            showToast.success(response.data.message || 'Status updated successfully');
+            
+            // Update local state with the updated objection
+            if (response.data.objection) {
+                setObjections(prev => ({
+                    ...prev,
+                    data: prev.data.map(obj => 
+                        obj.id === response.data.objection.id ? response.data.objection : obj
+                    )
+                }));
+            }
+            
+            // Update statistics locally
+            if (response.data.statistics) {
+                setApiStats(response.data.statistics);
+            }
+            
+            onStatusClose();
+            setResolutionNotes('');
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to update status');
+        } finally {
+            setStatusLoading(false);
+        }
+    };
+
+    // Delete objection
+    const handleDeleteObjection = async (objection) => {
+        if (!confirm('Are you sure you want to delete this objection?')) return;
+        
+        try {
+            const response = await axios.delete(route('objections.destroy', objection.id));
+            showToast.success(response.data.message || 'Objection deleted successfully');
+            router.reload({ only: ['objections', 'statistics'] });
+        } catch (error) {
+            showToast.error(error.response?.data?.error || 'Failed to delete objection');
+        }
+    };
+
+    // Get status action label
+    const getStatusActionLabel = (action) => {
+        switch (action) {
+            case 'submit': return 'Submit for Review';
+            case 'review': return 'Start Review';
+            case 'resolve': return 'Resolve Objection';
+            case 'reject': return 'Reject Objection';
+            default: return 'Update Status';
+        }
+    };
+
+    // Open history modal
+    const openHistoryModal = (objection) => {
+        setHistoryObjection(objection);
+        onHistoryOpen();
+    };
+
+    // Open details modal
+    const openDetailsModal = (objection) => {
+        setDetailsObjection(objection);
+        onDetailsOpen();
+    };
+
+    // Format status for display
+    const formatStatus = (status) => {
+        return statusConfig[status]?.label || status?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown';
+    };
+
+    // Effect for filter and pagination changes
+    useEffect(() => {
+        fetchData();
+    }, [filterData, currentPage]);
+
+    // Calculate statistics
+    const stats = useMemo(() => {
+        const data = apiStats || {};
+        const total = data.total || objections?.total || 0;
+        const active = data.active || 0;
+        const resolved = data.resolved || 0;
+        const pending = data.pending || 0;
+        const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+
+        return [
+            {
+                title: 'Total Objections',
+                value: total.toLocaleString(),
+                icon: <ShieldExclamationIcon className="w-5 h-5" />,
+                color: 'text-blue-600',
+                bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+                description: `${active} active`,
+                trend: active > 0 ? 'down' : 'neutral'
+            },
+            {
+                title: 'Active Issues',
+                value: active.toLocaleString(),
+                icon: <ExclamationTriangleIcon className="w-5 h-5" />,
+                color: active > 10 ? 'text-red-600' : 'text-warning-600',
+                bgColor: active > 10 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-warning-50 dark:bg-warning-900/20',
+                description: active > 0 ? 'Require attention' : 'All clear!',
+                trend: active > 10 ? 'down' : active > 0 ? 'neutral' : 'up'
+            },
+            {
+                title: 'Pending Review',
+                value: pending.toLocaleString(),
+                icon: <ClockIcon className="w-5 h-5" />,
+                color: 'text-orange-600',
+                bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+                description: pending > 0 ? 'Awaiting action' : 'All caught up!',
+                trend: pending > 5 ? 'down' : 'neutral'
+            },
+            {
+                title: 'Resolution Rate',
+                value: `${resolutionRate}%`,
+                icon: <CheckCircleIcon className="w-5 h-5" />,
+                color: resolutionRate >= 80 ? 'text-green-600' : resolutionRate >= 50 ? 'text-yellow-600' : 'text-red-600',
+                bgColor: resolutionRate >= 80 ? 'bg-green-50 dark:bg-green-900/20' : resolutionRate >= 50 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-red-50 dark:bg-red-900/20',
+                description: `${resolved} resolved`,
+                trend: resolutionRate >= 80 ? 'up' : resolutionRate >= 50 ? 'neutral' : 'down'
+            }
+        ];
+    }, [apiStats, objections]);
+
+    // Action buttons configuration
+    const actionButtons = [
+        {
+            label: 'New Objection',
+            icon: <PlusIcon className="w-4 h-4" />,
+            color: 'primary',
+            variant: 'solid',
+            onPress: onCreateOpen
+        },
+    ];
+
+    // Desktop columns
+    const columns = [
+        { key: 'title', label: 'Title' },
+        { key: 'category', label: 'Category' },
+        { key: 'chainage', label: 'Chainage Range' },
+        { key: 'status', label: 'Status' },
+        { key: 'affected_rfis', label: 'Affected RFIs' },
+        { key: 'created_by', label: 'Created By' },
+        { key: 'created_at', label: 'Date' },
+        { key: 'actions', label: 'Actions' },
+    ];
+
+    // Render cell
+    const renderCell = (objection, columnKey) => {
+        switch (columnKey) {
+            case 'title':
+                return (
+                    <div className="flex items-center gap-2 max-w-[200px]">
+                        <ShieldExclamationIcon className={`w-4 h-4 shrink-0 ${
+                            objection.is_active ? 'text-warning animate-pulse' : 'text-success'
+                        }`} />
+                        <span className="font-medium text-sm truncate" title={objection.title}>
+                            {objection.title}
+                        </span>
+                    </div>
+                );
+            case 'category':
+                return getCategoryChip(objection.category);
+            case 'chainage':
+                return objection.chainage_from && objection.chainage_to ? (
+                    <div className="flex items-center gap-1 text-xs">
+                        <MapPinIcon className="w-3 h-3 text-default-400" />
+                        <span>{objection.chainage_from} - {objection.chainage_to}</span>
+                    </div>
+                ) : (
+                    <span className="text-xs text-default-400">Not set</span>
+                );
+            case 'status':
+                return getStatusChip(objection.status);
+            case 'affected_rfis':
+                return (
+                    <Button
+                        size="sm"
+                        variant="flat"
+                        color={objection.daily_works_count > 0 ? 'primary' : 'default'}
+                        startContent={<LinkIcon className="w-3 h-3" />}
+                        onPress={() => openAttachModal(objection)}
+                    >
+                        {objection.daily_works_count || 0} RFI(s)
+                    </Button>
+                );
+            case 'created_by':
+                return (
+                    <div className="flex items-center gap-2">
+                        <ProfileAvatar
+                            src={objection.created_by?.profile_image_url}
+                            name={objection.created_by?.name || 'Unknown'}
+                            size="sm"
+                            className="w-6 h-6"
+                        />
+                        <span className="text-xs truncate max-w-[100px]">{objection.created_by?.name || 'Unknown'}</span>
+                    </div>
+                );
+            case 'created_at':
+                return (
+                    <div className="flex items-center gap-1 text-xs">
+                        <CalendarDaysIcon className="w-3 h-3 text-default-400" />
+                        <span>{formatDate(objection.created_at)}</span>
+                    </div>
+                );
+            case 'actions':
+                return (
+                    <Dropdown>
+                        <DropdownTrigger>
+                            <Button isIconOnly size="sm" variant="light">
+                                <EllipsisVerticalIcon className="w-4 h-4" />
+                            </Button>
+                        </DropdownTrigger>
+                        <DropdownMenu aria-label="Objection actions">
+                            <DropdownItem
+                                key="view"
+                                startContent={<DocumentTextIcon className="w-4 h-4" />}
+                                onPress={() => openDetailsModal(objection)}
+                            >
+                                View Details
+                            </DropdownItem>
+                            <DropdownItem
+                                key="attach"
+                                startContent={<LinkIcon className="w-4 h-4" />}
+                                onPress={() => openAttachModal(objection)}
+                            >
+                                Manage RFIs
+                            </DropdownItem>
+                            {objection.status === 'draft' && (
+                                <DropdownItem
+                                    key="edit"
+                                    startContent={<PencilIcon className="w-4 h-4" />}
+                                    onPress={() => openEditModal(objection)}
+                                >
+                                    Edit
+                                </DropdownItem>
+                            )}
+                            {objection.status === 'draft' && (
+                                <DropdownItem
+                                    key="submit"
+                                    startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
+                                    color="primary"
+                                    onPress={() => openStatusModal(objection, 'submit')}
+                                >
+                                    Submit for Review
+                                </DropdownItem>
+                            )}
+                            {objection.status === 'submitted' && (
+                                <DropdownItem
+                                    key="review"
+                                    startContent={<ClockIcon className="w-4 h-4" />}
+                                    color="warning"
+                                    onPress={() => openStatusModal(objection, 'review')}
+                                >
+                                    Start Review
+                                </DropdownItem>
+                            )}
+                            {(objection.status === 'submitted' || objection.status === 'under_review') && (
+                                <DropdownItem
+                                    key="resolve"
+                                    startContent={<CheckCircleIcon className="w-4 h-4" />}
+                                    color="success"
+                                    onPress={() => openStatusModal(objection, 'resolve')}
+                                >
+                                    Resolve
+                                </DropdownItem>
+                            )}
+                            {(objection.status === 'submitted' || objection.status === 'under_review') && (
+                                <DropdownItem
+                                    key="reject"
+                                    startContent={<XCircleSolid className="w-4 h-4" />}
+                                    color="danger"
+                                    onPress={() => openStatusModal(objection, 'reject')}
+                                >
+                                    Reject
+                                </DropdownItem>
+                            )}
+                            {objection.status_logs?.length > 0 && (
+                                <DropdownItem
+                                    key="history"
+                                    startContent={<ClockIcon className="w-4 h-4" />}
+                                    onPress={() => openHistoryModal(objection)}
+                                >
+                                    View History
+                                </DropdownItem>
+                            )}
+                            {objection.status === 'draft' && (
+                                <DropdownItem
+                                    key="delete"
+                                    startContent={<TrashIcon className="w-4 h-4" />}
+                                    color="danger"
+                                    className="text-danger"
+                                    onPress={() => handleDeleteObjection(objection)}
+                                >
+                                    Delete
+                                </DropdownItem>
+                            )}
+                        </DropdownMenu>
+                    </Dropdown>
+                );
+            default:
+                return '-';
+        }
+    };
+
+    // Mobile accordion item
+    const ObjectionAccordionItem = ({ objection, isExpanded, onToggle }) => {
+        const statusConf = statusConfig[objection.status] || statusConfig['draft'];
+        const StatusIcon = statusConf.icon;
+
+        return (
+            <Card
+                radius={getThemeRadius()}
+                className={`bg-content1 border shadow-sm ${
+                    objection.is_active
+                        ? 'border-warning/60 bg-warning-50/30 dark:bg-warning-900/10'
+                        : 'border-divider/40'
+                }`}
+            >
+                <CardHeader
+                    className="p-3 cursor-pointer select-none"
+                    onClick={onToggle}
+                >
+                    <div className="flex items-center justify-between w-full gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <ShieldExclamationIcon className={`w-5 h-5 shrink-0 ${
+                                objection.is_active ? 'text-warning animate-pulse' : 'text-success'
+                            }`} />
+                            <div className="min-w-0 flex-1">
+                                <h4 className="font-semibold text-sm text-foreground truncate">
+                                    {objection.title}
+                                </h4>
+                                <p className="text-xs text-default-500 truncate">
+                                    {objection.chainage_from && objection.chainage_to
+                                        ? `${objection.chainage_from} - ${objection.chainage_to}`
+                                        : 'No chainage set'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                            <Chip
+                                size="sm"
+                                variant="flat"
+                                color={statusConf.color}
+                                className="h-5 text-[10px]"
+                            >
+                                {statusConf.label}
+                            </Chip>
+                            <div className={`w-5 h-5 rounded-full bg-default-100 flex items-center justify-center transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                                <ChevronDownIcon className="w-3 h-3 text-default-500" />
+                            </div>
+                        </div>
+                    </div>
+                </CardHeader>
+
+                <AnimatePresence>
+                    {isExpanded && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            <CardBody className="px-3 pb-3 pt-0">
+                                <Divider className="mb-3" />
+
+                                <div className="space-y-2 text-xs">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-default-400">Category:</span>
+                                        {getCategoryChip(objection.category)}
+                                    </div>
+
+                                    {objection.type && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-default-400">Type:</span>
+                                            {getTypeChip(objection.type)}
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-default-400">Chainage:</span>
+                                        {objection.chainage_from && objection.chainage_to ? (
+                                            <div className="flex items-center gap-1">
+                                                <MapPinIcon className="w-3 h-3 text-default-400" />
+                                                <span>{objection.chainage_from} - {objection.chainage_to}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-default-400">Not set</span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-default-400">Affected RFIs:</span>
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color={objection.daily_works_count > 0 ? 'primary' : 'default'}
+                                            className="h-6 min-h-6 text-[10px]"
+                                            onPress={() => openAttachModal(objection)}
+                                        >
+                                            {objection.daily_works_count || 0} RFI(s)
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-default-400">Created By:</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <ProfileAvatar
+                                                src={objection.created_by?.profile_image_url}
+                                                name={objection.created_by?.name}
+                                                size="xs"
+                                                className="w-4 h-4"
+                                            />
+                                            <span>{objection.created_by?.name || 'Unknown'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-default-400">Date:</span>
+                                        <span>{formatDate(objection.created_at)}</span>
+                                    </div>
+
+                                    {objection.description && (
+                                        <div className="pt-2">
+                                            <span className="text-default-400 block mb-1">Description:</span>
+                                            <p className="text-default-600 text-[11px] line-clamp-3 bg-default-100 p-2 rounded">
+                                                {objection.description}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 mt-4">
+                                    <Button
+                                        size="sm"
+                                        variant="flat"
+                                        color="primary"
+                                        startContent={<LinkIcon className="w-3 h-3" />}
+                                        onPress={() => openAttachModal(objection)}
+                                    >
+                                        Manage RFIs
+                                    </Button>
+                                    {objection.status === 'draft' && (
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="default"
+                                                startContent={<PencilIcon className="w-3 h-3" />}
+                                                onPress={() => openEditModal(objection)}
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="primary"
+                                                startContent={<DocumentArrowUpIcon className="w-3 h-3" />}
+                                                onPress={() => openStatusModal(objection, 'submit')}
+                                            >
+                                                Submit
+                                            </Button>
+                                        </>
+                                    )}
+                                    {objection.status === 'submitted' && (
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color="warning"
+                                            startContent={<ClockIcon className="w-3 h-3" />}
+                                            onPress={() => openStatusModal(objection, 'review')}
+                                        >
+                                            Review
+                                        </Button>
+                                    )}
+                                    {objection.status === 'under_review' && (
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="success"
+                                                startContent={<CheckCircleIcon className="w-3 h-3" />}
+                                                onPress={() => openStatusModal(objection, 'resolve')}
+                                            >
+                                                Resolve
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="flat"
+                                                color="danger"
+                                                startContent={<XCircleSolid className="w-3 h-3" />}
+                                                onPress={() => openStatusModal(objection, 'reject')}
+                                            >
+                                                Reject
+                                            </Button>
+                                        </>
+                                    )}
+                                    {objection.status_logs?.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color="default"
+                                            startContent={<ClockIcon className="w-3 h-3" />}
+                                            onPress={() => openHistoryModal(objection)}
+                                        >
+                                            History
+                                        </Button>
+                                    )}
+                                    {objection.status === 'draft' && (
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color="danger"
+                                            startContent={<TrashIcon className="w-3 h-3" />}
+                                            onPress={() => handleDeleteObjection(objection)}
+                                        >
+                                            Delete
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardBody>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </Card>
+        );
+    };
+
+    // Desktop table skeleton
+    const renderTableSkeleton = () => (
+        <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+            ))}
+        </div>
+    );
+
+    // Mobile skeleton
+    const renderMobileSkeleton = () => (
+        <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+            ))}
+        </div>
+    );
+
+    return (
+        <>
+            <Head title="Objections Management" />
+
+            {/* Create Objection Modal */}
+            <Modal
+                isOpen={isCreateOpen}
+                onClose={onCreateClose}
+                size="lg"
+                scrollBehavior="inside"
+                shouldBlockScroll={false}
+                placement="center"
+                classNames={{
+                    base: "max-h-[90vh] m-4",
+                    wrapper: "items-center",
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2">
+                        <ShieldExclamationIcon className="w-5 h-5 text-warning" />
+                        Create New Objection
+                    </ModalHeader>
+                    <ModalBody>
+                        <div className="space-y-4">
+                            <Input
+                                label="Title"
+                                placeholder="Enter objection title"
+                                value={createForm.title}
+                                onValueChange={(value) => setCreateForm(prev => ({ ...prev, title: value }))}
+                                isRequired
+                            />
+
+                            <Select
+                                label="Category"
+                                selectedKeys={[createForm.category]}
+                                onSelectionChange={(keys) => {
+                                    const value = Array.from(keys)[0] || 'other';
+                                    setCreateForm(prev => ({ ...prev, category: value }));
+                                }}
+                            >
+                                {Object.entries(categories || categoryConfig).map(([key, value]) => (
+                                    <SelectItem key={key}>{typeof value === 'string' ? value : value.label}</SelectItem>
+                                ))}
+                            </Select>
+
+                            <Select
+                                label="Work Type"
+                                placeholder="Select work type to filter RFIs"
+                                description="Only RFIs of this type will be matched"
+                                selectedKeys={createForm.type ? [createForm.type] : []}
+                                onSelectionChange={(keys) => {
+                                    const value = Array.from(keys)[0] || '';
+                                    setCreateForm(prev => ({ ...prev, type: value }));
+                                }}
+                            >
+                                {Object.entries(workTypeConfig).map(([key, conf]) => (
+                                    <SelectItem key={key} startContent={<span>{conf.icon}</span>}>
+                                        {conf.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+
+                            {/* Chainage Section - Supports both specific chainages and ranges */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-default-700">
+                                    Chainages (Optional)
+                                </label>
+                                <p className="text-xs text-default-400 mb-2">
+                                    Add specific chainages (comma-separated) and/or a range
+                                </p>
+                                
+                                <Input
+                                    label="Specific Chainages"
+                                    placeholder="e.g., K35+897, K36+987, K37+123"
+                                    description="Multiple chainages separated by commas"
+                                    value={createForm.specific_chainages}
+                                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, specific_chainages: value }))}
+                                />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Input
+                                        label="Range From"
+                                        placeholder="e.g., K36+580"
+                                        value={createForm.chainage_range_from}
+                                        onValueChange={(value) => setCreateForm(prev => ({ ...prev, chainage_range_from: value }))}
+                                    />
+                                    <Input
+                                        label="Range To"
+                                        placeholder="e.g., K37+540"
+                                        value={createForm.chainage_range_to}
+                                        onValueChange={(value) => setCreateForm(prev => ({ ...prev, chainage_range_to: value }))}
+                                    />
+                                </div>
+                            </div>
+
+                            <Textarea
+                                label="Description"
+                                placeholder="Describe the objection in detail"
+                                value={createForm.description}
+                                onValueChange={(value) => setCreateForm(prev => ({ ...prev, description: value }))}
+                                minRows={3}
+                                isRequired
+                            />
+
+                            <Textarea
+                                label="Reason"
+                                placeholder="Explain the reason for this objection"
+                                value={createForm.reason}
+                                onValueChange={(value) => setCreateForm(prev => ({ ...prev, reason: value }))}
+                                minRows={2}
+                                isRequired
+                            />
+
+                            <Select
+                                label="Status"
+                                selectedKeys={[createForm.status]}
+                                onSelectionChange={(keys) => {
+                                    const value = Array.from(keys)[0] || 'draft';
+                                    setCreateForm(prev => ({ ...prev, status: value }));
+                                }}
+                            >
+                                <SelectItem key="draft">Save as Draft</SelectItem>
+                                <SelectItem key="submitted">Submit Immediately</SelectItem>
+                            </Select>
+
+                            {/* File Upload Section */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-default-700">
+                                    Supporting Documents (Optional)
+                                </label>
+                                <p className="text-xs text-default-400">
+                                    Upload images, PDFs, Word, or Excel files (max 10MB each)
+                                </p>
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                    id="objection-file-upload"
+                                />
+                                <label
+                                    htmlFor="objection-file-upload"
+                                    className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-default-300 rounded-lg cursor-pointer hover:border-primary hover:bg-default-50 transition-colors"
+                                >
+                                    <DocumentIcon className="w-5 h-5 text-default-500" />
+                                    <span className="text-sm text-default-600">
+                                        Click to select files
+                                    </span>
+                                </label>
+
+                                {/* Selected Files List */}
+                                {selectedFiles.length > 0 && (
+                                    <div className="space-y-1 mt-2">
+                                        {selectedFiles.map((file, index) => (
+                                            <div
+                                                key={index}
+                                                className="flex items-center justify-between p-2 bg-default-100 rounded-lg"
+                                            >
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    {file.type.startsWith('image/') ? (
+                                                        <PhotoIcon className="w-4 h-4 text-success shrink-0" />
+                                                    ) : (
+                                                        <DocumentTextIcon className="w-4 h-4 text-primary shrink-0" />
+                                                    )}
+                                                    <span className="text-xs truncate">{file.name}</span>
+                                                    <span className="text-xs text-default-400 shrink-0">
+                                                        ({(file.size / 1024).toFixed(1)} KB)
+                                                    </span>
+                                                </div>
+                                                <Button
+                                                    isIconOnly
+                                                    size="sm"
+                                                    variant="light"
+                                                    color="danger"
+                                                    onPress={() => removeSelectedFile(index)}
+                                                >
+                                                    <XMarkIcon className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={() => { onCreateClose(); resetCreateForm(); }}>
+                            Cancel
+                        </Button>
+                        <Button
+                            color="primary"
+                            onPress={handleCreateObjection}
+                            isLoading={createLoading}
+                        >
+                            Create Objection
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Attach RFIs Modal */}
+            <Modal
+                isOpen={isAttachOpen}
+                onClose={onAttachClose}
+                size="2xl"
+                scrollBehavior="inside"
+                shouldBlockScroll={false}
+                placement="center"
+                classNames={{
+                    base: "max-h-[90vh] m-4",
+                    wrapper: "items-center",
+                    body: "overflow-x-hidden",
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2 flex-wrap">
+                        <LinkIcon className="w-5 h-5 text-primary" />
+                        Manage Affected RFIs
+                        {selectedObjection && (
+                            <span className="text-sm font-normal text-default-500">
+                                - {selectedObjection.title}
+                            </span>
+                        )}
+                        {selectedObjection?.type && (
+                            <Chip size="sm" variant="flat" color={workTypeConfig[selectedObjection.type]?.color || 'default'} className="text-xs">
+                                {workTypeConfig[selectedObjection.type]?.icon} {selectedObjection.type} only
+                            </Chip>
+                        )}
+                    </ModalHeader>
+                    <ModalBody>
+                        <div className="space-y-4">
+                            {/* Type Filter Info */}
+                            {selectedObjection?.type && (
+                                <div className="flex flex-wrap items-center gap-2 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
+                                    <span className="text-sm text-primary-700 dark:text-primary-300">
+                                        🔍 Filtering RFIs by type: <strong>{selectedObjection.type}</strong>
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Chainage Range Info */}
+                            {selectedObjection?.chainage_from && selectedObjection?.chainage_to && (
+                                <div className="flex flex-wrap items-center gap-2 p-3 bg-default-100 rounded-lg">
+                                    <MapPinIcon className="w-5 h-5 text-default-500" />
+                                    <span className="text-sm">
+                                        Chainage Range: <strong>{selectedObjection.chainage_from}</strong> - <strong>{selectedObjection.chainage_to}</strong>
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Manual Search */}
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Search RFIs by number, location, or description..."
+                                    value={rfiSearchQuery}
+                                    onChange={(e) => setRfiSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleRfiSearch()}
+                                    startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
+                                    size="sm"
+                                    className="flex-1"
+                                />
+                                <Button
+                                    size="sm"
+                                    color="primary"
+                                    variant="flat"
+                                    isLoading={rfiSearchLoading}
+                                    onPress={handleRfiSearch}
+                                >
+                                    Search
+                                </Button>
+                                {(selectedObjection?.chainage_summary?.specific?.length > 0 || 
+                                  selectedObjection?.chainage_summary?.range ||
+                                  (selectedObjection?.chainage_from && selectedObjection?.chainage_to)) && (
+                                    <Button
+                                        size="sm"
+                                        variant="flat"
+                                        isLoading={rfiSearchLoading}
+                                        onPress={() => {
+                                            setRfiSearchQuery('');
+                                            const summary = selectedObjection.chainage_summary || {};
+                                            const specificChainages = summary.specific?.join(', ') || '';
+                                            const rangeFrom = summary.range?.split(' - ')[0] || selectedObjection.chainage_from;
+                                            const rangeTo = summary.range?.split(' - ')[1] || selectedObjection.chainage_to;
+                                            const objType = selectedObjection.type;
+                                            
+                                            if (specificChainages) {
+                                                handleSuggestRfis(specificChainages, null, '', objType);
+                                            } else {
+                                                handleSuggestRfis(rangeFrom, rangeTo, '', objType);
+                                            }
+                                        }}
+                                    >
+                                        <ArrowPathIcon className="w-4 h-4" />
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Currently Attached RFIs */}
+                            {selectedObjection?.daily_works?.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <CheckCircleSolid className="w-4 h-4 text-success" />
+                                        <span className="text-sm font-medium text-success">
+                                            Currently Attached ({selectedObjection.daily_works.length})
+                                        </span>
+                                    </div>
+                                    <div className="grid gap-2 max-h-[150px] overflow-auto border border-success/30 rounded-lg p-2 bg-success-50/30 dark:bg-success-900/10">
+                                        {selectedObjection.daily_works.map((rfi) => (
+                                            <div
+                                                key={rfi.id}
+                                                className="flex items-center gap-3 p-2 border border-divider rounded-lg bg-content1"
+                                            >
+                                                <Checkbox 
+                                                    value={String(rfi.id)} 
+                                                    isSelected={selectedRfis.includes(String(rfi.id))}
+                                                    onValueChange={(isSelected) => {
+                                                        if (isSelected) {
+                                                            setSelectedRfis(prev => [...prev, String(rfi.id)]);
+                                                        } else {
+                                                            setSelectedRfis(prev => prev.filter(id => id !== String(rfi.id)));
+                                                        }
+                                                    }}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-medium text-sm">{rfi.number}</div>
+                                                    <div className="text-xs text-default-500 flex items-center gap-2">
+                                                        <MapPinIcon className="w-3 h-3" />
+                                                        {rfi.location || 'No location'}
+                                                        {rfi.type && (
+                                                            <>
+                                                                <span>•</span>
+                                                                {rfi.type}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <Chip size="sm" variant="flat" color="success">Attached</Chip>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Search Results / Suggested RFIs */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <MagnifyingGlassIcon className="w-4 h-4 text-default-500" />
+                                    <span className="text-sm font-medium">
+                                        {rfiSearchQuery ? 'Search Results' : 'Suggested RFIs'} 
+                                        {suggestedRfis.length > 0 && ` (${suggestedRfis.length})`}
+                                    </span>
+                                </div>
+
+                                {rfiSearchLoading ? (
+                                    <div className="grid gap-2 border border-divider rounded-lg p-2">
+                                        {[1, 2, 3].map((_, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="flex items-center gap-3 p-2 border border-divider rounded-lg"
+                                            >
+                                                <Skeleton className="w-5 h-5 rounded" />
+                                                <div className="flex-1 min-w-0 space-y-2">
+                                                    <Skeleton className="h-4 w-24 rounded" />
+                                                    <Skeleton className="h-3 w-48 rounded" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : suggestedRfis.length > 0 ? (
+                                    <CheckboxGroup
+                                        value={selectedRfis}
+                                        onValueChange={setSelectedRfis}
+                                    >
+                                        <div className="space-y-2 max-h-[300px] overflow-y-auto overflow-x-hidden border border-divider rounded-lg p-2">
+                                            {suggestedRfis.map((rfi) => {
+                                                const isAlreadyAttached = selectedObjection?.daily_works?.some(dw => dw.id === rfi.id);
+                                                return (
+                                                    <div
+                                                        key={rfi.id}
+                                                        className={`flex items-start gap-3 p-3 border rounded-lg hover:bg-default-100 overflow-hidden ${
+                                                            isAlreadyAttached ? 'border-success/50 bg-success-50/20' : 'border-divider'
+                                                        }`}
+                                                    >
+                                                        <Checkbox value={String(rfi.id)} className="mt-1" />
+                                                        <div className="flex-1 min-w-0 space-y-2">
+                                                            {/* Header: RFI Number + Attached Badge */}
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-semibold text-sm text-primary">{rfi.number}</span>
+                                                                {isAlreadyAttached && (
+                                                                    <Chip size="sm" variant="flat" color="success" className="h-5 text-[10px]">
+                                                                        Attached
+                                                                    </Chip>
+                                                                )}
+                                                                {rfi.type && (
+                                                                    <Chip size="sm" variant="flat" color="secondary" className="h-5 text-[10px]">
+                                                                        {rfi.type}
+                                                                    </Chip>
+                                                                )}
+                                                            </div>
+                                                            
+                                                            {/* Grid: Date, Chainage, Side, Layer/Qty */}
+                                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Date</span>
+                                                                    <span className="font-medium">{rfi.date || '-'}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Chainage</span>
+                                                                    <span className="font-medium truncate" title={rfi.location}>{rfi.location || '-'}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Side</span>
+                                                                    <span className="font-medium">{rfi.side || '-'}</span>
+                                                                </div>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-default-400 text-[10px]">Layer/Qty</span>
+                                                                    <span className="font-medium">{rfi.qty_layer || '-'}</span>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {/* Description */}
+                                                            {rfi.description && (
+                                                                <p className="text-xs text-default-500 line-clamp-2">
+                                                                    {rfi.description}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </CheckboxGroup>
+                                ) : (
+                                    <div className="text-center py-8 text-default-500 border border-dashed border-divider rounded-lg">
+                                        <DocumentTextIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                                        <p>
+                                            {rfiSearchQuery 
+                                                ? 'No RFIs found matching your search.' 
+                                                : selectedObjection?.chainage_from && selectedObjection?.chainage_to
+                                                    ? 'No RFIs found in the specified chainage range.'
+                                                    : 'Use the search box above to find RFIs.'}
+                                        </p>
+                                        <p className="text-xs mt-1">Try searching by RFI number, location, or description.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-default-500">
+                                    {selectedRfis.length} RFI(s) selected
+                                </span>
+                                {suggestedRfis.length > 0 && (
+                                    <Tooltip content={selectedRfis.length > 0 ? `Export ${selectedRfis.length} selected RFIs` : `Export all ${suggestedRfis.length} RFIs`}>
+                                        <Button
+                                            variant="flat"
+                                            color="success"
+                                            size="sm"
+                                            isIconOnly
+                                            onPress={handleExportSelectedRfis}
+                                            isLoading={exportLoading}
+                                        >
+                                            <ArrowDownTrayIcon className="w-4 h-4" />
+                                        </Button>
+                                    </Tooltip>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="light" onPress={onAttachClose}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    color="primary"
+                                    onPress={handleAttachRfis}
+                                    isLoading={attachLoading}
+                                    isDisabled={selectedRfis.length === 0}
+                                >
+                                    Save Attachments
+                                </Button>
+                            </div>
+                        </div>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Edit Objection Modal */}
+            <Modal
+                isOpen={isEditOpen}
+                onClose={onEditClose}
+                size="2xl"
+                scrollBehavior="inside"
+                shouldBlockScroll={false}
+                placement="center"
+                classNames={{
+                    base: "max-h-[90vh] m-4",
+                    wrapper: "items-center",
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2">
+                        <PencilIcon className="w-5 h-5 text-primary" />
+                        Edit Objection
+                    </ModalHeader>
+                    <ModalBody>
+                        <div className="space-y-4">
+                            <Input
+                                label="Title"
+                                placeholder="Enter objection title"
+                                value={editForm.title}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                                isRequired
+                            />
+                            <Select
+                                label="Category"
+                                placeholder="Select category"
+                                selectedKeys={[editForm.category]}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                            >
+                                {Object.entries(categoryConfig).map(([key, conf]) => (
+                                    <SelectItem key={key} value={key}>
+                                        {conf.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+
+                            <Select
+                                label="Work Type"
+                                placeholder="Select work type to filter RFIs"
+                                description="Only RFIs of this type will be matched"
+                                selectedKeys={editForm.type ? [editForm.type] : []}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, type: e.target.value }))}
+                            >
+                                {Object.entries(workTypeConfig).map(([key, conf]) => (
+                                    <SelectItem key={key} value={key} startContent={<span>{conf.icon}</span>}>
+                                        {conf.label}
+                                    </SelectItem>
+                                ))}
+                            </Select>
+                            
+                            {/* Chainage Section - Supports both specific chainages and ranges */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-default-700">
+                                    Chainages (Optional)
+                                </label>
+                                <p className="text-xs text-default-400 mb-2">
+                                    Add specific chainages (comma-separated) and/or a range
+                                </p>
+                                
+                                <Input
+                                    label="Specific Chainages"
+                                    placeholder="e.g., K35+897, K36+987, K37+123"
+                                    description="Multiple chainages separated by commas"
+                                    value={editForm.specific_chainages}
+                                    onChange={(e) => setEditForm(prev => ({ ...prev, specific_chainages: e.target.value }))}
+                                />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input
+                                        label="Range From"
+                                        placeholder="e.g., K36+580"
+                                        value={editForm.chainage_range_from}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, chainage_range_from: e.target.value }))}
+                                    />
+                                    <Input
+                                        label="Range To"
+                                        placeholder="e.g., K37+540"
+                                        value={editForm.chainage_range_to}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, chainage_range_to: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <Textarea
+                                label="Description"
+                                placeholder="Describe the objection in detail"
+                                value={editForm.description}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                minRows={3}
+                                isRequired
+                            />
+                            <Textarea
+                                label="Reason"
+                                placeholder="Explain the reason for raising this objection"
+                                value={editForm.reason}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, reason: e.target.value }))}
+                                minRows={2}
+                                isRequired
+                            />
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onEditClose}>
+                            Cancel
+                        </Button>
+                        <Button
+                            color="primary"
+                            onPress={handleEditObjection}
+                            isLoading={editLoading}
+                        >
+                            Save Changes
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Status Update Modal */}
+            <Modal
+                isOpen={isStatusOpen}
+                onClose={onStatusClose}
+                size="lg"
+                placement="bottom-center"
+                classNames={{
+                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
+                    wrapper: "items-end sm:items-center",
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2">
+                        {statusAction === 'submit' && <DocumentArrowUpIcon className="w-5 h-5 text-primary" />}
+                        {statusAction === 'review' && <ClockIcon className="w-5 h-5 text-warning" />}
+                        {statusAction === 'resolve' && <CheckCircleIcon className="w-5 h-5 text-success" />}
+                        {statusAction === 'reject' && <XCircleSolid className="w-5 h-5 text-danger" />}
+                        {getStatusActionLabel(statusAction)}
+                    </ModalHeader>
+                    <ModalBody>
+                        {selectedObjection && (
+                            <div className="space-y-4">
+                                <div className="p-3 bg-default-100 rounded-lg">
+                                    <p className="font-medium">{selectedObjection.title}</p>
+                                    <p className="text-sm text-default-500 mt-1">{selectedObjection.description}</p>
+                                </div>
+                                
+                                {statusAction === 'submit' && (
+                                    <p className="text-sm text-default-600">
+                                        Are you sure you want to submit this objection for review? 
+                                        Once submitted, you won't be able to edit it.
+                                    </p>
+                                )}
+                                
+                                {statusAction === 'review' && (
+                                    <p className="text-sm text-default-600">
+                                        This will mark the objection as "Under Review". 
+                                        You can then resolve or reject it after investigation.
+                                    </p>
+                                )}
+                                
+                                {(statusAction === 'resolve' || statusAction === 'reject') && (
+                                    <Textarea
+                                        label={statusAction === 'resolve' ? 'Resolution Notes' : 'Rejection Reason'}
+                                        placeholder={statusAction === 'resolve' 
+                                            ? 'Explain how the objection was resolved...'
+                                            : 'Explain why the objection is being rejected...'
+                                        }
+                                        value={resolutionNotes}
+                                        onChange={(e) => setResolutionNotes(e.target.value)}
+                                        minRows={3}
+                                        isRequired
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onStatusClose}>
+                            Cancel
+                        </Button>
+                        <Button
+                            color={statusAction === 'reject' ? 'danger' : statusAction === 'resolve' ? 'success' : 'primary'}
+                            onPress={handleStatusChange}
+                            isLoading={statusLoading}
+                        >
+                            {getStatusActionLabel(statusAction)}
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* Status History Modal */}
+            <Modal
+                isOpen={isHistoryOpen}
+                onClose={onHistoryClose}
+                size="2xl"
+                scrollBehavior="inside"
+                shouldBlockScroll={false}
+                placement="center"
+                classNames={{
+                    base: "max-h-[90vh] m-4",
+                    wrapper: "items-center",
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex items-center gap-2">
+                        <ClockIcon className="w-5 h-5 text-primary" />
+                        Status History
+                    </ModalHeader>
+                    <ModalBody>
+                        {historyObjection && (
+                            <div className="space-y-4">
+                                {/* Current Status */}
+                                <div className="p-3 bg-default-100 rounded-lg">
+                                    <p className="font-medium">{historyObjection.title}</p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <span className="text-sm text-default-500">Current Status:</span>
+                                        <Chip
+                                            size="sm"
+                                            variant="flat"
+                                            color={statusConfig[historyObjection.status]?.color || 'default'}
+                                        >
+                                            {formatStatus(historyObjection.status)}
+                                        </Chip>
+                                    </div>
+                                </div>
+                                
+                                {/* Timeline */}
+                                <div className="relative">
+                                    <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-default-200"></div>
+                                    
+                                    {historyObjection.status_logs?.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {historyObjection.status_logs.map((log, index) => {
+                                                const toStatusConf = statusConfig[log.to_status] || {};
+                                                const StatusIcon = toStatusConf.icon || ClockIcon;
+                                                
+                                                return (
+                                                    <div key={log.id || index} className="relative flex gap-4 pl-8">
+                                                        {/* Timeline Dot */}
+                                                        <div 
+                                                            className={`absolute left-0 w-6 h-6 rounded-full flex items-center justify-center ${
+                                                                toStatusConf.bgColor || 'bg-default-100'
+                                                            }`}
+                                                        >
+                                                            <StatusIcon className={`w-3 h-3 ${toStatusConf.textColor || 'text-default-500'}`} />
+                                                        </div>
+                                                        
+                                                        {/* Content */}
+                                                        <div className="flex-1 pb-4">
+                                                            <div className="bg-content2 rounded-lg p-3 border border-divider/40">
+                                                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                                                    <Chip
+                                                                        size="sm"
+                                                                        variant="flat"
+                                                                        color={statusConfig[log.from_status]?.color || 'default'}
+                                                                    >
+                                                                        {formatStatus(log.from_status)}
+                                                                    </Chip>
+                                                                    <span className="text-default-400">→</span>
+                                                                    <Chip
+                                                                        size="sm"
+                                                                        variant="flat"
+                                                                        color={toStatusConf.color || 'default'}
+                                                                    >
+                                                                        {formatStatus(log.to_status)}
+                                                                    </Chip>
+                                                                </div>
+                                                                
+                                                                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-default-500">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <UserIcon className="w-3 h-3" />
+                                                                        {log.changed_by?.name || 'System'}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <CalendarIcon className="w-3 h-3" />
+                                                                        {new Date(log.changed_at).toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                                
+                                                                {log.notes && (
+                                                                    <div className="mt-2 pt-2 border-t border-divider/40">
+                                                                        <p className="text-sm text-default-600">{log.notes}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 text-default-500">
+                                            <ClockIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                            <p>No status changes recorded yet.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onHistoryClose}>
+                            Close
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            {/* View Details Modal */}
+            <Modal
+                isOpen={isDetailsOpen}
+                onClose={onDetailsClose}
+                size="4xl"
+                scrollBehavior="inside"
+                shouldBlockScroll={false}
+                placement="center"
+                classNames={{
+                    base: "max-h-[95vh] m-2 sm:m-4",
+                    wrapper: "items-center",
+                    body: "p-3 sm:p-6",
+                }}
+            >
+                <ModalContent>
+                    <ModalHeader className="flex flex-col sm:flex-row sm:items-center gap-2 pb-2">
+                        <div className="flex items-center gap-2">
+                            <ShieldExclamationIcon className={`w-5 h-5 ${detailsObjection?.is_active ? 'text-warning' : 'text-success'}`} />
+                            <span className="font-semibold truncate">{detailsObjection?.title || 'Objection Details'}</span>
+                        </div>
+                        {detailsObjection && (
+                            <div className="flex items-center gap-2 mt-1 sm:mt-0 sm:ml-auto">
+                                {getStatusChip(detailsObjection.status)}
+                                {getCategoryChip(detailsObjection.category)}
+                                {getTypeChip(detailsObjection.type)}
+                            </div>
+                        )}
+                    </ModalHeader>
+                    <ModalBody>
+                        {detailsObjection && (
+                            <div className="space-y-4 sm:space-y-6">
+                                {/* Basic Info Grid - Responsive */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                    {/* Created By */}
+                                    <div className="p-3 bg-default-100 rounded-lg">
+                                        <div className="flex items-center gap-2 text-xs text-default-500 mb-1">
+                                            <UserIcon className="w-3 h-3" />
+                                            <span>Created By</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <ProfileAvatar
+                                                src={detailsObjection.created_by?.profile_image_url}
+                                                name={detailsObjection.created_by?.name || 'Unknown'}
+                                                size="sm"
+                                                className="w-6 h-6"
+                                            />
+                                            <span className="text-sm font-medium truncate">{detailsObjection.created_by?.name || 'Unknown'}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Created At */}
+                                    <div className="p-3 bg-default-100 rounded-lg">
+                                        <div className="flex items-center gap-2 text-xs text-default-500 mb-1">
+                                            <CalendarDaysIcon className="w-3 h-3" />
+                                            <span>Created At</span>
+                                        </div>
+                                        <p className="text-sm font-medium">
+                                            {new Date(detailsObjection.created_at).toLocaleDateString('en-US', {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Chainage Section - Full Width with Scroll */}
+                                <div className="p-3 sm:p-4 bg-default-100 rounded-lg">
+                                    <div className="flex items-center gap-2 text-xs text-default-500 mb-2">
+                                        <MapPinIcon className="w-4 h-4" />
+                                        <span className="font-medium">Chainage Information</span>
+                                    </div>
+                                    {detailsObjection.chainage_summary ? (
+                                        <div className="space-y-3">
+                                            {/* Specific Chainages */}
+                                            {detailsObjection.chainage_summary.specific?.length > 0 && (
+                                                <div>
+                                                    <p className="text-xs text-default-500 mb-1.5">Specific Chainages ({detailsObjection.chainage_summary.specific.length})</p>
+                                                    <ScrollShadow className="max-h-24" hideScrollBar>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {detailsObjection.chainage_summary.specific.map((chainage, idx) => (
+                                                                <Chip key={idx} size="sm" variant="flat" color="secondary" className="text-xs">
+                                                                    {chainage}
+                                                                </Chip>
+                                                            ))}
+                                                        </div>
+                                                    </ScrollShadow>
+                                                </div>
+                                            )}
+                                            {/* Chainage Range */}
+                                            {detailsObjection.chainage_summary.range && (
+                                                <div>
+                                                    <p className="text-xs text-default-500 mb-1.5">Chainage Range</p>
+                                                    <Chip size="sm" variant="bordered" color="primary" startContent={<MapPinIcon className="w-3 h-3" />}>
+                                                        {detailsObjection.chainage_summary.range}
+                                                    </Chip>
+                                                </div>
+                                            )}
+                                            {/* No chainage info */}
+                                            {!detailsObjection.chainage_summary.specific?.length && !detailsObjection.chainage_summary.range && (
+                                                <p className="text-sm text-default-400">No chainage information specified</p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-default-400">No chainage information specified</p>
+                                    )}
+                                </div>
+
+                                {/* Affected RFIs */}
+                                <div className="p-3 sm:p-4 bg-primary-50/50 dark:bg-primary-900/10 border border-primary/20 rounded-lg">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2 text-xs text-primary">
+                                            <LinkIcon className="w-3 h-3" />
+                                            <span>Affected RFIs ({detailsObjection.daily_works?.length || 0})</span>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant="flat"
+                                            color="primary"
+                                            onPress={() => {
+                                                onDetailsClose();
+                                                openAttachModal(detailsObjection);
+                                            }}
+                                        >
+                                            Manage
+                                        </Button>
+                                    </div>
+                                    {detailsObjection.daily_works?.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {detailsObjection.daily_works.slice(0, 10).map((rfi) => (
+                                                <Chip key={rfi.id} size="sm" variant="flat" color="primary">
+                                                    {rfi.number}
+                                                </Chip>
+                                            ))}
+                                            {detailsObjection.daily_works.length > 10 && (
+                                                <Chip size="sm" variant="bordered" color="default">
+                                                    +{detailsObjection.daily_works.length - 10} more
+                                                </Chip>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-default-500">No RFIs attached to this objection.</p>
+                                    )}
+                                </div>
+
+                                {/* Description */}
+                                {detailsObjection.description && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            <DocumentTextIcon className="w-4 h-4 text-default-500" />
+                                            Description
+                                        </h4>
+                                        <div className="p-3 sm:p-4 bg-default-100 rounded-lg">
+                                            <p className="text-sm whitespace-pre-wrap">{detailsObjection.description}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Reason */}
+                                {detailsObjection.reason && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            <ExclamationTriangleIcon className="w-4 h-4 text-warning" />
+                                            Reason for Objection
+                                        </h4>
+                                        <div className="p-3 sm:p-4 bg-warning-50/50 dark:bg-warning-900/10 border border-warning/20 rounded-lg">
+                                            <p className="text-sm whitespace-pre-wrap">{detailsObjection.reason}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Resolution Notes (if resolved/rejected) */}
+                                {detailsObjection.resolution_notes && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            {detailsObjection.status === 'resolved' ? (
+                                                <CheckCircleSolid className="w-4 h-4 text-success" />
+                                            ) : (
+                                                <XCircleSolid className="w-4 h-4 text-danger" />
+                                            )}
+                                            Resolution Notes
+                                        </h4>
+                                        <div className={`p-3 sm:p-4 rounded-lg border ${
+                                            detailsObjection.status === 'resolved'
+                                                ? 'bg-success-50/50 dark:bg-success-900/10 border-success/20'
+                                                : 'bg-danger-50/50 dark:bg-danger-900/10 border-danger/20'
+                                        }`}>
+                                            <p className="text-sm whitespace-pre-wrap">{detailsObjection.resolution_notes}</p>
+                                            {detailsObjection.resolved_by && (
+                                                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-divider/40">
+                                                    <ProfileAvatar
+                                                        src={detailsObjection.resolved_by?.profile_image_url}
+                                                        name={detailsObjection.resolved_by?.name || 'Unknown'}
+                                                        size="sm"
+                                                        className="w-5 h-5"
+                                                    />
+                                                    <span className="text-xs text-default-500">
+                                                        {detailsObjection.status === 'resolved' ? 'Resolved' : 'Rejected'} by {detailsObjection.resolved_by?.name}
+                                                        {detailsObjection.resolved_at && (
+                                                            <> on {new Date(detailsObjection.resolved_at).toLocaleDateString()}</>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Attachments */}
+                                {detailsObjection.media?.length > 0 && (
+                                    <div className="space-y-2">
+                                        <h4 className="text-sm font-semibold flex items-center gap-2">
+                                            <PhotoIcon className="w-4 h-4 text-default-500" />
+                                            Attachments ({detailsObjection.media.length})
+                                        </h4>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
+                                            {detailsObjection.media.map((file) => {
+                                                const isImage = file.mime_type?.startsWith('image/');
+                                                return (
+                                                    <a
+                                                        key={file.id}
+                                                        href={file.original_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="group relative aspect-square rounded-lg overflow-hidden border border-divider hover:border-primary transition-colors"
+                                                    >
+                                                        {isImage ? (
+                                                            <img
+                                                                src={file.preview_url || file.original_url}
+                                                                alt={file.file_name}
+                                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-full flex flex-col items-center justify-center bg-default-100 p-2">
+                                                                <DocumentIcon className="w-8 h-8 text-default-400 mb-1" />
+                                                                <span className="text-[10px] text-center text-default-500 line-clamp-2">
+                                                                    {file.file_name}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                            <span className="opacity-0 group-hover:opacity-100 text-white text-xs bg-black/50 px-2 py-1 rounded">
+                                                                View
+                                                            </span>
+                                                        </div>
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Status Timeline Summary */}
+                                {detailsObjection.status_logs?.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-semibold flex items-center gap-2">
+                                                <ClockIcon className="w-4 h-4 text-default-500" />
+                                                Status History
+                                            </h4>
+                                            <Button
+                                                size="sm"
+                                                variant="light"
+                                                onPress={() => {
+                                                    onDetailsClose();
+                                                    openHistoryModal(detailsObjection);
+                                                }}
+                                            >
+                                                View Full History
+                                            </Button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {detailsObjection.status_logs.slice(-3).map((log, index) => (
+                                                <div key={log.id || index} className="flex items-center gap-1 text-xs">
+                                                    <Chip size="sm" variant="flat" color={statusConfig[log.from_status]?.color || 'default'}>
+                                                        {formatStatus(log.from_status)}
+                                                    </Chip>
+                                                    <span className="text-default-400">→</span>
+                                                    <Chip size="sm" variant="flat" color={statusConfig[log.to_status]?.color || 'default'}>
+                                                        {formatStatus(log.to_status)}
+                                                    </Chip>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </ModalBody>
+                    <ModalFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="light" onPress={onDetailsClose} className="w-full sm:w-auto">
+                            Close
+                        </Button>
+                        {detailsObjection?.status === 'draft' && (
+                            <Button
+                                color="primary"
+                                variant="flat"
+                                startContent={<PencilIcon className="w-4 h-4" />}
+                                onPress={() => {
+                                    onDetailsClose();
+                                    openEditModal(detailsObjection);
+                                }}
+                                className="w-full sm:w-auto"
+                            >
+                                Edit
+                            </Button>
+                        )}
+                        {detailsObjection?.status === 'draft' && (
+                            <Button
+                                color="primary"
+                                startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
+                                onPress={() => {
+                                    onDetailsClose();
+                                    openStatusModal(detailsObjection, 'submit');
+                                }}
+                                className="w-full sm:w-auto"
+                            >
+                                Submit for Review
+                            </Button>
+                        )}
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+
+            <div className="flex justify-center p-4">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full max-w-[2000px]"
+                >
+                    <Card
+                        className="transition-all duration-200"
+                        style={{
+                            border: `var(--borderWidth, 2px) solid transparent`,
+                            borderRadius: `var(--borderRadius, 12px)`,
+                            fontFamily: `var(--fontFamily, "Inter")`,
+                            transform: `scale(var(--scale, 1))`,
+                            background: `linear-gradient(135deg,
+                                var(--theme-content1, #FAFAFA) 20%,
+                                var(--theme-content2, #F4F4F5) 10%,
+                                var(--theme-content3, #F1F3F4) 20%)`,
+                        }}
+                    >
+                        {/* Main Card Header */}
+                        <CardHeader
+                            className="border-b p-0"
+                            style={{
+                                borderColor: `var(--theme-divider, #E4E4E7)`,
+                                background: `linear-gradient(135deg,
+                                    color-mix(in srgb, var(--theme-content1) 50%, transparent) 20%,
+                                    color-mix(in srgb, var(--theme-content2) 30%, transparent) 10%)`,
+                            }}
+                        >
+                            <div className={`${isLargeScreen ? 'p-6' : isMediumScreen ? 'p-4' : 'p-3'} w-full`}>
+                                <div className="flex flex-col space-y-4">
+                                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                        {/* Title Section */}
+                                        <div className="flex items-center gap-3 lg:gap-4">
+                                            <div
+                                                className={`
+                                                    ${isLargeScreen ? 'p-3' : isMediumScreen ? 'p-2.5' : 'p-2'}
+                                                    rounded-xl flex items-center justify-center
+                                                `}
+                                                style={{
+                                                    background: `color-mix(in srgb, var(--theme-warning) 15%, transparent)`,
+                                                    borderColor: `color-mix(in srgb, var(--theme-warning) 25%, transparent)`,
+                                                    borderWidth: `var(--borderWidth, 2px)`,
+                                                    borderRadius: `var(--borderRadius, 12px)`,
+                                                }}
+                                            >
+                                                <ShieldExclamationIcon
+                                                    className={`
+                                                        ${isLargeScreen ? 'w-8 h-8' : isMediumScreen ? 'w-6 h-6' : 'w-5 h-5'}
+                                                    `}
+                                                    style={{ color: 'var(--theme-warning)' }}
+                                                />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <h4
+                                                    className={`
+                                                        ${isLargeScreen ? 'text-2xl' : isMediumScreen ? 'text-xl' : 'text-lg'}
+                                                        font-bold text-foreground
+                                                        ${!isLargeScreen ? 'truncate' : ''}
+                                                    `}
+                                                    style={{
+                                                        fontFamily: `var(--fontFamily, "Inter")`,
+                                                    }}
+                                                >
+                                                    Objections Management
+                                                </h4>
+                                                <p
+                                                    className={`
+                                                        ${isLargeScreen ? 'text-sm' : 'text-xs'}
+                                                        text-default-500
+                                                        ${!isLargeScreen ? 'truncate' : ''}
+                                                    `}
+                                                    style={{
+                                                        fontFamily: `var(--fontFamily, "Inter")`,
+                                                    }}
+                                                >
+                                                    Track and manage RFI objections across projects
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center gap-2 sm:gap-4 w-full lg:w-auto">
+                                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end w-full lg:w-auto">
+                                                {actionButtons.map((button, index) => (
+                                                    <Button
+                                                        key={index}
+                                                        size={isLargeScreen ? "md" : "sm"}
+                                                        variant={button.variant || "flat"}
+                                                        color={button.color || "primary"}
+                                                        startContent={!isMobile && button.icon}
+                                                        isIconOnly={isMobile}
+                                                        onPress={button.onPress}
+                                                        className={`${button.className || ''} font-medium ${isMobile ? 'min-w-9 h-9' : ''}`}
+                                                        aria-label={button.label}
+                                                        style={{
+                                                            fontFamily: `var(--fontFamily, "Inter")`,
+                                                            borderRadius: `var(--borderRadius, 12px)`,
+                                                        }}
+                                                    >
+                                                        {isMobile ? button.icon : button.label}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardHeader>
+
+                        <CardBody className="pt-6">
+                            {/* Quick Stats */}
+                            <div className="relative">
+                                <StatsCards
+                                    stats={stats}
+                                    onRefresh={refreshData}
+                                    isLoading={statsLoading}
+                                />
+                            </div>
+
+                            {/* Search and Filters Section */}
+                            <div className="mb-4 space-y-4">
+                                <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+                                    {/* Filter Toggle Button */}
+                                    <Button
+                                        size="sm"
+                                        variant={showFilters ? 'solid' : 'bordered'}
+                                        color={showFilters ? 'primary' : 'default'}
+                                        onPress={() => setShowFilters(!showFilters)}
+                                        radius={getThemeRadius()}
+                                        className={`shrink-0 min-h-10 ${showFilters ? '' : 'border-divider/50'}`}
+                                        startContent={<AdjustmentsHorizontalIcon className="w-4 h-4" />}
+                                        style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                                    >
+                                        {isMobile ? '' : 'Filters'}
+                                    </Button>
+
+                                    {/* Search Field */}
+                                    <div className="flex-1 min-w-0">
+                                        <Input
+                                            type="text"
+                                            placeholder="Search by title, description, or chainage..."
+                                            value={search}
+                                            onChange={handleSearch}
+                                            variant="bordered"
+                                            size="sm"
+                                            radius={getThemeRadius()}
+                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400 shrink-0" />}
+                                            classNames={{
+                                                input: "text-foreground text-sm",
+                                                inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",
+                                            }}
+                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Advanced Filters Panel */}
+                                <AnimatePresence>
+                                    {showFilters && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div
+                                                className="p-3 rounded-lg border"
+                                                style={{
+                                                    background: 'var(--theme-content2, rgba(244, 244, 245, 0.8))',
+                                                    borderColor: 'var(--theme-divider, rgba(228, 228, 231, 0.5))',
+                                                }}
+                                            >
+                                                <div className="flex flex-wrap gap-3 items-end">
+                                                    {/* Status Filter */}
+                                                    <div className="w-full sm:w-auto sm:min-w-[160px]">
+                                                        <Select
+                                                            label="Status"
+                                                            placeholder="All"
+                                                            selectedKeys={filterData.status ? [filterData.status] : ["all"]}
+                                                            onSelectionChange={(keys) => {
+                                                                const value = Array.from(keys)[0] || 'all';
+                                                                handleFilterChange('status', value);
+                                                            }}
+                                                            variant="bordered"
+                                                            size="sm"
+                                                            radius={getThemeRadius()}
+                                                            classNames={{
+                                                                trigger: "min-h-10",
+                                                                value: "text-foreground text-sm",
+                                                            }}
+                                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                                                        >
+                                                            <SelectItem key="all" value="all">All Statuses</SelectItem>
+                                                            {Object.entries(statuses || statusConfig).map(([key, value]) => (
+                                                                <SelectItem key={key} value={key}>
+                                                                    {typeof value === 'string' ? value : value.label}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </Select>
+                                                    </div>
+
+                                                    {/* Category Filter */}
+                                                    <div className="w-full sm:w-auto sm:min-w-[160px]">
+                                                        <Select
+                                                            label="Category"
+                                                            placeholder="All"
+                                                            selectedKeys={filterData.category ? [filterData.category] : ["all"]}
+                                                            onSelectionChange={(keys) => {
+                                                                const value = Array.from(keys)[0] || 'all';
+                                                                handleFilterChange('category', value);
+                                                            }}
+                                                            variant="bordered"
+                                                            size="sm"
+                                                            radius={getThemeRadius()}
+                                                            classNames={{
+                                                                trigger: "min-h-10",
+                                                                value: "text-foreground text-sm",
+                                                            }}
+                                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                                                        >
+                                                            <SelectItem key="all" value="all">All Categories</SelectItem>
+                                                            {Object.entries(categories || categoryConfig).map(([key, value]) => (
+                                                                <SelectItem key={key} value={key}>
+                                                                    {typeof value === 'string' ? value : value.label}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </Select>
+                                                    </div>
+
+                                                    {/* Clear Filters */}
+                                                    <Button
+                                                        size="sm"
+                                                        variant="flat"
+                                                        color="danger"
+                                                        radius={getThemeRadius()}
+                                                        className="min-h-10"
+                                                        onPress={() => {
+                                                            setFilterData({
+                                                                status: 'all',
+                                                                category: 'all',
+                                                                creator: '',
+                                                            });
+                                                            setSearch('');
+                                                            setCurrentPage(1);
+                                                        }}
+                                                        style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
+                            {/* Objections Table/List */}
+                            <Card
+                                radius={getThemeRadius()}
+                                className="bg-content2/50 backdrop-blur-md border border-divider/30"
+                                style={{
+                                    fontFamily: `var(--fontFamily, "Inter")`,
+                                    borderRadius: `var(--borderRadius, 12px)`,
+                                    backgroundColor: 'var(--theme-content2)',
+                                    borderColor: 'var(--theme-divider)',
+                                }}
+                            >
+                                <CardBody className="p-4">
+                                    <ErrorBoundary
+                                        fallbackTitle="Unable to load objections"
+                                        fallbackDescription="There was an error loading the objections. Please try refreshing."
+                                        onRetry={refreshData}
+                                    >
+                                        {tableLoading ? (
+                                            isMobile ? renderMobileSkeleton() : renderTableSkeleton()
+                                        ) : isMobile ? (
+                                            <PullToRefresh
+                                                onRefresh={handlePullToRefresh}
+                                                disabled={tableLoading}
+                                            >
+                                                <div className="flex flex-col gap-2">
+                                                    {objections?.data?.length > 0 ? (
+                                                        objections.data.map((objection) => (
+                                                            <SwipeableCard key={objection.id}>
+                                                                <ObjectionAccordionItem
+                                                                    objection={objection}
+                                                                    isExpanded={expandedItems.has(objection.id)}
+                                                                    onToggle={() => toggleExpanded(objection.id)}
+                                                                />
+                                                            </SwipeableCard>
+                                                        ))
+                                                    ) : (
+                                                        <div className="text-center py-12">
+                                                            <ShieldExclamationIcon className="w-16 h-16 mx-auto text-default-300 mb-4" />
+                                                            <p className="text-default-500 font-medium">No objections found</p>
+                                                            <p className="text-default-400 text-sm mt-1">Create your first objection to get started</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </PullToRefresh>
+                                        ) : (
+                                            <Table
+                                                aria-label="Objections table"
+                                                removeWrapper
+                                                classNames={{
+                                                    base: "overflow-auto",
+                                                    table: "min-w-full",
+                                                    th: "bg-default-100 text-default-600 text-xs font-semibold uppercase",
+                                                    td: "py-3",
+                                                }}
+                                            >
+                                                <TableHeader columns={columns}>
+                                                    {(column) => (
+                                                        <TableColumn key={column.key}>
+                                                            {column.label}
+                                                        </TableColumn>
+                                                    )}
+                                                </TableHeader>
+                                                <TableBody
+                                                    items={objections?.data || []}
+                                                    emptyContent={
+                                                        <div className="text-center py-12">
+                                                            <ShieldExclamationIcon className="w-16 h-16 mx-auto text-default-300 mb-4" />
+                                                            <p className="text-default-500 font-medium">No objections found</p>
+                                                            <p className="text-default-400 text-sm mt-1">Create your first objection to get started</p>
+                                                        </div>
+                                                    }
+                                                >
+                                                    {(objection) => (
+                                                        <TableRow key={objection.id} className={objection.is_active ? 'bg-warning-50/50 dark:bg-warning-900/10' : ''}>
+                                                            {(columnKey) => (
+                                                                <TableCell>{renderCell(objection, columnKey)}</TableCell>
+                                                            )}
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        )}
+
+                                        {/* Pagination */}
+                                        {objections?.last_page > 1 && (
+                                            <div className="flex justify-center mt-4 pt-4 border-t border-divider/30">
+                                                <Pagination
+                                                    total={objections.last_page}
+                                                    page={objections.current_page}
+                                                    onChange={handlePageChange}
+                                                    size={isMobile ? "sm" : "md"}
+                                                    showControls
+                                                    showShadow
+                                                    color="primary"
+                                                />
+                                            </div>
+                                        )}
+                                    </ErrorBoundary>
+                                </CardBody>
+                            </Card>
+                        </CardBody>
+                    </Card>
+                </motion.div>
+            </div>
+        </>
+    );
+};
+
+ObjectionsIndex.layout = (page) => <App>{page}</App>;
+
+export default ObjectionsIndex;

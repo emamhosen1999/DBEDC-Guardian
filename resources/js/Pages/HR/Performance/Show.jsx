@@ -24,7 +24,7 @@ export default function PerformanceShow({ review }) {
 
                 <div className="grid gap-4 rounded-lg border border-gray-200 bg-white p-4 sm:grid-cols-3 sm:p-6">
                     <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">Employee</p>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Member</p>
                         <p className="mt-1 text-sm font-medium text-gray-900">{review.employee?.name || '-'}</p>
                     </div>
                     <div>

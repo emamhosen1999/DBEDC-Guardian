@@ -220,7 +220,7 @@ class DepartmentSeeder extends Seeder
                 [
                     'name' => 'Training & Development',
                     'code' => 'HR-T&D',
-                    'description' => 'Employee training and professional development',
+                    'description' => 'Member training and professional development',
                     'parent_id' => $hr->id,
                     'location' => 'Headquarters',
                     'is_active' => true,
@@ -268,7 +268,7 @@ class DepartmentSeeder extends Seeder
                 [
                     'name' => 'Payroll',
                     'code' => 'FIN-PAY',
-                    'description' => 'Employee payroll management',
+                    'description' => 'Member payroll management',
                     'parent_id' => $fin->id,
                     'location' => 'Headquarters',
                     'is_active' => true,

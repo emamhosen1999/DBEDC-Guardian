@@ -62,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
 
                 // Convert chainages to a comparable string format for jurisdiction check
                 $startChainageFormatted = $this->formatChainage($startChainage);
+
                 $endChainageFormatted = $endChainage ? $this->formatChainage($endChainage) : null;
             }
 
@@ -92,6 +93,7 @@ class AppServiceProvider extends ServiceProvider
                     $jurisdictionFound = true;
                     break; // Stop checking once a match is found
                 }
+
             }
 
             // If no jurisdiction is found, add an error
@@ -103,6 +105,102 @@ class AppServiceProvider extends ServiceProvider
 
             return true; // Return true if valid and jurisdiction exists
         });
+
+        // Enhanced location validation with improved chainage format validation
+        Validator::extend('enhanced_location', function ($attribute, $value, $parameters, $validator) {
+            // Comprehensive chainage format validation
+            $chainagePatterns = [
+                // Single chainage: K14, SK14, DK14, CK14, ZK14
+                '/^[A-Z]*K\d+$/',
+                // Chainage with meters: K14+500, K14+500.5, SK14+900
+                '/^[A-Z]*K\d+\+\d+(\.\d+)?$/',
+                // Chainage range: K14-K15, K14+500-K15+200
+                '/^[A-Z]*K\d+(?:\+\d+(?:\.\d+)?)?-[A-Z]*K\d+(?:\+\d+(?:\.\d+)?)?$/',
+                // Chainage with side indicators: K14+500R, K14+500L, K14+500-TR
+                '/^[A-Z]*K\d+(?:\+\d+(?:\.\d+)?)?[RL]?(?:-[TR][RL])?$/',
+            ];
+
+            $validFormat = false;
+            foreach ($chainagePatterns as $pattern) {
+                if (preg_match($pattern, $value)) {
+                    $validFormat = true;
+                    break;
+                }
+            }
+
+            if (!$validFormat) {
+                $validator->errors()->add($attribute, 'Location must be a valid chainage format (e.g., K14, K14+500, K14-K15, K14+500R)');
+                return false;
+            }
+
+            // Extract chainage for jurisdiction validation
+            $chainageRegex = '/([A-Z]*K\d+(?:\+\d+(?:\.\d+)?)?)(?:-([A-Z]*K\d+(?:\+\d+(?:\.\d+)?)?))?/';
+            if (!preg_match($chainageRegex, $value, $matches)) {
+                $validator->errors()->add($attribute, 'Unable to parse chainage from location: ' . $value);
+                return false;
+            }
+
+            $startChainage = $matches[1];
+            $endChainage = $matches[2] ?? null;
+
+            // Validate against jurisdictions
+            try {
+                $jurisdictions = \App\Models\Jurisdiction::all();
+
+                if ($jurisdictions->isEmpty()) {
+                    // If no jurisdictions are defined, accept any valid chainage format
+                    return true;
+                }
+
+                $startChainageFormatted = $this->formatChainage($startChainage);
+                $endChainageFormatted = $endChainage ? $this->formatChainage($endChainage) : null;
+
+                $jurisdictionFound = false;
+                foreach ($jurisdictions as $jurisdiction) {
+                    $formattedStartJurisdiction = $this->formatChainage($jurisdiction->start_chainage);
+                    $formattedEndJurisdiction = $this->formatChainage($jurisdiction->end_chainage);
+
+                    // Check if start chainage is within jurisdiction
+                    if ($startChainageFormatted >= $formattedStartJurisdiction &&
+                        $startChainageFormatted <= $formattedEndJurisdiction) {
+                        $jurisdictionFound = true;
+                        break;
+                    }
+
+                    // Check end chainage if provided
+                    if ($endChainageFormatted &&
+                        $endChainageFormatted >= $formattedStartJurisdiction &&
+                        $endChainageFormatted <= $formattedEndJurisdiction) {
+                        $jurisdictionFound = true;
+                        break;
+                    }
+                }
+
+                if (!$jurisdictionFound) {
+                    $validator->errors()->add($attribute, 'Location chainage must be within a valid jurisdiction: ' . $value);
+                    return false;
+                }
+
+            } catch (\Exception $e) {
+                // If jurisdiction check fails, log but allow validation to pass
+                \Illuminate\Support\Facades\Log::warning('Jurisdiction validation failed: ' . $e->getMessage());
+            }
+
+            return true;
+        });
+
+         /**
+     * Warm up application caches on boot (only in production or when explicitly enabled)
+     */
+        if (config('app.cache_warmup_enabled', false) || app()->environment('production')) {
+            try {
+                $cacheService = app(\App\Services\Cache\ReferenceDataCacheService::class);
+                $cacheService->warmUpCaches();
+            } catch (\Exception $e) {
+                // Log but don't fail application boot
+                \Illuminate\Support\Facades\Log::warning('Cache warmup failed during app boot: ' . $e->getMessage());
+            }
+        }
     }
 
     private function formatChainage($chainage)
@@ -125,4 +223,6 @@ class AppServiceProvider extends ServiceProvider
 
         return $chainage; // Return the chainage unchanged if it doesn't match the expected format
     }
+
+   
 }

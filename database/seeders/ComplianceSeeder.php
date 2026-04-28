@@ -160,7 +160,7 @@ class ComplianceSeeder extends Seeder
         ];
         $complianceOfficer->givePermissionTo($officerPermissions);
 
-        // Employee gets basic view and acknowledge permissions
+        // Member gets basic view and acknowledge permissions
         $employeePermissions = [
             'compliance.dashboard.view',
             'compliance.policies.view',

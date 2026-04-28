@@ -145,7 +145,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'hr.employee.skills.update' => 'Update employee skills',
                 'hr.employee.skills.delete' => 'Remove employee skills',
 
-                // Employee Benefits Administration
+                // Member Benefits Administration
                 'hr.benefits.view' => 'View benefits programs',
                 'hr.benefits.create' => 'Create benefits programs',
                 'hr.benefits.update' => 'Update benefits programs',
@@ -199,7 +199,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'hr.employee.documents.create' => 'Create employee documents',
                 'hr.employee.documents.delete' => 'Delete employee documents',
 
-                // Enhanced Employee Self-Service
+                // Enhanced Member Self-Service
                 'hr.selfservice.view' => 'Access self-service portal',
                 'hr.selfservice.profile.view' => 'View own profile in self-service',
                 'hr.selfservice.profile.update' => 'Update own profile in self-service',
@@ -609,13 +609,13 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'is_system_role' => false,
             ],
             [
-                'name' => 'Senior Employee',
+                'name' => 'Senior Member',
                 'description' => 'Senior level employee with extended access',
                 'hierarchy_level' => 50,
                 'is_system_role' => false,
             ],
             [
-                'name' => 'Employee',
+                'name' => 'Member',
                 'description' => 'Standard employee access to self-service functions',
                 'hierarchy_level' => 60,
                 'is_system_role' => false,
@@ -753,8 +753,8 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ->get();
         $teamLead->givePermissionTo($teamPermissions);
 
-        // Senior Employee - Extended self-service
-        $seniorEmployee = Role::findByName('Senior Employee');
+        // Senior Member - Extended self-service
+        $seniorMember = Role::findByName('Senior Member');
         $seniorPermissions = Permission::whereIn('module', ['core', 'self-service'])
             ->orWhereIn('name', [
                 'daily-works.view',
@@ -772,10 +772,10 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'training-assignment-submissions.update',
             ])
             ->get();
-        $seniorEmployee->givePermissionTo($seniorPermissions);
+        $seniorMember->givePermissionTo($seniorPermissions);
 
-        // Employee - Basic self-service
-        $employee = Role::findByName('Employee');
+        // Member - Basic self-service
+        $employee = Role::findByName('Member');
         $employeePermissions = Permission::whereIn('module', ['core', 'self-service'])
             ->orWhereIn('name', [
                 'daily-works.view',

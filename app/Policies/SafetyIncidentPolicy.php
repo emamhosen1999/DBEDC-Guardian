@@ -28,8 +28,8 @@ class SafetyIncidentPolicy
             return false;
         }
 
-        // Employees can view incidents they're involved in
-        if ($user->hasRole('Employee')) {
+        // WorkForce can view incidents they're involved in
+        if ($user->hasRole('Member')) {
             return $safetyIncident->participants()->where('user_id', $user->id)->exists() ||
                    $safetyIncident->reported_by === $user->id;
         }

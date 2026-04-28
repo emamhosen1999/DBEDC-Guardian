@@ -36,7 +36,7 @@ import ProfileAvatar from './ProfileAvatar';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Header = ({ 
-    title = "AEOS365",
+    title = "DBEDC Guardian",
     showUserMenu = true,
     showNotifications = true,
     showThemeToggle = true,

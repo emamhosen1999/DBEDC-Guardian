@@ -24,7 +24,7 @@ class UserManagementTest extends TestCase
 
         // Create Super Administrator role
         Role::create(['name' => 'Super Administrator']);
-        Role::create(['name' => 'Employee']);
+        Role::create(['name' => 'Member']);
 
         // Create admin user with permission
         $this->adminUser = User::factory()->create([
@@ -60,7 +60,7 @@ class UserManagementTest extends TestCase
             'designation_id' => $designation->id,
             'gender' => 'male',
             'employee_id' => 'EMP001',
-            'roles' => ['Employee'],
+            'roles' => ['Member'],
         ];
 
         $response = $this->post(route('users.store'), $userData);
@@ -200,7 +200,7 @@ class UserManagementTest extends TestCase
     public function user_cannot_modify_their_own_roles(): void
     {
         $response = $this->post(route('users.updateRole', $this->adminUser->id), [
-            'roles' => ['Employee'],
+            'roles' => ['Member'],
         ]);
 
         $response->assertStatus(403);

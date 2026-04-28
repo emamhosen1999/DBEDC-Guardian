@@ -311,11 +311,11 @@ const SalaryInformationForm = ({user, setUser}) => {
                                 </Grid>
                                 <Grid item xs={12} md={4}>
                                     <FormControl fullWidth>
-                                        <InputLabel id="employee-pf-rate-label">Employee PF rate</InputLabel>
+                                        <InputLabel id="employee-pf-rate-label">Member PF rate</InputLabel>
                                         <Select
                                             disabled={!Boolean(changedUserData.pf_contribution || initialUserData.pf_contribution)}
                                             labelId="employee-pf-rate-label"
-                                            label="Employee PF rate"
+                                            label="Member PF rate"
                                             value={changedUserData.employee_pf_rate || initialUserData.employee_pf_rate || 'na'}
                                             onChange={(e) => handleChange('employee_pf_rate', e.target.value)}
                                             error={Boolean(errors.employee_pf_rate)}
@@ -444,7 +444,7 @@ const SalaryInformationForm = ({user, setUser}) => {
                                 </Grid>
                                 <Grid item xs={12} md={4}>
                                     <FormControl fullWidth>
-                                        <InputLabel id="esi-contribution-label">Employee ESI rate</InputLabel>
+                                        <InputLabel id="esi-contribution-label">Member ESI rate</InputLabel>
                                         <Select
                                             disabled={!Boolean(changedUserData.esi_contribution || initialUserData.esi_contribution)}
                                             labelId="esi-contribution-label"

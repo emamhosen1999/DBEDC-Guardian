@@ -257,7 +257,7 @@ const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => {
                                                 fontFamily: `var(--fontFamily, "Inter")`,
                                             }}
                                         >
-                                            Employee:
+                                            Member:
                                         </span>
                                         <div 
                                             className="text-sm font-medium"
@@ -509,7 +509,7 @@ const UpdatesCards = () => {
         return (
             <section 
                 
-                aria-label="Employee updates loading"
+                aria-label="Member updates loading"
             >
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
                     {[1, 2, 3].map((_, idx) => (
@@ -571,7 +571,7 @@ const UpdatesCards = () => {
     return (
         <section 
             className="p-4"
-            aria-label="Employee Updates Dashboard"
+            aria-label="Member Updates Dashboard"
         >
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-stretch">
                 {sectionConfig.map((section, index) => (

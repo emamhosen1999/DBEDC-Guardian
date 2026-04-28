@@ -72,8 +72,8 @@ class RoleHierarchyMiddleware
             'HR Manager' => 3,
             'Department Head' => 4,
             'Team Lead' => 5,
-            'Senior Employee' => 6,
-            'Employee' => 10,
+            'Senior Member' => 6,
+            'Member' => 10,
         ];
 
         $highestLevel = 999; // Default to lowest authority

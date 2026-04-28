@@ -15,15 +15,15 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
-class EmployeeController extends Controller
+class MemberController extends Controller
 {
     /**
      * Display a listing of employees
      */
     public function index()
     {
-        return Inertia::render('Employees/EmployeeList', [
-            'title' => 'Employee Management',
+        return Inertia::render('WorkForce/MemberList', [
+            'title' => 'Member Management',
             'departments' => Department::where('is_active', true)->get(),
             'designations' => Designation::where('is_active', true)->get(),
             'attendanceTypes' => AttendanceType::where('is_active', true)->get(),
@@ -62,7 +62,7 @@ class EmployeeController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
-                'employee_id' => $request->employee_id ?? $this->generateEmployeeId(),
+                'employee_id' => $request->employee_id ?? $this->generateMemberId(),
                 'department_id' => $request->department_id,
                 'designation_id' => $request->designation_id,
                 'attendance_type_id' => $request->attendance_type_id,
@@ -77,12 +77,12 @@ class EmployeeController extends Controller
             ]);
 
             // Assign default employee role
-            $user->assignRole('Employee');
+            $user->assignRole('Member');
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Employee created successfully',
+                'message' => 'Member created successfully',
                 'employee' => $user->load(['department', 'designation', 'attendanceType']),
             ], 201);
         } catch (\Exception $e) {
@@ -117,7 +117,7 @@ class EmployeeController extends Controller
 
             // Enhanced authorization check
             $currentUser = Auth::user();
-            if (! $this->canModifyEmployee($currentUser, $employee)) {
+            if (! $this->canModifyMember($currentUser, $employee)) {
                 return response()->json(['error' => 'Unauthorized to modify this employee'], 403);
             }
 
@@ -148,7 +148,7 @@ class EmployeeController extends Controller
             $employee->update($validated);
 
             // Log the update for audit trail
-            Log::info('Employee updated', [
+            Log::info('Member updated', [
                 'employee_id' => $id,
                 'employee_name' => $employee->name,
                 'changes' => $changes,
@@ -157,7 +157,7 @@ class EmployeeController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Employee updated successfully',
+                'message' => 'Member updated successfully',
                 'employee' => $employee->fresh(),
             ]);
         } catch (\Exception $e) {
@@ -181,12 +181,12 @@ class EmployeeController extends Controller
 
             // Enhanced authorization check
             $currentUser = Auth::user();
-            if (! $this->canDeleteEmployee($currentUser, $employee)) {
+            if (! $this->canDeleteMember($currentUser, $employee)) {
                 return response()->json(['error' => 'Unauthorized to delete this employee'], 403);
             }
 
             // Check for dependencies before deletion
-            $dependencies = $this->checkEmployeeDependencies($employee);
+            $dependencies = $this->checkMemberDependencies($employee);
             if (! empty($dependencies)) {
                 return response()->json([
                     'error' => 'Cannot delete employee with active dependencies',
@@ -200,14 +200,14 @@ class EmployeeController extends Controller
             $employee->delete();
 
             // Log the deletion for audit trail
-            Log::info('Employee deleted', [
+            Log::info('Member deleted', [
                 'employee_id' => $id,
                 'employee_name' => $employee->name,
                 'deleted_by' => Auth::id(),
                 'timestamp' => now(),
             ]);
 
-            return response()->json(['message' => 'Employee deleted successfully']);
+            return response()->json(['message' => 'Member deleted successfully']);
         } catch (\Exception $e) {
             Log::error('Error deleting employee', [
                 'error' => $e->getMessage(),
@@ -222,7 +222,7 @@ class EmployeeController extends Controller
     /**
      * Check if current user can modify the employee
      */
-    private function canModifyEmployee($currentUser, $employee)
+    private function canModifyMember($currentUser, $employee)
     {
         // Super admins can modify anyone
         if ($currentUser->hasRole('Super Administrator')) {
@@ -261,7 +261,7 @@ class EmployeeController extends Controller
     /**
      * Check if current user can delete the employee
      */
-    private function canDeleteEmployee($currentUser, $employee)
+    private function canDeleteMember($currentUser, $employee)
     {
         // Super admins can delete anyone (except themselves)
         if ($currentUser->hasRole('Super Administrator') && $currentUser->id !== $employee->id) {
@@ -290,7 +290,7 @@ class EmployeeController extends Controller
     /**
      * Check for employee dependencies before deletion
      */
-    private function checkEmployeeDependencies($employee)
+    private function checkMemberDependencies($employee)
     {
         $dependencies = [];
 
@@ -358,7 +358,7 @@ class EmployeeController extends Controller
             $employee->active = true;
             $employee->save();
 
-            return response()->json(['message' => 'Employee restored successfully']);
+            return response()->json(['message' => 'Member restored successfully']);
         } catch (\Exception $e) {
             Log::error('Error restoring employee', [
                 'error' => $e->getMessage(),
@@ -542,7 +542,7 @@ class EmployeeController extends Controller
             return response()->json([
                 'employees' => $employees,
                 'allManagers' => $allManagers,
-                'stats' => $this->getEmployeeStats(),
+                'stats' => $this->getMemberStats(),
             ]);
         } catch (\Exception $e) {
             Log::error('Error paginating employees', [
@@ -559,22 +559,22 @@ class EmployeeController extends Controller
      */
     public function stats()
     {
-        return response()->json(['stats' => $this->getEmployeeStats()]);
+        return response()->json(['stats' => $this->getMemberStats()]);
     }
 
     /**
      * Generate a unique employee ID
      */
-    private function generateEmployeeId()
+    private function generateMemberId()
     {
         $prefix = 'EMP';
         $year = date('Y');
-        $lastEmployee = User::where('employee_id', 'like', "{$prefix}{$year}%")
+        $lastMember = User::where('employee_id', 'like', "{$prefix}{$year}%")
             ->orderByDesc('employee_id')
             ->first();
 
-        if ($lastEmployee) {
-            $lastNumber = (int) substr($lastEmployee->employee_id, -4);
+        if ($lastMember) {
+            $lastNumber = (int) substr($lastMember->employee_id, -4);
             $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
         } else {
             $newNumber = '0001';
@@ -586,31 +586,31 @@ class EmployeeController extends Controller
     /**
      * Get comprehensive employee statistics
      */
-    private function getEmployeeStats()
+    private function getMemberStats()
     {
-        $totalEmployees = User::withTrashed()->count();
-        $activeEmployees = User::where('active', true)->count();
-        $inactiveEmployees = User::where('active', false)->count();
+        $totalWorkForce = User::withTrashed()->count();
+        $activeWorkForce = User::where('active', true)->count();
+        $inactiveWorkForce = User::where('active', false)->count();
 
         // Department distribution
         $departmentStats = Department::withCount('users')
             ->get()
-            ->map(function ($dept) use ($totalEmployees) {
+            ->map(function ($dept) use ($totalWorkForce) {
                 return [
                     'name' => $dept->name,
                     'count' => $dept->users_count,
-                    'percentage' => $totalEmployees > 0 ? round(($dept->users_count / $totalEmployees) * 100, 1) : 0,
+                    'percentage' => $totalWorkForce > 0 ? round(($dept->users_count / $totalWorkForce) * 100, 1) : 0,
                 ];
             });
 
         // Designation distribution
         $designationStats = Designation::withCount('users')
             ->get()
-            ->map(function ($desig) use ($totalEmployees) {
+            ->map(function ($desig) use ($totalWorkForce) {
                 return [
                     'name' => $desig->title,
                     'count' => $desig->users_count,
-                    'percentage' => $totalEmployees > 0 ? round(($desig->users_count / $totalEmployees) * 100, 1) : 0,
+                    'percentage' => $totalWorkForce > 0 ? round(($desig->users_count / $totalWorkForce) * 100, 1) : 0,
                 ];
             });
 
@@ -624,9 +624,9 @@ class EmployeeController extends Controller
 
         return [
             'overview' => [
-                'total_employees' => $totalEmployees,
-                'active_employees' => $activeEmployees,
-                'inactive_employees' => $inactiveEmployees,
+                'total_employees' => $totalWorkForce,
+                'active_employees' => $activeWorkForce,
+                'inactive_employees' => $inactiveWorkForce,
                 'total_departments' => Department::count(),
                 'total_designations' => Designation::count(),
                 'total_attendance_types' => AttendanceType::where('is_active', true)->count(),
@@ -644,11 +644,11 @@ class EmployeeController extends Controller
             ],
             'workforce_health' => [
                 'status_ratio' => [
-                    'active_percentage' => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
-                    'inactive_percentage' => $totalEmployees > 0 ? round(($inactiveEmployees / $totalEmployees) * 100, 1) : 0,
+                    'active_percentage' => $totalWorkForce > 0 ? round(($activeWorkForce / $totalWorkForce) * 100, 1) : 0,
+                    'inactive_percentage' => $totalWorkForce > 0 ? round(($inactiveWorkForce / $totalWorkForce) * 100, 1) : 0,
                 ],
-                'retention_rate' => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
-                'turnover_rate' => $totalEmployees > 0 ? round(($inactiveEmployees / $totalEmployees) * 100, 1) : 0,
+                'retention_rate' => $totalWorkForce > 0 ? round(($activeWorkForce / $totalWorkForce) * 100, 1) : 0,
+                'turnover_rate' => $totalWorkForce > 0 ? round(($inactiveWorkForce / $totalWorkForce) * 100, 1) : 0,
             ],
         ];
     }

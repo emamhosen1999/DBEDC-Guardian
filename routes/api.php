@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AttendanceController as MobileAttendanceController;
 use App\Http\Controllers\Api\V1\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\V1\DailyWorkController as MobileDailyWorkController;
+use App\Http\Controllers\Api\V1\DailyWorkAnalyticsController as MobileDailyWorkAnalyticsController;
 use App\Http\Controllers\Api\V1\LeaveController as MobileLeaveController;
 use App\Http\Controllers\Api\V1\ManagerDashboardController as MobileManagerDashboardController;
 use App\Http\Controllers\Api\V1\ProfileController as MobileProfileController;
@@ -207,5 +208,11 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\ApiDeviceA
     Route::post('/daily-works/{dailyWorkId}/objections/{objectionId}/files', [MobileDailyWorkController::class, 'uploadObjectionFiles'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->name('api.v1.daily-works.objections.files.upload');
     Route::delete('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}', [MobileDailyWorkController::class, 'deleteObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.delete');
     Route::get('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}/download', [MobileDailyWorkController::class, 'downloadObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.download');
+
+    // Analytics endpoints
+    Route::get('/analytics/daily-works/completion-rates', [MobileDailyWorkAnalyticsController::class, 'completionRates'])->name('api.v1.analytics.daily-works.completion-rates');
+    Route::get('/analytics/daily-works/bottlenecks', [MobileDailyWorkAnalyticsController::class, 'bottlenecks'])->name('api.v1.analytics.daily-works.bottlenecks');
+    Route::get('/analytics/daily-works/trends', [MobileDailyWorkAnalyticsController::class, 'trends'])->name('api.v1.analytics.daily-works.trends');
+    Route::get('/analytics/daily-works/dashboard', [MobileDailyWorkAnalyticsController::class, 'dashboard'])->name('api.v1.analytics.daily-works.dashboard');
     Route::post('/notifications/token', [NotificationController::class, 'storeToken'])->name('api.v1.notifications.token.store');
 });

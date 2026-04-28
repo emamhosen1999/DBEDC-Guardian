@@ -41,7 +41,7 @@ const TimeOffIndex = ({ title, timeOffRequests = [] }) => {
             description: 'Current month approvals'
         },
         {
-            title: 'Total Employees',
+            title: 'Total WorkForce',
             value: 156,
             icon: <UserGroupIcon className="w-5 h-5" />,
             color: 'text-blue-400',

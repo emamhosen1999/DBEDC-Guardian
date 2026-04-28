@@ -4,14 +4,14 @@ return [
     // Module Title
     'title' => 'Human Resources',
 
-    // Employee Management
+    // Member Management
     'employees' => [
-        'title' => 'Employees',
-        'list' => 'Employee List',
-        'add' => 'Add Employee',
-        'edit' => 'Edit Employee',
-        'view' => 'View Employee',
-        'delete' => 'Delete Employee',
+        'title' => 'WorkForce',
+        'list' => 'Member List',
+        'add' => 'Add Member',
+        'edit' => 'Edit Member',
+        'view' => 'View Member',
+        'delete' => 'Delete Member',
         'delete_confirm' => 'Are you sure you want to delete this employee?',
         'search_placeholder' => 'Search employees...',
         'filter_by_department' => 'Filter by Department',
@@ -19,16 +19,16 @@ return [
         'filter_by_status' => 'Filter by Status',
         'export_excel' => 'Export to Excel',
         'export_pdf' => 'Export to PDF',
-        'import_employees' => 'Import Employees',
+        'import_employees' => 'Import WorkForce',
         'bulk_actions' => 'Bulk Actions',
         'no_employees' => 'No employees found.',
-        'create_success' => 'Employee created successfully.',
-        'update_success' => 'Employee updated successfully.',
-        'delete_success' => 'Employee deleted successfully.',
+        'create_success' => 'Member created successfully.',
+        'update_success' => 'Member updated successfully.',
+        'delete_success' => 'Member deleted successfully.',
 
-        // Employee Fields
+        // Member Fields
         'fields' => [
-            'employee_id' => 'Employee ID',
+            'employee_id' => 'Member ID',
             'name' => 'Full Name',
             'email' => 'Email Address',
             'phone' => 'Phone Number',
@@ -74,7 +74,7 @@ return [
             'description' => 'Description',
             'head' => 'Department Head',
             'parent' => 'Parent Department',
-            'employees_count' => 'Employees',
+            'employees_count' => 'WorkForce',
             'status' => 'Status',
         ],
     ],
@@ -98,7 +98,7 @@ return [
             'description' => 'Description',
             'department' => 'Department',
             'level' => 'Level',
-            'employees_count' => 'Employees',
+            'employees_count' => 'WorkForce',
             'status' => 'Status',
         ],
     ],
@@ -129,7 +129,7 @@ return [
 
         'fields' => [
             'date' => 'Date',
-            'employee' => 'Employee',
+            'employee' => 'Member',
             'punch_in' => 'Punch In',
             'punch_out' => 'Punch Out',
             'working_hours' => 'Working Hours',

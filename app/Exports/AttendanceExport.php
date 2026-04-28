@@ -124,8 +124,8 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
                 $rows->push([
                     'No.' => $counter++,
                     'Date' => date('M d, Y', strtotime($this->date)),
-                    'Employee Name' => $user->name,
-                    'Employee ID' => $user->employee_id,
+                    'Member Name' => $user->name,
+                    'Member ID' => $user->employee_id,
                     'Designation' => $user->designation_title ?? 'N/A',
                     'Phone' => $user->phone,
                     'Clock In' => $in,
@@ -147,8 +147,8 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
                 $rows->push([
                     'No.' => $counter++,
                     'Date' => date('M d, Y', strtotime($this->date)),
-                    'Employee Name' => $user->name,
-                    'Employee ID' => $user->employee_id,
+                    'Member Name' => $user->name,
+                    'Member ID' => $user->employee_id,
                     'Designation' => $user->designation_title ?? 'N/A',
                     'Phone' => $user->phone,
                     'Clock In' => 'On Leave',
@@ -163,8 +163,8 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
                 $rows->push([
                     'No.' => $counter++,
                     'Date' => date('M d, Y', strtotime($this->date)),
-                    'Employee Name' => $user->name,
-                    'Employee ID' => $user->employee_id,
+                    'Member Name' => $user->name,
+                    'Member ID' => $user->employee_id,
                     'Designation' => $user->designation_title ?? 'N/A',
                     'Phone' => $user->phone,
                     'Clock In' => 'Absent',
@@ -186,8 +186,8 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
         return [
             'No.',
             'Date',
-            'Employee Name',
-            'Employee ID',
+            'Member Name',
+            'Member ID',
             'Designation',
             'Phone',
             'Clock In',
@@ -242,7 +242,7 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
                 // ====== Summary row ======
 
                 $sheet->mergeCells('A3:M3');
-                $sheet->setCellValue('A3', "Total Employees: {$total} (Present: {$present}, On Leave: {$onLeave}), Absent: {$absent})");
+                $sheet->setCellValue('A3', "Total WorkForce: {$total} (Present: {$present}, On Leave: {$onLeave}), Absent: {$absent})");
                 $sheet->getStyle('A3')->getAlignment()->setHorizontal('center');
 
                 // ====== Style the headers ======

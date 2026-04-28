@@ -137,7 +137,7 @@ class ManagerDashboardController extends Controller
         $queryRangeEnd = $windowDefinitions[2]['to']->toDateString();
         $hasLeaveSettingsTable = Schema::hasTable('leave_settings');
         $hasLeaveSymbolColumn = $hasLeaveSettingsTable && Schema::hasColumn('leave_settings', 'symbol');
-        $hasEmployeeCodeColumn = Schema::hasColumn('users', 'employee_id');
+        $hasMemberCodeColumn = Schema::hasColumn('users', 'employee_id');
         $hasProfileImageColumn = Schema::hasColumn('users', 'profile_image');
 
         $leaveQuery = DB::table('leaves')
@@ -164,7 +164,7 @@ class ManagerDashboardController extends Controller
             'users.name as employee_name',
         ];
 
-        if ($hasEmployeeCodeColumn) {
+        if ($hasMemberCodeColumn) {
             $selectColumns[] = 'users.employee_id as employee_code';
         } else {
             $selectColumns[] = DB::raw('NULL as employee_code');
@@ -465,9 +465,7 @@ class ManagerDashboardController extends Controller
         }
 
         $hasPivotTable = Schema::hasTable('daily_work_objection');
-        $hasLegacyColumn = Schema::hasColumn('rfi_objections', 'daily_work_id');
-
-        if (! $hasPivotTable && ! $hasLegacyColumn) {
+        if (! $hasPivotTable) {
             return [
                 'submitted' => 0,
                 'under_review' => 0,
@@ -477,20 +475,8 @@ class ManagerDashboardController extends Controller
 
         $objections = RfiObjection::query()
             ->select('rfi_objections.id', 'rfi_objections.status')
-            ->where(function ($query) use ($dailyWorkIds, $hasLegacyColumn, $hasPivotTable) {
-                if ($hasPivotTable) {
-                    $query->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkIds) {
-                        $dailyWorkQuery->whereIn('daily_works.id', $dailyWorkIds);
-                    });
-                }
-
-                if ($hasLegacyColumn) {
-                    if ($hasPivotTable) {
-                        $query->orWhereIn('daily_work_id', $dailyWorkIds);
-                    } else {
-                        $query->whereIn('daily_work_id', $dailyWorkIds);
-                    }
-                }
+            ->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkIds) {
+                $dailyWorkQuery->whereIn('daily_works.id', $dailyWorkIds);
             })
             ->distinct()
             ->get();

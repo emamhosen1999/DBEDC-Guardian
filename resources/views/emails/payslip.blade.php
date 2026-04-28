@@ -119,13 +119,13 @@
         <p>Greetings! Your payslip for <strong>{{ $payslip->pay_period }}</strong> has been generated and is ready for your review.</p>
 
         <div class="employee-info">
-            <h3 style="margin-bottom: 15px; color: #2563eb;">Employee Information</h3>
+            <h3 style="margin-bottom: 15px; color: #2563eb;">Member Information</h3>
             <div class="info-row">
-                <span class="info-label">Employee Name:</span>
+                <span class="info-label">Member Name:</span>
                 <span>{{ $employee->name }}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Employee ID:</span>
+                <span class="info-label">Member ID:</span>
                 <span>{{ $employee->employee_id ?? $employee->id }}</span>
             </div>
             <div class="info-row">

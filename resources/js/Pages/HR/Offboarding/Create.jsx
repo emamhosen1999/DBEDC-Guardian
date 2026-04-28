@@ -31,7 +31,7 @@ export default function OffboardingCreate() {
         <div className="grid md:grid-cols-3 gap-6">
           <div className="space-y-4">
             <div>
-              <label className="form-label">Employee ID</label>
+              <label className="form-label">Member ID</label>
               <input className="input" value={data.employee_id} onChange={e=>setData('employee_id', e.target.value)} />
               {errors.employee_id && <p className="error-text">{errors.employee_id}</p>}
             </div>

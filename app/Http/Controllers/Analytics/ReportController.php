@@ -187,7 +187,7 @@ class ReportController extends Controller
         $startDate = $filters['start_date'] ?? now()->subMonths(3)->format('Y-m-d');
         $endDate = $filters['end_date'] ?? now()->format('Y-m-d');
 
-        // Example: Employee headcount by department
+        // Example: Member headcount by department
         $departmentHeadcount = DB::table('users')
             ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
             ->join('departments', 'users.department_id', '=', 'departments.id')
@@ -216,7 +216,7 @@ class ReportController extends Controller
             'departmentHeadcount' => $departmentHeadcount,
             'attendanceStats' => $attendanceStats,
             'summary' => [
-                'totalEmployees' => DB::table('users')->count(),
+                'totalWorkForce' => DB::table('users')->count(),
                 'newHires' => DB::table('users')
                     ->where('created_at', '>=', $startDate)
                     ->where('created_at', '<=', $endDate)

@@ -83,7 +83,7 @@
     
     @if(isset($summaryData['stats']))
     <div class="summary">
-        Total Employees: {{ $summaryData['stats']['total_employees'] ?? 0 }} | 
+        Total WorkForce: {{ $summaryData['stats']['total_employees'] ?? 0 }} | 
         Approved Leaves: {{ $summaryData['stats']['total_approved_leaves'] ?? 0 }} | 
         Pending Leaves: {{ $summaryData['stats']['total_pending_leaves'] ?? 0 }} | 
         Departments: {{ $summaryData['stats']['departments_count'] ?? 0 }}
@@ -93,7 +93,7 @@
     <table>
         <thead>
             <tr>
-                <th class="employee-name">Employee</th>
+                <th class="employee-name">Member</th>
                 <th class="department">Department</th>
                 <th class="month-col">Jan</th>
                 <th class="month-col">Feb</th>
@@ -158,11 +158,11 @@
             <thead>
                 <tr>
                     <th style="text-align: left; width: 150px;">Department</th>
-                    <th style="width: 80px;">Employees</th>
+                    <th style="width: 80px;">WorkForce</th>
                     <th style="width: 80px;">Total Leaves</th>
                     <th style="width: 80px;">Approved</th>
                     <th style="width: 80px;">Pending</th>
-                    <th style="width: 100px;">Avg per Employee</th>
+                    <th style="width: 100px;">Avg per Member</th>
                 </tr>
             </thead>
             <tbody>

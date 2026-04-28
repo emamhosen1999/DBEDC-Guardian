@@ -149,7 +149,7 @@ class DashboardController extends Controller
         return [
             [
                 'id' => 1,
-                'title' => 'Employee Attendance',
+                'title' => 'Member Attendance',
                 'type' => 'chart',
                 'chart_type' => 'line',
                 'size' => 'medium',

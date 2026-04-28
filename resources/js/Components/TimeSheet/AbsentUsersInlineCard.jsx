@@ -220,7 +220,7 @@ export const AbsentUsersInlineCard = React.memo(({ absentUsers, selectedDate, ge
                         className="w-5 h-5"
                         style={{ color: 'var(--theme-danger)' }}
                     />
-                    Absent Employees ({totalRows})
+                    Absent WorkForce ({totalRows})
                 </h3>
             </div>
             {/* Search Input */}

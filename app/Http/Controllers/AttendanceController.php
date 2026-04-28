@@ -24,14 +24,14 @@ class AttendanceController extends Controller
     public function index1(): \Inertia\Response
     {
         return Inertia::render('AttendanceAdmin', [
-            'allUsers' => User::role('Employee')->get(),
-            'title' => 'Attendances of Employees',
+            'allUsers' => User::role('Member')->get(),
+            'title' => 'Attendances of WorkForce',
         ]);
     }
 
     public function index2(): \Inertia\Response
     {
-        return Inertia::render('AttendanceEmployee', [
+        return Inertia::render('AttendanceMember', [
             'title' => 'Attendances',
         ]);
     }
@@ -52,7 +52,7 @@ class AttendanceController extends Controller
             $currentMonth = $request->get('currentMonth');
             $currentYear = $request->get('currentYear');
 
-            $users = $this->getEmployeeUsersWithAttendanceAndLeaves($currentYear, $currentMonth);
+            $users = $this->getMemberUsersWithAttendanceAndLeaves($currentYear, $currentMonth);
             $leaveTypes = LeaveSetting::all();
             $holidays = $this->getHolidaysForMonth($currentYear, $currentMonth);
             $leaveCountsArray = $this->getLeaveCountsArray($currentYear, $currentMonth);
@@ -90,10 +90,10 @@ class AttendanceController extends Controller
         }
     }
 
-    private function getEmployeeUsersWithAttendanceAndLeaves($year, $month)
+    private function getMemberUsersWithAttendanceAndLeaves($year, $month)
     {
         return User::whereHas('roles', function ($query) {
-            $query->where('name', 'Employee');
+            $query->where('name', 'Member');
         })->with([
             'attendances' => function ($query) use ($year, $month) {
                 $query->whereYear('date', $year)
@@ -532,8 +532,8 @@ class AttendanceController extends Controller
         $page = $request->get('employee') != '' ? 1 : (int) $request->get('page', 1);
         $employee = $request->get('employee', '');
         try {
-            // Get all users with Employee role
-            $allUsersQuery = User::role('Employee');
+            // Get all users with Member role
+            $allUsersQuery = User::role('Member');
 
             // Apply employee search filter to all users if provided
             if ($employee !== '') {
@@ -546,7 +546,7 @@ class AttendanceController extends Controller
             $allUsers = $allUsersQuery->get();
 
             // Get users who have attendance for the selected date
-            $usersWithAttendanceQuery = User::role('Employee')
+            $usersWithAttendanceQuery = User::role('Member')
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
                         ->whereDate('date', $selectedDate);
@@ -709,7 +709,7 @@ class AttendanceController extends Controller
                 ]);
             }
 
-            // Group attendance records by date (Employee view logic)
+            // Group attendance records by date (Member view logic)
             $groupedByDate = $attendanceRecords->groupBy(function ($record) {
                 return Carbon::parse($record->date)->format('Y-m-d');
             })->map(function ($dateAttendances, $date) {
@@ -830,7 +830,7 @@ class AttendanceController extends Controller
 
         try {
             // Get users who have attendance for the selected date
-            $usersWithAttendanceQuery = User::role('Employee')
+            $usersWithAttendanceQuery = User::role('Member')
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
                         ->whereDate('date', $selectedDate);
@@ -958,11 +958,11 @@ class AttendanceController extends Controller
 
         try {
 
-            // When not searching, get all users with Employee role
-            $allUsers = User::role('Employee')->get();
+            // When not searching, get all users with Member role
+            $allUsers = User::role('Member')->get();
 
             // Get IDs of users who have attendance for the selected date
-            $presentUserIds = User::role('Employee')
+            $presentUserIds = User::role('Member')
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
                         ->whereDate('date', $selectedDate);
@@ -1011,9 +1011,9 @@ class AttendanceController extends Controller
 
             // Determine if we are looking at ONE user or ALL users
             if ($request->route()->getName() === 'attendance.myMonthlyStats') {
-                $userId = Auth::id(); // Employee View
+                $userId = Auth::id(); // Member View
             } elseif ($request->has('userId') && $request->userId != null) {
-                $userId = $request->get('userId'); // Admin viewing specific Employee
+                $userId = $request->get('userId'); // Admin viewing specific Member
             } else {
                 $isGlobalScope = true; // Admin Dashboard View
             }
@@ -1041,8 +1041,8 @@ class AttendanceController extends Controller
 
             // 4. EMPLOYEE COUNT
             // If Global: 17 employees. If Single: 1 employee.
-            $totalEmployees = $isGlobalScope
-                ? User::role('Employee')->where('active', 1)->count()
+            $totalWorkForce = $isGlobalScope
+                ? User::role('Member')->where('active', 1)->count()
                 : 1;
 
             // 5. FETCH DATA (Scoped)
@@ -1139,8 +1139,8 @@ class AttendanceController extends Controller
             // Estimate working days passed (simplified) - cast to int to avoid float precision issues
             $workingDaysPassed = (int) max(0, $daysPassed - (int) ($daysPassed * 2 / 7)); // Rough estimate of weekends passed
 
-            $totalPotentialManDays = $calendarWorkingDays * $totalEmployees; // For the whole month
-            $potentialManDaysPassed = $workingDaysPassed * $totalEmployees; // So far
+            $totalPotentialManDays = $calendarWorkingDays * $totalWorkForce; // For the whole month
+            $potentialManDaysPassed = $workingDaysPassed * $totalWorkForce; // So far
 
             // Absent = Potential (So Far) - Present - Leaves
             $totalAbsentManDays = (int) max(0, $potentialManDaysPassed - $totalPresentManDays - $totalLeaveManDays);
@@ -1151,7 +1151,7 @@ class AttendanceController extends Controller
                 : 0;
 
             // Averages
-            // If Global: Avg Hours per Employee (Total Hours / Present Man Days)
+            // If Global: Avg Hours per Member (Total Hours / Present Man Days)
             $averageWorkHours = $totalPresentManDays > 0
                 ? round(($totalWorkMinutes / 60) / $totalPresentManDays, 1)
                 : 0;
@@ -1162,7 +1162,7 @@ class AttendanceController extends Controller
                     'meta' => [
                         'month' => $startOfMonth->format('F Y'),
                         'scope' => $isGlobalScope ? 'Global' : 'Single',
-                        'totalEmployees' => (int) $totalEmployees, // Card 1: 17
+                        'totalWorkForce' => (int) $totalWorkForce, // Card 1: 17
                         'workingDays' => (int) $calendarWorkingDays, // Card 2: 24
                         'holidays' => (int) $holidaysCount,
                         'weekends' => (int) $weekendCount,
@@ -1356,7 +1356,7 @@ class AttendanceController extends Controller
 
             // Verify the user exists and is an employee
             $user = User::find($userId);
-            if (! $user || ! $user->hasRole('Employee')) {
+            if (! $user || ! $user->hasRole('Member')) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Invalid user or user is not an employee.',
@@ -1471,7 +1471,7 @@ class AttendanceController extends Controller
 
                     // Verify user is an employee
                     $user = User::find($userId);
-                    if (! $user || ! $user->hasRole('Employee')) {
+                    if (! $user || ! $user->hasRole('Member')) {
                         $results['failed'][] = [
                             'user_id' => $userId,
                             'name' => $user->name ?? 'Unknown',
@@ -1644,7 +1644,7 @@ class AttendanceController extends Controller
         $to = $from->copy()->endOfMonth();
         $monthName = $from->format('F Y');
 
-        $users = User::with(['attendances', 'leaves'])->role('Employee')->where('active', 1)->get();
+        $users = User::with(['attendances', 'leaves'])->role('Member')->where('active', 1)->get();
         $leaveTypes = LeaveSetting::all();
         $holidays = Holiday::all();
 

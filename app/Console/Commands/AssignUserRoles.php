@@ -20,7 +20,7 @@ class AssignUserRoles extends Command
      *
      * @var string
      */
-    protected $description = 'Assign Super Administrator role to specific user and Employee role to all others';
+    protected $description = 'Assign Super Administrator role to specific user and Member role to all others';
 
     /**
      * Execute the console command.
@@ -31,7 +31,7 @@ class AssignUserRoles extends Command
 
         // Check if roles exist
         $superAdminRole = Role::where('name', 'Super Administrator')->first();
-        $employeeRole = Role::where('name', 'Employee')->first();
+        $employeeRole = Role::where('name', 'Member')->first();
 
         if (! $superAdminRole || ! $employeeRole) {
             $this->error('Required roles not found. Please run the seeder first.');
@@ -69,7 +69,7 @@ class AssignUserRoles extends Command
                 $superAdminUser = $user;
                 $this->info("✅ Super Administrator role assigned to: {$user->name} (ID: {$user->id}, Email: {$user->email})");
             } else {
-                $user->assignRole('Employee');
+                $user->assignRole('Member');
                 $employeeCount++;
             }
         }
@@ -78,7 +78,7 @@ class AssignUserRoles extends Command
             $this->warn("⚠️  User with ID {$superAdminId} not found. No Super Administrator assigned.");
         }
 
-        $this->info("✅ Employee role assigned to {$employeeCount} users.");
+        $this->info("✅ Member role assigned to {$employeeCount} users.");
         $this->info('🎉 Role assignment completed successfully!');
 
         // Verify the assignments

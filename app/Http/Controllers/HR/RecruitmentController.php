@@ -724,7 +724,7 @@ class RecruitmentController extends Controller
             'existingUsers' => User::select('id', 'name', 'email', 'phone')->get(),
             'sources' => [
                 ['id' => 'internal', 'name' => 'Internal Posting'],
-                ['id' => 'referral', 'name' => 'Employee Referral'],
+                ['id' => 'referral', 'name' => 'Member Referral'],
                 ['id' => 'website', 'name' => 'Company Website'],
                 ['id' => 'linkedin', 'name' => 'LinkedIn'],
                 ['id' => 'indeed', 'name' => 'Indeed'],
@@ -906,7 +906,7 @@ class RecruitmentController extends Controller
             'job' => Job::findOrFail($id),
             'application' => $application,
             'interviews' => $interviews,
-            'interviewers' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Employee'])->get(['id', 'name']),
+            'interviewers' => User::role(['HR Manager', 'Department Manager', 'Team Lead', 'Senior Member'])->get(['id', 'name']),
             'interviewTypes' => [
                 ['id' => 'phone', 'name' => 'Phone Interview'],
                 ['id' => 'video', 'name' => 'Video Interview'],

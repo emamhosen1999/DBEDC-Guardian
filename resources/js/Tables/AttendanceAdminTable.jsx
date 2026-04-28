@@ -111,7 +111,7 @@ const AttendanceAdminTable = ({
     // Memoized columns for better performance
     const columns = useMemo(() => [
         {label: 'No.', key: 'sl', icon: DocumentChartBarIcon, width: 60},
-        {label: 'Employee', key: 'name', icon: UserIcon, width: 200},
+        {label: 'Member', key: 'name', icon: UserIcon, width: 200},
         ...Array.from({length: daysInMonth}, (_, i) => {
             const day = i + 1;
             const date = dayjs(`${currentYear}-${currentMonth}-${day}`);
@@ -189,7 +189,7 @@ const AttendanceAdminTable = ({
                                     fontFamily: `var(--fontFamily, "Inter")`,
                                     color: `var(--theme-foreground-600, #71717A)`,
                                 }}>
-                                    Employee #{index + 1}
+                                    Member #{index + 1}
                                 </span>
                             }
                         />
@@ -370,7 +370,7 @@ const AttendanceAdminTable = ({
                                 <div className="w-16 p-3 flex items-center justify-center">
                                     <Skeleton className="w-8 h-4 rounded" />
                                 </div>
-                                {/* Employee column */}
+                                {/* Member column */}
                                 <div className="w-48 p-3 flex items-center gap-1">
                                     <Skeleton className="w-4 h-4 rounded" />
                                     <Skeleton className="w-20 h-4 rounded" />
@@ -399,7 +399,7 @@ const AttendanceAdminTable = ({
                                     <div className="w-16 p-3 flex items-center justify-center">
                                         <Skeleton className="w-6 h-4 rounded" />
                                     </div>
-                                    {/* Employee info */}
+                                    {/* Member info */}
                                     <div className="w-48 p-3 flex items-center gap-3">
                                         <Skeleton className="w-8 h-8 rounded-full" />
                                         <div className="flex flex-col gap-1">
@@ -565,7 +565,7 @@ const AttendanceAdminTable = ({
                                                             }),
                                                         }}
                                                         name={data.name || 'Unknown User'}
-                                                        description={`Employee ID: ${data.employee_id}` || `ID: ${data.user_id}`}
+                                                        description={`Member ID: ${data.employee_id}` || `ID: ${data.user_id}`}
                                                     />
                                                 </TableCell>
                                             );

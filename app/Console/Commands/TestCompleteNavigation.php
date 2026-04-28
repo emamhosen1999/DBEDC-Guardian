@@ -102,10 +102,10 @@ class TestCompleteNavigation extends Command
 
         $superAdmin = Role::where('name', 'Super Administrator')->first();
         $admin = Role::where('name', 'Administrator')->first();
-        $employee = Role::where('name', 'Employee')->first();
+        $employee = Role::where('name', 'Member')->first();
 
         if ($superAdmin && $admin && $employee) {
-            $this->info('✅ Core roles exist (Super Administrator, Administrator, Employee)');
+            $this->info('✅ Core roles exist (Super Administrator, Administrator, Member)');
 
             // Check permission counts
             $superAdminPerms = $superAdmin->permissions->count();
@@ -114,7 +114,7 @@ class TestCompleteNavigation extends Command
 
             $this->info("   - Super Administrator: {$superAdminPerms} permissions");
             $this->info("   - Administrator: {$adminPerms} permissions");
-            $this->info("   - Employee: {$employeePerms} permissions");
+            $this->info("   - Member: {$employeePerms} permissions");
 
             if ($superAdminPerms >= $adminPerms && $adminPerms >= $employeePerms) {
                 $this->info('✅ Role hierarchy is correct');

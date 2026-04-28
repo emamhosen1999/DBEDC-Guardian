@@ -196,36 +196,36 @@ class MobileAttendanceApiTest extends TestCase
         ]);
         $this->assignRole($manager, 'Project Manager');
 
-        $targetEmployee = User::factory()->create([
+        $targetMember = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-9001',
             'single_device_login_enabled' => false,
         ]);
-        $this->assignRole($targetEmployee, 'Employee');
+        $this->assignRole($targetMember, 'Member');
 
-        $otherEmployee = User::factory()->create([
+        $otherMember = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-9002',
             'single_device_login_enabled' => false,
         ]);
-        $this->assignRole($otherEmployee, 'Employee');
+        $this->assignRole($otherMember, 'Member');
 
         Attendance::query()->create([
-            'user_id' => $targetEmployee->id,
+            'user_id' => $targetMember->id,
             'date' => now()->startOfMonth()->addDays(4)->toDateString(),
             'punchin' => '09:00:00',
             'punchout' => '12:00:00',
         ]);
 
         Attendance::query()->create([
-            'user_id' => $targetEmployee->id,
+            'user_id' => $targetMember->id,
             'date' => now()->startOfMonth()->addDays(5)->toDateString(),
             'punchin' => '09:30:00',
             'punchout' => '17:30:00',
         ]);
 
         Attendance::query()->create([
-            'user_id' => $otherEmployee->id,
+            'user_id' => $otherMember->id,
             'date' => now()->startOfMonth()->addDays(5)->toDateString(),
             'punchin' => '10:00:00',
             'punchout' => '15:00:00',
@@ -350,27 +350,27 @@ class MobileAttendanceApiTest extends TestCase
         ]);
         $this->assignRole($manager, 'Project Manager');
 
-        $presentEmployee = User::factory()->create([
+        $presentMember = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-1001',
         ]);
-        $this->assignRole($presentEmployee, 'Employee');
+        $this->assignRole($presentMember, 'Member');
 
-        $absentEmployee = User::factory()->create([
+        $absentMember = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-1002',
         ]);
-        $this->assignRole($absentEmployee, 'Employee');
+        $this->assignRole($absentMember, 'Member');
 
         Attendance::query()->create([
-            'user_id' => $presentEmployee->id,
+            'user_id' => $presentMember->id,
             'date' => '2026-04-07',
             'punchin' => '09:00:00',
             'punchout' => '11:00:00',
         ]);
 
         Attendance::query()->create([
-            'user_id' => $presentEmployee->id,
+            'user_id' => $presentMember->id,
             'date' => '2026-04-07',
             'punchin' => '12:00:00',
             'punchout' => null,
@@ -381,7 +381,7 @@ class MobileAttendanceApiTest extends TestCase
             'symbol' => 'DT',
         ]);
 
-        $this->insertLeaveForUser($absentEmployee->id, $leaveTypeId, [
+        $this->insertLeaveForUser($absentMember->id, $leaveTypeId, [
             'from_date' => '2026-04-07',
             'to_date' => '2026-04-07',
             'status' => 'Approved',
@@ -398,11 +398,11 @@ class MobileAttendanceApiTest extends TestCase
             ->assertJsonPath('data.summary.absent_count', 1)
             ->assertJsonPath('data.summary.total_count', 2)
             ->assertJsonPath('data.pagination.total', 1)
-            ->assertJsonPath('data.attendances.0.user.id', $presentEmployee->id)
+            ->assertJsonPath('data.attendances.0.user.id', $presentMember->id)
             ->assertJsonPath('data.attendances.0.total_work_minutes', 120)
             ->assertJsonPath('data.attendances.0.has_incomplete_punch', true)
-            ->assertJsonPath('data.absent_users.0.id', $absentEmployee->id)
-            ->assertJsonPath('data.leaves.0.user_id', $absentEmployee->id);
+            ->assertJsonPath('data.absent_users.0.id', $absentMember->id)
+            ->assertJsonPath('data.leaves.0.user_id', $absentMember->id);
     }
 
     public function test_manager_can_fetch_mobile_team_locations_payload(): void
@@ -428,7 +428,7 @@ class MobileAttendanceApiTest extends TestCase
             'active' => true,
             'attendance_type_id' => $attendanceType->id,
         ]);
-        $this->assignRole($employee, 'Employee');
+        $this->assignRole($employee, 'Member');
 
         Attendance::query()->create([
             'user_id' => $employee->id,
@@ -468,7 +468,7 @@ class MobileAttendanceApiTest extends TestCase
             'active' => true,
             'employee_id' => 'EMP-2001',
         ]);
-        $this->assignRole($employee, 'Employee');
+        $this->assignRole($employee, 'Member');
 
         Attendance::query()->create([
             'user_id' => $employee->id,
@@ -503,20 +503,20 @@ class MobileAttendanceApiTest extends TestCase
         ]);
         $this->assignRole($manager, 'Project Manager');
 
-        $presentEmployee = User::factory()->create([
+        $presentMember = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-3001',
         ]);
-        $this->assignRole($presentEmployee, 'Employee');
+        $this->assignRole($presentMember, 'Member');
 
-        $absentEmployee = User::factory()->create([
+        $absentMember = User::factory()->create([
             'active' => true,
             'employee_id' => 'EMP-3002',
         ]);
-        $this->assignRole($absentEmployee, 'Employee');
+        $this->assignRole($absentMember, 'Member');
 
         Attendance::query()->create([
-            'user_id' => $presentEmployee->id,
+            'user_id' => $presentMember->id,
             'date' => '2026-04-07',
             'punchin' => '09:00:00',
             'punchout' => '17:00:00',
@@ -527,7 +527,7 @@ class MobileAttendanceApiTest extends TestCase
             'symbol' => 'DT',
         ]);
 
-        $this->insertLeaveForUser($absentEmployee->id, $leaveTypeId, [
+        $this->insertLeaveForUser($absentMember->id, $leaveTypeId, [
             'from_date' => '2026-04-07',
             'to_date' => '2026-04-07',
             'status' => 'Approved',
@@ -539,8 +539,8 @@ class MobileAttendanceApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('total_absent', 1)
-            ->assertJsonPath('absent_users.0.id', $absentEmployee->id)
-            ->assertJsonPath('leaves.0.user_id', $absentEmployee->id)
+            ->assertJsonPath('absent_users.0.id', $absentMember->id)
+            ->assertJsonPath('leaves.0.user_id', $absentMember->id)
             ->assertJsonPath('leaves.0.leave_type_name', 'DailyTimesheet');
     }
 
@@ -567,7 +567,7 @@ class MobileAttendanceApiTest extends TestCase
             'active' => true,
             'attendance_type_id' => $attendanceType->id,
         ]);
-        $this->assignRole($employee, 'Employee');
+        $this->assignRole($employee, 'Member');
 
         Attendance::query()->create([
             'user_id' => $employee->id,
@@ -603,7 +603,7 @@ class MobileAttendanceApiTest extends TestCase
         $employee = User::factory()->create([
             'active' => true,
         ]);
-        $this->assignRole($employee, 'Employee');
+        $this->assignRole($employee, 'Member');
 
         Attendance::query()->create([
             'user_id' => $employee->id,

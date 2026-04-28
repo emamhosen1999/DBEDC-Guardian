@@ -16,7 +16,7 @@ module.exports = {
       // URLs to analyze (feature-based routing)
       url: [
         'http://localhost:3000',                    // Home/Dashboard
-        'http://localhost:3000/employee-management', // Employee Management Feature
+        'http://localhost:3000/employee-management', // Member Management Feature
         'http://localhost:3000/project-management',  // Project Management Feature
         'http://localhost:3000/leave-management',    // Leave Management Feature
         'http://localhost:3000/attendance',          // Attendance Feature

@@ -35,8 +35,8 @@ class HrDocumentPolicy
                 return $document->user->department_id === $user->department_id;
             }
 
-            // Employees can only see their own documents
-            if ($user->hasRole('Employee')) {
+            // WorkForce can only see their own documents
+            if ($user->hasRole('Member')) {
                 return $document->user_id === $user->id;
             }
         }
