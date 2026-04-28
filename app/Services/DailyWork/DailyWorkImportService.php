@@ -11,6 +11,8 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
@@ -27,14 +29,22 @@ class DailyWorkImportService
     }
 
     /**
-     * Preview Excel/CSV import without processing
+     * Preview Excel/CSV import without processing.
+     * Stores the uploaded file with a token so confirmation can re-use it
+     * without re-uploading. Returns detailed work data grouped by incharge.
      */
     public function previewImport(Request $request): array
     {
         $this->validationService->validateImportFile($request);
 
-        $path = $request->file('file')->store('temp');
-        $importedSheets = Excel::toArray(new DailyWorkImport, $path);
+        // Persist the uploaded file under a unique token for the confirm step
+        $token = (string) Str::uuid();
+        $extension = $request->file('file')->getClientOriginalExtension() ?: 'xlsx';
+        $relativePath = 'temp/imports/'.$token.'.'.$extension;
+        $request->file('file')->storeAs('temp/imports', $token.'.'.$extension);
+
+        $absolutePath = Storage::path($relativePath);
+        $importedSheets = Excel::toArray(new DailyWorkImport, $absolutePath);
 
         // Validate all sheets
         foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
@@ -48,28 +58,48 @@ class DailyWorkImportService
         // Check for duplicate dates so user sees the error at preview stage
         $this->validateDuplicateDates($importedSheets);
 
-        // Generate preview summary without processing
-        $summary = [];
+        // Build detailed grouped summary
+        $sheets = [];
         foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
             if (empty($importedDailyWorks)) {
                 continue;
             }
 
-            $summary[] = $this->generateSheetSummary($importedDailyWorks, $sheetIndex);
+            $sheets[] = $this->buildDetailedSheetPreview($importedDailyWorks, $sheetIndex);
         }
 
-        return $summary;
+        return [
+            'token' => $token,
+            'incharges' => $this->getAllInchargesList(),
+            'sheets' => $sheets,
+        ];
     }
 
     /**
-     * Process Excel/CSV import
+     * Process Excel/CSV import.
+     * Supports either a fresh file upload OR a previously-uploaded file
+     * referenced by a token (from preview). Optional incharge_overrides
+     * map RFI number -> incharge user id to override jurisdiction matching.
      */
     public function processImport(Request $request): array
     {
-        $this->validationService->validateImportFile($request);
+        $token = $request->input('token');
+        $overrides = $this->parseOverrides($request->input('incharge_overrides'));
 
-        $path = $request->file('file')->store('temp');
-        $importedSheets = Excel::toArray(new DailyWorkImport, $path);
+        if ($token) {
+            $absolutePath = $this->resolveTokenPath($token);
+            if (! $absolutePath) {
+                throw ValidationException::withMessages([
+                    'token' => 'Import session expired or file not found. Please upload the file again.',
+                ]);
+            }
+        } else {
+            $this->validationService->validateImportFile($request);
+            $relativePath = $request->file('file')->store('temp');
+            $absolutePath = Storage::path($relativePath);
+        }
+
+        $importedSheets = Excel::toArray(new DailyWorkImport, $absolutePath);
 
         // First pass: Validate all sheets
         foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
@@ -84,54 +114,188 @@ class DailyWorkImportService
         $this->validateDuplicateDates($importedSheets);
 
         // Second pass: Process the data within a transaction
-        return DB::transaction(function () use ($importedSheets) {
+        $results = DB::transaction(function () use ($importedSheets, $overrides) {
             $results = [];
             foreach ($importedSheets as $sheetIndex => $importedDailyWorks) {
                 if (empty($importedDailyWorks)) {
                     continue;
                 }
 
-                $result = $this->processSheet($importedDailyWorks, $sheetIndex);
+                $result = $this->processSheet($importedDailyWorks, $sheetIndex, $overrides);
                 $results[] = $result;
             }
 
             return $results;
         });
+
+        // Cleanup token file after successful import
+        if ($token) {
+            $this->cleanupTokenFile($token);
+        }
+
+        return $results;
     }
 
     /**
-     * Generate summary for a single sheet (preview mode)
+     * Parse incharge_overrides input into a clean array<string, int>.
      */
-    private function generateSheetSummary(array $importedDailyWorks, int $sheetIndex): array
+    private function parseOverrides($overrides): array
+    {
+        if (empty($overrides)) {
+            return [];
+        }
+
+        if (is_string($overrides)) {
+            $decoded = json_decode($overrides, true);
+            $overrides = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($overrides)) {
+            return [];
+        }
+
+        $clean = [];
+        foreach ($overrides as $rfi => $inchargeId) {
+            $rfi = trim((string) $rfi);
+            $inchargeId = (int) $inchargeId;
+            if ($rfi !== '' && $inchargeId > 0) {
+                $clean[$rfi] = $inchargeId;
+            }
+        }
+
+        return $clean;
+    }
+
+    /**
+     * Resolve a token to an absolute file path on local disk.
+     */
+    private function resolveTokenPath(string $token): ?string
+    {
+        // Sanitize: only allow uuid-like tokens
+        if (! preg_match('/^[a-f0-9\-]{8,}$/i', $token)) {
+            return null;
+        }
+
+        foreach (['xlsx', 'xls', 'csv'] as $ext) {
+            $relative = 'temp/imports/'.$token.'.'.$ext;
+            if (Storage::exists($relative)) {
+                return Storage::path($relative);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Delete the temporary file associated with the token.
+     */
+    private function cleanupTokenFile(string $token): void
+    {
+        if (! preg_match('/^[a-f0-9\-]{8,}$/i', $token)) {
+            return;
+        }
+
+        foreach (['xlsx', 'xls', 'csv'] as $ext) {
+            $relative = 'temp/imports/'.$token.'.'.$ext;
+            if (Storage::exists($relative)) {
+                Storage::delete($relative);
+            }
+        }
+    }
+
+    /**
+     * Get list of all Supervision Engineers as candidate incharges.
+     */
+    private function getAllInchargesList(): array
+    {
+        return User::with('designation')
+            ->whereHas('designation', fn ($q) => $q->where('title', 'Supervision Engineer'))
+            ->get()
+            ->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name ?? $u->user_name ?? 'Unknown',
+                'designation' => $u->designation?->title ?? 'Supervision Engineer',
+            ])
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Build detailed sheet preview with works grouped by auto-detected incharge.
+     * Returns structure consumed by the kanban-style preview UI.
+     */
+    private function buildDetailedSheetPreview(array $importedDailyWorks, int $sheetIndex): array
     {
         $date = $this->normalizeDate($importedDailyWorks[0][0]) ?? $importedDailyWorks[0][0];
+
         $newWorks = 0;
         $resubmissions = 0;
         $skipped = 0;
 
-        foreach ($importedDailyWorks as $importedDailyWork) {
-            $existingDailyWork = DailyWork::where('number', $importedDailyWork[1])->first();
+        // Group works by detected incharge id; keep skipped + unassigned separate.
+        $byIncharge = [];   // [inchargeId => [work, ...]]
+        $unassigned = [];   // jurisdiction not matched
+        $skippedList = [];  // completed pass/fail (read-only)
 
-            if ($existingDailyWork) {
-                // Check if completed with pass/fail
-                if ($existingDailyWork->status === DailyWork::STATUS_COMPLETED &&
-                    in_array($existingDailyWork->inspection_result, ['pass', 'fail'])) {
-                    $skipped++;
-                } else {
-                    $resubmissions++;
-                }
-            } else {
+        foreach ($importedDailyWorks as $importedDailyWork) {
+            $rfi = (string) ($importedDailyWork[1] ?? '');
+            $location = (string) ($importedDailyWork[4] ?? '');
+            $type = (string) ($importedDailyWork[2] ?? '');
+            $description = (string) ($importedDailyWork[3] ?? '');
+
+            $existingDailyWork = DailyWork::where('number', $rfi)->first();
+            $isSkipped = $existingDailyWork
+                && $existingDailyWork->status === DailyWork::STATUS_COMPLETED
+                && in_array($existingDailyWork->inspection_result, ['pass', 'fail']);
+
+            $status = $isSkipped ? 'skipped' : ($existingDailyWork ? 'resubmission' : 'new');
+
+            if ($status === 'new') {
                 $newWorks++;
+            } elseif ($status === 'resubmission') {
+                $resubmissions++;
+            } else {
+                $skipped++;
+            }
+
+            $jurisdiction = $this->findJurisdictionForLocation($location);
+            $autoInchargeId = $jurisdiction?->incharge;
+
+            $workEntry = [
+                'rfi_number' => $rfi,
+                'location' => $location,
+                'type' => $type,
+                'description' => $description,
+                'status' => $status, // new | resubmission | skipped
+                'auto_incharge' => $autoInchargeId,
+            ];
+
+            if ($isSkipped) {
+                // Carry the existing/auto incharge for display only
+                $workEntry['auto_incharge'] = $autoInchargeId ?? $existingDailyWork->incharge;
+                $skippedList[] = $workEntry;
+                continue;
+            }
+
+            if ($autoInchargeId) {
+                $byIncharge[$autoInchargeId][] = $workEntry;
+            } else {
+                $unassigned[] = $workEntry;
             }
         }
 
         return [
             'sheet' => $sheetIndex + 1,
             'date' => $date,
-            'total_rows' => count($importedDailyWorks),
-            'new_works' => $newWorks,
-            'resubmissions' => $resubmissions,
-            'skipped' => $skipped,
+            'stats' => [
+                'total' => count($importedDailyWorks),
+                'new' => $newWorks,
+                'resubmissions' => $resubmissions,
+                'skipped' => $skipped,
+            ],
+            'by_incharge' => $byIncharge, // map keyed by incharge id
+            'unassigned' => $unassigned,
+            'skipped_list' => $skippedList,
         ];
     }
 
@@ -202,15 +366,16 @@ class DailyWorkImportService
     }
 
     /**
-     * Process a single sheet of daily works
+     * Process a single sheet of daily works.
+     * $overrides maps RFI number -> incharge user id to bypass jurisdiction matching.
      */
-    private function processSheet(array $importedDailyWorks, int $sheetIndex): array
+    private function processSheet(array $importedDailyWorks, int $sheetIndex, array $overrides = []): array
     {
         $date = $this->normalizeDate($importedDailyWorks[0][0]) ?? $importedDailyWorks[0][0];
         $inChargeSummary = [];
 
         foreach ($importedDailyWorks as $importedDailyWork) {
-            $result = $this->processDailyWorkRow($importedDailyWork, $date, $inChargeSummary);
+            $result = $this->processDailyWorkRow($importedDailyWork, $date, $inChargeSummary, $overrides);
 
             if ($result['processed']) {
                 $inChargeSummary = $result['summary'];
@@ -229,22 +394,38 @@ class DailyWorkImportService
     }
 
     /**
-     * Process a single daily work row
+     * Process a single daily work row. Honors override map first, falls back
+     * to jurisdiction matching by location chainage.
      */
-    private function processDailyWorkRow(array $importedDailyWork, string $date, array &$inChargeSummary): array
+    private function processDailyWorkRow(array $importedDailyWork, string $date, array &$inChargeSummary, array $overrides = []): array
     {
-        // Extract chainages and find jurisdiction
-        $jurisdiction = $this->findJurisdictionForLocation($importedDailyWork[4]);
+        $rfi = (string) ($importedDailyWork[1] ?? '');
+        $inCharge = null;
 
-        if (! $jurisdiction) {
-            Log::warning('No jurisdiction found for location: '.$importedDailyWork[4]);
-
-            return ['processed' => false, 'summary' => $inChargeSummary];
+        // 1. Manual override from preview UI takes precedence
+        if ($rfi !== '' && isset($overrides[$rfi])) {
+            $inCharge = (int) $overrides[$rfi];
         }
 
-        $inCharge = $jurisdiction->incharge;
+        // 2. Fall back to jurisdiction matching
+        if (! $inCharge) {
+            $jurisdiction = $this->findJurisdictionForLocation($importedDailyWork[4]);
+
+            if (! $jurisdiction) {
+                Log::warning('No jurisdiction found for location: '.$importedDailyWork[4]);
+
+                return ['processed' => false, 'summary' => $inChargeSummary];
+            }
+
+            $inCharge = (int) $jurisdiction->incharge;
+        }
+
+        // Validate the resolved incharge actually exists
         $inChargeUser = User::find($inCharge);
-        $inChargeName = $inChargeUser ? $inChargeUser->user_name : 'unknown';
+        if (! $inChargeUser) {
+            Log::warning('Resolved incharge user not found: '.$inCharge.' for RFI '.$rfi);
+            return ['processed' => false, 'summary' => $inChargeSummary];
+        }
 
         // Initialize incharge summary if not exists
         if (! isset($inChargeSummary[$inCharge])) {
