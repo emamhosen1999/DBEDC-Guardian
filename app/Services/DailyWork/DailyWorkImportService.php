@@ -11,7 +11,9 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class DailyWorkImportService
 {
@@ -42,6 +44,9 @@ class DailyWorkImportService
 
             $this->validationService->validateImportedData($importedDailyWorks, $sheetIndex);
         }
+
+        // Check for duplicate dates so user sees the error at preview stage
+        $this->validateDuplicateDates($importedSheets);
 
         // Generate preview summary without processing
         $summary = [];
@@ -99,7 +104,7 @@ class DailyWorkImportService
      */
     private function generateSheetSummary(array $importedDailyWorks, int $sheetIndex): array
     {
-        $date = $importedDailyWorks[0][0];
+        $date = $this->normalizeDate($importedDailyWorks[0][0]) ?? $importedDailyWorks[0][0];
         $newWorks = 0;
         $resubmissions = 0;
         $skipped = 0;
@@ -140,11 +145,24 @@ class DailyWorkImportService
             if (empty($importedDailyWorks)) {
                 continue;
             }
-            $date = $importedDailyWorks[0][0];
-            $dates[] = $date;
+            $normalized = $this->normalizeDate($importedDailyWorks[0][0]);
+            if ($normalized !== null) {
+                $dates[] = $normalized;
+            }
         }
 
-        $existingDates = DailyWorkSummary::whereIn('date', $dates)->pluck('date')->toArray();
+        if (empty($dates)) {
+            return;
+        }
+
+        $dates = array_unique($dates);
+
+        $existingDates = DailyWorkSummary::whereIn('date', $dates)
+            ->pluck('date')
+            ->map(fn ($d) => $d instanceof \DateTimeInterface ? $d->format('Y-m-d') : (string) $d)
+            ->unique()
+            ->values()
+            ->toArray();
 
         if (! empty($existingDates)) {
             throw ValidationException::withMessages([
@@ -154,11 +172,41 @@ class DailyWorkImportService
     }
 
     /**
+     * Normalize a date value from an import file into Y-m-d format.
+     * Handles Excel serial numbers, common date strings, and DateTime instances.
+     */
+    private function normalizeDate($value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->format('Y-m-d');
+        }
+
+        // Excel serial date number (numeric)
+        if (is_numeric($value)) {
+            try {
+                return Carbon::instance(ExcelDate::excelToDateTimeObject((float) $value))->format('Y-m-d');
+            } catch (\Throwable $e) {
+                // fall through to string parsing
+            }
+        }
+
+        try {
+            return Carbon::parse((string) $value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
      * Process a single sheet of daily works
      */
     private function processSheet(array $importedDailyWorks, int $sheetIndex): array
     {
-        $date = $importedDailyWorks[0][0];
+        $date = $this->normalizeDate($importedDailyWorks[0][0]) ?? $importedDailyWorks[0][0];
         $inChargeSummary = [];
 
         foreach ($importedDailyWorks as $importedDailyWork) {
