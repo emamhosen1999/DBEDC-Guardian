@@ -780,6 +780,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
             ->orWhereIn('name', [
                 'daily-works.view',
                 'daily-works.create',
+                'daily-works.export',
                 'tasks.view',
                 'performance-reviews.own.view',
                 'training-feedback.own.view',

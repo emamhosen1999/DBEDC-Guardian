@@ -173,8 +173,10 @@ class DailyWorkController extends Controller
     public function export(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            $user = User::with('designation')->find(Auth::id());
+            $user = User::with(['designation', 'roles'])->find(Auth::id());
             $userDesignationTitle = $user->designation?->title;
+            $userRoles = $user->roles->pluck('name')->toArray();
+            $isAdmin = in_array('Super Administrator', $userRoles) || in_array('Administrator', $userRoles);
 
             $query = DailyWork::with(['inchargeUser', 'assignedUser', 'reports'])
                 ->withCount(['objections as active_objections_count' => function ($q) {
@@ -182,8 +184,16 @@ class DailyWorkController extends Controller
                 }]);
 
             // Apply user role filter
-            if ($userDesignationTitle === 'Supervision Engineer') {
-                $query->where('incharge', $user->id);
+            if (! $isAdmin) {
+                if ($userDesignationTitle === 'Supervision Engineer') {
+                    $query->where('incharge', $user->id);
+                } elseif (in_array('Employee', $userRoles)) {
+                    // Employee can only export works where they are incharge or assigned
+                    $query->where(function ($q) use ($user) {
+                        $q->where('incharge', $user->id)
+                            ->orWhere('assigned', $user->id);
+                    });
+                }
             }
 
             // Apply filters from request
