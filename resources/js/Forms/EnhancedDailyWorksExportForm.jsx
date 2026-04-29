@@ -33,13 +33,16 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { parseDate } from "@internationalized/date";
 
-const EnhancedDailyWorksExportForm = ({ 
-    open, 
-    closeModal, 
-    filterData = {}, 
+const EnhancedDailyWorksExportForm = ({
+    open,
+    closeModal,
+    filterData = {},
     users = [],
-    inCharges = [] 
+    inCharges = [],
+    auth = null
 }) => {
+    // Role-based access control
+    const userIsAdmin = auth?.roles?.includes('Administrator') || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Daily Work Manager') || false;
     // Helper function to convert theme borderRadius to HeroUI radius values
     const getThemeRadius = () => {
         if (typeof window === 'undefined') return 'lg';
@@ -391,27 +394,29 @@ const EnhancedDailyWorksExportForm = ({
                                     ))}
                                 </Select>
 
-                                <Select
-                                    label="In Charge"
-                                    selectedKeys={[exportSettings.filters.incharge]}
-                                    onSelectionChange={(keys) => setExportSettings(prev => ({
-                                        ...prev,
-                                        filters: { ...prev.filters, incharge: Array.from(keys)[0] }
-                                    }))}
-                                    size="sm"
-                                    variant="bordered"
-                                    radius={getThemeRadius()}
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                >
-                                    <SelectItem key="all" value="all">All In Charges</SelectItem>
-                                    {inCharges.map((inCharge) => (
-                                        <SelectItem key={inCharge.id} value={inCharge.id}>
-                                            {inCharge.name}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
+                                {userIsAdmin && (
+                                    <Select
+                                        label="In Charge"
+                                        selectedKeys={[exportSettings.filters.incharge]}
+                                        onSelectionChange={(keys) => setExportSettings(prev => ({
+                                            ...prev,
+                                            filters: { ...prev.filters, incharge: Array.from(keys)[0] }
+                                        }))}
+                                        size="sm"
+                                        variant="bordered"
+                                        radius={getThemeRadius()}
+                                        style={{
+                                            fontFamily: `var(--fontFamily, "Inter")`,
+                                        }}
+                                    >
+                                        <SelectItem key="all" value="all">All In Charges</SelectItem>
+                                        {inCharges.map((inCharge) => (
+                                            <SelectItem key={inCharge.id} value={inCharge.id}>
+                                                {inCharge.name}
+                                            </SelectItem>
+                                        ))}
+                                    </Select>
+                                )}
                             </div>
                         </div>
 

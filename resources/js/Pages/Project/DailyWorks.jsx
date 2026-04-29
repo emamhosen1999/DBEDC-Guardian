@@ -698,13 +698,13 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             variant: 'solid',
             onPress: () => openModal('addDailyWork')
         },
-        {
+        ...(userIsAdmin ? [{
             label: 'Import',
             icon: <DocumentArrowUpIcon className="w-4 h-4" />,
             color: 'secondary',
             variant: 'flat',
             onPress: () => openModal('importDailyWorks')
-        },
+        }] : []),
         {
             label: 'Export',
             icon: <DocumentArrowDownIcon className="w-4 h-4" />,
@@ -816,6 +816,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                     }}
                     users={users}
                     inCharges={allData.allInCharges}
+                    auth={auth}
                 />
             )}
 
