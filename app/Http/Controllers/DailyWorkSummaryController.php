@@ -107,8 +107,16 @@ class DailyWorkSummaryController extends Controller
 
         $query = DailyWork::with(['inchargeUser', 'assignedUser']);
 
-        if (! $isAdmin && $userDesignationTitle === 'Supervision Engineer') {
-            $query->where('incharge', $user->id);
+        if (! $isAdmin) {
+            if ($userDesignationTitle === 'Supervision Engineer') {
+                $query->where('incharge', $user->id);
+            } elseif (in_array('Employee', $userRoles)) {
+                // Employee can only export works where they are incharge or assigned
+                $query->where(function ($q) use ($user) {
+                    $q->where('incharge', $user->id)
+                        ->orWhere('assigned', $user->id);
+                });
+            }
         }
 
         $this->applyDateRangeFilter($query, $request->input('startDate'), $request->input('endDate'));

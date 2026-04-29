@@ -30,19 +30,23 @@ import { route } from 'ziggy-js';
 import axios from 'axios';
 import { parseDate } from "@internationalized/date";
 
-const EnhancedDailyWorkSummaryExportForm = ({ 
-    open, 
-    closeModal, 
+const EnhancedDailyWorkSummaryExportForm = ({
+    open,
+    closeModal,
     filteredData = [],
     inCharges = [],
     currentFilters = {},
-    analyticsRef = null
+    analyticsRef = null,
+    auth = null
 }) => {
+    // Role-based access control
+    const userIsAdmin = auth?.roles?.includes('Administrator') || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Daily Work Manager') || false;
+
     const [exportSettings, setExportSettings] = useState({
         format: 'excel',
         columns: [
             'date', 'totalDailyWorks', 'completed', 'pending', 'inProgress',
-            'completionPercentage', 'rfiSubmissions', 'embankment', 
+            'completionPercentage', 'rfiSubmissions', 'embankment',
             'structure', 'pavement', 'resubmissions', 'emergency'
         ],
         includeCharts: false,

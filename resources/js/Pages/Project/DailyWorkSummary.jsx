@@ -290,6 +290,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                         jurisdiction: filterData.jurisdiction,
                     }}
                     analyticsRef={analyticsRef}
+                    auth={auth}
                 />
             )}
 
