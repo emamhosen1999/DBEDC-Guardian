@@ -25,13 +25,14 @@ class DailyWorkPaginationService
         // Load user with designation once to avoid redundant queries
         $user = User::with('designation')->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
+        $isAdmin = $user->hasRole('Super Administrator') || $user->hasRole('Administrator');
 
         $perPage = (int) $request->get('perPage', 30);
         $page = $request->get('search') != '' ? 1 : $request->get('page', 1);
         $search = $request->get('search');
         $statusFilter = $request->get('status');
-        $inChargeFilter = $request->input('inCharge');
-        $jurisdictionFilter = $request->input('jurisdiction');
+        $inChargeFilter = $isAdmin ? $request->input('inCharge') : null; // Only admins can use incharge filter
+        $jurisdictionFilter = $isAdmin ? $request->input('jurisdiction') : null; // Only admins can use jurisdiction filter
         $startDate = $request->get('startDate');
         $endDate = $request->get('endDate');
 
@@ -106,11 +107,12 @@ class DailyWorkPaginationService
         // Load user with designation once to avoid redundant queries
         $user = User::with('designation')->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
+        $isAdmin = $user->hasRole('Super Administrator') || $user->hasRole('Administrator');
 
         $search = $request->get('search');
         $statusFilter = $request->get('status');
-        $inChargeFilter = $request->input('inCharge');
-        $jurisdictionFilter = $request->input('jurisdiction');
+        $inChargeFilter = $isAdmin ? $request->input('inCharge') : null; // Only admins can use incharge filter
+        $jurisdictionFilter = $isAdmin ? $request->input('jurisdiction') : null; // Only admins can use jurisdiction filter
         $startDate = $request->get('startDate');
         $endDate = $request->get('endDate');
 
@@ -138,6 +140,11 @@ class DailyWorkPaginationService
             'assignedUser:id,name',  // Load assigned user names
         ])->withCount(['activeObjections']);
 
+        // Super Administrator and Administrator get all data
+        if ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')) {
+            return $baseQuery;
+        }
+
         if ($userDesignationTitle === 'Supervision Engineer') {
             return $baseQuery->where('incharge', $user->id);
         }
@@ -146,9 +153,12 @@ class DailyWorkPaginationService
             return $baseQuery->where('assigned', $user->id);
         }
 
-        // Super Administrator and Administrator get all data
-        if ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')) {
-            return $baseQuery;
+        // Employee can only see works where they are incharge or assigned
+        if ($user->hasRole('Employee')) {
+            return $baseQuery->where(function ($q) use ($user) {
+                $q->where('incharge', $user->id)
+                    ->orWhere('assigned', $user->id);
+            });
         }
 
         return $baseQuery;

@@ -125,8 +125,9 @@ class DailyWorkSummaryController extends Controller
         $this->applyTypeFilter($query, $request->input('type'));
         $this->applySearchFilter($query, $request->input('search'));
 
-        $inchargeFilter = $this->normalizeIdFilter($request->input('incharge'));
-        $jurisdictionFilter = $this->normalizeIdFilter($request->input('jurisdiction'));
+        // Only admins can apply incharge/jurisdiction filters
+        $inchargeFilter = $isAdmin ? $this->normalizeIdFilter($request->input('incharge')) : null;
+        $jurisdictionFilter = $isAdmin ? $this->normalizeIdFilter($request->input('jurisdiction')) : null;
         $this->applyInchargeJurisdictionFilters($query, $inchargeFilter, $jurisdictionFilter);
 
         return $query;

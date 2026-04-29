@@ -144,29 +144,25 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
             const payload = {
                 startDate: filterData.startDate,
                 endDate: filterData.endDate,
+                status: filterData.status,
+                type: filterData.type,
             };
-
-            // Include status filter if not 'all'
-            if (filterData.status && filterData.status !== 'all') {
-                payload.status = filterData.status;
-            }
-
-            // Include type filter if not 'all'
-            if (filterData.type && filterData.type !== 'all') {
-                payload.type = filterData.type;
-            }
 
             // Include search if provided
             if (search && search.trim()) {
                 payload.search = search.trim();
             }
 
-            if (filterData.incharge?.length) {
-                payload.incharge = filterData.incharge;
-            }
+            // Only admins can use incharge/jurisdiction filters
+            const isAdmin = auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer';
+            if (isAdmin) {
+                if (filterData.incharge?.length) {
+                    payload.incharge = filterData.incharge;
+                }
 
-            if (filterData.jurisdiction?.length) {
-                payload.jurisdiction = filterData.jurisdiction;
+                if (filterData.jurisdiction?.length) {
+                    payload.jurisdiction = filterData.jurisdiction;
+                }
             }
 
             const response = await axios.post(route('daily-works-summary.filter'), payload);

@@ -296,12 +296,15 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             status: filterData.status !== 'all' ? filterData.status : '',
         };
 
-        if (filterData.incharge.length > 0) {
-            filters.inCharge = filterData.incharge;
-        }
+        // Only admins can use incharge/jurisdiction filters
+        if (userIsAdmin) {
+            if (filterData.incharge.length > 0) {
+                filters.inCharge = filterData.incharge;
+            }
 
-        if (filterData.jurisdiction.length > 0) {
-            filters.jurisdiction = filterData.jurisdiction;
+            if (filterData.jurisdiction.length > 0) {
+                filters.jurisdiction = filterData.jurisdiction;
+            }
         }
 
         return filters;
