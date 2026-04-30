@@ -1062,33 +1062,23 @@ class DailyWorkController extends Controller
         $query = DailyWork::query();
         $userDesignationTitle = $this->getUserDesignationTitle($user);
 
+        \Log::info('buildFilteredDailyWorksQuery', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'report_to' => $user->report_to,
+            'designation' => $userDesignationTitle,
+            'is_privileged' => $this->isPrivilegedUser($user),
+        ]);
+
         if ($this->isPrivilegedUser($user)) {
             // Managers and admin roles can access all daily works.
-        } elseif ($userDesignationTitle === 'Supervision Engineer') {
-            // Show works where they are incharge AND works where their manager (report_to) is the incharge
-            if ($user->report_to) {
-                $query->where(function ($dailyWorkQuery) use ($user) {
-                    $dailyWorkQuery
-                        ->where('incharge', $user->id)
-                        ->orWhere('incharge', $user->report_to);
-                });
-            } else {
-                $query->where('incharge', $user->id);
-            }
-        } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'], true)) {
-            // Show works where they are assigned AND works where their manager (report_to) is the incharge
-            if ($user->report_to) {
-                $query->where(function ($dailyWorkQuery) use ($user) {
-                    $dailyWorkQuery
-                        ->where('assigned', $user->id)
-                        ->orWhere('incharge', $user->report_to);
-                });
-            } else {
-                $query->where('assigned', $user->id);
-            }
         } else {
-            // Show works where they are incharge/assigned AND works where their manager (report_to) is the incharge
+            // Universal logic: Show own works (incharge/assigned) AND manager's works (incharge) if report_to is set
             if ($user->report_to) {
+                \Log::info('User with manager - applying universal filter', [
+                    'user_id' => $user->id,
+                    'report_to' => $user->report_to,
+                ]);
                 $query->where(function ($dailyWorkQuery) use ($user) {
                     $dailyWorkQuery
                         ->where('incharge', $user->id)
@@ -1147,13 +1137,12 @@ class DailyWorkController extends Controller
             return true;
         }
 
-        // User can view if they are incharge or assigned
+        // Universal logic: User can view if they are incharge or assigned OR their manager (report_to) is the incharge
         if ((int) $dailyWork->incharge === (int) $user->id
             || (int) $dailyWork->assigned === (int) $user->id) {
             return true;
         }
 
-        // User can view if their manager (report_to) is the incharge
         if ($user->report_to && (int) $dailyWork->incharge === (int) $user->report_to) {
             return true;
         }

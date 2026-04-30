@@ -51,6 +51,17 @@ class DailyWorkPaginationService
         ]);
 
         $query = $this->buildBaseQuery($user, $userDesignationTitle);
+
+        // Log the base query before applying filters
+        $baseCount = $query->count();
+        Log::info('Base query count before filters', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'designation' => $userDesignationTitle,
+            'report_to' => $user->report_to,
+            'base_count' => $baseCount,
+        ]);
+
         $query = $this->applyFilters($query, $search, $statusFilter, $inChargeFilter, $jurisdictionFilter, $startDate, $endDate);
 
         // Mobile mode detection: if perPage is very large (1000+), return all data without pagination
@@ -145,44 +156,26 @@ class DailyWorkPaginationService
             return $baseQuery;
         }
 
-        if ($userDesignationTitle === 'Supervision Engineer') {
-            // Show works where they are incharge AND works where their manager (report_to) is the incharge
-            if ($user->report_to) {
-                return $baseQuery->where(function ($q) use ($user) {
-                    $q->where('incharge', $user->id)
-                        ->orWhere('incharge', $user->report_to);
-                });
-            }
-            return $baseQuery->where('incharge', $user->id);
-        }
-
-        if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
-            // Show works where they are assigned AND works where their manager (report_to) is the incharge
-            if ($user->report_to) {
-                return $baseQuery->where(function ($q) use ($user) {
-                    $q->where('assigned', $user->id)
-                        ->orWhere('incharge', $user->report_to);
-                });
-            }
-            return $baseQuery->where('assigned', $user->id);
-        }
-
-        // Employee can see works where they are incharge/assigned AND works where their manager (report_to) is the incharge
-        if ($user->hasRole('Employee')) {
-            if ($user->report_to) {
-                return $baseQuery->where(function ($q) use ($user) {
-                    $q->where('incharge', $user->id)
-                        ->orWhere('assigned', $user->id)
-                        ->orWhere('incharge', $user->report_to);
-                });
-            }
+        // Universal logic: Show own works (incharge/assigned) AND manager's works (incharge) if report_to is set
+        if ($user->report_to) {
+            Log::info('User with manager - applying universal filter', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'report_to' => $user->report_to,
+                'designation' => $userDesignationTitle,
+            ]);
             return $baseQuery->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id);
+                    ->orWhere('assigned', $user->id)
+                    ->orWhere('incharge', $user->report_to);
             });
         }
 
-        return $baseQuery;
+        // Otherwise, show only own works (incharge or assigned)
+        return $baseQuery->where(function ($q) use ($user) {
+            $q->where('incharge', $user->id)
+                ->orWhere('assigned', $user->id);
+        });
     }
 
     /**
