@@ -388,6 +388,11 @@ const DailyWorksTable = ({
         }
     }, [allData]);
 
+    // Use available data with fallbacks
+    const availableInCharges = allInCharges || users || [];
+    const availableJuniors = juniors || users || [];
+    const availableJurisdictions = jurisdictions || [];
+
     // Permission-based access control using designations
     const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || auth.roles?.includes('Daily Work Manager') || false;
     const userIsEmployee = auth.roles?.includes('Employee') || false;
@@ -528,11 +533,6 @@ const DailyWorksTable = ({
         // For other roles, only admins see actions
         return false;
     }, [userIsAdmin, userIsEmployee, userHasJurisdiction, auth.user?.report_to]);
-
-    // Use available data with fallbacks
-    const availableInCharges = allInCharges || users || [];
-    const availableJuniors = juniors || users || [];
-    const availableJurisdictions = jurisdictions || [];
 
     // Filter incharges to only show users who are incharge of any jurisdiction
     // Get unique incharge IDs from jurisdictions
