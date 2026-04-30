@@ -231,6 +231,86 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $this->assertNotContains('DW-4004', $workNumbers, 'Should not include work where employee is assigned');
     }
 
+    /** @test */
+    public function incharge_and_reporting_employee_see_identical_daily_works_and_stats(): void
+    {
+        // Create users: manager (incharge), employee (reports to manager, no jurisdiction), other users
+        $manager = User::factory()->create();
+        $employee = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $assignedUser = User::factory()->create();
+
+        // Set up reporting relationship: employee reports to manager, no jurisdiction
+        $employee->report_to = $manager->id;
+        $employee->save();
+
+        // Give employee Employee role and permission
+        $employee->assignRole('Employee');
+        $employee->givePermissionTo('daily-works.view');
+
+        // Give manager permission
+        $manager->givePermissionTo('daily-works.view');
+
+        // Create daily works where manager is incharge (should be visible to both)
+        $this->createDailyWork('DW-5001', $manager->id, $assignedUser->id, '2025-05-01', 'completed');
+        $this->createDailyWork('DW-5002', $manager->id, $otherUser->id, '2025-05-01', 'in-progress');
+        $this->createDailyWork('DW-5003', $manager->id, $assignedUser->id, '2025-05-01', 'new');
+
+        // Create daily works where other user is incharge (should NOT be visible to either)
+        $this->createDailyWork('DW-5004', $otherUser->id, $assignedUser->id, '2025-05-01', 'completed');
+
+        // Create daily work where employee is incharge (should be visible to manager, NOT to employee)
+        $this->createDailyWork('DW-5005', $employee->id, $assignedUser->id, '2025-05-01', 'completed');
+
+        // Test manager's view
+        $managerResponse = $this->actingAs($manager)->getJson(route('dailyWorks.paginate', [
+            'perPage' => 10,
+            'startDate' => '2025-05-01',
+            'endDate' => '2025-05-01',
+        ]));
+
+        $managerResponse->assertOk();
+        $managerData = $managerResponse->json('data');
+
+        // Test employee's view
+        $employeeResponse = $this->actingAs($employee)->getJson(route('dailyWorks.paginate', [
+            'perPage' => 10,
+            'startDate' => '2025-05-01',
+            'endDate' => '2025-05-01',
+        ]));
+
+        $employeeResponse->assertOk();
+        $employeeData = $employeeResponse->json('data');
+
+        // Manager should see 3 works (DW-5001, DW-5002, DW-5003) - only their own incharge works
+        $this->assertCount(3, $managerData, 'Manager should see only works where they are incharge');
+
+        // Employee should see 3 works (DW-5001, DW-5002, DW-5003) - only manager's works
+        $this->assertCount(3, $employeeData, 'Employee without jurisdiction should see only manager\'s works');
+
+        // Extract work numbers for comparison
+        $managerWorkNumbers = collect($managerData)->pluck('number')->sort()->values()->all();
+        $employeeWorkNumbers = collect($employeeData)->pluck('number')->sort()->values()->all();
+
+        // Employee should see exactly the same works as manager (manager's incharge works)
+        $this->assertContains('DW-5001', $employeeWorkNumbers, 'Employee should see work where manager is incharge');
+        $this->assertContains('DW-5002', $employeeWorkNumbers, 'Employee should see work where manager is incharge');
+        $this->assertContains('DW-5003', $employeeWorkNumbers, 'Employee should see work where manager is incharge');
+        $this->assertNotContains('DW-5004', $employeeWorkNumbers, 'Employee should not see work where non-manager is incharge');
+        $this->assertNotContains('DW-5005', $employeeWorkNumbers, 'Employee should not see work where they are incharge');
+
+        // Manager should see only their own incharge works
+        $this->assertContains('DW-5001', $managerWorkNumbers, 'Manager should see their own work');
+        $this->assertContains('DW-5002', $managerWorkNumbers, 'Manager should see their own work');
+        $this->assertContains('DW-5003', $managerWorkNumbers, 'Manager should see their own work');
+        $this->assertNotContains('DW-5004', $managerWorkNumbers, 'Manager should not see work where non-manager is incharge');
+        $this->assertNotContains('DW-5005', $managerWorkNumbers, 'Manager should not see work where their report is incharge');
+
+        // Verify employee sees exactly the same works as manager (manager's incharge works)
+        $this->assertEqualsCanonicalizing($managerWorkNumbers, $employeeWorkNumbers, 
+            'Employee should see exactly the same daily works as manager (manager\'s incharge works)');
+    }
+
     private function createDailyWork(string $number, int $inchargeId, int $assignedId, string $date, string $status): DailyWork
     {
         return DailyWork::create([
