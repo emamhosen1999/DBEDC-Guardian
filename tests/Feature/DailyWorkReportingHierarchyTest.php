@@ -108,7 +108,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
     }
 
     /** @test */
-    public function employee_with_manager_cannot_view_own_works(): void
+    public function employee_with_manager_can_view_own_and_manager_works(): void
     {
         // Create users: employee, manager, and assigned user
         $employee = User::factory()->create();
@@ -128,17 +128,17 @@ class DailyWorkReportingHierarchyTest extends TestCase
         // Create daily work where manager is incharge
         $managerDailyWork = $this->createDailyWork('DW-3005', $manager->id, $assignedUser->id, '2025-03-01', 'completed');
 
-        // Test policy only allows viewing manager's work, not own work
+        // Test policy allows viewing both own work and manager's work
         $policy = new DailyWorkPolicy();
         $canViewOwn = $policy->view($employee, $ownDailyWork);
         $canViewManager = $policy->view($employee, $managerDailyWork);
 
-        $this->assertFalse($canViewOwn, 'Employee with manager should not be able to view their own daily work');
+        $this->assertTrue($canViewOwn, 'Employee with manager should be able to view their own daily work');
         $this->assertTrue($canViewManager, 'Employee with manager should be able to view manager\'s daily work');
     }
 
     /** @test */
-    public function employee_pagination_shows_only_manager_incharge_works(): void
+    public function employee_pagination_shows_own_and_manager_incharge_works(): void
     {
         // Create users: employee, manager, other user, and assigned user
         $employee = User::factory()->create();
@@ -154,7 +154,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $employee->assignRole('Employee');
         $employee->givePermissionTo('daily-works.view');
 
-        // Create daily work where employee is incharge (should NOT be visible)
+        // Create daily work where employee is incharge (should be visible)
         $this->createDailyWork('DW-4001', $employee->id, $assignedUser->id, '2025-04-01', 'completed');
 
         // Create daily work where manager is incharge (should be visible)
@@ -163,7 +163,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         // Create daily work where other user is incharge (should NOT be visible)
         $this->createDailyWork('DW-4003', $otherUser->id, $assignedUser->id, '2025-04-01', 'completed');
 
-        // Create daily work where employee is assigned (should NOT be visible)
+        // Create daily work where employee is assigned (should be visible)
         $this->createDailyWork('DW-4004', $otherUser->id, $employee->id, '2025-04-01', 'completed');
 
         // Test pagination query
@@ -176,19 +176,19 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $response->assertOk();
         $data = $response->json('data');
 
-        // Should see only 1 work: manager's incharge work
-        $this->assertCount(1, $data, 'Employee should see only manager\'s works');
+        // Should see 3 works: own incharge, manager incharge, and assigned
+        $this->assertCount(3, $data, 'Employee should see own works, manager\'s works, and assigned works');
 
         $inchargeIds = collect($data)->pluck('incharge')->unique()->values()->all();
+        $this->assertContains($employee->id, $inchargeIds, 'Should include works where employee is incharge');
         $this->assertContains($manager->id, $inchargeIds, 'Should include works where manager is incharge');
-        $this->assertNotContains($employee->id, $inchargeIds, 'Should not include works where employee is incharge');
 
-        // Verify specific work is included
+        // Verify specific works are included
         $workNumbers = collect($data)->pluck('number')->values()->all();
+        $this->assertContains('DW-4001', $workNumbers, 'Should include work where employee is incharge');
         $this->assertContains('DW-4002', $workNumbers, 'Should include work where manager is incharge');
-        $this->assertNotContains('DW-4001', $workNumbers, 'Should not include work where employee is incharge');
-        $this->assertNotContains('DW-4003', $workNumbers, 'Should not include work where non-manager is incharge');
-        $this->assertNotContains('DW-4004', $workNumbers, 'Should not include work where employee is assigned');
+        $this->assertContains('DW-4004', $workNumbers, 'Should include work where employee is assigned');
+        $this->assertNotContains('DW-4003', $workNumbers, 'Should not include work where non-manager is incharge and employee is not assigned');
     }
 
     private function createDailyWork(string $number, int $inchargeId, int $assignedId, string $date, string $status): DailyWork
