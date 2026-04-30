@@ -1065,27 +1065,30 @@ class DailyWorkController extends Controller
         if ($this->isPrivilegedUser($user)) {
             // Managers and admin roles can access all daily works.
         } elseif ($userDesignationTitle === 'Supervision Engineer') {
-            $query->where(function ($dailyWorkQuery) use ($user) {
-                $dailyWorkQuery
-                    ->where('incharge', $user->id)
-                    // Also include works where their manager (report_to) is the incharge
-                    ->orWhere('incharge', $user->report_to);
-            });
+            // Only show works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                $query->where('incharge', $user->report_to);
+            } else {
+                $query->where('incharge', $user->id);
+            }
         } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'], true)) {
-            $query->where(function ($dailyWorkQuery) use ($user) {
-                $dailyWorkQuery
-                    ->where('assigned', $user->id)
-                    // Also include works where their manager (report_to) is the incharge
-                    ->orWhere('incharge', $user->report_to);
-            });
+            // Only show works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                $query->where('incharge', $user->report_to);
+            } else {
+                $query->where('assigned', $user->id);
+            }
         } else {
-            $query->where(function ($dailyWorkQuery) use ($user) {
-                $dailyWorkQuery
-                    ->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id)
-                    // Also include works where their manager (report_to) is the incharge
-                    ->orWhere('incharge', $user->report_to);
-            });
+            // Only show works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                $query->where('incharge', $user->report_to);
+            } else {
+                $query->where(function ($dailyWorkQuery) use ($user) {
+                    $dailyWorkQuery
+                        ->where('incharge', $user->id)
+                        ->orWhere('assigned', $user->id);
+                });
+            }
         }
 
         if ($request->filled('status')) {
@@ -1131,21 +1134,24 @@ class DailyWorkController extends Controller
             return true;
         }
 
+        // If user has a manager (report_to), only show manager's works
+        if ($user->report_to) {
+            return (int) $dailyWork->incharge === (int) $user->report_to;
+        }
+
+        // Otherwise, show own works based on designation
         $userDesignationTitle = $this->getUserDesignationTitle($user);
 
         if ($userDesignationTitle === 'Supervision Engineer') {
-            return (int) $dailyWork->incharge === (int) $user->id
-                || (int) $dailyWork->incharge === (int) $user->report_to;
+            return (int) $dailyWork->incharge === (int) $user->id;
         }
 
         if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'], true)) {
-            return (int) $dailyWork->assigned === (int) $user->id
-                || (int) $dailyWork->incharge === (int) $user->report_to;
+            return (int) $dailyWork->assigned === (int) $user->id;
         }
 
         return (int) $dailyWork->incharge === (int) $user->id
-            || (int) $dailyWork->assigned === (int) $user->id
-            || (int) $dailyWork->incharge === (int) $user->report_to;
+            || (int) $dailyWork->assigned === (int) $user->id;
     }
 
     private function canSubmitObjection(User $user, RfiObjection $objection): bool

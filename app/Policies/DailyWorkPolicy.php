@@ -32,13 +32,13 @@ class DailyWorkPolicy
             return true;
         }
 
-        // Incharge or assigned user can view
-        if ($this->isInchargeOrAssigned($user, $dailyWork)) {
-            return true;
+        // If user has a manager (report_to), only show manager's works
+        if ($user->report_to) {
+            return $this->isReportsToIncharge($user, $dailyWork);
         }
 
-        // User can view if their manager (report_to) is the incharge
-        return $this->isReportsToIncharge($user, $dailyWork);
+        // Otherwise, show own works (incharge or assigned)
+        return $this->isInchargeOrAssigned($user, $dailyWork);
     }
 
     /**

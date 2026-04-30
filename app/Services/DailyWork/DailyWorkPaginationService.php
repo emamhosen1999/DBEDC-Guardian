@@ -146,28 +146,29 @@ class DailyWorkPaginationService
         }
 
         if ($userDesignationTitle === 'Supervision Engineer') {
-            return $baseQuery->where(function ($q) use ($user) {
-                $q->where('incharge', $user->id)
-                    // Also include works where their manager (report_to) is the incharge
-                    ->orWhere('incharge', $user->report_to);
-            });
+            // Only show works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                return $baseQuery->where('incharge', $user->report_to);
+            }
+            return $baseQuery->where('incharge', $user->id);
         }
 
         if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
-            return $baseQuery->where(function ($q) use ($user) {
-                $q->where('assigned', $user->id)
-                    // Also include works where their manager (report_to) is the incharge
-                    ->orWhere('incharge', $user->report_to);
-            });
+            // Only show works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                return $baseQuery->where('incharge', $user->report_to);
+            }
+            return $baseQuery->where('assigned', $user->id);
         }
 
-        // Employee can only see works where they are incharge or assigned
+        // Employee can only see works where their manager (report_to) is the incharge
         if ($user->hasRole('Employee')) {
+            if ($user->report_to) {
+                return $baseQuery->where('incharge', $user->report_to);
+            }
             return $baseQuery->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id)
-                    // Also include works where their manager (report_to) is the incharge
-                    ->orWhere('incharge', $user->report_to);
+                    ->orWhere('assigned', $user->id);
             });
         }
 
