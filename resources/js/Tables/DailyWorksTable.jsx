@@ -390,8 +390,17 @@ const DailyWorksTable = ({
 
     // Permission-based access control using designations
     const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || auth.roles?.includes('Daily Work Manager') || false;
+    const userIsEmployee = auth.roles?.includes('Employee') || false;
     const userIsSE = auth.designation === 'Supervision Engineer' || false;
     const userIsQCI = auth.designation === 'Quality Control Inspector' || auth.designation === 'Asst. Quality Control Inspector' || false;
+    
+    // Helper function to check if user has jurisdiction (is incharge of any jurisdiction)
+    const userHasJurisdiction = useMemo(() => {
+        if (!auth.user?.id) return false;
+        return availableJurisdictions?.some(jurisdiction => 
+            jurisdiction.incharge === auth.user.id
+        ) || false;
+    }, [availableJurisdictions, auth.user?.id]);
     
     // Helper function to check if current user is the incharge of a specific work
     const isUserInchargeOfWork = (work) => {
@@ -403,20 +412,67 @@ const DailyWorksTable = ({
         return work?.assigned && String(work.assigned) === String(auth.user?.id);
     };
     
-    // Check if user can assign for a specific work (admin or incharge of the work)
-    const canUserAssign = (work) => {
-        return userIsAdmin || isUserInchargeOfWork(work);
+    // Helper function to check if manager (report_to) is incharge of a specific work
+    const isManagerInchargeOfWork = (work) => {
+        if (!auth.user?.report_to) return false;
+        return work?.incharge && String(work.incharge) === String(auth.user.report_to);
     };
     
-    // Check if user can update status and completion time (admin, SE, or assignee of the work)
+    // Check if user can assign for a specific work
+    const canUserAssign = (work) => {
+        if (userIsAdmin) return true;
+        
+        // Employee logic based on jurisdiction
+        if (userIsEmployee) {
+            if (userHasJurisdiction) {
+                // Employee has jurisdiction: can assign to works where they are incharge
+                return isUserInchargeOfWork(work);
+            } else {
+                // Employee has no jurisdiction: can assign to works where manager is incharge
+                return isManagerInchargeOfWork(work);
+            }
+        }
+        
+        // For other roles: incharge can assign
+        return isUserInchargeOfWork(work);
+    };
+    
+    // Check if user can update status and completion time
     const canUserUpdateStatus = (work) => {
-        return userIsAdmin || userIsSE || isUserAssigneeOfWork(work);
+        if (userIsAdmin) return true;
+        
+        // Employee logic based on jurisdiction
+        if (userIsEmployee) {
+            if (userHasJurisdiction) {
+                // Employee has jurisdiction: can update works where they are incharge
+                return isUserInchargeOfWork(work);
+            } else {
+                // Employee has no jurisdiction: can update works where manager is incharge
+                return isManagerInchargeOfWork(work);
+            }
+        }
+        
+        // For other roles (non-employee, non-admin): SE or assignee can update
+        return userIsSE || isUserAssigneeOfWork(work);
     };
     
     // Check if user can create/manage objections for a specific work
-    // Only incharge, assigned, or admin can raise objections
     const canUserCreateObjections = (work) => {
-        return userIsAdmin || isUserInchargeOfWork(work) || isUserAssigneeOfWork(work);
+        if (userIsAdmin) return true;
+        
+        // Employee logic based on jurisdiction
+        if (userIsEmployee) {
+            if (userHasJurisdiction) {
+                // Employee has jurisdiction: can create objections for works where they are incharge
+                return isUserInchargeOfWork(work);
+            } else {
+                // Employee has no jurisdiction: can create objections for works where manager is incharge
+                return isManagerInchargeOfWork(work);
+            }
+        }
+        
+        // For other roles (non-employee, non-admin): incharge or assignee can create objections
+        return isUserInchargeOfWork(work) || isUserAssigneeOfWork(work);
     };
     
     // Check if user can review objections (admin/manager level)
@@ -459,10 +515,19 @@ const DailyWorksTable = ({
         return userIsAdmin;
     }, [userIsAdmin]);
     
-    // Check if user should see edit/delete actions (only admins)
+    // Check if user should see edit/delete actions
     const shouldShowActions = useMemo(() => {
-        return userIsAdmin;
-    }, [userIsAdmin]);
+        if (userIsAdmin) return true;
+        
+        // Employee logic based on jurisdiction
+        if (userIsEmployee) {
+            // Employees can see actions if they have jurisdiction or if they have a manager
+            return userHasJurisdiction || auth.user?.report_to;
+        }
+        
+        // For other roles, only admins see actions
+        return false;
+    }, [userIsAdmin, userIsEmployee, userHasJurisdiction, auth.user?.report_to]);
 
     // Use available data with fallbacks
     const availableInCharges = allInCharges || users || [];
