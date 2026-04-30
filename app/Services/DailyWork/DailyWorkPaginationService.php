@@ -146,25 +146,35 @@ class DailyWorkPaginationService
         }
 
         if ($userDesignationTitle === 'Supervision Engineer') {
-            // Only show works where their manager (report_to) is the incharge
+            // Show works where they are incharge AND works where their manager (report_to) is the incharge
             if ($user->report_to) {
-                return $baseQuery->where('incharge', $user->report_to);
+                return $baseQuery->where(function ($q) use ($user) {
+                    $q->where('incharge', $user->id)
+                        ->orWhere('incharge', $user->report_to);
+                });
             }
             return $baseQuery->where('incharge', $user->id);
         }
 
         if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
-            // Only show works where their manager (report_to) is the incharge
+            // Show works where they are assigned AND works where their manager (report_to) is the incharge
             if ($user->report_to) {
-                return $baseQuery->where('incharge', $user->report_to);
+                return $baseQuery->where(function ($q) use ($user) {
+                    $q->where('assigned', $user->id)
+                        ->orWhere('incharge', $user->report_to);
+                });
             }
             return $baseQuery->where('assigned', $user->id);
         }
 
-        // Employee can only see works where their manager (report_to) is the incharge
+        // Employee can see works where they are incharge/assigned AND works where their manager (report_to) is the incharge
         if ($user->hasRole('Employee')) {
             if ($user->report_to) {
-                return $baseQuery->where('incharge', $user->report_to);
+                return $baseQuery->where(function ($q) use ($user) {
+                    $q->where('incharge', $user->id)
+                        ->orWhere('assigned', $user->id)
+                        ->orWhere('incharge', $user->report_to);
+                });
             }
             return $baseQuery->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id)
