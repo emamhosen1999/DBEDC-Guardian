@@ -157,7 +157,9 @@ class DailyWorkPaginationService
         if ($user->hasRole('Employee')) {
             return $baseQuery->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id);
+                    ->orWhere('assigned', $user->id)
+                    // Also include works where their manager (report_to) is the incharge
+                    ->orWhere('incharge', $user->report_to);
             });
         }
 

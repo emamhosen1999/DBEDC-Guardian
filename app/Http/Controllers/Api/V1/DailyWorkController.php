@@ -1072,7 +1072,9 @@ class DailyWorkController extends Controller
             $query->where(function ($dailyWorkQuery) use ($user) {
                 $dailyWorkQuery
                     ->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id);
+                    ->orWhere('assigned', $user->id)
+                    // Also include works where their manager (report_to) is the incharge
+                    ->orWhere('incharge', $user->report_to);
             });
         }
 

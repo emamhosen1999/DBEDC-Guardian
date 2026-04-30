@@ -33,7 +33,12 @@ class DailyWorkPolicy
         }
 
         // Incharge or assigned user can view
-        return $this->isInchargeOrAssigned($user, $dailyWork);
+        if ($this->isInchargeOrAssigned($user, $dailyWork)) {
+            return true;
+        }
+
+        // User can view if their manager (report_to) is the incharge
+        return $this->isReportsToIncharge($user, $dailyWork);
     }
 
     /**
@@ -225,5 +230,19 @@ class DailyWorkPolicy
     private function isInchargeOrAssigned(User $user, DailyWork $dailyWork): bool
     {
         return $this->isIncharge($user, $dailyWork) || $this->isAssigned($user, $dailyWork);
+    }
+
+    /**
+     * Check if user's manager (report_to) is the incharge for this daily work.
+     */
+    private function isReportsToIncharge(User $user, DailyWork $dailyWork): bool
+    {
+        // If user has no manager, they can't view through this relationship
+        if (! $user->report_to) {
+            return false;
+        }
+
+        // Check if the user's manager is the incharge of this daily work
+        return (int) $dailyWork->incharge === (int) $user->report_to;
     }
 }
