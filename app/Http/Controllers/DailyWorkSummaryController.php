@@ -29,7 +29,15 @@ class DailyWorkSummaryController extends Controller
         $query = DailyWork::with(['inchargeUser', 'assignedUser']);
 
         if (! $isAdmin && $userDesignationTitle === 'Supervision Engineer') {
-            $query->where('incharge', $user->id);
+            // Show works where they are incharge AND works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('incharge', $user->id)
+                        ->orWhere('incharge', $user->report_to);
+                });
+            } else {
+                $query->where('incharge', $user->id);
+            }
         }
 
         $dailyWorks = $query->get();
@@ -66,7 +74,15 @@ class DailyWorkSummaryController extends Controller
 
             // Apply user role filter
             if (! $isAdmin && $userDesignationTitle === 'Supervision Engineer') {
-                $query->where('incharge', $user->id);
+                // Show works where they are incharge AND works where their manager (report_to) is the incharge
+                if ($user->report_to) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('incharge', $user->id)
+                            ->orWhere('incharge', $user->report_to);
+                    });
+                } else {
+                    $query->where('incharge', $user->id);
+                }
             }
 
             // Apply filters using trait methods for consistency
@@ -109,13 +125,29 @@ class DailyWorkSummaryController extends Controller
 
         if (! $isAdmin) {
             if ($userDesignationTitle === 'Supervision Engineer') {
-                $query->where('incharge', $user->id);
+                // Show works where they are incharge AND works where their manager (report_to) is the incharge
+                if ($user->report_to) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('incharge', $user->id)
+                            ->orWhere('incharge', $user->report_to);
+                    });
+                } else {
+                    $query->where('incharge', $user->id);
+                }
             } elseif (in_array('Employee', $userRoles)) {
-                // Employee can only export works where they are incharge or assigned
-                $query->where(function ($q) use ($user) {
-                    $q->where('incharge', $user->id)
-                        ->orWhere('assigned', $user->id);
-                });
+                // Employee can see works where they are incharge/assigned AND works where their manager (report_to) is the incharge
+                if ($user->report_to) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('incharge', $user->id)
+                            ->orWhere('assigned', $user->id)
+                            ->orWhere('incharge', $user->report_to);
+                    });
+                } else {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('incharge', $user->id)
+                            ->orWhere('assigned', $user->id);
+                    });
+                }
             }
         }
 
@@ -363,7 +395,15 @@ class DailyWorkSummaryController extends Controller
 
             // Apply user role filter
             if (! $isAdmin && $userDesignationTitle === 'Supervision Engineer') {
-                $query->where('incharge', $user->id);
+                // Show works where they are incharge AND works where their manager (report_to) is the incharge
+                if ($user->report_to) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('incharge', $user->id)
+                            ->orWhere('incharge', $user->report_to);
+                    });
+                } else {
+                    $query->where('incharge', $user->id);
+                }
             }
 
             // Apply filters using trait methods for consistency
@@ -524,14 +564,29 @@ class DailyWorkSummaryController extends Controller
             // Super Administrator and Administrator get all data - no filtering
             // Query remains unfiltered to get all daily works
         } elseif ($userDesignationTitle === 'Supervision Engineer') {
-            // Get works where user is incharge
-            $query->where('incharge', $user->id);
+            // Show works where they are incharge AND works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('incharge', $user->id)
+                        ->orWhere('incharge', $user->report_to);
+                });
+            } else {
+                $query->where('incharge', $user->id);
+            }
         } else {
-            // Get works where user is assigned or incharge
-            $query->where(function ($q) use ($user) {
-                $q->where('assigned', $user->id)
-                    ->orWhere('incharge', $user->id);
-            });
+            // Show works where they are incharge/assigned AND works where their manager (report_to) is the incharge
+            if ($user->report_to) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('incharge', $user->id)
+                        ->orWhere('assigned', $user->id)
+                        ->orWhere('incharge', $user->report_to);
+                });
+            } else {
+                $query->where(function ($q) use ($user) {
+                    $q->where('assigned', $user->id)
+                        ->orWhere('incharge', $user->id);
+                });
+            }
         }
 
         // Apply date range if provided
