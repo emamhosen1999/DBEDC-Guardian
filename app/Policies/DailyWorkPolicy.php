@@ -32,7 +32,25 @@ class DailyWorkPolicy
             return true;
         }
 
-        // User can view if they are incharge or assigned
+        // Employee logic based on jurisdiction incharge
+        if ($user->hasRole('Employee')) {
+            // Check if user is incharge of any jurisdiction
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge
+                return (int) $dailyWork->incharge === (int) $user->id;
+            } else {
+                // Employee has no jurisdiction: can view works where their manager (report_to) is incharge
+                if ($user->report_to) {
+                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                }
+                // No jurisdiction and no manager: can view own works
+                return (int) $dailyWork->incharge === (int) $user->id;
+            }
+        }
+
+        // For other roles (non-employee, non-admin): can view if incharge/assigned OR manager is incharge
         if ($this->isInchargeOrAssigned($user, $dailyWork)) {
             return true;
         }
