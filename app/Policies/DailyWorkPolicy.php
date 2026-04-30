@@ -81,7 +81,25 @@ class DailyWorkPolicy
             return true;
         }
 
-        // Incharge can update
+        // Employee logic based on jurisdiction incharge
+        if ($user->hasRole('Employee')) {
+            // Check if user is incharge of any jurisdiction
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                // Employee has jurisdiction (is incharge of a jurisdiction): can update works where they are incharge
+                return (int) $dailyWork->incharge === (int) $user->id;
+            } else {
+                // Employee has no jurisdiction: can update works where their manager (report_to) is incharge
+                if ($user->report_to) {
+                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                }
+                // No jurisdiction and no manager: can update own works
+                return (int) $dailyWork->incharge === (int) $user->id;
+            }
+        }
+
+        // For other roles (non-employee, non-admin): incharge can update
         return $this->isIncharge($user, $dailyWork);
     }
 
@@ -99,7 +117,25 @@ class DailyWorkPolicy
             return true;
         }
 
-        // Incharge can delete
+        // Employee logic based on jurisdiction incharge
+        if ($user->hasRole('Employee')) {
+            // Check if user is incharge of any jurisdiction
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                // Employee has jurisdiction (is incharge of a jurisdiction): can delete works where they are incharge
+                return (int) $dailyWork->incharge === (int) $user->id;
+            } else {
+                // Employee has no jurisdiction: can delete works where their manager (report_to) is incharge
+                if ($user->report_to) {
+                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                }
+                // No jurisdiction and no manager: can delete own works
+                return (int) $dailyWork->incharge === (int) $user->id;
+            }
+        }
+
+        // For other roles (non-employee, non-admin): incharge can delete
         return $this->isIncharge($user, $dailyWork);
     }
 
@@ -133,7 +169,25 @@ class DailyWorkPolicy
             return true;
         }
 
-        // Incharge or assigned can update status
+        // Employee logic based on jurisdiction incharge
+        if ($user->hasRole('Employee')) {
+            // Check if user is incharge of any jurisdiction
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                // Employee has jurisdiction (is incharge of a jurisdiction): can update status of works where they are incharge
+                return (int) $dailyWork->incharge === (int) $user->id;
+            } else {
+                // Employee has no jurisdiction: can update status of works where their manager (report_to) is incharge
+                if ($user->report_to) {
+                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                }
+                // No jurisdiction and no manager: can update status of own works
+                return (int) $dailyWork->incharge === (int) $user->id;
+            }
+        }
+
+        // For other roles (non-employee, non-admin): incharge or assigned can update status
         return $this->isInchargeOrAssigned($user, $dailyWork);
     }
 
@@ -167,7 +221,25 @@ class DailyWorkPolicy
             return true;
         }
 
-        // Incharge or assigned can update inspection details
+        // Employee logic based on jurisdiction incharge
+        if ($user->hasRole('Employee')) {
+            // Check if user is incharge of any jurisdiction
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                // Employee has jurisdiction (is incharge of a jurisdiction): can update inspection details of works where they are incharge
+                return (int) $dailyWork->incharge === (int) $user->id;
+            } else {
+                // Employee has no jurisdiction: can update inspection details of works where their manager (report_to) is incharge
+                if ($user->report_to) {
+                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                }
+                // No jurisdiction and no manager: can update inspection details of own works
+                return (int) $dailyWork->incharge === (int) $user->id;
+            }
+        }
+
+        // For other roles (non-employee, non-admin): incharge or assigned can update inspection details
         return $this->isInchargeOrAssigned($user, $dailyWork);
     }
 
@@ -198,7 +270,25 @@ class DailyWorkPolicy
             return true;
         }
 
-        // Incharge can assign
+        // Employee logic based on jurisdiction incharge
+        if ($user->hasRole('Employee')) {
+            // Check if user is incharge of any jurisdiction
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                // Employee has jurisdiction (is incharge of a jurisdiction): can assign users to works where they are incharge
+                return (int) $dailyWork->incharge === (int) $user->id;
+            } else {
+                // Employee has no jurisdiction: can assign users to works where their manager (report_to) is incharge
+                if ($user->report_to) {
+                    return (int) $dailyWork->incharge === (int) $user->report_to;
+                }
+                // No jurisdiction and no manager: can assign users to own works
+                return (int) $dailyWork->incharge === (int) $user->id;
+            }
+        }
+
+        // For other roles (non-employee, non-admin): incharge can assign
         return $this->isIncharge($user, $dailyWork);
     }
 
