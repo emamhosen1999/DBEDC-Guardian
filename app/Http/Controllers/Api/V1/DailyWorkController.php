@@ -1065,9 +1065,19 @@ class DailyWorkController extends Controller
         if ($this->isPrivilegedUser($user)) {
             // Managers and admin roles can access all daily works.
         } elseif ($userDesignationTitle === 'Supervision Engineer') {
-            $query->where('incharge', $user->id);
+            $query->where(function ($dailyWorkQuery) use ($user) {
+                $dailyWorkQuery
+                    ->where('incharge', $user->id)
+                    // Also include works where their manager (report_to) is the incharge
+                    ->orWhere('incharge', $user->report_to);
+            });
         } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'], true)) {
-            $query->where('assigned', $user->id);
+            $query->where(function ($dailyWorkQuery) use ($user) {
+                $dailyWorkQuery
+                    ->where('assigned', $user->id)
+                    // Also include works where their manager (report_to) is the incharge
+                    ->orWhere('incharge', $user->report_to);
+            });
         } else {
             $query->where(function ($dailyWorkQuery) use ($user) {
                 $dailyWorkQuery
@@ -1124,15 +1134,18 @@ class DailyWorkController extends Controller
         $userDesignationTitle = $this->getUserDesignationTitle($user);
 
         if ($userDesignationTitle === 'Supervision Engineer') {
-            return (int) $dailyWork->incharge === (int) $user->id;
+            return (int) $dailyWork->incharge === (int) $user->id
+                || (int) $dailyWork->incharge === (int) $user->report_to;
         }
 
         if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'], true)) {
-            return (int) $dailyWork->assigned === (int) $user->id;
+            return (int) $dailyWork->assigned === (int) $user->id
+                || (int) $dailyWork->incharge === (int) $user->report_to;
         }
 
         return (int) $dailyWork->incharge === (int) $user->id
-            || (int) $dailyWork->assigned === (int) $user->id;
+            || (int) $dailyWork->assigned === (int) $user->id
+            || (int) $dailyWork->incharge === (int) $user->report_to;
     }
 
     private function canSubmitObjection(User $user, RfiObjection $objection): bool

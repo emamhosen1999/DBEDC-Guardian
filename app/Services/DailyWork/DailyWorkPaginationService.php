@@ -146,11 +146,19 @@ class DailyWorkPaginationService
         }
 
         if ($userDesignationTitle === 'Supervision Engineer') {
-            return $baseQuery->where('incharge', $user->id);
+            return $baseQuery->where(function ($q) use ($user) {
+                $q->where('incharge', $user->id)
+                    // Also include works where their manager (report_to) is the incharge
+                    ->orWhere('incharge', $user->report_to);
+            });
         }
 
         if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
-            return $baseQuery->where('assigned', $user->id);
+            return $baseQuery->where(function ($q) use ($user) {
+                $q->where('assigned', $user->id)
+                    // Also include works where their manager (report_to) is the incharge
+                    ->orWhere('incharge', $user->report_to);
+            });
         }
 
         // Employee can only see works where they are incharge or assigned
