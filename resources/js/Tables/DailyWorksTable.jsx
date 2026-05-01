@@ -517,13 +517,15 @@ const DailyWorksTable = ({
     
     // Check if user should see the assigned column
     // - Admins and incharges should see the column
+    // - Employees with jurisdiction should see the column
     // - Assignees should NOT see the column
     const shouldShowAssignedColumn = useMemo(() => {
         if (userIsAdmin) return true;
         if (isUserOnlyIncharge) return true;
+        if (userIsEmployee && userHasJurisdiction) return true;
         // Assignees don't see assignee column
         return false;
-    }, [userIsAdmin, isUserOnlyIncharge]);
+    }, [userIsAdmin, isUserOnlyIncharge, userIsEmployee, userHasJurisdiction]);
     
     // Check if user should see the RFI submission date column (only admins)
     const shouldShowRfiColumn = useMemo(() => {
@@ -2081,47 +2083,43 @@ const DailyWorksTable = ({
                 return (
                     <TableCell className="min-w-48">
                         <div className="flex items-center justify-center w-full">
-                            {canUserUpdateStatus(work) ? (
-                                <Select
-                                    size="sm"
-                                    variant="bordered"
-                                    radius={getThemeRadius()}
-                                    aria-label="Select status"
-                                    selectedKeys={[statusKey]}
-                                    onSelectionChange={(keys) => {
-                                        const selectedKey = Array.from(keys)[0];
-                                        if (selectedKey && selectedKey !== statusKey) {
-                                            updateWorkStatus(work, selectedKey);
-                                        }
-                                    }}
-                                    classNames={{
-                                        trigger: "min-h-10 bg-content2/50 hover:bg-content2/80",
-                                        value: "text-xs",
-                                    }}
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                    renderValue={(items) => {
-                                        return items.map((item) => (
-                                            <div key={item.key} className="flex items-center gap-2">
-                                                <StatusIconComponent className={`w-4 h-4 text-${currentStatusConfig.color}`} />
-                                                <span className="text-xs font-medium">{currentStatusConfig.label}</span>
-                                            </div>
-                                        ));
-                                    }}
-                                >
-                                    {Object.entries(statusConfig).map(([key, config]) => (
-                                        <SelectItem key={key} textValue={config.label}>
-                                            <div className="flex items-center gap-2">
-                                                <config.icon className={`w-4 h-4 text-${config.color}`} />
-                                                <span>{config.label}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-                            ) : (
-                                getStatusChip(work.status, work.inspection_result)
-                            )}
+                            <Select
+                                size="sm"
+                                variant="bordered"
+                                radius={getThemeRadius()}
+                                aria-label="Select status"
+                                selectedKeys={[statusKey]}
+                                onSelectionChange={(keys) => {
+                                    const selectedKey = Array.from(keys)[0];
+                                    if (selectedKey && selectedKey !== statusKey) {
+                                        updateWorkStatus(work, selectedKey);
+                                    }
+                                }}
+                                classNames={{
+                                    trigger: "min-h-10 bg-content2/50 hover:bg-content2/80",
+                                    value: "text-xs",
+                                }}
+                                style={{
+                                    fontFamily: `var(--fontFamily, "Inter")`,
+                                }}
+                                renderValue={(items) => {
+                                    return items.map((item) => (
+                                        <div key={item.key} className="flex items-center gap-2">
+                                            <StatusIconComponent className={`w-4 h-4 text-${currentStatusConfig.color}`} />
+                                            <span className="text-xs font-medium">{currentStatusConfig.label}</span>
+                                        </div>
+                                    ));
+                                }}
+                            >
+                                {Object.entries(statusConfig).map(([key, config]) => (
+                                    <SelectItem key={key} textValue={config.label}>
+                                        <div className="flex items-center gap-2">
+                                            <config.icon className={`w-4 h-4 text-${config.color}`} />
+                                            <span>{config.label}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </Select>
                         </div>
                     </TableCell>
                 );
@@ -2338,32 +2336,32 @@ const DailyWorksTable = ({
                 return (
                     <TableCell className="w-64 text-center">
                         <div className="flex items-center justify-center">
-                            {canUserAssign(work) ? (
-                                <Select
-                                    size="sm"
-                                    variant="bordered"
-                                    radius={getThemeRadius()}
-                                    placeholder="Select assignee"
-                                    aria-label="Select assigned person"
-                                    selectedKeys={work.assigned && getAvailableAssignees(work.incharge).find(user => user.id === parseInt(work.assigned))
-                                        ? [String(work.assigned)]
-                                        : []}
-                                    onSelectionChange={(keys) => {
-                                        const selectedKey = Array.from(keys)[0];
-                                        if (selectedKey) {
-                                            debouncedUpdateAssigned(work.id, selectedKey);
-                                        }
-                                    }}
-                                    classNames={{
-                                        trigger: "min-h-10 w-full bg-content2/50 hover:bg-content2/80 focus:bg-content2/90 transition-colors",
-                                        value: "text-sm leading-tight text-center",
-                                        popoverContent: "w-64 max-w-[300px]"
-                                    }}
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                    renderValue={(items) => {
-                                        if (items.length === 0) {
+                           
+                            <Select
+                                size="sm"
+                                variant="bordered"
+                                radius={getThemeRadius()}
+                                placeholder="Select assignee"
+                                aria-label="Select assigned person"
+                                selectedKeys={work.assigned && getAvailableAssignees(work.incharge).find(user => user.id === parseInt(work.assigned))
+                                    ? [String(work.assigned)]
+                                    : []}
+                                onSelectionChange={(keys) => {
+                                    const selectedKey = Array.from(keys)[0];
+                                    if (selectedKey) {
+                                        debouncedUpdateAssigned(work.id, selectedKey);
+                                    }
+                                }}
+                                classNames={{
+                                    trigger: "min-h-10 w-full bg-content2/50 hover:bg-content2/80 focus:bg-content2/90 transition-colors",
+                                    value: "text-sm leading-tight text-center",
+                                    popoverContent: "w-64 max-w-[300px]"
+                                }}
+                                style={{
+                                    fontFamily: `var(--fontFamily, "Inter")`,
+                                }}
+                                renderValue={(items) => {
+                                    if (items.length === 0) {
                                         return (
                                             <div className="flex items-center gap-2">
                                                 <UserIcon className="w-4 h-4 text-default-400" />
@@ -2408,41 +2406,7 @@ const DailyWorksTable = ({
                                     </SelectItem>
                                 ))}
                             </Select>
-                        ) : (
-                            <div className="flex items-center justify-center gap-2">
-                                {assignedUser.name !== 'Unassigned' ? (
-                                    <User
-                                        size="sm"
-                                        name={
-                                            <span 
-                                                className="truncate max-w-[100px]"
-                                                title={assignedUser.name}
-                                            >
-                                                {assignedUser.name}
-                                            </span>
-                                        }
-                                        description="Assigned"
-                                        avatarProps={{
-                                            size: "sm",
-                                            src: assignedUser.profile_image_url || assignedUser.profile_image,
-                                            name: assignedUser.name,
-                                            ...getProfileAvatarTokens({
-                                                name: assignedUser.name,
-                                                size: 'sm',
-                                            }),
-                                        }}
-                                        classNames={{
-                                            name: "text-xs font-medium",
-                                            description: "text-xs text-default-400"
-                                        }}
-                                    />
-                                ) : (
-                                    <Chip size="sm" variant="flat" color="default">
-                                        Unassigned
-                                    </Chip>
-                                )}
-                            </div>
-                        )}
+                      
                         </div>
                     </TableCell>
                 );
