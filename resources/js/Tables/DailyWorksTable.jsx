@@ -433,8 +433,8 @@ const DailyWorksTable = ({
                 // Employee has jurisdiction: can assign to works where they are incharge
                 return isUserInchargeOfWork(work);
             } else {
-                // Employee has no jurisdiction: can assign to works where manager is incharge
-                return isManagerInchargeOfWork(work);
+                // Employee has no jurisdiction: CANNOT assign
+                return false;
             }
         }
         
@@ -459,6 +459,16 @@ const DailyWorksTable = ({
         
         // For other roles (non-employee, non-admin): SE or assignee can update
         return userIsSE || isUserAssigneeOfWork(work);
+    };
+    
+    // Check if user can update completion time (same logic as status)
+    const canUserUpdateCompletionTime = (work) => {
+        return canUserUpdateStatus(work);
+    };
+    
+    // Check if user can update inspection details (same logic as status)
+    const canUserUpdateInspectionDetails = (work) => {
+        return canUserUpdateStatus(work);
     };
     
     // Check if user can create/manage objections for a specific work
@@ -1760,41 +1770,45 @@ const DailyWorksTable = ({
                                 )}
 
                                 {/* Inspection Details */}
-                                <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] text-default-400">Inspection Details:</span>
-                                    <Input
-                                        size="sm"
-                                        type="text"
-                                        variant="bordered"
-                                        radius={getThemeRadius()}
-                                        placeholder="Enter details..."
-                                        defaultValue={work.inspection_details || ''}
-                                        onChange={(e) => debouncedUpdateInspectionDetails(work.id, e.target.value)}
-                                        classNames={{
-                                            base: "w-full",
-                                            input: "text-[10px]",
-                                            inputWrapper: "min-h-7 h-7"
-                                        }}
-                                    />
-                                </div>
+                                {canUserUpdateInspectionDetails(work) && (
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[10px] text-default-400">Inspection Details:</span>
+                                        <Input
+                                            size="sm"
+                                            type="text"
+                                            variant="bordered"
+                                            radius={getThemeRadius()}
+                                            placeholder="Enter details..."
+                                            defaultValue={work.inspection_details || ''}
+                                            onChange={(e) => debouncedUpdateInspectionDetails(work.id, e.target.value)}
+                                            classNames={{
+                                                base: "w-full",
+                                                input: "text-[10px]",
+                                                inputWrapper: "min-h-7 h-7"
+                                            }}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Completion Time */}
-                                <div className="flex flex-col gap-0.5">
-                                    <span className="text-[10px] text-default-400">Completion:</span>
-                                    <Input
-                                        size="sm"
-                                        type="datetime-local"
-                                        variant="bordered"
-                                        radius={getThemeRadius()}
-                                        value={work.completion_time ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16) : ''}
-                                        onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
-                                        classNames={{
-                                            base: "w-full",
-                                            input: "text-[10px]",
-                                            inputWrapper: "min-h-7 h-7"
-                                        }}
-                                    />
-                                </div>
+                                {canUserUpdateCompletionTime(work) && (
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[10px] text-default-400">Completion:</span>
+                                        <Input
+                                            size="sm"
+                                            type="datetime-local"
+                                            variant="bordered"
+                                            radius={getThemeRadius()}
+                                            value={work.completion_time ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16) : ''}
+                                            onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
+                                            classNames={{
+                                                base: "w-full",
+                                                input: "text-[10px]",
+                                                inputWrapper: "min-h-7 h-7"
+                                            }}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* RFI Date - Admin only */}
                                 {shouldShowRfiColumn && (
