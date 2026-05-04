@@ -143,17 +143,6 @@ class DeviceAuthService
         }
 
         if ($registeredDevice->device_id === $deviceId) {
-            $incomingSignatureHash = $this->signatureHashFromPayload($deviceSignature);
-            $storedSignatureHash = (string) ($registeredDevice->signature_hash ?? '');
-
-            if ($storedSignatureHash !== '' && $incomingSignatureHash !== '' && ! hash_equals($storedSignatureHash, $incomingSignatureHash)) {
-                return [
-                    'allowed' => false,
-                    'message' => 'Device signature mismatch. Account is locked to another physical device.',
-                    'device' => $registeredDevice,
-                ];
-            }
-
             return [
                 'allowed' => true,
                 'message' => 'Login from registered device.',
@@ -441,14 +430,10 @@ class DeviceAuthService
         $fingerprint = implode('|', [
             $normalized['signature'],
             $normalized['platform'],
-            $normalized['os_version'],
             $normalized['model'],
             $normalized['manufacturer'],
             $normalized['brand'],
             $normalized['hardware_id'],
-            $normalized['app_version'],
-            $normalized['build_version'],
-            $normalized['mac_address'],
         ]);
 
         return hash_hmac('sha256', $fingerprint, (string) config('app.key'));
@@ -521,8 +506,6 @@ class DeviceAuthService
 
         $hardwareSeed = implode('|', [
             $deviceId,
-            (string) $request->userAgent(),
-            (string) $request->header('Accept-Language'),
             (string) $request->header('Sec-CH-UA-Platform'),
             (string) $request->header('Sec-CH-UA'),
             (string) $request->header('Sec-CH-UA-Mobile'),
@@ -531,8 +514,8 @@ class DeviceAuthService
         $signatureSeed = implode('|', [
             $browser,
             $osVersion,
-            (string) $request->userAgent(),
-            (string) $request->header('Accept-Language'),
+            (string) $request->header('Sec-CH-UA-Platform'),
+            (string) $request->header('Sec-CH-UA'),
         ]);
 
         $headerSignature = trim((string) $request->header('X-Device-Signature'));

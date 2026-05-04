@@ -78,29 +78,19 @@ export function getWebDeviceSignature(): Record<string, string> {
         };
     }
 
-    const timezone = normalize(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-    const screenResolution = `${window.screen?.width || 0}x${window.screen?.height || 0}`;
-    const browserLanguage = normalize(navigator.language || '');
     const platformName = normalize(navigator.platform || 'Web');
 
     const hardwareSeed = [
         getDeviceId(),
-        normalize(navigator.userAgent),
-        browserLanguage,
         platformName,
         normalize((navigator as any).hardwareConcurrency),
         normalize((navigator as any).deviceMemory),
-        timezone,
-        screenResolution,
     ].join('|');
 
     const signatureSeed = [
-        browser,
-        normalize(navigator.userAgent),
-        browserLanguage,
         platformName,
-        timezone,
-        screenResolution,
+        normalize((navigator as any).hardwareConcurrency),
+        normalize((navigator as any).deviceMemory),
     ].join('|');
 
     return {
