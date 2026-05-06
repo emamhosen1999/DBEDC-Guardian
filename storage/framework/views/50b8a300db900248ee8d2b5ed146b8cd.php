@@ -59,7 +59,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
     <!-- Font Loading with Display Swap -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fredoka:wght@300..700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Nebula Glass Design System -->
+    <link rel="stylesheet" href="<?php echo e(asset('assets/css/nebula-glass.css')); ?>">
+    <link rel="stylesheet" href="<?php echo e(asset('assets/css/nebula-showcase.css')); ?>">
+    <link rel="stylesheet" href="<?php echo e(asset('assets/css/nebula-components.css')); ?>">
 
     <!-- Title -->
     <title inertia><?php echo e(config('app.name')); ?></title>
@@ -80,33 +85,20 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: var(--font-primary, 'Inter', sans-serif);
-            font-size: 16px;
-            line-height: 1.6;
-            color: var(--text-color, #333);
-            background-color: var(--bg-color, #ffffff);
+            font-family: var(--font-body, 'Space Grotesk', sans-serif);
+            font-size: var(--text-base, 16px);
+            line-height: var(--leading-normal, 1.6);
+            color: var(--color-fg, #333);
+            background-color: var(--color-bg, #ffffff);
             min-height: 100vh;
             overflow-x: hidden;
-            transition: color 0.3s ease, background-color 0.3s ease;
+            transition: background var(--duration-slow) var(--ease-glide),
+                        color var(--duration-slow) var(--ease-glide);
         }
 
-        /* Essential CSS Custom Properties */
+        /* Essential CSS Custom Properties - Nebula Glass tokens will override these */
         :root {
-            --primary-color: #134e9d;
-            --secondary-color: #f5841f;
-            --text-color: #333;
-            --bg-color: #ffffff;
-            --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            --border-radius: 8px;
-            --transition: all 0.3s ease;
-            --font-primary: 'Inter', 'Segoe UI', sans-serif;
-        }
-
-        /* Dark mode variables */
-        [data-theme-mode="dark"] {
-            --text-color: #ffffff;
-            --bg-color: #0f1419;
-            --shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+            --font-primary: 'Space Grotesk', 'Inter', system-ui, sans-serif;
         }
 
         /* Screen Reader Only */
@@ -122,18 +114,10 @@
             border: 0 !important;
         }
 
-        /* Enhanced Background System - Theme-based patterns load immediately */
+        /* Enhanced Background System - Nebula Glass will handle this */
         body {
-            /* Base background - will be overridden by dynamic theme system */
-            background: var(--background, #ffffff);
+            /* Nebula Glass CSS will handle background */
             min-height: 100vh;
-            transition: background 0.3s ease, background-color 0.3s ease;
-            /* Remove any fixed background patterns to allow theme system control */
-        }
-
-        /* Dark mode fallback - also will be overridden by theme system */
-        [data-theme-mode="dark"] body {
-            background: var(--background, #0a0a0a);
         }
 
         /* Enhanced Loading Screen - Optimized Performance & UX */
@@ -460,9 +444,21 @@
     </style>
 </head>
 
-<body>
+<body data-theme="dark">
+    <!-- Nebula Glass Background Layers -->
+    <div class="nebula-bg"></div>
+    <div class="nebula-stars"></div>
+
+    <!-- SVG Noise Filter (referenced site-wide) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <defs>
+        <filter id="grain-soft"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0"/></filter>
+        <filter id="grain-heavy"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.7 0"/></filter>
+      </defs>
+    </svg>
+
     <!-- Skip Navigation Link for Accessibility -->
-    <a href="#main-content" class="sr-only sr-only-focusable" style="position: absolute; top: -40px; left: 6px; z-index: 10001; color: white; background: var(--primary-color); padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+    <a href="#main-content" class="sr-only sr-only-focusable" style="position: absolute; top: -40px; left: 6px; z-index: 10001; color: white; background: var(--color-primary); padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold;">
         Skip to main content
     </a>
 
@@ -498,6 +494,17 @@
 
     <!-- Enhanced Loading Management -->
     <script>
+        // Nebula Glass Theme Management
+        (function() {
+            const stored = localStorage.getItem('nebula-theme') || 'dark';
+            document.body.setAttribute('data-theme', stored);
+            document.addEventListener('DOMContentLoaded', () => {
+                // Initialize theme on load
+                const body = document.body;
+                body.setAttribute('data-theme', stored);
+            });
+        })();
+
         // Enhanced Loading Management for Optimized Performance
         window.AppLoader = {
             hideLoading: function() {

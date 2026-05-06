@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { GlassContainer, GlassCard } from '@/Components/Nebula/index';
 
 // Direct imports - eager loading
 import TimeSheetTable from '@/Tables/TimeSheetTable.jsx';
@@ -109,52 +110,56 @@ export default function Dashboard({ auth }) {
     return ( 
         <>
             <Head title="Dashboard" />
-            <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                
-            >
-                <div className="w-full">
-                    {/*<NoticeBoard/>*/}
-                    <motion.div key="main-grid" variants={itemVariants}>
-                        <div className="grid grid-cols-1 md:grid-cols-2">
-                            {/* Punch Status Card - for employees and self-service users */}
-                            {hasEveryPermission(['attendance.own.punch', 'attendance.own.view']) &&
-                                <div key="punch-status-grid" className="h-full">
-                                    <motion.div
-                                        key="punch-status-card"
-                                        variants={staggerItemVariants}
-                                        custom={0}
-                                        whileHover={{ 
-                                            scale: 1.01,
-                                            transition: { duration: 0.2 }
-                                        }}
-                                        className="h-full"
-                                    >
-                                        <PunchStatusCard handlePunchSuccess={handlePunchSuccess} />
-                                    </motion.div>
-                                </div>
-                            }
-                            {/* Statistics Card - for users with dashboard access */}
-                            {hasPermission('core.dashboard.view') &&
-                                <div key="statistics-grid" className="h-full">
-                                    <motion.div
-                                        key="statistics-card"
-                                        variants={staggerItemVariants}
-                                        custom={1}
-                                        whileHover={{ 
-                                            scale: 1.01,
-                                            transition: { duration: 0.2 }
-                                        }}
-                                        className="h-full"
-                                    >
-                                        <StatisticCard />
-                                    </motion.div>
-                                </div>
-                            }
-                        </div>
-                    </motion.div>
+            <GlassContainer perspective="mid">
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                >
+                    <div className="w-full p-6">
+                        {/*<NoticeBoard/>*/}
+                        <motion.div key="main-grid" variants={itemVariants}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Punch Status Card - for employees and self-service users */}
+                                {hasEveryPermission(['attendance.own.punch', 'attendance.own.view']) &&
+                                    <div key="punch-status-grid" className="h-full">
+                                        <GlassCard>
+                                            <motion.div
+                                                key="punch-status-card"
+                                                variants={staggerItemVariants}
+                                                custom={0}
+                                                whileHover={{ 
+                                                    scale: 1.01,
+                                                    transition: { duration: 0.2 }
+                                                }}
+                                                className="h-full"
+                                            >
+                                                <PunchStatusCard handlePunchSuccess={handlePunchSuccess} />
+                                            </motion.div>
+                                        </GlassCard>
+                                    </div>
+                                }
+                                {/* Statistics Card - for users with dashboard access */}
+                                {hasPermission('core.dashboard.view') &&
+                                    <div key="statistics-grid" className="h-full">
+                                        <GlassCard>
+                                            <motion.div
+                                                key="statistics-card"
+                                                variants={staggerItemVariants}
+                                                custom={1}
+                                                whileHover={{ 
+                                                    scale: 1.01,
+                                                    transition: { duration: 0.2 }
+                                                }}
+                                                className="h-full"
+                                            >
+                                                <StatisticCard />
+                                            </motion.div>
+                                        </GlassCard>
+                                    </div>
+                                }
+                            </div>
+                        </motion.div>
                     
                     {/* Admin/Manager level components */}
                     {hasAnyPermission(['attendance.view', 'employees.view']) && (
@@ -162,28 +167,33 @@ export default function Dashboard({ auth }) {
                             variants={containerVariants}
                             initial="hidden"
                             animate="visible"
+                            className="mt-6"
                         >
-                            <motion.div
-                                key="timesheet-section"
-                                variants={staggerItemVariants}
-                                custom={2}
-                            >
-                                <TimeSheetTable 
-                                    selectedDate={selectedDate} 
-                                    handleDateChange={handleDateChange} 
-                                    updateTimeSheet={updateTimeSheet} 
-                                />
-                            </motion.div>
-                            <motion.div
-                                key="user-locations-section"
-                                variants={staggerItemVariants}
-                                custom={3}
-                            >
-                                <UserLocationsCard 
-                                    selectedDate={selectedDate} 
-                                    updateMap={updateMap} 
-                                />
-                            </motion.div>
+                            <GlassCard className="mb-6">
+                                <motion.div
+                                    key="timesheet-section"
+                                    variants={staggerItemVariants}
+                                    custom={2}
+                                >
+                                    <TimeSheetTable 
+                                        selectedDate={selectedDate} 
+                                        handleDateChange={handleDateChange} 
+                                        updateTimeSheet={updateTimeSheet} 
+                                    />
+                                </motion.div>
+                            </GlassCard>
+                            <GlassCard>
+                                <motion.div
+                                    key="user-locations-section"
+                                    variants={staggerItemVariants}
+                                    custom={3}
+                                >
+                                    <UserLocationsCard 
+                                        selectedDate={selectedDate} 
+                                        updateMap={updateMap} 
+                                    />
+                                </motion.div>
+                            </GlassCard>
                         </motion.div>
                     )}
                     
@@ -195,14 +205,18 @@ export default function Dashboard({ auth }) {
                             custom={4}
                             initial="hidden"
                             animate="visible"
+                            className="mt-6"
                         >
-                            <UpdatesCards />
+                            <GlassCard>
+                                <UpdatesCards />
+                            </GlassCard>
                         </motion.div>
                     )}
                     
                 
                 </div>
             </motion.div>
+            </GlassContainer>
         </>
     );
 }

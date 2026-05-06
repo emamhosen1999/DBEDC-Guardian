@@ -16,6 +16,7 @@ import {
   SelectItem,
   Spinner
 } from "@heroui/react";
+import { GlassContainer, GlassCard } from '@/Components/Nebula/index';
 
 import { 
   UserPlusIcon, 
@@ -444,31 +445,20 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
   return (
     <>
       <Head title={title || "Employee Directory"} />
-      <div 
-        className="flex flex-col w-full h-full p-4"
-        role="main"
-        aria-label="Employee Directory Management"
-      >
-        <div className="space-y-4">
-          <div className="w-full">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Card 
-                className="transition-all duration-200"
-                style={{
-                  border: `var(--borderWidth, 2px) solid transparent`,
-                  borderRadius: `var(--borderRadius, 12px)`,
-                  fontFamily: `var(--fontFamily, "Inter")`,
-                  transform: `scale(var(--scale, 1))`,
-                  background: `linear-gradient(135deg, 
-                    var(--theme-content1, #FAFAFA) 20%, 
-                    var(--theme-content2, #F4F4F5) 10%, 
-                    var(--theme-content3, #F1F3F4) 20%)`,
-                }}
+      <GlassContainer perspective="mid">
+        <div 
+          className="flex flex-col w-full h-full p-4"
+          role="main"
+          aria-label="Employee Directory Management"
+        >
+          <div className="space-y-4">
+            <div className="w-full">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
               >
+                <GlassCard className="transition-all duration-200">
                 <CardHeader 
                   className="border-b p-0"
                   style={{
@@ -932,20 +922,11 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
                       </motion.div>
                     )}
                   </div>
+                </CardBody>
+                </GlassCard>
 
                 {/* Employee Table Section */}
-                <Card 
-                  className="transition-all duration-200"
-                  style={{
-                    border: `var(--borderWidth, 2px) solid transparent`,
-                    borderRadius: `var(--borderRadius, 12px)`,
-                    fontFamily: `var(--fontFamily, "Inter")`,
-                    background: `linear-gradient(135deg, 
-                      var(--theme-content1, #FAFAFA) 20%, 
-                      var(--theme-content2, #F4F4F5) 10%, 
-                      var(--theme-content3, #F1F3F4) 20%)`,
-                  }}
-                >
+                <GlassCard className="transition-all duration-200">
                   <CardHeader 
                     className="border-b pb-2"
                     style={{
@@ -1066,13 +1047,12 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
                   )}
                     </div>
                   </CardBody>
-                </Card>
-                </CardBody>
-              </Card>
+                </GlassCard>
             </motion.div>
           </div>
         </div>
       </div>
+      </GlassContainer>
     </>
   );
 };

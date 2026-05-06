@@ -1,0 +1,124 @@
+/* Nebula Glass Component-specific Styles */
+
+/* Theme Drawer */
+.ng-theme-drawer-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn var(--duration-slow) var(--ease-glide);
+}
+
+.ng-theme-drawer {
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--space-6);
+  animation: slideUp var(--duration-slow) var(--ease-glide);
+}
+
+.ng-theme-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ng-theme-drawer-title {
+  font-size: var(--text-xl);
+  font-weight: var(--font-semibold);
+  color: var(--color-fg);
+}
+
+.ng-theme-drawer-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ng-theme-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ng-theme-options {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.ng-theme-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-glide);
+}
+
+.ng-theme-option:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+}
+
+.ng-theme-option.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+
+.ng-theme-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.ng-theme-preview-dark {
+  background: linear-gradient(135deg, #0a0a0a, #1a1a2e);
+}
+
+.ng-theme-preview-light {
+  background: linear-gradient(135deg, #ffffff, #f0f0f0);
+}
+
+.ng-theme-description {
+  font-size: var(--text-sm);
+  color: var(--color-fg-tertiary);
+  line-height: var(--leading-relaxed);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
