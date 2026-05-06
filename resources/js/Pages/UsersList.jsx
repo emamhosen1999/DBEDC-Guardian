@@ -23,6 +23,7 @@ import {
   Tooltip,
   Switch
 } from "@heroui/react";
+import { GlassContainer, GlassCard } from '@/Components/Nebula/index';
 
 import { 
   UserPlusIcon,
@@ -860,31 +861,20 @@ const UsersList = ({ title, roles, departments, designations }) => {
         />
       )}
 
-      <div 
-        className="flex flex-col w-full h-full p-4"
-        role="main"
-        aria-label="Users Management"
-      >
-        <div className="space-y-4">
-          <div className="w-full">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Card 
-                className="transition-all duration-200"
-                style={{
-                  border: `var(--borderWidth, 2px) solid transparent`,
-                  borderRadius: `var(--borderRadius, 12px)`,
-                  fontFamily: `var(--fontFamily, "Inter")`,
-                  transform: `scale(var(--scale, 1))`,
-                  background: `linear-gradient(135deg, 
-                    var(--theme-content1, #FAFAFA) 20%, 
-                    var(--theme-content2, #F4F4F5) 10%, 
-                    var(--theme-content3, #F1F3F4) 20%)`,
-                }}
+      <GlassContainer perspective="mid">
+        <div 
+          className="flex flex-col w-full h-full p-4"
+          role="main"
+          aria-label="Users Management"
+        >
+          <div className="space-y-4">
+            <div className="w-full">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
               >
+                <GlassCard className="transition-all duration-200">
                 <CardHeader 
                   className="border-b p-0"
                   style={{
@@ -1793,11 +1783,12 @@ const UsersList = ({ title, roles, departments, designations }) => {
                       )}
                     </div>
                 </CardBody>
-              </Card>
+              </GlassCard>
             </motion.div>
           </div>
         </div>
       </div>
+      </GlassContainer>
     </>
   );
 };

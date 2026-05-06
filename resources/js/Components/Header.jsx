@@ -30,7 +30,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Link, usePage, router } from '@inertiajs/react';
 import { useTheme } from '../Contexts/ThemeContext';
-import ThemeSettingDrawer from './ThemeSettingDrawer';
+import { NebulaThemeDrawer } from './Nebula/index';
 import LanguageSwitcher from './LanguageSwitcher';
 import ProfileAvatar from './ProfileAvatar';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -412,10 +412,10 @@ const Header = ({
                 </motion.div>
             </motion.div>
 
-            {/* Theme Settings Drawer */}
+            {/* Nebula Glass Theme Drawer */}
             <AnimatePresence>
                 {isThemeDrawerOpen && (
-                    <ThemeSettingDrawer
+                    <NebulaThemeDrawer
                         isOpen={isThemeDrawerOpen}
                         onClose={() => setIsThemeDrawerOpen(false)}
                     />
