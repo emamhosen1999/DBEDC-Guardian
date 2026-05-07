@@ -250,7 +250,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
             className: "bg-linear-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30",
             ariaLabel: "Refresh daily work summary data"
         },
-        ...(auth.roles.includes('Administrator') || auth.designation === 'Supervision Engineer' ? [{
+        ...(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer' ? [{
             label: "Export",
             icon: <DocumentArrowDownIcon className="w-4 h-4" />,
             variant: "flat", 

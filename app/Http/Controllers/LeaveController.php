@@ -345,40 +345,52 @@ class LeaveController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $filters = [
-            'year' => $request->input('year', now()->year),
-            'department_id' => $request->input('department_id'),
-            'employee_id' => $request->input('employee_id'),
-            'status' => $request->input('status'),
-            'leave_type' => $request->input('leave_type'),
-        ];
+        try {
+            $filters = [
+                'year' => $request->input('year', now()->year),
+                'department_id' => $request->input('department_id'),
+                'employee_id' => $request->input('employee_id'),
+                'status' => $request->input('status'),
+                'leave_type' => $request->input('leave_type'),
+            ];
 
-        return \Maatwebsite\Excel\Facades\Excel::download(
-            new \App\Exports\LeaveSummaryExport($filters),
-            'Leave_Summary_'.($filters['year'] ?? now()->year).'.xlsx'
-        );
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                new \App\Exports\LeaveSummaryExport($filters),
+                'Leave_Summary_'.($filters['year'] ?? now()->year).'.xlsx'
+            );
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Excel export failed: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     public function exportPdf(Request $request)
     {
-        $filters = [
-            'year' => $request->input('year', now()->year),
-            'department_id' => $request->input('department_id'),
-            'employee_id' => $request->input('employee_id'),
-            'status' => $request->input('status'),
-            'leave_type' => $request->input('leave_type'),
-        ];
+        try {
+            $filters = [
+                'year' => $request->input('year', now()->year),
+                'department_id' => $request->input('department_id'),
+                'employee_id' => $request->input('employee_id'),
+                'status' => $request->input('status'),
+                'leave_type' => $request->input('leave_type'),
+            ];
 
-        $summaryData = $this->summaryService->generateLeaveSummary($filters);
+            $summaryData = $this->summaryService->generateLeaveSummary($filters);
 
-        $pdf = PDF::loadView('leave_summary_pdf', [
-            'title' => 'Leave Summary - '.($filters['year'] ?? now()->year),
-            'generatedOn' => now()->format('F d, Y h:i A'),
-            'summaryData' => $summaryData,
-            'filters' => $filters,
-        ])->setPaper('a4', 'landscape');
+            $pdf = PDF::loadView('leave_summary_pdf', [
+                'title' => 'Leave Summary - '.($filters['year'] ?? now()->year),
+                'generatedOn' => now()->format('F d, Y h:i A'),
+                'summaryData' => $summaryData,
+                'filters' => $filters,
+            ])->setPaper('a4', 'landscape');
 
-        return $pdf->download('Leave_Summary_'.($filters['year'] ?? now()->year).'.pdf');
+            return $pdf->download('Leave_Summary_'.($filters['year'] ?? now()->year).'.pdf');
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'PDF export failed: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

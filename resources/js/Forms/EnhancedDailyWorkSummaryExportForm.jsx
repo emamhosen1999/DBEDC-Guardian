@@ -29,6 +29,7 @@ import { showToast } from '@/utils/toastUtils';
 import { route } from 'ziggy-js';
 import axios from 'axios';
 import { parseDate } from "@internationalized/date";
+import ExcelJS from 'exceljs';
 
 const EnhancedDailyWorkSummaryExportForm = ({
     open,
@@ -263,21 +264,115 @@ const EnhancedDailyWorkSummaryExportForm = ({
     };
 
     const exportToExcelServer = async (filename) => {
-        const response = await axios.post(route('daily-works-summary.export-excel'), {
-            startDate: currentFilters.startDate || null,
-            endDate: currentFilters.endDate || null,
-            status: currentFilters.status || null,
-            type: currentFilters.type || null,
-            search: currentFilters.search || null,
-            incharge: currentFilters.incharge || null,
-            jurisdiction: currentFilters.jurisdiction || null,
-            columns: exportSettings.columns,
-            groupBy: exportSettings.groupBy
-        }, {
-            responseType: 'blob'
+        // If charts are included, use client-side export with ExcelJS
+        if (exportSettings.includeCharts) {
+            await exportToExcelWithCharts(filename);
+        } else {
+            // Otherwise use server-side export
+            const response = await axios.post(route('daily-works-summary.export-excel'), {
+                startDate: currentFilters.startDate || null,
+                endDate: currentFilters.endDate || null,
+                status: currentFilters.status || null,
+                type: currentFilters.type || null,
+                search: currentFilters.search || null,
+                incharge: currentFilters.incharge || null,
+                jurisdiction: currentFilters.jurisdiction || null,
+                columns: exportSettings.columns,
+                groupBy: exportSettings.groupBy
+            }, {
+                responseType: 'blob'
+            });
+            
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${filename}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        }
+    };
+
+    const exportToExcelWithCharts = async (filename) => {
+        let chartImages = {};
+        
+        if (exportSettings.includeCharts && analyticsRef?.current) {
+            chartImages = await analyticsRef.current.captureCharts();
+        }
+        
+        const workbook = new ExcelJS.Workbook();
+        
+        // Create Summary sheet
+        const summarySheet = workbook.addWorksheet('Summary');
+        summarySheet.addRow(['Daily Work Summary Report']);
+        summarySheet.addRow(['Generated On', new Date().toLocaleString()]);
+        summarySheet.addRow([]);
+        
+        const data = prepareExportData(filteredData);
+        
+        // Add headers
+        const headers = Object.keys(data[0] || {});
+        summarySheet.addRow(headers);
+        
+        // Add data
+        data.forEach(row => {
+            summarySheet.addRow(Object.values(row));
         });
         
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        // Style the sheet
+        summarySheet.getRow(1).font = { bold: true, size: 16 };
+        summarySheet.getRow(4).font = { bold: true };
+        summarySheet.getRow(4).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: '1976D2' }
+        };
+        summarySheet.getRow(4).font = { bold: true, color: { argb: 'FFFFFF' } };
+        
+        // Create Charts sheet if images were captured
+        if (Object.keys(chartImages).length > 0) {
+            const chartsSheet = workbook.addWorksheet('Charts');
+            chartsSheet.addRow(['Analytics Charts']);
+            chartsSheet.getRow(1).font = { bold: true, size: 16 };
+            
+            let rowIndex = 3;
+            for (const [chartId, imageData] of Object.entries(chartImages)) {
+                // Add chart title
+                const chartTitle = chartId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                chartsSheet.getCell(`A${rowIndex}`).value = chartTitle;
+                chartsSheet.getCell(`A${rowIndex}`).font = { bold: true, size: 14 };
+                rowIndex++;
+                
+                // Convert base64 to buffer (browser-compatible)
+                const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const buffer = bytes;
+                
+                // Add image to workbook
+                const imageId = workbook.addImage({
+                    buffer: buffer,
+                    extension: 'png',
+                });
+                
+                // Add image to sheet
+                chartsSheet.addImage(imageId, {
+                    tl: { col: 0, row: rowIndex },
+                    ext: { width: 800, height: 400 }
+                });
+                
+                rowIndex += 26; // Move down for next chart
+            }
+        }
+        
+        // Generate and download
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `${filename}.xlsx`);
@@ -361,8 +456,8 @@ const EnhancedDailyWorkSummaryExportForm = ({
                             </CardBody>
                         </Card>
 
-                        {/* Include Charts Option - Only for PDF */}
-                        {exportSettings.format === 'pdf' && (
+                        {/* Include Charts Option - For PDF and Excel */}
+                        {(exportSettings.format === 'pdf' || exportSettings.format === 'excel') && (
                             <Card className="bg-default-50">
                                 <CardBody>
                                     <h4 className="font-semibold mb-3">Chart Options</h4>
@@ -373,7 +468,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
                                         <div>
                                             <div className="font-medium">Include Charts</div>
                                             <div className="text-xs text-default-500">
-                                                Embed analytics charts in the PDF report
+                                                Embed analytics charts in the {exportSettings.format === 'pdf' ? 'PDF report' : 'Excel file'}
                                             </div>
                                         </div>
                                     </Checkbox>

@@ -1612,59 +1612,81 @@ class AttendanceController extends Controller
 
     public function exportExcel(Request $request)
     {
-        $date = $request->input('date');
+        try {
+            $date = $request->input('date');
 
-        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\AttendanceExport($date), 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.xlsx');
+            return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\AttendanceExport($date), 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.xlsx');
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Excel export failed: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     public function exportPdf(Request $request)
     {
-        $date = $request->input('date');
-        $rows = (new AttendanceExport($date))->collection();
-        $pdf = PDF::loadView('attendance_pdf', [
-            'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($date)),
-            'generatedOn' => now()->format('F d, Y h:i A'),
-            'rows' => $rows,
-        ])->setPaper('a4', 'landscape');
+        try {
+            $date = $request->input('date');
+            $rows = (new AttendanceExport($date))->collection();
+            $pdf = PDF::loadView('attendance_pdf', [
+                'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($date)),
+                'generatedOn' => now()->format('F d, Y h:i A'),
+                'rows' => $rows,
+            ])->setPaper('a4', 'landscape');
 
-        return $pdf->download('Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.pdf');
+            return $pdf->download('Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.pdf');
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'PDF export failed: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     public function exportAdminExcel(Request $request)
     {
-        $month = $request->get('month');
+        try {
+            $month = $request->get('month');
 
-        return (new AttendanceAdminExport)->export($month);
+            return (new AttendanceAdminExport)->export($month);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Excel export failed: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     public function exportAdminPdf(Request $request)
     {
-        $month = $request->get('month');
-        $from = Carbon::parse($month.'-01');
-        $to = $from->copy()->endOfMonth();
-        $monthName = $from->format('F Y');
+        try {
+            $month = $request->get('month');
+            $from = Carbon::parse($month.'-01');
+            $to = $from->copy()->endOfMonth();
+            $monthName = $from->format('F Y');
 
-        $users = User::with(['attendances', 'leaves'])->role('Employee')->where('active', 1)->get();
-        $leaveTypes = LeaveSetting::all();
-        $holidays = Holiday::all();
+            $users = User::with(['attendances', 'leaves'])->role('Employee')->where('active', 1)->get();
+            $leaveTypes = LeaveSetting::all();
+            $holidays = Holiday::all();
 
-        $attendanceData = [];
-        foreach ($users as $user) {
-            $attendanceData[] = $this->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
+            $attendanceData = [];
+            foreach ($users as $user) {
+                $attendanceData[] = $this->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
+            }
+
+            // You can build a custom view file for formatting the PDF layout
+            $pdf = PDF::loadView('attendance_admin_pdf', [
+                'monthName' => $monthName,
+                'from' => $from,
+                'to' => $to,
+                'users' => $users,
+                'attendanceData' => $attendanceData,
+                'leaveTypes' => $leaveTypes,
+            ])->setPaper('a4', 'landscape');
+
+            return $pdf->download('DBEDC_Attendance_'.$monthName.'.pdf');
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'PDF export failed: '.$e->getMessage(),
+            ], 500);
         }
-
-        // You can build a custom view file for formatting the PDF layout
-        $pdf = PDF::loadView('attendance_admin_pdf', [
-            'monthName' => $monthName,
-            'from' => $from,
-            'to' => $to,
-            'users' => $users,
-            'attendanceData' => $attendanceData,
-            'leaveTypes' => $leaveTypes,
-        ])->setPaper('A4', 'landscape');
-
-        $fileName = "DBEDC_Attendance_{$monthName}.pdf";
-
-        return $pdf->download($fileName);
     }
 }
