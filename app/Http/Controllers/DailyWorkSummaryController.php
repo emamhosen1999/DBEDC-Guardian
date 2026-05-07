@@ -400,6 +400,106 @@ class DailyWorkSummaryController extends Controller
     }
 
     /**
+     * Generate SVG chart for daily trend
+     */
+    private function generateDailyTrendChart($dailyTrend)
+    {
+        if (empty($dailyTrend)) return null;
+
+        $width = 800;
+        $height = 300;
+        $padding = 40;
+        
+        $maxValue = max(array_column($dailyTrend, 'total')) ?: 1;
+        $maxValue = ceil($maxValue * 1.1); // Add 10% headroom
+        
+        $svg = '<svg width="' . $width . '" height="' . $height . '" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<rect width="' . $width . '" height="' . $height . '" fill="#ffffff"/>';
+        
+        // Title
+        $svg .= '<text x="' . ($width / 2) . '" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976D2">Daily Work Trend</text>';
+        
+        // Axes
+        $svg .= '<line x1="' . $padding . '" y1="' . $padding . '" x2="' . $padding . '" y2="' . ($height - $padding) . '" stroke="#333" stroke-width="1"/>';
+        $svg .= '<line x1="' . $padding . '" y1="' . ($height - $padding) . '" x2="' . ($width - $padding) . '" y2="' . ($height - $padding) . '" stroke="#333" stroke-width="1"/>';
+        
+        // Plot points
+        $points = [];
+        foreach ($dailyTrend as $i => $day) {
+            $x = $padding + ($i * ($width - 2 * $padding) / max(1, count($dailyTrend) - 1));
+            $y = ($height - $padding) - ($day['total'] / $maxValue * ($height - 2 * $padding));
+            $points[] = "{$x},{$y}";
+        }
+        
+        // Draw line
+        if (count($points) > 1) {
+            $svg .= '<polyline points="' . implode(' ', $points) . '" fill="none" stroke="#0070F0" stroke-width="2"/>';
+            
+            // Draw points
+            foreach ($points as $i => $point) {
+                list($x, $y) = explode(',', $point);
+                $svg .= '<circle cx="' . $x . '" cy="' . $y . '" r="4" fill="#0070F0"/>';
+            }
+        }
+        
+        $svg .= '</svg>';
+        
+        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+    }
+
+    /**
+     * Generate SVG pie chart for work type distribution
+     */
+    private function generatePieChart($data, $title)
+    {
+        if (empty($data)) return null;
+
+        $width = 400;
+        $height = 300;
+        $cx = $width / 2;
+        $cy = $height / 2;
+        $radius = 100;
+        
+        $total = array_sum(array_column($data, 'value'));
+        if ($total == 0) return null;
+        
+        $colors = ['#0070F0', '#17C964', '#F5A524', '#F31260', '#9333EA'];
+        
+        $svg = '<svg width="' . $width . '" height="' . $height . '" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<rect width="' . $width . '" height="' . $height . '" fill="#ffffff"/>';
+        $svg .= '<text x="' . ($width / 2) . '" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976D2">' . htmlspecialchars($title) . '</text>';
+        
+        $startAngle = 0;
+        foreach ($data as $i => $item) {
+            $sliceAngle = ($item['value'] / $total) * 2 * M_PI;
+            $endAngle = $startAngle + $sliceAngle;
+            
+            $x1 = $cx + $radius * cos($startAngle);
+            $y1 = $cy + $radius * sin($startAngle);
+            $x2 = $cx + $radius * cos($endAngle);
+            $y2 = $cy + $radius * sin($endAngle);
+            
+            $largeArc = $sliceAngle > M_PI ? 1 : 0;
+            
+            $color = $colors[$i % count($colors)];
+            $svg .= '<path d="M ' . $cx . ' ' . $cy . ' L ' . $x1 . ' ' . $y1 . ' A ' . $radius . ' ' . $radius . ' 0 ' . $largeArc . ' 1 ' . $x2 . ' ' . $y2 . ' Z" fill="' . $color . '"/>';
+            
+            // Label
+            $labelAngle = $startAngle + $sliceAngle / 2;
+            $labelX = $cx + ($radius + 20) * cos($labelAngle);
+            $labelY = $cy + ($radius + 20) * sin($labelAngle);
+            $percentage = round(($item['value'] / $total) * 100);
+            $svg .= '<text x="' . $labelX . '" y="' . $labelY . '" text-anchor="middle" font-size="10" fill="#333">' . htmlspecialchars($item['name']) . ' (' . $percentage . '%)</text>';
+            
+            $startAngle = $endAngle;
+        }
+        
+        $svg .= '</svg>';
+        
+        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+    }
+
+    /**
      * Server-side PDF export with branding, KPIs, and breakdown table.
      */
     public function exportPdf(Request $request)
@@ -413,11 +513,22 @@ class DailyWorkSummaryController extends Controller
             $startDate = $request->input('startDate');
             $endDate = $request->input('endDate');
 
-            // Optional chart images sent from client (data URIs)
-            $chartImages = $request->input('chart_images', []);
-            if (is_string($chartImages)) {
-                $decoded = json_decode($chartImages, true);
-                $chartImages = is_array($decoded) ? $decoded : [];
+            // Generate charts server-side
+            $chartImages = [];
+            
+            // Generate daily trend chart
+            if (!empty($analytics['dailyTrend'])) {
+                $chartImages['daily_trend'] = $this->generateDailyTrendChart($analytics['dailyTrend']);
+            }
+            
+            // Generate work type pie chart
+            if (!empty($analytics['typeBreakdown'])) {
+                $chartImages['work_type'] = $this->generatePieChart($analytics['typeBreakdown'], 'Work Type Distribution');
+            }
+            
+            // Generate status pie chart
+            if (!empty($analytics['statusBreakdown'])) {
+                $chartImages['status'] = $this->generatePieChart($analytics['statusBreakdown'], 'Status Distribution');
             }
 
             $pdf = Pdf::loadView('daily_work_summary_pdf', [

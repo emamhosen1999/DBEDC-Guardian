@@ -85,7 +85,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
     // Active tab: 'table' or 'analytics'
     const [activeTab, setActiveTab] = useState('table');
 
-    // Ref to the analytics component for capturing chart images during PDF export
+    // Ref to the analytics component for displaying analytics
     const analyticsRef = useRef(null);
 
     const openModal = useCallback((modalType) => {
@@ -267,28 +267,16 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
 
     return (
         <>
-            <Head title={title} />
-
-            {/* Modals */}
-            {openModalType === 'exportDailyWorkSummary' && (
-                <EnhancedDailyWorkSummaryExportForm
-                    open={openModalType === 'exportDailyWorkSummary'}
-                    closeModal={closeModal}
-                    filteredData={filteredData}
-                    inCharges={inCharges}
-                    currentFilters={{
-                        startDate: filterData.startDate,
-                        endDate: filterData.endDate,
-                        status: filterData.status,
-                        type: filterData.type,
-                        search: search,
-                        incharge: filterData.incharge,
-                        jurisdiction: filterData.jurisdiction,
-                    }}
-                    analyticsRef={analyticsRef}
-                    auth={auth}
-                />
-            )}
+            <Head title="Daily Work Summary" />
+            
+            <EnhancedDailyWorkSummaryExportForm
+                open={openModalType === 'export'}
+                closeModal={closeModal}
+                filteredData={filteredData}
+                inCharges={inCharges}
+                currentFilters={filterData}
+                auth={auth}
+            />
 
             <div className="flex justify-center p-4">
                 <motion.div
