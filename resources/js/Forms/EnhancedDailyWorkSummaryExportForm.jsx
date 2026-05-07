@@ -38,6 +38,8 @@ const EnhancedDailyWorkSummaryExportForm = ({
     currentFilters = {},
     auth = null
 }) => {
+    console.log('ExportForm props:', { open, filteredDataLength: filteredData.length });
+    
     // Role-based access control
     const userIsAdmin = auth?.roles?.includes('Administrator') || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Daily Work Manager') || false;
 

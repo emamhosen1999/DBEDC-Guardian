@@ -89,6 +89,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
     const analyticsRef = useRef(null);
 
     const openModal = useCallback((modalType) => {
+        console.log('Opening modal:', modalType);
         setOpenModalType(modalType);
     }, []);
 
@@ -239,6 +240,9 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
     }, [filteredData]);
 
     // Action buttons configuration
+    const canExport = auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer';
+    console.log('Export permission check:', { canExport, roles: auth.roles, designation: auth.designation });
+    
     const actionButtons = [
         {
             label: "Refresh",
@@ -250,12 +254,15 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
             className: "bg-linear-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30",
             ariaLabel: "Refresh daily work summary data"
         },
-        ...(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer' ? [{
+        ...(canExport ? [{
             label: "Export",
             icon: <DocumentArrowDownIcon className="w-4 h-4" />,
             variant: "flat", 
             color: "success",
-            onPress: () => openModal('exportDailyWorkSummary'),
+            onPress: () => {
+                console.log('Export button pressed');
+                openModal('export');
+            },
             className: "bg-linear-to-r from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30",
             ariaLabel: "Export daily work summary data"
         }] : [])
@@ -277,6 +284,7 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                 currentFilters={filterData}
                 auth={auth}
             />
+            {console.log('Modal open state:', openModalType)}
 
             <div className="flex justify-center p-4">
                 <motion.div
