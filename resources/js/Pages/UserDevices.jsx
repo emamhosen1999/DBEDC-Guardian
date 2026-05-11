@@ -21,7 +21,7 @@ import {
   Textarea,
   Tooltip,
   useDisclosure,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
   ArrowLeftIcon,
   ArrowPathIcon,

@@ -7,7 +7,7 @@ import {
     Button,
     Chip,
     Input
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CalendarIcon,
     MapPinIcon,

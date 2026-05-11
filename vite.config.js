@@ -2,7 +2,6 @@ import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
-import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs';
 
 // Replace 'aero-enterprise-suite' with your actual system username if using Herd/Valet paths
@@ -15,7 +14,6 @@ export default defineConfig({
             refresh: true,
         }),
         react(),
-        tailwindcss()
     ],
     esbuild: {
         jsx: 'automatic',
@@ -32,7 +30,7 @@ export default defineConfig({
                 manualChunks: {
                     'vendor-react': ['react', 'react-dom'],
                     'vendor-inertia': ['@inertiajs/react'],
-                    'vendor-heroui': ['@heroui/react'],
+                    'vendor-radix': ['@radix-ui/themes'],
                     'vendor-framer': ['framer-motion'],
                     'vendor-utils': ['axios', 'lodash'],
                 },

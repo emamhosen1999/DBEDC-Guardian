@@ -26,7 +26,7 @@ import {
   ModalFooter,
   useDisclosure,
   Switch
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { useTheme } from '@/Contexts/ThemeContext.jsx';
 import useMediaQuery from '@/Hooks/useMediaQuery';
 import { 

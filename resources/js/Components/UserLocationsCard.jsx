@@ -1,35 +1,17 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useTheme } from '@/Contexts/ThemeContext.jsx';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import StatsCards from '@/Components/StatsCards';
-import { motion } from 'framer-motion';
-
 import {
-    Button,
-    Spinner,
-    Chip,
-    Avatar,
-    Card,
-    CardBody,
-    CardHeader,
-    Divider,
-} from '@heroui/react';
+    Box, Card, Flex, Grid, Text, Heading, Badge, Separator, Spinner, Button,
+} from '@radix-ui/themes';
 import {
-    MapPin,
-    Clock,
-    User,
-    Building,
-    Navigation,
-    ZoomIn,
-    ZoomOut,
-    RefreshCw,
-    Map as MapIcon,
-    Users,
-    Clock4,
-    MapPin as Place,
-    Navigation as NavigationIcon
-} from 'lucide-react';
+    GlobeIcon,
+    ClockIcon,
+    PersonIcon,
+    DrawingPinIcon,
+    ReloadIcon,
+    CheckCircledIcon,
+    Cross2Icon,
+} from '@radix-ui/react-icons';
 
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine';
@@ -54,17 +36,6 @@ const alpha = (color, opacity) => {
     return color.replace(/[\d.]+\)$/g, `${opacity})`);
 };
 
-// Helper function to convert theme borderRadius to HeroUI radius values
-const getThemeRadius = () => {
-    const rootStyles = getComputedStyle(document.documentElement);
-    const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-    const radiusValue = parseInt(borderRadius);
-    if (radiusValue === 0) return 'none';
-    if (radiusValue <= 4) return 'sm';
-    if (radiusValue <= 8) return 'md';
-    if (radiusValue <= 16) return 'lg';
-    return 'full';
-};
 
 
 // Constants following ISO standards
@@ -1045,11 +1016,6 @@ const useUserStats = (users) => {
 
 // Main Component
 const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
-    const { themeSettings } = useTheme();
-    
-    const isLargeScreen = useMediaQuery('(min-width: 1025px)');
-    const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
-    
     const [users, setUsers] = useState([]);
     const [attendanceTypeConfigs, setAttendanceTypeConfigs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1059,8 +1025,6 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
     const [lastUpdate, setLastUpdate] = useState(null);
     const [isPolling, setIsPolling] = useState(true);
     const [mapKey, setMapKey] = useState(0);
-    const isMobile = window.innerWidth < 640;
-    const isTablet = window.innerWidth < 768;
     const [lastChecked, setLastChecked] = useState(new Date());
     const prevUsersRef = useRef([]);
     const prevUpdateRef = useRef(null);
@@ -1242,376 +1206,154 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
    
 
     return (
-        <div className="flex justify-center p-4">
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.8 }}
-                className="w-full max-w-full"
-            >
-                <Card 
-                    className="w-full transition-all duration-200"
-                    style={{
-                        border: `var(--borderWidth, 2px) solid transparent`,
-                        borderRadius: `var(--borderRadius, 12px)`,
-                        fontFamily: `var(--fontFamily, "Inter")`,
-                        transform: `scale(var(--scale, 1))`,
-                        background: `linear-gradient(135deg, 
-                            var(--theme-content1, #FAFAFA) 20%, 
-                            var(--theme-content2, #F4F4F5) 10%, 
-                            var(--theme-content3, #F1F3F4) 20%)`,
-                    }}
-                >
-                    <CardHeader 
-                        className="border-b p-0"
-                        style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                            background: `linear-gradient(135deg, 
-                                color-mix(in srgb, var(--theme-content1) 50%, transparent) 20%, 
-                                color-mix(in srgb, var(--theme-content2) 30%, transparent) 10%)`,
-                        }}
-                    >
-                        <div className={`${isLargeScreen ? 'p-6' : isMediumScreen ? 'p-4' : 'p-3'} w-full`}>
-                            <div className="flex flex-col space-y-4">
-                                {/* Main Header Content */}
-                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                    {/* Title Section */}
-                                    <div className="flex items-center gap-3 lg:gap-4">
-                                        <div 
-                                            className={`
-                                                ${isLargeScreen ? 'p-3' : isMediumScreen ? 'p-2.5' : 'p-2'} 
-                                                rounded-xl flex items-center justify-center
-                                            `}
-                                            style={{
-                                                background: `color-mix(in srgb, var(--theme-primary) 15%, transparent)`,
-                                                borderColor: `color-mix(in srgb, var(--theme-primary) 25%, transparent)`,
-                                                borderWidth: `var(--borderWidth, 2px)`,
-                                                borderRadius: `var(--borderRadius, 12px)`,
-                                            }}
-                                        >
-                                            <MapIcon 
-                                                className={`
-                                                    ${isLargeScreen ? 'w-8 h-8' : isMediumScreen ? 'w-6 h-6' : 'w-5 h-5'}
-                                                `}
-                                                style={{ color: 'var(--theme-primary)' }}
-                                            />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <h4 
-                                                className={`
-                                                    ${isLargeScreen ? 'text-2xl' : isMediumScreen ? 'text-xl' : 'text-lg'}
-                                                    font-bold text-foreground
-                                                    ${!isLargeScreen ? 'truncate' : ''}
-                                                `}
-                                                style={{
-                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                }}
-                                            >
-                                                Team Locations
-                                            </h4>
-                                            <p 
-                                                className={`
-                                                    ${isLargeScreen ? 'text-sm' : 'text-xs'} 
-                                                    text-default-500
-                                                    ${!isLargeScreen ? 'truncate' : ''}
-                                                `}
-                                                style={{
-                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                }}
-                                            >
-                                                {formattedDate}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center gap-4">
-                                        {lastCheckedText && (
-                                            <span 
-                                                className="text-xs text-default-500"
-                                                style={{
-                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                }}
-                                            >
-                                                Updated: {lastCheckedText}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <Divider 
-                        style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                        }}
-                    />
-                    <CardBody 
-                        className="p-0"
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
-                        {/* Stats Cards */}
-                        <div className="p-6">
-                            <StatsCards
-                                className="mb-6"
-                                stats={[
-                                    {
-                                        title: 'Total',
-                                        value: userStats.total,
-                                        icon: <Users className="w-5 h-5" />,
-                                        color: 'text-primary',
-                                        description: 'Total users tracked',
-                                        iconBg: 'bg-primary/20',
-                                        valueColor: 'text-primary',
-                                        customStyle: {
-                                            color: 'var(--theme-primary)',
-                                        }
-                                    },
-                                    {
-                                        title: 'Active',
-                                        value: userStats.checkedIn,
-                                        icon: <Clock4 className="w-5 h-5" />,
-                                        color: 'text-warning',
-                                        description: 'Currently working',
-                                        iconBg: 'bg-warning/20',
-                                        valueColor: 'text-warning',
-                                        customStyle: {
-                                            color: 'var(--theme-warning)',
-                                        }
-                                    },
-                                    {
-                                        title: 'Completed',
-                                        value: userStats.completed,
-                                        icon: <Place className="w-5 h-5" />,
-                                        color: 'text-success',
-                                        description: 'Finished workday',
-                                        iconBg: 'bg-success/20',
-                                        valueColor: 'text-success',
-                                        customStyle: {
-                                            color: 'var(--theme-success)',
-                                        }
-                                    }
-                                ]}
-                                compact={isMobile}
-                            />
-                        </div>
-                        <div className="p-6 pt-0">
-                            {users.length > 0 ? (
-                                <div 
-                                    className="relative h-[70vh] rounded-2xl overflow-hidden border-2 shadow-2xl"
-                                    style={{
-                                        borderColor: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                        borderRadius: `var(--borderRadius, 12px)`,
-                                        fontFamily: `var(--fontFamily, "Inter")`
-                                    }}
-                                >
-                                    {loading && (
-                                        <div 
-                                            className="absolute inset-0 flex items-center justify-center backdrop-blur-xl z-50"
-                                            style={{
-                                                background: `color-mix(in srgb, var(--theme-content1) 80%, transparent)`,
-                                                fontFamily: `var(--fontFamily, "Inter")`
-                                            }}
-                                        >
-                                            <div className="text-center">
-                                                <Spinner size="lg" color="primary" />
-                                                <p 
-                                                    className="mt-4 text-default-500"
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`
-                                                    }}
-                                                >
-                                                    Loading locations...
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <MapContainer
-                                        key={`${updateMap}-${mapKey}`}
-                                        center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
-                                        zoom={MAP_CONFIG.DEFAULT_ZOOM}
-                                        minZoom={MAP_CONFIG.MIN_ZOOM}
-                                        maxZoom={MAP_CONFIG.MAX_ZOOM}
-                                        style={{ height: '100%', width: '100%' }}
-                                        scrollWheelZoom={true}
-                                        doubleClickZoom={true}
-                                        dragging={true}
-                                        touchZoom={true}
-                                        fullscreenControl={true}
-                                        attributionControl={false}
-                                        zoomControl={false}
-                                    >
-                                        <TileLayer
-                                            url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                                            maxZoom={MAP_CONFIG.MAX_ZOOM}
-                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                        />
-                                        <AttendanceTypeBoundaries 
-                                            attendanceTypeConfigs={attendanceTypeConfigs}
-                                            theme={themeSettings}
-                                        />
-                                        <UserMarkers 
-                                            users={users}
-                                            setUsers={setUsers}
-                                            setLoading={setLoading}
-                                            setError={setError}
-                                            setAttendanceTypeConfigs={setAttendanceTypeConfigs}
-                                            lastUpdate={lastUpdate}
-                                            selectedDate={selectedDate}
-                                            onUsersLoad={handleUsersLoad}
-                                            theme={themeSettings}
-                                        />
-                                    </MapContainer>
-                                </div>
-                            ) : loading ? (
-                                <div 
-                                    className="h-[70vh] rounded-2xl flex items-center justify-center border-2 shadow-2xl backdrop-blur-xl"
-                                    style={{
-                                        borderColor: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                        background: `color-mix(in srgb, var(--theme-content1) 80%, transparent)`,
-                                        borderRadius: `var(--borderRadius, 12px)`,
-                                        fontFamily: `var(--fontFamily, "Inter")`
-                                    }}
-                                >
-                                    <div className="text-center">
-                                        <Spinner size="lg" color="primary" />
-                                        <p 
-                                            className="mt-4 text-default-500"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`
-                                            }}
-                                        >
-                                            Loading locations...
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div 
-                                    className="h-[70vh] rounded-2xl flex flex-col items-center justify-center backdrop-blur-xl border-2 shadow-2xl p-12"
-                                    style={{
-                                        background: `color-mix(in srgb, var(--theme-content1) 80%, transparent)`,
-                                        borderColor: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                        borderRadius: `var(--borderRadius, 12px)`,
-                                        fontFamily: `var(--fontFamily, "Inter")`
-                                    }}
-                                >
-                                    <MapIcon className="w-16 h-16 text-default-300 mb-6" />
-                                    <h3 
-                                        className="text-xl font-semibold mb-4"
-                                        style={{
-                                            fontFamily: `var(--fontFamily, "Inter")`
-                                        }}
-                                    >
-                                        No Location Data Available
-                                    </h3>
-                                    <p 
-                                        className="text-default-500 mb-6 max-w-md text-center"
-                                        style={{
-                                            fontFamily: `var(--fontFamily, "Inter")`
-                                        }}
-                                    >
-                                        No team location data found for {formattedDate}. 
-                                        {selectedDate && new Date(selectedDate) > new Date() ? 
-                                            " This date is in the future." : 
-                                            " Try selecting a different date or refreshing the data."}
-                                    </p>
-                                    <Button 
-                                        variant="bordered"
-                                        color="primary"
-                                        size="md"
-                                        radius={getThemeRadius()}
-                                        onPress={handleRefresh}
-                                        startContent={<RefreshCw className="w-4 h-4" />}
-                                        style={{
-                                            fontFamily: `var(--fontFamily, "Inter")`
-                                        }}
-                                    >
-                                        Refresh Data
-                                    </Button>
-                                </div>
+        <Box>
+            <Card mb="4">
+                {/* Header */}
+                <Box p="4" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+                    <Flex justify="between" align="center" gap="3" wrap="wrap">
+                        <Flex align="center" gap="3">
+                            <Box style={{ padding: 10, borderRadius: 'var(--radius-3)', background: 'var(--accent-a3)', border: '1px solid var(--accent-a6)', width: 44, height: 44, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <GlobeIcon style={{ color: 'var(--accent-9)', width: 22, height: 22 }} />
+                            </Box>
+                            <Box>
+                                <Heading size="4">Team Locations</Heading>
+                                <Text size="2" color="gray">{formattedDate}</Text>
+                            </Box>
+                        </Flex>
+                        {lastCheckedText && (
+                            <Text size="1" color="gray">Updated: {lastCheckedText}</Text>
+                        )}
+                    </Flex>
+                </Box>
+
+                {/* Stats */}
+                <Box p="4" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+                    <Grid columns="3" gap="3">
+                        <Card variant="surface">
+                            <Flex direction="column" align="center" p="3" gap="1">
+                                <PersonIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
+                                <Text size="4" weight="bold" color="blue">{userStats.total}</Text>
+                                <Text size="1" color="gray">Total</Text>
+                            </Flex>
+                        </Card>
+                        <Card variant="surface">
+                            <Flex direction="column" align="center" p="3" gap="1">
+                                <ClockIcon style={{ color: 'var(--amber-9)', width: 20, height: 20 }} />
+                                <Text size="4" weight="bold" color="amber">{userStats.checkedIn}</Text>
+                                <Text size="1" color="gray">Active</Text>
+                            </Flex>
+                        </Card>
+                        <Card variant="surface">
+                            <Flex direction="column" align="center" p="3" gap="1">
+                                <CheckCircledIcon style={{ color: 'var(--green-9)', width: 20, height: 20 }} />
+                                <Text size="4" weight="bold" color="green">{userStats.completed}</Text>
+                                <Text size="1" color="gray">Completed</Text>
+                            </Flex>
+                        </Card>
+                    </Grid>
+                </Box>
+
+                {/* Map / Loading / Empty */}
+                <Box p="4">
+                    {users.length > 0 ? (
+                        <Box style={{ position: 'relative', height: '70vh', borderRadius: 'var(--radius-3)', overflow: 'hidden', border: '1px solid var(--gray-a4)' }}>
+                            {loading && (
+                                <Flex align="center" justify="center" style={{ position: 'absolute', inset: 0, background: 'var(--gray-a3)', zIndex: 50 }}>
+                                    <Flex direction="column" align="center" gap="2">
+                                        <Spinner size="3" />
+                                        <Text size="2" color="gray">Loading locations...</Text>
+                                    </Flex>
+                                </Flex>
                             )}
-                        </div>
-                    </CardBody>
-                </Card>
-            </motion.div>
-            
+                            <MapContainer
+                                key={`${updateMap}-${mapKey}`}
+                                center={[DEFAULT_CENTER.lat, DEFAULT_CENTER.lng]}
+                                zoom={MAP_CONFIG.DEFAULT_ZOOM}
+                                minZoom={MAP_CONFIG.MIN_ZOOM}
+                                maxZoom={MAP_CONFIG.MAX_ZOOM}
+                                style={{ height: '100%', width: '100%' }}
+                                scrollWheelZoom={true}
+                                doubleClickZoom={true}
+                                dragging={true}
+                                touchZoom={true}
+                                fullscreenControl={true}
+                                attributionControl={false}
+                                zoomControl={false}
+                            >
+                                <TileLayer
+                                    url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                                    maxZoom={MAP_CONFIG.MAX_ZOOM}
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                />
+                                <AttendanceTypeBoundaries
+                                    attendanceTypeConfigs={attendanceTypeConfigs}
+                                    theme={null}
+                                />
+                                <UserMarkers
+                                    users={users}
+                                    setUsers={setUsers}
+                                    setLoading={setLoading}
+                                    setError={setError}
+                                    setAttendanceTypeConfigs={setAttendanceTypeConfigs}
+                                    lastUpdate={lastUpdate}
+                                    selectedDate={selectedDate}
+                                    onUsersLoad={handleUsersLoad}
+                                    theme={null}
+                                />
+                            </MapContainer>
+                        </Box>
+                    ) : loading ? (
+                        <Flex align="center" justify="center" style={{ height: '70vh', border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)' }}>
+                            <Flex direction="column" align="center" gap="2">
+                                <Spinner size="3" />
+                                <Text size="2" color="gray">Loading locations...</Text>
+                            </Flex>
+                        </Flex>
+                    ) : (
+                        <Flex direction="column" align="center" justify="center" gap="3" p="6" style={{ height: '70vh', border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)' }}>
+                            <GlobeIcon style={{ width: 64, height: 64, color: 'var(--gray-6)' }} />
+                            <Heading size="4">No Location Data Available</Heading>
+                            <Text size="2" color="gray" align="center">
+                                No team location data found for {formattedDate}.{' '}
+                                {selectedDate && new Date(selectedDate) > new Date()
+                                    ? 'This date is in the future.'
+                                    : 'Try selecting a different date or refreshing the data.'}
+                            </Text>
+                            <Button variant="outline" onClick={handleRefresh}>
+                                <Flex align="center" gap="2"><ReloadIcon /> Refresh Data</Flex>
+                            </Button>
+                        </Flex>
+                    )}
+                </Box>
+            </Card>
+
             {/* Fullscreen Photo Overlay */}
             {fullscreenPhotoUrl && (
-                <div
-                    className="fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center"
-                    style={{
-                        zIndex: 99999,
-                        width: '100vw',
-                        height: '100vh',
-                        backgroundColor: 'rgba(0, 0, 0, 0.95)',
-                        backdropFilter: 'blur(8px)',
-                    }}
+                <Box
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onClick={() => setFullscreenPhotoUrl(null)}
                 >
-                    {/* Close button */}
                     <button
-                        className="absolute top-6 right-6 p-3 rounded-full transition-all hover:bg-white/30"
-                        style={{
-                            zIndex: 100000,
-                            color: 'white',
-                            background: 'rgba(255, 255, 255, 0.15)',
-                            border: '2px solid rgba(255, 255, 255, 0.3)',
-                        }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setFullscreenPhotoUrl(null);
-                        }}
+                        style={{ position: 'absolute', top: 24, right: 24, padding: 10, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)', color: 'white', cursor: 'pointer', lineHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        onClick={(e) => { e.stopPropagation(); setFullscreenPhotoUrl(null); }}
                         aria-label="Close fullscreen"
                     >
-                        <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            width="28" 
-                            height="28" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2.5" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                        >
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        <Cross2Icon style={{ width: 24, height: 24 }} />
                     </button>
-                    
-                    {/* Photo container */}
-                    <div 
-                        className="flex flex-col items-center justify-center p-4"
-                        style={{
-                            maxWidth: '95vw',
-                            maxHeight: '95vh',
-                        }}
+                    <Box
+                        style={{ maxWidth: '95vw', maxHeight: '95vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <img
                             src={fullscreenPhotoUrl}
                             alt="Attendance photo"
-                            style={{
-                                maxWidth: '90vw',
-                                maxHeight: '85vh',
-                                objectFit: 'contain',
-                                borderRadius: '12px',
-                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
-                            }}
-                            onClick={(e) => e.stopPropagation()}
+                            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 'var(--radius-3)' }}
                         />
-                        
-                        {/* Hint text */}
-                        <p 
-                            className="text-center mt-6 text-base"
-                            style={{ color: 'rgba(255, 255, 255, 0.7)' }}
-                        >
-                            Click anywhere to close
-                        </p>
-                    </div>
-                </div>
+                        <Text size="2" style={{ color: 'rgba(255,255,255,0.7)' }}>Click anywhere to close</Text>
+                    </Box>
+                </Box>
             )}
-        </div>
+        </Box>
     );
 });
 

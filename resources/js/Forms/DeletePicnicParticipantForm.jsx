@@ -1,4 +1,4 @@
-import { Button, Spinner } from "@heroui/react";
+import { Button, Spinner } from "@/compat/heroui";
 import GlassDialog from "@/Components/GlassDialog.jsx";
 import React from "react";
 import { showToast } from "@/utils/toastUtils";

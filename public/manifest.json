@@ -1,5 +1,5 @@
 {
-  "name": "Aero Enterprise Suite",
+  "name": "DBEDC Guardian",
   "start_url": "https://erp.dhakabypass.com",
   "dir": "ltr",
   "scope": "https://erp.dhakabypass.com",
@@ -8,9 +8,9 @@
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "short_name": "Aero Enterprise Suite",
+  "short_name": "DBEDC Guardian",
   "id": "aero_enterprise_suite",
-  "description": "Aero Enterprise Suite",
+  "description": "DBEDC Guardian",
   "categories": [
     "productivity"
   ],

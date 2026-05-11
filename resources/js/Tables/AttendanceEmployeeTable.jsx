@@ -14,7 +14,7 @@ import {
     Divider,
     Link,
     Input
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { usePage } from "@inertiajs/react";
 import dayjs from "dayjs";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';

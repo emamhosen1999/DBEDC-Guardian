@@ -18,7 +18,7 @@ import {
     Radio,
     Chip,
     Progress
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     DocumentArrowDownIcon,
     DocumentTextIcon,

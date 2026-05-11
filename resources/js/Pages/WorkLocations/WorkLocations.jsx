@@ -21,7 +21,7 @@ import {
     Button,
     Spinner,
     ScrollShadow
-} from "@heroui/react";
+} from "@/compat/heroui";
 import StatsCards from "@/Components/StatsCards.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import WorkLocationForm from "@/Forms/WorkLocationForm.jsx";

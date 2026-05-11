@@ -14,7 +14,7 @@ import {
     Chip,
     Autocomplete,
     AutocompleteItem
-} from "@heroui/react";
+} from "@/compat/heroui";
 import React, { useEffect, useState } from "react";
 import { X, Camera, Eye, EyeOff, Lock, UserIcon, CalendarIcon } from 'lucide-react';
 import { useForm } from 'laravel-precognition-react';

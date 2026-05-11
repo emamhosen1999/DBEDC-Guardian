@@ -6,7 +6,7 @@ import {
     ModalBody,
     ModalFooter,
     Button
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 
 /**

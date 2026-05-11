@@ -1,367 +1,173 @@
 import React, { useEffect, useState } from 'react';
-import { AvatarGroup, Skeleton, Card, Chip, Popover, PopoverContent, PopoverTrigger, CardHeader, CardBody, Divider } from "@heroui/react";
-import { motion } from 'framer-motion';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import {
+    Avatar, Badge, Box, Card, Flex, Grid, Heading,
+    Popover, Separator, Skeleton, Text,
+} from '@radix-ui/themes';
+import {
+    CalendarIcon,
+    ClockIcon,
+    PersonIcon,
+    ExclamationTriangleIcon,
+    InfoCircledIcon,
+    CheckCircledIcon,
+    CrossCircledIcon,
+    FileTextIcon,
+    SunIcon,
+    TextAlignLeftIcon,
+} from '@radix-ui/react-icons';
 import { usePage } from "@inertiajs/react";
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import axios from 'axios';
-import {
-    CalendarDaysIcon,
-    ClockIcon,
-    UserGroupIcon,
-    ExclamationTriangleIcon,
-    InformationCircleIcon,
-    CheckCircleIcon,
-    XCircleIcon,
-    DocumentTextIcon,
-    SunIcon,
-    UserIcon,
-    Bars3BottomLeftIcon
-} from '@heroicons/react/24/outline';
 import ProfileAvatar from '@/Components/ProfileAvatar';
 
 dayjs.extend(isBetween);
 
-// Helper function to convert theme borderRadius to HeroUI radius values
-const getThemeRadius = () => {
-    if (typeof window === 'undefined') return 'lg';
-    
-    const rootStyles = getComputedStyle(document.documentElement);
-    const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-    
-    const radiusValue = parseInt(borderRadius);
-    if (radiusValue === 0) return 'none';
-    if (radiusValue <= 4) return 'sm';
-    if (radiusValue <= 8) return 'md';
-    if (radiusValue <= 16) return 'lg';
-    return 'full';
+const statusColor = (status) => {
+    switch (status?.toLowerCase()) {
+        case 'approved': return 'green';
+        case 'rejected': return 'red';
+        default: return 'amber';
+    }
 };
 
-// Get theme-aware card styles consistent with StatisticCard
-const getCardStyle = () => ({
-    background: `linear-gradient(135deg, 
-        var(--theme-content1, #FAFAFA) 20%, 
-        var(--theme-content2, #F4F4F5) 10%, 
-        var(--theme-content3, #F1F3F4) 20%)`,
-    borderColor: `transparent`,
-    borderWidth: `var(--borderWidth, 2px)`,
-    borderRadius: `var(--borderRadius, 12px)`,
-    fontFamily: `var(--fontFamily, "Inter")`,
-    transform: `scale(var(--scale, 1))`,
-    transition: 'all 0.2s ease-in-out',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-});
+const statusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+        case 'approved': return <CheckCircledIcon style={{ color: 'var(--green-9)' }} />;
+        case 'rejected': return <CrossCircledIcon style={{ color: 'var(--red-9)' }} />;
+        default: return <ClockIcon style={{ color: 'var(--amber-9)' }} />;
+    }
+};
 
-const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => {
-    const [anchorEl, setAnchorEl] = useState(null);
-    const [selectedLeave, setSelectedLeave] = useState(null);
+const LeavePopover = ({ leave, user, children }) => (
+    <Popover.Root>
+        <Popover.Trigger asChild>
+            <button style={{ all: 'unset', display: 'flex', cursor: 'pointer', borderRadius: '50%' }}>
+                {children}
+            </button>
+        </Popover.Trigger>
+        <Popover.Content style={{ minWidth: 280 }}>
+            <Flex direction="column" gap="3">
+                <Flex align="center" justify="between">
+                    <Flex align="center" gap="2">
+                        <FileTextIcon style={{ color: 'var(--accent-9)' }} />
+                        <Text size="3" weight="bold">Leave Details</Text>
+                    </Flex>
+                    <Popover.Close>
+                        <Box as="button" style={{ all: 'unset', cursor: 'pointer', color: 'var(--gray-10)', lineHeight: 1, padding: 2 }}>✕</Box>
+                    </Popover.Close>
+                </Flex>
+                <Separator size="4" />
+                <Flex direction="column" gap="2">
+                    <Flex align="start" gap="2">
+                        <PersonIcon style={{ marginTop: 2, flexShrink: 0, color: 'var(--gray-9)' }} />
+                        <Box>
+                            <Text size="1" color="gray">Employee</Text>
+                            <Text size="2" weight="medium" style={{ display: 'block' }}>{user?.name || 'Unknown'}</Text>
+                        </Box>
+                    </Flex>
+                    <Flex align="start" gap="2">
+                        <CalendarIcon style={{ marginTop: 2, flexShrink: 0, color: 'var(--gray-9)' }} />
+                        <Box>
+                            <Text size="1" color="gray">Duration</Text>
+                            <Text size="2" weight="medium" style={{ display: 'block' }}>
+                                {leave.from_date !== leave.to_date
+                                    ? `${new Date(leave.from_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${new Date(leave.to_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                    : new Date(leave.from_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                                }
+                            </Text>
+                        </Box>
+                    </Flex>
+                    <Flex align="start" gap="2">
+                        <FileTextIcon style={{ marginTop: 2, flexShrink: 0, color: 'var(--gray-9)' }} />
+                        <Box>
+                            <Text size="1" color="gray">Reason</Text>
+                            <Text size="2" weight="medium" style={{ display: 'block' }}>{leave.reason || 'No reason provided'}</Text>
+                        </Box>
+                    </Flex>
+                    <Flex align="center" gap="2">
+                        {statusIcon(leave.status)}
+                        <Badge color={statusColor(leave.status)} variant="soft" size="1">
+                            {leave.status || 'Pending'}
+                        </Badge>
+                    </Flex>
+                </Flex>
+            </Flex>
+        </Popover.Content>
+    </Popover.Root>
+);
 
-    const handleClick = (event, leave) => {
-        setAnchorEl(event.currentTarget);
-        setSelectedLeave(leave);
-    };
-
-    const handleClose = () => {
-        setAnchorEl(null);
-        setSelectedLeave(null);
-    };
-
-    const open = Boolean(anchorEl);
-    const id = open ? 'leave-details-popover' : undefined;
-
-    const getLeaveStatusIcon = (status) => {
-        switch (status?.toLowerCase()) {
-            case 'approved':
-                return <CheckCircleIcon className="w-4 h-4 text-success" />;
-            case 'rejected':
-                return <XCircleIcon className="w-4 h-4 text-danger" />;
-            default:
-                return <ClockIcon className="w-4 h-4 text-warning" />;
-        }
-    };
-
-    const getLeaveStatusColor = (status) => {
-        switch (status?.toLowerCase()) {
-            case 'approved':
-                return 'success';
-            case 'rejected':
-                return 'danger';
-            default:
-                return 'warning';
-        }
-    };
-
-    return (
-        <Card 
-            className="h-full flex flex-col"
-            radius={getThemeRadius()}
-            style={getCardStyle()}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, ${color} 50%, transparent)`;
-                e.currentTarget.style.borderRadius = `var(--borderRadius, 12px)`;
-                e.currentTarget.style.transform = `scale(calc(var(--scale, 1) * 1.02))`;
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid transparent`;
-                e.currentTarget.style.transform = `scale(var(--scale, 1))`;
-            }}
-        >
-            <CardHeader 
-                className="pb-2 p-4"
-                style={{
-                    background: `transparent`,
-                }}
-            >
-                <div className="flex items-center gap-3 w-full">
-                    <div 
-                        className="p-2 rounded-xl flex items-center justify-center min-w-[48px] min-h-[48px] flex-shrink-0"
-                        style={{
-                            backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
-                            borderRadius: `var(--borderRadius, 12px)`,
-                            border: `var(--borderWidth, 1px) solid color-mix(in srgb, ${color} 25%, transparent)`
-                        }}
-                    >
-                        <IconComponent 
-                            className="w-6 h-6 stroke-2"
-                            style={{ color: color }}
-                            aria-hidden="true"
-                        />
-                    </div>
-                    <h2 
-                        className="text-lg font-bold text-foreground flex-1"
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
-                        {title}
-                    </h2>
-                </div>
-            </CardHeader>
-            <CardBody 
-                className="flex-1 overflow-auto pt-0 p-4"
-                style={{
-                    fontFamily: `var(--fontFamily, "Inter")`,
-                }}
-            >
-                {items.map((item, index) => (
+const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => (
+    <Card style={{ height: '100%' }}>
+        <Box pb="2" mb="2" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+            <Flex align="center" gap="3">
+                <Box style={{
+                    padding: 10,
+                    borderRadius: 'var(--radius-3)',
+                    background: `var(--${color}-a3)`,
+                    border: `1px solid var(--${color}-a6)`,
+                    flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 40, height: 40,
+                }}>
+                    <IconComponent style={{ color: `var(--${color}-9)`, width: 18, height: 18 }} aria-hidden="true" />
+                </Box>
+                <Heading size="3">{title}</Heading>
+            </Flex>
+        </Box>
+        <Flex direction="column" gap="0">
+            {items.map((item, index) => {
+                const leaves = item.leaves?.filter((l) => l.leave_type === item.type) ?? [];
+                return (
                     <React.Fragment key={index}>
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: (index * 0.1), duration: 0.3 }}
-                            className="flex justify-between items-center py-2"
-                        >
-                                <div className="flex flex-col flex-1 mr-2">
-                                    <p 
-                                        className="text-sm leading-normal text-foreground"
-                                        style={{
-                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                        }}
-                                    >
-                                        {item.text}
-                                    </p>
-                                    {item.leaves && item.leaves.length > 0 && (
-                                        <p 
-                                            className="text-xs text-default-500 flex items-center gap-1 mt-1"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            <UserGroupIcon className="w-3 h-3" />
+                        <Flex justify="between" align="center" py="2">
+                            <Flex direction="column" style={{ flex: 1, marginRight: 8 }}>
+                                <Text size="2">{item.text}</Text>
+                                {item.leaves && item.leaves.length > 0 && (
+                                    <Flex align="center" gap="1" mt="1">
+                                        <PersonIcon style={{ color: 'var(--gray-9)', width: 12, height: 12 }} />
+                                        <Text size="1" color="gray">
                                             {item.leaves.length} employee{item.leaves.length > 1 ? 's' : ''}
-                                        </p>
-                                    )}
-                                </div>
-                                {item.leaves && (
-                                    (() => {
-                                        const leaves = item.leaves.filter((leave) => leave.leave_type === item.type);
-                                        return leaves.length > 0 && (
-                                            <div className="flex gap-1 flex-shrink-0">
-                                                <AvatarGroup 
-                                                    max={4} 
-                                                    isBordered
-                                                    size="sm"
-                                                >
-                                                    {leaves.map((leave, idx) => {
-                                                        const user = users.find((user) => String(user.id) === String(leave.user_id));
-                                                        return (
-                                                            user && (
-                                                                <ProfileAvatar
-                                                                    key={idx}
-                                                                    src={user.profile_image_url}
-                                                                    name={`${user.name} - on leave`}
-                                                                    size="sm"
-                                                                    className="cursor-pointer hover:scale-110 transition-transform"
-                                                                    onClick={(e) => handleClick(e, leave)}
-                                                                    fallbackIcon={<UserIcon className="w-4 h-4" />}
-                                                                />
-                                                            )
-                                                        );
-                                                    })}
-                                                </AvatarGroup>
-                                            </div>
-                                        );
-                                    })()
+                                        </Text>
+                                    </Flex>
                                 )}
-                        </motion.div>
-                        {index < items.length - 1 && <Divider style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                        }} />}
-                    </React.Fragment>
-                ))}
-            </CardBody>
-
-            <Popover
-                id={id}
-                open={open}
-                anchorEl={anchorEl}
-                onClose={handleClose}
-                placement="bottom-start"
-                style={{
-                    borderColor: `var(--theme-divider, #E4E4E7)`,
-                    borderRadius: `var(--borderRadius, 12px)`,
-                    fontFamily: `var(--fontFamily, "Inter")`,
-                }}
-            >
-                <PopoverContent
-                    style={{
-                        background: `var(--theme-content1, #FAFAFA)`,
-                        borderColor: `var(--theme-divider, #E4E4E7)`,
-                        borderWidth: `var(--borderWidth, 2px)`,
-                        borderRadius: `var(--borderRadius, 12px)`,
-                        fontFamily: `var(--fontFamily, "Inter")`,
-                        minWidth: '300px',
-                        padding: '16px'
-                    }}
-                >
-                    {selectedLeave && (
-                        <section aria-labelledby="leave-details-title">
-                            <h3 
-                                id="leave-details-title"
-                                className="text-lg font-semibold flex items-center gap-2 mb-3"
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                            >
-                                <DocumentTextIcon className="w-5 h-5 text-primary" />
-                                Leave Details
-                            </h3>
-                            <div id="leave-details-content" className="space-y-2">
-                                <div className="flex items-start gap-2">
-                                    <UserIcon className="w-4 h-4 text-default-500 mt-0.5 shrink-0" />
-                                    <div>
-                                        <span 
-                                            className="text-xs text-default-500"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            Employee:
-                                        </span>
-                                        <div 
-                                            className="text-sm font-medium"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            {users.find((user) => String(user.id) === String(selectedLeave.user_id))?.name || 'Unknown'}
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="flex items-start gap-2">
-                                    <CalendarDaysIcon className="w-4 h-4 text-default-500 mt-0.5 shrink-0" />
-                                    <div>
-                                        <span 
-                                            className="text-xs text-default-500"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            Duration:
-                                        </span>
-                                        <div 
-                                            className="text-sm font-medium"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            {selectedLeave.from_date !== selectedLeave.to_date ?
-                                                `${new Date(selectedLeave.from_date).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric'
-                                                })} - ${new Date(selectedLeave.to_date).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric'
-                                                })}` :
-                                                new Date(selectedLeave.from_date).toLocaleDateString('en-US', {
-                                                    month: 'long',
-                                                    day: 'numeric',
-                                                    year: 'numeric'
-                                                })
-                                            }
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-start gap-2">
-                                    <DocumentTextIcon className="w-4 h-4 text-default-500 mt-0.5 shrink-0" />
-                                    <div>
-                                        <span 
-                                            className="text-xs text-default-500"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            Reason:
-                                        </span>
-                                        <div 
-                                            className="text-sm font-medium"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            {selectedLeave.reason || 'No reason provided'}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    {getLeaveStatusIcon(selectedLeave.status)}
-                                    <div>
-                                        <span 
-                                            className="text-xs text-default-500"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            Status:
-                                        </span>
-                                        <Chip 
-                                            label={selectedLeave.status || 'Pending'} 
-                                            variant="flat" 
-                                            color={getLeaveStatusColor(selectedLeave.status)}
-                                            size="sm"
-                                            className="ml-2"
+                            </Flex>
+                            {leaves.length > 0 && (
+                                <Flex gap="1" style={{ flexShrink: 0 }}>
+                                    {leaves.slice(0, 4).map((leave, idx) => {
+                                        const user = users.find((u) => String(u.id) === String(leave.user_id));
+                                        return user ? (
+                                            <LeavePopover key={idx} leave={leave} user={user}>
+                                                <ProfileAvatar
+                                                    src={user.profile_image_url}
+                                                    name={user.name}
+                                                    size="sm"
+                                                    isInteractive
+                                                />
+                                            </LeavePopover>
+                                        ) : null;
+                                    })}
+                                    {leaves.length > 4 && (
+                                        <Avatar
+                                            size="1"
+                                            fallback={`+${leaves.length - 4}`}
+                                            color="gray"
+                                            variant="soft"
                                         />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                    )}
-                </PopoverContent>
-            </Popover>
-        </Card>
-    );
-};
+                                    )}
+                                </Flex>
+                            )}
+                        </Flex>
+                        {index < items.length - 1 && <Separator size="4" />}
+                    </React.Fragment>
+                );
+            })}
+        </Flex>
+    </Card>
+);
 
 const UpdatesCards = () => {
     const { auth } = usePage().props;
-    const isLargeScreen = useMediaQuery('(min-width: 1025px)');
-    const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
     
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -488,217 +294,100 @@ const UpdatesCards = () => {
         {
             title: 'Today',
             items: todayItems,
-            icon: CalendarDaysIcon,
-            color: '#3b82f6' // blue
+            icon: CalendarIcon,
+            color: 'blue',
         },
         {
             title: 'Tomorrow',
             items: tomorrowItems,
             icon: ClockIcon,
-            color: '#10b981' // green
+            color: 'green',
         },
         {
             title: 'Next Seven Days',
             items: nextSevenDaysItems,
-            icon: UserGroupIcon,
-            color: '#f59e0b' // amber
+            icon: PersonIcon,
+            color: 'amber',
         }
     ];
 
     if (loading) {
         return (
-            <section 
-                
-                aria-label="Employee updates loading"
-            >
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-                    {[1, 2, 3].map((_, idx) => (
-                        <div key={idx}>
-                            <Card 
-                                className="w-full h-full" 
-                                radius={getThemeRadius()}
-                                style={getCardStyle()}
-                            >
-                                <Skeleton className="rounded-lg mb-2" isLoaded={false}>
-                                    <div className="h-6 w-2/3 rounded-lg bg-secondary" />
-                                </Skeleton>
-                                <Skeleton className="rounded-lg" isLoaded={false}>
-                                    <div className="h-32 w-full rounded-lg bg-secondary-200" />
-                                </Skeleton>
-                            </Card>
-                        </div>
-                    ))}
-                </div>
-            </section>
+            <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4" aria-label="Employee updates loading">
+                {[1, 2, 3].map((_, idx) => (
+                    <Card key={idx}>
+                        <Skeleton style={{ height: 24, width: '60%', borderRadius: 4, marginBottom: 12 }} />
+                        <Skeleton style={{ height: 120, width: '100%', borderRadius: 4 }} />
+                    </Card>
+                ))}
+            </Grid>
         );
     }
 
     if (error) {
         return (
-            <div className={`${isLargeScreen ? 'p-6' : isMediumScreen ? 'p-4' : 'p-3'} flex items-center justify-center min-h-[200px]`}>
-                <Card 
-                    
-                    radius={getThemeRadius()}
-                    style={{
-                        ...getCardStyle(),
-                        borderColor: `color-mix(in srgb, var(--theme-danger) 50%, transparent)`,
-                        background: `linear-gradient(135deg, 
-                            color-mix(in srgb, var(--theme-danger) 5%, var(--theme-content1)) 20%, 
-                            color-mix(in srgb, var(--theme-danger) 3%, var(--theme-content2)) 10%, 
-                            color-mix(in srgb, var(--theme-danger) 2%, var(--theme-content3)) 20%)`,
-                    }}
-                >
-                    <div className="flex items-center gap-3">
-                        <ExclamationTriangleIcon 
-                            className="w-5 h-5"
-                            style={{ color: 'var(--theme-danger)' }}
-                        />
-                        <p 
-                            className="text-base"
-                            style={{ 
-                                color: 'var(--theme-danger)',
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}
-                        >
-                            Failed to load updates: {error}
-                        </p>
-                    </div>
-                </Card>
-            </div>
+            <Card style={{ borderColor: 'var(--red-a7)' }}>
+                <Flex align="center" gap="3">
+                    <ExclamationTriangleIcon style={{ color: 'var(--red-9)', width: 20, height: 20 }} />
+                    <Text size="2" color="red">Failed to load updates: {error}</Text>
+                </Flex>
+            </Card>
         );
     }
 
     return (
-        <section 
-            className="p-4"
-            aria-label="Employee Updates Dashboard"
-        >
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-stretch">
-                {sectionConfig.map((section, index) => (
-                    <div key={section.title} className="flex">
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: (index * 0.1), duration: 0.3 }}
-                            className="w-full"
-                        >
-                            <div className="flex flex-col flex-grow w-full">
-                                <UpdateSection 
-                                    title={section.title} 
-                                    items={section.items} 
-                                    users={users}
-                                    icon={section.icon}
-                                    color={section.color}
-                                />
-                            </div>
-                        </motion.div>
-                    </div>
+        <Box aria-label="Employee Updates Dashboard">
+            <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4" mb="4">
+                {sectionConfig.map((section) => (
+                    <UpdateSection
+                        key={section.title}
+                        title={section.title}
+                        items={section.items}
+                        users={users}
+                        icon={section.icon}
+                        color={section.color}
+                    />
                 ))}
-            </div>
-            
+            </Grid>
+
             {upcomingHoliday && (
-                <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8, duration: 0.3 }}
-                >
-                    <div className="mt-4">
-                        <Card
-                            radius={getThemeRadius()}
-                            style={getCardStyle()}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-warning) 50%, transparent)`;
-                                e.currentTarget.style.borderRadius = `var(--borderRadius, 12px)`;
-                                e.currentTarget.style.transform = `scale(calc(var(--scale, 1) * 1.02))`;
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.border = `var(--borderWidth, 2px) solid transparent`;
-                                e.currentTarget.style.transform = `scale(var(--scale, 1))`;
-                            }}
-                        >
-                            <CardHeader 
-                                className="pb-2 p-4"
-                                style={{
-                                    background: `transparent`,
-                                }}
-                            >
-                                <div className="flex items-center gap-3 w-full">
-                                    <div 
-                                        className="p-2 rounded-xl flex items-center justify-center min-w-[48px] min-h-[48px] flex-shrink-0"
-                                        style={{
-                                            backgroundColor: `color-mix(in srgb, var(--theme-warning) 15%, transparent)`,
-                                            borderRadius: `var(--borderRadius, 12px)`,
-                                            border: `var(--borderWidth, 1px) solid color-mix(in srgb, var(--theme-warning) 25%, transparent)`
-                                        }}
-                                    >
-                                        <SunIcon 
-                                            className="w-6 h-6 stroke-2"
-                                            style={{ color: 'var(--theme-warning)' }}
-                                            aria-hidden="true"
-                                        />
-                                    </div>
-                                    <h2 
-                                        className="text-lg font-bold text-foreground flex-1"
-                                        style={{
-                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                        }}
-                                    >
-                                        Upcoming Holiday
-                                    </h2>
-                                </div>
-                            </CardHeader>
-                            <CardBody 
-                                className="pt-0 p-4"
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div>
-                                        <p 
-                                            className="font-semibold text-foreground flex items-center gap-1 mt-1"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            <InformationCircleIcon className="w-4 h-4" />
-                                            {upcomingHoliday.title}
-                                        </p>
-                                        
-                                        <p 
-                                            className="text-sm text-default-500 flex items-center gap-1 mt-1"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            <CalendarDaysIcon className="w-4 h-4" />
-                                            {new Date(upcomingHoliday.from_date).toLocaleDateString('en-US', {
-                                                month: 'long',
-                                                day: 'numeric',
-                                                year: 'numeric'
-                                            })} - {new Date(upcomingHoliday.to_date).toLocaleDateString('en-US', {
-                                                month: 'long',
-                                                day: 'numeric',
-                                                year: 'numeric'
-                                            })}
-                                        </p>
-                                        <p 
-                                            className="text-sm text-default-500 flex items-center gap-1 mt-1"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            <Bars3BottomLeftIcon className="w-4 h-4" />
-                                            {upcomingHoliday.description}
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </div>
-                </motion.div>
+                <Card>
+                    <Box pb="2" mb="2" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+                        <Flex align="center" gap="3">
+                            <Box style={{
+                                padding: 10, borderRadius: 'var(--radius-3)',
+                                background: 'var(--amber-a3)', border: '1px solid var(--amber-a6)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: 40, height: 40, flexShrink: 0,
+                            }}>
+                                <SunIcon style={{ color: 'var(--amber-9)', width: 18, height: 18 }} />
+                            </Box>
+                            <Heading size="3">Upcoming Holiday</Heading>
+                        </Flex>
+                    </Box>
+                    <Flex direction="column" gap="1">
+                        <Flex align="center" gap="2">
+                            <InfoCircledIcon style={{ color: 'var(--gray-9)' }} />
+                            <Text size="2" weight="medium">{upcomingHoliday.title}</Text>
+                        </Flex>
+                        <Flex align="center" gap="2">
+                            <CalendarIcon style={{ color: 'var(--gray-9)' }} />
+                            <Text size="2" color="gray">
+                                {new Date(upcomingHoliday.from_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                {' – '}
+                                {new Date(upcomingHoliday.to_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                            </Text>
+                        </Flex>
+                        {upcomingHoliday.description && (
+                            <Flex align="center" gap="2">
+                                <TextAlignLeftIcon style={{ color: 'var(--gray-9)' }} />
+                                <Text size="2" color="gray">{upcomingHoliday.description}</Text>
+                            </Flex>
+                        )}
+                    </Flex>
+                </Card>
             )}
-        </section>
+        </Box>
     );
 };
 

@@ -15,7 +15,7 @@ import {
     Skeleton,
     Tabs,
     Tab
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { 
     CalendarIcon, 
     ChartBarIcon, 

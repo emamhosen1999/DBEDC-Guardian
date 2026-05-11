@@ -35,7 +35,7 @@ import {
     Select,
     SelectItem,
     ButtonGroup
-} from "@heroui/react";
+} from "@/compat/heroui";
 import StatsCards from "@/Components/StatsCards.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { getThemeRadius } from '@/Hooks/useThemeRadius.js';

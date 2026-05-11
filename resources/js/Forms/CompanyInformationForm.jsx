@@ -9,7 +9,7 @@ import {
     CardBody,
     CardHeader,
     CardFooter,
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { motion } from 'framer-motion';
 import GlassCard from '@/Components/GlassCard'; // Assuming GlassCard is a custom component
 import { showToast } from "@/utils/toastUtils";

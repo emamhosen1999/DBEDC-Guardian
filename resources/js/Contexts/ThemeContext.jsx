@@ -3,12 +3,18 @@ import { heroUIThemes, applyThemeToDocument, generateHeroUIConfig } from '../the
 
 const ThemeContext = createContext();
 
+const THEME_DEFAULTS = {
+  themeSettings: { mode: 'light', activeTheme: 'heroui', customColors: {}, layout: {}, background: {} },
+  setThemeSettings: () => {},
+  applyTheme: () => {},
+  toggleDarkMode: () => {},
+  isDarkMode: false,
+  currentThemeConfig: {},
+};
+
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
+  return context || THEME_DEFAULTS;
 };
 
 export const ThemeProvider = ({ children }) => {

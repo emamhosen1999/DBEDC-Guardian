@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardBody, Chip, Avatar, Progress } from '@heroui/react';
+import { Card, CardBody, Chip, Avatar, Progress } from '@/compat/heroui';
 import { CheckCircleIcon, ClockIcon, XCircleIcon, UserIcon } from '@heroicons/react/24/outline';
 
 export default function ApprovalChain({ approvalChain, currentLevel, status }) {

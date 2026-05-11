@@ -1,6 +1,6 @@
 import React from 'react';
-import { Breadcrumbs, BreadcrumbItem } from '@heroui/react';
-import { HomeIcon } from '@heroicons/react/24/outline';
+import { Flex, Text } from '@radix-ui/themes';
+import { HomeIcon } from '@radix-ui/react-icons';
 import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { getPages } from '@/Props/pages.jsx';
@@ -62,7 +62,7 @@ const Breadcrumb = () => {
         // Always add Home breadcrumb first
         breadcrumbs.push({
             label: "Home",
-            icon: <HomeIcon className="w-4 h-4" />,
+            icon: <HomeIcon style={{ width: 14, height: 14 }} />,
             href: (() => {
                 try {
                     return route('dashboard');
@@ -92,7 +92,7 @@ const Breadcrumb = () => {
                 // Three-level deep: Parent > SubParent > Current
                 breadcrumbs.push({
                     label: pageData.parent.name,
-                    icon: React.cloneElement(pageData.parent.icon, { className: "w-4 h-4" }),
+                    icon: React.cloneElement(pageData.parent.icon, { style: { width: 14, height: 14 } }),
                     href: pageData.parent.route ? (() => {
                         try {
                             return route(pageData.parent.route);
@@ -104,7 +104,7 @@ const Breadcrumb = () => {
                 });
                 breadcrumbs.push({
                     label: pageData.subParent.name,
-                    icon: React.cloneElement(pageData.subParent.icon, { className: "w-4 h-4" }),
+                    icon: React.cloneElement(pageData.subParent.icon, { style: { width: 14, height: 14 } }),
                     href: pageData.subParent.route ? (() => {
                         try {
                             return route(pageData.subParent.route);
@@ -116,7 +116,7 @@ const Breadcrumb = () => {
                 });
                 breadcrumbs.push({
                     label: pageData.page.name,
-                    icon: React.cloneElement(pageData.page.icon, { className: "w-4 h-4" }),
+                    icon: React.cloneElement(pageData.page.icon, { style: { width: 14, height: 14 } }),
                     href: null, // Current page
                     key: 'current'
                 });
@@ -124,7 +124,7 @@ const Breadcrumb = () => {
                 // Two-level deep: Parent > Current
                 breadcrumbs.push({
                     label: pageData.parent.name,
-                    icon: React.cloneElement(pageData.parent.icon, { className: "w-4 h-4" }),
+                    icon: React.cloneElement(pageData.parent.icon, { style: { width: 14, height: 14 } }),
                     href: pageData.parent.route ? (() => {
                         try {
                             return route(pageData.parent.route);
@@ -136,7 +136,7 @@ const Breadcrumb = () => {
                 });
                 breadcrumbs.push({
                     label: pageData.page.name,
-                    icon: React.cloneElement(pageData.page.icon, { className: "w-4 h-4" }),
+                    icon: React.cloneElement(pageData.page.icon, { style: { width: 14, height: 14 } }),
                     href: null, // Current page
                     key: 'current'
                 });
@@ -144,7 +144,7 @@ const Breadcrumb = () => {
                 // Top-level page
                 breadcrumbs.push({
                     label: pageData.name,
-                    icon: React.cloneElement(pageData.icon, { className: "w-4 h-4" }),
+                    icon: React.cloneElement(pageData.icon, { style: { width: 14, height: 14 } }),
                     href: null, // Current page
                     key: 'current'
                 });
@@ -165,45 +165,41 @@ const Breadcrumb = () => {
     const breadcrumbs = generateBreadcrumbs();
 
     return (
-        <div className="px-4 py-2">
-            <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="w-full max-w-7xl "
-            >
-                <Breadcrumbs
-                    separator="/"
-                    classNames={{
-                        list: "flex flex-wrap items-center gap-1.5",
-                        separator: "text-[var(--theme-text-secondary,#6b7280)] mx-1.5 text-sm",
-                        base: "w-full"
-                    }}
-                >
-                    {breadcrumbs.map((breadcrumb) => (
-                        <BreadcrumbItem
-                            key={breadcrumb.key}
-                            startContent={breadcrumb.icon}
-                            className={`
-                                text-sm font-medium transition-colors duration-200
-                                ${breadcrumb.href 
-                                    ? 'text-[var(--theme-text-secondary,#6b7280)] hover:text-[var(--theme-primary,#0070f3)] cursor-pointer' 
-                                    : 'text-[var(--theme-text,#374151)] cursor-default'
-                                }
-                            `}
-                        >
+        <motion.nav
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            aria-label="Breadcrumb"
+            style={{ padding: '6px 16px' }}
+        >
+            <Flex align="center" gap="1" wrap="wrap">
+                {breadcrumbs.map((breadcrumb, idx) => (
+                    <React.Fragment key={breadcrumb.key}>
+                        {idx > 0 && (
+                            <Text size="1" color="gray" style={{ userSelect: 'none' }}>/</Text>
+                        )}
+                        <Flex align="center" gap="1">
+                            {breadcrumb.icon && (
+                                <span style={{ display: 'flex', alignItems: 'center', color: breadcrumb.href ? 'var(--gray-10)' : 'var(--gray-12)', width: 14, height: 14 }}>
+                                    {breadcrumb.icon}
+                                </span>
+                            )}
                             {breadcrumb.href ? (
-                                <Link href={breadcrumb.href} className="hover:underline">
-                                    {breadcrumb.label}
+                                <Link href={breadcrumb.href} style={{ textDecoration: 'none' }}>
+                                    <Text size="2" color="gray" style={{ transition: 'color 120ms' }}
+                                        onMouseEnter={e => e.target.style.color = 'var(--accent-11)'}
+                                        onMouseLeave={e => e.target.style.color = ''}>
+                                        {breadcrumb.label}
+                                    </Text>
                                 </Link>
                             ) : (
-                                breadcrumb.label
+                                <Text size="2" weight="medium">{breadcrumb.label}</Text>
                             )}
-                        </BreadcrumbItem>
-                    ))}
-                </Breadcrumbs>
-            </motion.div>
-        </div>
+                        </Flex>
+                    </React.Fragment>
+                ))}
+            </Flex>
+        </motion.nav>
     );
 };
 

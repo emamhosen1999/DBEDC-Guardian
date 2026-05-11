@@ -13,7 +13,7 @@ import {
     Checkbox,
     CheckboxGroup,
     Divider
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CalendarIcon,
     MapPinIcon,

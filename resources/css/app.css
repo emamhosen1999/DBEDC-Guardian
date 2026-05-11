@@ -1,45 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=Exo:ital,wght@0,100..900;1,100..900&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Merienda:wght@300..900&family=Nunito:ital,wght@0,200..1000;1,200..1000&family=Outfit:wght@100..900&display=swap')
-layer(base);
+@import "@radix-ui/themes/styles.css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&family=Josefin+Sans:wght@300;400;500;600;700&display=swap');
 @import '@fontsource/roboto/300.css';
 @import '@fontsource/roboto/400.css';
 @import '@fontsource/roboto/500.css';
 @import '@fontsource/roboto/700.css';
-
-@import "tailwindcss";
-@plugin '../../hero.ts';
-@source '../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
-@custom-variant dark (&:is(.dark *));
 
 
 .Toastify__toast-container {
   z-index: 99999 !important;
 }
 
-/* Ensure dropdowns appear above header */
-[data-slot="content"][data-placement] {
+/* Radix portal z-index stacking */
+[data-radix-popper-content-wrapper] {
   z-index: 9999 !important;
 }
 
-/* HeroUI Dropdown portal fix - all possible selectors */
-.heroui-popover-content,
-.heroui-dropdown-content,
-[data-heroui-dropdown-content],
-[role="listbox"],
-[role="menu"],
-div[data-slot="content"],
-section[data-slot="content"] {
-  z-index: 9999 !important;
+[data-radix-dialog-overlay] {
+  z-index: 9990 !important;
 }
 
-/* Fix for HeroUI overlay backdrop */
-[data-overlay-container],
-[data-aria-hidden="true"] + div {
-  z-index: 9998 !important;
+[data-radix-dialog-content] {
+  z-index: 9991 !important;
 }
 
-/* Smooth dropdown animations without border flash */
-[data-slot="base"][data-open="true"]::before {
-  display: none !important;
+/* Full-height app layout */
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Hide scrollbar but allow scrolling */
@@ -105,4 +93,67 @@ font[style] {
 [data-phone],
 .notranslate {
   font-style: inherit !important;
+}
+
+/* ─── Page transition ────────────────────────────────────────────── */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.page-enter {
+  animation: page-enter 0.22s ease-out;
+  will-change: opacity, transform;
+  width: 100%;
+}
+
+/* ─── Online-status pulse (Sidebar footer dot) ───────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+
+/* ─── Radix-style dot-grid + accent glow background ─────────────── */
+.app-bg-grid {
+  /* Dot grid via radial-gradient */
+  background-image:
+    radial-gradient(circle, var(--accent-a5) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0;
+  /* Accent glow overlaid via pseudo, set on the element itself */
+  position: relative;
+}
+.app-bg-grid::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, var(--accent-a4) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 90% 100%, var(--accent-a3) 0%, transparent 60%);
+}
+/* All direct children of .app-bg-grid should sit above the pseudo */
+.app-bg-grid > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Responsive display utilities ──────────────────────────────── */
+/* Hidden on <768 px, flex on ≥768 px */
+.show-md {
+  display: none !important;
+}
+@media (min-width: 768px) {
+  .show-md {
+    display: flex !important;
+  }
+}
+/* Hidden on ≥768 px */
+.hide-md {
+  display: flex !important;
+}
+@media (min-width: 768px) {
+  .hide-md {
+    display: none !important;
+  }
 }

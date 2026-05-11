@@ -9,8 +9,8 @@ import {
   DocumentTextIcon,
   BriefcaseIcon,
   UsersIcon,
-  FolderIcon, // Changed from FolderOpenIcon
-  ChartBarSquareIcon, // Changed from ChartBarIcon
+  FolderIcon, 
+  ChartBarSquareIcon, 
   CreditCardIcon,
   ShoppingBagIcon,
   BuildingOffice2Icon,
@@ -35,35 +35,37 @@ import {
   ArrowPathIcon,
   CurrencyDollarIcon,
   ClockIcon,
-  DocumentTextIcon as DocumentTextIconLegacy, // Legacy document text icon
-  ShoppingBagIcon as ShoppingBagIconLegacy, // Legacy shopping bag icon
+  DocumentTextIcon as DocumentTextIconLegacy,
+  ShoppingBagIcon as ShoppingBagIconLegacy,
   MapPinIcon,
-
+  // New icons added for settings regrouping:
+  Squares2X2Icon,
+  BuildingOfficeIcon,
+  HandThumbUpIcon,
+  KeyIcon
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
   
   // 1. Define the condition
   const isOnlyEmployee = roles?.length === 1 && roles[0] === 'Employee';
-  console.log(roles, isOnlyEmployee? 'Only Employee': "Not only Employee");
+  console.log(roles, isOnlyEmployee ? 'Only Employee' : "Not only Employee");
 
   // 2. Define the shared items list (so we don't write it twice)
   const workspaceItems = [
     ...(permissions.includes('daily-works.view') ? [
-      { name: 'Daily Work', icon: <DocumentTextIcon />, route: 'daily-works' },
+      { name: 'My Daily Work', icon: <DocumentTextIcon />, route: 'daily-works' },
       ...(!isOnlyEmployee ? [{ name: 'Work Summary', icon: <ChartBarSquareIcon />, route: 'daily-works-summary' }] : []),
-      { name: 'Objections', icon: <ShieldExclamationIcon />, route: 'objections.index' },
+      { name: 'My Objections', icon: <ShieldExclamationIcon />, route: 'objections.index' },
     ] : []),
     
     ...(permissions.includes('attendance.own.view') ? [
-      { name: 'Attendance', icon: <CalendarDaysIcon />, route: 'attendance-employee' }
+      { name: 'My Attendance', icon: <CalendarDaysIcon />, route: 'attendance-employee' }
     ] : []),
     ...(permissions.includes('leave.own.view') ? [
-      { name: 'Leaves', icon: <ArrowRightOnRectangleIcon />, route: 'leaves-employee' }
+      { name: 'My Leaves', icon: <ArrowRightOnRectangleIcon />, route: 'leaves-employee' }
     ] : []),
-    ...(permissions.includes('communications.own.view') ? [
-      { name: 'Communications', icon: <EnvelopeIcon />, route: 'emails' },
-    ] : []),
+   
   ];
 
   return [
@@ -75,6 +77,7 @@ export const getPages = (roles, permissions, auth = null) => {
       priority: 1,
       module: 'core'
     }] : []),
+
     // 2. Workspace (Self-Service)
     ...(workspaceItems.length > 0 ? (
         isOnlyEmployee 
@@ -87,6 +90,7 @@ export const getPages = (roles, permissions, auth = null) => {
               subMenu: workspaceItems
             }]
       ) : []),
+
     // 3. HR (Human Resources) - Reorganized with submodule groups
     ...((permissions.includes('employees.view') || 
         permissions.includes('hr.onboarding.view') || 
@@ -95,7 +99,7 @@ export const getPages = (roles, permissions, auth = null) => {
         permissions.includes('hr.safety.view') || 
         permissions.includes('hr.analytics.view') || 
         permissions.includes('hr.documents.view')) ? [{
-      name: 'HR',
+      name: 'Workforce',
       icon: <UserGroupIcon className="" />,
       priority: 3,
       module: 'hrm',
@@ -115,67 +119,17 @@ export const getPages = (roles, permissions, auth = null) => {
         
         // Time & Attendance Management
         ...((permissions.includes('attendance.view') || permissions.includes('holidays.view') || permissions.includes('leaves.view') || permissions.includes('hr.timeoff.view')) ? [{
-          name: 'Time',
+          name: 'Time/Attendance',
           icon: <CalendarDaysIcon  />,
           category: 'time',
           subMenu: [
             ...(permissions.includes('attendance.view') ? [{ name: 'Attendance', icon: <CalendarDaysIcon  />, route: 'attendances' }] : []),
             ...(permissions.includes('attendance.view') ? [{ name: 'Timesheet', icon: <ClockIcon  />, route: 'timesheet' }] : []),
-            ...(permissions.includes('hr.timeoff.view') ? [{ name: 'Time-off', icon: <CalendarIcon  />, route: 'hr.timeoff.index' }] : []),
             ...(permissions.includes('holidays.view') ? [{ name: 'Holidays', icon: <CalendarIcon  />, route: 'holidays' }] : []),
             ...(permissions.includes('leaves.view') ? [
-              { name: 'Leaves', icon: <ArrowRightOnRectangleIcon  />, route: 'leaves' },
-              { name: 'Analytics', icon: <ChartBarSquareIcon  />, route: 'leave-summary' },
-              { name: 'Policies', icon: <Cog6ToothIcon  />, route: 'leave-settings' },
+              { name: 'Leave Applications', icon: <ArrowRightOnRectangleIcon  />, route: 'leaves' },
+              { name: 'Leave Analytics', icon: <ChartBarSquareIcon  />, route: 'leave-summary' },
             ] : []),
-          ]
-        }] : []),
-        
-        // Employee Lifecycle Management
-        ...((permissions.includes('hr.onboarding.view') || permissions.includes('hr.offboarding.view') || permissions.includes('hr.checklists.view') || permissions.includes('jobs.view')) ? [{
-          name: 'Lifecycle',
-          icon: <UserIcon  />,
-          category: 'lifecycle',
-          subMenu: [
-            ...(permissions.includes('jobs.view') ? [{ name: 'Recruit', icon: <BriefcaseIcon  />, route: 'hr.recruitment.index' }] : []),
-            ...(permissions.includes('hr.onboarding.view') ? [{ name: 'Onboard', icon: <UserIcon  />, route: 'hr.onboarding.index' }] : []),
-            ...(permissions.includes('hr.offboarding.view') ? [{ name: 'Offboard', icon: <ArrowRightOnRectangleIcon  />, route: 'hr.offboarding.index' }] : []),
-            ...(permissions.includes('hr.checklists.view') ? [{ name: 'Checklists', icon: <ClipboardDocumentCheckIcon  />, route: 'hr.checklists.index' }] : []),
-          ]
-        }] : []),
-        
-        // Performance & Development
-        ...((permissions.includes('performance-reviews.view') || permissions.includes('training-sessions.view') || permissions.includes('hr.skills.view') || permissions.includes('hr.competencies.view')) ? [{
-          name: 'Development',
-          icon: <AcademicCapIcon  />,
-          category: 'development',
-          subMenu: [
-            ...(permissions.includes('performance-reviews.view') ? [{ name: 'Reviews', icon: <ChartBarSquareIcon  />, route: 'hr.performance.index' }] : []),
-            ...(permissions.includes('training-sessions.view') ? [{ name: 'Training', icon: <AcademicCapIcon  />, route: 'hr.training.index' }] : []),
-            ...(permissions.includes('hr.skills.view') ? [{ name: 'Skills', icon: <AcademicCapIcon  />, route: 'hr.skills.index' }] : []),
-            ...(permissions.includes('hr.competencies.view') ? [{ name: 'Competency', icon: <ScaleIcon  />, route: 'hr.competencies.index' }] : []),
-          ]
-        }] : []),
-        
-        // Benefits & Compensation
-        ...(permissions.includes('hr.benefits.view') ? [{
-          name: 'Benefits',
-          icon: <CreditCardIcon  />,
-          category: 'benefits',
-          subMenu: [
-            { name: 'Plans', icon: <CreditCardIcon  />, route: 'hr.benefits.index' },
-          ]
-        }] : []),
-        
-        // Workplace Safety & Compliance
-        ...((permissions.includes('hr.safety.view') || permissions.includes('hr.safety.incidents.view') || permissions.includes('hr.safety.training.view')) ? [{
-          name: 'Safety',
-          icon: <ShieldCheckIcon  />,
-          category: 'safety',
-          subMenu: [
-            ...(permissions.includes('hr.safety.view') ? [{ name: 'Overview', icon: <ShieldCheckIcon  />, route: 'hr.safety.index' }] : []),
-            ...(permissions.includes('hr.safety.incidents.view') ? [{ name: 'Incidents', icon: <DocumentTextIcon  />, route: 'hr.safety.incidents.index' }] : []),
-            ...(permissions.includes('hr.safety.training.view') ? [{ name: 'Training', icon: <AcademicCapIcon  />, route: 'hr.safety.training.index' }] : []),
           ]
         }] : []),
         
@@ -189,73 +143,9 @@ export const getPages = (roles, permissions, auth = null) => {
             { name: 'Categories', icon: <FolderIcon  />, route: 'hr.documents.categories.index' },
           ]
         }] : []),
-        
-      
-        
-        // HR Analytics & Reporting
-        ...(permissions.includes('hr.analytics.view') ? [{
-          name: 'Analytics',
-          icon: <ChartBarSquareIcon  />,
-          category: 'analytics',
-          subMenu: [
-            { name: 'Overview', icon: <ChartBarSquareIcon  />, route: 'hr.analytics.index' },
-            { name: 'Attendance', icon: <CalendarDaysIcon  />, route: 'hr.analytics.attendance' },
-            { name: 'Performance', icon: <ChartBarSquareIcon  />, route: 'hr.analytics.performance' },
-            { name: 'Recruitment', icon: <UserGroupIcon  />, route: 'hr.analytics.recruitment' },
-            { name: 'Turnover', icon: <ArrowRightOnRectangleIcon  />, route: 'hr.analytics.turnover' },
-          ]
-        }] : []),
-        
-        // Payroll Management
-        ...(permissions.includes('hr.payroll.view') ? [{
-          name: 'Payroll',
-          icon: <CurrencyDollarIcon  />,
-          category: 'payroll',
-          subMenu: [
-            { name: 'Overview', icon: <HomeIcon  />, route: 'hr.payroll.index' },
-            { name: 'Generate', icon: <DocumentTextIcon  />, route: 'hr.payroll.create' },
-            { name: 'Payslips', icon: <DocumentDuplicateIcon  />, route: 'hr.selfservice.payslips' },
-            { name: 'Reports', icon: <ChartBarSquareIcon  />, route: 'hr.payroll.reports' },
-          ]
-        }] : []),
       ]
     }] : []),
 
-    // 5. DMS (Document Management System)
-    ...(permissions.includes('dms.view') ? [{
-      name: 'Documents',
-      icon: <FolderIcon className="" />,
-      priority: 6,
-      module: 'dms',
-      subMenu: [
-        { name: 'Overview', icon: <HomeIcon  />, route: 'dms.index' },
-        { name: 'Files', icon: <DocumentTextIcon  />, route: 'dms.documents' },
-        { name: 'Upload', icon: <DocumentDuplicateIcon  />, route: 'dms.documents.create' },
-        { name: 'Categories', icon: <FolderIcon  />, route: 'dms.categories' },
-        { name: 'Shared', icon: <UserGroupIcon  />, route: 'dms.shared' },
-        { name: 'Analytics', icon: <ChartBarSquareIcon  />, route: 'dms.analytics' },
-        // Legacy document routes
-        ...(permissions.includes('letters.view') ? [
-          { name: 'Letters', icon: <EnvelopeIcon  />, route: 'letters' },
-        ] : []),
-      ]
-    }] : []),
-    // 6. Compliance
-    ...(permissions.includes('compliance.view') ? [{
-      name: 'Compliance',
-      icon: <ShieldCheckIcon className="" />,
-      priority: 6,
-      module: 'compliance',
-      subMenu: [
-        ...(permissions.includes('compliance.dashboard.view') ? [{ name: 'Overview', icon: <ChartBarSquareIcon  />, route: 'compliance.dashboard' }] : []),
-        ...(permissions.includes('compliance.policies.view') ? [{ name: 'Policies', icon: <DocumentTextIcon  />, route: 'compliance.policies.index' }] : []),
-        ...(permissions.includes('compliance.regulatory_requirements.view') ? [{ name: 'Regulatory', icon: <ScaleIcon  />, route: 'compliance.regulatory-requirements.index' }] : []),
-        ...(permissions.includes('compliance.risks.view') ? [{ name: 'Risks', icon: <ShieldCheckIcon  />, route: 'compliance.risks.index' }] : []),
-        ...(permissions.includes('compliance.audits.view') ? [{ name: 'Audits', icon: <ClipboardDocumentCheckIcon  />, route: 'compliance.audits.index' }] : []),
-        ...(permissions.includes('compliance.training_records.view') ? [{ name: 'Training', icon: <AcademicCapIcon  />, route: 'compliance.training-records.index' }] : []),
-        ...(permissions.includes('compliance.controlled_documents.view') ? [{ name: 'Controlled', icon: <DocumentDuplicateIcon  />, route: 'compliance.controlled-documents.index' }] : []),
-      ]
-    }] : []),
     // 7. Quality Management
     ...(permissions.includes('quality.view') ? [{
       name: 'Quality',
@@ -269,24 +159,60 @@ export const getPages = (roles, permissions, auth = null) => {
         ...(permissions.includes('quality.dashboard.view') ? [{ name: 'Analytics', icon: <ChartBarSquareIcon  />, route: 'quality.dashboard' }] : []),
       ]
     }] : []),
-    // 8. Admin (System Administration)
-    ...(permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') ? [{
+
+    // 8. Admin & Settings (System Administration)
+    ...((permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') || permissions.includes('company.settings') || permissions.includes('attendance.settings') || permissions.includes('leave-settings.view')) ? [{
       name: 'Admin',
       icon: <Cog6ToothIcon className="" />,
       priority: 8,
       module: 'admin',
       subMenu: [
-        ...(permissions.includes('users.view') ? [{ name: 'Users', icon: <UsersIcon  />, route: 'users' }] : []),
-        ...(permissions.includes('roles.view') ? [
-          { name: 'Roles', icon: <UserGroupIcon  />, route: 'admin.roles-management' }
-        ] : []),
-        ...(permissions.includes('modules.view') ? [
-          { name: 'Modules', icon: <CubeIcon  />, route: 'modules.index' }
-        ] : []),
-        ...(auth?.user && auth?.roles?.includes('Super Administrator') ? [
-          { name: 'Monitoring', icon: <ComputerDesktopIcon  />, route: 'admin.system-monitoring' }
-        ] : []),
-        ...(permissions.includes('settings.view') ? [{ name: 'Settings', icon: <Cog6ToothIcon  />, route: 'admin.settings.company' }] : []),
+          ...(permissions.includes('users.view') ? [{ 
+              name: 'Users', 
+              icon: <UsersIcon />, 
+              route: 'users',
+              description: 'Manage system users and access credentials'
+          }] : []),
+          ...(permissions.includes('roles.view') ? [{
+            name: 'Roles & Permission', 
+            icon: <KeyIcon className="w-5 h-5" />, 
+            route: 'admin.roles-management',
+            priority: 5,
+            description: 'Manage user roles and permission system'
+          }] : []),
+          ...(permissions.includes('company.settings') ? [{
+            name: 'Company Details', 
+            icon: <BuildingOfficeIcon className="w-5 h-5" />, 
+            route: 'admin.settings.company',
+            priority: 2,
+            description: 'Configure organizational structure, company information, and brand assets'
+          }] : []),
+          ...(permissions.includes('attendance.settings') ? [{
+            name: 'Time & Attendance', 
+            icon: <ClockIcon className="w-5 h-5" />, 
+            route: 'attendance-settings.index',
+            priority: 3,
+            description: 'Configure attendance tracking and workforce management'
+          }] : []),
+          ...(permissions.includes('leave-settings.view') ? [{
+            name: 'Leave Policy', 
+            icon: <HandThumbUpIcon className="w-5 h-5" />, 
+            route: 'leave-settings',
+            priority: 4,
+            description: 'Manage leave types and approval workflows'
+          }] : []),
+          ...(permissions.includes('modules.view') ? [{ 
+            name: 'Modules', 
+            icon: <CubeIcon />, 
+            route: 'modules.index',
+            description: 'Enable or disable system modules'
+          }] : []),
+          ...(auth?.user && auth?.roles?.includes('Super Administrator') ? [{ 
+            name: 'Monitoring', 
+            icon: <ComputerDesktopIcon />, 
+            route: 'admin.system-monitoring',
+            description: 'View system health and analytics logs'
+          }] : []),
       ]
     }] : []),
   ];

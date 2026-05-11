@@ -19,7 +19,7 @@ import {
     Progress,
     Button,
     Skeleton
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CalendarDaysIcon,
     ChartBarIcon,

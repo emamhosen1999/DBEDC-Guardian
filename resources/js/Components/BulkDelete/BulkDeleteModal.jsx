@@ -1,22 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import {
-    Button,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Divider,
-    Chip,
-    Card,
-    CardBody
-} from "@heroui/react";
-import { 
-    TrashIcon,
-    ExclamationTriangleIcon,
-    CheckCircleIcon,
-    XMarkIcon
-} from '@heroicons/react/24/outline';
+import { Badge, Box, Button, Dialog, Flex, ScrollArea, Separator, Spinner, Text } from '@radix-ui/themes';
+import { CheckCircledIcon, ExclamationTriangleIcon, TrashIcon } from '@radix-ui/react-icons';
 
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
@@ -28,20 +12,6 @@ const BulkDeleteModal = ({
     selectedLeaves = [],
     allUsers = []
 }) => {
-    // Helper function to convert theme borderRadius to HeroUI radius values
-    const getThemeRadius = () => {
-        if (typeof window === 'undefined') return 'lg';
-        
-        const rootStyles = getComputedStyle(document.documentElement);
-        const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-        
-        const radiusValue = parseInt(borderRadius);
-        if (radiusValue === 0) return 'none';
-        if (radiusValue <= 4) return 'sm';
-        if (radiusValue <= 8) return 'md';
-        if (radiusValue <= 16) return 'lg';
-        return 'full';
-    };
     // State
     const [isDeleting, setIsDeleting] = useState(false);
     const [errors, setErrors] = useState({});
@@ -153,217 +123,74 @@ const BulkDeleteModal = ({
     }, [selectedLeaves, canDelete, onSuccess, onClose]);
 
     return (
-        <Modal 
-            isOpen={open} 
-            onClose={onClose}
-            size="2xl"
-            radius={getThemeRadius()}
-            scrollBehavior="inside"
-            classNames={{
-                base: "backdrop-blur-md mx-2 my-2 sm:mx-4 sm:my-8 max-h-[95vh]",
-                backdrop: "bg-black/50 backdrop-blur-sm",
-                header: "border-b border-divider",
-                body: "overflow-y-auto",
-                footer: "border-t border-divider",
-                closeButton: "hover:bg-white/5 active:bg-white/10"
-            }}
-            style={{
-                border: `var(--borderWidth, 2px) solid var(--theme-divider, #E4E4E7)`,
-                borderRadius: `var(--borderRadius, 12px)`,
-                fontFamily: `var(--fontFamily, "Inter")`,
-                transform: `scale(var(--scale, 1))`,
-            }}
-        >
-            <ModalContent>
-                {(onModalClose) => (
-                    <>
-                        <ModalHeader className="flex flex-col gap-1" style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            <div className="flex items-center gap-2">
-                                <TrashIcon className="w-6 h-6" style={{ color: 'var(--theme-danger, #f31260)' }} />
-                                <div>
-                                    <span className="text-lg font-semibold" style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                        color: 'var(--theme-foreground)'
-                                    }}>
-                                        Delete Leave Requests
-                                    </span>
-                                    <p className="text-sm mt-0.5" style={{ color: 'var(--theme-foreground-600)' }}>
-                                        Confirm deletion of {selectedLeaves.length} leave request{selectedLeaves.length !== 1 ? 's' : ''}
-                                    </p>
-                                </div>
-                            </div>
-                        </ModalHeader>
-                        
-                        <ModalBody className="py-4 px-4 sm:py-6 sm:px-6" style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            <div className="space-y-6">
-                                {/* Warning for approved leaves */}
-                                {!canDelete && (
-                                    <Card 
-                                        className="border"
-                                        style={{
-                                            backgroundColor: 'color-mix(in srgb, var(--theme-danger) 10%, transparent)',
-                                            borderColor: 'color-mix(in srgb, var(--theme-danger) 30%, transparent)',
-                                            borderRadius: `var(--borderRadius, 12px)`,
-                                        }}
-                                    >
-                                        <CardBody className="p-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <ExclamationTriangleIcon className="w-5 h-5" style={{ color: 'var(--theme-danger)' }} />
-                                                <h4 className="font-semibold" style={{ color: 'var(--theme-danger)' }}>
-                                                    Cannot Delete Approved Leaves
-                                                </h4>
-                                            </div>
-                                            <p className="text-sm" style={{ color: 'var(--theme-danger)' }}>
-                                                {approvedLeaves.length} of the selected leave requests are already approved and cannot be deleted. 
-                                                Only pending or rejected leaves can be deleted.
-                                            </p>
-                                        </CardBody>
-                                    </Card>
-                                )}
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !isDeleting) onClose(); }}>
+            <Dialog.Content style={{ maxWidth: 560 }}>
+                <Dialog.Title>
+                    <Flex align="center" gap="2">
+                        <Box style={{ padding: 8, background: 'var(--red-a3)', borderRadius: 'var(--radius-2)', display: 'flex' }}>
+                            <TrashIcon style={{ color: 'var(--red-9)' }} />
+                        </Box>
+                        <Box>
+                            Delete Leave Requests
+                            <Text size="2" color="gray" style={{ display: 'block', fontWeight: 'normal' }}>
+                                Confirm deletion of {selectedLeaves.length} leave request{selectedLeaves.length !== 1 ? 's' : ''}
+                            </Text>
+                        </Box>
+                    </Flex>
+                </Dialog.Title>
 
-                                {/* Selected leaves list */}
-                                <div>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <CheckCircleIcon className="w-5 h-5" style={{ color: 'var(--theme-primary)' }} />
-                                        <h3 className="text-base font-semibold" style={{ color: 'var(--theme-foreground)' }}>
-                                            Selected Leave Requests ({selectedLeaves.length})
-                                        </h3>
-                                    </div>
-
-                                    <Card 
-                                        className="border max-h-80 overflow-y-auto"
-                                        style={{
-                                            backgroundColor: 'var(--theme-content1)',
-                                            borderColor: 'var(--theme-divider)',
-                                            borderRadius: `var(--borderRadius, 12px)`,
-                                        }}
-                                    >
-                                        <CardBody className="p-0">
-                                            {selectedLeaves.map((leave, index) => {
-                                                const isApproved = leave.status && leave.status.toLowerCase() === 'approved';
-                                                
-                                                return (
-                                                    <div key={leave.id}>
-                                                        <div 
-                                                            className={`p-4 ${isApproved ? 'opacity-60' : ''}`}
-                                                            style={{
-                                                                backgroundColor: isApproved ? 'color-mix(in srgb, var(--theme-danger) 5%, transparent)' : 'transparent'
-                                                            }}
-                                                        >
-                                                            <div className="flex items-center gap-2 flex-wrap mb-2">
-                                                                <span className="font-medium text-sm" style={{ color: 'var(--theme-foreground)' }}>
-                                                                    {getUserName(leave.user_id)}
-                                                                </span>
-                                                                <Chip 
-                                                                    size="sm" 
-                                                                    variant="bordered"
-                                                                    color={
-                                                                        leave.status?.toLowerCase() === 'approved' ? 'success' :
-                                                                        leave.status?.toLowerCase() === 'pending' ? 'warning' :
-                                                                        leave.status?.toLowerCase() === 'rejected' ? 'danger' : 'default'
-                                                                    }
-                                                                    radius={getThemeRadius()}
-                                                                    style={{
-                                                                        borderRadius: `var(--borderRadius, 8px)`,
-                                                                    }}
-                                                                >
-                                                                    {leave.status || 'Unknown'}
-                                                                </Chip>
-                                                                {isApproved && (
-                                                                    <Chip 
-                                                                        size="sm" 
-                                                                        variant="bordered" 
-                                                                        color="danger"
-                                                                        radius={getThemeRadius()}
-                                                                        style={{
-                                                                            borderRadius: `var(--borderRadius, 8px)`,
-                                                                        }}
-                                                                    >
-                                                                        Cannot Delete
-                                                                    </Chip>
-                                                                )}
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <p className="text-sm" style={{ color: 'var(--theme-foreground-600)' }}>
-                                                                    {leave.leave_type} - {leave.from_date} to {leave.to_date}
-                                                                </p>
-                                                                <p className="text-sm" style={{ color: 'var(--theme-foreground-600)' }}>
-                                                                    {leave.no_of_days} day{leave.no_of_days !== 1 ? 's' : ''} - {leave.reason}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        {index < selectedLeaves.length - 1 && <Divider style={{ background: `var(--theme-divider)` }} />}
-                                                    </div>
-                                                );
-                                            })}
-                                        </CardBody>
-                                    </Card>
-                                </div>
-
-                                {/* Warning message */}
-                                {canDelete && (
-                                    <Card 
-                                        className="border"
-                                        style={{
-                                            backgroundColor: 'color-mix(in srgb, var(--theme-warning) 10%, transparent)',
-                                            borderColor: 'color-mix(in srgb, var(--theme-warning) 30%, transparent)',
-                                            borderRadius: `var(--borderRadius, 12px)`,
-                                        }}
-                                    >
-                                        <CardBody className="p-4">
-                                            <p className="text-sm font-medium" style={{ color: 'var(--theme-warning)' }}>
-                                                ⚠️ This action cannot be undone. The selected leave requests will be permanently deleted.
-                                            </p>
-                                        </CardBody>
-                                    </Card>
-                                )}
-                            </div>
-                        </ModalBody>
-                        
-                        <ModalFooter className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            <Button
-                                color="default"
-                                variant="bordered"
-                                onPress={onModalClose}
-                                radius={getThemeRadius()}
-                                size="sm"
-                                isDisabled={isDeleting}
-                                style={{
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                color="danger"
-                                variant="solid"
-                                onPress={handleDelete}
-                                isLoading={isDeleting}
-                                isDisabled={!canDelete || isDeleting || selectedLeaves.length === 0}
-                                startContent={!isDeleting && <TrashIcon className="w-4 h-4" />}
-                                radius={getThemeRadius()}
-                                size="sm"
-                                style={{
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                            >
-                                {isDeleting ? 'Deleting...' : `Delete ${selectedLeaves.length} Request${selectedLeaves.length !== 1 ? 's' : ''}`}
-                            </Button>
-                        </ModalFooter>
-                    </>
+                {!canDelete && (
+                    <Box p="3" mb="3" style={{ background: 'var(--red-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--red-a5)' }}>
+                        <Flex align="center" gap="2" mb="1">
+                            <ExclamationTriangleIcon style={{ color: 'var(--red-9)' }} />
+                            <Text size="2" weight="medium" color="red">Cannot Delete Approved Leaves</Text>
+                        </Flex>
+                        <Text size="2" color="red">
+                            {approvedLeaves.length} of the selected leave requests are already approved and cannot be deleted.
+                        </Text>
+                    </Box>
                 )}
-            </ModalContent>
-        </Modal>
+
+                <Box mb="3">
+                    <Flex align="center" gap="2" mb="2">
+                        <CheckCircledIcon style={{ color: 'var(--accent-9)' }} />
+                        <Text size="2" weight="medium">Selected Leave Requests ({selectedLeaves.length})</Text>
+                    </Flex>
+                    <ScrollArea style={{ maxHeight: 280, border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-2)' }}>
+                        {selectedLeaves.map((leave, index) => {
+                            const isApproved = leave.status?.toLowerCase() === 'approved';
+                            const statusColor = isApproved ? 'green' : leave.status?.toLowerCase() === 'pending' ? 'amber' : leave.status?.toLowerCase() === 'rejected' ? 'red' : 'gray';
+                            return (
+                                <Box key={leave.id} p="3" style={{ opacity: isApproved ? 0.6 : 1, background: isApproved ? 'var(--red-a2)' : undefined }}>
+                                    <Flex align="center" gap="2" mb="1" wrap="wrap">
+                                        <Text size="2" weight="medium">{getUserName(leave.user_id)}</Text>
+                                        <Badge color={statusColor} variant="soft">{leave.status || 'Unknown'}</Badge>
+                                        {isApproved && <Badge color="red" variant="outline">Cannot Delete</Badge>}
+                                    </Flex>
+                                    <Text size="1" color="gray" style={{ display: 'block' }}>{leave.leave_type} — {leave.from_date} to {leave.to_date}</Text>
+                                    <Text size="1" color="gray">{leave.no_of_days} day{leave.no_of_days !== 1 ? 's' : ''} — {leave.reason}</Text>
+                                    {index < selectedLeaves.length - 1 && <Separator size="4" mt="3" />}
+                                </Box>
+                            );
+                        })}
+                    </ScrollArea>
+                </Box>
+
+                {canDelete && (
+                    <Box p="3" mb="3" style={{ background: 'var(--amber-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--amber-a5)' }}>
+                        <Text size="2" color="amber">This action cannot be undone. The selected leave requests will be permanently deleted.</Text>
+                    </Box>
+                )}
+
+                <Flex justify="end" gap="2">
+                    <Button variant="soft" color="gray" onClick={onClose} disabled={isDeleting} style={{ cursor: 'pointer' }}>Cancel</Button>
+                    <Button color="red" onClick={handleDelete} disabled={!canDelete || isDeleting || selectedLeaves.length === 0} style={{ cursor: 'pointer' }}>
+                        {isDeleting ? <Spinner size="1" /> : <TrashIcon />}
+                        {isDeleting ? 'Deleting...' : `Delete ${selectedLeaves.length} Request${selectedLeaves.length !== 1 ? 's' : ''}`}
+                    </Button>
+                </Flex>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

@@ -19,7 +19,7 @@ import {
     ScrollShadow,
     Tabs,
     Tab,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     ExclamationTriangleIcon,
     DocumentIcon,

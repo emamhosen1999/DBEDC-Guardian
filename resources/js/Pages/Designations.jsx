@@ -3,7 +3,7 @@ import { Head, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import {
     Select, SelectItem, Card, CardBody, Button, ButtonGroup, Chip, Pagination, Input, Spinner
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     BuildingOffice2Icon, PlusIcon, FunnelIcon, MagnifyingGlassIcon,
     UserGroupIcon, CheckCircleIcon, XCircleIcon, DocumentArrowDownIcon,

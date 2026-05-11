@@ -356,7 +356,7 @@
     @endif
 
     <div class="footer">
-        Aero Enterprise Suite &middot; Daily Work Summary Report &middot; Page <span class="pagenum"></span>
+        DBEDC Guardian &middot; Daily Work Summary Report &middot; Page <span class="pagenum"></span>
     </div>
 </body>
 

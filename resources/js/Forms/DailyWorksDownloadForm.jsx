@@ -14,7 +14,7 @@ import {
     TableBody,
     TableRow,
     TableCell
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { X, Download } from 'lucide-react';
 
 import { showToast } from "@/utils/toastUtils";

@@ -4,7 +4,7 @@ import {
     SelectItem,
     Input,
     Chip
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { 
     MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';

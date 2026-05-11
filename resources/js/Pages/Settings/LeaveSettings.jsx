@@ -27,7 +27,7 @@ import {
     ModalFooter,
     useDisclosure,
     Spinner,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     PlusIcon,
     ClockIcon,

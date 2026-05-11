@@ -1,44 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { getProfileAvatarTokens } from '@/Components/ProfileAvatar';
-import { RefreshCcw } from 'lucide-react';
-import { motion } from 'framer-motion';
 import {
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    User,
-    ScrollShadow,
-    Pagination,
-    Skeleton,
-    Card as HeroCard,
-    Card,
-    CardBody,
-    CardHeader,
-    Divider,
-    Button,
-    Button as HeroButton,
-    Link,
-    Input
-} from "@heroui/react";
+    Box, Card, Flex, Grid, Text, Heading, Badge, Separator,
+    Skeleton, Avatar, Button, TextField, ScrollArea, Table,
+} from '@radix-ui/themes';
+import {
+    MagnifyingGlassIcon,
+    CalendarIcon,
+    ClockIcon,
+    PersonIcon,
+    ExclamationTriangleIcon,
+    CheckCircledIcon,
+    CrossCircledIcon,
+    DownloadIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    MobileIcon,
+} from '@radix-ui/react-icons';
 import { usePage } from "@inertiajs/react";
 import dayjs from "dayjs";
-import { useTheme } from '@/Contexts/ThemeContext.jsx';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { 
-    MagnifyingGlassIcon,
-    CalendarDaysIcon,
-    ClockIcon,
-    UserIcon,
-    ExclamationTriangleIcon,
-    CheckCircleIcon,
-    XCircleIcon,
-    UserGroupIcon,
-    DocumentArrowDownIcon,
-    PhoneIcon,
-} from '@heroicons/react/24/outline';
 import axios from 'axios';
 
 import { AbsentUsersInlineCard } from '@/Components/TimeSheet/AbsentUsersInlineCard';
@@ -47,8 +26,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
     const { auth } = usePage().props;
     const { url } = usePage();
    
-    const isLargeScreen = useMediaQuery('(min-width: 1025px)');
-    const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
+
 
     const [attendances, setAttendances] = useState([]);
     const [leaves, setLeaves] = useState([]);
@@ -77,20 +55,6 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
         currentPage: 1
     });
     
-    // Helper function to convert theme borderRadius to HeroUI radius values
-    const getThemeRadius = () => {
-        if (typeof window === 'undefined') return 'lg';
-        
-        const rootStyles = getComputedStyle(document.documentElement);
-        const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-        
-        const radiusValue = parseInt(borderRadius);
-        if (radiusValue === 0) return 'none';
-        if (radiusValue <= 4) return 'sm';
-        if (radiusValue <= 8) return 'md';
-        if (radiusValue <= 16) return 'lg';
-        return 'full';
-    };
     
     const [filterData, setFilterData] = useState(externalFilterData || {
         currentMonth: dayjs().format('YYYY-MM'),
@@ -325,25 +289,11 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
         }
     };
 
-    const getLeaveStatusIcon = (status) => {
-        switch (status?.toLowerCase()) {
-            case 'approved':
-                return <CheckCircleIcon className="w-4 h-4 text-success" />;
-            case 'rejected':
-                return <XCircleIcon className="w-4 h-4 text-danger" />;
-            default:
-                return <ClockIcon className="w-4 h-4 text-warning" />;
-        }
-    };
-
     const getLeaveStatusColor = (status) => {
         switch (status?.toLowerCase()) {
-            case 'approved':
-                return 'success';
-            case 'rejected':
-                return 'danger';
-            default:
-                return 'warning';
+            case 'approved': return 'green';
+            case 'rejected': return 'red';
+            default: return 'amber';
         }
     };    // Check permissions using new system
 
@@ -360,12 +310,12 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
     const columns = [
         // Date column - only shown in employee view (when user can't view all attendance or on employee-specific page)
         ...(!canViewAllAttendance || url === '/attendance-employee' ? [
-            { name: "Date", uid: "date", icon: CalendarDaysIcon, ariaLabel: "Attendance date" }
+            { name: "Date", uid: "date", icon: CalendarIcon, ariaLabel: "Attendance date" }
         ] : []),
         
         // Employee column - only shown in admin/manager view (when user can view all attendance and not on employee page)
         ...(canViewAllAttendance && (url !== '/attendance-employee') ? [
-            { name: "Employee", uid: "employee", icon: UserIcon, ariaLabel: "Employee name and information" }
+            { name: "Employee", uid: "employee", icon: PersonIcon, ariaLabel: "Employee name and information" }
         ] : []),
         { name: "Clock In", uid: "clockin_time", icon: ClockIcon, ariaLabel: "All clock in times" },
         { name: "Clock Out", uid: "clockout_time", icon: ClockIcon, ariaLabel: "All clock out times" },
@@ -374,200 +324,155 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
     ];
 
     const renderCell = (attendance, columnKey) => {
-        // Default size classes for all cells to ensure consistent sizing
-        const cellBaseClasses = "text-xs sm:text-sm md:text-base whitespace-nowrap";
         const isCurrentDate = dayjs(attendance.date).isSame(dayjs(), 'day');
-        
         switch (columnKey) {
             case "date":
                 return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <CalendarDaysIcon className="w-4 h-4 text-primary shrink-0" />
-                            <div className="flex flex-col">
-                                <span>
-                                    {dayjs(attendance.date).format('MMM D, YYYY')}
-                                </span>
-                            </div>
-                        </div>
-                    </TableCell>
+                    <Table.Cell>
+                        <Flex align="center" gap="2">
+                            <CalendarIcon style={{ color: 'var(--accent-9)', flexShrink: 0 }} />
+                            <Text size="2">{dayjs(attendance.date).format('MMM D, YYYY')}</Text>
+                        </Flex>
+                    </Table.Cell>
                 );
-            case "employee":
-                const avatarSize = isLargeScreen ? 'md' : isMediumScreen ? 'md' : 'sm';
+            case "employee": {
                 return (
-                    <TableCell className="whitespace-nowrap">
-                        
-                        <User
-                        avatarProps={{
-                        src: attendance.user?.profile_image_url || attendance.user?.profile_image,
-                        size: avatarSize,
-                        name: attendance.user?.name || "Unnamed User",
-                        ...getProfileAvatarTokens({
-                            name: attendance.user?.name || "Unnamed User",
-                            size: avatarSize,
-                        }),
-                        }}
-                        description={
-                        attendance.user?.phone ? (
-                            <Link
-                            href={`tel:${attendance.user?.phone}`}
-                            size="sm"
-                            className="text-xs hover:underline"
-                            style={{ color: 'var(--theme-primary)' }}
-                            >
-                            {attendance.user?.phone}
-                            </Link>
-                        ) : (
-                            <span className="flex items-center gap-1 text-xs text-default-400 italic">
-                            <PhoneIcon className="w-3 h-3" /> No Phone
-                            </span>
-                        )
-                        }
-                        name={
-                        <span className="text-sm font-medium">
-                            {attendance.user?.name || "Unnamed User"}
-                        </span>
-                        }
-                    />
-                    </TableCell>
-                );            
-                case "clockin_time":
+                    <Table.Cell style={{ whiteSpace: 'nowrap' }}>
+                        <Flex align="center" gap="2">
+                            <Avatar
+                                src={attendance.user?.profile_image_url || attendance.user?.profile_image}
+                                fallback={(attendance.user?.name || '?').charAt(0).toUpperCase()}
+                                size="2"
+                                radius="full"
+                                style={{ flexShrink: 0 }}
+                            />
+                            <Flex direction="column">
+                                <Text size="2" weight="medium">{attendance.user?.name || 'Unnamed User'}</Text>
+                                {attendance.user?.phone
+                                    ? <Text size="1" color="gray" as="a" href={`tel:${attendance.user.phone}`}>{attendance.user.phone}</Text>
+                                    : <Flex align="center" gap="1"><MobileIcon style={{ color: 'var(--gray-9)', width: 10 }} /><Text size="1" color="gray">No phone</Text></Flex>
+                                }
+                            </Flex>
+                        </Flex>
+                    </Table.Cell>
+                );
+            }
+            case "clockin_time":
                 return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ClockIcon className="w-4 h-4 text-success" />
-                            <div className="flex flex-col">
+                    <Table.Cell>
+                        <Flex align="center" gap="2">
+                            <ClockIcon style={{ color: 'var(--green-9)', flexShrink: 0 }} />
+                            <Flex direction="column">
                                 {attendance.punches && attendance.punches.length > 0 ? (
-                                    attendance.punches
-                                        .filter(punch => punch.punch_in)
-                                        .map((punch, index) => (
-                                            <span key={index} className="block text-xs">
-                                                <span className="text-default-400 mr-1">{index + 1}.</span>
-                                                {formatTime(punch.punch_in, attendance.date) || 'Invalid time'}
-                                            </span>
-                                        ))
-                                ) : (
-                                    <span>Not clocked in</span>
-                                )}
-                            </div>
-                        </div>
-                    </TableCell>
-                );            case "clockout_time":
+                                    attendance.punches.filter(p => p.punch_in).map((punch, idx) => (
+                                        <Text key={idx} size="1">
+                                            <Text size="1" color="gray">{idx + 1}. </Text>
+                                            {formatTime(punch.punch_in, attendance.date) || 'Invalid time'}
+                                        </Text>
+                                    ))
+                                ) : <Text size="2" color="gray">Not clocked in</Text>}
+                            </Flex>
+                        </Flex>
+                    </Table.Cell>
+                );
+            case "clockout_time":
                 return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ClockIcon className="w-4 h-4 text-danger" />
-                            <div className="flex flex-col">
+                    <Table.Cell>
+                        <Flex align="center" gap="2">
+                            <ClockIcon style={{ color: 'var(--red-9)', flexShrink: 0 }} />
+                            <Flex direction="column">
                                 {attendance.punches && attendance.punches.length > 0 ? (
-                                    attendance.punches.map((punch, index) => (
-                                        <span key={index} className="block text-xs">
-                                            <span className="text-default-400 mr-1">{index + 1}.</span>
+                                    attendance.punches.map((punch, idx) => (
+                                        <Text key={idx} size="1">
+                                            <Text size="1" color="gray">{idx + 1}. </Text>
                                             {punch.punch_out ? formatTime(punch.punch_out, attendance.date) || 'Invalid time' : 'No punch out'}
-                                        </span>
+                                        </Text>
                                     ))
                                 ) : attendance.punchin_time ? (
-                                    <span>
-                                        {isCurrentDate ? 'Currently working' : 'Missing punch-out'}
-                                    </span>
+                                    <Text size="2" color="gray">{isCurrentDate ? 'Currently working' : 'Missing punch-out'}</Text>
                                 ) : (
-                                    <span>Not started</span>
+                                    <Text size="2" color="gray">Not started</Text>
                                 )}
-                            </div>
-                        </div>
-                    </TableCell>
-                );case "production_time":
+                            </Flex>
+                        </Flex>
+                    </Table.Cell>
+                );
+            case "production_time": {
                 const hasWorkTime = attendance.total_work_minutes > 0;
                 const hasIncompletePunch = attendance.has_incomplete_punch;
                 const isCurrentlyWorking = attendance.punchin_time && !attendance.punchout_time && isCurrentDate;
-                
                 if (hasWorkTime) {
                     const hours = Math.floor(attendance.total_work_minutes / 60);
-                    const minutes = Math.floor(attendance.total_work_minutes % 60);
-                    
+                    const mins = Math.floor(attendance.total_work_minutes % 60);
                     return (
-                        <TableCell className={`${cellBaseClasses}`}>
-                            <div className="flex items-center gap-2">
-                                <ClockIcon className={`w-4 h-4 ${hasIncompletePunch ? 'text-warning' : 'text-primary'}`} />
-                                <div className="flex flex-col">
-                                    <span className="font-medium">{`${hours}h ${minutes}m`}</span>
-                                    <span className="text-xs text-default-500">
-                                        {hasIncompletePunch ? 'Partial data - in progress' : 'Total worked time'}
-                                    </span>
-                                </div>
-                            </div>
-                        </TableCell>
+                        <Table.Cell>
+                            <Flex align="center" gap="2">
+                                <ClockIcon style={{ color: hasIncompletePunch ? 'var(--amber-9)' : 'var(--accent-9)', flexShrink: 0 }} />
+                                <Flex direction="column">
+                                    <Text size="2" weight="medium">{`${hours}h ${mins}m`}</Text>
+                                    <Text size="1" color="gray">{hasIncompletePunch ? 'Partial — in progress' : 'Total worked time'}</Text>
+                                </Flex>
+                            </Flex>
+                        </Table.Cell>
                     );
                 } else if (isCurrentlyWorking) {
-                    // Currently working (today's date and has punch in but no punch out)
                     return (
-                        <TableCell className={`${cellBaseClasses}`}>
-                            <div className="flex items-center gap-2">
-                                <ClockIcon className="w-4 h-4 text-warning" />
-                                <div className="flex flex-col">
-                                    <span className="text-warning">In Progress</span>
-                                    <span className="text-xs text-default-500">
-                                        Currently working
-                                    </span>
-                                </div>
-                            </div>
-                        </TableCell>
+                        <Table.Cell>
+                            <Flex align="center" gap="2">
+                                <ClockIcon style={{ color: 'var(--amber-9)', flexShrink: 0 }} />
+                                <Flex direction="column">
+                                    <Text size="2" color="amber">In Progress</Text>
+                                    <Text size="1" color="gray">Currently working</Text>
+                                </Flex>
+                            </Flex>
+                        </Table.Cell>
                     );
                 } else if (attendance.punchin_time && !attendance.punchout_time && !isCurrentDate) {
-                    // Past date with incomplete punch
                     return (
-                        <TableCell className={`${cellBaseClasses}`}>
-                            <div className="flex items-center gap-2">
-                                <ExclamationTriangleIcon className="w-4 h-4 text-danger" />
-                                <div className="flex flex-col">
-                                    <span className="text-danger">Incomplete punch</span>
-                                    <span className="text-xs text-default-500">
-                                        Missing punch out
-                                    </span>
-                                </div>
-                            </div>
-                        </TableCell>
+                        <Table.Cell>
+                            <Flex align="center" gap="2">
+                                <ExclamationTriangleIcon style={{ color: 'var(--red-9)', flexShrink: 0 }} />
+                                <Flex direction="column">
+                                    <Text size="2" color="red">Incomplete punch</Text>
+                                    <Text size="1" color="gray">Missing punch out</Text>
+                                </Flex>
+                            </Flex>
+                        </Table.Cell>
                     );
                 }
-                
-                // No punch in at all
                 return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ExclamationTriangleIcon className="w-4 h-4 text-warning" />
-                            <div className="flex flex-col">
-                                <span className="text-warning">No work time</span>
-                                <span className="text-xs text-default-500">
-                                    No attendance
-                                </span>
-                            </div>
-                        </div>
-                    </TableCell>
+                    <Table.Cell>
+                        <Flex align="center" gap="2">
+                            <ExclamationTriangleIcon style={{ color: 'var(--amber-9)', flexShrink: 0 }} />
+                            <Flex direction="column">
+                                <Text size="2" color="amber">No work time</Text>
+                                <Text size="1" color="gray">No attendance</Text>
+                            </Flex>
+                        </Flex>
+                    </Table.Cell>
                 );
+            }
             case "punch_details":
                 return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ClockIcon className="w-4 h-4 text-default-400" />
-                            <div className="flex flex-col">
-                                <span className="text-xs font-medium">
+                    <Table.Cell>
+                        <Flex align="center" gap="2">
+                            <ClockIcon style={{ color: 'var(--gray-9)', flexShrink: 0 }} />
+                            <Flex direction="column">
+                                <Text size="2" weight="medium">
                                     {attendance.punch_count || 0} punch{(attendance.punch_count || 0) !== 1 ? 'es' : ''}
-                                </span>
+                                </Text>
                                 {attendance.complete_punches !== attendance.punch_count && (
-                                    <span className="text-xs text-warning">
-                                        {attendance.complete_punches} complete
-                                    </span>
+                                    <Text size="1" color="amber">{attendance.complete_punches} complete</Text>
                                 )}
                                 {attendance.complete_punches === attendance.punch_count && attendance.punch_count > 0 && (
-                                    <span className="text-xs text-success">
-                                        All complete
-                                    </span>
+                                    <Text size="1" color="green">All complete</Text>
                                 )}
-                            </div>
-                        </div>
-                    </TableCell>
+                            </Flex>
+                        </Flex>
+                    </Table.Cell>
                 );
             default:
-                return <TableCell className={`${cellBaseClasses}`}>N/A</TableCell>;
+                return <Table.Cell><Text size="2" color="gray">N/A</Text></Table.Cell>;
         }
     };    // Excel download function
     const exportExcel = useCallback(async () => { 
@@ -726,399 +631,218 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
 
 
 
-    // Employee view - render only table and pagination without wrapper
-
     return (
     <>
-        { canViewAllAttendance && (
-            <div 
-                className="flex flex-col w-full h-full p-4"
-                role="main"
-                aria-label="Timesheet Management"
-            >
-                <div className="space-y-4">
-                    {/* Combined Attendance and Absent Users Card */}
-                    <div className="w-full">
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.5 }}
-                        >
-                            <Card 
-                                className="transition-all duration-200"
-                                style={{
-                                    border: `var(--borderWidth, 2px) solid transparent`,
-                                    borderRadius: `var(--borderRadius, 12px)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                    transform: `scale(var(--scale, 1))`,
-                                    background: `linear-gradient(135deg, 
-                                        var(--theme-content1, #FAFAFA) 20%, 
-                                        var(--theme-content2, #F4F4F5) 10%, 
-                                        var(--theme-content3, #F1F3F4) 20%)`,
-                                }}
-                            >
-                                {/* Main Card Content */}
-                                <CardHeader 
-                                    className="border-b p-0"
-                                    style={{
-                                        borderColor: `var(--theme-divider, #E4E4E7)`,
-                                        background: `linear-gradient(135deg, 
-                                            color-mix(in srgb, var(--theme-content1) 50%, transparent) 20%, 
-                                            color-mix(in srgb, var(--theme-content2) 30%, transparent) 10%)`,
-                                    }}
-                                >
-                                    <div className={`${isLargeScreen ? 'p-6' : isMediumScreen ? 'p-4' : 'p-3'} w-full`}>
-                                            <div className="flex flex-col space-y-4">
-                                                {/* Main Header Content */}
-                                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                                    {/* Title Section */}
-                                                    <div className="flex items-center gap-3 lg:gap-4">
-                                                        <div 
-                                                            className={`
-                                                                ${isLargeScreen ? 'p-3' : isMediumScreen ? 'p-2.5' : 'p-2'} 
-                                                                rounded-xl flex items-center justify-center
-                                                            `}
-                                                            style={{
-                                                                background: `color-mix(in srgb, var(--theme-primary) 15%, transparent)`,
-                                                                borderColor: `color-mix(in srgb, var(--theme-primary) 25%, transparent)`,
-                                                                borderWidth: `var(--borderWidth, 2px)`,
-                                                                borderRadius: `var(--borderRadius, 12px)`,
-                                                            }}
-                                                        >
-                                                            <ClockIcon 
-                                                                className={`
-                                                                    ${isLargeScreen ? 'w-8 h-8' : isMediumScreen ? 'w-6 h-6' : 'w-5 h-5'}
-                                                                `}
-                                                                style={{ color: 'var(--theme-primary)' }}
-                                                            />
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <h4 
-                                                                className={`
-                                                                    ${isLargeScreen ? 'text-2xl' : isMediumScreen ? 'text-xl' : 'text-lg'}
-                                                                    font-bold text-foreground
-                                                                    ${!isLargeScreen ? 'truncate' : ''}
-                                                                `}
-                                                                style={{
-                                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                                }}
-                                                            >
-                                                                Daily Timesheet
-                                                            </h4>
-                                                            <p 
-                                                                className={`
-                                                                    ${isLargeScreen ? 'text-sm' : 'text-xs'} 
-                                                                    text-default-500
-                                                                    ${!isLargeScreen ? 'truncate' : ''}
-                                                                `}
-                                                                style={{
-                                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                                }}
-                                                            >
-                                                                {new Date(selectedDate).toLocaleString('en-US', {
-                                                                    month: isLargeScreen ? 'long' : 'short',
-                                                                    day: 'numeric',
-                                                                    year: isLargeScreen ? 'numeric' : undefined,
-                                                                })}
-                                                            </p>
-                                                        </div>
-                                                    </div>                                                {/* Action Buttons */}
-                                                    <div className="flex items-center gap-4">
-                                                        {lastCheckedText && (
-                                                            <span className="text-xs text-default-500">
-                                                                Updated: {lastCheckedText}
-                                                            </span>
-                                                        )}
-                                                        <div className="flex items-center gap-2">
-                                                            {canExportAttendance && (
-                                                                <>
-                                                                    <HeroButton
-                                                                        color="success"
-                                                                        variant="flat"
-                                                                        size={isLargeScreen ? "md" : "sm"}
-                                                                        radius={getThemeRadius()}
-                                                                        startContent={
-                                                                            <DocumentArrowDownIcon className={`
-                                                                                ${isLargeScreen ? 'w-4 h-4' : 'w-3.5 h-3.5'}
-                                                                            `} />
-                                                                        }
-                                                                        onPress={exportExcel}
-                                                                        isDisabled={!isLoaded || attendances.length === 0 || downloading !== ''}
-                                                                        isLoading={downloading === 'excel'}
-                                                                        style={{
-                                                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                                                        }}
-                                                                    >
-                                                                        {isLargeScreen ? 'Excel' : 'XLS'}
-                                                                    </HeroButton>
-                                                                    
-                                                                    <HeroButton
-                                                                        color="danger"
-                                                                        variant="flat"
-                                                                        size={isLargeScreen ? "md" : "sm"}
-                                                                        radius={getThemeRadius()}
-                                                                        startContent={
-                                                                            <DocumentArrowDownIcon className={`
-                                                                                ${isLargeScreen ? 'w-4 h-4' : 'w-3.5 h-3.5'}
-                                                                            `} />
-                                                                        }
-                                                                        onPress={downloadPDF}
-                                                                        isDisabled={!isLoaded || attendances.length === 0 || downloading !== ''}
-                                                                        isLoading={downloading === 'pdf'}
-                                                                        style={{
-                                                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                                                        }}
-                                                                    >
-                                                                        PDF
-                                                                    </HeroButton>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        
-                                                    </div>
-                                                </div>
-
-                                                {/* Stats Bar - Only show on larger screens */}
-                                                {isLargeScreen && (
-                                                    <div className="flex items-center gap-6 pt-2 border-t border-white/10">
-                                                        <div className="flex items-center gap-2">
-                                                            <CheckCircleIcon className="w-4 h-4 text-success" />
-                                                            <span className="text-xs text-gray-500">
-                                                                Present: {totalRows}
-                                                            </span>
-                                                        </div>
-                                                        {canViewAllAttendance && (
-                                                            <div className="flex items-center gap-2">
-                                                                <ExclamationTriangleIcon className="w-4 h-4 text-warning" />
-                                                                <span className="text-xs text-gray-500">
-                                                                    Absent: {absentUsers.length}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                        <div className="flex items-center gap-2">
-                                                            <UserGroupIcon className="w-4 h-4 text-primary" />
-                                                            <span className="text-xs text-gray-500">
-                                                                Total: {totalRows + absentUsers.length}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                </CardHeader>
-                                <Divider />
-                                <CardBody>
-                                    <div 
-                                        role="search"
-                                        aria-label="Timesheet filters"
+        {canViewAllAttendance && (
+            <Box p="4" role="main" aria-label="Timesheet Management">
+                {/* Header */}
+                <Box pb="3" mb="3" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+                    <Flex justify="between" align="start" gap="3" wrap="wrap">
+                        <Flex align="center" gap="3">
+                            <Box style={{
+                                padding: 10, borderRadius: 'var(--radius-3)',
+                                background: 'var(--accent-a3)', border: '1px solid var(--accent-a6)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: 44, height: 44, flexShrink: 0,
+                            }}>
+                                <ClockIcon style={{ color: 'var(--accent-9)', width: 22, height: 22 }} />
+                            </Box>
+                            <Box>
+                                <Heading size="4">Daily Timesheet</Heading>
+                                <Text size="2" color="gray">
+                                    {new Date(selectedDate).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                </Text>
+                            </Box>
+                        </Flex>
+                        <Flex align="center" gap="2" wrap="wrap">
+                            {lastCheckedText && (
+                                <Text size="1" color="gray">Updated: {lastCheckedText}</Text>
+                            )}
+                            {canExportAttendance && (
+                                <>
+                                    <Button
+                                        size="2" variant="soft" color="green"
+                                        disabled={!isLoaded || attendances.length === 0 || downloading !== ''}
+                                        onClick={exportExcel}
                                     >
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                                            {canViewAllAttendance && (
-                                                <>
-                                                    <div className="col-span-1">
-                                                        <Input
-                                                            type="text"
-                                                            label="Search Employee"
-                                                            placeholder="Enter employee name"
-                                                            value={employee}
-                                                            onChange={(e) => setEmployee(e.target.value)}
-                                                            variant="bordered"
-                                                            size="sm"
-                                                            radius={getThemeRadius()}
-                                                            startContent={
-                                                                <MagnifyingGlassIcon className="w-4 h-4 text-default-400" />
-                                                            }
-                                                            classNames={{
-                                                                input: "text-sm",
-                                                            }}
-                                                            style={{
-                                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                                            }}
-                                                            aria-label="Search employees"
-                                                        />
-                                                    </div>
-                                                    <div className="col-span-1">
-                                                        <Input
-                                                            label="Select Date"
-                                                            type="date"
-                                                            variant="bordered"
-                                                            onChange={handleDateChange}
-                                                            value={new Date(selectedDate).toISOString().slice(0, 10) || ''}
-                                                            size="sm"
-                                                            radius={getThemeRadius()}
-                                                            startContent={
-                                                                <CalendarDaysIcon className="w-4 h-4 text-default-400" />
-                                                            }
-                                                            classNames={{
-                                                                input: "text-sm",
-                                                            }}
-                                                            style={{
-                                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                                            }}
-                                                            aria-label="Select date for timesheet"
-                                                        />
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                </CardBody>
-                                <Divider />                           
-                                <CardBody>
-                                    {/* Two Column Layout for Present and Absent Users */}
-                                    <div className="flex flex-col lg:flex-row gap-6 h-full">
-                                        {/* Present Users - Attendance Table */}
-                                        <div className={`${canViewAllAttendance ? 'lg:flex-1 lg:w-0' : 'w-full'} min-h-0`}>
-                                            {error ? (
-                                                <Card 
-                                                    className="p-4 transition-all duration-200"
-                                                    style={{
-                                                        background: `color-mix(in srgb, var(--theme-danger, #F31260) 10%, transparent)`,
-                                                        borderColor: `color-mix(in srgb, var(--theme-danger, #F31260) 25%, transparent)`,
-                                                        borderWidth: `var(--borderWidth, 2px)`,
-                                                        borderRadius: `var(--borderRadius, 12px)`,
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                        transform: `scale(var(--scale, 1))`
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <ExclamationTriangleIcon 
-                                                            className="w-5 h-5"
-                                                            style={{ color: 'var(--theme-danger)' }}
-                                                        />
-                                                        <p 
-                                                            className="text-sm"
-                                                            style={{ color: 'var(--theme-danger)' }}
-                                                        >
-                                                            {error}
-                                                        </p>
-                                                    </div>
-                                                </Card>
-                                            ) : (                                            
-                                                <div 
-                                                    role="region"
-                                                    aria-label="Present employees attendance table"
-                                                    className="h-full flex flex-col"
-                                                >
-                                                    
-                                                
-                                                    <div className="mb-4 flex-shrink-0">
-                                                        <h6 
-                                                            className="text-lg font-semibold text-foreground flex items-center gap-2"
-                                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                        >
-                                                            <CheckCircleIcon 
-                                                                className="w-5 h-5"
-                                                                style={{ color: 'var(--theme-success)' }}
-                                                            />
-                                                            Present Employees ({totalRows})
-                                                        </h6>
-                                                    </div>
-                                                    <div className="flex-1 min-h-0 flex flex-col">
-                                                        <ScrollShadow
-                                                            orientation="horizontal"
-                                                            className="overflow-y-hidden flex-1"
-                                                        >
-                                                        <Skeleton className="rounded-lg" isLoaded={isLoaded}>
-                                                            <Table
-                                                            
-                                                                isCompact
-                                                                removeWrapper
-                                                                aria-label="Employee attendance timesheet table"
-                                                                isHeaderSticky
-                                                                radius={getThemeRadius()}
-                                                                classNames={{
-                                                                    base: "max-h-[520px] overflow-auto",
-                                                                    table: "min-h-[200px] w-full",
-                                                                    thead: "z-10",
-                                                                    tbody: "overflow-y-auto",
-                                                                    th: "bg-default-100 text-default-700 font-semibold",
-                                                                    td: "text-default-600",
-                                                                }}
-                                                                style={{
-                                                                    borderRadius: `var(--borderRadius, 12px)`,
-                                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                                }}
-                                                            >
-                                                                <TableHeader columns={columns}>
-                                                                    {(column) => (
-                                                                        <TableColumn key={column.uid} align="start">
-                                                                            <div className="flex items-center gap-2">
-                                                                                {column.icon && <column.icon className="w-4 h-4" />}
-                                                                                <span className="text-sm font-medium">{column.name}</span>
-                                                                            </div>
-                                                                        </TableColumn>
-                                                                    )}
-                                                                </TableHeader>
-                                                                <TableBody 
-                                                                    items={attendances}
-                                                                    emptyContent={
-                                                                        <div className="flex flex-col items-center justify-center py-8">
-                                                                            <ClockIcon className="w-12 h-12 text-default-300 mb-4" />
-                                                                            <p className="text-default-500">
-                                                                                No attendance records found
-                                                                            </p>
-                                                                        </div>
-                                                                    }
-                                                                >
-                                                                    {(attendance) => (
-                                                                        <TableRow key={attendance.id || attendance.user_id}>
-                                                                            {(columnKey) => renderCell(attendance, columnKey)}
-                                                                        </TableRow>
-                                                                    )}
-                                                                </TableBody>
-                                                            </Table>
-                                                        </Skeleton>
-                                                    </ScrollShadow>
-                                                    {totalRows > perPage && (
-                                                        <div className="py-4 flex justify-center">
-                                                            <Pagination
-                                                                initialPage={1}
-                                                                isCompact
-                                                                showControls
-                                                                showShadow
-                                                                color="primary"
-                                                                variant="bordered"
-                                                                radius={getThemeRadius()}
-                                                                page={currentPage}
-                                                                total={lastPage}
-                                                                onChange={handlePageChange}
-                                                                aria-label="Timesheet pagination"
-                                                                style={{
-                                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <DownloadIcon /> {downloading === 'excel' ? 'Exporting…' : 'Excel'}
+                                    </Button>
+                                    <Button
+                                        size="2" variant="soft" color="red"
+                                        disabled={!isLoaded || attendances.length === 0 || downloading !== ''}
+                                        onClick={downloadPDF}
+                                    >
+                                        <DownloadIcon /> {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
+                                    </Button>
+                                </>
+                            )}
+                        </Flex>
+                    </Flex>
 
-                                        {/* Absent Users Section */}
-                                        {canViewAllAttendance && (
-                                            <div className="lg:w-80 lg:flex-shrink-0 h-full">
-                                                <AbsentUsersInlineCard 
-                                                    absentUsers={absentUsers}
-                                                    selectedDate={selectedDate}
-                                                    getUserLeave={getUserLeave}
-                                                    isLoaded={isLoaded}
-                                                    onMarkAsPresent={onMarkAsPresent}
-                                                />
-                                            </div>
-                                        )}
-                                    </div>
-                                </CardBody>
-                            </Card>
-                        </motion.div>
-                        {/* End of Main Card Content */}
-                    </div>
-                </div>
-            </div>
+                    {/* Stats bar */}
+                    <Flex align="center" gap="4" mt="3">
+                        <Flex align="center" gap="1">
+                            <CheckCircledIcon style={{ color: 'var(--green-9)' }} />
+                            <Text size="1" color="gray">Present: {totalRows}</Text>
+                        </Flex>
+                        <Flex align="center" gap="1">
+                            <ExclamationTriangleIcon style={{ color: 'var(--amber-9)' }} />
+                            <Text size="1" color="gray">Absent: {absentUsers.length}</Text>
+                        </Flex>
+                        <Flex align="center" gap="1">
+                            <PersonIcon style={{ color: 'var(--accent-9)' }} />
+                            <Text size="1" color="gray">Total: {totalRows + absentUsers.length}</Text>
+                        </Flex>
+                    </Flex>
+                </Box>
+
+                {/* Filters */}
+                <Box pb="3" mb="3" style={{ borderBottom: '1px solid var(--gray-a4)' }} role="search" aria-label="Timesheet filters">
+                    <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="3">
+                        <Flex direction="column" gap="1">
+                            <Text size="1" weight="medium">Search Employee</Text>
+                            <TextField.Root
+                                placeholder="Enter employee name"
+                                value={employee}
+                                onChange={(e) => setEmployee(e.target.value)}
+                                size="2"
+                                aria-label="Search employees"
+                            >
+                                <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                            </TextField.Root>
+                        </Flex>
+                        <Flex direction="column" gap="1">
+                            <Text size="1" weight="medium">Select Date</Text>
+                            <TextField.Root
+                                type="date"
+                                onChange={handleDateChange}
+                                value={new Date(selectedDate).toISOString().slice(0, 10) || ''}
+                                size="2"
+                                aria-label="Select date for timesheet"
+                            >
+                                <TextField.Slot><CalendarIcon /></TextField.Slot>
+                            </TextField.Root>
+                        </Flex>
+                    </Grid>
+                </Box>
+
+                {/* Content: Table + Absent Users */}
+                {error ? (
+                    <Card style={{ borderColor: 'var(--red-a7)' }}>
+                        <Flex align="center" gap="3" p="3">
+                            <ExclamationTriangleIcon style={{ color: 'var(--red-9)', width: 20, height: 20 }} />
+                            <Text size="2" color="red">{error}</Text>
+                        </Flex>
+                    </Card>
+                ) : (
+                    <Flex gap="4" wrap="wrap">
+                        {/* Present Users Table */}
+                        <Box style={{ flex: '1 1 400px', minWidth: 0 }}>
+                            <Flex align="center" gap="2" mb="2">
+                                <CheckCircledIcon style={{ color: 'var(--green-9)' }} />
+                                <Text size="3" weight="medium">Present Employees ({totalRows})</Text>
+                            </Flex>
+                            <ScrollArea style={{ maxHeight: 520 }}>
+                                    {!isLoaded ? (
+                                        <Flex direction="column" gap="2">
+                                            {[...Array(5)].map((_, i) => (
+                                                <Skeleton key={i} style={{ height: 40, width: '100%', borderRadius: 4 }} />
+                                            ))}
+                                        </Flex>
+                                    ) : (
+                                        <Table.Root size="1" variant="surface" style={{ width: '100%' }}>
+                                            <Table.Header>
+                                                <Table.Row>
+                                                    {columns.map((col) => (
+                                                        <Table.ColumnHeaderCell key={col.uid}>
+                                                            <Flex align="center" gap="1">
+                                                                {col.icon && <col.icon style={{ width: 14, height: 14 }} />}
+                                                                <Text size="1" weight="medium">{col.name}</Text>
+                                                            </Flex>
+                                                        </Table.ColumnHeaderCell>
+                                                    ))}
+                                                </Table.Row>
+                                            </Table.Header>
+                                            <Table.Body>
+                                                {attendances.length === 0 ? (
+                                                    <Table.Row>
+                                                        <Table.Cell colSpan={columns.length}>
+                                                            <Flex direction="column" align="center" justify="center" py="8" gap="2">
+                                                                <ClockIcon style={{ color: 'var(--gray-8)', width: 40, height: 40 }} />
+                                                                <Text size="2" color="gray">No attendance records found</Text>
+                                                            </Flex>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                ) : (
+                                                    attendances.map((attendance) => (
+                                                        <Table.Row key={attendance.id || attendance.user_id}>
+                                                            {columns.map((col) => (
+                                                                <React.Fragment key={col.uid}>
+                                                                    {renderCell(attendance, col.uid)}
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </Table.Row>
+                                                    ))
+                                                )}
+                                            </Table.Body>
+                                        </Table.Root>
+                                    )}
+                            </ScrollArea>
+                            {totalRows > perPage && (
+                                <Flex justify="center" align="center" gap="1" pt="3" wrap="wrap">
+                                    <Button
+                                        variant="ghost" size="1" color="gray"
+                                        disabled={currentPage <= 1}
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        aria-label="Previous page"
+                                    ><ChevronLeftIcon /></Button>
+                                    {Array.from({ length: lastPage }, (_, i) => i + 1)
+                                        .filter(p => p === 1 || p === lastPage || Math.abs(p - currentPage) <= 1)
+                                        .reduce((acc, p, idx, arr) => {
+                                            if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                                            acc.push(p);
+                                            return acc;
+                                        }, [])
+                                        .map((p, idx) =>
+                                            p === '...' ? (
+                                                <Text key={`ellipsis-${idx}`} size="1" color="gray" style={{ padding: '0 4px' }}>…</Text>
+                                            ) : (
+                                                <Button
+                                                    key={p}
+                                                    variant={p === currentPage ? 'solid' : 'ghost'}
+                                                    size="1"
+                                                    color={p === currentPage ? 'accent' : 'gray'}
+                                                    onClick={() => handlePageChange(p)}
+                                                    aria-label={`Page ${p}`}
+                                                    aria-current={p === currentPage ? 'page' : undefined}
+                                                >{p}</Button>
+                                            )
+                                        )
+                                    }
+                                    <Button
+                                        variant="ghost" size="1" color="gray"
+                                        disabled={currentPage >= lastPage}
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        aria-label="Next page"
+                                    ><ChevronRightIcon /></Button>
+                                </Flex>
+                            )}
+                        </Box>
+
+                        {/* Absent Users */}
+                        <Box style={{ width: 320, flexShrink: 0 }}>
+                            <AbsentUsersInlineCard
+                                absentUsers={absentUsers}
+                                selectedDate={selectedDate}
+                                getUserLeave={getUserLeave}
+                                isLoaded={isLoaded}
+                                onMarkAsPresent={onMarkAsPresent}
+                            />
+                        </Box>
+                    </Flex>
+                )}
+            </Box>
         )}
-
-        
     </>
 );
 };

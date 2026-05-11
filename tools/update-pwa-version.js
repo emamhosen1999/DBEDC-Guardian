@@ -72,7 +72,7 @@ const updateManifest = () => {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         manifest.version = version;
         manifest.short_name = manifest.short_name || 'Aero Enterprise';
-        manifest.name = manifest.name || 'Aero Enterprise Suite';
+        manifest.name = manifest.name || 'DBEDC Guardian';
         
         fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
         console.log(`✅ Manifest updated with version: ${version}`);

@@ -20,7 +20,7 @@ import {
     TableRow,
     TableCell,
     ScrollShadow,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { 
     DocumentArrowUpIcon, 
     DocumentTextIcon, 

@@ -5,7 +5,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter
-} from "@heroui/react";
+} from "@/compat/heroui";
 import React from "react";
 import { showToast } from "@/utils/toastUtils";
 import { ExclamationTriangleIcon, TrashIcon } from "@heroicons/react/24/outline";

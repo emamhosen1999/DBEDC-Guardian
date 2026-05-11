@@ -8,7 +8,7 @@ import {
     Input, 
     Pagination,
     Skeleton
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CalendarIcon,
     CalendarDaysIcon,

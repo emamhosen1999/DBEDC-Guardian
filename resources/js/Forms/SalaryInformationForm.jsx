@@ -9,7 +9,7 @@ import {
     SelectItem,
     Input,
     Button
-} from '@heroui/react';
+} from '@/compat/heroui';
 import GlassCard from '@/Components/GlassCard';
 import { showToast } from "@/utils/toastUtils"; // Using consistent toast utility
 

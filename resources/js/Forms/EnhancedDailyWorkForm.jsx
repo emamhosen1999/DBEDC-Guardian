@@ -11,7 +11,7 @@ import {
     ModalBody,
     ModalFooter,
     Chip,
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { X, AlertCircle, CheckCircle } from 'lucide-react';
 import { showToast } from '@/utils/toastUtils';
 import GlassDialog from '@/Components/GlassDialog.jsx';

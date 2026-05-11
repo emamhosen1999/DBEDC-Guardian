@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Divider } from "@heroui/react";
+import { Button, Divider } from "@/compat/heroui";
 import { Link, usePage, router } from '@inertiajs/react';
 import { 
   HeartIcon, 
@@ -75,7 +75,7 @@ const Footer = () => {
                                         </div>
                                         <div>
                                             <h3 className={`font-bold text-xl ${GRADIENT_PRESETS.gradientText}`}>
-                                                aeos365
+                                                DBEDC Guardian
                                             </h3>
                                             <p className="text-default-500 text-sm">
                                                 Enterprise Solution

@@ -1,22 +1,17 @@
 import React, { useState } from 'react';
-import { 
-    Button, 
-    Modal, 
-    ModalContent, 
-    ModalHeader, 
-    ModalBody, 
-    ModalFooter,
-    Textarea,
-    useDisclosure
-} from '@heroui/react';
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { Box, Button, Dialog, Flex, Spinner, Text, TextArea } from '@radix-ui/themes';
+import { CheckIcon, Cross2Icon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { route } from 'ziggy-js';
 
 export default function ApprovalActions({ leave, onApprovalComplete }) {
-    const { isOpen: isApproveOpen, onOpen: onApproveOpen, onClose: onApproveClose } = useDisclosure();
-    const { isOpen: isRejectOpen, onOpen: onRejectOpen, onClose: onRejectClose } = useDisclosure();
+    const [isApproveOpen, setIsApproveOpen] = useState(false);
+    const [isRejectOpen, setIsRejectOpen] = useState(false);
+    const onApproveOpen = () => setIsApproveOpen(true);
+    const onApproveClose = () => setIsApproveOpen(false);
+    const onRejectOpen = () => setIsRejectOpen(true);
+    const onRejectClose = () => setIsRejectOpen(false);
     const [comments, setComments] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [processing, setProcessing] = useState(false);
@@ -94,113 +89,60 @@ export default function ApprovalActions({ leave, onApprovalComplete }) {
 
     return (
         <>
-            <div className="flex gap-2">
-                <Button
-                    color="success"
-                    variant="solid"
-                    startContent={<CheckCircleIcon className="w-4 h-4" />}
-                    onPress={onApproveOpen}
-                    size="sm"
-                >
-                    Approve
+            <Flex gap="2">
+                <Button color="green" size="1" onClick={onApproveOpen} style={{ cursor: 'pointer' }}>
+                    <CheckIcon /> Approve
                 </Button>
-                <Button
-                    color="danger"
-                    variant="solid"
-                    startContent={<XCircleIcon className="w-4 h-4" />}
-                    onPress={onRejectOpen}
-                    size="sm"
-                >
-                    Reject
+                <Button color="red" size="1" onClick={onRejectOpen} style={{ cursor: 'pointer' }}>
+                    <Cross2Icon /> Reject
                 </Button>
-            </div>
+            </Flex>
 
-            {/* Approve Modal */}
-            <Modal isOpen={isApproveOpen} onClose={onApproveClose} size="md">
-                <ModalContent>
-                    <ModalHeader>Approve Leave Request</ModalHeader>
-                    <ModalBody>
-                        <p className="text-sm text-default-600 mb-4">
-                            Are you sure you want to approve this leave request?
-                        </p>
-                        <Textarea
-                            label="Comments (Optional)"
+            <Dialog.Root open={isApproveOpen} onOpenChange={v => { if (!v) onApproveClose(); }}>
+                <Dialog.Content style={{ maxWidth: 420 }}>
+                    <Dialog.Title>Approve Leave Request</Dialog.Title>
+                    <Text size="2" color="gray" mb="3" style={{ display: 'block' }}>Are you sure you want to approve this leave request?</Text>
+                    <Box mb="3">
+                        <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Comments (Optional)</Text>
+                        <TextArea
                             placeholder="Add any comments for the approval..."
                             value={comments}
-                            onValueChange={setComments}
-                            variant="bordered"
-                            size="sm"
-                            minRows={3}
-                            maxRows={5}
+                            onChange={e => setComments(e.target.value)}
+                            rows={3}
                         />
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button
-                            color="default"
-                            variant="bordered"
-                            onPress={onApproveClose}
-                            size="sm"
-                            isDisabled={processing}
-                        >
-                            Cancel
+                    </Box>
+                    <Flex justify="end" gap="2">
+                        <Button variant="soft" color="gray" onClick={onApproveClose} disabled={processing} style={{ cursor: 'pointer' }}>Cancel</Button>
+                        <Button color="green" onClick={handleApprove} disabled={processing} style={{ cursor: 'pointer' }}>
+                            {processing ? <Spinner size="1" /> : <CheckIcon />} Approve
                         </Button>
-                        <Button
-                            color="success"
-                            onPress={handleApprove}
-                            size="sm"
-                            isLoading={processing}
-                            startContent={!processing && <CheckCircleIcon className="w-4 h-4" />}
-                        >
-                            Approve
-                        </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
 
-            {/* Reject Modal */}
-            <Modal isOpen={isRejectOpen} onClose={onRejectClose} size="md">
-                <ModalContent>
-                    <ModalHeader>Reject Leave Request</ModalHeader>
-                    <ModalBody>
-                        <p className="text-sm text-default-600 mb-4">
-                            Please provide a reason for rejecting this leave request.
-                        </p>
-                        <Textarea
-                            label="Rejection Reason"
+            <Dialog.Root open={isRejectOpen} onOpenChange={v => { if (!v) onRejectClose(); }}>
+                <Dialog.Content style={{ maxWidth: 420 }}>
+                    <Dialog.Title>Reject Leave Request</Dialog.Title>
+                    <Text size="2" color="gray" mb="3" style={{ display: 'block' }}>Please provide a reason for rejecting this leave request.</Text>
+                    <Box mb="3">
+                        <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Rejection Reason <Text color="red">*</Text></Text>
+                        <TextArea
                             placeholder="Explain why this leave is being rejected (minimum 10 characters)..."
                             value={rejectionReason}
-                            onValueChange={setRejectionReason}
-                            isInvalid={Boolean(errors.reason)}
-                            errorMessage={errors.reason}
-                            variant="bordered"
-                            size="sm"
-                            minRows={3}
-                            maxRows={5}
-                            isRequired
+                            onChange={e => setRejectionReason(e.target.value)}
+                            rows={3}
+                            style={{ borderColor: errors.reason ? 'var(--red-7)' : undefined }}
                         />
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button
-                            color="default"
-                            variant="bordered"
-                            onPress={onRejectClose}
-                            size="sm"
-                            isDisabled={processing}
-                        >
-                            Cancel
+                        {errors.reason && <Text size="1" color="red">{errors.reason}</Text>}
+                    </Box>
+                    <Flex justify="end" gap="2">
+                        <Button variant="soft" color="gray" onClick={onRejectClose} disabled={processing} style={{ cursor: 'pointer' }}>Cancel</Button>
+                        <Button color="red" onClick={handleReject} disabled={processing} style={{ cursor: 'pointer' }}>
+                            {processing ? <Spinner size="1" /> : <Cross2Icon />} Reject
                         </Button>
-                        <Button
-                            color="danger"
-                            onPress={handleReject}
-                            size="sm"
-                            isLoading={processing}
-                            startContent={!processing && <XCircleIcon className="w-4 h-4" />}
-                        >
-                            Reject
-                        </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
         </>
     );
 }

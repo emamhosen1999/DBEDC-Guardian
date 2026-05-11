@@ -12,7 +12,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { X, CalendarIcon, UserIcon, ClockIcon } from 'lucide-react';
 
 import { showToast } from "@/utils/toastUtils";

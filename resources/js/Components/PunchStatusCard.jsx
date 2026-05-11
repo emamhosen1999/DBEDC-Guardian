@@ -1,57 +1,31 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-    Card,
-    CardBody,
-    CardHeader,
-    Button,
-    Spinner,
-    Chip,
-    Divider,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Avatar,
-    Tooltip,
-    Badge,
-    Progress,
-    Input,
-    Skeleton,
-    Accordion,
-    AccordionItem
-} from '@heroui/react';
-import { motion, AnimatePresence } from 'framer-motion';
+    Box, Card, Flex, Grid, Text, Heading, Badge, Separator,
+    Skeleton, Avatar, Button, TextField, Dialog, Tooltip, Spinner,
+} from '@radix-ui/themes';
 import {
     ClockIcon,
-    MapPinIcon,
-    WifiIcon,
-    QrCodeIcon,
-    CheckCircleIcon,
+    DrawingPinIcon,
+    LightningBoltIcon,
+    CheckCircledIcon,
     ExclamationTriangleIcon,
-    PlayIcon,
-    StopIcon,
+    EnterIcon,
+    ExitIcon,
     CalendarIcon,
-    CalendarDaysIcon,
-    UserIcon,
-    CogIcon,
-    ArrowPathIcon,
-    BuildingOfficeIcon,
-    ArrowTrendingUpIcon,
+    HomeIcon,
+    ReloadIcon,
     ChevronDownIcon,
     ChevronUpIcon,
-    ShieldCheckIcon,
-    SignalIcon,
-    GlobeAltIcon,
-    XMarkIcon,
-    BellIcon,
-    InformationCircleIcon,
-    CameraIcon,
-} from '@heroicons/react/24/outline';
+    LockClosedIcon,
+    GlobeIcon,
+    Cross2Icon,
+    InfoCircledIcon,
+    VideoIcon,
+    BarChartIcon,
+} from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
 import { usePage } from '@inertiajs/react';
-import ProfileAvatar from './ProfileAvatar';
 
 /**
  * Enhanced PunchStatusCard Component for Enterprise ERP System
@@ -361,7 +335,7 @@ const PunchStatusCard = React.memo(() => {
                 color: 'warning',
                 text: 'On Leave',
                 action: 'On Leave',
-                icon: <ExclamationTriangleIcon className="w-4 h-4" />
+                icon: <ExclamationTriangleIcon />
             };
         }
 
@@ -371,21 +345,21 @@ const PunchStatusCard = React.memo(() => {
                     color: 'success',
                     text: 'Checked In',
                     action: 'Check Out',
-                    icon: <PlayIcon className="w-4 h-4" />
+                    icon: <ExitIcon />
                 };
             case 'punched_out':
                 return {
                     color: 'primary',
                     text: 'Checked Out',
                     action: 'Check In',
-                    icon: <StopIcon className="w-4 h-4" />
+                    icon: <EnterIcon />
                 };
             default:
                 return {
                     color: 'primary',
                     text: 'Ready to Check In',
                     action: 'Check In',
-                    icon: <ClockIcon className="w-4 h-4" />
+                    icon: <ClockIcon />
                 };
         }
     }, [attendanceState.currentStatus, attendanceState.userOnLeave]);
@@ -1088,841 +1062,393 @@ const PunchStatusCard = React.memo(() => {
     }, [fetchCurrentStatus]);
 
     // ===== RENDER =====
+    const rc = (c) => ({ primary: 'blue', success: 'green', warning: 'amber', danger: 'red', default: 'gray', secondary: 'violet' }[c] || 'gray');
+
     return (
-        <div className="flex flex-col w-full h-full p-4">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col h-full"
-            >
-                <Card 
-                    className="flex flex-col h-full backdrop-blur-md"
-                    style={{
-                        background: `linear-gradient(to bottom right, 
-                            var(--theme-content1, #FAFAFA) 20%, 
-                            var(--theme-content2, #F4F4F5) 10%, 
-                            var(--theme-content3, #F1F3F4) 20%)`,
-                        borderColor: `var(--theme-divider, #E4E4E7)`,
-                        borderWidth: `var(--borderWidth, 2px)`,
-                        borderRadius: `var(--borderRadius, 8px)`,
-                        fontFamily: `var(--fontFamily, 'Inter')`,
-                        opacity: attendanceState.loading ? `var(--disabledOpacity, 0.5)` : '1',
-                    }}
-                >
-                    <CardBody className="flex flex-col flex-1 p-4">
-                        {/* Header with User & Time */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center flex-1">
-                                <Badge
-                                    content=""
-                                    color={statusConfig.color}
-                                    placement="bottom-right"
-                                    shape="circle"
-                                    className="border-2 border-white"
-                                >
-                                    <ProfileAvatar
-                                        src={user?.profile_image_url || user?.profile_image}
-                                        name={user?.name}
-                                        className="w-12 h-12"
-                                    />
-                                </Badge>
-
-                                <div className="ml-3 flex-1 min-w-0">
-                                    <h3 
-                                        className="font-semibold text-sm truncate notranslate"
-                                        style={{ color: 'var(--theme-foreground)' }}
-                                        data-name="true"
-                                    >
-                                        {user?.name}
-                                    </h3>
-                                    <p 
-                                        className="text-xs notranslate"
-                                        style={{ color: 'var(--theme-foreground-600)' }}
-                                        data-no-translate="true"
-                                    >
-                                        ID: {user?.employee_id || user?.id}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="text-right">
-                                <div 
-                                    className="text-lg font-light leading-none"
-                                    style={{
-                                        background: `linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))`,
-                                        backgroundClip: 'text',
-                                        WebkitBackgroundClip: 'text',
-                                        color: 'transparent',
-                                    }}
-                                >
-                                    {systemState.currentTime.toLocaleTimeString('en-US', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: true
-                                    })}
-                                </div>
-                                <div 
-                                    className="text-xs"
-                                    style={{ color: 'var(--theme-foreground-600)' }}
-                                >
-                                    {systemState.currentTime.toLocaleDateString('en-US', { 
-                                        weekday: 'short', 
-                                        day: 'numeric' 
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Status Chip */}
-                        <div 
-                            className="flex justify-center mb-4"
-                            
-                        >
-                            <Chip
-                                color={statusConfig.color}
-                                variant="flat"
-                                startContent={statusConfig.icon}
-                                className="px-4 py-2 font-semibold text-sm"
-                                style={{
-                                    background: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                    borderColor: `color-mix(in srgb, var(--theme-primary) 20%, transparent)`,
-                                    borderWidth: `var(--borderWidth, 2px)`,
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, 'Inter')`,
-                                }}
-                            >
-                                {statusConfig.text}
-                            </Chip>
-                        </div>
-
-                        {/* Work Stats Grid */}
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            <Card 
-                                className="p-3 text-center"
-                                style={{
-                                    background: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                    borderColor: `color-mix(in srgb, var(--theme-primary) 20%, transparent)`,
-                                    borderWidth: `var(--borderWidth, 2px)`,
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, 'Inter')`,
-                                }}
-                            >
-                                <ClockIcon 
-                                    className="w-5 h-5 mx-auto mb-1"
-                                    style={{ color: 'var(--theme-primary)' }}
+        <Box>
+            <Card style={{ opacity: attendanceState.loading ? 0.7 : 1 }}>
+                <Box p={{ initial: '3', md: '4' }}>
+                    {/* Header: Avatar + Name + Time */}
+                    <Flex align="center" justify="between" mb={{ initial: '3', md: '4' }}>
+                        <Flex align="center" gap="3">
+                            <Box style={{ position: 'relative', display: 'inline-block' }}>
+                                <Avatar
+                                    src={user?.profile_image_url || user?.profile_image}
+                                    fallback={user?.name?.charAt(0)?.toUpperCase() || '?'}
+                                    size="3"
+                                    radius="full"
                                 />
-                                <div 
-                                    className="text-sm font-bold font-mono tracking-wide"
-                                    style={{ color: 'var(--theme-primary)' }}
-                                >
+                                <Box style={{
+                                    position: 'absolute', bottom: 0, right: 0,
+                                    width: 10, height: 10, borderRadius: '50%',
+                                    background: statusConfig.color === 'success' ? 'var(--green-9)' : statusConfig.color === 'warning' ? 'var(--amber-9)' : 'var(--accent-9)',
+                                    border: '2px solid var(--color-background)',
+                                }} />
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" style={{ display: 'block' }}>{user?.name}</Text>
+                                <Text size="1" color="gray">ID: {user?.employee_id || user?.id}</Text>
+                            </Box>
+                        </Flex>
+                        <Box style={{ textAlign: 'right' }}>
+                            <Text size={{ initial: '3', md: '4' }} weight="light" style={{ display: 'block', color: 'var(--accent-9)', fontVariantNumeric: 'tabular-nums' }}>
+                                {systemState.currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                            </Text>
+                            <Text size="1" color="gray">
+                                {systemState.currentTime.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
+                            </Text>
+                        </Box>
+                    </Flex>
+
+                    {/* Status Badge */}
+                    <Flex justify="center" mb={{ initial: '3', md: '4' }}>
+                        <Badge color={rc(statusConfig.color)} variant="soft" size={{ initial: '1', md: '2' }} style={{ fontWeight: 600 }}>
+                            <Flex align="center" gap="1">{statusConfig.icon} {statusConfig.text}</Flex>
+                        </Badge>
+                    </Flex>
+
+                    {/* Work Stats */}
+                    <Grid columns="2" gap={{ initial: '2', md: '3' }} mb={{ initial: '3', md: '4' }}>
+                        <Card variant="surface">
+                            <Flex direction="column" align="center" p="3" gap="1">
+                                <ClockIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
+                                <Text size="3" weight="bold" style={{ fontFamily: 'monospace', color: 'var(--accent-9)' }}>
                                     {attendanceState.realtimeWorkTime}
-                                </div>
-                                <div 
-                                    className="text-xs"
-                                    style={{ color: 'var(--theme-foreground-600)' }}
-                                >
-                                    Hours Today
-                                </div>
-                            </Card>
-
-                            <Card 
-                                className="p-3 text-center"
-                                style={{
-                                    background: `color-mix(in srgb, var(--theme-secondary) 10%, transparent)`,
-                                    borderColor: `color-mix(in srgb, var(--theme-secondary) 20%, transparent)`,
-                                    borderWidth: `var(--borderWidth, 2px)`,
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, 'Inter')`,
-                                }}
-                            >
-                                <BuildingOfficeIcon 
-                                    className="w-5 h-5 mx-auto mb-1"
-                                    style={{ color: 'var(--theme-secondary)' }}
-                                />
-                                <div 
-                                    className="text-sm font-bold"
-                                    style={{ color: 'var(--theme-secondary)' }}
-                                >
+                                </Text>
+                                <Text size="1" color="gray">Hours Today</Text>
+                            </Flex>
+                        </Card>
+                        <Card variant="surface">
+                            <Flex direction="column" align="center" p="3" gap="1">
+                                <HomeIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
+                                <Text size="3" weight="bold" style={{ color: 'var(--accent-9)' }}>
                                     {workStats.sessionsToday}
-                                </div>
-                                <div 
-                                    className="text-xs"
-                                    style={{ color: 'var(--theme-foreground-600)' }}
-                                >
-                                    Sessions
-                                </div>
-                            </Card>
-                        </div>
+                                </Text>
+                                <Text size="1" color="gray">Sessions</Text>
+                            </Flex>
+                        </Card>
+                    </Grid>
 
-                        {/* Main Action Button */}
-                        <Button
-                            color={statusConfig.color}
-                            variant="shadow"
-                            size="lg"
-                            fullWidth
-                            onPress={handlePunch}
-                            isDisabled={isPunchActionDisabled}
-                            isLoading={attendanceState.loading}
-                            startContent={!attendanceState.loading && statusConfig.icon}
-                            className="mb-4 font-semibold"
-                            style={{
-                                background: isPunchActionDisabled
-                                    ? 'var(--theme-default, #71717A)'
-                                    : statusConfig.color === 'primary' 
-                                        ? `linear-gradient(135deg, var(--theme-primary, #006FEE), var(--theme-primary-600, #005BC4))`
-                                        : statusConfig.color === 'success'
-                                        ? `linear-gradient(135deg, var(--theme-success, #17C964), var(--theme-success-600, #12A150))`
-                                        : statusConfig.color === 'warning'
-                                        ? `linear-gradient(135deg, var(--theme-warning, #F5A524), var(--theme-warning-600, #C4841D))`
-                                        : `linear-gradient(135deg, var(--theme-primary, #006FEE), var(--theme-primary-600, #005BC4))`,
-                                color: 'white',
-                                borderRadius: `var(--borderRadius, 8px)`,
-                                borderWidth: `var(--borderWidth, 2px)`,
-                                fontFamily: `var(--fontFamily, 'Inter')`,
-                                opacity: isPunchActionDisabled 
-                                    ? `var(--disabledOpacity, 0.5)` : '1',
-                            }}
-                        >
-                            {attendanceState.loading ? 'Processing...' : statusConfig.action}
-                        </Button>
+                    {/* Main Action Button */}
+                    <Button
+                        size="3"
+                        color={rc(statusConfig.color)}
+                        disabled={isPunchActionDisabled}
+                        onClick={handlePunch}
+                        style={{ width: '100%', marginBottom: 'var(--space-3)' }}
+                    >
+                        {attendanceState.loading
+                            ? <Flex align="center" gap="2"><Spinner size="1" /> Processing...</Flex>
+                            : <Flex align="center" gap="2">{statusConfig.icon} {statusConfig.action}</Flex>
+                        }
+                    </Button>
 
-                        {requiresQrCode && (
-                            <Input
-                                label="Attendance QR Code"
-                                labelPlacement="outside"
+                    {/* QR Code Input */}
+                    {requiresQrCode && (
+                        <Box mb="3">
+                            <Text size="1" weight="medium" mb="1" style={{ display: 'block' }}>Attendance QR Code</Text>
+                            <TextField.Root
                                 placeholder="Scan or enter QR code"
                                 value={qrCodeValue}
-                                onValueChange={setQrCodeValue}
-                                startContent={<QrCodeIcon className="w-4 h-4 text-default-400" />}
-                                variant="bordered"
-                                className="mb-4"
-                                style={{
-                                    fontFamily: `var(--fontFamily, 'Inter')`,
-                                }}
-                            />
-                        )}
-
-                        {/* Validation Requirement Chips */}
-                        <div className="flex justify-center gap-2 mb-4">
-                            {usesLocationRequirement && (
-                                <Tooltip content={gpsChipConfig.tooltip}>
-                                    <Chip 
-                                        size="sm" 
-                                        variant={gpsChipConfig.variant}
-                                        color={gpsChipConfig.color}
-                                        startContent={
-                                            locationState.status === GPS_STATUS.CHECKING ? 
-                                                <Spinner size="sm" className="w-3 h-3" /> :
-                                                <MapPinIcon className="w-3 h-3" />
-                                        }
-                                        className={`text-xs transition-all ${gpsChipConfig.clickable ? 'cursor-pointer hover:scale-105' : ''}`}
-                                        style={{
-                                            borderRadius: `var(--borderRadius, 8px)`,
-                                            fontFamily: `var(--fontFamily, 'Inter')`,
-                                        }}
-                                        onClick={gpsChipConfig.clickable ? handleGpsChipClick : undefined}
-                                    >
-                                        {gpsChipConfig.text}
-                                    </Chip>
-                                </Tooltip>
-                            )}
-
-                            {requiresNetworkValidation && (
-                                <Tooltip content={`WiFi/IP attendance requires active network. Current network: ${systemState.connectionStatus.network ? 'Online' : 'Offline'}`}>
-                                    <Chip 
-                                        size="sm" 
-                                        variant="flat"
-                                        color={systemState.connectionStatus.network ? 'success' : 'danger'}
-                                        startContent={<WifiIcon className="w-3 h-3" />}
-                                        className="text-xs"
-                                        style={{
-                                            borderRadius: `var(--borderRadius, 8px)`,
-                                            fontFamily: `var(--fontFamily, 'Inter')`,
-                                        }}
-                                    >
-                                        IP Net
-                                    </Chip>
-                                </Tooltip>
-                            )}
-
-                            {requiresQrCode && (
-                                <Tooltip content={qrCodeValue.trim() ? 'QR code entered and ready.' : 'QR code is required for this attendance type.'}>
-                                    <Chip 
-                                        size="sm" 
-                                        variant="flat"
-                                        color={qrCodeValue.trim() ? 'success' : 'warning'}
-                                        startContent={<QrCodeIcon className="w-3 h-3" />}
-                                        className="text-xs"
-                                        style={{
-                                            borderRadius: `var(--borderRadius, 8px)`,
-                                            fontFamily: `var(--fontFamily, 'Inter')`,
-                                        }}
-                                    >
-                                        QR
-                                    </Chip>
-                                </Tooltip>
-                            )}
-
-                            {requiresPhotoCapture && (
-                                <Tooltip content="Photo verification is required for this attendance type.">
-                                    <Chip 
-                                        size="sm" 
-                                        variant="flat"
-                                        color="warning"
-                                        startContent={<CameraIcon className="w-3 h-3" />}
-                                        className="text-xs"
-                                        style={{
-                                            borderRadius: `var(--borderRadius, 8px)`,
-                                            fontFamily: `var(--fontFamily, 'Inter')`,
-                                        }}
-                                    >
-                                        Photo
-                                    </Chip>
-                                </Tooltip>
-                            )}
-
-                            {!usesLocationRequirement && !requiresNetworkValidation && !requiresQrCode && !requiresPhotoCapture && (
-                                <Tooltip content="Standard attendance validation is active.">
-                                    <Chip 
-                                        size="sm" 
-                                        variant="flat"
-                                        color="success"
-                                        startContent={<ShieldCheckIcon className="w-3 h-3" />}
-                                        className="text-xs"
-                                        style={{
-                                            borderRadius: `var(--borderRadius, 8px)`,
-                                            fontFamily: `var(--fontFamily, 'Inter')`,
-                                        }}
-                                    >
-                                        Standard
-                                    </Chip>
-                                </Tooltip>
-                            )}
-                        </div>
-
-                        {/* Location Error Message */}
-                        {requiresLocationForPunch && locationState.error && locationState.status !== GPS_STATUS.ACTIVE && (
-                            <Card 
-                                className="p-3 mb-4"
-                                style={{
-                                    background: `color-mix(in srgb, var(--theme-danger) 10%, transparent)`,
-                                    borderColor: `color-mix(in srgb, var(--theme-danger) 20%, transparent)`,
-                                    borderWidth: `var(--borderWidth, 1px)`,
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, 'Inter')`,
-                                }}
+                                onChange={(e) => setQrCodeValue(e.target.value)}
+                                size="2"
                             >
-                                <div className="flex items-start gap-2">
-                                    <ExclamationTriangleIcon 
-                                        className="w-4 h-4 mt-0.5 flex-shrink-0"
-                                        style={{ color: 'var(--theme-danger)' }}
-                                    />
-                                    <div className="text-xs" style={{ color: 'var(--theme-danger-foreground)' }}>
-                                        {locationState.error}
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Leave Status Alert */}
-                        {attendanceState.userOnLeave && (
-                            <Card 
-                                className="p-3 mb-4"
-                                style={{
-                                    background: `color-mix(in srgb, var(--theme-warning) 15%, transparent)`,
-                                    borderColor: `color-mix(in srgb, var(--theme-warning) 30%, transparent)`,
-                                    borderWidth: `var(--borderWidth, 2px)`,
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, 'Inter')`,
-                                }}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <ExclamationTriangleIcon 
-                                        className="w-5 h-5"
-                                        style={{ color: 'var(--theme-warning)' }}
-                                    />
-                                    <div>
-                                        <div 
-                                            className="font-semibold text-sm"
-                                            style={{ color: 'var(--theme-warning-foreground)' }}
-                                        >
-                                            On {attendanceState.userOnLeave.leave_type} Leave
-                                        </div>
-                                        <div 
-                                            className="text-xs"
-                                            style={{ color: 'var(--theme-warning-foreground-600)' }}
-                                        >
-                                            {new Date(attendanceState.userOnLeave.from_date).toLocaleDateString()} - {new Date(attendanceState.userOnLeave.to_date).toLocaleDateString()}
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Expandable Today's Activity */}
-                        <div className="border-t border-divider">
-                            <Accordion>
-                                <AccordionItem 
-                                    key="activity"
-                                    aria-label="Today's Activity"
-                                    startContent={<CalendarIcon className="w-5 h-5" style={{ color: 'var(--theme-primary)' }} />}
-                                    title={
-                                        <span 
-                                            className="font-semibold text-sm"
-                                            style={{ color: 'var(--theme-foreground)' }}
-                                        >
-                                            Today's Activity
-                                        </span>
-                                    }
-                                    subtitle={
-                                        <span 
-                                            className="text-xs"
-                                            style={{ color: 'var(--theme-foreground-600)' }}
-                                        >
-                                            {workStats.sessionsToday} sessions • {attendanceState.realtimeWorkTime}
-                                        </span>
-                                    }
-                                >
-                                    <div className="space-y-2">
-                                        {attendanceState.todayPunches.length > 0 ? (
-                                            attendanceState.todayPunches.map((punch, index) => (
-                                                <Card 
-                                                    key={index}
-                                                    className="p-3"
-                                                    style={{
-                                                        background: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                                        borderColor: `color-mix(in srgb, var(--theme-primary) 20%, transparent)`,
-                                                        borderWidth: `var(--borderWidth, 2px)`,
-                                                        borderRadius: `var(--borderRadius, 8px)`,
-                                                        fontFamily: `var(--fontFamily, 'Inter')`,
-                                                    }}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            
-                                                            {/* Two-column grid for punch details */}
-                                                            <div className="grid grid-cols-2 gap-3">
-                                                                {/* Punch In Column */}
-                                                                <div className="space-y-1">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div 
-                                                                            className="w-2 h-2 rounded-full bg-success"
-                                                                            style={{ backgroundColor: 'var(--theme-success)' }}
-                                                                        />
-                                                                        <span 
-                                                                            className="text-xs font-semibold"
-                                                                            style={{ color: 'var(--theme-success)' }}
-                                                                        >
-                                                                            Check In
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="pl-4 space-y-1">
-                                                                        <div 
-                                                                            className="text-sm font-mono font-medium"
-                                                                            style={{ color: 'var(--theme-foreground)' }}
-                                                                        >
-                                                                            {formatTime(punch.punchin_time)}
-                                                                        </div>
-                                                                        <div className="flex items-start gap-1">
-                                                                            <MapPinIcon 
-                                                                                className="w-3 h-3 mt-0.5 flex-shrink-0"
-                                                                                style={{ color: 'var(--theme-foreground-500)' }}
-                                                                            />
-                                                                            <span 
-                                                                                className="text-xs leading-tight"
-                                                                                style={{ color: 'var(--theme-foreground-600)' }}
-                                                                            >
-                                                                                {formatLocation(punch.punchin_location)}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {/* Punch Out Column */}
-                                                                {punch.punchout_time ? (
-                                                                    <div className="space-y-1">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div 
-                                                                                className="w-2 h-2 rounded-full"
-                                                                                style={{ backgroundColor: 'var(--theme-primary)' }}
-                                                                            />
-                                                                            <span 
-                                                                                className="text-xs font-semibold"
-                                                                                style={{ color: 'var(--theme-primary)' }}
-                                                                            >
-                                                                                Check Out
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="pl-4 space-y-1">
-                                                                            <div 
-                                                                                className="text-sm font-mono font-medium"
-                                                                                style={{ color: 'var(--theme-foreground)' }}
-                                                                            >
-                                                                                {formatTime(punch.punchout_time)}
-                                                                            </div>
-                                                                            <div className="flex items-start gap-1">
-                                                                                <MapPinIcon 
-                                                                                    className="w-3 h-3 mt-0.5 flex-shrink-0"
-                                                                                    style={{ color: 'var(--theme-foreground-500)' }}
-                                                                                />
-                                                                                <span 
-                                                                                    className="text-xs leading-tight"
-                                                                                    style={{ color: 'var(--theme-foreground-600)' }}
-                                                                                >
-                                                                                    {formatLocation(punch.punchout_location)}
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="space-y-1">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div 
-                                                                                className="w-2 h-2 rounded-full border-2"
-                                                                                style={{ borderColor: 'var(--theme-warning)' }}
-                                                                            />
-                                                                            <span 
-                                                                                className="text-xs font-semibold"
-                                                                                style={{ color: 'var(--theme-warning)' }}
-                                                                            >
-                                                                                Active Session
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="pl-4 space-y-1">
-                                                                            <div 
-                                                                                className="text-sm font-mono font-medium"
-                                                                                style={{ color: 'var(--theme-warning)' }}
-                                                                            >
-                                                                                --:--
-                                                                            </div>
-                                                                            <div className="flex items-start gap-1">
-                                                                                <ClockIcon 
-                                                                                    className="w-3 h-3 mt-0.5 flex-shrink-0"
-                                                                                    style={{ color: 'var(--theme-warning)' }}
-                                                                                />
-                                                                                <span 
-                                                                                    className="text-xs leading-tight"
-                                                                                    style={{ color: 'var(--theme-warning-600)' }}
-                                                                                >
-                                                                                    In progress
-                                                                                </span>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        {punch.duration && (
-                                                            <Chip 
-                                                                size="sm" 
-                                                                color="primary"
-                                                                variant="flat"
-                                                                className="text-xs"
-                                                            >
-                                                                {punch.duration}
-                                                            </Chip>
-                                                        )}
-                                                    </div>
-                                                </Card>
-                                            ))
-                                        ) : (
-                                            <Card 
-                                                className="p-4 text-center"
-                                               
-                                                style={{
-                                                    background: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                                    borderColor: `color-mix(in srgb, var(--theme-primary) 20%, transparent)`,
-                                                    borderWidth: `var(--borderWidth, 2px)`,
-                                                    borderRadius: `var(--borderRadius, 8px)`,
-                                                    fontFamily: `var(--fontFamily, 'Inter')`,
-                                                }}
-                                            >
-                                                <InformationCircleIcon 
-                                                    className="w-8 h-8 mx-auto mb-2"
-                                                    style={{ color: 'var(--theme-primary)' }}
-                                                />
-                                                <div 
-                                                    className="text-sm"
-                                                    style={{ color: 'var(--theme-foreground-600)' }}
-                                                >
-                                                    No activity recorded today
-                                                </div>
-                                            </Card>
-                                        )}
-                                    </div>
-                                </AccordionItem>
-                            </Accordion>
-                        </div>
-                    </CardBody>
-                </Card>
-            </motion.div>
-
-            {/* Session Success Modal */}
-            <Modal 
-                isOpen={uiState.sessionDialogOpen} 
-                onOpenChange={(open) => setUiState(prev => ({ ...prev, sessionDialogOpen: open }))}
-                size="sm"
-                backdrop="blur"
-                classNames={{
-                    backdrop: "backdrop-blur-md",
-                    base: "border border-default-200",
-                    header: "border-b-[1px] border-divider",
-                    footer: "border-t-[1px] border-divider",
-                }}
-                style={{
-                    background: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                    borderColor: `color-mix(in srgb, var(--theme-primary) 20%, transparent)`,
-                    borderWidth: `var(--borderWidth, 2px)`,
-                    borderRadius: `var(--borderRadius, 8px)`,
-                    fontFamily: `var(--fontFamily, 'Inter')`,
-                }}
-             
-            >
-                <ModalContent>
-                    {(onClose) => (
-                        <>
-                            <ModalHeader className="flex flex-col gap-1 text-center">
-                                <CheckCircleIcon 
-                                    className="w-8 h-8 mx-auto mb-2"
-                                    style={{ color: 'var(--theme-success)' }}
-                                />
-                                <h3 className="font-bold text-lg">Attendance Recorded</h3>
-                                <p className="text-sm font-normal opacity-70">
-                                    Your attendance has been successfully captured
-                                </p>
-                            </ModalHeader>
-                            <ModalBody>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Card 
-                                        className="p-3 text-center"
-                                        style={{
-                                            borderRadius: `var(--borderRadius, 8px)`,
-                                            fontFamily: `var(--fontFamily, 'Inter')`,
-                                        }}
-                                    >
-                                        <GlobeAltIcon 
-                                            className="w-6 h-6 mx-auto mb-2"
-                                            style={{ color: 'var(--theme-primary)' }}
-                                        />
-                                        <div 
-                                            className="text-sm font-semibold"
-                                            style={{ color: 'var(--theme-primary)' }}
-                                        >
-                                            {systemState.sessionInfo.ip}
-                                        </div>
-                                        <div 
-                                            className="text-xs"
-                                            style={{ color: 'var(--theme-foreground-600)' }}
-                                        >
-                                            IP Address
-                                        </div>
-                                    </Card>
-
-                                    <Card 
-                                        className="p-3 text-center"
-                                        style={{
-                                            borderRadius: `var(--borderRadius, 8px)`,
-                                            fontFamily: `var(--fontFamily, 'Inter')`,
-                                        }}
-                                    >
-                                        <MapPinIcon 
-                                            className="w-6 h-6 mx-auto mb-2"
-                                            style={{ color: 'var(--theme-success)' }}
-                                        />
-                                        <div 
-                                            className="text-sm font-semibold"
-                                            style={{ color: 'var(--theme-success)' }}
-                                        >
-                                            {systemState.sessionInfo.accuracy}
-                                        </div>
-                                        <div 
-                                            className="text-xs"
-                                            style={{ color: 'var(--theme-foreground-600)' }}
-                                        >
-                                            GPS Accuracy
-                                        </div>
-                                    </Card>
-                                </div>
-
-                                <Card 
-                                    className="p-3 mt-4"
-                                    style={{
-                                        background: `color-mix(in srgb, var(--theme-success) 10%, transparent)`,
-                                        borderRadius: `var(--borderRadius, 8px)`,
-                                        fontFamily: `var(--fontFamily, 'Inter')`,
-                                    }}
-                                >
-                                    <div className="flex items-center justify-center gap-2 text-xs">
-                                        <ClockIcon className="w-4 h-4" />
-                                        <span>Recorded at: {systemState.sessionInfo.timestamp}</span>
-                                    </div>
-                                </Card>
-                            </ModalBody>
-                            <ModalFooter>
-                                <Button 
-                                    color="primary" 
-                                    variant="shadow"
-                                    fullWidth
-                                    onPress={onClose}
-                                    className="font-semibold"
-                                    style={{
-                                        borderRadius: `var(--borderRadius, 8px)`,
-                                        fontFamily: `var(--fontFamily, 'Inter')`,
-                                    }}
-                                >
-                                    Continue
-                                </Button>
-                            </ModalFooter>
-                        </>
+                                <TextField.Slot><BarChartIcon /></TextField.Slot>
+                            </TextField.Root>
+                        </Box>
                     )}
-                </ModalContent>
-            </Modal>
 
-            {/* Camera Modal for Photo Capture */}
-            <Modal 
-                isOpen={cameraState.isOpen} 
-                onClose={stopCamera}
-                size="lg"
-                classNames={{
-                    backdrop: "bg-black/80",
-                    base: "bg-content1"
-                }}
-                style={{
-                    borderRadius: `var(--borderRadius, 12px)`,
-                    fontFamily: `var(--fontFamily, 'Inter')`,
-                }}
-            >
-                <ModalContent>
-                    <ModalHeader className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                            <CameraIcon className="w-5 h-5 text-primary" />
-                            <span>Capture Attendance Photo</span>
-                        </div>
-                        <p className="text-sm text-default-500 font-normal">
-                            Take a photo for verification. Location coordinates will be added automatically.
-                        </p>
-                    </ModalHeader>
-                    <ModalBody className="p-4">
-                        <div className="relative rounded-lg overflow-hidden bg-black">
-                            {/* Video preview or captured photo */}
-                            {cameraState.capturedPhoto ? (
-                                <img 
-                                    src={cameraState.capturedPhoto} 
-                                    alt="Captured" 
-                                    className="w-full h-auto max-h-[400px] object-contain"
-                                />
-                            ) : (
-                                <>
-                                    <video 
-                                        ref={videoRef}
-                                        autoPlay 
-                                        playsInline 
-                                        muted
-                                        className="w-full h-auto max-h-[400px] object-contain"
-                                        style={{ transform: cameraState.facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
-                                    />
-                                    
-                                    {/* Camera switch button */}
-                                    <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="flat"
-                                        className="absolute top-3 right-3 bg-black/50 text-white hover:bg-black/70"
-                                        onPress={switchCamera}
-                                        isLoading={cameraState.isSwitching}
-                                        isDisabled={!cameraState.stream || cameraState.isSwitching}
-                                        style={{ borderRadius: '50%' }}
-                                    >
-                                        <ArrowPathIcon className="w-4 h-4" />
-                                    </Button>
-                                    
-                                    {/* Camera mode indicator */}
-                                    <div className="absolute top-3 left-3 px-2 py-1 rounded-full text-xs text-white bg-black/50">
-                                        {cameraState.facingMode === 'user' ? '🤳 Front' : '📷 Back'}
-                                    </div>
-                                </>
-                            )}
-                            
-                            {/* Hidden canvas for photo capture */}
-                            <canvas ref={canvasRef} className="hidden" />
-                            
-                            {/* Location overlay */}
-                            {locationState.coordinates && (
-                                <div 
-                                    className="absolute bottom-0 left-0 right-0 p-2 text-white text-xs"
-                                    style={{ background: 'rgba(0,0,0,0.7)' }}
+                    {/* Validation Badges */}
+                    <Flex justify="center" gap="2" mb={{ initial: '3', md: '4' }} wrap="wrap">
+                        {usesLocationRequirement && (
+                            <Tooltip content={gpsChipConfig.tooltip}>
+                                <Badge
+                                    color={rc(gpsChipConfig.color)}
+                                    variant="soft"
+                                    size="1"
+                                    style={{ cursor: gpsChipConfig.clickable ? 'pointer' : 'default' }}
+                                    onClick={gpsChipConfig.clickable ? handleGpsChipClick : undefined}
                                 >
-                                    📍 {locationState.coordinates.latitude.toFixed(6)}, {locationState.coordinates.longitude.toFixed(6)}
-                                </div>
-                            )}
-                        </div>
+                                    <Flex align="center" gap="1">
+                                        {locationState.status === GPS_STATUS.CHECKING ? <Spinner size="1" /> : <DrawingPinIcon />}
+                                        {gpsChipConfig.text}
+                                    </Flex>
+                                </Badge>
+                            </Tooltip>
+                        )}
+                        {requiresNetworkValidation && (
+                            <Tooltip content={`WiFi/IP attendance. Network: ${systemState.connectionStatus.network ? 'Online' : 'Offline'}`}>
+                                <Badge color={systemState.connectionStatus.network ? 'green' : 'red'} variant="soft" size="1">
+                                    <Flex align="center" gap="1"><LightningBoltIcon /> IP Net</Flex>
+                                </Badge>
+                            </Tooltip>
+                        )}
+                        {requiresQrCode && (
+                            <Tooltip content={qrCodeValue.trim() ? 'QR code entered.' : 'QR code required.'}>
+                                <Badge color={qrCodeValue.trim() ? 'green' : 'amber'} variant="soft" size="1">
+                                    <Flex align="center" gap="1"><BarChartIcon /> QR</Flex>
+                                </Badge>
+                            </Tooltip>
+                        )}
+                        {requiresPhotoCapture && (
+                            <Tooltip content="Photo verification required.">
+                                <Badge color="amber" variant="soft" size="1">
+                                    <Flex align="center" gap="1"><VideoIcon /> Photo</Flex>
+                                </Badge>
+                            </Tooltip>
+                        )}
+                        {!usesLocationRequirement && !requiresNetworkValidation && !requiresQrCode && !requiresPhotoCapture && (
+                            <Tooltip content="Standard attendance validation is active.">
+                                <Badge color="green" variant="soft" size="1">
+                                    <Flex align="center" gap="1"><LockClosedIcon /> Standard</Flex>
+                                </Badge>
+                            </Tooltip>
+                        )}
+                    </Flex>
 
-                        {/* Instructions */}
-                        <div 
-                            className="mt-3 p-3 rounded-lg text-sm"
-                            style={{ 
-                                background: 'color-mix(in srgb, var(--theme-primary) 10%, transparent)',
-                                borderRadius: 'var(--borderRadius, 8px)',
-                            }}
+                    {/* Location Error */}
+                    {requiresLocationForPunch && locationState.error && locationState.status !== GPS_STATUS.ACTIVE && (
+                        <Card mb="3" style={{ borderColor: 'var(--red-a7)' }}>
+                            <Flex align="start" gap="2" p="2">
+                                <ExclamationTriangleIcon style={{ color: 'var(--red-9)', flexShrink: 0, marginTop: 2 }} />
+                                <Text size="1" color="red">{locationState.error}</Text>
+                            </Flex>
+                        </Card>
+                    )}
+
+                    {/* Leave Alert */}
+                    {attendanceState.userOnLeave && (
+                        <Card mb="3" style={{ borderColor: 'var(--amber-a7)', background: 'var(--amber-a2)' }}>
+                            <Flex align="center" gap="2" p="3">
+                                <ExclamationTriangleIcon style={{ color: 'var(--amber-9)', width: 20, height: 20, flexShrink: 0 }} />
+                                <Box>
+                                    <Text size="2" weight="medium" color="amber" style={{ display: 'block' }}>
+                                        On {attendanceState.userOnLeave.leave_type} Leave
+                                    </Text>
+                                    <Text size="1" color="gray">
+                                        {new Date(attendanceState.userOnLeave.from_date).toLocaleDateString()} — {new Date(attendanceState.userOnLeave.to_date).toLocaleDateString()}
+                                    </Text>
+                                </Box>
+                            </Flex>
+                        </Card>
+                    )}
+
+                    {/* Today's Activity Collapsible */}
+                    <Box style={{ borderTop: '1px solid var(--gray-a4)' }}>
+                        <Flex
+                            align="center" justify="between" py="3"
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => setUiState(prev => ({
+                                ...prev,
+                                expandedSections: { ...prev.expandedSections, punches: !prev.expandedSections.punches }
+                            }))}
                         >
-                            <p className="flex items-center gap-2">
-                                <InformationCircleIcon className="w-4 h-4 text-primary" />
-                                {cameraState.capturedPhoto 
+                            <Flex align="center" gap="2">
+                                <CalendarIcon style={{ color: 'var(--accent-9)' }} />
+                                <Text size="2" weight="medium">Today's Activity</Text>
+                            </Flex>
+                            <Flex align="center" gap="2">
+                                <Text size="1" color="gray">{workStats.sessionsToday} sessions · {attendanceState.realtimeWorkTime}</Text>
+                                {uiState.expandedSections.punches ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                            </Flex>
+                        </Flex>
+                        {uiState.expandedSections.punches && (
+                            <Box pb="3">
+                                {attendanceState.todayPunches.length > 0 ? (
+                                    <Flex direction="column" gap="2">
+                                        {attendanceState.todayPunches.map((punch, index) => (
+                                            <Card key={index} variant="surface">
+                                                <Box p="3">
+                                                    <Grid columns="2" gap="3">
+                                                        <Box>
+                                                            <Flex align="center" gap="1" mb="1">
+                                                                <Box style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green-9)', flexShrink: 0 }} />
+                                                                <Text size="1" weight="medium" color="green">Check In</Text>
+                                                            </Flex>
+                                                            <Text size="2" weight="medium" style={{ fontFamily: 'monospace', display: 'block' }}>{formatTime(punch.punchin_time)}</Text>
+                                                            <Flex align="start" gap="1" mt="1">
+                                                                <DrawingPinIcon style={{ color: 'var(--gray-9)', flexShrink: 0, marginTop: 2, width: 12 }} />
+                                                                <Text size="1" color="gray">{formatLocation(punch.punchin_location)}</Text>
+                                                            </Flex>
+                                                        </Box>
+                                                        {punch.punchout_time ? (
+                                                            <Box>
+                                                                <Flex align="center" gap="1" mb="1">
+                                                                    <Box style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-9)', flexShrink: 0 }} />
+                                                                    <Text size="1" weight="medium" color="blue">Check Out</Text>
+                                                                </Flex>
+                                                                <Text size="2" weight="medium" style={{ fontFamily: 'monospace', display: 'block' }}>{formatTime(punch.punchout_time)}</Text>
+                                                                <Flex align="start" gap="1" mt="1">
+                                                                    <DrawingPinIcon style={{ color: 'var(--gray-9)', flexShrink: 0, marginTop: 2, width: 12 }} />
+                                                                    <Text size="1" color="gray">{formatLocation(punch.punchout_location)}</Text>
+                                                                </Flex>
+                                                            </Box>
+                                                        ) : (
+                                                            <Box>
+                                                                <Flex align="center" gap="1" mb="1">
+                                                                    <Box style={{ width: 8, height: 8, borderRadius: '50%', border: '2px solid var(--amber-9)', flexShrink: 0 }} />
+                                                                    <Text size="1" weight="medium" color="amber">Active</Text>
+                                                                </Flex>
+                                                                <Text size="2" color="amber" style={{ fontFamily: 'monospace', display: 'block' }}>--:--</Text>
+                                                                <Flex align="center" gap="1" mt="1">
+                                                                    <ClockIcon style={{ color: 'var(--amber-9)', width: 12, flexShrink: 0 }} />
+                                                                    <Text size="1" color="amber">In progress</Text>
+                                                                </Flex>
+                                                            </Box>
+                                                        )}
+                                                    </Grid>
+                                                    {punch.duration && (
+                                                        <Flex justify="end" mt="2">
+                                                            <Badge color="blue" variant="soft" size="1">{punch.duration}</Badge>
+                                                        </Flex>
+                                                    )}
+                                                </Box>
+                                            </Card>
+                                        ))}
+                                    </Flex>
+                                ) : (
+                                    <Card variant="surface">
+                                        <Flex direction="column" align="center" p="4" gap="2">
+                                            <InfoCircledIcon style={{ color: 'var(--accent-9)', width: 32, height: 32 }} />
+                                            <Text size="2" color="gray">No activity recorded today</Text>
+                                        </Flex>
+                                    </Card>
+                                )}
+                            </Box>
+                        )}
+                    </Box>
+                </Box>
+            </Card>
+
+            {/* Session Success Dialog */}
+            <Dialog.Root open={uiState.sessionDialogOpen} onOpenChange={(open) => setUiState(prev => ({ ...prev, sessionDialogOpen: open }))}>
+                <Dialog.Content size="3" maxWidth="min(400px, 92vw)">
+                    <Dialog.Title>
+                        <Flex direction="column" align="center" gap="2">
+                            <CheckCircledIcon style={{ color: 'var(--green-9)', width: 40, height: 40 }} />
+                            Attendance Recorded
+                        </Flex>
+                    </Dialog.Title>
+                    <Dialog.Description size="2" color="gray" align="center">
+                        Your attendance has been successfully captured
+                    </Dialog.Description>
+                    <Grid columns="2" gap="3" my="3">
+                        <Card variant="surface">
+                            <Flex direction="column" align="center" p="3" gap="1">
+                                <GlobeIcon style={{ color: 'var(--accent-9)', width: 24, height: 24 }} />
+                                <Text size="2" weight="medium" color="blue">{systemState.sessionInfo.ip}</Text>
+                                <Text size="1" color="gray">IP Address</Text>
+                            </Flex>
+                        </Card>
+                        <Card variant="surface">
+                            <Flex direction="column" align="center" p="3" gap="1">
+                                <DrawingPinIcon style={{ color: 'var(--green-9)', width: 24, height: 24 }} />
+                                <Text size="2" weight="medium" color="green">{systemState.sessionInfo.accuracy}</Text>
+                                <Text size="1" color="gray">GPS Accuracy</Text>
+                            </Flex>
+                        </Card>
+                    </Grid>
+                    <Card variant="surface" mb="3">
+                        <Flex align="center" justify="center" gap="2" p="3">
+                            <ClockIcon />
+                            <Text size="2">Recorded at: {systemState.sessionInfo.timestamp}</Text>
+                        </Flex>
+                    </Card>
+                    <Flex justify="end">
+                        <Dialog.Close>
+                            <Button color="blue" size="2" style={{ width: '100%' }}>Continue</Button>
+                        </Dialog.Close>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* Camera Dialog */}
+            <Dialog.Root open={cameraState.isOpen} onOpenChange={(open) => { if (!open) stopCamera(); }}>
+                <Dialog.Content size="3" maxWidth="min(600px, 96vw)">
+                    <Dialog.Title>
+                        <Flex align="center" gap="2">
+                            <VideoIcon style={{ color: 'var(--accent-9)' }} />
+                            Capture Attendance Photo
+                        </Flex>
+                    </Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        Take a photo for verification. Location coordinates will be added automatically.
+                    </Dialog.Description>
+                    <Box mt="3" style={{ borderRadius: 'var(--radius-3)', overflow: 'hidden', background: 'black', position: 'relative' }}>
+                        {cameraState.capturedPhoto ? (
+                            <img
+                                src={cameraState.capturedPhoto}
+                                alt="Captured"
+                                style={{ width: '100%', height: 'auto', maxHeight: 400, objectFit: 'contain' }}
+                            />
+                        ) : (
+                            <>
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    style={{ width: '100%', height: 'auto', maxHeight: 400, objectFit: 'contain', transform: cameraState.facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+                                />
+                                <Button
+                                    size="1"
+                                    variant="soft"
+                                    style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.5)', color: 'white', borderRadius: '50%', padding: 8 }}
+                                    onClick={switchCamera}
+                                    disabled={!cameraState.stream || cameraState.isSwitching}
+                                >
+                                    {cameraState.isSwitching ? <Spinner size="1" /> : <ReloadIcon />}
+                                </Button>
+                                <Box style={{ position: 'absolute', top: 12, left: 12, padding: '2px 8px', borderRadius: 12, background: 'rgba(0,0,0,0.5)' }}>
+                                    <Text size="1" style={{ color: 'white' }}>{cameraState.facingMode === 'user' ? '🤳 Front' : '📷 Back'}</Text>
+                                </Box>
+                            </>
+                        )}
+                        <canvas ref={canvasRef} style={{ display: 'none' }} />
+                        {locationState.coordinates && (
+                            <Box style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '4px 8px', background: 'rgba(0,0,0,0.7)' }}>
+                                <Text size="1" style={{ color: 'white' }}>
+                                    📍 {locationState.coordinates.latitude.toFixed(6)}, {locationState.coordinates.longitude.toFixed(6)}
+                                </Text>
+                            </Box>
+                        )}
+                    </Box>
+                    <Card variant="surface" mt="3" mb="3">
+                        <Flex align="center" gap="2" p="2">
+                            <InfoCircledIcon style={{ color: 'var(--accent-9)' }} />
+                            <Text size="2">
+                                {cameraState.capturedPhoto
                                     ? 'Review your photo. You can retake if needed.'
                                     : 'Position yourself clearly in the frame and capture the photo.'}
-                            </p>
-                        </div>
-                    </ModalBody>
-                    <ModalFooter className="flex gap-2">
-                        <Button 
-                            color="danger" 
-                            variant="light"
-                            onPress={stopCamera}
-                            style={{ fontFamily: `var(--fontFamily, 'Inter')` }}
-                        >
-                            Cancel
-                        </Button>
-                        
+                            </Text>
+                        </Flex>
+                    </Card>
+                    <Flex gap="2" justify="end">
+                        <Button color="red" variant="soft" onClick={stopCamera}>Cancel</Button>
                         {cameraState.capturedPhoto ? (
                             <>
-                                <Button 
-                                    color="secondary" 
-                                    variant="flat"
-                                    onPress={retakePhoto}
-                                    startContent={<ArrowPathIcon className="w-4 h-4" />}
-                                    style={{ fontFamily: `var(--fontFamily, 'Inter')` }}
-                                >
-                                    Retake
+                                <Button color="violet" variant="soft" onClick={retakePhoto}>
+                                    <ReloadIcon /> Retake
                                 </Button>
-                                <Button 
-                                    color="success" 
-                                    variant="shadow"
-                                    onPress={confirmPhotoAndPunch}
-                                    isLoading={attendanceState.loading}
-                                    startContent={!attendanceState.loading && <CheckCircleIcon className="w-4 h-4" />}
-                                    style={{ fontFamily: `var(--fontFamily, 'Inter')` }}
-                                >
-                                    Confirm & {statusConfig.action}
+                                <Button color="green" disabled={attendanceState.loading} onClick={confirmPhotoAndPunch}>
+                                    {attendanceState.loading
+                                        ? <Flex align="center" gap="2"><Spinner size="1" /> Processing...</Flex>
+                                        : <Flex align="center" gap="2"><CheckCircledIcon /> Confirm & {statusConfig.action}</Flex>
+                                    }
                                 </Button>
                             </>
                         ) : (
-                            <Button 
-                                color="primary" 
-                                variant="shadow"
-                                onPress={capturePhoto}
-                                isLoading={cameraState.isCapturing}
-                                isDisabled={!cameraState.stream}
-                                startContent={!cameraState.isCapturing && <CameraIcon className="w-4 h-4" />}
-                                style={{ fontFamily: `var(--fontFamily, 'Inter')` }}
-                            >
-                                Capture Photo
+                            <Button color="blue" disabled={!cameraState.stream} onClick={capturePhoto}>
+                                {cameraState.isCapturing
+                                    ? <Flex align="center" gap="2"><Spinner size="1" /> Capturing...</Flex>
+                                    : <Flex align="center" gap="2"><VideoIcon /> Capture Photo</Flex>
+                                }
                             </Button>
                         )}
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
-        </div>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+        </Box>
     );
 });
 

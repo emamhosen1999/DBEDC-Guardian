@@ -5,7 +5,7 @@ import {
     CardBody,
     Button,
     Divider
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CheckCircleIcon,
     PrinterIcon,

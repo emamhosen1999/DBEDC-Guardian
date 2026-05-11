@@ -1,5 +1,5 @@
 import React from 'react';
-import { CardHeader, CardBody, Divider } from '@heroui/react';
+import { CardHeader, CardBody, Divider } from '@/compat/heroui';
 import { motion } from 'framer-motion';
 import GlassCard from "@/Components/GlassCard.jsx";
 import { usePage } from "@inertiajs/react";

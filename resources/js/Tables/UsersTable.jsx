@@ -22,7 +22,7 @@ import {
   Spinner,
   Select,
   SelectItem,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
   PencilIcon,
   TrashIcon,

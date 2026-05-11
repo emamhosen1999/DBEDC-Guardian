@@ -17,7 +17,7 @@ import {
     Card,
     CardBody,
     CardHeader
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
 import {CalendarDaysIcon, DocumentChartBarIcon, UserIcon, ArrowPathIcon} from '@heroicons/react/24/outline';

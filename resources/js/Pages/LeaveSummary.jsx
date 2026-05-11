@@ -40,7 +40,7 @@ import {
     Input,
     Skeleton,
     ScrollShadow
-} from "@heroui/react";
+} from "@/compat/heroui";
 import GlassCard from '@/Components/GlassCard.jsx';
 import PageHeader from "@/Components/PageHeader.jsx";
 import StatsCards from "@/Components/StatsCards.jsx";

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardBody, CardHeader, Button, Chip, Skeleton, Divider } from '@heroui/react';
+import { Card, CardBody, CardHeader, Button, Chip, Skeleton, Divider } from '@/compat/heroui';
 import { 
     ClockIcon, 
     CheckCircleIcon, 

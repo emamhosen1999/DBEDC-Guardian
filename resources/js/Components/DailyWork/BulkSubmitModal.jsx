@@ -15,7 +15,7 @@ import {
     Checkbox,
     ScrollShadow,
     Progress,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     ExclamationTriangleIcon,
     ShieldExclamationIcon,

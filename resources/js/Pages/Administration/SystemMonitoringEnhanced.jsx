@@ -22,7 +22,7 @@ import {
   Input,
   Select,
   SelectItem
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { useTheme } from '@/Contexts/ThemeContext';
 import { 
   Button as HeroButton,
@@ -33,7 +33,7 @@ import {
   Progress as HeroProgress,
   Tabs,
   Tab
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { 
   ComputerDesktopIcon,
   ChartBarIcon,

@@ -15,7 +15,7 @@ import {
     ScrollShadow,
     Select,
     SelectItem,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     ExclamationTriangleIcon,
     ShieldExclamationIcon,

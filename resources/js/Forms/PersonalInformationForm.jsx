@@ -9,7 +9,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter
-} from "@heroui/react";
+} from "@/compat/heroui";
 import React, {useEffect, useState} from "react";
 import { X, User } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";

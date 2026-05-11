@@ -10,7 +10,7 @@ import {
     Select,
     SelectItem,
     Divider,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { MapPinIcon, UserIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { showToast } from "@/utils/toastUtils";
 

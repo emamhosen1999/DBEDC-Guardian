@@ -5,7 +5,7 @@
     <!-- Essential Meta Tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv=" X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
@@ -59,12 +59,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
     <!-- Font Loading with Display Swap -->
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
-    <!-- Nebula Glass Design System -->
-    <link rel="stylesheet" href="<?php echo e(asset('assets/css/nebula-glass.css')); ?>">
-    <link rel="stylesheet" href="<?php echo e(asset('assets/css/nebula-showcase.css')); ?>">
-    <link rel="stylesheet" href="<?php echo e(asset('assets/css/nebula-components.css')); ?>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Title -->
     <title inertia><?php echo e(config('app.name')); ?></title>
@@ -85,7 +80,7 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: var(--font-body, 'Space Grotesk', sans-serif);
+            font-family: var(--default-font-family, 'Inter', system-ui, sans-serif);
             font-size: var(--text-base, 16px);
             line-height: var(--leading-normal, 1.6);
             color: var(--color-fg, #333);
@@ -96,9 +91,9 @@
                         color var(--duration-slow) var(--ease-glide);
         }
 
-        /* Essential CSS Custom Properties - Nebula Glass tokens will override these */
+        /* Essential CSS Custom Properties */
         :root {
-            --font-primary: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+            --font-primary: 'Inter', system-ui, sans-serif;
         }
 
         /* Screen Reader Only */
@@ -112,12 +107,6 @@
             clip: rect(0, 0, 0, 0) !important;
             white-space: nowrap !important;
             border: 0 !important;
-        }
-
-        /* Enhanced Background System - Nebula Glass will handle this */
-        body {
-            /* Nebula Glass CSS will handle background */
-            min-height: 100vh;
         }
 
         /* Enhanced Loading Screen - Optimized Performance & UX */
@@ -444,18 +433,7 @@
     </style>
 </head>
 
-<body data-theme="dark">
-    <!-- Nebula Glass Background Layers -->
-    <div class="nebula-bg"></div>
-    <div class="nebula-stars"></div>
-
-    <!-- SVG Noise Filter (referenced site-wide) -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-      <defs>
-        <filter id="grain-soft"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0"/></filter>
-        <filter id="grain-heavy"><feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.7 0"/></filter>
-      </defs>
-    </svg>
+<body>
 
     <!-- Skip Navigation Link for Accessibility -->
     <a href="#main-content" class="sr-only sr-only-focusable" style="position: absolute; top: -40px; left: 6px; z-index: 10001; color: white; background: var(--color-primary); padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold;">
@@ -494,15 +472,15 @@
 
     <!-- Enhanced Loading Management -->
     <script>
-        // Nebula Glass Theme Management
+        // Radix Themes FOUC prevention — set appearance before first paint
         (function() {
-            const stored = localStorage.getItem('nebula-theme') || 'dark';
-            document.body.setAttribute('data-theme', stored);
-            document.addEventListener('DOMContentLoaded', () => {
-                // Initialize theme on load
-                const body = document.body;
-                body.setAttribute('data-theme', stored);
-            });
+            try {
+                var s = localStorage.getItem('radix-theme-settings');
+                var settings = s ? JSON.parse(s) : {};
+                var appearance = settings.appearance || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-is-root-theme', 'true');
+                document.documentElement.classList.add(appearance === 'dark' ? 'dark' : 'light');
+            } catch(e) {}
         })();
 
         // Enhanced Loading Management for Optimized Performance
@@ -675,19 +653,10 @@
             }
         });
 
-        // Enhanced error handling
+        // Error handling — only hide the loading screen, never redirect
         window.addEventListener('error', function(e) {
             console.error('Unhandled error:', e.error);
-            // Hide loading screen on error but show error message
-            window.AppLoader.updateLoadingMessage('Error Loading', 'Attempting to recover...');
-            setTimeout(() => {
-                // Instead of full reload, try to navigate to dashboard
-                if (window.Inertia) {
-                    window.Inertia.visit('/dashboard');
-                } else {
-                    window.AppLoader.hideLoading();
-                }
-            }, 1500);
+            window.AppLoader.hideLoading();
         });
 
         window.addEventListener('unhandledrejection', function(e) {
