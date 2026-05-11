@@ -17,7 +17,7 @@ import {
     Tab,
     Card,
     CardBody
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     UserPlusIcon,
     ClockIcon,

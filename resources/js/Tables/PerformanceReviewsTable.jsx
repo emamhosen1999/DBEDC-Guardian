@@ -23,7 +23,7 @@ import {
     DropdownItem,
     User,
     Spinner
-} from '@heroui/react';
+} from '@/compat/heroui';
 import dayjs from 'dayjs';
 
 const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, onDelete, onApprove }) => {

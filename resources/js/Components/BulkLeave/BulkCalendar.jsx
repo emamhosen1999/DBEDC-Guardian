@@ -6,7 +6,7 @@ import {
     Button, 
     Chip, 
     Spinner
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { 
     ChevronLeftIcon, 
     ChevronRightIcon,

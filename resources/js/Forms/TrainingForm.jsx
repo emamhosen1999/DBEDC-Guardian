@@ -11,7 +11,7 @@ import {
     ModalBody,
     ModalFooter,
     Chip
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { CalendarIcon, UserIcon, ClockIcon, MapPinIcon, UsersIcon } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";
 import { usePage } from "@inertiajs/react";

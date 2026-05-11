@@ -11,7 +11,7 @@ import {
     Chip,
     Divider,
     Progress,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     DocumentIcon,
     TrashIcon,

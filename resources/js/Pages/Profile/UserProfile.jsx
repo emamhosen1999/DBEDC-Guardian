@@ -11,7 +11,7 @@ import {
     Input,
     Select,
     SelectItem
-} from "@heroui/react";
+} from "@/compat/heroui";
 
 import {
     UserIcon,

@@ -8,7 +8,7 @@ import {
     ModalFooter, 
     Button, 
     Divider
-} from '@heroui/react';
+} from '@/compat/heroui';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 

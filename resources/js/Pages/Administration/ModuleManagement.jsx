@@ -38,7 +38,7 @@ import {
     DropdownTrigger,
     DropdownMenu,
     DropdownItem
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CubeIcon,
     PlusIcon,

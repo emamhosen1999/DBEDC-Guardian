@@ -7,7 +7,7 @@ import {
     ModalBody,
     ModalFooter,
     Divider
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { 
     ExclamationTriangleIcon,
     TrashIcon 

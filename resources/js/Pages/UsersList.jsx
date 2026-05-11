@@ -22,7 +22,7 @@ import {
   Badge,
   Tooltip,
   Switch
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { GlassContainer, GlassCard } from '@/Components/Nebula/index';
 
 import { 

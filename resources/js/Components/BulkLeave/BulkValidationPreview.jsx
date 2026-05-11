@@ -7,7 +7,7 @@ import {
     Spinner, 
     Divider, 
     Progress 
-} from '@heroui/react';
+} from '@/compat/heroui';
 
 import { 
     CheckCircleIcon, 

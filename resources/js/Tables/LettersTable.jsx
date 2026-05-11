@@ -16,7 +16,7 @@ import {
     Chip,
     Pagination,
     Spinner
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     PencilIcon,
     TrashIcon,

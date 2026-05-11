@@ -8,7 +8,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { Plus, X, GraduationCap } from 'lucide-react';
 import GlassCard from '@/Components/GlassCard'; // Make sure this component is correctly imported
 import { showToast } from '@/utils/toastUtils';

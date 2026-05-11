@@ -17,7 +17,7 @@ import {
     SelectItem,
     Spinner,
     Skeleton
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { 
     CalendarIcon, 
     ChartBarIcon, 

@@ -10,7 +10,7 @@ import {
     Tooltip,
     Tabs,
     Tab,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     DocumentArrowUpIcon,
     DocumentTextIcon,

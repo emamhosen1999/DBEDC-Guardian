@@ -10,7 +10,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter,
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { Briefcase, Building2 } from 'lucide-react';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';

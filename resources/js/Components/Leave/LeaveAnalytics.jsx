@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardBody, CardHeader, Select, SelectItem, Skeleton } from '@heroui/react';
+import { Card, CardBody, CardHeader, Select, SelectItem, Skeleton } from '@/compat/heroui';
 import { 
     ChartBarIcon,
     BuildingOfficeIcon,

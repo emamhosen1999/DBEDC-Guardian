@@ -11,7 +11,7 @@ import {
     Divider,
     Card,
     CardBody,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     ExclamationTriangleIcon,
     ShieldExclamationIcon,

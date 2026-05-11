@@ -1,129 +1,57 @@
+import React from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { motion } from 'framer-motion';
-import {
-    ShieldExclamationIcon,
-    ArrowLeftIcon,
-    HomeIcon,
-    LockClosedIcon,
-} from '@heroicons/react/24/outline';
-import App from "@/Layouts/App.jsx";
+import { Box, Button, Callout, Card, Flex, Heading, Text } from '@radix-ui/themes';
+import { ArrowLeftIcon, HomeIcon, LockClosedIcon } from '@radix-ui/react-icons';
+import App from '@/Layouts/App.jsx';
 
 export default function Forbidden({ message, accessType, accessPath }) {
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: {
-                duration: 0.6,
-                staggerChildren: 0.1,
-            },
-        },
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: {
-            opacity: 1,
-            y: 0,
-            transition: { duration: 0.5 },
-        },
-    };
-
     return (
         <App>
             <Head title="Access Denied" />
-            
-            <motion.div
-                className="min-h-[70vh] flex items-center justify-center p-6"
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-            >
-                <motion.div
-                    className="max-w-lg w-full text-center"
-                    variants={itemVariants}
-                >
-                    {/* Icon */}
-                    <motion.div
-                        className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center mb-8"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
-                    >
-                        <ShieldExclamationIcon className="w-12 h-12 text-red-400" />
-                    </motion.div>
+            <Box style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                <Box style={{ maxWidth: 480, width: '100%', textAlign: 'center' }}>
+                    <Box style={{
+                        width: 88, height: 88, borderRadius: '50%',
+                        background: 'var(--red-a3)', border: '1px solid var(--red-a6)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        margin: '0 auto 24px',
+                    }}>
+                        <LockClosedIcon style={{ width: 36, height: 36, color: 'var(--red-9)' }} />
+                    </Box>
 
-                    {/* Error Code */}
-                    <motion.h1
-                        className="text-8xl font-bold bg-gradient-to-r from-red-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent mb-4"
-                        variants={itemVariants}
-                    >
-                        403
-                    </motion.h1>
+                    <Heading size="9" style={{ color: 'var(--red-9)', marginBottom: 8 }}>403</Heading>
+                    <Heading size="6" mb="3">Access Denied</Heading>
 
-                    {/* Title */}
-                    <motion.h2
-                        className="text-2xl font-semibold text-white mb-4"
-                        variants={itemVariants}
-                    >
-                        Access Denied
-                    </motion.h2>
-
-                    {/* Message */}
-                    <motion.p
-                        className="text-gray-400 mb-4"
-                        variants={itemVariants}
-                    >
+                    <Text as="p" color="gray" mb="4">
                         {message || "You don't have permission to access this resource."}
-                    </motion.p>
+                    </Text>
 
-                    {/* Access Details */}
                     {(accessType || accessPath) && (
-                        <motion.div
-                            className="bg-gray-800/50 rounded-lg p-4 mb-8 border border-gray-700"
-                            variants={itemVariants}
-                        >
-                            <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
-                                <LockClosedIcon className="w-4 h-4" />
-                                <span>
-                                    {accessType && <span className="capitalize">{accessType}</span>}
-                                    {accessPath && <span className="text-gray-500 ml-1">({accessPath})</span>}
-                                </span>
-                            </div>
-                        </motion.div>
+                        <Callout.Root color="red" mb="5">
+                            <Callout.Icon><LockClosedIcon /></Callout.Icon>
+                            <Callout.Text>
+                                {accessType && <span style={{ textTransform: 'capitalize' }}>{accessType}</span>}
+                                {accessPath && <span style={{ opacity: 0.7 }}> ({accessPath})</span>}
+                            </Callout.Text>
+                        </Callout.Root>
                     )}
 
-                    {/* Help Text */}
-                    <motion.p
-                        className="text-sm text-gray-500 mb-8"
-                        variants={itemVariants}
-                    >
-                        If you believe you should have access to this resource, please contact your administrator.
-                    </motion.p>
+                    <Text as="p" size="2" color="gray" mb="5">
+                        If you believe you should have access, please contact your administrator.
+                    </Text>
 
-                    {/* Action Buttons */}
-                    <motion.div
-                        className="flex flex-col sm:flex-row items-center justify-center gap-4"
-                        variants={itemVariants}
-                    >
-                        <button
-                            onClick={() => window.history.back()}
-                            className="flex items-center gap-2 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                        >
-                            <ArrowLeftIcon className="w-5 h-5" />
-                            Go Back
-                        </button>
-                        
-                        <Link
-                            href={route('dashboard')}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg transition-all"
-                        >
-                            <HomeIcon className="w-5 h-5" />
-                            Go to Dashboard
-                        </Link>
-                    </motion.div>
-                </motion.div>
-            </motion.div>
+                    <Flex gap="3" justify="center">
+                        <Button variant="soft" color="gray" onClick={() => window.history.back()} style={{ cursor: 'pointer' }}>
+                            <ArrowLeftIcon /> Go Back
+                        </Button>
+                        <Button asChild>
+                            <Link href={route('dashboard')}>
+                                <HomeIcon /> Dashboard
+                            </Link>
+                        </Button>
+                    </Flex>
+                </Box>
+            </Box>
         </App>
     );
 }

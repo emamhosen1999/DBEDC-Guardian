@@ -17,7 +17,7 @@ import {
     Chip,
     Tooltip,
     Divider,
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { 
     CalendarIcon, 
     FileTextIcon, 

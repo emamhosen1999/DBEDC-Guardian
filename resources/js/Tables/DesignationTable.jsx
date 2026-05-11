@@ -17,7 +17,7 @@ import {
     DropdownItem,
     Pagination,
     Spinner
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     PencilIcon,
     TrashIcon,

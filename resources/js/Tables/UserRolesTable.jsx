@@ -9,7 +9,7 @@ import {
   Chip,
   Spinner,
   Pagination
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
   UsersIcon,
   EnvelopeIcon

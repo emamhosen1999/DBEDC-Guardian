@@ -22,7 +22,7 @@ import {
     ButtonGroup,
     Input,
     ScrollShadow
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CalendarDaysIcon,
     MagnifyingGlassIcon,

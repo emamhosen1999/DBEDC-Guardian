@@ -1,1068 +1,468 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, usePage } from "@inertiajs/react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
-  Button,
-  Accordion,
-  AccordionItem,
-  Divider,
-  ScrollShadow,
-  Chip,
-  Input,
   Avatar,
   Badge,
+  Box,
+  Flex,
+  IconButton,
+  ScrollArea,
+  Separator,
+  Text,
+  TextField,
   Tooltip,
-  Card
-} from "@heroui/react";
+} from '@radix-ui/themes';
 import {
   ChevronRightIcon,
-  ChevronDownIcon,
-  ShieldCheckIcon,
   MagnifyingGlassIcon,
   HomeIcon,
-  StarIcon,
-  ClockIcon
-} from "@heroicons/react/24/outline"; 
-  
-import { motion, AnimatePresence } from 'framer-motion';
+  GearIcon,
+} from '@radix-ui/react-icons';
 import logo from '../../../public/assets/images/logo.png';
 
-// Helper function to highlight search matches
 const highlightSearchMatch = (text, searchTerm) => {
-  if (!searchTerm.trim()) return text;
-  
+  if (!searchTerm || !searchTerm.trim()) return text;
   const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
   const parts = text.split(regex);
-  
-  return parts.map((part, index) => {
-    if (part.toLowerCase() === searchTerm.toLowerCase()) {
-      return (
-        <Chip 
-          key={index} 
-          size="sm"
-          color="primary"
-          variant="flat"
-          className="px-1 py-0.5 font-semibold"
-        >
-          {part}
-        </Chip>
-      );
-    }
-    return part;
-  });
+  return parts.map((part, index) =>
+    part.toLowerCase() === searchTerm.toLowerCase()
+      ? <Text key={index} as="span" weight="bold" color="accent" style={{ background: 'var(--accent-a4)', borderRadius: 'var(--radius-1)', padding: '0 2px' }}>{part}</Text>
+      : part
+  );
 };
 
-// Custom hook for sidebar layout state management with selective localStorage persistence
 const useSidebarState = () => {
-  // Initialize sidebar layout state from localStorage for UI persistence only
   const [openSubMenus, setOpenSubMenus] = useState(() => {
     try {
       const stored = localStorage.getItem('sidebar_open_submenus');
       return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
+    } catch { return new Set(); }
   });
 
-  // Save layout state to localStorage when it changes
-  const updateOpenSubMenus = useCallback((newOpenSubMenus) => {
-    // Ensure we always have a valid Set
-    const validSet = newOpenSubMenus instanceof Set ? newOpenSubMenus : new Set();
-    setOpenSubMenus(validSet);
-    try {
-      localStorage.setItem('sidebar_open_submenus', JSON.stringify([...validSet]));
-    } catch (error) {
-      console.warn('Failed to save sidebar state to localStorage:', error);
-    }
+  const updateOpenSubMenus = useCallback((newSet) => {
+    const valid = newSet instanceof Set ? newSet : new Set();
+    setOpenSubMenus(valid);
+    try { localStorage.setItem('sidebar_open_submenus', JSON.stringify([...valid])); }
+    catch (e) { console.warn('sidebar localStorage error', e); }
   }, []);
 
-  const clearAllState = () => {
-    const clearedState = new Set();
-    setOpenSubMenus(clearedState);
-    try {
-      localStorage.setItem('sidebar_open_submenus', JSON.stringify([]));
-    } catch (error) {
-      console.warn('Failed to clear sidebar state in localStorage:', error);
-    }
-  };
-
-  return {
-    openSubMenus,
-    setOpenSubMenus: updateOpenSubMenus,
-    clearAllState
-  };
+  return { openSubMenus, setOpenSubMenus: updateOpenSubMenus };
 };
 
-const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
-  const isMobile = useMediaQuery('(max-width: 640px)');
-  const isTablet = useMediaQuery('(max-width: 768px)');
-  const { auth, app } = usePage().props;
-  
-  const {
-    openSubMenus,
-    setOpenSubMenus: updateOpenSubMenus,
-    clearAllState
-  } = useSidebarState();
-  
-  const [activePage, setActivePage] = useState(url);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // HeroUI will handle theming automatically through semantic colors
-  
-  // Fresh grouped pages - always recalculate for latest data
-  const groupedPages = (() => {
-    let allPages = pages;
-    
-    // Filter pages based on search term
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      
-      const filterPagesRecursively = (pagesList) => {
-        return pagesList.filter(page => {
-          const nameMatches = page.name.toLowerCase().includes(searchLower);
-          
-          let hasMatchingSubMenu = false;
-          if (page.subMenu) {
-            const filteredSubMenu = filterPagesRecursively(page.subMenu);
-            hasMatchingSubMenu = filteredSubMenu.length > 0;
-            if (hasMatchingSubMenu) {
-              page = { ...page, subMenu: filteredSubMenu };
-            }
-          }
-          
-          return nameMatches || hasMatchingSubMenu;
-        });
-      };
-      
-      allPages = filterPagesRecursively(pages);
-    }
-    
-    const mainPages = allPages.filter(page => !page.category || page.category === 'main');
-    const settingsPages = allPages.filter(page => page.category === 'settings');
-    
-    return { mainPages, settingsPages };
-  })();
+// Left accent bar that marks the active nav item
+const ActiveBar = () => (
+  <Box style={{
+    position: 'absolute',
+    left: 0,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: 3,
+    height: 18,
+    background: 'var(--accent-9)',
+    borderRadius: '0 3px 3px 0',
+    flexShrink: 0,
+  }} />
+);
 
-  // Auto-expand menus when searching
-  useEffect(() => {
-    if (searchTerm.trim()) {
-      const expandAllWithMatches = (pagesList, expandedSet = new Set()) => {
-        pagesList.forEach(page => {
-          if (page.subMenu) {
-            const searchLower = searchTerm.toLowerCase();
-            const hasMatches = page.subMenu.some(subPage => {
-              const matches = subPage.name.toLowerCase().includes(searchLower);
-              if (subPage.subMenu) {
-                return matches || expandAllWithMatches([subPage], expandedSet);
-              }
-              return matches;
-            });
-            
-            if (hasMatches) {
-              expandedSet.add(page.name);
-              expandAllWithMatches(page.subMenu, expandedSet);
-            }
-          }
-        });
-        return expandedSet;
-      };
-      
-      const newExpandedMenus = expandAllWithMatches(pages);
-      updateOpenSubMenus(newExpandedMenus);
-    }
-  }, [searchTerm, pages]);
+const NavItem = React.memo(({ page, level, activePage, openSubMenus, onToggle, onNavigate, searchTerm, collapsed, onExpandSidebar }) => {
+  const isActive = !!(page.route && activePage === '/' + page.route);
+  const hasActiveChild = !!(page.subMenu?.some(s =>
+    s.route ? '/' + s.route === activePage : s.subMenu?.some(n => '/' + n.route === activePage)
+  ));
+  const isExpanded = openSubMenus.has(page.name);
+  const indent = level * 14;
 
-  // Update active page when URL changes
-  useEffect(() => {
-    setActivePage(url);
-    
-    // Auto-expand parent menus if a submenu item is active
-    const expandParentMenus = (menuItems, targetUrl, parentNames = []) => {
-      for (const page of menuItems) {
-        const currentParents = [...parentNames, page.name];
-        
-        if (page.route && "/" + page.route === targetUrl) {
-          const newSet = new Set([...openSubMenus, ...currentParents.slice(0, -1)]);
-          updateOpenSubMenus(newSet);
-          return true;
-        }
-        
-        if (page.subMenu) {
-          if (expandParentMenus(page.subMenu, targetUrl, currentParents)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    };
-    
-    expandParentMenus(pages, url);
-  }, [url, pages]);
-
-  // Simple callback handlers - no useCallback for fresh execution
-  const handleSubMenuToggle = (pageName) => {
-    const newSet = new Set(openSubMenus);
-    if (newSet.has(pageName)) {
-      newSet.delete(pageName);
-    } else {
-      newSet.add(pageName);
-    }
-    updateOpenSubMenus(newSet);
-  };
-
-  const handlePageClick = (pageRoute) => {
-    setActivePage("/" + pageRoute);
-    // Clear search when navigating to a page
-    setSearchTerm('');
-    if (isMobile) {
-      toggleSideBar();
-    }
-  };
-
-  const renderCompactMenuItem = (page, isSubMenu = false, level = 0) => {
-    const isActive = activePage === "/" + page.route;
-    const hasActiveSubPage = page.subMenu?.some(
-      subPage => {
-        if (subPage.route) return "/" + subPage.route === activePage;
-        if (subPage.subMenu) return subPage.subMenu.some(nestedPage => "/" + nestedPage.route === activePage);
-        return false;
-      }
-    );
-    const isExpanded = openSubMenus.has(page.name);
-    
-    // Enhanced responsive sizing
-    const paddingLeft = level === 0 ? (isMobile ? 'px-3' : 'px-2') : level === 1 ? (isMobile ? 'px-4' : 'px-3') : (isMobile ? 'px-5' : 'px-4');
-    const height = level === 0 ? (isMobile ? 'h-11' : 'h-10') : level === 1 ? (isMobile ? 'h-10' : 'h-9') : (isMobile ? 'h-9' : 'h-8');
-    const iconSize = level === 0 ? (isMobile ? 'w-4 h-4' : 'w-3 h-3') : level === 1 ? 'w-3 h-3' : 'w-3 h-3';
-    const textSize = level === 0 ? (isMobile ? 'text-sm' : 'text-sm') : level === 1 ? 'text-xs' : 'text-xs';
-    
+  // ── Collapsed icon-only mode (top-level only) ──────────────────────────────
+  if (collapsed && level === 0) {
     if (page.subMenu) {
       return (
-        <div 
-          key={`menu-item-${page.name}-${level}`} 
-          className="w-full"
-        >
-          <Button
-            variant="light"
-            color={hasActiveSubPage ? "primary" : "default"}
-            startContent={
-              <div style={{ color: hasActiveSubPage ? `var(--theme-primary, #006FEE)` : `var(--theme-foreground, #11181C)` }}>
-                {React.cloneElement(page.icon, { className: iconSize })}
-              </div>
-            }
-            endContent={
-              <ChevronRightIcon 
-                className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-                style={{ color: isExpanded ? `var(--theme-primary, #006FEE)` : `var(--theme-foreground, #11181C)` }}
-              />
-            }
-            className={`w-full justify-start ${height} ${paddingLeft} bg-transparent transition-all duration-200 mb-0.5`}
-            style={hasActiveSubPage ? {
-              backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`,
-              border: `var(--borderWidth, 2px) solid var(--theme-primary, #006FEE)`,
-              borderRadius: `var(--borderRadius, 8px)`
-            } : {
-              border: `var(--borderWidth, 2px) solid transparent`,
-              borderRadius: `var(--borderRadius, 8px)`
-            }}
-            onMouseEnter={(e) => {
-              if (!hasActiveSubPage) {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`;
-              }
-              e.currentTarget.style.borderRadius = `var(--borderRadius, 8px)`;
-            }}
-            onMouseLeave={(e) => {
-              if (!hasActiveSubPage) {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid transparent`;
-              }
-            }}
-            onPress={() => handleSubMenuToggle(page.name)}
-            size="sm"
-          >
-            <div className="flex items-center justify-between w-full">
-              <span 
-                className={`${textSize} font-medium flex-1 mr-2 whitespace-nowrap`} 
-                style={{ color: hasActiveSubPage ? `#FFFFFF` : `var(--theme-foreground, #11181C)` }}
-              >
-                {highlightSearchMatch(page.name, searchTerm)}
-              </span>
-              <Chip
-                size="sm"
-                variant="flat"
-                color={hasActiveSubPage ? "primary" : "default"}
-                className={`text-xs ${isMobile ? 'h-5 min-w-5 px-1' : 'h-4 min-w-4 px-1'}`}
-              >
-                {page.subMenu.length}
-              </Chip>
-            </div>
-          </Button>
-          {/* Submenu with CSS transitions */}
-          <div
-            className={`overflow-hidden transition-all duration-200 ease-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
-          >
-            <div 
-              className={`${level === 0 ? (isMobile ? 'ml-8' : 'ml-6') : (isMobile ? 'ml-6' : 'ml-4')} mt-1 space-y-0.5 pl-3`}
-              style={{ 
-                borderLeft: `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)`
-              }}
+        <Tooltip content={page.name} side="right" delayDuration={80}>
+          <Box style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
+            <IconButton
+              variant={hasActiveChild ? 'soft' : 'ghost'}
+              color={hasActiveChild ? 'accent' : 'gray'}
+              size="3"
+              onClick={onExpandSidebar}
+              aria-label={page.name}
+              style={{ width: 36, height: 36, cursor: 'pointer', borderRadius: 'var(--radius-2)' }}
             >
-              {page.subMenu.map((subPage, index) => (
-                <div key={`subitem-${page.name}-${subPage.name}-${level}-${index}`}>
-                  {renderCompactMenuItem(subPage, true, level + 1)}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              {page.icon && React.cloneElement(page.icon, { style: { width: 16, height: 16 } })}
+            </IconButton>
+            {hasActiveChild && (
+              <Box style={{
+                position: 'absolute', top: 4, right: 4,
+                width: 5, height: 5, borderRadius: '50%',
+                background: 'var(--accent-9)',
+                border: '1.5px solid var(--color-panel-solid)',
+              }} />
+            )}
+          </Box>
+        </Tooltip>
       );
     }
-    
-    // No submenu - leaf item
     if (page.route) {
       return (
-        <div key={`route-item-${page.name}-${level}`}>
-          <Button
-            as={Link}
-            href={route(page.route)}
-            method={page.method}
-            preserveState
-            preserveScroll
-          
-            variant="light"
-            startContent={
-              <div style={{ color: isActive ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
-                {React.cloneElement(page.icon, { className: iconSize })}
-              </div>
-            }
-            className={`w-full justify-start ${height} ${paddingLeft} bg-transparent transition-all duration-200 mb-0.5`}
-            style={isActive ? {
-              backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`,
-              border: `var(--borderWidth, 2px) solid var(--theme-primary, #006FEE)`,
-              borderRadius: `var(--borderRadius, 8px)`
-            } : {
-              border: `var(--borderWidth, 2px) solid transparent`,
-              borderRadius: `var(--borderRadius, 8px)`
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`;
-              }
-              e.currentTarget.style.borderRadius = `var(--borderRadius, 8px)`;
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid transparent`;
-              }
-            }}
-            onPress={() => handlePageClick(page.route)}
-            size="sm"
-          >
-            <span 
-              className={`${textSize} font-medium whitespace-nowrap`}
-              style={{ color: isActive ? `#FFFFFF` : `var(--theme-foreground, #11181C)` }}
+        <Tooltip content={page.name} side="right" delayDuration={80}>
+          <Box style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: 2 }}>
+            {isActive && <ActiveBar />}
+            <IconButton
+              variant={isActive ? 'soft' : 'ghost'}
+              color={isActive ? 'accent' : 'gray'}
+              size="3"
+              asChild
+              aria-label={page.name}
+              style={{ width: 36, height: 36, cursor: 'pointer', borderRadius: 'var(--radius-2)' }}
             >
-              {highlightSearchMatch(page.name, searchTerm)}
-            </span>
-          </Button>
-        </div>
+              <Link href={route(page.route)} onClick={() => onNavigate(page.route)}>
+                {page.icon && React.cloneElement(page.icon, { style: { width: 16, height: 16 } })}
+              </Link>
+            </IconButton>
+          </Box>
+        </Tooltip>
       );
     }
-    
-    // Category header without route
+    return null;
+  }
+
+  // ── Group item (expanded mode) ─────────────────────────────────────────────
+  if (page.subMenu) {
     return (
-      <div 
-        key={`category-item-${page.name}-${level}`} 
-        className="w-full"
-      >
-        <Button
-          variant="light"
-          color={hasActiveSubPage ? "primary" : "default"}
-          startContent={
-            <div style={{ color: hasActiveSubPage ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
-              {React.cloneElement(page.icon, { className: iconSize })}
-            </div>
-          }
-          endContent={
-            <ChevronRightIcon 
-              className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-              style={{ color: isExpanded ? `var(--theme-primary, #006FEE)` : `var(--theme-foreground, #11181C)` }}
-            />
-          }
-          className={`w-full justify-start ${height} ${paddingLeft} bg-transparent transition-all duration-200 mb-0.5`}
-          style={hasActiveSubPage ? {
-            backgroundColor: `var(--theme-primary, #006FEE)`,
-            border: `var(--borderWidth, 2px) solid var(--theme-primary, #006FEE)`,
-            borderRadius: `var(--borderRadius, 8px)`,
-            color: `var(--theme-primary-foreground, #FFFFFF)`
-          } : {
-            borderRadius: `var(--borderRadius, 8px)`
+      <Box style={{ position: 'relative', marginBottom: 1 }}>
+        {hasActiveChild && <ActiveBar />}
+        <Box
+          role="button"
+          tabIndex={0}
+          onClick={() => onToggle(page.name)}
+          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onToggle(page.name)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            paddingLeft: 10 + indent, paddingRight: 10, height: 34,
+            borderRadius: 'var(--radius-2)', cursor: 'pointer',
+            background: hasActiveChild ? 'var(--accent-a3)' : 'transparent',
+            color: hasActiveChild ? 'var(--accent-11)' : 'var(--gray-11)',
+            userSelect: 'none', outline: 'none',
+            transition: 'background 100ms',
           }}
-          onMouseEnter={(e) => {
-            if (!hasActiveSubPage) {
-              e.currentTarget.style.backgroundColor = `var(--theme-content2, #F4F4F5)`;
-            }
-            e.currentTarget.style.borderRadius = `var(--borderRadius, 8px)`;
-          }}
-          onMouseLeave={(e) => {
-            if (!hasActiveSubPage) {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }
-          }}
-          onPress={() => handleSubMenuToggle(page.name)}
-          size="sm"
+          onMouseEnter={e => { if (!hasActiveChild) e.currentTarget.style.background = 'var(--gray-a2)'; }}
+          onMouseLeave={e => { if (!hasActiveChild) e.currentTarget.style.background = 'transparent'; }}
+          onFocus={e => { if (!hasActiveChild) e.currentTarget.style.background = 'var(--gray-a2)'; }}
+          onBlur={e => { if (!hasActiveChild) e.currentTarget.style.background = 'transparent'; }}
         >
-          <div className="flex items-center justify-between w-full">
-            <span 
-              className={`${textSize} font-medium flex-1 mr-2 whitespace-nowrap`} 
-              style={{ color: hasActiveSubPage ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}
-            >
-              {highlightSearchMatch(page.name, searchTerm)}
-            </span>
-            <Chip
-              size="sm"
-              variant="flat"
-              color={hasActiveSubPage ? "primary" : "default"}
-              className={`text-xs ${isMobile ? 'h-5 min-w-5 px-1' : 'h-4 min-w-4 px-1'}`}
-            >
-              {page.subMenu?.length || 0}
-            </Chip>
-          </div>
-        </Button>
-        {/* Submenu with CSS transitions */}
-        <div
-          className={`overflow-hidden transition-all duration-200 ease-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
-        >
-          <div 
-            className={`${level === 0 ? (isMobile ? 'ml-8' : 'ml-6') : (isMobile ? 'ml-6' : 'ml-4')} mt-1 space-y-0.5 pl-3`}
-            style={{ 
-              borderLeft: `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)`
-            }}
-          >
-            {page.subMenu?.map((subPage, index) => (
-              <div key={`category-subitem-${page.name}-${subPage.name}-${level}-${index}`}>
-                {renderCompactMenuItem(subPage, true, level + 1)}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderMenuItem = (page, isSubMenu = false, level = 0) => {
-    const isActive = page.route && activePage === "/" + page.route;
-    const hasActiveSubPage = page.subMenu?.some(
-      subPage => {
-        if (subPage.route) return "/" + subPage.route === activePage;
-        if (subPage.subMenu) return subPage.subMenu.some(nestedPage => "/" + nestedPage.route === activePage);
-        return false;
-      }
-    );
-    const isExpanded = openSubMenus.has(page.name);
-
-    const marginLeft = level === 0 ? '' : level === 1 ? 'ml-8' : 'ml-12';
-    const paddingLeft = level === 0 ? 'pl-4' : level === 1 ? 'pl-6' : 'pl-8';
-
-    if (page.subMenu) {
-      return (
-        <div key={`full-menu-item-${page.name}-${level}`} className="w-full">
-          <Button
-            color={hasActiveSubPage ? "primary" : "default"}
-            startContent={
-              <div style={{ color: hasActiveSubPage ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
-                {page.icon}
-              </div>
-            }
-            endContent={
-              <ChevronRightIcon 
-                className={`w-4 h-4 transition-all duration-300 ${
-                  isExpanded ? 'rotate-90' : ''
-                }`}
-                style={{ color: isExpanded ? `var(--theme-primary, #006FEE)` : `var(--theme-foreground, #11181C)` }}
-              />
-            }
-            variant={hasActiveSubPage ? "flat" : "light"}
-            className={`w-full justify-start h-14 ${paddingLeft} pr-4 transition-all duration-300 group hover:scale-105`}
-            style={hasActiveSubPage ? {
-              backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`,
-              border: `var(--borderWidth, 2px) solid var(--theme-primary, #006FEE)`,
-              borderRadius: `var(--borderRadius, 8px)`
-            } : {
-              border: `var(--borderWidth, 2px) solid transparent`,
-              borderRadius: `var(--borderRadius, 8px)`
-            }}
-            onMouseEnter={(e) => {
-              if (!hasActiveSubPage) {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!hasActiveSubPage) {
-                e.currentTarget.style.border = `var(--borderWidth, 2px) solid transparent`;
-              }
-            }}
-            onPress={() => handleSubMenuToggle(page.name)}
-            size="md"
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="flex flex-col items-start">
-                <span className={`font-semibold text-sm`} style={{ color: hasActiveSubPage ? `#FFFFFF` : `var(--theme-foreground, #11181C)` }}>
-                  {highlightSearchMatch(page.name, searchTerm)}
-                </span>
-                <span className="text-xs text-default-400 group-hover:text-default-500 transition-colors">
-                  {page.subMenu.length} {level === 0 ? 'categories' : 'modules'}
-                </span>
-              </div>
-              <Chip
-                size="sm"
-                color={hasActiveSubPage ? "primary" : "default"}
-                variant="flat"
-                className="transition-all duration-300"
-              >
-                {page.subMenu.length}
-              </Chip>
-            </div>
-          </Button>
-          
-          {/* Submenu Items with Animation */}
-          <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-            isExpanded ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
-          }`}>
-            <div 
-              className={`${marginLeft} mt-2 space-y-1 pl-4 relative`}
-              style={{ 
-                borderLeft: `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)`
-              }}
-            >
-              {page.subMenu.map((subPage, index) => (
-                <div
-                  key={`full-submenu-${page.name}-${subPage.name}-${level}-${index}`}
-                  className={`transform transition-all duration-300 delay-${index * 50} ${
-                    isExpanded ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'
-                  }`}
-                >
-                  {renderMenuItem(subPage, true, level + 1)}
-                </div>
+          {page.icon && (
+            <Box style={{ flexShrink: 0, opacity: hasActiveChild ? 1 : 0.6, display: 'flex', alignItems: 'center' }}>
+              {React.cloneElement(page.icon, { style: { width: 15, height: 15 } })}
+            </Box>
+          )}
+          <Text size="2" style={{ flex: 1, color: 'inherit', lineHeight: 1 }}>
+            {highlightSearchMatch(page.name, searchTerm)}
+          </Text>
+          <Badge size="1" variant="soft" color={hasActiveChild ? 'accent' : 'gray'} radius="full"
+            style={{ fontSize: 10, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+            {page.subMenu.length}
+          </Badge>
+          <ChevronRightIcon style={{
+            width: 12, height: 12, flexShrink: 0, opacity: 0.5,
+            transform: isExpanded ? 'rotate(90deg)' : 'none',
+            transition: 'transform 150ms ease',
+          }} />
+        </Box>
+        <Box style={{
+          display: 'grid',
+          gridTemplateRows: isExpanded ? '1fr' : '0fr',
+          transition: 'grid-template-rows 200ms ease',
+          marginLeft: 12 + indent,
+        }}>
+          <Box style={{ overflow: 'hidden' }}>
+            <Box style={{ paddingTop: 2, paddingBottom: 2, borderLeft: '1px solid var(--gray-a4)', paddingLeft: 6 }}>
+              {page.subMenu.map(sub => (
+                <NavItem key={sub.name} page={sub} level={level + 1} activePage={activePage}
+                  openSubMenus={openSubMenus} onToggle={onToggle} onNavigate={onNavigate}
+                  searchTerm={searchTerm} collapsed={false} onExpandSidebar={onExpandSidebar} />
               ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
 
-    // No submenu - either a route or category
-    if (page.route) {
-      return (
-        <Button
-          key={`full-route-item-${page.name}-${level}`}
-          as={Link}
+  // ── Leaf nav item (expanded mode) ──────────────────────────────────────────
+  if (page.route) {
+    return (
+      <Box style={{ position: 'relative', marginBottom: 1 }}>
+        {isActive && <ActiveBar />}
+        <Link
           href={route(page.route)}
           method={page.method}
           preserveState
           preserveScroll
-         
-          startContent={
-            <div style={{ color: isActive ? `var(--theme-primary-foreground, #FFFFFF)` : `var(--theme-foreground, #11181C)` }}>
-              {page.icon}
-            </div>
-          }
-          color={isActive ? "primary" : "default"}
-          variant={isActive ? "flat" : "light"}
-          className={`w-full justify-start h-11 ${paddingLeft} pr-4 transition-all duration-300 group hover:scale-105`}
-          style={isActive ? {
-            backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`,
-            border: `var(--borderWidth, 2px) solid var(--theme-primary, #006FEE)`,
-            borderRadius: `var(--borderRadius, 8px)`
-          } : {
-            border: `var(--borderWidth, 2px) solid transparent`,
-            borderRadius: `var(--borderRadius, 8px)`
-          }}
-          onMouseEnter={(e) => {
-            if (!isActive) {
-              e.currentTarget.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`;
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isActive) {
-              e.currentTarget.style.border = `var(--borderWidth, 2px) solid transparent`;
-            }
-          }}
-          onPress={() => handlePageClick(page.route)}
-          size="sm"
+          style={{ textDecoration: 'none', display: 'block' }}
+          onClick={() => onNavigate(page.route)}
         >
-          <span className="text-sm font-medium" style={{ color: isActive ? `#FFFFFF` : `var(--theme-foreground, #11181C)` }}>
-            {highlightSearchMatch(page.name, searchTerm)}
-          </span>
-        </Button>
-      );
-    }
-
-    // Category without route - just display as header
-    return (
-      <div key={`full-category-item-${page.name}-${level}`} className="w-full">
-        <div className={`${paddingLeft} pr-4 py-2`}>
-          <div className="flex items-center gap-2">
-            <div>
-              {page.icon}
-            </div>
-            <span className="text-sm font-semibold text-foreground/80">
-              {highlightSearchMatch(page.name, searchTerm)}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const SidebarContent = (
-    <motion.div 
-      className="flex flex-col h-full w-full overflow-hidden"
-      style={{ 
-        fontFamily: `var(--fontFamily, 'Inter')`,
-        transform: `scale(var(--scale, 1))`,
-        transformOrigin: 'top left'
-      }}
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-    >
-      {/* Fixed Header - Using PageHeader theming */}
-      <motion.div 
-        className="shrink-0"
-        style={{ 
-          backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 10%, transparent)`,
-          borderColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)`,
-          borderWidth: `var(--borderWidth, 2px)`,
-          borderStyle: 'solid',
-          borderRadius: `var(--borderRadius, 8px) var(--borderRadius, 8px) 0 0`
-        }}
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
-        <div 
-          className="p-3" 
-          style={{ 
-            borderBottom: `var(--borderWidth, '2px') solid var(--theme-divider, #E4E4E7)`
-          }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <motion.div 
-              className="flex items-center gap-3"
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
-              {/* Enhanced Logo Display */}
-              <div className="relative">
-                <div 
-                  className="w-10 h-10 flex items-center justify-center shadow-xl overflow-hidden"
-                  style={{ 
-                    backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 10%, transparent)`,
-                    borderColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 20%, transparent)`,
-                    borderWidth: `var(--borderWidth, 2px)`,
-                    borderStyle: 'solid',
-                    borderRadius: `var(--borderRadius, 8px)`
-                  }}
-                >
-                  <img 
-                    src={logo} 
-                    alt={`${app?.name || 'Company'} Logo`} 
-                    className="w-8 h-8 object-contain"
-                    onError={(e) => {
-                      // Fallback to text logo if image fails to load
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
-                    }}
-                  />
-                  <div 
-                    className="font-black text-sm absolute inset-0 flex items-center justify-center"
-                    style={{ 
-                      display: 'none',
-                      color: 'var(--theme-foreground, #11181C)'
-                    }}
-                  >
-                    A
-                  </div>
-                </div>
-                {/* Status Indicator */}
-                <div 
-                  className="absolute -top-1 -right-1 w-3 h-3 animate-pulse shadow-lg"
-                  style={{ 
-                    backgroundColor: 'var(--theme-success, #17C964)',
-                    borderColor: 'var(--theme-background, #FFFFFF)',
-                    borderWidth: `var(--borderWidth, '2px')`,
-                    borderStyle: 'solid',
-                    borderRadius: '50%'
-                  }}
-                ></div>
-              </div>
-              
-              {/* Brand Information */}
-              <div className="flex flex-col leading-tight">
-                <h1 
-                  className="font-bold text-base"
-                  style={{ color: `var(--theme-primary, #006FEE)` }}
-                >
-                  {app?.name || 'Company Name'}
-                </h1>
-                <p 
-                  className="text-xs font-medium"
-                  style={{ color: `var(--theme-foreground-500, #71717A)` }}
-                >
-                  aeos365
-                </p>
-              </div>
-            </motion.div>
-          </div>
-          
-         
-        </div>
-      </motion.div>
-
-      {/* Scrollable Navigation Content */}
-      <motion.div 
-        className="flex-1 overflow-hidden"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.4 }}
-      >
-        <ScrollShadow className="h-full" hideScrollBar size={5}>
-          <div className="p-2 space-y-2">
-            
-            {/* Quick Search */}
-            <motion.div 
-              className="px-1 mb-2"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.5 }}
-            >
-              <Input
-                size="sm"
-                placeholder="Search navigation..."
-                value={searchTerm}
-                onValueChange={setSearchTerm}
-                startContent={
-                  <MagnifyingGlassIcon 
-                    className="w-3 h-3" 
-                    style={{ color: `var(--theme-foreground-400, #A1A1AA)` }}
-                  />
-                }
-                isClearable
-                variant="bordered"
-                className="text-xs"
-                classNames={{
-                  input: "text-xs",
-                  inputWrapper: "h-8 min-h-8"
-                }}
-                style={{
-                  backgroundColor: `var(--theme-content2, #F4F4F5)`,
-                  borderColor: `var(--theme-divider, #E4E4E7)`,
-                  borderRadius: `var(--borderRadius, 8px)`,
-                  borderWidth: `var(--borderWidth, 2px)`,
-                  borderStyle: 'solid'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = `var(--theme-primary, #006FEE)`;
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = `var(--theme-divider, #E4E4E7)`;
-                }}
-              />
-            </motion.div>
-            
-            {/* Main Navigation - Enhanced */}
-            {groupedPages.mainPages.length > 0 && (
-              <motion.div 
-                className="space-y-1"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.6 }}
-              >
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <HomeIcon 
-                    className="w-3 h-3" 
-                    style={{ color: `var(--theme-primary, #006FEE)` }}
-                  />
-                  <span 
-                    className="font-bold text-xs uppercase tracking-wide"
-                    style={{ color: `var(--theme-primary, #006FEE)` }}
-                  >
-                    Main
-                  </span>
-                  <Divider className="flex-1" />
-                </div>
-                {groupedPages.mainPages.map((page, index) => (
-                  <motion.div
-                    key={`main-page-${page.name}-${index}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 0.7 + (index * 0.05) }}
-                  >
-                    {renderCompactMenuItem(page)}
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-
-            {/* Settings Section - Enhanced */}
-            {groupedPages.settingsPages.length > 0 && (
-              <motion.div 
-                className="space-y-1 mt-4"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.8 }}
-              >
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <ShieldCheckIcon 
-                    className="w-3 h-3" 
-                    style={{ color: `var(--theme-warning, #F5A524)` }}
-                  />
-                  <span 
-                    className="font-bold text-xs uppercase tracking-wide"
-                    style={{ color: `var(--theme-warning, #F5A524)` }}
-                  >
-                    Admin
-                  </span>
-                  <div 
-                    className="flex-1 h-px"
-                    style={{ backgroundColor: `color-mix(in srgb, var(--theme-warning, #F5A524) 20%, transparent)` }}
-                  ></div>
-                </div>
-                {groupedPages.settingsPages.map((page, index) => (
-                  <motion.div
-                    key={`settings-page-${page.name}-${index}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 0.9 + (index * 0.05) }}
-                  >
-                    {renderCompactMenuItem(page)}
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-
-            {/* All Pages fallback - Enhanced */}
-            {groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 && !searchTerm.trim() && (
-              <motion.div 
-                className="space-y-1"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.6 }}
-              >
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <StarIcon className="w-3 h-3 text-secondary" />
-                  <span className="text-secondary font-bold text-xs uppercase tracking-wide">
-                    Modules
-                  </span>
-                  <div className="flex-1 h-px bg-secondary/20"></div>
-                </div>
-                {pages.map((page, index) => (
-                  <motion.div
-                    key={`all-page-${page.name}-${index}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.2, delay: 0.7 + (index * 0.05) }}
-                  >
-                    {renderCompactMenuItem(page)}
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-
-            {/* No search results message */}
-            {searchTerm.trim() && groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 && (
-              <motion.div 
-                className="flex flex-col items-center justify-center py-8 px-4"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                <MagnifyingGlassIcon 
-                  className="w-8 h-8 mb-3" 
-                  style={{ color: `var(--theme-foreground-300, #D4D4D8)` }}
-                />
-                <p 
-                  className="text-center text-sm font-medium mb-1"
-                  style={{ color: `var(--theme-foreground-400, #A1A1AA)` }}
-                >
-                  No results found
-                </p>
-                <p 
-                  className="text-center text-xs"
-                  style={{ color: `var(--theme-foreground-300, #D4D4D8)` }}
-                >
-                  Try searching with different keywords
-                </p>
-              </motion.div>
-            )}
-
-            {/* Quick Actions - New Feature */}
-            {!searchTerm.trim() && (
-              <motion.div 
-                className="space-y-1 mt-6 pt-4"
-                style={{ borderTop: `1px solid var(--theme-divider, #E4E4E7)` }}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 1.0 }}
-              >
-                <div className="flex items-center gap-2 px-2 py-1">
-                  <ClockIcon 
-                    className="w-3 h-3" 
-                    style={{ color: `var(--theme-success, #17C964)` }}
-                  />
-                  <span 
-                    className="font-bold text-xs uppercase tracking-wide"
-                    style={{ color: `var(--theme-success, #17C964)` }}
-                  >
-                    Quick Actions
-                  </span>
-                  <div 
-                    className="flex-1 h-px"
-                    style={{ backgroundColor: `var(--theme-success, #17C964)20` }}
-                  ></div>
-                </div>
-                
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button
-                    variant="light"
-                    size="sm"
-                    startContent={<ClockIcon className="w-3 h-3" />}
-                    className="w-full justify-start h-8 px-4 bg-transparent transition-all duration-200 text-xs"
-                    style={{
-                      '--button-hover': `var(--theme-success, #17C964)10`,
-                      borderRadius: `var(--borderRadius, '8px')`
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = `var(--theme-success, #17C964)10`;
-                      e.target.style.borderRadius = `var(--borderRadius, '8px')`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    Recent Activities
-                  </Button>
-                </motion.div>
-                
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button
-                    variant="light"
-                    size="sm"
-                    startContent={<StarIcon className="w-3 h-3" />}
-                    className="w-full justify-start h-8 px-4 bg-transparent transition-all duration-200 text-xs"
-                    style={{
-                      '--button-hover': `var(--theme-warning, #F5A524)10`,
-                      borderRadius: `var(--borderRadius, '8px')`
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = `var(--theme-warning, #F5A524)10`;
-                      e.target.style.borderRadius = `var(--borderRadius, '8px')`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    Favorites
-                  </Button>
-                </motion.div>
-              </motion.div>
-            )}
-          </div>
-        </ScrollShadow>
-      </motion.div>
-
-      {/* Fixed Footer - Using PageHeader theming */}
-      <motion.div 
-        className="p-2 shrink-0"
-        style={{ borderTop: `1px solid var(--theme-divider, #E4E4E7)` }}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 1.1 }}
-      >
-        <Card 
-          className="flex items-center justify-between p-2 transition-all duration-300" 
-          shadow="sm"
-          style={{ 
-            backgroundColor: `var(--theme-content1, #FAFAFA)`,
-            borderRadius: `var(--borderRadius, '8px')`,
-            borderWidth: `var(--borderWidth, '2px')`,
-            borderColor: `var(--theme-divider, #E4E4E7)`,
-            borderStyle: 'solid'
-          }}
-        >
-          <div className="flex items-center gap-1">
-            <motion.div 
-              className="w-1.5 h-1.5"
-              style={{ 
-                backgroundColor: `var(--theme-success, #17C964)`,
-                borderRadius: '50%'
-              }}
-              animate={{ opacity: [1, 0.5, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-            <span 
-              className="text-xs font-medium"
-              style={{ color: `var(--theme-foreground, #11181C)` }}
-            >
-              Online
-            </span>
-          </div>
-          <span 
-            className="text-xs"
-            style={{ color: `var(--theme-foreground-500, #71717A)` }}
+          <Box
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              paddingLeft: 10 + indent, paddingRight: 10, height: 34,
+              borderRadius: 'var(--radius-2)', cursor: 'pointer',
+              background: isActive ? 'var(--accent-a3)' : 'transparent',
+              color: isActive ? 'var(--accent-11)' : 'var(--gray-11)',
+              transition: 'background 100ms',
+            }}
+            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--gray-a2)'; }}
+            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
           >
-            v2.1.0
-          </span>
-        </Card>
-      </motion.div>
-    </motion.div>
-  );
-  
-  // Unified Sidebar for both Mobile and Desktop
+            {page.icon && (
+              <Box style={{ flexShrink: 0, opacity: isActive ? 1 : 0.6, display: 'flex', alignItems: 'center' }}>
+                {React.cloneElement(page.icon, { style: { width: 15, height: 15 } })}
+              </Box>
+            )}
+            <Text size="2" weight={isActive ? 'medium' : 'regular'} style={{ color: 'inherit' }}>
+              {highlightSearchMatch(page.name, searchTerm)}
+            </Text>
+          </Box>
+        </Link>
+      </Box>
+    );
+  }
+
+  return null;
+});
+NavItem.displayName = 'NavItem';
+
+const SectionLabel = ({ icon, label, color = 'accent' }) => (
+  <Flex align="center" gap="1" px="1" pt="2" pb="1" style={{ flexShrink: 0 }}>
+    {React.cloneElement(icon, { style: { width: 10, height: 10, color: `var(--${color}-9)`, flexShrink: 0 } })}
+    <Text size="1" weight="bold" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: 10, color: `var(--${color}-11)` }}>
+      {label}
+    </Text>
+    <Box style={{ flex: 1, height: '1px', background: `var(--${color}-a5)`, marginLeft: 2 }} />
+  </Flex>
+);
+
+const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const { auth, app } = usePage().props;
+  const collapsed = !isMobile && !sideBarOpen;
+
+  const { openSubMenus, setOpenSubMenus: updateOpenSubMenus } = useSidebarState();
+  const [activePage, setActivePage] = useState(url);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filterPagesRecursively = useCallback((pagesList, term) => {
+    const lower = term.toLowerCase();
+    return pagesList.reduce((acc, page) => {
+      const matches = page.name.toLowerCase().includes(lower);
+      if (page.subMenu) {
+        const filteredSub = filterPagesRecursively(page.subMenu, term);
+        if (matches || filteredSub.length > 0) acc.push({ ...page, subMenu: filteredSub });
+      } else if (matches) {
+        acc.push(page);
+      }
+      return acc;
+    }, []);
+  }, []);
+
+  const groupedPages = (() => {
+    const allPages = searchTerm.trim() ? filterPagesRecursively(pages, searchTerm) : pages;
+    return {
+      mainPages: allPages.filter(p => !p.category || p.category === 'main'),
+      settingsPages: allPages.filter(p => p.category === 'settings'),
+    };
+  })();
+
+  useEffect(() => {
+    if (!searchTerm.trim()) return;
+    const expand = (list, set = new Set()) => {
+      list.forEach(p => {
+        if (p.subMenu) {
+          const has = p.subMenu.some(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.subMenu);
+          if (has) { set.add(p.name); expand(p.subMenu, set); }
+        }
+      });
+      return set;
+    };
+    updateOpenSubMenus(expand(pages));
+  }, [searchTerm, pages]);
+
+  useEffect(() => {
+    setActivePage(url);
+    const expandParents = (items, target, parents = []) => {
+      for (const p of items) {
+        const crumbs = [...parents, p.name];
+        if (p.route && '/' + p.route === target) {
+          updateOpenSubMenus(new Set([...openSubMenus, ...crumbs.slice(0, -1)]));
+          return true;
+        }
+        if (p.subMenu && expandParents(p.subMenu, target, crumbs)) return true;
+      }
+      return false;
+    };
+    expandParents(pages, url);
+  }, [url, pages]);
+
+  const handleSubMenuToggle = useCallback((name) => {
+    const next = new Set(openSubMenus);
+    next.has(name) ? next.delete(name) : next.add(name);
+    updateOpenSubMenus(next);
+  }, [openSubMenus, updateOpenSubMenus]);
+
+  const handlePageClick = useCallback((pageRoute) => {
+    setActivePage('/' + pageRoute);
+    setSearchTerm('');
+    if (isMobile) toggleSideBar();
+  }, [isMobile, toggleSideBar]);
+
+  const userName = auth?.user?.name || auth?.user?.first_name || 'User';
+  const userDesignation = auth?.user?.designation?.title || 'Team Member';
+  const avatarSrc = auth?.user?.profile_image_url || auth?.user?.profile_image;
+
+  const renderNavList = (list, isCollapsed) =>
+    list.map(page => (
+      <NavItem
+        key={page.name}
+        page={page}
+        level={0}
+        activePage={activePage}
+        openSubMenus={openSubMenus}
+        onToggle={handleSubMenuToggle}
+        onNavigate={handlePageClick}
+        searchTerm={isCollapsed ? '' : searchTerm}
+        collapsed={isCollapsed}
+        onExpandSidebar={toggleSideBar}
+      />
+    ));
+
   return (
-    <motion.div 
-      className={`
-        ${isMobile ? 'p-0' : 'p-4'} 
-        h-screen
-        ${isMobile ? 'min-w-[260px]' : 'min-w-[240px]'}
-        w-auto
-        max-w-[400px]
-        overflow-visible
-        relative
-        flex
-        flex-col
-        bg-transparent
-        shrink-0
-      `}
-      initial={false}
-      animate={{ 
-        minWidth: isMobile ? 260 : 240,
-        transition: { duration: 0.3, ease: "easeInOut" }
-      }}
-    >
-      <div className="h-full flex flex-col bg-transparent">
-        <Card 
-          className="h-full flex flex-col overflow-visible"
-          style={{
-            background: `linear-gradient(to bottom right, 
-              var(--theme-content1, #FAFAFA) 20%, 
-              var(--theme-content2, #F4F4F5) 10%, 
-              var(--theme-content3, #F1F3F4) 20%)`,
-            borderColor: `var(--theme-divider, #E4E4E7)`,
-            borderWidth: `var(--borderWidth, 2px)`,
-            borderStyle: 'solid',
-            borderRadius: `var(--borderRadius, 8px)`
-          }}
-        >
-          {SidebarContent}
-        </Card>
-      </div>
-    </motion.div>
+    <Box style={{
+      width: isMobile ? 260 : (collapsed ? 56 : 240),
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      background: 'var(--color-panel-solid)',
+      borderRight: '1px solid var(--gray-a4)',
+      flexShrink: 0,
+      overflow: 'hidden',
+    }}>
+
+      {/* ── Brand ───────────────────────────────────────────────────────────── */}
+      <Flex
+        align="center"
+        justify={collapsed ? 'center' : 'start'}
+        gap="3"
+        px={collapsed ? '0' : '3'}
+        style={{ height: 56, borderBottom: '1px solid var(--gray-a4)', flexShrink: 0, paddingInline: collapsed ? 0 : undefined }}
+      >
+        <Box style={{ width: 30, height: 30, flexShrink: 0, overflow: 'hidden', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a5)' }}>
+          <img src={logo} alt={app?.name || 'Logo'} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </Box>
+        {!collapsed && (
+          <Box style={{ minWidth: 0, flex: 1 }}>
+            <Text size="2" weight="bold" truncate style={{ display: 'block', color: 'var(--accent-11)' }}>{app?.name || 'Enterprise'}</Text>
+            <Text size="1" color="gray" style={{ display: 'block' }}>DBEDC Guardian</Text>
+          </Box>
+        )}
+      </Flex>
+
+      {/* ── Search (expanded only) ───────────────────────────────────────────── */}
+      {!collapsed && (
+        <Box px="2" py="2" style={{ flexShrink: 0 }}>
+          <TextField.Root
+            size="1"
+            placeholder="Search navigation…"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          >
+            <TextField.Slot>
+              <MagnifyingGlassIcon style={{ width: 12, height: 12 }} />
+            </TextField.Slot>
+          </TextField.Root>
+        </Box>
+      )}
+
+      {/* ── Navigation ──────────────────────────────────────────────────────── */}
+      <ScrollArea style={{ flex: 1 }}>
+        <Flex direction="column" px={collapsed ? '1' : '2'} pb="3" pt="1" style={{ gap: 0 }}>
+
+          {collapsed ? (
+            /* Icon-only layout */
+            <>
+              {renderNavList(groupedPages.mainPages, true)}
+              {groupedPages.settingsPages.length > 0 && (
+                <>
+                  <Separator size="4" my="1" />
+                  {renderNavList(groupedPages.settingsPages, true)}
+                </>
+              )}
+              {groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 &&
+                renderNavList(pages, true)}
+            </>
+          ) : (
+            /* Full expanded layout */
+            <>
+              {groupedPages.mainPages.length > 0 && (
+                <>
+                  <SectionLabel icon={<HomeIcon />} label="Main" color="accent" />
+                  {renderNavList(groupedPages.mainPages, false)}
+                </>
+              )}
+              {groupedPages.settingsPages.length > 0 && (
+                <>
+                  <Separator size="4" my="2" />
+                  <SectionLabel icon={<GearIcon />} label="Admin" color="amber" />
+                  {renderNavList(groupedPages.settingsPages, false)}
+                </>
+              )}
+              {groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 && !searchTerm.trim() &&
+                renderNavList(pages, false)}
+              {searchTerm.trim() && groupedPages.mainPages.length === 0 && groupedPages.settingsPages.length === 0 && (
+                <Flex direction="column" align="center" gap="1" py="6">
+                  <MagnifyingGlassIcon style={{ width: 20, height: 20, color: 'var(--gray-7)' }} />
+                  <Text size="2" color="gray">No results for "{searchTerm}"</Text>
+                </Flex>
+              )}
+            </>
+          )}
+        </Flex>
+      </ScrollArea>
+
+      {/* ── User footer ─────────────────────────────────────────────────────── */}
+      <Box style={{ borderTop: '1px solid var(--gray-a4)', flexShrink: 0, padding: collapsed ? '8px 0' : '8px 12px' }}>
+        {collapsed ? (
+          <Tooltip content={`${userName} · ${userDesignation}`} side="right" delayDuration={80}>
+            <Flex justify="center" style={{ cursor: 'default' }}>
+              <Box style={{ position: 'relative' }}>
+                <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="2" radius="full" />
+                <Box style={{
+                  position: 'absolute', bottom: 0, right: 0,
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
+                }} />
+              </Box>
+            </Flex>
+          </Tooltip>
+        ) : (
+          <Flex align="center" gap="2">
+            <Box style={{ position: 'relative', flexShrink: 0 }}>
+              <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="2" radius="full" />
+              <Box style={{
+                position: 'absolute', bottom: 0, right: 0,
+                width: 8, height: 8, borderRadius: '50%',
+                background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
+              }} />
+            </Box>
+            <Box style={{ minWidth: 0, flex: 1 }}>
+              <Text size="2" weight="medium" truncate style={{ display: 'block' }}>{userName}</Text>
+              <Text size="1" color="gray" truncate style={{ display: 'block' }}>{userDesignation}</Text>
+            </Box>
+            <Text size="1" color="gray" style={{ flexShrink: 0 }}>{app?.version || 'v4'}</Text>
+          </Flex>
+        )}
+      </Box>
+
+    </Box>
   );
 });
 
-// Add display name for debugging
 Sidebar.displayName = 'Sidebar';
-
 export default Sidebar;

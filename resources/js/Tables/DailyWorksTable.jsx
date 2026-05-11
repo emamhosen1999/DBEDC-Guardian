@@ -44,7 +44,7 @@ import {
     CircularProgress,
     Input,
     Skeleton
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CalendarDaysIcon,
     UserIcon,

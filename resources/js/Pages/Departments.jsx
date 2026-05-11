@@ -15,7 +15,7 @@ import {
     Pagination,
     Input,
     Spinner
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     BuildingOffice2Icon,
     PlusIcon,

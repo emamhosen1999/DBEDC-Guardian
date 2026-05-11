@@ -12,7 +12,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { X } from 'lucide-react';
 import { 
     CalendarDaysIcon, 

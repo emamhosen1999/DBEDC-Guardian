@@ -7,7 +7,7 @@ import {
   CardBody, 
   CardHeader,
   Input,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { useTheme } from '@/Contexts/ThemeContext';
 import App from "@/Layouts/App.jsx";
 import StatsCards from '@/Components/StatsCards.jsx';

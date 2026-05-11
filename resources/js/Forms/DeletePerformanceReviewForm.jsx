@@ -6,7 +6,7 @@ import {
     ModalBody,
     ModalFooter,
     Button
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';

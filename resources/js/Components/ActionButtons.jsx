@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from "@heroui/react";
+import { Button } from "@/compat/heroui";
 import { 
     DocumentArrowDownIcon,
     PlusIcon,

@@ -12,7 +12,7 @@ import {
     Card,
     CardBody,
     ScrollShadow,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     ExclamationTriangleIcon,
     ShieldExclamationIcon,

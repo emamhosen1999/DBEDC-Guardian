@@ -16,7 +16,7 @@ import {
     RadioGroup,
     Radio,
     Divider
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     DocumentArrowDownIcon,
     ChartBarIcon,

@@ -1,37 +1,18 @@
-import React, { useState, useCallback, memo } from 'react';
+import React, { useCallback, memo } from 'react';
 import { useTranslation } from '@/Contexts/TranslationContext';
-import {
-    Popover,
-    PopoverTrigger,
-    PopoverContent,
-    Button,
-} from '@heroui/react';
-import { GlobeAltIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { Box, DropdownMenu, Flex, IconButton, Text } from '@radix-ui/themes';
+import { GlobeIcon, CheckIcon } from '@radix-ui/react-icons';
 
-/**
- * Flag component using circle-flags CDN
- */
-const FlagIcon = memo(({ code, className = "w-6 h-6" }) => {
-    const flagMap = {
-        en: 'us',
-        bn: 'bd',
-        ar: 'sa',
-        es: 'es',
-        fr: 'fr',
-        de: 'de',
-        hi: 'in',
-        'zh-CN': 'cn',
-        'zh-TW': 'tw',
-    };
-    
-    const countryCode = flagMap[code] || 'us';
-    
+const FLAG_MAP = { en:'us', bn:'bd', ar:'sa', es:'es', fr:'fr', de:'de', hi:'in', 'zh-CN':'cn', 'zh-TW':'tw' };
+
+const FlagIcon = memo(({ code, size = 20 }) => {
+    const country = FLAG_MAP[code] || 'us';
     return (
-        <img 
-            src={`https://hatscripts.github.io/circle-flags/flags/${countryCode}.svg`} 
+        <img
+            src={`https://hatscripts.github.io/circle-flags/flags/${country}.svg`}
             alt=""
-            className={`${className} rounded-full object-cover`}
             loading="lazy"
+            style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }}
         />
     );
 });
@@ -87,203 +68,52 @@ const languageConfig = {
     },
 };
 
-/**
- * Language Item Component
- */
-const LanguageItem = memo(({ code, lang, isActive, onSelect }) => (
-    <button
-        type="button"
-        onClick={() => onSelect(code)}
-        className={`
-            w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left
-            transition-colors duration-150
-            ${isActive 
-                ? 'bg-primary-50 dark:bg-primary-900/20' 
-                : 'hover:bg-default-100 dark:hover:bg-default-50/10'
-            }
-        `}
-    >
-        <FlagIcon code={code} className="w-6 h-6 flex-shrink-0" />
-        <div className="flex flex-col flex-1 min-w-0">
-            <span className={`font-medium text-sm ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                {lang.nativeName}
-            </span>
-            {lang.name !== lang.nativeName && (
-                <span className="text-xs text-default-400 truncate">
-                    {lang.name}
-                </span>
-            )}
-        </div>
-        {isActive && (
-            <CheckIcon className="w-4 h-4 text-primary flex-shrink-0" />
-        )}
-    </button>
-));
-
-/**
- * Language Switcher Component
- * Dropdown for switching application language
- */
-const LanguageSwitcher = memo(function LanguageSwitcher({
-    variant = 'dropdown',
-    showFlag = true,
-    showNativeName = true,
-    size = 'md',
-    className = '',
-}) {
+const LanguageSwitcher = memo(function LanguageSwitcher({ showFlag = true, showNativeName = true }) {
     const { locale, setLocale, supportedLocales } = useTranslation();
-    const [isChanging, setIsChanging] = useState(false);
-    const [isOpen, setIsOpen] = useState(false);
 
-    const availableLocales = supportedLocales.length > 0 
-        ? supportedLocales 
-        : ['en', 'bn'];
+    const availableLocales = supportedLocales?.length > 0 ? supportedLocales : ['en', 'bn'];
 
     const handleLocaleChange = useCallback((newLocale) => {
-        if (newLocale === locale || isChanging) return;
-        
-        setIsChanging(true);
-        setIsOpen(false);
-        
-        // Update context (this triggers the GlobalAutoTranslator to re-translate)
-        setLocale(newLocale);
-        
-        // Reset changing state after a short delay
-        setTimeout(() => {
-            setIsChanging(false);
-        }, 500);
-    }, [locale, setLocale, isChanging]);
+        if (newLocale !== locale) setLocale(newLocale);
+    }, [locale, setLocale]);
 
     const currentLang = languageConfig[locale] || languageConfig.en;
 
-    // Minimal variant - just a flag button
-    if (variant === 'minimal') {
-        return (
-            <Popover 
-                placement="bottom-end" 
-                isOpen={isOpen} 
-                onOpenChange={setIsOpen}
-                offset={10}
-            >
-                <PopoverTrigger>
-                    <Button
-                        isIconOnly
-                        variant="light"
-                        size={size}
-                        className={`min-w-unit-10 ${className}`}
-                        isLoading={isChanging}
-                        aria-label="Change language"
-                    >
-                        {showFlag ? (
-                            <FlagIcon code={locale} className="w-5 h-5" />
-                        ) : (
-                            <GlobeAltIcon className="w-5 h-5" />
-                        )}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-1.5 min-w-[220px]">
-                    <div className="flex flex-col gap-0.5">
-                        {availableLocales.map((code) => {
-                            const lang = languageConfig[code];
-                            if (!lang) return null;
-                            
-                            return (
-                                <LanguageItem
-                                    key={code}
-                                    code={code}
-                                    lang={lang}
-                                    isActive={locale === code}
-                                    onSelect={handleLocaleChange}
-                                />
-                            );
-                        })}
-                    </div>
-                </PopoverContent>
-            </Popover>
-        );
-    }
-
-    // Buttons variant - horizontal button group
-    if (variant === 'buttons') {
-        return (
-            <div className={`flex gap-2 ${className}`}>
+    return (
+        <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+                <IconButton variant="ghost" color="gray" size="2" aria-label="Change language">
+                    {showFlag ? <FlagIcon code={locale} size={18} /> : <GlobeIcon />}
+                </IconButton>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end" style={{ minWidth: 200 }}>
                 {availableLocales.map((code) => {
                     const lang = languageConfig[code];
                     if (!lang) return null;
-                    
                     const isActive = locale === code;
-                    
                     return (
-                        <Button
+                        <DropdownMenu.Item
                             key={code}
-                            size={size}
-                            variant={isActive ? 'solid' : 'bordered'}
-                            color={isActive ? 'primary' : 'default'}
-                            isLoading={isChanging && locale !== code}
-                            onPress={() => handleLocaleChange(code)}
-                            startContent={showFlag && <FlagIcon code={code} className="w-5 h-5" />}
+                            onSelect={() => handleLocaleChange(code)}
+                            style={{ cursor: 'pointer' }}
                         >
-                            {showNativeName ? lang.nativeName : lang.name}
-                        </Button>
+                            <Flex align="center" gap="2" style={{ width: '100%' }}>
+                                <FlagIcon code={code} size={18} />
+                                <Box style={{ flex: 1, minWidth: 0 }}>
+                                    <Text size="2" weight={isActive ? 'bold' : 'regular'} color={isActive ? 'accent' : undefined} style={{ display: 'block' }}>
+                                        {lang.nativeName}
+                                    </Text>
+                                    {lang.name !== lang.nativeName && (
+                                        <Text size="1" color="gray" style={{ display: 'block' }}>{lang.name}</Text>
+                                    )}
+                                </Box>
+                                {isActive && <CheckIcon style={{ color: 'var(--accent-9)', flexShrink: 0 }} />}
+                            </Flex>
+                        </DropdownMenu.Item>
                     );
                 })}
-            </div>
-        );
-    }
-
-    // Default dropdown variant
-    return (
-        <Popover 
-            placement="bottom-end" 
-            isOpen={isOpen} 
-            onOpenChange={setIsOpen}
-            offset={10}
-        >
-            <PopoverTrigger>
-                <Button
-                    variant="flat"
-                    size={size}
-                    className={`gap-2 ${className}`}
-                    isLoading={isChanging}
-                    startContent={showFlag && <FlagIcon code={locale} className="w-5 h-5" />}
-                    endContent={
-                        <svg
-                            className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 9l-7 7-7-7"
-                            />
-                        </svg>
-                    }
-                >
-                    {showNativeName ? currentLang.nativeName : currentLang.name}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-1.5 min-w-[220px]">
-                <div className="flex flex-col gap-0.5">
-                    {availableLocales.map((code) => {
-                        const lang = languageConfig[code];
-                        if (!lang) return null;
-                        
-                        return (
-                            <LanguageItem
-                                key={code}
-                                code={code}
-                                lang={lang}
-                                isActive={locale === code}
-                                onSelect={handleLocaleChange}
-                            />
-                        );
-                    })}
-                </div>
-            </PopoverContent>
-        </Popover>
+            </DropdownMenu.Content>
+        </DropdownMenu.Root>
     );
 });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardBody, Button, Accordion, AccordionItem } from '@heroui/react';
+import { Card, CardBody, Button, Accordion, AccordionItem } from '@/compat/heroui';
 import { ChevronDownIcon, ArrowPathIcon, BugAntIcon, HomeIcon } from '@heroicons/react/24/outline';
 import { Inertia } from '@inertiajs/inertia';
 

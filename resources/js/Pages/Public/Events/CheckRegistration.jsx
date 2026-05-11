@@ -8,7 +8,7 @@ import {
     Chip,
     Divider,
     Image
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     MagnifyingGlassIcon,
     CheckCircleIcon,

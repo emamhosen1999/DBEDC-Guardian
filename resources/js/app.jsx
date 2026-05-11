@@ -6,10 +6,8 @@ import {createInertiaApp} from '@inertiajs/react';
 import {resolvePageComponent} from 'laravel-vite-plugin/inertia-helpers';
 import axios from 'axios';
 import ErrorBoundary from './Components/ErrorBoundary/ErrorBoundary';
-import LoadingIndicator from './Components/LoadingIndicator';
-import { ThemeProvider } from './Contexts/ThemeContext';
-import { HeroUIProvider } from '@heroui/react';
-import './theme/index.js';
+import { RadixThemeProvider } from './Contexts/RadixThemeContext';
+import { RadixThemeShell } from './Components/RadixThemeShell';
 import { initializeDeviceAuth } from './utils/deviceAuth';
 
 // Initialize secure device authentication
@@ -105,7 +103,7 @@ createInertiaApp({
     
     title: (title) => {
         const page = window.Laravel?.inertiaProps || {};
-        const appName = page.app?.name || 'aeos365';
+        const appName = page.app?.name || 'DBEDC Guardian';
         return `${title} - ${appName}`;
     },
     resolve: (name) =>
@@ -121,12 +119,11 @@ createInertiaApp({
         
         root.render(
             <ErrorBoundary>
-                <ThemeProvider>
-                    <HeroUIProvider>
-                        <LoadingIndicator />
+                <RadixThemeProvider>
+                    <RadixThemeShell>
                         <App {...props} />
-                    </HeroUIProvider>
-                </ThemeProvider>
+                    </RadixThemeShell>
+                </RadixThemeProvider>
             </ErrorBoundary>
         );
         

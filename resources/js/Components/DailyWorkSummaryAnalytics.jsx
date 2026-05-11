@@ -6,7 +6,7 @@ import {
     Chip,
     Skeleton,
     Tooltip,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     ArrowTrendingUpIcon,
     ArrowTrendingDownIcon,

@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Button, Card, CardBody } from '@heroui/react';
+import { Button, Card, CardBody } from '@/compat/heroui';
 import { ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 /**

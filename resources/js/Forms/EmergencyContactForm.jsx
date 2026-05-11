@@ -7,7 +7,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter
-} from "@heroui/react";
+} from "@/compat/heroui";
 import React, {useEffect, useState} from "react";
 import GlassCard from "@/Components/GlassCard.jsx";
 import { X, Phone } from 'lucide-react';

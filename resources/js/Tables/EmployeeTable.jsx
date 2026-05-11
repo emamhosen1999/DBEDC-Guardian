@@ -31,7 +31,7 @@ import {
   Input,
   Switch,
   Pagination
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
   PencilIcon,
   TrashIcon,

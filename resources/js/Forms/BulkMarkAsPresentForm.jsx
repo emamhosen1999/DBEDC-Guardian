@@ -15,7 +15,7 @@ import {
     User,
     Card,
     CardBody
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     UserGroupIcon,
     ClockIcon,

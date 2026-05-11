@@ -24,7 +24,7 @@ import {
     Divider,
     ScrollShadow,
     CircularProgress,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     MapPinIcon,
     UserIcon,

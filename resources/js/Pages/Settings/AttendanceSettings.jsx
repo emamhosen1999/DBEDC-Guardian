@@ -40,7 +40,7 @@ import {
     Tab,
     Accordion,
     AccordionItem,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     ClockIcon,
     CalendarDaysIcon,

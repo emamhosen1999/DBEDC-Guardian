@@ -8,7 +8,7 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter
-} from "@heroui/react";
+} from "@/compat/heroui";
 import { X, CreditCard } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";
 

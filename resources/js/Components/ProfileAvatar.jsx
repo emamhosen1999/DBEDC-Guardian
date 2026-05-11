@@ -1,140 +1,39 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Avatar } from '@heroui/react';
-import { UserIcon } from '@heroicons/react/24/outline';
-import clsx from 'clsx';
+import React from 'react';
+import { Avatar } from '@radix-ui/themes';
 
-const gradientPalette = [
-  ['#2563EB', '#9333EA'],
-  ['#0EA5E9', '#6366F1'],
-  ['#F59E0B', '#EF4444'],
-  ['#14B8A6', '#2563EB'],
-  ['#EC4899', '#8B5CF6'],
-  ['#F97316', '#F43F5E'],
-  ['#22C55E', '#14B8A6'],
-  ['#3B82F6', '#0EA5E9'],
-];
+const RADIX_SIZE = { xs: '1', sm: '2', md: '3', lg: '4', xl: '5' };
 
-const sizeToTextMap = {
-  xs: 'text-[0.55rem]',
-  sm: 'text-[0.65rem]',
-  md: 'text-xs',
-  lg: 'text-sm',
-  xl: 'text-base',
-};
-
-const getInitials = (name = '') => {
-  if (!name) {
-    return '';
-  }
-
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((part) => part.charAt(0).toUpperCase()).join('');
-};
-
-const pickGradient = (name = '') => {
-  if (!name) {
-    return gradientPalette[0];
-  }
-
-  const hash = Array.from(name).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return gradientPalette[hash % gradientPalette.length];
-};
-
-export const getProfileAvatarTokens = ({
-  name = '',
-  size = 'md',
-  showBorder = true,
-  isInteractive = false,
-  className = '',
-  style = {},
-  fallbackIcon = null,
-} = {}) => {
-  const [gradientFrom, gradientTo] = pickGradient(name);
-  const initials = getInitials(name);
-
-  return {
-    className: clsx(
-      'relative font-semibold uppercase tracking-wide text-white flex items-center justify-center rounded-full shadow-[0_8px_18px_rgba(15,23,42,0.35)]',
-      'bg-slate-800/80 backdrop-blur-sm',
-      sizeToTextMap[size] ?? sizeToTextMap.md,
-      showBorder && 'ring-1 ring-primary/25 border border-white/10',
-      isInteractive &&
-        'cursor-pointer transition-transform duration-200 hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-      className,
-    ),
-    style: {
-      backgroundImage: `linear-gradient(135deg, ${gradientFrom}, ${gradientTo})`,
-      ...style,
-    },
-    fallback:
-      fallbackIcon || (
-        <span className="flex items-center justify-center w-full h-full">
-          {initials || <UserIcon className="w-4 h-4" />}
-        </span>
-      ),
-    showFallback: true,
-    isBordered: showBorder,
-  };
-};
-
-const ProfileAvatar = ({
-  src,
-  name = '',
-  size = 'md',
-  className = '',
-  style = {},
-  onClick,
-  showBorder = true,
-  isDisabled = false,
-  isInteractive = false,
-  fallbackIcon = null,
-  tabIndex,
-  onError,
-  ...props
-}) => {
-  const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    setImageError(false);
-  }, [src]);
-
-  const tokens = useMemo(
-    () =>
-      getProfileAvatarTokens({
-        name,
-        size,
-        showBorder,
-        fallbackIcon,
-        className: clsx(isDisabled && 'opacity-60', className),
-        style,
-        isInteractive: (isInteractive || Boolean(onClick)) && !isDisabled,
-      }),
-    [name, size, showBorder, fallbackIcon, className, style, isInteractive, onClick, isDisabled],
-  );
-
-  const computedTabIndex = onClick && !isDisabled ? tabIndex ?? 0 : tabIndex ?? -1;
+const ProfileAvatar = React.forwardRef(function ProfileAvatar(
+  { src, name, size = 'sm', showBorder = false, isInteractive = false, style, ...rest },
+  ref
+) {
+  const initials = name
+    ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    : '?';
 
   return (
     <Avatar
-      {...props}
-      src={imageError ? undefined : src}
-      name={name}
-      size={size}
-      className={tokens.className}
-      style={tokens.style}
-      isBordered={showBorder}
-      showFallback
-      fallback={tokens.fallback}
-      onClick={!isDisabled ? onClick : undefined}
-      onError={(event) => {
-        setImageError(true);
-        onError?.(event);
+      ref={ref}
+      src={src || undefined}
+      fallback={initials}
+      size={RADIX_SIZE[size] ?? '2'}
+      radius="full"
+      style={{
+        flexShrink: 0,
+        cursor: isInteractive ? 'pointer' : undefined,
+        outline: showBorder ? '2px solid var(--accent-a7)' : undefined,
+        outlineOffset: showBorder ? 2 : undefined,
+        ...style,
       }}
-      aria-label={name ? `${name}'s profile picture` : 'User profile picture'}
-      role={onClick && !isDisabled ? 'button' : 'img'}
-      tabIndex={computedTabIndex}
+      {...rest}
     />
   );
-};
+});
+
+export const getProfileAvatarTokens = (user) => ({
+  src: user?.profile_image_url || user?.profile_image || null,
+  name: user?.name || user?.first_name || '',
+  initials: (user?.name || user?.first_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+});
 
 export default ProfileAvatar;

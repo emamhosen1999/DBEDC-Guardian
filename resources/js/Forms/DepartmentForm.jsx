@@ -11,7 +11,7 @@ import {
     Switch,
     Button,
     Spinner
-} from '@heroui/react';
+} from '@/compat/heroui';
 import { Building2, Briefcase } from 'lucide-react';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';

@@ -30,7 +30,7 @@ import {
     Divider,
     ScrollShadow,
     Link,
-} from "@heroui/react";
+} from "@/compat/heroui";
 import {
     CalendarDaysIcon,
     UserIcon,
