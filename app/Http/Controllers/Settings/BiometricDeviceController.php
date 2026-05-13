@@ -15,7 +15,12 @@ class BiometricDeviceController extends Controller
     {
         $devices = BiometricDevice::withCount('users')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->map(function ($device) {
+                $device->is_online = $device->isOnline();
+                $device->online_status = $device->getOnlineStatusAttribute();
+                return $device;
+            });
 
         $employees = User::select('id', 'name', 'employee_id')
             ->where('active', true)

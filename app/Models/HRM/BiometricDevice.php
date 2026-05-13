@@ -55,4 +55,25 @@ class BiometricDevice extends Model
         $this->update(['auth_token' => $token]);
         return $token;
     }
+
+    /**
+     * Check if device is online based on last heartbeat
+     * Device is considered online if heartbeat was within last 1 minute
+     */
+    public function isOnline(): bool
+    {
+        if (! $this->last_heartbeat_at) {
+            return false;
+        }
+
+        return $this->last_heartbeat_at->gt(now()->subMinute());
+    }
+
+    /**
+     * Get online status as a string for display
+     */
+    public function getOnlineStatusAttribute(): string
+    {
+        return $this->isOnline() ? 'online' : 'offline';
+    }
 }

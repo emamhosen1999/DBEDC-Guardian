@@ -191,6 +191,7 @@ const PunchStatusCard = React.memo(() => {
 
     const requiresQrCode = attendanceTypeBaseSlug === 'qr_code';
     const requiresNetworkValidation = attendanceTypeBaseSlug === 'wifi_ip';
+    const requiresBiometric = attendanceTypeBaseSlug === 'biometric';
 
     const requiresLocationForPunch = useMemo(() => {
         if (attendanceTypeBaseSlug === 'geo_polygon' || attendanceTypeBaseSlug === 'route_waypoint') {
@@ -210,6 +211,14 @@ const PunchStatusCard = React.memo(() => {
     const requiresPhotoCapture = useMemo(() => {
         return ['geo_polygon', 'route_waypoint'].includes(attendanceTypeBaseSlug);
     }, [attendanceTypeBaseSlug]);
+
+    // Check if user has assigned biometric device
+    const hasBiometricDevice = useMemo(() => {
+        return Boolean(user?.biometric_device_id && user?.biometric_device_name);
+    }, [user?.biometric_device_id, user?.biometric_device_name]);
+
+    // Biometric users should not punch via web interface
+    const isBiometricUser = requiresBiometric && hasBiometricDevice;
 
     // ===== LOCATION MANAGEMENT - SIMPLIFIED =====
 
@@ -432,6 +441,11 @@ const PunchStatusCard = React.memo(() => {
             return true;
         }
 
+        // Biometric users cannot punch via web interface
+        if (isBiometricUser) {
+            return true;
+        }
+
         if (requiresLocationForPunch && locationState.status !== GPS_STATUS.ACTIVE) {
             return true;
         }
@@ -441,7 +455,7 @@ const PunchStatusCard = React.memo(() => {
         }
 
         return false;
-    }, [attendanceState.loading, attendanceState.userOnLeave, requiresLocationForPunch, locationState.status, requiresQrCode, qrCodeValue]);
+    }, [attendanceState.loading, attendanceState.userOnLeave, isBiometricUser, requiresLocationForPunch, locationState.status, requiresQrCode, qrCodeValue]);
 
     // ===== CORE FUNCTIONS =====
 
@@ -1137,11 +1151,38 @@ const PunchStatusCard = React.memo(() => {
                         onClick={handlePunch}
                         style={{ width: '100%', marginBottom: 'var(--space-3)' }}
                     >
-                        {attendanceState.loading
+                        {isBiometricUser
+                            ? <Flex align="center" gap="2"><LockClosedIcon /> Use Biometric Device</Flex>
+                            : attendanceState.loading
                             ? <Flex align="center" gap="2"><Spinner size="1" /> Processing...</Flex>
                             : <Flex align="center" gap="2">{statusConfig.icon} {statusConfig.action}</Flex>
                         }
                     </Button>
+
+                    {/* Biometric Device Info Card */}
+                    {isBiometricUser && (
+                        <Card mb="3" style={{ borderColor: 'var(--accent-a7)', background: 'var(--accent-a2)' }}>
+                            <Flex align="center" gap="3" p="3">
+                                <Flex align="center" justify="center" style={{
+                                    width: 40, height: 40, borderRadius: '50%',
+                                    background: 'var(--accent-9)', color: 'white'
+                                }}>
+                                    <LockClosedIcon style={{ width: 20, height: 20 }} />
+                                </Flex>
+                                <Box flex={1}>
+                                    <Text size="2" weight="medium" style={{ display: 'block', color: 'var(--accent-11)' }}>
+                                        Biometric Device Assigned
+                                    </Text>
+                                    <Text size="1" color="gray" style={{ display: 'block' }}>
+                                        {user?.biometric_device_name}
+                                    </Text>
+                                    <Text size="1" color="gray" style={{ display: 'block', marginTop: 2 }}>
+                                        Please use your assigned device to punch in/out
+                                    </Text>
+                                </Box>
+                            </Flex>
+                        </Card>
+                    )}
 
                     {/* QR Code Input */}
                     {requiresQrCode && (
@@ -1160,7 +1201,14 @@ const PunchStatusCard = React.memo(() => {
 
                     {/* Validation Badges */}
                     <Flex justify="center" gap="2" mb={{ initial: '3', md: '4' }} wrap="wrap">
-                        {usesLocationRequirement && (
+                        {isBiometricUser && (
+                            <Tooltip content={`Biometric device: ${user?.biometric_device_name}`}>
+                                <Badge color="blue" variant="soft" size="1">
+                                    <Flex align="center" gap="1"><LockClosedIcon /> Biometric</Flex>
+                                </Badge>
+                            </Tooltip>
+                        )}
+                        {!isBiometricUser && usesLocationRequirement && (
                             <Tooltip content={gpsChipConfig.tooltip}>
                                 <Badge
                                     color={rc(gpsChipConfig.color)}
@@ -1176,28 +1224,28 @@ const PunchStatusCard = React.memo(() => {
                                 </Badge>
                             </Tooltip>
                         )}
-                        {requiresNetworkValidation && (
+                        {!isBiometricUser && requiresNetworkValidation && (
                             <Tooltip content={`WiFi/IP attendance. Network: ${systemState.connectionStatus.network ? 'Online' : 'Offline'}`}>
                                 <Badge color={systemState.connectionStatus.network ? 'green' : 'red'} variant="soft" size="1">
                                     <Flex align="center" gap="1"><LightningBoltIcon /> IP Net</Flex>
                                 </Badge>
                             </Tooltip>
                         )}
-                        {requiresQrCode && (
+                        {!isBiometricUser && requiresQrCode && (
                             <Tooltip content={qrCodeValue.trim() ? 'QR code entered.' : 'QR code required.'}>
                                 <Badge color={qrCodeValue.trim() ? 'green' : 'amber'} variant="soft" size="1">
                                     <Flex align="center" gap="1"><BarChartIcon /> QR</Flex>
                                 </Badge>
                             </Tooltip>
                         )}
-                        {requiresPhotoCapture && (
+                        {!isBiometricUser && requiresPhotoCapture && (
                             <Tooltip content="Photo verification required.">
                                 <Badge color="amber" variant="soft" size="1">
                                     <Flex align="center" gap="1"><VideoIcon /> Photo</Flex>
                                 </Badge>
                             </Tooltip>
                         )}
-                        {!usesLocationRequirement && !requiresNetworkValidation && !requiresQrCode && !requiresPhotoCapture && (
+                        {!isBiometricUser && !usesLocationRequirement && !requiresNetworkValidation && !requiresQrCode && !requiresPhotoCapture && (
                             <Tooltip content="Standard attendance validation is active.">
                                 <Badge color="green" variant="soft" size="1">
                                     <Flex align="center" gap="1"><LockClosedIcon /> Standard</Flex>

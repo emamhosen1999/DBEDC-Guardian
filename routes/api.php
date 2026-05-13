@@ -37,6 +37,17 @@ Route::post('/iclock/cdata', [BiometricWebhookController::class, 'admsPush'])
     ->middleware('throttle:300,1')
     ->name('api.biometric.adms.push');
 
+// Additional ADMS endpoints for standard protocol compliance
+Route::get('/iclock/getrequest', [BiometricWebhookController::class, 'admsGetRequest'])
+    ->middleware('throttle:300,1')
+    ->name('api.biometric.adms.getrequest');
+Route::post('/iclock/devicecmd', [BiometricWebhookController::class, 'admsDeviceCmd'])
+    ->middleware('throttle:300,1')
+    ->name('api.biometric.adms.devicecmd');
+Route::get('/iclock/test', [BiometricWebhookController::class, 'admsTest'])
+    ->middleware('throttle:300,1')
+    ->name('api.biometric.adms.test');
+
 // Device command management (requires authentication)
 Route::middleware(['web', 'auth'])->prefix('biometric-devices')->group(function () {
     Route::post('/{deviceId}/commands', [BiometricWebhookController::class, 'queueCommand'])

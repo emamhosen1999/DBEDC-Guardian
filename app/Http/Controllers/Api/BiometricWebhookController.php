@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\BiometricAttendanceReceived;
+use App\Events\BiometricDeviceConnected;
 use App\Http\Controllers\Controller;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDeviceCommand;
@@ -178,6 +180,9 @@ class BiometricWebhookController extends Controller
 
         // Update heartbeat
         $device->update(['last_heartbeat_at' => now()]);
+
+        // Dispatch device connected event
+        event(new BiometricDeviceConnected($device));
 
         // Generate session ID for this connection
         $sessionId = bin2hex(random_bytes(16));
@@ -638,6 +643,14 @@ class BiometricWebhookController extends Controller
                     'check_type'    => $checkType,
                     'result_status' => $result['status'],
                 ]);
+
+                // Dispatch attendance received event
+                event(new BiometricAttendanceReceived($device, $user, [
+                    'device_user_id' => $deviceUserId,
+                    'check_time' => $checkTime,
+                    'check_type' => $checkType,
+                    'result' => $result,
+                ]));
             } catch (\Exception $e) {
                 $errorCount++;
                 Log::error('ADMS punch error: ' . $e->getMessage(), [
@@ -737,7 +750,7 @@ class BiometricWebhookController extends Controller
                 'sent_at' => $cmd->sent_at,
                 'executed_at' => $cmd->executed_at,
                 'created_at' => $cmd->created_at,
-                'adms_string' => $cmd->toAdmsString(),
+                'adms_string' => method_exists($cmd, 'toAdmsString') ? $cmd->toAdmsString() : null,
             ];
         }
 
@@ -830,5 +843,139 @@ class BiometricWebhookController extends Controller
         });
 
         return response()->json(['logs' => $logs]);
+    }
+
+    /**
+     * ADMS Get Request - Device requests pending commands
+     * Similar to handshake but specifically for command polling
+     */
+    public function admsGetRequest(Request $request)
+    {
+        $serialNumber = $request->query('SN');
+
+        if (! $serialNumber) {
+            Log::warning('ADMS getrequest: missing serial number');
+            return response('ERROR', 400)
+                ->header('Content-Type', 'text/plain');
+        }
+
+        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
+
+        if (! $device) {
+            Log::warning('ADMS getrequest: unknown device', ['serial' => $serialNumber]);
+            return response('ERROR', 404)
+                ->header('Content-Type', 'text/plain');
+        }
+
+        if (! $device->is_active) {
+            Log::warning('ADMS getrequest: inactive device', ['serial' => $serialNumber]);
+            return response('ERROR', 403)
+                ->header('Content-Type', 'text/plain');
+        }
+
+        // Update heartbeat
+        $device->update(['last_heartbeat_at' => now()]);
+
+        // Fetch pending commands
+        $command = BiometricDeviceCommand::where('biometric_device_id', $device->id)
+            ->where('status', 'pending')
+            ->oldest()
+            ->first();
+
+        if ($command) {
+            $command->markAsSent();
+
+            Log::info('ADMS getrequest: sending command', [
+                'serial' => $serialNumber,
+                'command_id' => $command->id,
+                'command_type' => $command->command_type,
+            ]);
+
+            return new \Symfony\Component\HttpFoundation\Response(
+                $command->toAdmsString(),
+                200,
+                ['Content-Type' => 'text/plain']
+            );
+        }
+
+        Log::info('ADMS getrequest: no pending commands', ['serial' => $serialNumber]);
+
+        return new \Symfony\Component\HttpFoundation\Response(
+            "OK",
+            200,
+            ['Content-Type' => 'text/plain']
+        );
+    }
+
+    /**
+     * ADMS Device Command - Process command acknowledgment from device
+     */
+    public function admsDeviceCmd(Request $request)
+    {
+        $serialNumber = $request->header('SN') ?? $request->query('SN');
+        $rawData = $request->getContent();
+
+        if (! $serialNumber) {
+            Log::warning('ADMS devicecmd: missing serial number');
+            return response('ERROR', 400)
+                ->header('Content-Type', 'text/plain');
+        }
+
+        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
+
+        if (! $device) {
+            Log::warning('ADMS devicecmd: unknown device', ['serial' => $serialNumber]);
+            return response('ERROR', 404)
+                ->header('Content-Type', 'text/plain');
+        }
+
+        // Parse acknowledgment (format: ID=1&Return=0)
+        $normalizedData = str_replace(["\n", "\t"], '&', $rawData);
+        parse_str($normalizedData, $ackData);
+
+        if (isset($ackData['ID'])) {
+            $command = BiometricDeviceCommand::find($ackData['ID']);
+            if ($command) {
+                $returnCode = $ackData['Return'] ?? '1';
+                $command->markAsExecuted($returnCode);
+
+                Log::info('ADMS devicecmd: command acknowledged', [
+                    'serial' => $serialNumber,
+                    'command_id' => $command->id,
+                    'command_type' => $command->command_type,
+                    'return_code' => $returnCode,
+                ]);
+            } else {
+                Log::warning('ADMS devicecmd: command not found', [
+                    'serial' => $serialNumber,
+                    'command_id' => $ackData['ID'],
+                ]);
+            }
+        }
+
+        // Update heartbeat
+        $device->update(['last_heartbeat_at' => now()]);
+
+        return new \Symfony\Component\HttpFoundation\Response(
+            "OK",
+            200,
+            ['Content-Type' => 'text/plain']
+        );
+    }
+
+    /**
+     * ADMS Test - Simple connectivity test endpoint
+     */
+    public function admsTest(Request $request)
+    {
+        $serialNumber = $request->query('SN');
+
+        Log::info('ADMS test endpoint hit', ['serial' => $serialNumber]);
+
+        return new \Symfony\Component\HttpFoundation\Response(
+            "OK",
+            200,
+            ['Content-Type' => 'text/plain']
+        );
     }
 }

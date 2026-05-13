@@ -684,13 +684,22 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                                                         )}
 
                                                         <Table.Cell>
-                                                            <Badge
-                                                                color={device.is_active ? 'green' : 'gray'}
-                                                                variant="soft"
-                                                                size="1"
-                                                            >
-                                                                {device.is_active ? 'Active' : 'Inactive'}
-                                                            </Badge>
+                                                            <Flex gap="2" align="center">
+                                                                <Badge
+                                                                    color={device.is_online ? 'green' : 'gray'}
+                                                                    variant="soft"
+                                                                    size="1"
+                                                                >
+                                                                    {device.is_online ? 'Online' : 'Offline'}
+                                                                </Badge>
+                                                                <Badge
+                                                                    color={device.is_active ? 'blue' : 'gray'}
+                                                                    variant="soft"
+                                                                    size="1"
+                                                                >
+                                                                    {device.is_active ? 'Active' : 'Inactive'}
+                                                                </Badge>
+                                                            </Flex>
                                                         </Table.Cell>
 
                                                         <Table.Cell>
