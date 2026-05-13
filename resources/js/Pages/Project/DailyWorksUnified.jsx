@@ -52,7 +52,6 @@ import DailyWorkForm from "@/Forms/DailyWorkForm.jsx";
 import DeleteDailyWorkForm from "@/Forms/DeleteDailyWorkForm.jsx";
 import EnhancedDailyWorksExportForm from "@/Forms/EnhancedDailyWorksExportForm.jsx";
 import DailyWorksUploadForm from "@/Forms/DailyWorksUploadForm.jsx";
-import ImportPreviewModalRadix from "@/Forms/ImportPreviewModalRadix.jsx";
 import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import DailyWorkSummaryAnalytics from "@/Components/DailyWorkSummaryAnalytics.jsx";
@@ -80,12 +79,6 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     // Tab state
     const [activeTab, setActiveTab] = useState('works'); // 'works' | 'summary' | 'objections'
-
-    // Preview modal state
-    const [showImportPreview, setShowImportPreview] = useState(false);
-    const [previewData, setPreviewData] = useState(null);
-    const [isImporting, setIsImporting] = useState(false);
-    const [importProgress, setImportProgress] = useState(0);
 
     // Works tab state (from DailyWorks.jsx)
     const [data, setData] = useState([]);
@@ -542,7 +535,6 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     const handleImportSuccess = (importResults) => {
         closeModal();
-        setShowImportPreview(false);
         
         if (importResults && Array.isArray(importResults) && importResults.length > 0) {
             const importedDates = importResults
@@ -583,12 +575,6 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         setTimeout(() => {
             fetchData(true);
         }, 100);
-    };
-
-    const handlePreviewReady = (data) => {
-        setPreviewData(data);
-        setShowImportPreview(true);
-        closeModal();
     };
 
     // Enhanced useEffect for mobile/desktop mode switching and initial load
@@ -667,7 +653,6 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                     setTotalRows={setTotalRows}
                     refreshData={refreshData}
                     onSuccess={handleImportSuccess}
-                    onPreviewReady={handlePreviewReady}
                 />
             )}
             {openModalType === 'exportDailyWorks' && (
@@ -693,27 +678,6 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                     inCharges={allData.allInCharges}
                     currentFilters={summaryFilterData}
                     auth={auth}
-                />
-            )}
-
-            {/* Import Preview Modal - rendered at parent level to avoid nested dialog conflicts */}
-            {showImportPreview && (
-                <ImportPreviewModalRadix
-                    isOpen={showImportPreview}
-                    onClose={() => {
-                        if (!isImporting) {
-                            setShowImportPreview(false);
-                            setPreviewData(null);
-                        }
-                    }}
-                    previewData={previewData}
-                    onConfirm={(overrides) => {
-                        setIsImporting(true);
-                        // Reopen the upload form to handle the actual import
-                        setOpenModalType('importDailyWorks');
-                    }}
-                    isImporting={isImporting}
-                    importProgress={importProgress}
                 />
             )}
 

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { createPortal } from 'react-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import {
@@ -440,14 +441,15 @@ export default function ImportPreviewModalRadix({
     const blockConfirm = totalUnassignedAcrossSheets > 0;
 
     return (
-        <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v && !isImporting) onClose(); }}>
-            <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" style={{ zIndex: 800 }} />
-                <Dialog.Content
-                    className="fixed inset-0 flex flex-col bg-white w-full h-full max-h-screen max-w-screen"
-                    style={{ zIndex: 801, fontFamily: `var(--fontFamily, "Inter")` }}
-                    aria-describedby={undefined}
-                >
+        createPortal(
+            <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v && !isImporting) onClose(); }}>
+                <Dialog.Portal>
+                    <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9998 }} />
+                    <Dialog.Content
+                        className="fixed inset-0 flex flex-col bg-white w-full h-full max-h-screen max-w-screen"
+                        style={{ zIndex: 9999, fontFamily: `var(--fontFamily, "Inter")` }}
+                        aria-describedby={undefined}
+                    >
                     <VisuallyHidden.Root>
                         <Dialog.Title>Import Preview & Incharge Validation</Dialog.Title>
                     </VisuallyHidden.Root>
@@ -619,6 +621,8 @@ export default function ImportPreviewModalRadix({
                     </div>
                 </Dialog.Content>
             </Dialog.Portal>
-        </Dialog.Root>
+        </Dialog.Root>,
+            document.body
+        )
     );
 }
