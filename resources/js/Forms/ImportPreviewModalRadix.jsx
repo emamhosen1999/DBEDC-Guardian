@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import * as Dialog from '@radix-ui/react-dialog';
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import {
     Box,
     Flex,
@@ -441,11 +442,14 @@ export default function ImportPreviewModalRadix({
     return (
         <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v && !isImporting) onClose(); }}>
             <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" />
+                <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" style={{ zIndex: 800 }} />
                 <Dialog.Content
-                    className="fixed inset-0 z-50 flex flex-col bg-white max-h-screen"
-                    style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                    className="fixed inset-0 flex flex-col bg-white w-full h-full max-h-screen max-w-screen"
+                    style={{ zIndex: 801, fontFamily: `var(--fontFamily, "Inter")` }}
                 >
+                    <VisuallyHidden.Root>
+                        <Dialog.Title>Import Preview & Incharge Validation</Dialog.Title>
+                    </VisuallyHidden.Root>
                     {/* Header */}
                     <div className="flex items-center justify-between gap-3 px-6 py-3 border-b border-gray-200">
                         <div className="flex items-center gap-3">
