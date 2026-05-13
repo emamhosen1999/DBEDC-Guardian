@@ -493,7 +493,7 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
     // ─────────────────────────────────────────────────────────────────────────
 
     return (
-        <App title={title ?? 'Biometric Devices'}>
+        <>
             <Head title={title ?? 'Biometric Devices'} />
 
             <Flex justify="center" p="4">
@@ -1586,7 +1586,7 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                     </Flex>
                 </Dialog.Content>
             </Dialog.Root>
-        </App>
+        </>
     );
 }
 
