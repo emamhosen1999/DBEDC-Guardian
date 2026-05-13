@@ -505,6 +505,16 @@ class EmployeeController extends Controller
                     }
                 }
 
+                // Get current biometric device assignment (first active enrollment)
+                $biometricDeviceId = null;
+                $biometricDeviceName = null;
+                $enrollments = $biometricEnrollments[$employee->id] ?? [];
+                if (!empty($enrollments)) {
+                    $firstEnrollment = $enrollments[0];
+                    $biometricDeviceId = $firstEnrollment['device_id'];
+                    $biometricDeviceName = $firstEnrollment['device_name'];
+                }
+
                 return [
                     'id' => $employee->id,
                     'name' => $employee->name,
@@ -521,6 +531,8 @@ class EmployeeController extends Controller
                     'attendance_type_id' => $employee->attendance_type_id,
                     'attendance_type_name' => $attendanceTypeName,
                     'biometric_enrollments' => $biometricEnrollments[$employee->id] ?? [],
+                    'biometric_device_id' => $biometricDeviceId,
+                    'biometric_device_name' => $biometricDeviceName,
                     'report_to' => $employee->report_to,
                     'reports_to' => $reportsTo,
                     'date_of_joining' => $employee->date_of_joining,
