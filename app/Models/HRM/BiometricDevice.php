@@ -15,6 +15,7 @@ class BiometricDevice extends Model
         'ip_address',
         'location',
         'model',
+        'protocol',
         'auth_token',
         'is_active',
         'config',
