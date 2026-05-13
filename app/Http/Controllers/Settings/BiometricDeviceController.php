@@ -266,4 +266,17 @@ class BiometricDeviceController extends Controller
 
         return response()->json(['entries' => $entries]);
     }
+
+    /**
+     * Get all active biometric devices for dropdown
+     */
+    public function getActiveDevices()
+    {
+        $devices = BiometricDevice::active()
+            ->select('id', 'name', 'serial_number', 'location', 'model')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json(['devices' => $devices]);
+    }
 }

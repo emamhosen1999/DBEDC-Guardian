@@ -157,6 +157,10 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/daily-works/bulk-response-status', [DailyWorkController::class, 'bulkResponseStatusUpdate'])->name('dailyWorks.bulkResponseStatusUpdate');
         Route::post('/daily-works/bulk-import-response-status', [DailyWorkController::class, 'bulkImportResponseStatus'])->name('dailyWorks.bulkImportResponseStatus');
         Route::get('/daily-works/response-status-template', [DailyWorkController::class, 'downloadResponseStatusTemplate'])->name('dailyWorks.downloadResponseStatusTemplate');
+        Route::post('/daily-works/bulk-update-incharge', [DailyWorkController::class, 'bulkUpdateIncharge'])->name('dailyWorks.bulkUpdateIncharge');
+        Route::post('/daily-works/bulk-update-status', [DailyWorkController::class, 'bulkUpdateStatus'])->name('dailyWorks.bulkUpdateStatus');
+        Route::post('/daily-works/bulk-update-completion-date', [DailyWorkController::class, 'bulkUpdateCompletionDate'])->name('dailyWorks.bulkUpdateCompletionDate');
+        Route::post('/daily-works/bulk-delete', [DailyWorkController::class, 'bulkDelete'])->name('dailyWorks.bulkDelete');
         Route::get('/daily-works/export-objected-rfis', [DailyWorkController::class, 'exportObjectedRfis'])->name('dailyWorks.exportObjectedRfis');
         Route::post('/daily-works/assigned', [DailyWorkController::class, 'updateAssigned'])->name('dailyWorks.updateAssigned');
         Route::post('/update-rfi-file', [DailyWorkController::class, 'uploadRFIFile'])->name('dailyWorks.uploadRFI');
@@ -389,6 +393,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
         Route::post('/users/{id}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
+        Route::post('/users/{id}/biometric-device', [UserController::class, 'updateBiometricDevice'])->name('users.updateBiometricDevice');
 
         // Legacy routes for backward compatibility
         Route::post('/user/{id}/update-department', [DepartmentController::class, 'updateUserDepartment'])->name('user.updateDepartment');
@@ -480,6 +485,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/biometric-devices/{id}/link', [BiometricDeviceController::class, 'linkDeviceUser'])->name('biometric-devices.users.link');
         Route::post('settings/biometric-devices/{id}/unlink/{userId}', [BiometricDeviceController::class, 'unlinkDeviceUser'])->name('biometric-devices.users.unlink');
         Route::post('settings/biometric-devices/{id}/regenerate-token', [BiometricDeviceController::class, 'regenerateToken'])->name('biometric-devices.regenerate-token');
+        Route::get('settings/biometric-devices/active', [BiometricDeviceController::class, 'getActiveDevices'])->name('biometric-devices.active');
     });
 
 

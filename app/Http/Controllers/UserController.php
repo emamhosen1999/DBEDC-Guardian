@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateUserStatusRequest;
 use App\Http\Resources\UserCollection;
 use App\Http\Resources\UserResource;
 use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\User;
@@ -322,6 +323,69 @@ class UserController extends Controller
             return response()->json([
                 'success' => false,
                 'messages' => ['Failed to update attendance type.'],
+                'errors' => [$e->getMessage()],
+            ], 500);
+        }
+    }
+
+    public function updateBiometricDevice(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
+        $this->authorize('update', $user);
+
+        try {
+            $request->validate([
+                'biometric_device_id' => 'nullable|exists:biometric_devices,id',
+            ]);
+
+            $biometricDeviceId = $request->biometric_device_id;
+
+            // Remove existing biometric device assignments for this user
+            DB::table('biometric_device_users')
+                ->where('user_id', $user->id)
+                ->delete();
+
+            // If a new device is provided, add the assignment
+            if ($biometricDeviceId) {
+                $device = BiometricDevice::findOrFail($biometricDeviceId);
+
+                // Generate a device_user_id (could be user ID or employee ID)
+                $deviceUserId = $user->employee_id ?? strval($user->id);
+
+                // Check if this device_user_id already exists for this device
+                $exists = DB::table('biometric_device_users')
+                    ->where('biometric_device_id', $device->id)
+                    ->where('device_user_id', $deviceUserId)
+                    ->exists();
+
+                if ($exists) {
+                    return response()->json([
+                        'success' => false,
+                        'messages' => ['Device user ID already exists on this device.'],
+                    ], 422);
+                }
+
+                DB::table('biometric_device_users')->insert([
+                    'biometric_device_id' => $device->id,
+                    'user_id' => $user->id,
+                    'device_user_id' => $deviceUserId,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'messages' => ['Biometric device assignment updated successfully.'],
+                'user' => new UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice', 'attendanceType'])),
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'messages' => ['Failed to update biometric device assignment.'],
                 'errors' => [$e->getMessage()],
             ], 500);
         }

@@ -7,6 +7,10 @@ import ObjectionsModal from '@/Components/DailyWork/ObjectionsModal';
 import ObjectionWarningModal from '@/Components/DailyWork/ObjectionWarningModal';
 import RfiFilesModal from '@/Components/DailyWork/RfiFilesModal';
 import StatusUpdateModal from '@/Components/StatusUpdateModal';
+import BulkInchargeModal from '@/Components/DailyWork/BulkInchargeModal';
+import BulkStatusModal from '@/Components/DailyWork/BulkStatusModal';
+import BulkCompletionDateModal from '@/Components/DailyWork/BulkCompletionDateModal';
+import BulkDeleteModal from '@/Components/DailyWork/BulkDeleteModal';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { showToast } from '@/utils/toastUtils';
 import { router, usePage } from "@inertiajs/react";
@@ -177,6 +181,10 @@ const DailyWorksTable = ({
     const [bulkImportModalOpen, setBulkImportModalOpen] = useState(false);
     const [bulkResponseStatusModalOpen, setBulkResponseStatusModalOpen] = useState(false);
     const [bulkImportResponseStatusModalOpen, setBulkImportResponseStatusModalOpen] = useState(false);
+    const [bulkInchargeModalOpen, setBulkInchargeModalOpen] = useState(false);
+    const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
+    const [bulkCompletionDateModalOpen, setBulkCompletionDateModalOpen] = useState(false);
+    const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
 
     // Get selected works for bulk operations
     const selectedWorks = useMemo(() => {
@@ -254,14 +262,15 @@ const DailyWorksTable = ({
 
     // Handle bulk import response status success - update local state without page reload
     const handleBulkImportResponseStatusSuccess = useCallback((result) => {
+        // Clear selection
+        setSelectedKeys(new Set([]));
+
         // Update local state with the updated works from the response
         if (result?.updated && result.updated.length > 0 && setData) {
             const updatedWorksMap = new Map(
-                result.updated
-                    .filter(item => item.dailyWork)
-                    .map(item => [item.dailyWork.id, item.dailyWork])
+                result.updated.map(item => [item.id, item])
             );
-            
+
             if (updatedWorksMap.size > 0) {
                 setData(prevWorks =>
                     prevWorks.map(w =>
@@ -271,7 +280,83 @@ const DailyWorksTable = ({
             }
         }
     }, [setData]);
-    
+
+    // Handle bulk incharge success - update local state without page reload
+    const handleBulkInchargeSuccess = useCallback((result) => {
+        setSelectedKeys(new Set([]));
+
+        if (result?.updated && result.updated.length > 0 && setData) {
+            const updatedWorksMap = new Map(
+                result.updated.map(item => [item.id, item])
+            );
+
+            if (updatedWorksMap.size > 0) {
+                setData(prevWorks =>
+                    prevWorks.map(w =>
+                        updatedWorksMap.has(w.id) ? updatedWorksMap.get(w.id) : w
+                    )
+                );
+            }
+        }
+
+        showToast.success('Incharge updated successfully');
+    }, [setData]);
+
+    // Handle bulk status success - update local state without page reload
+    const handleBulkStatusSuccess = useCallback((result) => {
+        setSelectedKeys(new Set([]));
+
+        if (result?.updated && result.updated.length > 0 && setData) {
+            const updatedWorksMap = new Map(
+                result.updated.map(item => [item.id, item])
+            );
+
+            if (updatedWorksMap.size > 0) {
+                setData(prevWorks =>
+                    prevWorks.map(w =>
+                        updatedWorksMap.has(w.id) ? updatedWorksMap.get(w.id) : w
+                    )
+                );
+            }
+        }
+
+        showToast.success('Status updated successfully');
+    }, [setData]);
+
+    // Handle bulk completion date success - update local state without page reload
+    const handleBulkCompletionDateSuccess = useCallback((result) => {
+        setSelectedKeys(new Set([]));
+
+        if (result?.updated && result.updated.length > 0 && setData) {
+            const updatedWorksMap = new Map(
+                result.updated.map(item => [item.id, item])
+            );
+
+            if (updatedWorksMap.size > 0) {
+                setData(prevWorks =>
+                    prevWorks.map(w =>
+                        updatedWorksMap.has(w.id) ? updatedWorksMap.get(w.id) : w
+                    )
+                );
+            }
+        }
+
+        showToast.success('Completion date updated successfully');
+    }, [setData]);
+
+    // Handle bulk delete success - remove deleted works from local state
+    const handleBulkDeleteSuccess = useCallback((result) => {
+        setSelectedKeys(new Set([]));
+
+        if (result?.deleted && result.deleted.length > 0 && setData) {
+            const deletedIds = new Set(result.deleted);
+            setData(prevWorks => prevWorks.filter(w => !deletedIds.has(w.id)));
+            setTotalRows(prev => prev - result.deleted.length);
+        }
+
+        showToast.success('Works deleted successfully');
+    }, [setData, setTotalRows]);
+
     // Function to open Status Update modal
     const openStatusModal = useCallback((work) => {
         setStatusModalWork(work);
@@ -2434,6 +2519,39 @@ const DesktopLoadingSkeleton = () => (
         onClose={() => setBulkImportResponseStatusModalOpen(false)}
         onSuccess={handleBulkImportResponseStatusSuccess}
     />
+
+    {/* Bulk Incharge Modal */}
+    <BulkInchargeModal
+        isOpen={bulkInchargeModalOpen}
+        onClose={() => setBulkInchargeModalOpen(false)}
+        selectedWorks={selectedWorks}
+        incharges={allInCharges}
+        onSuccess={handleBulkInchargeSuccess}
+    />
+
+    {/* Bulk Status Modal */}
+    <BulkStatusModal
+        isOpen={bulkStatusModalOpen}
+        onClose={() => setBulkStatusModalOpen(false)}
+        selectedWorks={selectedWorks}
+        onSuccess={handleBulkStatusSuccess}
+    />
+
+    {/* Bulk Completion Date Modal */}
+    <BulkCompletionDateModal
+        isOpen={bulkCompletionDateModalOpen}
+        onClose={() => setBulkCompletionDateModalOpen(false)}
+        selectedWorks={selectedWorks}
+        onSuccess={handleBulkCompletionDateSuccess}
+    />
+
+    {/* Bulk Delete Modal */}
+    <BulkDeleteModal
+        isOpen={bulkDeleteModalOpen}
+        onClose={() => setBulkDeleteModalOpen(false)}
+        selectedWorks={selectedWorks}
+        onSuccess={handleBulkDeleteSuccess}
+    />
 </Flex>
         );
     }
@@ -2484,11 +2602,11 @@ const DesktopLoadingSkeleton = () => (
                         </>
                     )}
                     <Button variant="soft" color="violet" size="1" onClick={() => setBulkImportModalOpen(true)}>
-                        <DownloadIcon /> 
+                        <DownloadIcon />
                         <Text display={{ initial: 'none', sm: 'inline' }}>Import Submission</Text>
                     </Button>
                     <Button variant="soft" color="indigo" size="1" onClick={() => setBulkImportResponseStatusModalOpen(true)}>
-                        <ClipboardIcon /> 
+                        <ClipboardIcon />
                         <Text display={{ initial: 'none', sm: 'inline' }}>Import Status</Text>
                     </Button>
                     <Button variant="soft" color="green" size="1" onClick={() => openModal('exportDailyWorks')}>
@@ -2498,6 +2616,29 @@ const DesktopLoadingSkeleton = () => (
                         <ReloadIcon /> Refresh
                     </Button>
                 </Flex>
+
+                {/* Bulk Action Toolbar */}
+                {selectedWorks.length > 0 && (
+                    <Flex align="center" gap="2" mt={{ initial: '2', md: '0' }} style={{ background: 'var(--accent-a3)', padding: '8px 12px', borderRadius: 'var(--radius-2)' }}>
+                        <Text size="2" weight="bold">{selectedWorks.length} selected</Text>
+                        <Separator orientation="vertical" size="1" />
+                        <Button variant="soft" color="blue" size="1" onClick={() => setBulkInchargeModalOpen(true)}>
+                            <PersonIcon /> Assign Incharge
+                        </Button>
+                        <Button variant="soft" color="amber" size="1" onClick={() => setBulkStatusModalOpen(true)}>
+                            <CheckCircledIcon /> Update Status
+                        </Button>
+                        <Button variant="soft" color="purple" size="1" onClick={() => setBulkCompletionDateModalOpen(true)}>
+                            <CalendarIcon /> Completion Date
+                        </Button>
+                        <Button variant="soft" color="red" size="1" onClick={() => setBulkDeleteModalOpen(true)}>
+                            <TrashIcon /> Delete
+                        </Button>
+                        <Button variant="ghost" color="gray" size="1" onClick={() => setSelectedKeys(new Set([]))}>
+                            Clear
+                        </Button>
+                    </Flex>
+                )}
             </Flex>
 
             {/* Responsive Table Area */}
