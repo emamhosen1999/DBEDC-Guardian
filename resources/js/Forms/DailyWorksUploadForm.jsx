@@ -105,10 +105,9 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // Handle form submission (actual import after preview confirmation)
-    // overrides: { rfiNumber: inchargeId } - only for RFIs whose incharge was changed
-    const handleConfirmImport = async (overrides = {}) => {
-        if (!file && !previewData?.token) {
+    // Handle form submission (actual import)
+    const handleConfirmImport = async () => {
+        if (!file) {
             showToast.error('Please select a file to upload');
             return;
         }
@@ -120,14 +119,8 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
             || document.querySelector('input[name="_token"]')?.value
             || window.Laravel?.csrfToken;
 
-        // Prefer token-based confirm (no re-upload). Fallback to file upload.
         const formData = new FormData();
-        if (previewData?.token) {
-            formData.append('token', previewData.token);
-        } else if (file) {
-            formData.append('file', file);
-        }
-        formData.append('incharge_overrides', JSON.stringify(overrides || {}));
+        formData.append('file', file);
 
         const promise = new Promise(async (resolve, reject) => {
             try {
