@@ -1,37 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
+    Dialog,
     Button,
     Select,
-    SelectItem,
-    DateRangePicker,
     Checkbox,
-    CheckboxGroup,
     Card,
-    CardBody,
-    Divider,
+    Box,
+    Flex,
+    Text,
     RadioGroup,
-    Radio,
-    Chip,
-    Progress
-} from "@/compat/heroui";
+    Badge,
+    Progress,
+    Separator,
+} from '@radix-ui/themes';
 import {
-    DocumentArrowDownIcon,
-    DocumentTextIcon,
-    TableCellsIcon,
-    CalendarDaysIcon,
-    InformationCircleIcon,
-    CheckCircleIcon
-} from "@heroicons/react/24/outline";
-import { Download, FileSpreadsheet, FileText, Database } from 'lucide-react';
+    DownloadIcon,
+    FileTextIcon,
+    TableIcon,
+    CalendarIcon,
+    InfoCircledIcon,
+    CheckCircledIcon,
+    FileIcon,
+} from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
-import { parseDate } from "@internationalized/date";
 
 const EnhancedDailyWorksExportForm = ({
     open,
@@ -41,28 +34,13 @@ const EnhancedDailyWorksExportForm = ({
     inCharges = [],
     auth = null
 }) => {
-    // Role-based access control
     const userIsAdmin = auth?.roles?.includes('Administrator') || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Daily Work Manager') || false;
-    // Helper function to convert theme borderRadius to HeroUI radius values
-    const getThemeRadius = () => {
-        if (typeof window === 'undefined') return 'lg';
-        
-        const rootStyles = getComputedStyle(document.documentElement);
-        const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-        
-        const radiusValue = parseInt(borderRadius);
-        if (radiusValue === 0) return 'none';
-        if (radiusValue <= 4) return 'sm';
-        if (radiusValue <= 8) return 'md';
-        if (radiusValue <= 16) return 'lg';
-        return 'full';
-    };
 
     const [exportSettings, setExportSettings] = useState({
         format: 'excel',
         dateRange: {
-            start: filterData.startDate ? parseDate(filterData.startDate) : null,
-            end: filterData.endDate ? parseDate(filterData.endDate) : null
+            start: filterData.startDate || '',
+            end: filterData.endDate || ''
         },
         columns: [
             'date', 'number', 'type', 'status', 'description', 
@@ -84,19 +62,19 @@ const EnhancedDailyWorksExportForm = ({
             key: 'excel',
             label: 'Excel (.xlsx)',
             description: 'Comprehensive spreadsheet format',
-            icon: <FileSpreadsheet size={20} className="text-green-600" />
+            icon: <FileIcon style={{ width: 20, height: 20, color: 'var(--green-9)' }} />
         },
         {
             key: 'csv',
             label: 'CSV (.csv)',
             description: 'Simple comma-separated values',
-            icon: <TableCellsIcon className="w-5 h-5 text-blue-600" />
+            icon: <TableIcon style={{ width: 20, height: 20, color: 'var(--blue-9)' }} />
         },
         {
             key: 'json',
             label: 'JSON Data',
             description: 'Structured data format',
-            icon: <Database size={20} className="text-purple-600" />
+            icon: <FileTextIcon style={{ width: 20, height: 20, color: 'var(--purple-9)' }} />
         }
     ];
 
@@ -145,10 +123,10 @@ const EnhancedDailyWorksExportForm = ({
                     columns: exportSettings.columns,
                     ...exportSettings.filters,
                     ...(exportSettings.dateRange.start && { 
-                        startDate: exportSettings.dateRange.start.toString() 
+                        startDate: exportSettings.dateRange.start
                     }),
                     ...(exportSettings.dateRange.end && { 
-                        endDate: exportSettings.dateRange.end.toString() 
+                        endDate: exportSettings.dateRange.end
                     }),
                     ...(exportSettings.filters.search && { 
                         search: exportSettings.filters.search 
@@ -235,301 +213,163 @@ const EnhancedDailyWorksExportForm = ({
     };
 
     return (
-        <Modal 
-            isOpen={open} 
-            onClose={closeModal}
-            size="4xl"
-            radius={getThemeRadius()}
-            scrollBehavior="inside"
-            classNames={{
-                base: "backdrop-blur-md mx-2 my-2 sm:mx-4 sm:my-8 max-h-[95vh]",
-                backdrop: "bg-black/50 backdrop-blur-sm",
-                header: "border-b border-divider",
-                body: "overflow-y-auto",
-                footer: "border-t border-divider",
-                closeButton: "hover:bg-white/5 active:bg-white/10"
-            }}
-            style={{
-                border: `var(--borderWidth, 2px) solid var(--theme-divider, #E4E4E7)`,
-                borderRadius: `var(--borderRadius, 12px)`,
-                fontFamily: `var(--fontFamily, "Inter")`,
-                transform: `scale(var(--scale, 1))`,
-            }}
-        >
-            <ModalContent>
-                <ModalHeader className="flex flex-col gap-1" style={{
-                    borderColor: `var(--theme-divider, #E4E4E7)`,
-                    fontFamily: `var(--fontFamily, "Inter")`,
-                }}>
-                    <div className="flex items-center gap-3">
-                        <div 
-                            className="p-2 rounded-lg"
-                            style={{
-                                background: `color-mix(in srgb, var(--theme-primary) 15%, transparent)`,
-                                color: 'var(--theme-primary)'
-                            }}
-                        >
-                            <DocumentArrowDownIcon className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-semibold text-foreground" style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>
-                                Export Daily Works
-                            </h2>
-                            <p className="text-sm text-default-500">
-                                Export daily work records with customizable options
-                            </p>
-                        </div>
-                    </div>
-                </ModalHeader>
-                
-                <ModalBody className="py-4 px-4 sm:py-6 sm:px-6" style={{
-                    fontFamily: `var(--fontFamily, "Inter")`,
-                }}>
-                    <div className="space-y-6">
-                        {/* Export Format */}
-                        <Card 
-                            className="bg-default-50"
-                            radius={getThemeRadius()}
-                            style={{
-                                borderRadius: `var(--borderRadius, 12px)`,
-                            }}
-                        >
-                            <CardBody style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>
-                                <h4 className="font-semibold mb-3" style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}>Export Format</h4>
-                                <RadioGroup
-                                    value={exportSettings.format}
-                                    onValueChange={(value) => setExportSettings(prev => ({ ...prev, format: value }))}
-                                    orientation="horizontal"
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                >
-                                    {exportFormats.map((format) => (
-                                        <Radio key={format.key} value={format.key}>
-                                            <div className="flex items-center gap-2">
-                                                {format.icon}
-                                                <div>
-                                                    <div className="font-medium">{format.label}</div>
-                                                    <div className="text-xs text-default-500">{format.description}</div>
-                                                </div>
-                                            </div>
-                                        </Radio>
-                                    ))}
-                                </RadioGroup>
-                            </CardBody>
-                        </Card>
+        <Dialog.Root open={open} onOpenChange={closeModal}>
+            <Dialog.Content style={{ maxWidth: 800 }}>
+                <Dialog.Title>Export Daily Works</Dialog.Title>
+                <Dialog.Description>Export daily work records with customizable options</Dialog.Description>
 
-                        {/* Date Range */}
-                        <div>
-                            <h4 className="font-semibold mb-3" style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>Date Range</h4>
-                            <DateRangePicker
-                                label="Select date range"
-                                value={exportSettings.dateRange}
-                                onChange={(range) => setExportSettings(prev => ({ 
-                                    ...prev, 
-                                    dateRange: range 
-                                }))}
-                                size="sm"
-                                variant="bordered"
-                                radius={getThemeRadius()}
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                            />
-                        </div>
-
-                        {/* Filters */}
-                        <div>
-                            <h4 className="font-semibold mb-3" style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>Filters</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <Select
-                                    label="Status"
-                                    selectedKeys={[exportSettings.filters.status]}
-                                    onSelectionChange={(keys) => setExportSettings(prev => ({
-                                        ...prev,
-                                        filters: { ...prev.filters, status: Array.from(keys)[0] }
-                                    }))}
-                                    size="sm"
-                                    variant="bordered"
-                                    radius={getThemeRadius()}
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                >
-                                    {statusOptions.map((status) => (
-                                        <SelectItem key={status.key} value={status.key}>
-                                            {status.label}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-
-                                <Select
-                                    label="Type"
-                                    selectedKeys={[exportSettings.filters.type]}
-                                    onSelectionChange={(keys) => setExportSettings(prev => ({
-                                        ...prev,
-                                        filters: { ...prev.filters, type: Array.from(keys)[0] }
-                                    }))}
-                                    size="sm"
-                                    variant="bordered"
-                                    radius={getThemeRadius()}
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                >
-                                    {typeOptions.map((type) => (
-                                        <SelectItem key={type.key} value={type.key}>
-                                            {type.label}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
-
-                                {userIsAdmin && (
-                                    <Select
-                                        label="In Charge"
-                                        selectedKeys={[exportSettings.filters.incharge]}
-                                        onSelectionChange={(keys) => setExportSettings(prev => ({
-                                            ...prev,
-                                            filters: { ...prev.filters, incharge: Array.from(keys)[0] }
-                                        }))}
-                                        size="sm"
-                                        variant="bordered"
-                                        radius={getThemeRadius()}
-                                        style={{
-                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                        }}
-                                    >
-                                        <SelectItem key="all" value="all">All In Charges</SelectItem>
-                                        {inCharges.map((inCharge) => (
-                                            <SelectItem key={inCharge.id} value={inCharge.id}>
-                                                {inCharge.name}
-                                            </SelectItem>
-                                        ))}
-                                    </Select>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Column Selection */}
-                        <div>
-                            <h4 className="font-semibold mb-3" style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>Columns to Export</h4>
-                            <CheckboxGroup
-                                value={exportSettings.columns}
-                                onValueChange={(columns) => setExportSettings(prev => ({ 
-                                    ...prev, 
-                                    columns 
-                                }))}
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
+                <Flex direction="column" gap="4" mt="4">
+                    {/* Export Format */}
+                    <Card>
+                        <Box p="3">
+                            <Text size="2" weight="bold" mb="3">Export Format</Text>
+                            <RadioGroup.Root
+                                value={exportSettings.format}
+                                onValueChange={(value) => setExportSettings(prev => ({ ...prev, format: value }))}
                             >
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                    {columnOptions.map((column) => (
-                                        <Checkbox key={column.key} value={column.key}>
-                                            <div>
-                                                <div className="font-medium">{column.label}</div>
-                                                <div className="text-xs text-default-500">{column.description}</div>
-                                            </div>
-                                        </Checkbox>
+                                <Flex direction="column" gap="2">
+                                    {exportFormats.map((format) => (
+                                        <Flex key={format.key} asChild align="center" gap="2">
+                                            <RadioGroup.Item value={format.key}>
+                                                {format.icon}
+                                                <Flex direction="column">
+                                                    <Text size="2" weight="medium">{format.label}</Text>
+                                                    <Text size="1" color="gray">{format.description}</Text>
+                                                </Flex>
+                                            </RadioGroup.Item>
+                                        </Flex>
                                     ))}
-                                </div>
-                            </CheckboxGroup>
-                        </div>
+                                </Flex>
+                            </RadioGroup.Root>
+                        </Box>
+                    </Card>
 
-                        {/* Export Summary */}
-                        <Card 
-                            className="bg-primary-50 border-primary-200"
-                            radius={getThemeRadius()}
-                            style={{
-                                borderRadius: `var(--borderRadius, 12px)`,
-                                background: `color-mix(in srgb, var(--theme-primary) 10%, transparent)`,
-                                borderColor: `color-mix(in srgb, var(--theme-primary) 20%, transparent)`,
-                            }}
-                        >
-                            <CardBody style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>
-                                <div className="flex items-start space-x-3">
-                                    <InformationCircleIcon 
-                                        className="w-5 h-5 mt-0.5" 
-                                        style={{ color: 'var(--theme-primary)' }}
+                    {/* Date Range */}
+                    <Flex direction="column" gap="2">
+                        <Text size="2" weight="bold">Date Range</Text>
+                        <Flex gap="2">
+                            <Flex direction="column" gap="1" style={{ flex: 1 }}>
+                                <Text size="1">Start Date</Text>
+                                <input
+                                    type="date"
+                                    value={exportSettings.dateRange.start}
+                                    onChange={(e) => setExportSettings(prev => ({ ...prev, dateRange: { ...prev.dateRange, start: e.target.value } }))}
+                                    style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                />
+                            </Flex>
+                            <Flex direction="column" gap="1" style={{ flex: 1 }}>
+                                <Text size="1">End Date</Text>
+                                <input
+                                    type="date"
+                                    value={exportSettings.dateRange.end}
+                                    onChange={(e) => setExportSettings(prev => ({ ...prev, dateRange: { ...prev.dateRange, end: e.target.value } }))}
+                                    style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                />
+                            </Flex>
+                        </Flex>
+                    </Flex>
+
+                    {/* Filters */}
+                    <Flex direction="column" gap="2">
+                        <Text size="2" weight="bold">Filters</Text>
+                        <Flex wrap="wrap" gap="3">
+                            <Flex direction="column" gap="1" style={{ minWidth: 160 }}>
+                                <Text size="1">Status</Text>
+                                <select
+                                    value={exportSettings.filters.status}
+                                    onChange={(e) => setExportSettings(prev => ({ ...prev, filters: { ...prev.filters, status: e.target.value } }))}
+                                    style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                >
+                                    {statusOptions.map((status) => <option key={status.key} value={status.key}>{status.label}</option>)}
+                                </select>
+                            </Flex>
+                            <Flex direction="column" gap="1" style={{ minWidth: 160 }}>
+                                <Text size="1">Type</Text>
+                                <select
+                                    value={exportSettings.filters.type}
+                                    onChange={(e) => setExportSettings(prev => ({ ...prev, filters: { ...prev.filters, type: e.target.value } }))}
+                                    style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                >
+                                    {typeOptions.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
+                                </select>
+                            </Flex>
+                            {userIsAdmin && (
+                                <Flex direction="column" gap="1" style={{ minWidth: 160 }}>
+                                    <Text size="1">In Charge</Text>
+                                    <select
+                                        value={exportSettings.filters.incharge}
+                                        onChange={(e) => setExportSettings(prev => ({ ...prev, filters: { ...prev.filters, incharge: e.target.value } }))}
+                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                    >
+                                        <option value="all">All In Charges</option>
+                                        {inCharges.map((inCharge) => <option key={inCharge.id} value={inCharge.id}>{inCharge.name}</option>)}
+                                    </select>
+                                </Flex>
+                            )}
+                        </Flex>
+                    </Flex>
+
+                    {/* Column Selection */}
+                    <Flex direction="column" gap="2">
+                        <Text size="2" weight="bold">Columns to Export</Text>
+                        <Flex wrap="wrap" gap="2">
+                            {columnOptions.map((column) => (
+                                <Flex key={column.key} align="center" gap="2" p="2" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-1)', minWidth: 200 }}>
+                                    <Checkbox
+                                        checked={exportSettings.columns.includes(column.key)}
+                                        onCheckedChange={(checked) => {
+                                            if (checked) {
+                                                setExportSettings(prev => ({ ...prev, columns: [...prev.columns, column.key] }));
+                                            } else {
+                                                setExportSettings(prev => ({ ...prev, columns: prev.columns.filter(c => c !== column.key) }));
+                                            }
+                                        }}
                                     />
-                                    <div>
-                                        <h5 
-                                            className="font-medium mb-2"
-                                            style={{ 
-                                                color: 'var(--theme-primary)',
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            Export Summary
-                                        </h5>
-                                        <div 
-                                            className="text-sm space-y-1"
-                                            style={{ 
-                                                color: `color-mix(in srgb, var(--theme-primary) 80%, black)`,
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            <p>• Format: {exportFormats.find(f => f.key === exportSettings.format)?.label}</p>
-                                            <p>• Columns: {exportSettings.columns.length} selected</p>
-                                            <p>• Estimated records: {getEstimatedRecords()}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </div>
-                </ModalBody>
-                
-                <ModalFooter className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
-                    borderColor: `var(--theme-divider, #E4E4E7)`,
-                    fontFamily: `var(--fontFamily, "Inter")`,
-                }}>
-                    <Button 
-                        color="default"
-                        variant="bordered"
-                        onPress={closeModal}
-                        isDisabled={isLoading}
-                        radius={getThemeRadius()}
-                        size="sm"
-                        style={{
-                            borderRadius: `var(--borderRadius, 8px)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
+                                    <Flex direction="column">
+                                        <Text size="2" weight="medium">{column.label}</Text>
+                                        <Text size="1" color="gray">{column.description}</Text>
+                                    </Flex>
+                                </Flex>
+                            ))}
+                        </Flex>
+                    </Flex>
+
+                    {/* Export Summary */}
+                    <Card style={{ background: 'var(--accent-a2)' }}>
+                        <Box p="3">
+                            <Flex align="start" gap="2">
+                                <InfoCircledIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
+                                <Flex direction="column" gap="1">
+                                    <Text size="2" weight="medium" style={{ color: 'var(--accent-9)' }}>Export Summary</Text>
+                                    <Text size="1" style={{ color: 'var(--accent-11)' }}>
+                                        Format: {exportFormats.find(f => f.key === exportSettings.format)?.label}
+                                    </Text>
+                                    <Text size="1" style={{ color: 'var(--accent-11)' }}>
+                                        Columns: {exportSettings.columns.length} selected
+                                    </Text>
+                                    <Text size="1" style={{ color: 'var(--accent-11)' }}>
+                                        Estimated records: {getEstimatedRecords()}
+                                    </Text>
+                                </Flex>
+                            </Flex>
+                        </Box>
+                    </Card>
+                </Flex>
+
+                <Flex gap="2" justify="end" mt="4">
+                    <Dialog.Close>
+                        <Button variant="soft" color="gray">Cancel</Button>
+                    </Dialog.Close>
+                    <Button
+                        onClick={handleExport}
+                        disabled={isLoading || exportSettings.columns.length === 0}
                     >
-                        Cancel
-                    </Button>
-                    <Button 
-                        color="primary" 
-                        onPress={handleExport}
-                        isLoading={isLoading}
-                        startContent={!isLoading && <Download size={16} />}
-                        isDisabled={exportSettings.columns.length === 0}
-                        radius={getThemeRadius()}
-                        size="sm"
-                        style={{
-                            borderRadius: `var(--borderRadius, 8px)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
+                        <DownloadIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                         {isLoading ? 'Exporting...' : 'Export Data'}
                     </Button>
-                </ModalFooter>
-            </ModalContent>
-        </Modal>
+                </Flex>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

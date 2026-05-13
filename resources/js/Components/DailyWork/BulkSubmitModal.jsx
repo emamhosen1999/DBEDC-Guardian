@@ -1,33 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Button,
-    Textarea,
-    Chip,
-    Divider,
-    Card,
-    CardBody,
-    Input,
-    Checkbox,
-    ScrollShadow,
-    Progress,
-} from "@/compat/heroui";
+import { Dialog, Button, Badge, Separator, Card, Box, Flex, TextArea, Text, TextField, ScrollArea } from '@radix-ui/themes';
 import {
     ExclamationTriangleIcon,
-    ShieldExclamationIcon,
-    CalendarDaysIcon,
-    DocumentTextIcon,
-    CheckCircleIcon,
-    XCircleIcon,
-    DocumentArrowUpIcon,
-    MapPinIcon,
-} from "@heroicons/react/24/outline";
-import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
-import { getThemeRadius } from '@/Hooks/useThemeRadius';
+    CalendarIcon,
+    FileTextIcon,
+    CheckCircledIcon,
+    CrossCircledIcon,
+    UploadIcon,
+    TargetIcon,
+} from "@radix-ui/react-icons";
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 
@@ -134,361 +115,243 @@ const BulkSubmitModal = ({
     };
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={handleClose}
-            size="2xl"
-            placement="bottom-center"
-            isDismissable={step !== 'loading'}
-            scrollBehavior="inside"
-            classNames={{
-                base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
-                wrapper: "items-end sm:items-center",
-                body: "px-4 sm:px-6 py-4",
-                header: "px-4 sm:px-6",
-                footer: "px-4 sm:px-6",
-            }}
-        >
-            <ModalContent>
-                {(onCloseModal) => (
-                    <>
-                        <ModalHeader className="flex flex-col gap-2 pb-4">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <DocumentArrowUpIcon className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" />
-                                <span className="font-bold text-sm sm:text-base">Bulk RFI Submission</span>
-                                <Chip size="sm" color="primary" variant="flat">
-                                    {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}
-                                </Chip>
-                            </div>
-                        </ModalHeader>
+        <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v) handleClose(); }}>
+            <Dialog.Content maxWidth="640px" style={{ fontFamily: `var(--fontFamily,"Inter")` }}>
+                <>
+                        <Dialog.Title>
+                            <Flex align="center" gap="2" wrap="wrap">
+                                <UploadIcon style={{ width: 20, height: 20, flexShrink: 0, color: 'var(--accent-9)' }} />
+                                <Text weight="bold" size={{ initial: '2', sm: '3' }}>Bulk RFI Submission</Text>
+                                <Badge color="indigo" variant="soft" size="1">{selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}</Badge>
+                            </Flex>
+                        </Dialog.Title>
 
-                        <ModalBody className="py-4">
+                        <Box py="3">
                             {/* Step 1: Confirm submission */}
                             {step === 'confirm' && (
-                                <div className="space-y-4">
+                                <Flex direction="column" gap="4">
                                     {/* Submission Date */}
-                                    <div>
-                                        <Input
-                                            type="date"
-                                            label="RFI Submission Date"
-                                            value={submissionDate}
-                                            onChange={(e) => setSubmissionDate(e.target.value)}
-                                            startContent={<CalendarDaysIcon className="w-4 h-4 text-default-400" />}
-                                        />
-                                    </div>
+                                    <Flex direction="column" gap="1">
+                                        <Text as="label" size="1" weight="medium">RFI Submission Date</Text>
+                                        <TextField.Root type="date" value={submissionDate} onChange={(e) => setSubmissionDate(e.target.value)}>
+                                            <TextField.Slot><CalendarIcon style={{ width: 16, height: 16 }} /></TextField.Slot>
+                                        </TextField.Root>
+                                    </Flex>
 
                                     {/* Summary */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800">
-                                            <CardBody className="p-3">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <CheckCircleSolid className="w-4 h-4 sm:w-5 sm:h-5 text-success flex-shrink-0" />
-                                                    <span className="font-semibold text-xs sm:text-sm text-success-700 dark:text-success-400">
+                                    <Flex wrap="wrap" gap="3">
+                                        <Card style={{ background: 'var(--green-3)', border: '1px solid var(--green-6)' }}>
+                                            <Box p="3">
+                                                <Flex align="center" gap="2" mb="1">
+                                                    <CheckCircledIcon style={{ width: 16, height: 16, flexShrink: 0, color: 'var(--green-9)' }} />
+                                                    <Text weight="semibold" style={{ fontSize: 12, color: 'var(--green-11)' }}>
                                                         Ready to Submit
-                                                    </span>
-                                                </div>
-                                                <p className="text-xl sm:text-2xl font-bold text-success-800 dark:text-success-300">
+                                                    </Text>
+                                                </Flex>
+                                                <Text size="6" weight="bold" style={{ color: 'var(--green-11)' }}>
                                                     {worksWithoutObjections.length}
-                                                </p>
-                                                <p className="text-xs text-success-600 dark:text-success-500">
+                                                </Text>
+                                                <Text size="1" style={{ color: 'var(--green-10)' }}>
                                                     RFIs without active objections
-                                                </p>
-                                            </CardBody>
+                                                </Text>
+                                            </Box>
                                         </Card>
 
-                                        <Card className={`border ${worksWithObjections.length > 0 
-                                            ? 'bg-warning-50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-800' 
-                                            : 'bg-default-50 dark:bg-default-900/20 border-default-200 dark:border-default-800'}`}>
-                                            <CardBody className="p-3">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <ShieldExclamationIcon className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${worksWithObjections.length > 0 ? 'text-warning' : 'text-default-400'}`} />
-                                                    <span className={`font-semibold text-xs sm:text-sm ${worksWithObjections.length > 0 ? 'text-warning-700 dark:text-warning-400' : 'text-default-500'}`}>
+                                        <Card style={{ background: worksWithObjections.length > 0 ? 'var(--amber-3)' : 'var(--gray-a2)', border: `1px solid ${worksWithObjections.length > 0 ? 'var(--amber-6)' : 'var(--gray-a4)'}` }}>
+                                            <Box p="3">
+                                                <Flex align="center" gap="2" mb="1">
+                                                    <ExclamationTriangleIcon style={{ width: 16, height: 16, flexShrink: 0, color: worksWithObjections.length > 0 ? 'var(--amber-9)' : 'var(--gray-9)' }} />
+                                                    <Text weight="semibold" style={{ fontSize: 12, color: worksWithObjections.length > 0 ? 'var(--amber-11)' : 'var(--gray-11)' }}>
                                                         With Objections
-                                                    </span>
-                                                </div>
-                                                <p className={`text-xl sm:text-2xl font-bold ${worksWithObjections.length > 0 ? 'text-warning-800 dark:text-warning-300' : 'text-default-400'}`}>
+                                                    </Text>
+                                                </Flex>
+                                                <Text size="6" weight="bold" style={{ color: worksWithObjections.length > 0 ? 'var(--amber-11)' : 'var(--gray-10)' }}>
                                                     {worksWithObjections.length}
-                                                </p>
-                                                <p className={`text-xs ${worksWithObjections.length > 0 ? 'text-warning-600 dark:text-warning-500' : 'text-default-400'}`}>
+                                                </Text>
+                                                <Text size="1" style={{ color: worksWithObjections.length > 0 ? 'var(--amber-10)' : 'var(--gray-10)' }}>
                                                     RFIs with active objections
-                                                </p>
-                                            </CardBody>
+                                                </Text>
+                                            </Box>
                                         </Card>
-                                    </div>
+                                    </Flex>
 
                                     {/* Objection Warning */}
                                     {worksWithObjections.length > 0 && (
-                                        <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-3 sm:p-4">
-                                            <div className="flex items-start gap-2 sm:gap-3">
-                                                <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-warning-600 flex-shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="font-semibold text-warning-800 dark:text-warning-300 text-xs sm:text-sm">
+                                        <Box p="3" style={{ background: 'var(--amber-a2)', border: '1px solid var(--amber-a6)', borderRadius: 'var(--radius-2)' }}>
+                                            <Flex align="start" gap="2">
+                                                <ExclamationTriangleIcon style={{ width: 16, height: 16, flexShrink: 0, marginTop: '0.125rem', color: 'var(--amber-9)' }} />
+                                                <Flex direction="column">
+                                                    <Text weight="semibold" style={{ fontSize: 12, color: 'var(--amber-11)' }} as="p">
                                                         {worksWithObjections.length} RFI{worksWithObjections.length !== 1 ? 's have' : ' has'} active objections
-                                                    </p>
-                                                    <p className="text-xs text-warning-700 dark:text-warning-400 mt-1">
+                                                    </Text>
+                                                    <Text size="1" style={{ color: 'var(--amber-10)', marginTop: 4 }} as="p">
                                                         You'll be asked to skip or override these RFIs in the next step.
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                                    </Text>
+                                                </Flex>
+                                            </Flex>
+                                        </Box>
                                     )}
 
                                     {/* Selected RFIs List */}
-                                    <div>
-                                        <p className="text-xs sm:text-sm font-medium mb-2">Selected RFIs:</p>
-                                        <ScrollShadow className="max-h-48">
-                                            <div className="space-y-2">
+                                    <Box>
+                                        <Text weight="medium" size="1" mb="2">Selected RFIs:</Text>
+                                        <ScrollArea style={{ maxHeight: 192 }}>
+                                            <Flex direction="column" gap="2" pr="2">
                                                 {selectedWorks.map((work) => (
-                                                    <div 
-                                                        key={work.id} 
-                                                        className={`flex items-center justify-between p-2 rounded-lg text-xs sm:text-sm border ${
-                                                            (work.active_objections_count || 0) > 0
-                                                                ? 'bg-warning-50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-700'
-                                                                : 'bg-default-50 dark:bg-default-900/10 border-default-200 dark:border-default-700'
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                            <DocumentTextIcon className="w-3 h-3 sm:w-4 sm:h-4 text-default-500 flex-shrink-0" />
-                                                            <span className="font-medium truncate">{work.number}</span>
-                                                            {work.location && (
-                                                                <span className="text-xs text-default-400 flex items-center gap-1 hidden sm:flex">
-                                                                    <MapPinIcon className="w-3 h-3" />
-                                                                    {work.location}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        {(work.active_objections_count || 0) > 0 && (
-                                                            <Chip size="sm" color="warning" variant="flat">
-                                                                {work.active_objections_count} objection{work.active_objections_count !== 1 ? 's' : ''}
-                                                            </Chip>
-                                                        )}
-                                                    </div>
+                                                    <Flex key={work.id} align="center" justify="between" p="2" style={{ borderRadius: 'var(--radius-1)', background: (work.active_objections_count||0)>0?'var(--amber-3)':'var(--gray-a2)', border:`1px solid ${(work.active_objections_count||0)>0?'var(--amber-6)':'var(--gray-a4)'}` }}>
+                                                        <Flex align="center" gap="2" style={{ flex: 1, minWidth: 0 }}>
+                                                            <FileTextIcon style={{ width: 12, height: 12, flexShrink: 0, color: 'var(--gray-9)' }} />
+                                                            <Text weight="medium" style={{ truncate: true, fontSize: 12 }}>{work.number}</Text>
+                                                            {work.location && <Text size="1" style={{color:'var(--gray-11)', display: window.innerWidth >= 640 ? 'flex' : 'none', alignItems: 'center', gap: 4 }}><TargetIcon style={{width:12,height:12}}/>{work.location}</Text>}
+                                                        </Flex>
+                                                        {(work.active_objections_count||0)>0 && <Badge color="amber" variant="soft" size="1">{work.active_objections_count} objection{work.active_objections_count!==1?'s':''}</Badge>}
+                                                    </Flex>
                                                 ))}
-                                            </div>
-                                        </ScrollShadow>
-                                    </div>
-                                </div>
+                                            </Flex>
+                                        </ScrollArea>
+                                    </Box>
+                                </Flex>
                             )}
 
                             {/* Step 2: Objection Decision */}
                             {step === 'objection-decision' && (
-                                <div className="space-y-4">
-                                    <div className="bg-warning-100 dark:bg-warning-900/30 border border-warning-300 dark:border-warning-700 rounded-lg p-4">
-                                        <div className="flex items-start gap-3">
-                                            <ShieldExclamationIcon className="w-6 h-6 text-warning-600 flex-shrink-0" />
-                                            <div>
-                                                <p className="font-bold text-warning-800 dark:text-warning-300">
+                                <Flex direction="column" gap="4">
+                                    <Box p="4" style={{ background: 'var(--amber-a2)', border: '1px solid var(--amber-a6)', borderRadius: 'var(--radius-2)' }}>
+                                        <Flex align="start" gap="3">
+                                            <ExclamationTriangleIcon style={{ width: 24, height: 24, flexShrink: 0, color: 'var(--amber-9)' }} />
+                                            <Flex direction="column">
+                                                <Text weight="bold" style={{ color: 'var(--amber-11)' }} as="p">
                                                     Action Required: RFIs with Active Objections
-                                                </p>
-                                                <p className="text-sm text-warning-700 dark:text-warning-400 mt-1">
+                                                </Text>
+                                                <Text size="2" style={{ color: 'var(--amber-10)', marginTop: 4 }} as="p">
                                                     The following {objectedWorks.length} RFI{objectedWorks.length !== 1 ? 's have' : ' has'} active objections. 
                                                     Choose how to proceed:
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                                </Text>
+                                            </Flex>
+                                        </Flex>
+                                    </Box>
 
                                     {/* Objected RFIs List */}
-                                    <div>
-                                        <p className="text-sm font-medium mb-2">RFIs with Objections:</p>
-                                        <ScrollShadow className="max-h-32">
-                                            <div className="space-y-2">
+                                    <Box>
+                                        <Text weight="medium" size="2" mb="2">RFIs with Objections:</Text>
+                                        <ScrollArea style={{ maxHeight: 128 }}>
+                                            <Flex direction="column" gap="2" pr="2">
                                                 {objectedWorks.map((work) => (
-                                                    <div 
-                                                        key={work.id} 
-                                                        className="flex items-center justify-between p-2 bg-warning-50 dark:bg-warning-900/20 rounded-lg text-sm border border-warning-200 dark:border-warning-700"
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <ShieldExclamationIcon className="w-4 h-4 text-warning-600" />
-                                                            <span className="font-medium">{work.number}</span>
-                                                            <span className="text-xs text-default-400">{work.location}</span>
-                                                        </div>
-                                                        <Chip size="sm" color="warning" variant="flat">
-                                                            {work.active_objections_count} objection{work.active_objections_count !== 1 ? 's' : ''}
-                                                        </Chip>
-                                                    </div>
+                                                    <Flex key={work.id} align="center" justify="between" p="2" style={{ borderRadius: 'var(--radius-1)', background: 'var(--amber-3)', border: '1px solid var(--amber-6)' }}>
+                                                        <Flex align="center" gap="2">
+                                                            <ExclamationTriangleIcon style={{ width: 16, height: 16, color: 'var(--amber-9)' }} />
+                                                            <Text weight="medium" size="2">{work.number}</Text>
+                                                            <Text size="1" style={{ color: 'var(--gray-11)' }}>{work.location}</Text>
+                                                        </Flex>
+                                                        <Badge color="amber" variant="soft" size="1">{work.active_objections_count} objection{work.active_objections_count!==1?'s':''}</Badge>
+                                                    </Flex>
                                                 ))}
-                                            </div>
-                                        </ScrollShadow>
-                                    </div>
+                                            </Flex>
+                                        </ScrollArea>
+                                    </Box>
 
-                                    <Divider />
-
-                                    {/* Override Reason */}
-                                    <div>
-                                        <Textarea
-                                            label="Override Reason (required to submit objected RFIs)"
-                                            placeholder="Explain why you're submitting RFIs that have active objections..."
-                                            value={overrideReason}
-                                            onChange={(e) => setOverrideReason(e.target.value)}
-                                            minRows={2}
-                                            description="This reason will be logged for audit purposes."
-                                        />
-                                    </div>
+                                    <Separator size="4" />
+                                    <Flex direction="column" gap="1">
+                                        <Text as="label" size="1" weight="medium">Override Reason (required to submit objected RFIs)</Text>
+                                        <TextArea placeholder="Explain why you're submitting RFIs that have active objections..." value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} rows={2} />
+                                        <Text size="1" color="gray">This reason will be logged for audit purposes.</Text>
+                                    </Flex>
 
                                     {/* Action Buttons */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <Card 
-                                            isPressable 
-                                            onPress={handleSkipObjected}
-                                            className="border-2 border-default-200 hover:border-primary transition-colors"
-                                        >
-                                            <CardBody className="p-3 sm:p-4 text-center">
-                                                <CheckCircleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-success mx-auto mb-2" />
-                                                <p className="font-semibold text-sm sm:text-base">Skip Objected RFIs</p>
-                                                <p className="text-xs text-default-500 mt-1">
-                                                    Submit only {cleanWorks.length} RFI{cleanWorks.length !== 1 ? 's' : ''} without objections
-                                                </p>
-                                            </CardBody>
+                                    <Flex wrap="wrap" gap="3">
+                                        <Card style={{ cursor: 'pointer', border: '2px solid var(--gray-a4)' }} onClick={handleSkipObjected}>
+                                            <Box p="3" style={{ textAlign: 'center' }}>
+                                                <CheckCircledIcon style={{ width: 28, height: 28, color: 'var(--green-9)', margin: '0 auto 8px' }} />
+                                                <Text weight="bold" size={{ initial: '2', sm: '3' }} as="p">Skip Objected RFIs</Text>
+                                                <Text size="1" color="gray" as="p" mt="1">Submit only {cleanWorks.length} RFI{cleanWorks.length!==1?'s':''} without objections</Text>
+                                            </Box>
                                         </Card>
-
-                                        <Card 
-                                            isPressable 
-                                            onPress={handleOverrideObjected}
-                                            isDisabled={!overrideReason.trim()}
-                                            className={`border-2 transition-colors ${overrideReason.trim() ? 'border-warning-200 hover:border-warning' : 'border-default-200 opacity-60'}`}
-                                        >
-                                            <CardBody className="p-3 sm:p-4 text-center">
-                                                <ExclamationTriangleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-warning mx-auto mb-2" />
-                                                <p className="font-semibold text-sm sm:text-base">Override & Submit All</p>
-                                                <p className="text-xs text-default-500 mt-1">
-                                                    Submit all {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''} including objected
-                                                </p>
-                                            </CardBody>
+                                        <Card style={{ cursor: overrideReason.trim() ? 'pointer' : 'not-allowed', opacity: overrideReason.trim() ? 1 : 0.6, border: `2px solid ${overrideReason.trim() ? 'var(--amber-6)' : 'var(--gray-a4)'}` }} onClick={overrideReason.trim() ? handleOverrideObjected : undefined}>
+                                            <Box p="3" style={{ textAlign: 'center' }}>
+                                                <ExclamationTriangleIcon style={{ width: 28, height: 28, color: 'var(--amber-9)', margin: '0 auto 8px' }} />
+                                                <Text weight="bold" size={{ initial: '2', sm: '3' }} as="p">Override &amp; Submit All</Text>
+                                                <Text size="1" color="gray" as="p" mt="1">Submit all {selectedWorks.length} RFI{selectedWorks.length!==1?'s':''} including objected</Text>
+                                            </Box>
                                         </Card>
-                                    </div>
-                                </div>
+                                    </Flex>
+                                </Flex>
                             )}
 
                             {/* Step 3: Result */}
                             {step === 'result' && result && (
-                                <div className="space-y-4">
+                                <Flex direction="column" gap="4">
                                     {/* Success Summary */}
-                                    <div className="text-center py-4">
-                                        <CheckCircleSolid className="w-12 h-12 sm:w-16 sm:h-16 text-success mx-auto mb-3" />
-                                        <h3 className="text-lg sm:text-xl font-bold text-success-700 dark:text-success-400">
+                                    <Flex direction="column" align="center" py="4">
+                                        <CheckCircledIcon style={{ width: 48, height: 48, color: 'var(--green-9)', margin: '0 auto 12px' }} />
+                                        <Text size="5" weight="bold" style={{ color: 'var(--green-11)' }}>
                                             Bulk Submission Complete
-                                        </h3>
-                                        <p className="text-xs sm:text-sm text-default-500 mt-1">{result.message}</p>
-                                    </div>
+                                        </Text>
+                                        <Text size="2" style={{ color: 'var(--gray-11)', marginTop: 4 }}>{result.message}</Text>
+                                    </Flex>
 
                                     {/* Results Grid */}
-                                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                                        <Card className="bg-success-50 dark:bg-success-900/20 border border-success-200">
-                                            <CardBody className="p-2 sm:p-3 text-center">
-                                                <p className="text-xl sm:text-2xl font-bold text-success">{result.submitted_count}</p>
-                                                <p className="text-[10px] sm:text-xs text-success-600">Submitted</p>
-                                            </CardBody>
-                                        </Card>
-                                        <Card className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200">
-                                            <CardBody className="p-2 sm:p-3 text-center">
-                                                <p className="text-xl sm:text-2xl font-bold text-warning">{result.skipped_count}</p>
-                                                <p className="text-[10px] sm:text-xs text-warning-600">Skipped</p>
-                                            </CardBody>
-                                        </Card>
-                                        <Card className="bg-danger-50 dark:bg-danger-900/20 border border-danger-200">
-                                            <CardBody className="p-2 sm:p-3 text-center">
-                                                <p className="text-xl sm:text-2xl font-bold text-danger">{result.failed_count}</p>
-                                                <p className="text-[10px] sm:text-xs text-danger-600">Failed</p>
-                                            </CardBody>
-                                        </Card>
-                                    </div>
+                                    <Flex wrap="wrap" gap="2">
+                                        <Card style={{ background: 'var(--green-3)', border: '1px solid var(--green-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--green-11)' }}>{result.submitted_count}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Submitted</Text></Box></Card>
+                                        <Card style={{ background: 'var(--amber-3)', border: '1px solid var(--amber-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--amber-11)' }}>{result.skipped_count}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Skipped</Text></Box></Card>
+                                        <Card style={{ background: 'var(--red-3)', border: '1px solid var(--red-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--red-11)' }}>{result.failed_count}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Failed</Text></Box></Card>
+                                    </Flex>
 
                                     {/* Submitted List */}
                                     {result.submitted?.length > 0 && (
-                                        <div>
-                                            <p className="text-xs sm:text-sm font-medium mb-2 text-success-700 flex items-center gap-1">
-                                                <CheckCircleSolid className="w-4 h-4" />
-                                                Submitted Successfully ({result.submitted.length})
-                                            </p>
-                                            <ScrollShadow className="max-h-24">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {result.submitted.map((work) => (
-                                                        <Chip key={work.id} size="sm" color="success" variant="flat">
-                                                            {work.number}
-                                                        </Chip>
-                                                    ))}
-                                                </div>
-                                            </ScrollShadow>
-                                        </div>
+                                        <Box>
+                                            <Text weight="medium" size="2" mb="2" style={{ color: 'var(--green-11)' }} as="p">
+                                                <Flex align="center" gap="1">
+                                                    <CheckCircledIcon style={{ width: 14, height: 14 }} />
+                                                    Submitted Successfully ({result.submitted.length})
+                                                </Flex>
+                                            </Text>
+                                            <ScrollArea style={{ maxHeight: 96 }}><Flex wrap="wrap" gap="1" pr="2">{result.submitted.map((work) => <Badge key={work.id} size="1" color="green" variant="soft">{work.number}</Badge>)}</Flex></ScrollArea>
+                                        </Box>
                                     )}
 
                                     {/* Skipped List */}
                                     {result.skipped?.length > 0 && (
-                                        <div>
-                                            <p className="text-sm font-medium mb-2 text-warning-700 flex items-center gap-1">
-                                                <ShieldExclamationIcon className="w-4 h-4" />
-                                                Skipped (Have Objections) ({result.skipped.length})
-                                            </p>
-                                            <ScrollShadow className="max-h-24">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {result.skipped.map((work) => (
-                                                        <Chip key={work.id} size="sm" color="warning" variant="flat">
-                                                            {work.number}
-                                                        </Chip>
-                                                    ))}
-                                                </div>
-                                            </ScrollShadow>
-                                        </div>
+                                        <Box>
+                                            <Text weight="medium" size="2" mb="2" style={{ color: 'var(--amber-11)' }} as="p">
+                                                <Flex align="center" gap="1">
+                                                    <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
+                                                    Skipped (Have Objections) ({result.skipped.length})
+                                                </Flex>
+                                            </Text>
+                                            <ScrollArea style={{ maxHeight: 96 }}><Flex wrap="wrap" gap="1" pr="2">{result.skipped.map((work) => <Badge key={work.id} size="1" color="amber" variant="soft">{work.number}</Badge>)}</Flex></ScrollArea>
+                                        </Box>
                                     )}
 
                                     {/* Failed List */}
                                     {result.failed?.length > 0 && (
-                                        <div>
-                                            <p className="text-sm font-medium mb-2 text-danger-700 flex items-center gap-1">
-                                                <XCircleIcon className="w-4 h-4" />
-                                                Failed ({result.failed.length})
-                                            </p>
-                                            <ScrollShadow className="max-h-24">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {result.failed.map((work) => (
-                                                        <Chip key={work.id} size="sm" color="danger" variant="flat">
-                                                            {work.number}: {work.error}
-                                                        </Chip>
-                                                    ))}
-                                                </div>
-                                            </ScrollShadow>
-                                        </div>
+                                        <Box>
+                                            <Text weight="medium" size="2" mb="2" style={{ color: 'var(--red-11)' }} as="p">
+                                                <Flex align="center" gap="1">
+                                                    <CrossCircledIcon style={{ width: 14, height: 14 }} />
+                                                    Failed ({result.failed.length})
+                                                </Flex>
+                                            </Text>
+                                            <ScrollArea style={{ maxHeight: 96 }}><Flex wrap="wrap" gap="1" pr="2">{result.failed.map((work, idx) => <Badge key={work.id||idx} size="1" color="red" variant="soft">{work.number}: {work.error}</Badge>)}</Flex></ScrollArea>
+                                        </Box>
                                     )}
-                                </div>
+                                </Flex>
                             )}
-                        </ModalBody>
+                        </Box>
 
-                        <ModalFooter className="flex flex-col-reverse sm:flex-row gap-2 py-3 sm:py-4">
-                            {step === 'confirm' && (
-                                <>
-                                    <Button variant="light" onPress={handleClose} className="w-full sm:w-auto">
-                                        Cancel
-                                    </Button>
-                                    <Button 
-                                        color="primary" 
-                                        onPress={() => handleSubmit(false, false)}
-                                        isLoading={loading}
-                                        startContent={!loading && <DocumentArrowUpIcon className="w-4 h-4" />}
-                                        className="w-full sm:w-auto"
-                                    >
-                                        <span className="hidden sm:inline">Submit {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}</span>
-                                        <span className="sm:hidden">Submit ({selectedWorks.length})</span>
-                                    </Button>
-                                </>
-                            )}
-
-                            {step === 'objection-decision' && (
-                                <Button variant="light" onPress={() => setStep('confirm')} className="w-full sm:w-auto">
-                                    Back
+                        <Flex gap="2" pt="3" style={{ borderTop: '1px solid var(--gray-a4)', flexDirection: 'column-reverse' }}>
+                            {step === 'confirm' && (<>
+                                <Button variant="ghost" color="gray" onClick={handleClose} style={{ width: '100%' }}>Cancel</Button>
+                                <Button color="indigo" onClick={() => handleSubmit(false, false)} loading={loading} style={{ width: '100%' }}>
+                                    {!loading && <UploadIcon style={{ width: 16, height: 16 }} />}
+                                    Submit {selectedWorks.length} RFI{selectedWorks.length !== 1 ? 's' : ''}
                                 </Button>
-                            )}
-
-                            {step === 'result' && (
-                                <Button color="primary" onPress={handleClose} className="w-full sm:w-auto">
-                                    Done
-                                </Button>
-                            )}
-                        </ModalFooter>
+                            </>)}
+                            {step === 'objection-decision' && <Button variant="ghost" color="gray" onClick={() => setStep('confirm')} style={{ width: '100%' }}>Back</Button>}
+                            {step === 'result' && <Button color="indigo" onClick={handleClose} style={{ width: '100%' }}>Done</Button>}
+                        </Flex>
                     </>
-                )}
-            </ModalContent>
-        </Modal>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

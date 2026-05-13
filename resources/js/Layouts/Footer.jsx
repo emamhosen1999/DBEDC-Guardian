@@ -1,21 +1,10 @@
 import React from 'react';
-import { Button, Divider } from "@/compat/heroui";
-import { Link, usePage, router } from '@inertiajs/react';
-import { 
-  HeartIcon, 
-  GlobeAltIcon,
-  EnvelopeIcon,
-  PhoneIcon 
-} from '@heroicons/react/24/outline';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { useTheme } from '@/Contexts/ThemeContext.jsx';
-import GlassCard from '@/Components/GlassCard.jsx';
+import { Box, Card, Flex, Separator, Text } from '@radix-ui/themes';
+import { HeartFilledIcon, GlobeIcon, EnvelopeClosedIcon, MobileIcon } from '@radix-ui/react-icons';
+import { Link, usePage } from '@inertiajs/react';
 
 const Footer = () => {
     const currentYear = new Date().getFullYear();
-    const isMobile = useMediaQuery('(max-width: 640px)');
-    const isTablet = useMediaQuery('(max-width: 768px)');
-    const { theme } = useTheme();
     const { url } = usePage();
     const activePage = url;
 
@@ -31,214 +20,83 @@ const Footer = () => {
     ];
 
     const contactInfo = [
-        { 
-            icon: EnvelopeIcon, 
-            label: 'Email', 
-            value: 'support@aero-hr.com',
-            href: 'mailto:support@aero-hr.com'
-        },
-        { 
-            icon: PhoneIcon, 
-            label: 'Phone', 
-            value: '+1 (555) 123-4567',
-            href: 'tel:+15551234567'
-        },
-        { 
-            icon: GlobeAltIcon, 
-            label: 'Website', 
-            value: 'www.aero-hr.com',
-            href: 'https://www.aero-hr.com'
-        }
+        { icon: EnvelopeClosedIcon, label: 'Email',   value: 'support@aero-hr.com',  href: 'mailto:support@aero-hr.com' },
+        { icon: MobileIcon,         label: 'Phone',   value: '+1 (555) 123-4567',    href: 'tel:+15551234567' },
+        { icon: GlobeIcon,          label: 'Website', value: 'www.aero-hr.com',      href: 'https://www.aero-hr.com' },
     ];
 
     return (
-        <footer 
-            role="contentinfo"
-            className="py-12 md:py-16 mt-auto border-t border-divider"
-        >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <GlassCard className="overflow-hidden">
-                    <div className="p-12 md:p-16">
-                        {/* Main Footer Content */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-16">
-                            {/* Brand Section */}
-                            <div className="md:col-span-1">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${GRADIENT_PRESETS.iconContainer}`}>
-                                            <span 
-                                                className="font-bold text-white text-xl"
-                                                style={{ fontFamily: 'Inter, sans-serif' }}
-                                            >
-                                                A
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <h3 className={`font-bold text-xl ${GRADIENT_PRESETS.gradientText}`}>
-                                                DBEDC Guardian
-                                            </h3>
-                                            <p className="text-default-500 text-sm">
-                                                Enterprise Solution
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <p className="text-default-500 leading-relaxed mt-3 text-sm">
-                                        Advanced Human Resource Management system designed for modern enterprises. 
-                                        Streamline your HR operations with our comprehensive, cloud-based solution 
-                                        featuring employee management, attendance tracking, leave management, and more.
-                                    </p>
-                                    <div className="flex items-center gap-2 text-sm text-default-500 mt-4">
-                                        <span>Crafted with</span>
-                                        <HeartIcon className="w-4 h-4 text-red-500 animate-pulse" />
-                                        <span>by the Aero Team</span>
-                                    </div>
-                                </div>
-                            </div>
+        <Box as="footer" role="contentinfo" pt="8" mt="auto" style={{ borderTop: '1px solid var(--gray-a6)' }}>
+            <Box px="6" style={{ maxWidth: 1280, margin: '0 auto' }}>
+                <Card>
+                    <Box p="8">
+                        <Flex gap="8" wrap="wrap">
+                            {/* Brand */}
+                            <Box style={{ flex: '1 1 220px', minWidth: 200 }}>
+                                <Flex align="center" gap="3" mb="3">
+                                    <Box style={{ width: 44, height: 44, borderRadius: 'var(--radius-3)', background: 'var(--accent-9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text size="5" weight="bold" style={{ color: 'white' }}>A</Text>
+                                    </Box>
+                                    <Box>
+                                        <Text size="4" weight="bold" as="p">DBEDC Guardian</Text>
+                                        <Text size="1" color="gray" as="p">Enterprise Solution</Text>
+                                    </Box>
+                                </Flex>
+                                <Text size="2" color="gray" as="p" mb="3">
+                                    Advanced HR Management system for modern enterprises.
+                                </Text>
+                                <Flex align="center" gap="1">
+                                    <Text size="2" color="gray">Crafted with</Text>
+                                    <HeartFilledIcon style={{ color: 'var(--red-9)', width: 14, height: 14 }} />
+                                    <Text size="2" color="gray">by the Aero Team</Text>
+                                </Flex>
+                            </Box>
 
                             {/* Quick Links */}
-                            <div className="md:col-span-1">
-                                <div className="space-y-4">
-                                    <h4 className="font-semibold text-foreground text-lg">
-                                        Quick Links
-                                    </h4>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {quickLinks.map((link, index) => {
-                                            const isActive = activePage === link.href;
-                                            return (
-                                                <Link
-                                                    key={index}
-                                                    href={link.href}
-                                            
-                                                    className="text-sm transition-all duration-200 p-2 rounded-lg"
-                                                    style={isActive ? {
-                                                        backgroundColor: `color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`,
-                                                        border: `var(--borderWidth, 2px) solid var(--theme-primary, #006FEE)`,
-                                                        borderRadius: `var(--borderRadius, 8px)`,
-                                                        color: `#FFFFFF`
-                                                    } : {
-                                                        border: `var(--borderWidth, 2px) solid transparent`,
-                                                        borderRadius: `var(--borderRadius, 8px)`,
-                                                        color: `var(--theme-foreground, #11181C)`
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        if (!isActive) {
-                                                            e.target.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`;
-                                                            e.target.style.color = `var(--theme-primary, #006FEE)`;
-                                                        }
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        if (!isActive) {
-                                                            e.target.style.border = `var(--borderWidth, 2px) solid transparent`;
-                                                            e.target.style.color = `var(--theme-foreground, #11181C)`;
-                                                        }
-                                                    }}
-                                                >
-                                                    {link.label}
-                                                </Link>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
+                            <Box style={{ flex: '1 1 200px', minWidth: 160 }}>
+                                <Text size="3" weight="bold" as="p" mb="3">Quick Links</Text>
+                                <Flex direction="column" gap="1">
+                                    {quickLinks.map((link, i) => (
+                                        <Link key={i} href={link.href} style={{ fontSize: 13, color: activePage === link.href ? 'var(--accent-9)' : 'var(--gray-11)', textDecoration: 'none', padding: '3px 0' }}>
+                                            {link.label}
+                                        </Link>
+                                    ))}
+                                </Flex>
+                            </Box>
 
-                            {/* Contact Information */}
-                            <div className="md:col-span-1">
-                                <div className="space-y-4">
-                                    <h4 className="font-semibold text-foreground text-lg">
-                                        Contact Info
-                                    </h4>
-                                    <div className="space-y-3">
-                                        {contactInfo.map((contact, index) => {
-                                            const IconComponent = contact.icon;
-                                            return (
-                                                <a
-                                                    key={index}
-                                                    href={contact.href}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-3 text-sm transition-all duration-200 p-2 rounded-lg"
-                                                    style={{
-                                                        border: `var(--borderWidth, 2px) solid transparent`,
-                                                        borderRadius: `var(--borderRadius, 8px)`,
-                                                        color: `var(--theme-foreground, #11181C)`
-                                                    }}
-                                                    onMouseEnter={(e) => {
-                                                        e.currentTarget.style.border = `var(--borderWidth, 2px) solid color-mix(in srgb, var(--theme-primary, #006FEE) 50%, transparent)`;
-                                                        e.currentTarget.style.color = `var(--theme-primary, #006FEE)`;
-                                                    }}
-                                                    onMouseLeave={(e) => {
-                                                        e.currentTarget.style.border = `var(--borderWidth, 2px) solid transparent`;
-                                                        e.currentTarget.style.color = `var(--theme-foreground, #11181C)`;
-                                                    }}
-                                                >
-                                                    <div 
-                                                        className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-                                                        style={{
-                                                            backgroundColor: `var(--theme-content1, #FAFAFA)`,
-                                                            borderRadius: `var(--borderRadius, 8px)`
-                                                        }}
-                                                    >
-                                                        <IconComponent 
-                                                            className="w-4 h-4" 
-                                                            style={{ color: `var(--theme-foreground, #11181C)` }}
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-medium">{contact.label}</div>
-                                                        <div 
-                                                            className="text-xs"
-                                                            style={{ color: `var(--theme-foreground-500, #71717A)` }}
-                                                        >
-                                                            {contact.value}
-                                                        </div>
-                                                    </div>
-                                                </a>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                            {/* Contact */}
+                            <Box style={{ flex: '1 1 200px', minWidth: 180 }}>
+                                <Text size="3" weight="bold" as="p" mb="3">Contact Info</Text>
+                                <Flex direction="column" gap="2">
+                                    {contactInfo.map((c, i) => (
+                                        <a key={i} href={c.href} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>
+                                            <Box style={{ width: 30, height: 30, borderRadius: 'var(--radius-2)', background: 'var(--gray-a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <c.icon style={{ width: 14, height: 14 }} />
+                                            </Box>
+                                            <Box>
+                                                <Text size="2" weight="medium" as="p">{c.label}</Text>
+                                                <Text size="1" color="gray" as="p">{c.value}</Text>
+                                            </Box>
+                                        </a>
+                                    ))}
+                                </Flex>
+                            </Box>
+                        </Flex>
 
-                        <Divider className="my-6 bg-white/20" />
+                        <Separator size="4" my="5" />
 
-                        {/* Bottom Section */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                            <div className="md:col-span-1">
-                                <p className="text-default-500 text-center md:text-left text-sm">
-                                    &copy; {currentYear} Aero HR Enterprise Solution. All rights reserved.
-                                </p>
-                            </div>
-                            <div className="md:col-span-1">
-                                <div className="flex justify-center md:justify-end gap-4">
-                                    <Link
-                                        href="/privacy"
-                                    
-                                        className="text-sm hover:text-primary transition-colors duration-200"
-                                    >
-                                        Privacy Policy
-                                    </Link>
-                                    <Link
-                                        href="/terms"
-                                      
-                                        className="text-sm hover:text-primary transition-colors duration-200"
-                                    >
-                                        Terms of Service
-                                    </Link>
-                                    <Link
-                                        href="/support"
-                                    
-                                        className="text-sm hover:text-primary transition-colors duration-200"
-                                    >
-                                        Support
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </GlassCard>
-            </div>
-        </footer>
+                        <Flex justify="between" align="center" wrap="wrap" gap="3">
+                            <Text size="2" color="gray">&copy; {currentYear} Aero HR Enterprise Solution. All rights reserved.</Text>
+                            <Flex gap="4">
+                                <Link href="/privacy" style={{ fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>Privacy Policy</Link>
+                                <Link href="/terms"   style={{ fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>Terms of Service</Link>
+                                <Link href="/support" style={{ fontSize: 13, color: 'var(--gray-11)', textDecoration: 'none' }}>Support</Link>
+                            </Flex>
+                        </Flex>
+                    </Box>
+                </Card>
+            </Box>
+        </Box>
     );
 };
 

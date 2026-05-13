@@ -1,41 +1,36 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Head } from "@inertiajs/react";
 import { route } from 'ziggy-js';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    ButtonGroup,
-    Select,
-    SelectItem,
+import {
     Button,
     Card,
-    CardHeader,
-    CardBody,
-    Input,
-    ScrollShadow,
-    Skeleton,
+    Box,
+    Flex,
+    Text,
+    TextField,
     Tabs,
-    Tab
-} from "@/compat/heroui";
-import { 
-    CalendarIcon, 
-    ChartBarIcon, 
-    ClockIcon,
-    UserIcon,
+    Select,
+    Badge,
+} from '@radix-ui/themes';
+import {
+    CalendarIcon,
+    ActivityLogIcon,
+    CountdownTimerIcon,
+    PersonIcon,
     PlusIcon,
-    DocumentArrowDownIcon,
-    CheckCircleIcon,
+    DownloadIcon,
+    CheckCircledIcon,
     ExclamationTriangleIcon,
-    BriefcaseIcon,
-    BuildingOfficeIcon,
-    DocumentTextIcon,
-    ArrowPathIcon,
-    FunnelIcon,
-    AdjustmentsHorizontalIcon,
-    MapPinIcon,
+    LayersIcon,
+    HomeIcon,
+    FileTextIcon,
+    ReloadIcon,
+    MixerHorizontalIcon,
+    TargetIcon,
     MagnifyingGlassIcon,
-    TableCellsIcon,
-    PresentationChartLineIcon
-} from "@heroicons/react/24/outline";
+    TableIcon,
+    BarChartIcon,
+} from '@radix-ui/react-icons';
 import App from "@/Layouts/App.jsx";
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import StatsCards from "@/Components/StatsCards.jsx";
@@ -53,25 +48,9 @@ dayjs.extend(minMax);
 dayjs.extend(isBetween);
 
 const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, overallStartDate, overallEndDate }) => {
-    // Responsive handling
     const isLargeScreen = useMediaQuery('(min-width: 1025px)');
     const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
     const isMobile = useMediaQuery('(max-width: 640px)');
-
-    // Helper function to convert theme borderRadius to HeroUI radius values
-    const getThemeRadius = () => {
-        if (typeof window === 'undefined') return 'lg';
-        
-        const rootStyles = getComputedStyle(document.documentElement);
-        const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-        
-        const radiusValue = parseInt(borderRadius);
-        if (radiusValue === 0) return 'none';
-        if (radiusValue <= 4) return 'sm';
-        if (radiusValue <= 8) return 'md';
-        if (radiusValue <= 16) return 'lg';
-        return 'full';
-    };
 
     const [dailyWorkSummary] = useState(summary);
     const [filteredData, setFilteredData] = useState(summary);
@@ -99,26 +78,21 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
 
     const renderSelectedBadges = useCallback((selectedIds, options, placeholder, labelKey = 'name') => {
         if (!selectedIds || selectedIds.length === 0) {
-            return <span className="text-default-400 text-xs">{placeholder}</span>;
+            return <Text size="1" color="gray">{placeholder}</Text>;
         }
-
         const normalized = selectedIds.map(String);
         const labels = options
             ?.filter((option) => normalized.includes(String(option.id)))
             .map((option) => option[labelKey]) ?? [];
-
         if (labels.length === 0) {
-            return <span className="text-default-400 text-xs">{placeholder}</span>;
+            return <Text size="1" color="gray">{placeholder}</Text>;
         }
-
         return (
-            <div className="flex flex-wrap gap-1">
+            <Flex wrap="wrap" gap="1">
                 {labels.map((label) => (
-                    <span key={label} className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                        {label}
-                    </span>
+                    <Badge key={label} size="1" variant="soft">{label}</Badge>
                 ))}
-            </div>
+            </Flex>
         );
     }, []);
 
@@ -199,7 +173,6 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
         }));
     }, []);
 
-    // Statistics
     const stats = useMemo(() => {
         const totalWorks = filteredData.reduce((sum, work) => sum + work.totalDailyWorks, 0);
         const totalCompleted = filteredData.reduce((sum, work) => sum + work.completed, 0);
@@ -211,28 +184,28 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
             {
                 title: 'Total Works',
                 value: totalWorks,
-                icon: <ChartBarIcon className="w-5 h-5" />,
+                icon: <ActivityLogIcon style={{ width: 20, height: 20 }} />,
                 color: 'text-blue-600',
                 description: 'All logged works'
             },
             {
                 title: 'Completed',
                 value: totalCompleted,
-                icon: <CheckCircleIcon className="w-5 h-5" />,
+                icon: <CheckCircledIcon style={{ width: 20, height: 20 }} />,
                 color: 'text-green-600',
                 description: `${avgCompletion}% completion rate`
             },
             {
                 title: 'Pending',
                 value: totalPending,
-                icon: <ClockIcon className="w-5 h-5" />,
+                icon: <CountdownTimerIcon style={{ width: 20, height: 20 }} />,
                 color: 'text-orange-600',
                 description: 'In progress'
             },
             {
                 title: 'RFI Submissions',
                 value: totalRFI,
-                icon: <DocumentTextIcon className="w-5 h-5" />,
+                icon: <FileTextIcon style={{ width: 20, height: 20 }} />,
                 color: 'text-purple-600',
                 description: 'Ready for inspection'
             }
@@ -246,24 +219,21 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
     const actionButtons = [
         {
             label: "Refresh",
-            icon: <ArrowPathIcon className="w-4 h-4" />,
-            variant: "flat", 
-            color: "primary",
-            onPress: handleRefresh,
-            isLoading: loading,
-            className: "bg-linear-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30",
+            icon: <ReloadIcon style={{ width: 16, height: 16 }} />,
+            variant: "soft",
+            color: "indigo",
+            onClick: handleRefresh,
+            disabled: loading,
             ariaLabel: "Refresh daily work summary data"
         },
         ...(canExport ? [{
             label: "Export",
-            icon: <DocumentArrowDownIcon className="w-4 h-4" />,
-            variant: "flat", 
-            color: "success",
-            onPress: () => {
-                console.log('Export button pressed');
+            icon: <DownloadIcon style={{ width: 16, height: 16 }} />,
+            variant: "soft",
+            color: "green",
+            onClick: () => {
                 openModal('export');
             },
-            className: "bg-linear-to-r from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30",
             ariaLabel: "Export daily work summary data"
         }] : [])
     ];
@@ -284,136 +254,68 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                 currentFilters={filterData}
                 auth={auth}
             />
-            {console.log('Modal open state:', openModalType)}
 
-            <div className="flex justify-center p-4">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="w-full max-w-[2000px]"
-                >
-                    <Card 
-                        className="transition-all duration-200"
-                        radius={getThemeRadius()}
-                        style={{
-                            border: `var(--borderWidth, 2px) solid transparent`,
-                            borderRadius: `var(--borderRadius, 12px)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                            transform: `scale(var(--scale, 1))`,
-                            background: `linear-gradient(135deg, 
-                                var(--theme-content1, #FAFAFA) 20%, 
-                                var(--theme-content2, #F4F4F5) 10%, 
-                                var(--theme-content3, #F1F3F4) 20%)`,
-                        }}
-                    >
-                        {/* Main Card Content */}
-                        <CardHeader 
-                            className="border-b p-0"
-                            style={{
-                                borderColor: `var(--theme-divider, #E4E4E7)`,
-                                background: `linear-gradient(135deg, 
-                                    color-mix(in srgb, var(--theme-content1) 50%, transparent) 20%, 
-                                    color-mix(in srgb, var(--theme-content2) 30%, transparent) 10%)`,
-                            }}
+            <Flex justify="center" p="4">
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Card>
+                        {/* Header */}
+                        <Box
+                            px={isLargeScreen ? '6' : isMediumScreen ? '4' : '3'}
+                            py={isLargeScreen ? '5' : isMediumScreen ? '4' : '3'}
+                            style={{ borderBottom: '1px solid var(--gray-a4)' }}
                         >
-                            <div className={`${isLargeScreen ? 'p-6' : isMediumScreen ? 'p-4' : 'p-3'} w-full`}>
-                                <div className="flex flex-col space-y-4">
-                                    {/* Main Header Content */}
-                                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                        {/* Title Section */}
-                                        <div className="flex items-center gap-3 lg:gap-4">
-                                            <div 
-                                                className={`
-                                                    ${isLargeScreen ? 'p-3' : isMediumScreen ? 'p-2.5' : 'p-2'} 
-                                                    rounded-xl flex items-center justify-center
-                                                `}
-                                                style={{
-                                                    background: `color-mix(in srgb, var(--theme-primary) 15%, transparent)`,
-                                                    borderColor: `color-mix(in srgb, var(--theme-primary) 25%, transparent)`,
-                                                    borderWidth: `var(--borderWidth, 2px)`,
-                                                    borderRadius: `var(--borderRadius, 12px)`,
-                                                }}
-                                            >
-                                                <ChartBarIcon 
-                                                    className={`
-                                                        ${isLargeScreen ? 'w-8 h-8' : isMediumScreen ? 'w-6 h-6' : 'w-5 h-5'}
-                                                    `}
-                                                    style={{ color: 'var(--theme-primary)' }}
-                                                />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <h4 
-                                                    className={`
-                                                        ${isLargeScreen ? 'text-2xl' : isMediumScreen ? 'text-xl' : 'text-lg'}
-                                                        font-bold text-foreground
-                                                        ${!isLargeScreen ? 'truncate' : ''}
-                                                    `}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                >
-                                                    Daily Work Summary
-                                                </h4>
-                                                <p 
-                                                    className={`
-                                                        ${isLargeScreen ? 'text-sm' : 'text-xs'} 
-                                                        text-default-500
-                                                        ${!isLargeScreen ? 'truncate' : ''}
-                                                    `}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                >
-                                                    Overview of daily work statistics and progress
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {/* Action Buttons */}
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-2">
-                                                {actionButtons.map((button, index) => (
-                                                    <Button
-                                                        key={index}
-                                                        size={isLargeScreen ? "md" : "sm"}
-                                                        variant={button.variant || "flat"}
-                                                        color={button.color || "primary"}
-                                                        startContent={button.icon}
-                                                        onPress={button.onPress}
-                                                        isLoading={button.isLoading}
-                                                        className={`${button.className || ''} font-medium`}
-                                                        radius={getThemeRadius()}
-                                                        aria-label={button.ariaLabel || button.label}
-                                                        style={{
-                                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                                            borderRadius: `var(--borderRadius, 12px)`,
-                                                        }}
-                                                    >
-                                                        {button.label}
-                                                    </Button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        
-                        <CardBody className="pt-6" style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            {/* Quick Stats */}
+                            <Flex
+                                direction={isLargeScreen ? 'row' : 'column'}
+                                align={isLargeScreen ? 'center' : 'start'}
+                                justify="between"
+                                gap="4"
+                            >
+                                <Flex align="center" gap="3">
+                                    <Box
+                                        p={isLargeScreen ? '3' : '2'}
+                                        style={{ background: 'var(--accent-a3)', borderRadius: 'var(--radius-2)' }}
+                                    >
+                                        <ActivityLogIcon style={{ width: isLargeScreen ? 32 : 24, height: isLargeScreen ? 32 : 24, color: 'var(--accent-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Text size={isLargeScreen ? '6' : isMediumScreen ? '5' : '4'} weight="bold" as="p">Daily Work Summary</Text>
+                                        <Text size={isLargeScreen ? '2' : '1'} color="gray" as="p">Overview of daily work statistics and progress</Text>
+                                    </Box>
+                                </Flex>
+                                <Flex align="center" gap="2">
+                                    {actionButtons.map((button, index) => (
+                                        <Button
+                                            key={index}
+                                            size={isLargeScreen ? '2' : '1'}
+                                            variant={button.variant}
+                                            color={button.color}
+                                            onClick={button.onClick}
+                                            disabled={button.disabled}
+                                            aria-label={button.ariaLabel || button.label}
+                                        >
+                                            {button.icon}
+                                            {button.label}
+                                        </Button>
+                                    ))}
+                                </Flex>
+                            </Flex>
+                        </Box>
+
+                        {/* Body */}
+                        <Box pt="6" px="4" pb="4">
                             <StatsCards stats={stats} isLoading={loading} />
                             
-                            {/* Unified Filters Section */}
-                            <div className="mb-6">
-                                <div className="flex flex-col gap-4">
-                                    {/* Filter Controls Row */}
-                                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                                        <div className="flex items-center gap-2 flex-1 max-w-md">
-                                            {/* Search Input */}
-                                            <Input
-                                                type="text"
+                            {/* Filters Section */}
+                            <Box mb="6">
+                                <Flex direction="column" gap="4">
+                                    <Flex
+                                        direction={isLargeScreen ? 'row' : 'column'}
+                                        gap="4"
+                                        align={isLargeScreen ? 'center' : 'start'}
+                                        justify="between"
+                                    >
+                                        <Box style={{ flex: 1, maxWidth: 512 }}>
+                                            <TextField.Root
                                                 placeholder="Search by number, location, description..."
                                                 value={search}
                                                 onChange={(e) => setSearch(e.target.value)}
@@ -422,322 +324,185 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                                                         fetchFilteredSummaries();
                                                     }
                                                 }}
-                                                size="sm"
-                                                variant="bordered"
-                                                radius={getThemeRadius()}
-                                                isClearable
-                                                onClear={() => setSearch('')}
-                                                startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
-                                                classNames={{
-                                                    input: "text-foreground",
-                                                    inputWrapper: `bg-content2/50 hover:bg-content2/70 
-                                                                 focus-within:bg-content2/90 border-divider/50 
-                                                                 hover:border-divider data-[focus]:border-primary`,
-                                                }}
-                                                style={{
-                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                }}
+                                                size="2"
                                                 aria-label="Search daily works"
-                                            />
-                                        </div>
-                                        <div className="flex gap-2 items-end">
-                                            <ButtonGroup 
-                                                variant="bordered" 
-                                                radius={getThemeRadius()}
-                                                className="bg-white/5"
                                             >
-                                                <Button
-                                                    isIconOnly={isMobile}
-                                                    color={showFilters ? 'primary' : 'default'}
-                                                    onPress={() => setShowFilters(!showFilters)}
-                                                    className={showFilters ? 'bg-primary/20' : 'bg-white/5'}
-                                                    aria-label={showFilters ? 'Hide advanced filters' : 'Show advanced filters'}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                >
-                                                    <AdjustmentsHorizontalIcon className="w-4 h-4" />
-                                                    {!isMobile && <span className="ml-1">Advanced Filters</span>}
-                                                </Button>
-                                            </ButtonGroup>
-                                        </div>
-                                    </div>
+                                                <TextField.Slot>
+                                                    <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
+                                                </TextField.Slot>
+                                                {search && (
+                                                    <TextField.Slot side="right">
+                                                        <Button size="1" variant="ghost" color="gray" onClick={() => setSearch('')} aria-label="Clear search">
+                                                            <Cross2Icon style={{ width: 14, height: 14 }} />
+                                                        </Button>
+                                                    </TextField.Slot>
+                                                )}
+                                            </TextField.Root>
+                                        </Box>
+                                        <Button
+                                            size="2"
+                                            variant={showFilters ? 'solid' : 'outline'}
+                                            color={showFilters ? 'indigo' : 'gray'}
+                                            onClick={() => setShowFilters(!showFilters)}
+                                            aria-label={showFilters ? 'Hide advanced filters' : 'Show advanced filters'}
+                                        >
+                                            <MixerHorizontalIcon style={{ width: 16, height: 16 }} />
+                                            {!isMobile && ' Advanced Filters'}
+                                        </Button>
+                                    </Flex>
                                     
                                     {/* Advanced Filters Panel */}
-                                    <AnimatePresence>
-                                        {showFilters && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: -20 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: -20 }}
-                                                transition={{ duration: 0.3 }}
-                                            >
-                                                <div className="p-4 bg-white/5 backdrop-blur-md rounded-lg border border-white/10">
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                                        {/* Start Date Filter */}
-                                                        <Input
-                                                            type="date"
-                                                            label="Start Date"
-                                                            value={filterData.startDate}
-                                                            onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                                                            size="sm"
-                                                            variant="bordered"
-                                                            radius={getThemeRadius()}
-                                                            aria-label="Select start date"
-                                                            classNames={{
-                                                                input: "text-foreground",
-                                                                inputWrapper: `bg-content2/50 hover:bg-content2/70 
-                                                                             focus-within:bg-content2/90 border-divider/50 
-                                                                             hover:border-divider data-[focus]:border-primary`,
-                                                            }}
-                                                            style={{
-                                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                                            }}
-                                                        />
+                                    {showFilters && (
+                                        <Box p="4" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a4)' }}>
+                                            <Flex wrap="wrap" gap="4">
+                                                {/* Start Date */}
+                                                <Flex direction="column" gap="1" style={{ minWidth: 160 }}>
+                                                    <Text size="1">Start Date</Text>
+                                                    <input
+                                                        type="date"
+                                                        value={filterData.startDate}
+                                                        onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                                    />
+                                                </Flex>
 
-                                                        {/* End Date Filter */}
-                                                        <Input
-                                                            type="date"
-                                                            label="End Date"
-                                                            value={filterData.endDate}
-                                                            onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                                                            size="sm"
-                                                            variant="bordered"
-                                                            radius={getThemeRadius()}
-                                                            aria-label="Select end date"
-                                                            classNames={{
-                                                                input: "text-foreground",
-                                                                inputWrapper: `bg-content2/50 hover:bg-content2/70 
-                                                                             focus-within:bg-content2/90 border-divider/50 
-                                                                             hover:border-divider data-[focus]:border-primary`,
-                                                            }}
-                                                            style={{
-                                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                                            }}
-                                                        />
+                                                {/* End Date */}
+                                                <Flex direction="column" gap="1" style={{ minWidth: 160 }}>
+                                                    <Text size="1">End Date</Text>
+                                                    <input
+                                                        type="date"
+                                                        value={filterData.endDate}
+                                                        onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                                    />
+                                                </Flex>
 
-                                                        {/* Status Filter */}
-                                                        <Select
-                                                            label="Status"
-                                                            placeholder="All Status"
-                                                            selectedKeys={filterData.status ? [filterData.status] : ['all']}
-                                                            onSelectionChange={(keys) => {
-                                                                const value = Array.from(keys)[0] || 'all';
-                                                                handleFilterChange('status', value);
+                                                {/* Status */}
+                                                <Flex direction="column" gap="1" style={{ minWidth: 160 }}>
+                                                    <Text size="1">Status</Text>
+                                                    <select
+                                                        value={filterData.status}
+                                                        onChange={(e) => handleFilterChange('status', e.target.value)}
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                                    >
+                                                        <option value="all">All Status</option>
+                                                        <option value="new">New</option>
+                                                        <option value="in-progress">In Progress</option>
+                                                        <option value="completed">Completed</option>
+                                                        <option value="rejected">Rejected</option>
+                                                        <option value="resubmission">Resubmission</option>
+                                                        <option value="pending">Pending</option>
+                                                        <option value="emergency">Emergency</option>
+                                                    </select>
+                                                </Flex>
+
+                                                {/* Type */}
+                                                <Flex direction="column" gap="1" style={{ minWidth: 160 }}>
+                                                    <Text size="1">Work Type</Text>
+                                                    <select
+                                                        value={filterData.type}
+                                                        onChange={(e) => handleFilterChange('type', e.target.value)}
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                                    >
+                                                        <option value="all">All Types</option>
+                                                        <option value="Embankment">Embankment</option>
+                                                        <option value="Structure">Structure</option>
+                                                        <option value="Pavement">Pavement</option>
+                                                    </select>
+                                                </Flex>
+
+                                                {/* In Charge - Admin only */}
+                                                {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer') && (
+                                                    <Flex direction="column" gap="1" style={{ minWidth: 200 }}>
+                                                        <Text size="1">In Charge</Text>
+                                                        <select
+                                                            multiple
+                                                            value={filterData.incharge}
+                                                            onChange={(e) => {
+                                                                const values = Array.from(e.target.selectedOptions).map(o => o.value);
+                                                                handleFilterChange('incharge', values);
+                                                                if (values.length > 0) handleFilterChange('jurisdiction', []);
                                                             }}
-                                                            variant="bordered"
-                                                            size="sm"
-                                                            radius={getThemeRadius()}
-                                                            classNames={{
-                                                                trigger: "text-sm min-h-unit-10",
-                                                                value: "text-foreground",
-                                                            }}
-                                                            style={{
-                                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                                            }}
-                                                            aria-label="Filter by status"
+                                                            style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '4px 8px', background: 'var(--color-panel-solid)', minHeight: 40, maxHeight: 120 }}
                                                         >
-                                                            <SelectItem key="all" value="all">All Status</SelectItem>
-                                                            <SelectItem key="new" value="new">New</SelectItem>
-                                                            <SelectItem key="in-progress" value="in-progress">In Progress</SelectItem>
-                                                            <SelectItem key="completed" value="completed">Completed</SelectItem>
-                                                            <SelectItem key="rejected" value="rejected">Rejected</SelectItem>
-                                                            <SelectItem key="resubmission" value="resubmission">Resubmission</SelectItem>
-                                                            <SelectItem key="pending" value="pending">Pending</SelectItem>
-                                                            <SelectItem key="emergency" value="emergency">Emergency</SelectItem>
-                                                        </Select>
+                                                            {inCharges.map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
+                                                        </select>
+                                                    </Flex>
+                                                )}
 
-                                                        {/* Type Filter */}
-                                                        <Select
-                                                            label="Work Type"
-                                                            placeholder="All Types"
-                                                            selectedKeys={filterData.type ? [filterData.type] : ['all']}
-                                                            onSelectionChange={(keys) => {
-                                                                const value = Array.from(keys)[0] || 'all';
-                                                                handleFilterChange('type', value);
+                                                {/* Jurisdiction - Admin only */}
+                                                {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer') && (
+                                                    <Flex direction="column" gap="1" style={{ minWidth: 200 }}>
+                                                        <Text size="1">Jurisdiction</Text>
+                                                        <select
+                                                            multiple
+                                                            value={filterData.jurisdiction}
+                                                            onChange={(e) => {
+                                                                const values = Array.from(e.target.selectedOptions).map(o => o.value);
+                                                                handleFilterChange('jurisdiction', values);
+                                                                if (values.length > 0) handleFilterChange('incharge', []);
                                                             }}
-                                                            variant="bordered"
-                                                            size="sm"
-                                                            radius={getThemeRadius()}
-                                                            classNames={{
-                                                                trigger: "text-sm min-h-unit-10",
-                                                                value: "text-foreground",
-                                                            }}
-                                                            style={{
-                                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                                            }}
-                                                            aria-label="Filter by work type"
+                                                            style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '4px 8px', background: 'var(--color-panel-solid)', minHeight: 40, maxHeight: 120 }}
                                                         >
-                                                            <SelectItem key="all" value="all">All Types</SelectItem>
-                                                            <SelectItem key="Embankment" value="Embankment">Embankment</SelectItem>
-                                                            <SelectItem key="Structure" value="Structure">Structure</SelectItem>
-                                                            <SelectItem key="Pavement" value="Pavement">Pavement</SelectItem>
-                                                        </Select>
-                                                        
-                                                        {/* In Charge Filter - Multi-select */}
-                                                        {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer') && (
-                                                            <Select
-                                                                label="In Charge"
-                                                                placeholder="Select in charge..."
-                                                                selectionMode="multiple"
-                                                                selectedKeys={new Set(filterData.incharge || [])}
-                                                                onSelectionChange={(keys) => {
-                                                                    const values = Array.from(keys);
-                                                                    handleFilterChange('incharge', values);
-                                                                    // Reset jurisdiction when incharge changes
-                                                                    if (values.length > 0) {
-                                                                        handleFilterChange('jurisdiction', []);
-                                                                    }
-                                                                }}
-                                                                variant="bordered"
-                                                                size="sm"
-                                                                radius={getThemeRadius()}
-                                                                startContent={<UserIcon className="w-4 h-4 text-default-400" />}
-                                                                classNames={{
-                                                                    trigger: "text-sm min-h-unit-10",
-                                                                    value: "text-foreground",
-                                                                    listboxWrapper: "bg-content1",
-                                                                    popoverContent: "bg-content1",
-                                                                }}
-                                                                renderValue={() => renderSelectedBadges(filterData.incharge, inCharges, 'Select in charge...')}
-                                                                style={{
-                                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                                }}
-                                                                aria-label="Filter by in charge"
-                                                            >
-                                                                {inCharges.map(inCharge => (
-                                                                    <SelectItem key={String(inCharge.id)} value={String(inCharge.id)}>
-                                                                        {inCharge.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </Select>
-                                                        )}
+                                                            {jurisdictionOptions?.map(j => <option key={j.id} value={String(j.id)}>{j.displayLabel}</option>)}
+                                                        </select>
+                                                    </Flex>
+                                                )}
 
-                                                        {/* Jurisdiction Filter - Multi-select */}
-                                                        {(auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer') && (
-                                                            <Select
-                                                                label="Jurisdiction"
-                                                                placeholder="Select jurisdiction..."
-                                                                selectionMode="multiple"
-                                                                selectedKeys={new Set(filterData.jurisdiction || [])}
-                                                                onSelectionChange={(keys) => {
-                                                                    const values = Array.from(keys);
-                                                                    handleFilterChange('jurisdiction', values);
-                                                                    // Reset incharge when jurisdiction is selected
-                                                                    if (values.length > 0) {
-                                                                        handleFilterChange('incharge', []);
-                                                                    }
-                                                                }}
-                                                                variant="bordered"
-                                                                size="sm"
-                                                                radius={getThemeRadius()}
-                                                                startContent={<MapPinIcon className="w-4 h-4 text-default-400" />}
-                                                                classNames={{
-                                                                    trigger: "text-sm min-h-unit-10",
-                                                                    value: "text-foreground",
-                                                                    listboxWrapper: "bg-content1",
-                                                                    popoverContent: "bg-content1",
-                                                                }}
-                                                                renderValue={() => renderSelectedBadges(filterData.jurisdiction, jurisdictionOptions, 'Select jurisdiction...', 'displayLabel')}
-                                                                style={{
-                                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                                }}
-                                                                aria-label="Filter by jurisdiction"
-                                                            >
-                                                                {jurisdictionOptions?.map(jurisdiction => (
-                                                                    <SelectItem key={String(jurisdiction.id)} value={String(jurisdiction.id)}>
-                                                                        {jurisdiction.displayLabel}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </Select>
-                                                        )}
+                                                {/* Clear */}
+                                                <Flex align="end">
+                                                    <Button
+                                                        size="2"
+                                                        variant="soft"
+                                                        color="red"
+                                                        onClick={() => {
+                                                            setFilterData({
+                                                                startDate: overallStartDate || dayjs().subtract(30, 'days').format('YYYY-MM-DD'),
+                                                                endDate: overallEndDate || dayjs().format('YYYY-MM-DD'),
+                                                                status: 'all',
+                                                                type: 'all',
+                                                                incharge: [],
+                                                                jurisdiction: [],
+                                                            });
+                                                            setSearch('');
+                                                        }}
+                                                    >
+                                                        Clear Filters
+                                                    </Button>
+                                                </Flex>
+                                            </Flex>
+                                        </Box>
+                                    )}
+                                </Flex>
+                            </Box>
 
-                                                        {/* Clear Filters Button */}
-                                                        <div className="flex items-end">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="flat"
-                                                                color="danger"
-                                                                onPress={() => {
-                                                                    setFilterData({
-                                                                        startDate: overallStartDate || dayjs().subtract(30, 'days').format('YYYY-MM-DD'),
-                                                                        endDate: overallEndDate || dayjs().format('YYYY-MM-DD'),
-                                                                        status: 'all',
-                                                                        type: 'all',
-                                                                        incharge: [],
-                                                                        jurisdiction: [],
-                                                                    });
-                                                                    setSearch('');
-                                                                }}
-                                                                style={{
-                                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                                }}
-                                                            >
-                                                                Clear Filters
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            </div>
-
-                            {/* Tabs for Table and Analytics */}
-                            <Tabs
-                                selectedKey={activeTab}
-                                onSelectionChange={setActiveTab}
-                                radius={getThemeRadius()}
-                                className="mb-4"
-                                classNames={{
-                                    tabList: "bg-content2/50 backdrop-blur-md border border-divider/20",
-                                    tab: "data-[selected=true]:bg-content1 data-[selected=true]:shadow-sm",
-                                }}
-                                style={{ borderRadius: `var(--borderRadius, 12px)` }}
-                            >
-                                <Tab
-                                    key="table"
-                                    title={
-                                        <div className="flex items-center space-x-2">
-                                            <TableCellsIcon className="w-4 h-4" />
-                                            <span>Table View</span>
-                                        </div>
-                                    }
-                                />
-                                <Tab
-                                    key="analytics"
-                                    title={
-                                        <div className="flex items-center space-x-2">
-                                            <PresentationChartLineIcon className="w-4 h-4" />
-                                            <span>Analytics</span>
-                                        </div>
-                                    }
-                                />
-                            </Tabs>
+                            {/* Tabs */}
+                            <Box mb="4">
+                                <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
+                                    <Tabs.List style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', padding: 4 }}>
+                                        <Tabs.Trigger value="table" style={{ padding: '6px 12px', borderRadius: 'var(--radius-1)' }}>
+                                            <Flex align="center" gap="2">
+                                                <TableIcon style={{ width: 16, height: 16 }} />
+                                                <Text size="2">Table View</Text>
+                                            </Flex>
+                                        </Tabs.Trigger>
+                                        <Tabs.Trigger value="analytics" style={{ padding: '6px 12px', borderRadius: 'var(--radius-1)' }}>
+                                            <Flex align="center" gap="2">
+                                                <BarChartIcon style={{ width: 16, height: 16 }} />
+                                                <Text size="2">Analytics</Text>
+                                            </Flex>
+                                        </Tabs.Trigger>
+                                    </Tabs.List>
+                                </Tabs.Root>
+                            </Box>
 
                             {activeTab === 'table' && (
-                                <Card 
-                                    radius={getThemeRadius()}
-                                    className="bg-content1/80 backdrop-blur-md border border-divider/20"
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                        borderRadius: `var(--borderRadius, 12px)`,
-                                        border: `var(--borderWidth, 1px) solid var(--theme-divider, #E4E4E7)`,
-                                        background: `linear-gradient(135deg, 
-                                            color-mix(in srgb, var(--theme-content1) 90%, transparent) 20%, 
-                                            color-mix(in srgb, var(--theme-content2) 60%, transparent) 10%)`,
-                                    }}
-                                >
-                                    <CardBody className="p-0" style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}>
-                                        <DailyWorkSummaryTable
-                                            filteredData={filteredData}
-                                            onRefresh={handleRefresh}
-                                            loading={loading}
-                                        />
-                                    </CardBody>
+                                <Card style={{ background: 'var(--gray-a1)' }}>
+                                    <DailyWorkSummaryTable
+                                        filteredData={filteredData}
+                                        onRefresh={handleRefresh}
+                                        loading={loading}
+                                    />
                                 </Card>
                             )}
 
@@ -748,10 +513,10 @@ const DailyWorkSummary = ({ auth, title, summary, jurisdictions, inCharges, over
                                     isVisible={activeTab === 'analytics'}
                                 />
                             )}
-                        </CardBody>
+                        </Box>
                     </Card>
-                </motion.div>
-            </div>
+                </Box>
+            </Flex>
         </>
     );
 };

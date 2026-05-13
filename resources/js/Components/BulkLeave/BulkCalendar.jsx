@@ -1,35 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { 
-    Card, 
-    CardBody, 
-    CardHeader, 
-    Button, 
-    Chip, 
-    Spinner
-} from '@/compat/heroui';
-import { 
-    ChevronLeftIcon, 
-    ChevronRightIcon,
-    CalendarDaysIcon 
-} from '@heroicons/react/24/outline';
-
-import { Calendar } from 'lucide-react';
+import { Badge, Box, Button, Flex, IconButton, Spinner, Text } from '@radix-ui/themes';
+import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
-
-// Theme utility function
-const getThemeRadius = () => {
-    if (typeof window === 'undefined') return 'lg';
-    
-    const rootStyles = getComputedStyle(document.documentElement);
-    const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-    
-    const radiusValue = parseInt(borderRadius);
-    if (radiusValue === 0) return 'none';
-    if (radiusValue <= 4) return 'sm';
-    if (radiusValue <= 8) return 'md';
-    if (radiusValue <= 12) return 'lg';
-    return 'xl';
-};
 
 const BulkCalendar = ({ 
     selectedDates = [], 
@@ -257,172 +229,37 @@ const BulkCalendar = ({
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-        <Card 
-            radius={getThemeRadius()}
-            className="w-full shadow-sm border border-divider/50"
-            style={{
-                borderRadius: `var(--borderRadius, 12px)`,
-                fontFamily: `var(--fontFamily, "Inter")`,
-                background: `linear-gradient(135deg, 
-                    color-mix(in srgb, var(--theme-content1) 90%, transparent) 40%, 
-                    color-mix(in srgb, var(--theme-content2) 80%, transparent) 60%)`,
-            }}
-        >
-            <CardHeader className="pb-3 px-4 pt-4">
-                <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                        <CalendarDaysIcon 
-                            className="w-4 h-4 sm:w-5 sm:h-5" 
-                            style={{ color: 'var(--theme-primary)' }}
-                        />
-                        <h3 className="text-base sm:text-lg font-semibold" style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            {monthYear}
-                        </h3>
-                        {fetchFromAPI && loadedYear && (
-                            <Chip 
-                                size="sm" 
-                                variant="bordered" 
-                                color="primary" 
-                                className="ml-2 text-xs hidden sm:flex"
-                                radius={getThemeRadius()}
-                                style={{
-                                    borderColor: `var(--theme-primary)`,
-                                    color: `var(--theme-primary)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                            >
-                                {loadedYear}
-                            </Chip>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <Button
-                            isIconOnly
-                            size="sm"
-                            variant="light"
-                            onClick={goToPreviousMonth}
-                            isDisabled={loading}
-                            radius={getThemeRadius()}
-                            className="min-w-8 h-8"
-                            style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}
-                        >
-                            <ChevronLeftIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="light"
-                            onClick={goToToday}
-                            isDisabled={loading}
-                            radius={getThemeRadius()}
-                            className="px-2 py-1 text-xs hidden sm:flex"
-                            style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}
-                        >
-                            Today
-                        </Button>
-                        <Button
-                            isIconOnly
-                            size="sm"
-                            variant="light"
-                            onClick={goToNextMonth}
-                            isDisabled={loading}
-                            radius={getThemeRadius()}
-                            className="min-w-8 h-8"
-                            style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}
-                        >
-                            <ChevronRightIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </Button>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardBody className="pt-0 px-4 pb-4" style={{
-                fontFamily: `var(--fontFamily, "Inter")`,
-            }}>
-                {loading && (
-                    <div className="flex justify-center items-center py-4 rounded-lg mb-4" style={{
-                        background: `var(--theme-content2, #F4F4F5)`,
-                        borderColor: `var(--theme-divider, #E4E4E7)`,
-                    }}>
-                        <Spinner size="sm" color="primary" />
-                        <span className="ml-2 text-xs sm:text-sm" style={{
-                            color: `var(--theme-foreground-600, #71717A)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            Loading calendar data for {currentDate.getFullYear()}...
-                        </span>
-                    </div>
-                )}
-                
-                {/* Compact Legend */}
-                <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
-                    <Chip 
-                        size="sm" 
-                        color="primary" 
-                        variant="solid"
-                        radius={getThemeRadius()}
-                        className="text-xs font-medium"
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
-                        Selected
-                    </Chip>
-                    <Chip 
-                        size="sm" 
-                        color="danger" 
-                        variant="solid"
-                        radius={getThemeRadius()}
-                        className="text-xs"
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
-                        Leave
-                    </Chip>
-                    <Chip 
-                        size="sm" 
-                        color="warning" 
-                        variant="solid"
-                        radius={getThemeRadius()}
-                        className="text-xs"
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
-                        Holiday
-                    </Chip>
-                    <Chip 
-                        size="sm" 
-                        color="secondary" 
-                        variant="solid"
-                        radius={getThemeRadius()}
-                        className="text-xs font-medium hidden sm:flex"
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
-                        Today
-                    </Chip>
-                    <Chip 
-                        size="sm" 
-                        color="default" 
-                        variant="bordered"
-                        radius={getThemeRadius()}
-                        className="text-xs hidden sm:flex"
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    >
-                        Weekend
-                    </Chip>
-                </div>
+        <Box p="4" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a4)', width: '100%' }}>
+            {/* Header */}
+            <Flex justify="between" align="center" mb="3">
+                <Flex align="center" gap="2">
+                    <CalendarIcon style={{ color: 'var(--accent-9)' }} />
+                    <Text size="3" weight="medium">{monthYear}</Text>
+                    {fetchFromAPI && loadedYear && <Badge color="blue" variant="outline">{loadedYear}</Badge>}
+                </Flex>
+                <Flex align="center" gap="1">
+                    <IconButton size="1" variant="ghost" onClick={goToPreviousMonth} disabled={loading}><ChevronLeftIcon /></IconButton>
+                    <Button size="1" variant="ghost" onClick={goToToday} disabled={loading}>Today</Button>
+                    <IconButton size="1" variant="ghost" onClick={goToNextMonth} disabled={loading}><ChevronRightIcon /></IconButton>
+                </Flex>
+            </Flex>
+
+            {/* Loading */}
+            {loading && (
+                <Flex align="center" gap="2" justify="center" py="2" mb="3" style={{ background: 'var(--gray-a3)', borderRadius: 'var(--radius-1)' }}>
+                    <Spinner size="1" />
+                    <Text size="1" color="gray">Loading calendar data for {currentDate.getFullYear()}...</Text>
+                </Flex>
+            )}
+
+            {/* Legend */}
+            <Flex gap="2" wrap="wrap" mb="3">
+                <Badge color="blue" variant="solid">Selected</Badge>
+                <Badge color="red" variant="solid">Leave</Badge>
+                <Badge color="amber" variant="solid">Holiday</Badge>
+                <Badge color="violet" variant="solid">Today</Badge>
+                <Badge color="gray" variant="outline">Weekend</Badge>
+            </Flex>
                 
                 {/* Week days header - compact */}
                 <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
@@ -531,69 +368,25 @@ const BulkCalendar = ({
                     })}
                 </div>
                 
-                {/* Selection summary - compact */}
+                {/* Selection summary */}
                 {selectedDates.length > 0 && (
-                    <div className="mt-4 p-3 sm:p-4 rounded-lg relative overflow-hidden" style={{
-                        background: `linear-gradient(135deg, 
-                            color-mix(in srgb, var(--theme-primary) 10%, transparent) 20%, 
-                            color-mix(in srgb, var(--theme-primary) 5%, transparent) 80%)`,
-                        border: `1px solid color-mix(in srgb, var(--theme-primary) 20%, transparent)`,
-                        borderRadius: `var(--borderRadius, 8px)`,
-                    }}>
-                        <div className="relative z-10">
-                            <p className="text-xs sm:text-sm font-semibold mb-2" style={{
-                                color: `var(--theme-primary)`,
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>
-                                📅 {selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                                {selectedDates.slice(0, 8).map(date => (
-                                    <Chip 
-                                        key={date} 
-                                        size="sm" 
-                                        color="primary"
-                                        variant="solid"
-                                        radius={getThemeRadius()}
-                                        className="text-xs font-medium"
-                                        style={{
-                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                        }}
-                                    >
-                                        {new Date(date).toLocaleDateString('en-US', { 
-                                            month: 'short', 
-                                            day: 'numeric' 
-                                        })}
-                                    </Chip>
-                                ))}
-                                {selectedDates.length > 8 && (
-                                    <Chip 
-                                        size="sm" 
-                                        color="primary"
-                                        variant="bordered"
-                                        radius={getThemeRadius()}
-                                        className="text-xs font-medium"
-                                        style={{
-                                            borderColor: `var(--theme-primary)`,
-                                            color: `var(--theme-primary)`,
-                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                        }}
-                                    >
-                                        +{selectedDates.length - 8} more
-                                    </Chip>
-                                )}
-                            </div>
-                        </div>
-                        
-                        {/* Background decoration */}
-                        <div 
-                            className="absolute -top-2 -right-2 w-12 h-12 rounded-full opacity-30"
-                            style={{ backgroundColor: `var(--theme-primary)` }}
-                        />
-                    </div>
+                    <Box mt="3" p="3" style={{ background: 'var(--accent-a3)', borderRadius: 'var(--radius-1)', border: '1px solid var(--accent-a5)' }}>
+                        <Text size="2" weight="medium" color="blue" style={{ display: 'block', marginBottom: 8 }}>
+                            {selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected
+                        </Text>
+                        <Flex gap="1" wrap="wrap">
+                            {selectedDates.slice(0, 8).map(date => (
+                                <Badge key={date} color="blue" variant="solid">
+                                    {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </Badge>
+                            ))}
+                            {selectedDates.length > 8 && (
+                                <Badge color="blue" variant="outline">+{selectedDates.length - 8} more</Badge>
+                            )}
+                        </Flex>
+                    </Box>
                 )}
-            </CardBody>
-        </Card>
+        </Box>
     );
 };
 

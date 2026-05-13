@@ -1,87 +1,57 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { getThemeRadius } from '@/Hooks/useThemeRadius.js';
-import { usePage, router } from "@inertiajs/react";
-import { showToast } from '@/utils/toastUtils';
-import { debounce } from "lodash";
-import StatsCards from '@/Components/StatsCards';
-import ProfileAvatar, { getProfileAvatarTokens } from '@/Components/ProfileAvatar';
 import SwipeableCard from '@/Components/Common/SwipeableCard';
-import RfiFilesModal from '@/Components/DailyWork/RfiFilesModal';
-import StatusUpdateModal from '@/Components/StatusUpdateModal';
-import ObjectionsModal from '@/Components/DailyWork/ObjectionsModal';
-import ObjectionWarningModal from '@/Components/DailyWork/ObjectionWarningModal';
-import BulkSubmitModal from '@/Components/DailyWork/BulkSubmitModal';
+import BulkImportResponseStatusModal from '@/Components/DailyWork/BulkImportResponseStatusModal';
 import BulkImportSubmitModal from '@/Components/DailyWork/BulkImportSubmitModal';
 import BulkResponseStatusModal from '@/Components/DailyWork/BulkResponseStatusModal';
-import BulkImportResponseStatusModal from '@/Components/DailyWork/BulkImportResponseStatusModal';
+import BulkSubmitModal from '@/Components/DailyWork/BulkSubmitModal';
+import ObjectionsModal from '@/Components/DailyWork/ObjectionsModal';
+import ObjectionWarningModal from '@/Components/DailyWork/ObjectionWarningModal';
+import RfiFilesModal from '@/Components/DailyWork/RfiFilesModal';
+import StatusUpdateModal from '@/Components/StatusUpdateModal';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { showToast } from '@/utils/toastUtils';
+import { router, usePage } from "@inertiajs/react";
+import { debounce } from "lodash";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    User,
-    Tooltip,
-    Pagination,
-    Chip,
-    Button,
-    Dropdown,
-    DropdownTrigger,
-    DropdownMenu,
-    DropdownItem,
-    Card,
-    CardHeader,
-    CardBody,
-    Divider,
-    ScrollShadow,
-    Select,
-    SelectItem,
-    Link,
-    Spinner,
-    CircularProgress,
-    Input,
-    Skeleton
-} from "@/compat/heroui";
-import {
-    CalendarDaysIcon,
-    UserIcon,
+    ArchiveIcon,
+    CalendarIcon,
+    CheckCircledIcon,
+    CheckIcon, ChevronDownIcon,
+    ChevronLeftIcon, ChevronRightIcon,
+    ClipboardIcon,
     ClockIcon,
-    DocumentTextIcon,
-    EllipsisVerticalIcon,
-    PencilIcon,
-    TrashIcon,
-    ClockIcon as ClockIconOutline,
-    MapPinIcon,
-    BuildingOfficeIcon,
-    DocumentIcon,
-    CheckCircleIcon,
+    CrossCircledIcon,
+    DownloadIcon,
     ExclamationTriangleIcon,
-    PlayIcon,
-    ArrowPathIcon,
-    NoSymbolIcon,
-    DocumentArrowUpIcon,
-    DocumentArrowDownIcon,
-    DocumentCheckIcon,
-    XCircleIcon,
-    PlusIcon,
-    EyeIcon,
-    FolderOpenIcon,
-    ShieldExclamationIcon,
-    ClipboardDocumentCheckIcon,
-    ArrowDownTrayIcon,
-} from '@heroicons/react/24/outline';
+    EyeOpenIcon,
+    FileIcon,
+    FileTextIcon,
+    HomeIcon,
+    OpenInNewWindowIcon,
+    Pencil1Icon,
+    PersonIcon,
+    PlusCircledIcon,
+    ReloadIcon,
+    TrashIcon,
+    UploadIcon
+} from '@radix-ui/react-icons';
 import {
-    CheckCircleIcon as CheckCircleSolid,
-    XCircleIcon as XCircleSolid,
-    ClockIcon as ClockSolid,
-    ExclamationTriangleIcon as ExclamationTriangleSolid,
-    PlayCircleIcon as PlayCircleSolid,
-    ArrowPathIcon as ArrowPathSolid,
-    PlusIcon as PlusIconSolid
-} from '@heroicons/react/24/solid';
+    Badge, Box,
+    Button,
+    Card,
+    Flex,
+    IconButton,
+    Table as RadixTable,
+    ScrollArea,
+    Select,
+    Separator,
+    Skeleton,
+    Text,
+    TextField,
+    Tooltip,
+    Tabs
+} from '@radix-ui/themes';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
 
@@ -120,7 +90,7 @@ const HighlightedText = ({ text, searchTerm }) => {
                 return isMatch ? (
                     <mark 
                         key={index} 
-                        className="bg-warning-200 text-warning-800 dark:bg-warning-800/40 dark:text-warning-200 px-0.5 rounded"
+                        style={{ background: 'var(--yellow-5)', color: 'var(--yellow-11)', padding: '0 2px', borderRadius: 'var(--radius-1)' }}
                     >
                         {part}
                     </mark>
@@ -602,145 +572,92 @@ const DailyWorksTable = ({
     const statusConfig = {
         // Base statuses (without inspection result)
         'new': {
-            color: 'primary',
-            icon: PlusIconSolid,
+            color: 'indigo',
+            icon: PlusCircledIcon,
             label: 'New',
         },
         'in-progress': {
-            color: 'secondary',
-            icon: ArrowPathSolid,
+            color: 'violet',
+            icon: ReloadIcon,
             label: 'In Progress',
         },
         'pending': {
-            color: 'default',
-            icon: ClockSolid,
+            color: 'gray',
+            icon: ClockIcon,
             label: 'Pending',
         },
         'rejected': {
-            color: 'danger',
-            icon: XCircleSolid,
+            color: 'red',
+            icon: CrossCircledIcon,
             label: 'Rejected',
         },
         'resubmission': {
-            color: 'warning',
-            icon: ArrowPathSolid,
+            color: 'orange',
+            icon: ReloadIcon,
             label: 'Resubmission',
         },
         'emergency': {
-            color: 'danger',
-            icon: ExclamationTriangleSolid,
+            color: 'red',
+            icon: ExclamationTriangleIcon,
             label: 'Emergency',
         },
         // Completed statuses with inspection results (matching database enum: pass, fail, conditional, pending)
         'completed:pass': {
-            color: 'success',
-            icon: CheckCircleSolid,
+            color: 'green',
+            icon: CheckCircledIcon,
             label: 'Completed: Passed',
         },
         'completed:fail': {
-            color: 'danger',
-            icon: XCircleSolid,
+            color: 'red',
+            icon: CrossCircledIcon,
             label: 'Completed: Failed',
         },
         'completed:conditional': {
-            color: 'warning',
-            icon: CheckCircleSolid,
+            color: 'orange',
+            icon: CheckCircledIcon,
             label: 'Completed: Conditional',
         },
         'completed:pending': {
-            color: 'default',
-            icon: CheckCircleSolid,
+            color: 'gray',
+            icon: CheckCircledIcon,
             label: 'Completed: Pending Review',
         },
     };
 
-    const getWorkTypeIcon = (type, className = "w-4 h-4") => {
-        const iconClass = `${className} shrink-0`;
-        
+    const getWorkTypeIcon = (type) => {
         switch (type?.toLowerCase()) {
             case "embankment":
-                return <BuildingOfficeIcon className={`${iconClass} text-amber-600 dark:text-amber-400`} />;
+                return <ArchiveIcon style={{ color: 'var(--amber-9)' }} />;
             case "structure":
-                return <DocumentIcon className={`${iconClass} text-blue-600 dark:text-blue-400`} />;
+                return <FileIcon style={{ color: 'var(--blue-9)' }} />;
             case "pavement":
-                return <MapPinIcon className={`${iconClass} text-gray-600 dark:text-gray-400`} />;
+                return <HomeIcon style={{ color: 'var(--gray-9)' }} />;
             case "earthwork":
-                return <BuildingOfficeIcon className={`${iconClass} text-green-600 dark:text-green-400`} />;
+                return <ArchiveIcon style={{ color: 'var(--green-9)' }} />;
             case "drainage":
-                return <DocumentIcon className={`${iconClass} text-cyan-600 dark:text-cyan-400`} />;
+                return <FileIcon style={{ color: 'var(--cyan-9)' }} />;
             case "roadwork":
-                return <MapPinIcon className={`${iconClass} text-orange-600 dark:text-orange-400`} />;
+                return <HomeIcon style={{ color: 'var(--orange-9)' }} />;
             case "bridge":
-                return <BuildingOfficeIcon className={`${iconClass} text-purple-600 dark:text-purple-400`} />;
+                return <ArchiveIcon style={{ color: 'var(--purple-9)' }} />;
             case "culvert":
-                return <DocumentIcon className={`${iconClass} text-indigo-600 dark:text-indigo-400`} />;
+                return <FileIcon style={{ color: 'var(--indigo-9)' }} />;
             case "standard":
             default:
-                return <DocumentTextIcon className={`${iconClass} text-default-500`} />;
+                return <FileTextIcon style={{ color: 'var(--gray-9)' }} />;
         }
     };
 
-    const getStatusChip = (status, inspectionResult = null) => {
-        // If status is 'completed' and inspection_result exists, use the composite status
-        if (status === 'completed' && inspectionResult) {
-            const compositeStatus = `completed:${inspectionResult}`;
-            const config = statusConfig[compositeStatus] || statusConfig['new'];
-            const StatusIcon = config.icon;
-            
-            return (
-                <Chip
-                    size="sm"
-                    variant="flat"
-                    color={config.color}
-                    startContent={<StatusIcon className="w-3 h-3" />}
-                    classNames={{
-                        base: "h-6",
-                        content: "text-xs font-medium"
-                    }}
-                >
-                    {config.label}
-                </Chip>
-            );
-        }
-
-        // For composite status (e.g., 'completed:pass'), use it directly
-        if (status && status.includes(':')) {
-            const config = statusConfig[status] || statusConfig['new'];
-            const StatusIcon = config.icon;
-            
-            return (
-                <Chip
-                    size="sm"
-                    variant="flat"
-                    color={config.color}
-                    startContent={<StatusIcon className="w-3 h-3" />}
-                    classNames={{
-                        base: "h-6",
-                        content: "text-xs font-medium"
-                    }}
-                >
-                    {config.label}
-                </Chip>
-            );
-        }
-
-        // Default status display
-        const config = statusConfig[status] || statusConfig['new'];
+    const getStatusBadge = (status, inspectionResult = null) => {
+        let key = status;
+        if (status === 'completed' && inspectionResult) key = `completed:${inspectionResult}`;
+        const config = statusConfig[key] || statusConfig['new'];
         const StatusIcon = config.icon;
-
         return (
-            <Chip
-                size="sm"
-                variant="flat"
-                color={config.color}
-                startContent={<StatusIcon className="w-3 h-3" />}
-                classNames={{
-                    base: "h-6",
-                    content: "text-xs font-medium"
-                }}
-            >
+            <Badge color={config.color} variant="soft" size="1" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <StatusIcon />
                 {config.label}
-            </Chip>
+            </Badge>
         );
     };
 
@@ -1410,6 +1327,7 @@ const DailyWorksTable = ({
                 const response = await axios.post(route('dailyWorks.update'), updateData);
 
                 if (response.status === 200) {
+                    // Update local state with the response data
                     setData(prevTasks =>
                         prevTasks.map(task =>
                             task.id === taskId ? { 
@@ -1459,492 +1377,315 @@ const DailyWorksTable = ({
         });
     };
 
-    // Mobile tabs and accordion component - organized by work types
-    const MobileDailyWorkCard = ({ works, selectedTab, setSelectedTab, expandedItems, toggleExpanded, openStatusModal, openRfiFilesModal, openObjectionsModal }) => {
+const MobileDailyWorkCard = ({ works, selectedTab, setSelectedTab, expandedItems, toggleExpanded, openStatusModal, openRfiFilesModal, openObjectionsModal }) => {
 
-        // Group works by type
-        const groupedWorks = useMemo(() => {
-            const groups = {
-                structure: [],
-                embankment: [],
-                pavement: []
-            };
-
-            works.forEach(work => {
-                const workType = work.type?.toLowerCase() || 'structure';
-                if (groups[workType]) {
-                    groups[workType].push(work);
-                } else {
-                    groups.structure.push(work); // Default to structure if type doesn't match
-                }
-            });
-
-            return groups;
-        }, [works]);
-
-        // Individual work accordion item component - Redesigned for better mobile UX
-        const WorkAccordionItem = ({ work, index, isExpanded, onToggle, openStatusModal, openRfiFilesModal, openObjectionsModal }) => {
-            const inchargeUser = getUserInfo(work.incharge);
-            const assignedUser = getUserInfo(work.assigned);
-            const statusKey = getStatusKey(work.status, work.inspection_result);
-            const statusConf = statusConfig[statusKey] || statusConfig['new'];
-            const StatusIcon = statusConf.icon;
-
-            // Handle keyboard navigation
-            const handleKeyDown = (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onToggle();
-                }
-            };
-
-            // Compact info row component - without icons for cleaner mobile UI
-            const InfoRow = ({ label, value, chip, chipColor = 'default', highlight = false }) => (
-                <div className="flex items-center justify-between py-0.5 border-b border-divider/20 last:border-b-0 gap-2">
-                    <span className="text-[10px] text-default-400 shrink-0">{label}</span>
-                    {chip ? (
-                        <Chip size="sm" variant="flat" color={chipColor} className="text-[9px] h-3.5 px-1">
-                            {highlight ? <HighlightedText text={value} searchTerm={searchTerm} /> : value}
-                        </Chip>
-                    ) : (
-                        <span className="text-[10px] font-medium text-default-600 text-right truncate max-w-[65%]">
-                            {highlight ? <HighlightedText text={value} searchTerm={searchTerm} /> : value}
-                        </span>
-                    )}
-                </div>
-            );
-
-            return (
-                <Card
-                    radius={getThemeRadius()}
-                    className={`bg-content1 border shadow-sm ${
-                        work.active_objections_count > 0 
-                            ? 'border-warning/60 bg-warning-50/30' 
-                            : 'border-divider/40'
-                    }`}
-                    style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                    role="article"
-                    aria-label={`Daily work ${work.number}`}
-                >
-                    {/* Card Header - Compact & Clickable - Only this should toggle accordion */}
-                    <CardHeader 
-                        className="p-2 cursor-pointer select-none active:scale-[0.99] transition-transform duration-100"
-                        onClick={onToggle}
-                        onKeyDown={handleKeyDown}
-                        tabIndex={0}
-                        role="button"
-                        aria-expanded={isExpanded}
-                    >
-                        <div className="flex flex-wrap items-center gap-1.5 w-full">
-                            {/* Main Info - RFI Number with file indicators */}
-                            <div className="flex items-center gap-1 flex-1 min-w-0">
-                                {/* File indicator icon */}
-                                {work.rfi_files_count > 0 && (
-                                    <DocumentCheckIcon className="w-3 h-3 text-success shrink-0" />
-                                )}
-                                {/* Objection warning indicator */}
-                                {work.active_objections_count > 0 && (
-                                    <ShieldExclamationIcon 
-                                        className="w-3 h-3 text-warning shrink-0 animate-pulse cursor-pointer" 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openObjectionsModal(work);
-                                        }}
-                                        title={`${work.active_objections_count} active objection(s)`}
-                                    />
-                                )}
-                                <span className="font-semibold text-[11px] text-default-800 break-all">
-                                    <HighlightedText text={work.number} searchTerm={searchTerm} />
-                                </span>
-                                {work.rfi_files_count > 0 && (
-                                    <span className="text-[9px] text-success shrink-0">
-                                        ({work.rfi_files_count})
-                                    </span>
-                                )}
-                                {work.active_objections_count > 0 && (
-                                    <span className="text-[9px] text-warning shrink-0">
-                                        ⚠{work.active_objections_count}
-                                    </span>
-                                )}
-                            </div>
-                            
-                            {/* Status Badge & Expand Icon - Wrap to new line if needed */}
-                            <div className="flex items-center gap-1 shrink-0">
-                                <Chip 
-                                    size="sm" 
-                                    variant="flat" 
-                                    color={statusConf.color}
-                                    className="h-4 text-[9px] px-1"
-                                >
-                                    {statusConf.label.split(':')[0]}
-                                </Chip>
-                                <div className={`w-4 h-4 rounded-full bg-default-100 flex items-center justify-center transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-                                    <svg className="w-2.5 h-2.5 text-default-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    </CardHeader>
-
-                    {/* Expandable Content */}
-                    {isExpanded && (
-                        <CardBody className="px-2 pb-2 pt-0" onClick={(e) => e.stopPropagation()}>
-                            <Divider className="mb-2" />
-                            
-                            {/* Section 1: Info Section (Read-only) */}
-                            <div className="bg-default-50 rounded-lg p-1.5 mb-2">
-                                <InfoRow 
-                                    label="Date" 
-                                    value={formatDate(work.date)} 
-                                    highlight
-                                />
-                                {work.description && (
-                                    <InfoRow 
-                                        label="Description" 
-                                        value={work.description} 
-                                        highlight
-                                    />
-                                )}
-                                <InfoRow 
-                                    label="Location" 
-                                    value={work.location || 'Not set'} 
-                                    highlight
-                                />
-                                <InfoRow 
-                                    label="Side" 
-                                    value={work.side || 'Both'} 
-                                    chip 
-                                    highlight
-                                />
-                                {work.qty_layer && (
-                                    <InfoRow 
-                                        label="Qty/Layer" 
-                                        value={work.qty_layer} 
-                                        highlight
-                                    />
-                                )}
-                                <InfoRow 
-                                    label="Planned" 
-                                    value={work.planned_time || 'Not set'} 
-                                    highlight
-                                />
-                                {work.resubmission_count > 0 && (
-                                    <InfoRow 
-                                        label="Resubmissions" 
-                                        value={work.resubmission_count} 
-                                        chip 
-                                        chipColor="warning" 
-                                    />
-                                )}
-                            </div>
-
-                            {/* Section 2: Input Fields */}
-                            <div className="space-y-1.5">
-                                {/* In-charge - Admin only */}
-                                {shouldShowInchargeColumn && (
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-[10px] text-default-400 w-14 shrink-0">In-charge:</span>
-                                        <Select
-                                            size="sm"
-                                            variant="bordered"
-                                            radius={getThemeRadius()}
-                                            placeholder="Select"
-                                            aria-label="Select in-charge"
-                                            selectedKeys={work.incharge ? [String(work.incharge)] : []}
-                                            onSelectionChange={(keys) => {
-                                                const key = Array.from(keys)[0];
-                                                if (key) debouncedUpdateIncharge(work.id, key);
-                                            }}
-                                            classNames={{
-                                                base: "flex-1",
-                                                trigger: "min-h-6 h-6",
-                                                value: "text-[10px]",
-                                                popoverContent: "max-w-[280px]"
-                                            }}
-                                            renderValue={() => (
-                                                <div className="flex items-center gap-1">
-                                                    <ProfileAvatar src={inchargeUser.profile_image_url} size="xs" name={inchargeUser.name} className="w-3 h-3" />
-                                                    <span className="text-[10px] truncate">{inchargeUser.name}</span>
-                                                </div>
-                                            )}
-                                        >
-                                            {finalInCharges.map((user) => (
-                                                <SelectItem key={String(user.id)} textValue={user.name}>
-                                                    <div className="flex items-center gap-2">
-                                                        <ProfileAvatar src={user.profile_image_url} size="sm" name={user.name} className="w-5 h-5" />
-                                                        <span className="text-xs">{user.name}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </Select>
-                                    </div>
-                                )}
-
-                                {/* Assigned To - Visible to admins and incharges, not to assignees */}
-                                {shouldShowAssignedColumn && (
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-[10px] text-default-400 w-14 shrink-0">Assigned:</span>
-                                        {canUserAssign(work) ? (
-                                            <Select
-                                                size="sm"
-                                                variant="bordered"
-                                                radius={getThemeRadius()}
-                                                placeholder="Select"
-                                                aria-label="Select assignee"
-                                                selectedKeys={work.assigned ? [String(work.assigned)] : []}
-                                                onSelectionChange={(keys) => {
-                                                    const key = Array.from(keys)[0];
-                                                    if (key) debouncedUpdateAssigned(work.id, key);
-                                                }}
-                                                classNames={{
-                                                    base: "flex-1",
-                                                    trigger: "min-h-6 h-6",
-                                                    value: "text-[10px]",
-                                                    popoverContent: "max-w-[280px]"
-                                                }}
-                                                renderValue={() => (
-                                                    assignedUser.name !== 'Unassigned' ? (
-                                                        <div className="flex items-center gap-1">
-                                                            <ProfileAvatar src={assignedUser.profile_image_url} size="xs" name={assignedUser.name} className="w-3 h-3" />
-                                                            <span className="text-[10px] truncate">{assignedUser.name}</span>
-                                                        </div>
-                                                    ) : <span className="text-[10px] text-default-400">Select</span>
-                                                )}
-                                            >
-                                                {getAvailableAssignees(work.incharge).map((user) => (
-                                                    <SelectItem key={String(user.id)} textValue={user.name}>
-                                                        <div className="flex items-center gap-2">
-                                                            <ProfileAvatar src={user.profile_image_url} size="sm" name={user.name} className="w-4 h-4" />
-                                                            <span className="text-[10px]">{user.name}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </Select>
-                                        ) : (
-                                            <div className="flex-1 flex items-center gap-1">
-                                                <ProfileAvatar src={assignedUser.profile_image_url} size="xs" name={assignedUser.name} className="w-3 h-3" />
-                                                <span className="text-[10px] text-default-600">{assignedUser.name || 'Unassigned'}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Status Dropdown */}
-                                {canUserUpdateStatus(work) && (
-                                    <div className="flex items-center gap-1">
-                                        <span className="text-[10px] text-default-400 w-14 shrink-0">Status:</span>
-                                        <Select
-                                            size="sm"
-                                            variant="bordered"
-                                            radius={getThemeRadius()}
-                                            aria-label="Select status"
-                                            selectedKeys={[statusKey]}
-                                            onSelectionChange={(keys) => {
-                                                const selectedKey = Array.from(keys)[0];
-                                                if (selectedKey && selectedKey !== statusKey) {
-                                                    updateWorkStatus(work, selectedKey);
-                                                }
-                                            }}
-                                            classNames={{
-                                                trigger: "min-h-7 h-7 bg-content2/50",
-                                                value: "text-[10px]",
-                                            }}
-                                            renderValue={(items) => {
-                                                return items.map((item) => (
-                                                    <div key={item.key} className="flex items-center gap-1">
-                                                        <StatusIcon className="w-3 h-3" />
-                                                        <span className="text-[10px]">{statusConf.label}</span>
-                                                    </div>
-                                                ));
-                                            }}
-                                        >
-                                            {Object.entries(statusConfig).map(([key, config]) => (
-                                                <SelectItem key={key} textValue={config.label}>
-                                                    <div className="flex items-center gap-2">
-                                                        <config.icon className={`w-4 h-4 text-${config.color}`} />
-                                                        <span>{config.label}</span>
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </Select>
-                                    </div>
-                                )}
-
-                                {/* Inspection Details */}
-                                {canUserUpdateInspectionDetails(work) && (
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] text-default-400">Inspection Details:</span>
-                                        <Input
-                                            size="sm"
-                                            type="text"
-                                            variant="bordered"
-                                            radius={getThemeRadius()}
-                                            placeholder="Enter details..."
-                                            defaultValue={work.inspection_details || ''}
-                                            onChange={(e) => debouncedUpdateInspectionDetails(work.id, e.target.value)}
-                                            classNames={{
-                                                base: "w-full",
-                                                input: "text-[10px]",
-                                                inputWrapper: "min-h-7 h-7"
-                                            }}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Completion Time */}
-                                {canUserUpdateCompletionTime(work) && (
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] text-default-400">Completion:</span>
-                                        <Input
-                                            size="sm"
-                                            type="datetime-local"
-                                            variant="bordered"
-                                            radius={getThemeRadius()}
-                                            value={work.completion_time ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16) : ''}
-                                            onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
-                                            classNames={{
-                                                base: "w-full",
-                                                input: "text-[10px]",
-                                                inputWrapper: "min-h-7 h-7"
-                                            }}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* RFI Date - Admin only */}
-                                {shouldShowRfiColumn && (
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] text-default-400">RFI Date:</span>
-                                        <Input
-                                            size="sm"
-                                            type="date"
-                                            variant="bordered"
-                                            radius={getThemeRadius()}
-                                            value={work.rfi_submission_date ? new Date(work.rfi_submission_date).toISOString().slice(0, 10) : ''}
-                                            onChange={(e) => debouncedUpdateSubmissionTime(work.id, e.target.value)}
-                                            classNames={{
-                                                base: "w-full",
-                                                input: "text-[10px]",
-                                                inputWrapper: "min-h-7 h-7"
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Action Buttons - Admin only for Edit/Delete, all users can access files */}
-                            <div className="flex gap-1.5 mt-2 pt-1.5 border-t border-divider">
-                                {/* RFI Files button - available to all users */}
-                                <Button
-                                    size="sm"
-                                    variant="flat"
-                                    color={work.rfi_files_count > 0 ? "success" : "default"}
-                                    radius={getThemeRadius()}
-                                    className="flex-1 h-7 text-[10px]"
-                                    onPress={() => {
-                                        openRfiFilesModal(work);
-                                    }}
-                                >
-                                    Files {work.rfi_files_count > 0 && `(${work.rfi_files_count})`}
-                                </Button>
-                                
-                                {/* Objections button - View/Add objections to this RFI */}
-                                <Button
-                                    size="sm"
-                                    variant="flat"
-                                    color={work.active_objections_count > 0 ? "warning" : "default"}
-                                    radius={getThemeRadius()}
-                                    className="flex-1 h-7 text-[10px]"
-                                    onPress={() => openObjectionsModal(work)}
-                                >
-                                    Objections {work.active_objections_count > 0 && `(${work.active_objections_count})`}
-                                </Button>
-                                
-                                {shouldShowActions && (
-                                    <>
-                                        <Button
-                                            size="sm"
-                                            variant="flat"
-                                            color="primary"
-                                            radius={getThemeRadius()}
-                                            className="flex-1 h-7 text-[10px]"
-                                            onPress={() => {
-                                                setCurrentRow(work);
-                                                openModal("editDailyWork");
-                                            }}
-                                        >
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="flat"
-                                            color="danger"
-                                            radius={getThemeRadius()}
-                                            className="flex-1 h-7 text-[10px]"
-                                            onPress={() => handleClickOpen(work.id, "deleteDailyWork")}
-                                        >
-                                            Delete
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-                        </CardBody>
-                    )}
-                </Card>
-            );
+    // Group works by type
+    const groupedWorks = useMemo(() => {
+        const groups = {
+            structure: [],
+            embankment: [],
+            pavement: []
         };
 
-        return (
-            <div className="w-full">
-                {/* Tab Headers - Compact for mobile */}
-                <div className="flex overflow-x-auto border-b border-divider scrollbar-hide -mx-1 px-1">
-                    {workTypes.map((type) => (
-                        <button
-                            key={type.key}
-                            onClick={() => setSelectedTab(type.key)}
-                            className={`flex items-center gap-1 px-2 py-1.5 min-w-fit whitespace-nowrap border-b-2 transition-all duration-150 ${
-                                selectedTab === type.key
-                                    ? 'border-primary text-primary font-semibold'
-                                    : 'border-transparent text-default-500'
-                            }`}
-                        >
-                            <span className="text-[10px]">{type.icon}</span>
-                            <span className="text-[10px]">{type.label}</span>
-                            <span className={`min-w-[16px] h-3.5 px-1 rounded-full text-[9px] font-medium flex items-center justify-center ${
-                                selectedTab === type.key 
-                                    ? 'bg-primary text-white' 
-                                    : 'bg-default-100 text-default-600'
-                            }`}>
-                                {groupedWorks[type.key]?.length || 0}
-                            </span>
-                        </button>
-                    ))}
-                </div>
+        works.forEach(work => {
+            const workType = work.type?.toLowerCase() || 'structure';
+            if (groups[workType]) {
+                groups[workType].push(work);
+            } else {
+                groups.structure.push(work); // Default to structure if type doesn't match
+            }
+        });
 
-                {/* Tab Content */}
-                <div className="pt-2">
-                    {workTypes.map((type) => (
-                        <div key={type.key} className={selectedTab === type.key ? 'block' : 'hidden'}>
-                            {groupedWorks[type.key]?.length > 0 ? (
-                                <div className="flex flex-col gap-2">
-                                    {groupedWorks[type.key].map((work, index) => (
-                                        <SwipeableCard
-                                            key={work.id}
-                                            onEdit={() => {
-                                                setCurrentRow(work);
-                                                openModal("editDailyWork");
-                                            }}
-                                            onDelete={() => handleClickOpen(work.id, "deleteDailyWork")}
-                                            onStatusChange={() => {
-                                                // Quick complete - set to completed:pass
-                                                if (work.status !== 'completed') {
-                                                    updateWorkStatus(work, 'completed:pass');
-                                                }
-                                            }}
-                                            disabled={!shouldShowActions}
+        return groups;
+    }, [works]);
+
+    // Individual work accordion item component
+const WorkAccordionItem = ({ work, index, isExpanded, onToggle, openStatusModal, openRfiFilesModal, openObjectionsModal }) => {
+    const inchargeUser = getUserInfo(work.incharge);
+    const assignedUser = getUserInfo(work.assigned);
+    const statusKey = getStatusKey(work.status, work.inspection_result);
+    const statusConf = statusConfig[statusKey] || statusConfig['new'];
+
+    // Handle keyboard navigation
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+        }
+    };
+
+    // Compact info row component - Fixed truncation and layout
+    const InfoRow = ({ label, value, chip, chipColor = 'gray', highlight = false }) => (
+        <Flex align="center" justify="between" py="1" style={{ borderBottom: '1px solid var(--gray-a4)', gap: '12px' }}>
+            {/* Label stays fixed */}
+            <Text size="1" color="gray" style={{ flexShrink: 0 }}>{label}</Text>
+            
+            {/* Value truncates safely without pushing the width out */}
+            {chip ? (
+                <Badge size="1" variant="soft" color={chipColor} style={{ flexShrink: 0, maxWidth: '65%' }}>
+                    <Text truncate>{highlight ? <HighlightedText text={value} searchTerm={searchTerm} /> : value}</Text>
+                </Badge>
+            ) : (
+                <Text size="1" weight="medium" truncate align="right" style={{ flex: 1, minWidth: 0 }}>
+                    {highlight ? <HighlightedText text={value} searchTerm={searchTerm} /> : value}
+                </Text>
+            )}
+        </Flex>
+    );
+
+    return (
+        <Card 
+            size="1"
+            variant="surface"
+            style={{
+                width: '100%',
+                overflow: 'hidden', // Prevents internal content from breaking the card boundaries
+                ...(work.active_objections_count > 0 && {
+                    boxShadow: 'inset 0 0 0 1px var(--orange-6)',
+                    backgroundColor: 'var(--orange-2)'
+                })
+            }}
+            role="article"
+            aria-label={`Daily work ${work.number}`}
+        >
+            {/* Card Header (Clickable area to expand) */}
+            <Box
+                onClick={onToggle}
+                onKeyDown={handleKeyDown}
+                tabIndex={0}
+                role="button"
+                aria-expanded={isExpanded}
+                style={{ cursor: 'pointer', userSelect: 'none', width: '100%' }}
+            >
+                <Flex align="center" justify="between" gap="2" width="100%">
+                    
+                    {/* Left Section: Icons + Title (Allowed to shrink and truncate) */}
+                    <Flex align="center" gap="2" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                        {/* Explicit icon dimensions and flexShrink: 0 prevent icon squeezing */}
+                        {work.rfi_files_count > 0 && (
+                            <CheckIcon width="16" height="16" color="var(--green-9)" style={{ flexShrink: 0 }} />
+                        )}
+                        {work.active_objections_count > 0 && (
+                            <Box
+                                onClick={(e) => { e.stopPropagation(); openObjectionsModal(work); }}
+                                title={`${work.active_objections_count} active objection(s)`}
+                                style={{ flexShrink: 0, display: 'flex' }}
+                            >
+                                <ExclamationTriangleIcon width="16" height="16" color="var(--orange-9)" />
+                            </Box>
+                        )}
+                        
+                        {/* The truncate prop safely adds ellipsis to long text instead of overflowing */}
+                        <Text size="2" weight="bold" truncate style={{ flex: 1, minWidth: 0 }}>
+                            <HighlightedText text={work.number} searchTerm={searchTerm} />
+                        </Text>
+
+                        {/* Counts */}
+                        {work.rfi_files_count > 0 && <Text size="1" color="green" style={{ flexShrink: 0 }}>({work.rfi_files_count})</Text>}
+                        {work.active_objections_count > 0 && <Text size="1" color="orange" style={{ flexShrink: 0 }}>⚠{work.active_objections_count}</Text>}
+                    </Flex>
+
+                    {/* Right Section: Status Badge + Chevron (Never shrinks) */}
+                    <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+                        <Badge size="1" variant="soft" color={statusConf.color}>
+                            {statusConf.label.split(':')[0]}
+                        </Badge>
+                        <ChevronDownIcon 
+                            color="var(--gray-9)" 
+                            style={{ 
+                                transition: 'transform 200ms', 
+                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' 
+                            }} 
+                        />
+                    </Flex>
+                </Flex>
+            </Box>
+
+            {/* Expanded Details Content */}
+            {isExpanded && (
+                <Box pt="3" onClick={(e) => e.stopPropagation()} style={{ width: '100%' }}>
+                    <Separator size="4" mb="3" />
+                    
+                    {/* Summary Data Box */}
+                    <Box p="2" mb="3" style={{ backgroundColor: 'var(--gray-a3)', borderRadius: 'var(--radius-2)', width: '100%', overflow: 'hidden' }}>
+                        <InfoRow label="Date" value={formatDate(work.date)} highlight />
+                        {work.description && <InfoRow label="Description" value={work.description} highlight />}
+                        <InfoRow label="Location" value={work.location || 'Not set'} highlight />
+                        <InfoRow label="Side" value={work.side || 'Both'} chip highlight />
+                        {work.qty_layer && <InfoRow label="Qty/Layer" value={work.qty_layer} highlight />}
+                        <InfoRow label="Planned" value={work.planned_time || 'Not set'} highlight />
+                        {work.resubmission_count > 0 && <InfoRow label="Resubmissions" value={work.resubmission_count} chip chipColor="orange" />}
+                    </Box>
+
+                    {/* Interactive Form Controls */}
+                    <Flex direction="column" gap="2" mb="3" width="100%">
+                        {shouldShowInchargeColumn && (
+                            <Flex align="center" gap="2" width="100%">
+                                <Text size="1" color="gray" style={{ width: '60px', flexShrink: 0 }}>In-charge:</Text>
+                                <Box style={{ flex: 1, minWidth: 0 }}>
+                                    <Select.Root 
+                                        size="1" 
+                                        value={work.incharge ? String(work.incharge) : ''}
+                                        onValueChange={(val) => { if (val) debouncedUpdateIncharge(work.id, val); }}
+                                    >
+                                        <Select.Trigger style={{ width: '100%' }} placeholder="Select" />
+                                        <Select.Content>
+                                            {finalInCharges.map((u) => <Select.Item key={u.id} value={String(u.id)}>{u.name}</Select.Item>)}
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
+                            </Flex>
+                        )}
+
+                        {shouldShowAssignedColumn && (
+                            <Flex align="center" gap="2" width="100%">
+                                <Text size="1" color="gray" style={{ width: '60px', flexShrink: 0 }}>Assigned:</Text>
+                                <Box style={{ flex: 1, minWidth: 0 }}>
+                                    {canUserAssign(work) ? (
+                                        <Select.Root 
+                                            size="1" 
+                                            value={work.assigned ? String(work.assigned) : ''}
+                                            onValueChange={(val) => { if (val) debouncedUpdateAssigned(work.id, val); }}
                                         >
-                                            <WorkAccordionItem 
+                                            <Select.Trigger style={{ width: '100%' }} placeholder="Select" />
+                                            <Select.Content>
+                                                {getAvailableAssignees(work.incharge).map((u) => <Select.Item key={u.id} value={String(u.id)}>{u.name}</Select.Item>)}
+                                            </Select.Content>
+                                        </Select.Root>
+                                    ) : (
+                                        <Text size="1" truncate>{assignedUser.name || 'Unassigned'}</Text>
+                                    )}
+                                </Box>
+                            </Flex>
+                        )}
+
+                        {canUserUpdateStatus(work) && (
+                            <Flex align="center" gap="2" width="100%">
+                                <Text size="1" color="gray" style={{ width: '60px', flexShrink: 0 }}>Status:</Text>
+                                <Box style={{ flex: 1, minWidth: 0 }}>
+                                    <Select.Root 
+                                        size="1" 
+                                        value={statusKey}
+                                        onValueChange={(val) => { if (val && val !== statusKey) updateWorkStatus(work, val); }}
+                                    >
+                                        <Select.Trigger style={{ width: '100%' }} />
+                                        <Select.Content>
+                                            {Object.entries(statusConfig).map(([k, c]) => <Select.Item key={k} value={k}>{c.label}</Select.Item>)}
+                                        </Select.Content>
+                                    </Select.Root>
+                                </Box>
+                            </Flex>
+                        )}
+
+                        {canUserUpdateInspectionDetails(work) && (
+                            <Flex direction="column" gap="1" width="100%">
+                                <Text size="1" color="gray">Inspection Details:</Text>
+                                <TextField.Root 
+                                    size="1"
+                                    placeholder="Enter details..."
+                                    defaultValue={work.inspection_details || ''}
+                                    onChange={(e) => debouncedUpdateInspectionDetails(work.id, e.target.value)}
+                                    style={{ width: '100%' }}
+                                />
+                            </Flex>
+                        )}
+
+                        {canUserUpdateCompletionTime(work) && (
+                            <Flex direction="column" gap="1" width="100%">
+                                <Text size="1" color="gray">Completion:</Text>
+                                <TextField.Root 
+                                    size="1"
+                                    type="datetime-local"
+                                    defaultValue={work.completion_time ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16) : ''}
+                                    onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
+                                    style={{ width: '100%' }}
+                                />
+                            </Flex>
+                        )}
+
+                        {shouldShowRfiColumn && (
+                            <Flex direction="column" gap="1" width="100%">
+                                <Text size="1" color="gray">RFI Date:</Text>
+                                <TextField.Root 
+                                    size="1"
+                                    type="date"
+                                    defaultValue={work.rfi_submission_date ? new Date(work.rfi_submission_date).toISOString().slice(0, 10) : ''}
+                                    onChange={(e) => debouncedUpdateSubmissionTime(work.id, e.target.value)}
+                                    style={{ width: '100%' }}
+                                />
+                            </Flex>
+                        )}
+                    </Flex>
+
+                    <Separator size="4" my="3" />
+
+                    {/* Action Buttons */}
+                    <Flex gap="2" width="100%">
+                        <Button 
+                            size="1" 
+                            variant="soft" 
+                            color={work.rfi_files_count > 0 ? 'green' : 'gray'} 
+                            style={{ flex: 1 }} 
+                            onClick={() => openRfiFilesModal(work)}
+                        >
+                            <Text truncate>Files{work.rfi_files_count > 0 ? ` (${work.rfi_files_count})` : ''}</Text>
+                        </Button>
+                        
+                        <Button 
+                            size="1" 
+                            variant="soft" 
+                            color={work.active_objections_count > 0 ? 'orange' : 'gray'} 
+                            style={{ flex: 1 }} 
+                            onClick={() => openObjectionsModal(work)}
+                        >
+                            <Text truncate>Objections{work.active_objections_count > 0 ? ` (${work.active_objections_count})` : ''}</Text>
+                        </Button>
+                        
+                        {shouldShowActions && (
+                            <>
+                                <Button size="1" variant="soft" color="indigo" style={{ flex: 1 }} onClick={() => { setCurrentRow(work); openModal('editDailyWork'); }}>Edit</Button>
+                                <Button size="1" variant="soft" color="red" style={{ flex: 1 }} onClick={() => handleClickOpen(work.id, 'deleteDailyWork')}>Delete</Button>
+                            </>
+                        )}
+                    </Flex>
+                </Box>
+            )}
+        </Card>
+    );
+};
+
+    return (
+        <Box width="100%">
+            <Tabs.Root value={selectedTab} onValueChange={setSelectedTab}>
+                {/* ScrollArea allows tabs to swipe horizontally if they overflow */}
+                <ScrollArea type="auto" scrollbars="horizontal">
+                    <Tabs.List size="2" style={{ width: 'max-content', whiteSpace: 'nowrap' }}>
+                        {workTypes.map((type) => (
+                            <Tabs.Trigger key={type.key} value={type.key}>
+                                <Flex align="center" gap="2">
+                                    <Box style={{ display: 'flex' }}>{type.icon}</Box>
+                                    <Text size="2" weight="medium">{type.label}</Text>
+                                    <Badge 
+                                        size="1" 
+                                        radius="full" 
+                                        variant={selectedTab === type.key ? 'solid' : 'soft'}
+                                        color={selectedTab === type.key ? 'indigo' : 'gray'}
+                                    >
+                                        {groupedWorks[type.key]?.length || 0}
+                                    </Badge>
+                                </Flex>
+                            </Tabs.Trigger>
+                        ))}
+                    </Tabs.List>
+                </ScrollArea>
+
+                <Box pt="4">
+                    {workTypes.map((type) => (
+                        <Tabs.Content key={type.key} value={type.key}>
+                            {groupedWorks[type.key]?.length > 0 ? (
+                                <Flex direction="column" gap="3">
+                                    {groupedWorks[type.key].map((work, index) => (
+                                         <WorkAccordionItem 
                                                 work={work} 
                                                 index={index}
                                                 isExpanded={expandedItems.has(work.id)}
@@ -1953,24 +1694,24 @@ const DailyWorksTable = ({
                                                 openRfiFilesModal={openRfiFilesModal}
                                                 openObjectionsModal={openObjectionsModal}
                                             />
-                                        </SwipeableCard>
+                                       
                                     ))}
-                                </div>
+                                </Flex>
                             ) : (
-                                <div className="text-center py-6">
-                                    <div className="text-4xl mb-3">{type.icon}</div>
-                                    <div className="text-default-500 text-sm">
+                                <Flex direction="column" align="center" justify="center" py="8" gap="3">
+                                    <Text size="8" color="gray" style={{ opacity: 0.5 }}>{type.icon}</Text>
+                                    <Text size="3" color="gray" weight="medium">
                                         No {type.label.toLowerCase()} works found
-                                    </div>
-                                </div>
+                                    </Text>
+                                </Flex>
                             )}
-                        </div>
+                        </Tabs.Content>
                     ))}
-                </div>
-            </div>
-        );
-    };
-
+                </Box>
+            </Tabs.Root>
+        </Box>
+    );
+};
     const handlePageChange = useCallback((page) => {
         if (onPageChange) {
             onPageChange(page);
@@ -1979,1194 +1720,871 @@ const DailyWorksTable = ({
 
     const cellBaseClasses = "text-xs sm:text-sm md:text-base whitespace-nowrap";
 
-    const renderCell = useCallback((work, columnKey) => {
-        const inchargeUser = getUserInfo(work.incharge);
-        const assignedUser = getUserInfo(work.assigned);
+const renderCell = useCallback((work, columnKey) => {
+    const inchargeUser = getUserInfo(work.incharge);
+    const assignedUser = getUserInfo(work.assigned);
 
-        switch (columnKey) {
-            case "date":
-                return (
-                    <TableCell className={cellBaseClasses}>
-                        <div className="flex items-center justify-center gap-1 whitespace-nowrap">
-                            <CalendarDaysIcon className="w-3 h-3 text-default-500" />
-                            <span className="text-sm font-medium">
-                                <HighlightedText text={formatDate(work.date)} searchTerm={searchTerm} />
-                            </span>
-                        </div>
-                    </TableCell>
-                );
+    // Apply this to prevent wrapping on standard cells
+    const autoFitStyle = { whiteSpace: 'nowrap', width: 'auto' };
 
-            case "number":
-                return (
-                    <TableCell className="max-w-40">
-                        <div className="flex flex-col items-center justify-center gap-1 w-full whitespace-nowrap">
-                            {/* RFI Number with file icons */}
-                            <div className="flex items-center gap-1">
-                                {/* Eye icon - click to view/manage RFI files */}
-                                <Tooltip content={work.rfi_files_count > 0 ? `View ${work.rfi_files_count} RFI file(s)` : "Manage RFI files"}>
-                                    <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="light"
-                                        className="w-5 h-5 min-w-5"
-                                        onPress={() => openRfiFilesModal(work)}
-                                    >
-                                        {work.rfi_files_count > 0 ? (
-                                            <FolderOpenIcon className="w-3.5 h-3.5 text-primary" />
-                                        ) : (
-                                            <EyeIcon className="w-3.5 h-3.5 text-default-400" />
-                                        )}
-                                    </Button>
-                                </Tooltip>
-                                
-                                {/* RFI Number */}
-                                {(work.status === 'completed' || work.status?.startsWith('completed:')) && work.file ? (
-                                    <Link
-                                        isExternal
-                                        href={work.file}
-                                        color={(() => {
-                                            const statusKey = getStatusKey(work.status, work.inspection_result);
-                                            return statusConfig[statusKey]?.color || 'default';
-                                        })()}
-                                        size="sm"
-                                        className="font-medium text-center"
-                                        title={work.number}
-                                    >
-                                        <HighlightedText text={work.number} searchTerm={searchTerm} />
-                                    </Link>
-                                ) : (
-                                    <span 
-                                        className="text-sm font-medium text-primary text-center"
-                                        title={work.number}
-                                    >
-                                        <HighlightedText text={work.number} searchTerm={searchTerm} />
-                                    </span>
-                                )}
-                                
-                                {/* Document check icon - shows if files exist */}
-                                {work.rfi_files_count > 0 && (
-                                    <Tooltip content={`${work.rfi_files_count} file(s) attached`}>
-                                        <span className="flex items-center">
-                                            <DocumentCheckIcon className="w-3.5 h-3.5 text-success" />
-                                        </span>
-                                    </Tooltip>
-                                )}
-                                
-                                {/* Objection indicator - click to open objections modal */}
-                                {work.active_objections_count > 0 && (
-                                    <Tooltip content={`${work.active_objections_count} active objection(s) - Click to view`}>
-                                        <span className="flex items-center cursor-pointer" onClick={() => openObjectionsModal(work)}>
-                                            <ShieldExclamationIcon className="w-3.5 h-3.5 text-warning animate-pulse" />
-                                        </span>
-                                    </Tooltip>
-                                )}
-                            </div>
-                            
-                            {work.reports?.map(report => (
-                                <span 
-                                    key={report.ref_no} 
-                                    className="text-xs text-default-500 text-center"
-                                    title={`• ${report.ref_no}`}
-                                >
-                                    • <HighlightedText text={report.ref_no} searchTerm={searchTerm} />
-                                </span>
-                            ))}
-                        </div>
-                    </TableCell>
-                );
+    switch (columnKey) {
+        case "date":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="2">
+                        <CalendarIcon color="var(--gray-9)" />
+                        <Text size="2" weight="medium">
+                            <HighlightedText text={formatDate(work.date)} searchTerm={searchTerm} />
+                        </Text>
+                    </Flex>
+                </RadixTable.Cell>
+            );
 
-            case "status":
-                const statusKey = getStatusKey(work.status, work.inspection_result);
-                const currentStatusConfig = statusConfig[statusKey] || statusConfig['new'];
-                const StatusIconComponent = currentStatusConfig.icon;
-                
-                return (
-                    <TableCell className="min-w-48">
-                        <div className="flex items-center justify-center w-full">
-                            <Select
-                                size="sm"
-                                variant="bordered"
-                                radius={getThemeRadius()}
-                                aria-label="Select status"
-                                selectedKeys={[statusKey]}
-                                onSelectionChange={(keys) => {
-                                    const selectedKey = Array.from(keys)[0];
-                                    if (selectedKey && selectedKey !== statusKey) {
-                                        updateWorkStatus(work, selectedKey);
-                                    }
-                                }}
-                                classNames={{
-                                    trigger: "min-h-10 bg-content2/50 hover:bg-content2/80",
-                                    value: "text-xs",
-                                }}
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                                renderValue={(items) => {
-                                    return items.map((item) => (
-                                        <div key={item.key} className="flex items-center gap-2">
-                                            <StatusIconComponent className={`w-4 h-4 text-${currentStatusConfig.color}`} />
-                                            <span className="text-xs font-medium">{currentStatusConfig.label}</span>
-                                        </div>
-                                    ));
-                                }}
-                            >
-                                {Object.entries(statusConfig).map(([key, config]) => (
-                                    <SelectItem key={key} textValue={config.label}>
-                                        <div className="flex items-center gap-2">
-                                            <config.icon className={`w-4 h-4 text-${config.color}`} />
-                                            <span>{config.label}</span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                            </Select>
-                        </div>
-                    </TableCell>
-                );
-
-            case "type":
-                return (
-                    <TableCell className={cellBaseClasses}>
-                        <div className="flex items-center justify-center gap-2">
-                            {getWorkTypeIcon(work.type, "w-4 h-4")}
-                            <span className="text-sm font-medium capitalize">
-                                <HighlightedText text={work.type || 'Standard Work'} searchTerm={searchTerm} />
-                            </span>
-                        </div>
-                    </TableCell>
-                );
-
-            case "description":
-                return (
-                    <TableCell className={`max-w-60 ${cellBaseClasses}`}>
-                        <div className="w-full overflow-hidden">
-                            <span 
-                                className="text-sm text-default-600 line-clamp-2"
-                                title={work.description || "No description provided"}
-                            >
-                                <HighlightedText text={work.description || "No description provided"} searchTerm={searchTerm} />
-                            </span>
-                        </div>
-                    </TableCell>
-                );
-
-            case "location":
-                return (
-                    <TableCell className="max-w-48">
-                        <div className="flex items-center justify-center gap-2 overflow-hidden">
-                            <MapPinIcon className="w-3 h-3 text-default-500 shrink-0" />
-                            <span 
-                                className="text-sm font-medium line-clamp-2 text-center"
-                                title={work.location || 'Location not specified'}
-                            >
-                                <HighlightedText text={work.location || 'Location not specified'} searchTerm={searchTerm} />
-                            </span>
-                        </div>
-                    </TableCell>
-                );
-
-            case "side":
-                return (
-                    <TableCell>
-                        <div className="flex items-center justify-center">
-                            <Chip 
-                                size="sm" 
-                                variant="flat" 
-                                color="default"
-                                className="capitalize"
-                            >
-                                <HighlightedText text={work.side || 'Both Sides'} searchTerm={searchTerm} />
-                            </Chip>
-                        </div>
-                    </TableCell>
-                );
-
-            case "qty_layer":
-                return (
-                    <TableCell>
-                        <div className="flex items-center justify-center">
-                            <span className="text-sm">
-                                <HighlightedText text={work.qty_layer ? work.qty_layer : 'N/A'} searchTerm={searchTerm} />
-                            </span>
-                        </div>
-                    </TableCell>
-                );
-
-            case "planned_time":
-                return (
-                    <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                            <ClockIcon className="w-3 h-3 text-default-500" />
-                            <span className="text-sm">
-                                <HighlightedText text={work.planned_time || 'Not set'} searchTerm={searchTerm} />
-                            </span>
-                        </div>
-                    </TableCell>
-                );
-
-            case "resubmission_count":
-                return (
-                    <TableCell>
-                        <div className="flex items-center justify-center">
-                            <Chip 
-                                size="sm" 
-                                variant="flat" 
-                                color={work.resubmission_count > 0 ? "warning" : "default"}
-                            >
-                                {work.resubmission_count || 0}
-                            </Chip>
-                        </div>
-                    </TableCell>
-                );
-
-            case "incharge":
-                return (
-                    <TableCell className="w-64">
-                        <div className="flex items-center justify-center">
-                            {userIsAdmin ? (
-                                <Select
-                                    size="sm"
-                                    variant="bordered"
-                                    radius={getThemeRadius()}
-                                    placeholder="Select in-charge"
-                                    aria-label="Select in-charge person"
-                                    selectedKeys={work.incharge && finalInCharges.find(user => user.id === parseInt(work.incharge)) 
-                                        ? [String(work.incharge)] 
-                                        : []}
-                                    onSelectionChange={(keys) => {
-                                        const selectedKey = Array.from(keys)[0];
-                                        if (selectedKey) {
-                                            debouncedUpdateIncharge(work.id, selectedKey);
-                                        }
-                                    }}
-                                    classNames={{
-                                        trigger: "min-h-10 w-full bg-content2/50 hover:bg-content2/80 focus:bg-content2/90 transition-colors",
-                                        value: "text-sm leading-tight",
-                                        popoverContent: "w-64 max-w-[300px]"
-                                    }}
-                                    style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                renderValue={(items) => {
-                                    if (items.length === 0) {
-                                        return (
-                                            <div className="flex items-center gap-2">
-                                                <UserIcon className="w-4 h-4 text-default-400" />
-                                                <span className="text-xs">Select in-charge</span>
-                                            </div>
-                                        );
-                                    }
-                                    return items.map((item) => (
-                                        <div key={item.key} className="flex items-center justify-center gap-2">
-                                            <ProfileAvatar
-                                                src={inchargeUser.profile_image_url || inchargeUser.profile_image}
-                                                size="sm"
-                                                name={inchargeUser.name}
-                                                showBorder
-                                            />
-                                            <span 
-                                                className="text-xs font-medium truncate max-w-[120px]"
-                                                title={inchargeUser.name}
-                                            >
-                                                {inchargeUser.name}
-                                            </span>
-                                        </div>
-                                    ));
-                                }}
-                            >
-                                {finalInCharges?.map((incharge) => (
-                                    <SelectItem key={incharge.id} textValue={incharge.name}>
-                                        <User
-                                            size="sm"
-                                            name={incharge.name}
-                                            description={`Employee ID: ${incharge.employee_id || 'N/A'}`}
-                                            avatarProps={{
-                                                size: "sm",
-                                                src: incharge.profile_image_url || incharge.profile_image,
-                                                name: incharge.name,
-                                                ...getProfileAvatarTokens({
-                                                    name: incharge.name,
-                                                    size: 'sm',
-                                                }),
-                                            }}
-                                        />
-                                    </SelectItem>
-                                ))}
-                            </Select>
+        case "number":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="1">
+                        <IconButton 
+                            size="1" 
+                            variant="ghost" 
+                            color="gray" 
+                            disabled={work.rfi_files_count === 0}
+                            onClick={() => openRfiFilesModal(work)}
+                        >
+                            <EyeOpenIcon />
+                        </IconButton>
+                        
+                        {(work.status === 'completed' || work.status?.startsWith('completed:')) && work.file ? (
+                            <Link href={work.file} target="_blank" rel="noopener noreferrer" size="2" weight="medium">
+                                <HighlightedText text={work.number} searchTerm={searchTerm} />
+                            </Link>
                         ) : (
-                            <div className="flex items-center justify-center gap-2">
-                                {inchargeUser.name !== 'Unassigned' ? (
-                                    <User
-                                        size="sm"
-                                        name={
-                                            <span 
-                                                className="truncate max-w-[100px]"
-                                                title={inchargeUser.name}
-                                            >
-                                                {inchargeUser.name}
-                                            </span>
-                                        }
-                                        description="In-charge"
-                                        avatarProps={{
-                                            size: "sm",
-                                            src: inchargeUser.profile_image_url || inchargeUser.profile_image,
-                                            name: inchargeUser.name,
-                                            ...getProfileAvatarTokens({
-                                                name: inchargeUser.name,
-                                                size: 'sm',
-                                            }),
-                                        }}
-                                        classNames={{
-                                            name: "text-xs font-medium leading-tight",
-                                            description: "text-xs text-default-400"
-                                        }}
-                                    />
-                                ) : (
-                                    <Chip size="sm" variant="flat" color="default">
-                                        Unassigned
-                                    </Chip>
-                                )}
-                            </div>
+                            <Text size="2" weight="medium" color="indigo">
+                                <HighlightedText text={work.number} searchTerm={searchTerm} />
+                            </Text>
                         )}
-                        </div>
-                    </TableCell>
-                );
+                        
+                        {work.rfi_files_count > 0 && <CheckIcon color="var(--green-9)" />}
+                        {work.active_objections_count > 0 && (
+                            <IconButton size="1" variant="ghost" color="orange" onClick={() => openObjectionsModal(work)}>
+                                <ExclamationTriangleIcon />
+                            </IconButton>
+                        )}
+                    </Flex>
+                </RadixTable.Cell>
+            );
 
-            case "assigned":
-                return (
-                    <TableCell className="w-64 text-center">
-                        <div className="flex items-center justify-center">
-                           
-                            <Select
-                                size="sm"
-                                variant="bordered"
-                                radius={getThemeRadius()}
-                                placeholder="Select assignee"
-                                aria-label="Select assigned person"
-                                selectedKeys={work.assigned && getAvailableAssignees(work.incharge).find(user => user.id === parseInt(work.assigned))
-                                    ? [String(work.assigned)]
-                                    : []}
-                                onSelectionChange={(keys) => {
-                                    const selectedKey = Array.from(keys)[0];
-                                    if (selectedKey) {
-                                        debouncedUpdateAssigned(work.id, selectedKey);
-                                    }
-                                }}
-                                classNames={{
-                                    trigger: "min-h-10 w-full bg-content2/50 hover:bg-content2/80 focus:bg-content2/90 transition-colors",
-                                    value: "text-sm leading-tight text-center",
-                                    popoverContent: "w-64 max-w-[300px]"
-                                }}
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                                renderValue={(items) => {
-                                    if (items.length === 0) {
-                                        return (
-                                            <div className="flex items-center gap-2">
-                                                <UserIcon className="w-4 h-4 text-default-400" />
-                                                <span className="text-xs">Select assignee</span>
-                                            </div>
-                                        );
-                                    }
-                                    return items.map((item) => (
-                                        <div key={item.key} className="flex items-center gap-2">
-                                            <ProfileAvatar
-                                                src={assignedUser.profile_image_url || assignedUser.profile_image}
-                                                size="sm"
-                                                name={assignedUser.name}
-                                                showBorder
-                                            />
-                                            <span 
-                                                className="text-xs font-medium truncate max-w-[120px]"
-                                                title={assignedUser.name}
-                                            >
-                                                {assignedUser.name}
-                                            </span>
-                                        </div>
-                                    ));
-                                }}
-                            >
-                                {getAvailableAssignees(work.incharge)?.map((assignee) => (
-                                    <SelectItem key={assignee.id} textValue={assignee.name}>
-                                        <User
-                                            size="sm"
-                                            name={assignee.name}
-                                            description={assignee.designation_title || assignee.designation?.title || 'Staff'}
-                                            avatarProps={{
-                                                size: "sm",
-                                                src: assignee.profile_image_url || assignee.profile_image,
-                                                name: assignee.name,
-                                                ...getProfileAvatarTokens({
-                                                    name: assignee.name,
-                                                    size: 'sm',
-                                                }),
-                                            }}
-                                        />
-                                    </SelectItem>
+        case "status":
+            const statusKey = getStatusKey(work.status, work.inspection_result);
+            const currentStatusConfig = statusConfig[statusKey] || statusConfig['new'];
+            const StatusIconComponent = currentStatusConfig.icon;
+            
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="2">
+                        <StatusIconComponent style={{ color: `var(--${currentStatusConfig.color}-9)` }} />
+                        <Select.Root 
+                            size="1" 
+                            value={statusKey} 
+                            onValueChange={(value) => { 
+                                if (value && value !== statusKey) updateWorkStatus(work, value); 
+                            }}
+                        >
+                            <Select.Trigger />
+                            <Select.Content>
+                                {Object.entries(statusConfig).map(([k, c]) => (
+                                    <Select.Item key={k} value={k}>{c.label}</Select.Item>
                                 ))}
-                            </Select>
-                      
-                        </div>
-                    </TableCell>
-                );
+                            </Select.Content>
+                        </Select.Root>
+                    </Flex>
+                </RadixTable.Cell>
+            );
 
-            case "inspection_details":
-                return (
-                    <TableCell className="min-w-48">
-                        <div className="flex items-center justify-center">
-                            <Input
-                                size="sm"
-                                type="text"
-                                variant="bordered"
-                                radius={getThemeRadius()}
-                                placeholder="Enter details..."
-                                defaultValue={work.inspection_details || ''}
-                                onChange={(e) => debouncedUpdateInspectionDetails(work.id, e.target.value)}
-                                startContent={
-                                    <DocumentTextIcon className="w-4 h-4 text-default-400" />
-                                }
-                                classNames={{
-                                    input: "text-xs",
-                                    inputWrapper: "min-h-10 bg-content2/50 hover:bg-content2/80 focus-within:bg-content2/90 border-divider/50 hover:border-divider data-[focus]:border-primary"
-                                }}
-                                style={{
-                                    fontFamily: 'var(--font-family)',
-                                }}
-                            />
-                        </div>
-                    </TableCell>
-                );
+        case "type":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="2">
+                        {getWorkTypeIcon(work.type, "w-4 h-4")}
+                        <Text size="2" weight="medium" style={{ textTransform: 'capitalize' }}>
+                            <HighlightedText text={work.type || 'Standard Work'} searchTerm={searchTerm} />
+                        </Text>
+                    </Flex>
+                </RadixTable.Cell>
+            );
 
-            case "completion_time":
-                return (
-                    <TableCell>
-                        <div className="flex items-center justify-center">
-                            <Input
-                                size="sm"
-                                type="datetime-local"
-                                variant="bordered"
-                                value={work.completion_time
-                                    ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16)
-                                    : ''
-                                }
-                                onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
-                                startContent={
-                                    <CheckCircleIcon className="w-4 h-4 text-default-400" />
-                                }
-                                classNames={{
-                                    input: "text-xs text-center",
-                                    inputWrapper: "min-h-10 bg-content2/50 hover:bg-content2/80 focus-within:bg-content2/90 border-divider/50 hover:border-divider data-[focus]:border-primary"
-                                }}
-                                style={{
-                                    fontFamily: 'var(--font-family)',
-                                }}
-                            />
-                        </div>
-                    </TableCell>
-                );
+        case "description":
+            return (
+                <RadixTable.Cell style={{ maxWidth: '300px', width: '300px' }}>
+                    <Tooltip content={work.description || "No description provided"}>
+                        <Text 
+                            size="2" 
+                            color="gray" 
+                            style={{ 
+                                display: 'block', 
+                                whiteSpace: 'nowrap', 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis' 
+                            }}
+                        >
+                            <HighlightedText text={work.description || "No description provided"} searchTerm={searchTerm} />
+                        </Text>
+                    </Tooltip>
+                </RadixTable.Cell>
+            );
 
-            case "rfi_submission_date":
-                return (
-                    <TableCell>
+        case "location":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="2">
+                        <HomeIcon color="var(--gray-9)" />
+                        <Text size="2" weight="medium">
+                            <HighlightedText text={work.location || 'Not specified'} searchTerm={searchTerm} />
+                        </Text>
+                    </Flex>
+                </RadixTable.Cell>
+            );
+
+        case "side":
+        case "qty_layer":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center">
+                        <Text size="2">
+                            <HighlightedText text={work[columnKey] || (columnKey === 'side' ? 'Both Sides' : 'N/A')} searchTerm={searchTerm} />
+                        </Text>
+                    </Flex>
+                </RadixTable.Cell>
+            );
+
+        case "planned_time":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="1">
+                        <ClockIcon color="var(--gray-9)" />
+                        <Text size="2">
+                            <HighlightedText text={work.planned_time || 'Not set'} searchTerm={searchTerm} />
+                        </Text>
+                    </Flex>
+                </RadixTable.Cell>
+            );
+
+        case "resubmission_count":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center">
+                        <Badge size="1" variant="soft" color={work.resubmission_count > 0 ? 'orange' : 'gray'}>
+                            {work.resubmission_count || 0}
+                        </Badge>
+                    </Flex>
+                </RadixTable.Cell>
+            );
+
+        case "incharge":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center">
                         {userIsAdmin ? (
-                            <div className="flex items-center justify-center">
-                                <Input
-                                    size="sm"
-                                    type="date"
-                                    variant="bordered"
-                                    value={work.rfi_submission_date ? 
-                                        new Date(work.rfi_submission_date).toISOString().slice(0, 10) : ''
-                                    }
-                                    onChange={(e) => debouncedUpdateSubmissionTime(work.id, e.target.value)}
-                                    startContent={
-                                        <CalendarDaysIcon className="w-4 h-4 text-default-400" />
-                                    }
-                                    classNames={{
-                                        input: "text-xs text-center",
-                                        inputWrapper: "min-h-10 bg-content2/50 hover:bg-content2/80 focus-within:bg-content2/90 border-divider/50 hover:border-divider data-[focus]:border-primary"
-                                    }}
-                                    style={{
-                                        fontFamily: 'var(--font-family)',
-                                    }}
-                                />
-                            </div>
+                            <Select.Root 
+                                size="1" 
+                                value={work.incharge && finalInCharges.find(u => u.id === parseInt(work.incharge)) ? String(work.incharge) : ''}
+                                onValueChange={(value) => { if (value) debouncedUpdateIncharge(work.id, value); }}
+                            >
+                                <Select.Trigger placeholder="Select in-charge" />
+                                <Select.Content>
+                                    {finalInCharges?.map((u) => (
+                                        <Select.Item key={u.id} value={String(u.id)}>{u.name}</Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
                         ) : (
-                            <div className="flex items-center justify-center gap-1">
-                                <CalendarDaysIcon className="w-3 h-3 text-default-500" />
-                                <span className="text-sm">
-                                    {work.rfi_submission_date ? formatDate(work.rfi_submission_date) : 'Not set'}
-                                </span>
-                            </div>
-                        )}
-                    </TableCell>
-                );
-
-            case "rfi_response_status":
-                const responseStatusConfig = {
-                    approved: { label: 'Approved', color: 'success' },
-                    rejected: { label: 'Rejected', color: 'danger' },
-                    returned: { label: 'Returned', color: 'warning' },
-                    concurred: { label: 'Concurred', color: 'primary' },
-                    not_concurred: { label: 'Not Concurred', color: 'secondary' },
-                };
-                const statusCfg = responseStatusConfig[work.rfi_response_status] || null;
-                return (
-                    <TableCell>
-                        <div className="flex flex-col items-center gap-1">
-                            {work.rfi_response_status ? (
-                                <>
-                                    <Chip 
-                                        size="sm" 
-                                        color={statusCfg?.color || 'default'} 
-                                        variant="flat"
-                                    >
-                                        {statusCfg?.label || work.rfi_response_status}
-                                    </Chip>
-                                    {work.rfi_response_date && (
-                                        <span className="text-xs text-default-400">
-                                            {formatDate(work.rfi_response_date)}
-                                        </span>
-                                    )}
-                                </>
+                            inchargeUser.name !== 'Unassigned' ? (
+                                <Flex align="center" gap="2">
+                                    <Avatar size="1" src={inchargeUser.profile_image_url || inchargeUser.profile_image} fallback={inchargeUser.name.charAt(0)} radius="full" />
+                                    <Text size="1" weight="medium">{inchargeUser.name}</Text>
+                                </Flex>
                             ) : (
-                                <span className="text-sm text-default-400">-</span>
-                            )}
-                        </div>
-                    </TableCell>
-                );
+                                <Text size="2" color="gray">Unassigned</Text>
+                            )
+                        )}
+                    </Flex>
+                </RadixTable.Cell>
+            );
 
-            case "actions":
-                return (
-                    <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                            <Tooltip content={work.rfi_files_count > 0 ? `Files (${work.rfi_files_count})` : "Manage Files"}>
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="ghost"
-                                    color={work.rfi_files_count > 0 ? "success" : "default"}
-                                    radius={getThemeRadius()}
-                                    onPress={() => openRfiFilesModal(work)}
-                                    aria-label={work.rfi_files_count > 0 ? `Files (${work.rfi_files_count})` : "Manage Files"}
-                                    className="min-w-8 h-8"
-                                >
-                                    {work.rfi_files_count > 0 ? (
-                                        <DocumentCheckIcon className="w-4 h-4" />
-                                    ) : (
-                                        <FolderOpenIcon className="w-4 h-4" />
-                                    )}
-                                </Button>
-                            </Tooltip>
-                            <Tooltip content={work.active_objections_count > 0 ? `Objections (${work.active_objections_count})` : "View/Add Objections"}>
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="ghost"
-                                    color={work.active_objections_count > 0 ? "warning" : "default"}
-                                    radius={getThemeRadius()}
-                                    onPress={() => openObjectionsModal(work)}
-                                    aria-label={work.active_objections_count > 0 ? `Objections (${work.active_objections_count})` : "View/Add Objections"}
-                                    className="min-w-8 h-8"
-                                >
-                                    <ShieldExclamationIcon className={`w-4 h-4 ${work.active_objections_count > 0 ? 'animate-pulse' : ''}`} />
-                                </Button>
-                            </Tooltip>
-                            <Tooltip content="Edit Work">
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="ghost"
-                                    color="primary"
-                                    radius={getThemeRadius()}
-                                    onPress={() => {
-                                        if (updatingWorkId === work.id) return;
-                                        setCurrentRow(work);
-                                        openModal("editDailyWork");
-                                    }}
-                                    aria-label="Edit Work"
-                                    className="min-w-8 h-8"
-                                >
-                                    <PencilIcon className="w-4 h-4" />
-                                </Button>
-                            </Tooltip>
-                            <Tooltip content="Delete Work" color="danger">
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="ghost"
-                                    color="danger"
-                                    radius={getThemeRadius()}
-                                    onPress={() => {
-                                        if (updatingWorkId === work.id) return;
-                                        setCurrentRow(work);
-                                        handleClickOpen(work.id, "deleteDailyWork");
-                                    }}
-                                    aria-label="Delete Work"
-                                    className="min-w-8 h-8"
-                                >
-                                    <TrashIcon className="w-4 h-4" />
-                                </Button>
-                            </Tooltip>
-                        </div>
-                    </TableCell>
-                );
+        case "assigned":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center">
+                        <Select.Root 
+                            size="1" 
+                            value={work.assigned && getAvailableAssignees(work.incharge).find(u => u.id === parseInt(work.assigned)) ? String(work.assigned) : ''}
+                            onValueChange={(value) => { if (value) debouncedUpdateAssigned(work.id, value); }}
+                        >
+                            <Select.Trigger placeholder="Select assignee" />
+                            <Select.Content>
+                                {getAvailableAssignees(work.incharge)?.map((u) => (
+                                    <Select.Item key={u.id} value={String(u.id)}>{u.name}</Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
+                    </Flex>
+                </RadixTable.Cell>
+            );
 
-            default:
-                return <TableCell>{work[columnKey]}</TableCell>;
+        case "inspection_details":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center">
+                        <TextField.Root 
+                            size="1" 
+                            placeholder="Enter details..." 
+                            defaultValue={work.inspection_details || ''}
+                            onChange={(e) => debouncedUpdateInspectionDetails(work.id, e.target.value)}
+                        />
+                    </Flex>
+                </RadixTable.Cell>
+            );
+
+        case "completion_time":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center">
+                        <TextField.Root 
+                            type="datetime-local" 
+                            size="1" 
+                            defaultValue={work.completion_time ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16) : ''}
+                            onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
+                        />
+                    </Flex>
+                </RadixTable.Cell>
+            );
+
+        case "rfi_submission_date":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    {userIsAdmin ? (
+                        <Flex align="center" justify="center">
+                            <TextField.Root 
+                                type="date" 
+                                size="1" 
+                                defaultValue={work.rfi_submission_date ? new Date(work.rfi_submission_date).toISOString().slice(0, 10) : ''}
+                                onChange={(e) => debouncedUpdateSubmissionTime(work.id, e.target.value)}
+                            />
+                        </Flex>
+                    ) : (
+                        <Flex align="center" justify="center" gap="1">
+                            <CalendarIcon color="var(--gray-9)" />
+                            <Text size="2">
+                                {work.rfi_submission_date ? formatDate(work.rfi_submission_date) : 'Not set'}
+                            </Text>
+                        </Flex>
+                    )}
+                </RadixTable.Cell>
+            );
+
+        case "rfi_response_status": {
+            const responseStatusConfig = {
+                approved: { label: 'Approved', color: 'green' },
+                rejected: { label: 'Rejected', color: 'red' },
+                returned: { label: 'Returned', color: 'orange' },
+                concurred: { label: 'Concurred', color: 'blue' },
+                not_concurred: { label: 'Not Concurred', color: 'purple' },
+            };
+            const statusCfg = responseStatusConfig[work.rfi_response_status] || null;
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="2">
+                        {work.rfi_response_status ? (
+                            <>
+                                <Badge size="1" variant="soft" color={statusCfg?.color || 'gray'}>
+                                    {statusCfg?.label || work.rfi_response_status}
+                                </Badge>
+                                {work.rfi_response_date && (
+                                    <Text size="1" color="gray">
+                                        {formatDate(work.rfi_response_date)}
+                                    </Text>
+                                )}
+                            </>
+                        ) : (
+                            <Text size="2" color="gray">-</Text>
+                        )}
+                    </Flex>
+                </RadixTable.Cell>
+            );
         }
-    }, [userIsAdmin, userIsSE, updatingWorkId, setCurrentRow, openModal, handleClickOpen, handleChange]);
 
-    // Columns ordered to match mobile card layout:
+        case "actions":
+            return (
+                <RadixTable.Cell style={autoFitStyle}>
+                    <Flex align="center" justify="center" gap="1">
+                        <Tooltip content={work.rfi_files_count > 0 ? `Files (${work.rfi_files_count})` : 'Manage Files'}>
+                            <IconButton size="1" variant="ghost" color={work.rfi_files_count > 0 ? 'green' : 'gray'} onClick={() => openRfiFilesModal(work)}>
+                                {work.rfi_files_count > 0 ? <CheckIcon /> : <OpenInNewWindowIcon />}
+                            </IconButton>
+                        </Tooltip>
+                        
+                        <Tooltip content={work.active_objections_count > 0 ? `Objections (${work.active_objections_count})` : 'View/Add Objections'}>
+                            <IconButton size="1" variant="ghost" color={work.active_objections_count > 0 ? 'orange' : 'gray'} onClick={() => openObjectionsModal(work)}>
+                                <ExclamationTriangleIcon style={work.active_objections_count > 0 ? { color: 'var(--orange-9)' } : undefined} />
+                            </IconButton>
+                        </Tooltip>
+                        
+                        <Tooltip content="Edit Work">
+                            <IconButton size="1" variant="ghost" color="indigo" onClick={() => { if (updatingWorkId === work.id) return; setCurrentRow(work); openModal('editDailyWork'); }}>
+                                <Pencil1Icon />
+                            </IconButton>
+                        </Tooltip>
+                        
+                        <Tooltip content="Delete Work">
+                            <IconButton size="1" variant="ghost" color="red" onClick={() => { if (updatingWorkId === work.id) return; setCurrentRow(work); handleClickOpen(work.id, 'deleteDailyWork'); }}>
+                                <TrashIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </Flex>
+                </RadixTable.Cell>
+            );
+
+        default:
+            return <RadixTable.Cell style={autoFitStyle}><Text size="2">{work[columnKey]}</Text></RadixTable.Cell>;
+    }
+}, [userIsAdmin, userIsSE, updatingWorkId, setCurrentRow, openModal, handleClickOpen, handleChange]);
+
+  // Columns ordered to match mobile card layout:
     // Section 1: Info fields (read-only) - Date, Description, Location, Side, Qty/Layer, Planned Time, Resubmissions
     // Section 2: Input fields - In-charge, Assigned, Status, Inspection Details, Completion Time, RFI Date, Actions
     const columns = [
         // Info fields first
-        { name: "Date", uid: "date", icon: CalendarDaysIcon, sortable: true, width: "w-24" },
-        { name: "RFI Number", uid: "number", icon: DocumentIcon, sortable: true, width: "w-32" },
-        { name: "Work Type", uid: "type", icon: DocumentTextIcon, sortable: true, width: "w-28" },
-        { name: "Description", uid: "description", icon: DocumentTextIcon, sortable: false, width: "w-60" },
-        { name: "Location", uid: "location", icon: MapPinIcon, sortable: true, width: "w-48" },
-        { name: "Road Side", uid: "side", sortable: true, width: "w-20" },
-        { name: "Layer Quantity", uid: "qty_layer", sortable: true, width: "w-24" },
-        { name: "Planned Time", uid: "planned_time", icon: ClockIcon, sortable: true, width: "w-28" },
-        { name: "Resubmissions", uid: "resubmission_count", icon: ArrowPathIcon, sortable: true, width: "w-28" },
+        { name: "Date", uid: "date", icon: CalendarIcon, sortable: true },
+        { name: "RFI Number", uid: "number", icon: FileIcon, sortable: true },
+        { name: "Work Type", uid: "type", icon: FileTextIcon, sortable: true },
+        { name: "Description", uid: "description", icon: FileTextIcon, sortable: false },
+        { name: "Location", uid: "location", icon: HomeIcon, sortable: true },
+        { name: "Road Side", uid: "side", sortable: true },
+        { name: "Layer Quantity", uid: "qty_layer", sortable: true },
+        { name: "Planned Time", uid: "planned_time", icon: ClockIcon, sortable: true },
+        { name: "Resubmissions", uid: "resubmission_count", icon: ReloadIcon, sortable: true },
         // Input fields last (matching mobile card order)
-        ...(shouldShowInchargeColumn ? [{ name: "In-Charge", uid: "incharge", icon: UserIcon, sortable: true, width: "w-64" }] : []),
-        ...(shouldShowAssignedColumn ? [{ name: "Assigned To", uid: "assigned", icon: UserIcon, sortable: true, width: "w-64" }] : []),
-        { name: "Status", uid: "status", icon: ClockIconOutline, sortable: true, width: "w-56" },
-        { name: "Inspection Details", uid: "inspection_details", icon: DocumentTextIcon, sortable: false, width: "w-48" },
-        { name: "Completion Time", uid: "completion_time", icon: CheckCircleIcon, sortable: true, width: "w-56" },
-        ...(shouldShowRfiColumn ? [{ name: "RFI Submission Date", uid: "rfi_submission_date", icon: CalendarDaysIcon, sortable: true, width: "w-36" }] : []),
-        ...(shouldShowRfiColumn ? [{ name: "RFI Response", uid: "rfi_response_status", icon: ClipboardDocumentCheckIcon, sortable: true, width: "w-44" }] : []),
-        ...(shouldShowActions ? [{ name: "Actions", uid: "actions", sortable: false, width: "w-28" }] : [])
+        ...(shouldShowInchargeColumn ? [{ name: "In-Charge", uid: "incharge", icon: PersonIcon, sortable: true }] : []),
+        ...(shouldShowAssignedColumn ? [{ name: "Assigned To", uid: "assigned", icon: PersonIcon, sortable: true }] : []),
+        { name: "Status", uid: "status", icon: ClockIcon, sortable: true },
+        { name: "Inspection Details", uid: "inspection_details", icon: FileTextIcon, sortable: false },
+        { name: "Completion Time", uid: "completion_time", icon: CheckCircledIcon, sortable: true },
+        ...(shouldShowRfiColumn ? [{ name: "RFI Submission Date", uid: "rfi_submission_date", icon: CalendarIcon, sortable: true }] : []),
+        ...(shouldShowRfiColumn ? [{ name: "RFI Response", uid: "rfi_response_status", icon: ClipboardIcon, sortable: true }] : []),
+        ...(shouldShowActions ? [{ name: "Actions", uid: "actions", sortable: false }] : [])
     ];
 
-    // Mobile Loading Skeleton - Only card rows, tabs are kept visible
     const MobileLoadingSkeleton = () => (
-        <div className="w-full">
-            {/* Tab Headers - Always visible */}
-            <div className="flex overflow-x-auto border-b border-divider scrollbar-hide -mx-1 px-1">
-                {workTypes.map((type) => (
-                    <button
-                        key={type.key}
-                        onClick={() => setSelectedTab(type.key)}
-                        className={`flex items-center gap-1 px-2 py-1.5 min-w-fit whitespace-nowrap border-b-2 transition-all duration-150 ${
-                            selectedTab === type.key
-                                ? 'border-primary text-primary font-semibold'
-                                : 'border-transparent text-default-500'
-                        }`}
-                    >
-                        <span className="text-[10px]">{type.icon}</span>
-                        <span className="text-[10px]">{type.label}</span>
-                        <span className={`min-w-[16px] h-3.5 px-1 rounded-full text-[9px] font-medium flex items-center justify-center ${
-                            selectedTab === type.key 
-                                ? 'bg-primary text-white' 
-                                : 'bg-default-100 text-default-600'
-                        }`}>
-                            -
-                        </span>
-                    </button>
-                ))}
-            </div>
-            {/* Skeleton rows in tab content */}
-            <div className="py-2 space-y-1.5">
-                {Array.from({ length: 5 }).map((_, index) => (
-                    <Card key={index} className="w-full border border-divider/50 shadow-none">
-                        <CardHeader className="p-2 gap-1.5">
-                            <div className="flex items-center gap-1.5 w-full">
-                                <Skeleton className="flex-1 h-3 rounded" />
-                                <Skeleton className="w-12 h-4 rounded-full shrink-0" />
-                                <Skeleton className="w-4 h-4 rounded-full shrink-0" />
-                            </div>
-                        </CardHeader>
-                    </Card>
-                ))}
-            </div>
-        </div>
-    );
-
-    // Desktop Table Row Loading Skeleton - Only rows, not header/pagination
-    const DesktopRowSkeleton = () => (
-        <div className="divide-y divide-divider">
-            {Array.from({ length: 8 }).map((_, rowIndex) => (
-                <div key={rowIndex} className="flex bg-content1 hover:bg-content2/50">
-                    {columns.map((column, colIndex) => (
-                        <div key={colIndex} className="flex-1 p-3 flex items-center justify-center">
-                            {column.uid === 'status' ? (
-                                <Skeleton className="w-28 h-7 rounded" />
-                            ) : column.uid === 'description' ? (
-                                <div className="w-full space-y-1">
-                                    <Skeleton className="w-full h-3 rounded" />
-                                    <Skeleton className="w-3/4 h-3 rounded" />
-                                </div>
-                            ) : column.uid === 'incharge' || column.uid === 'assigned' ? (
-                                <div className="flex items-center gap-2">
-                                    <Skeleton className="w-7 h-7 rounded-full" />
-                                    <Skeleton className="w-16 h-3 rounded" />
-                                </div>
-                            ) : column.uid === 'completion_time' || column.uid === 'rfi_submission_date' ? (
-                                <Skeleton className="w-28 h-7 rounded" />
-                            ) : column.uid === 'actions' ? (
-                                <div className="flex gap-1">
-                                    <Skeleton className="w-7 h-7 rounded" />
-                                    <Skeleton className="w-7 h-7 rounded" />
-                                </div>
-                            ) : column.uid === 'side' || column.uid === 'resubmission_count' ? (
-                                <Skeleton className="w-14 h-5 rounded-full" />
-                            ) : (
-                                <Skeleton className="w-16 h-3 rounded" />
-                            )}
-                        </div>
+    <Box width="100%">
+        {/* Tab Headers - Hooked into your existing state */}
+        <Tabs.Root value={selectedTab} onValueChange={setSelectedTab}>
+            {/* ScrollArea allows the tabs to swipe horizontally if they overflow */}
+            <ScrollArea type="auto" scrollbars="horizontal">
+                <Tabs.List size="2">
+                    {workTypes.map((type) => (
+                        <Tabs.Trigger key={type.key} value={type.key}>
+                            <Flex align="center" gap="2">
+                                {/* Wrap icon if it's raw JSX */}
+                                <Box style={{ display: 'flex' }}>{type.icon}</Box>
+                                <Text size="1" weight="medium">{type.label}</Text>
+                                <Badge 
+                                    size="1" 
+                                    radius="full" 
+                                    variant={selectedTab === type.key ? 'solid' : 'soft'}
+                                    color={selectedTab === type.key ? 'indigo' : 'gray'}
+                                >
+                                    - {/* Placeholder counter */}
+                                </Badge>
+                            </Flex>
+                        </Tabs.Trigger>
                     ))}
-                </div>
+                </Tabs.List>
+            </ScrollArea>
+        </Tabs.Root>
+
+        {/* Skeleton rows in tab content */}
+        <Flex direction="column" gap="2" pt="3" pb="2">
+            {Array.from({ length: 5 }).map((_, index) => (
+                <Card key={index} size="1" variant="surface">
+                    <Flex align="center" gap="3">
+                        {/* Main description line skeleton */}
+                        <Skeleton style={{ flexGrow: 1, height: '14px' }} />
+                        
+                        {/* Pill/Status badge skeleton */}
+                        <Skeleton style={{ width: '48px', height: '20px', borderRadius: 'var(--radius-full)' }} />
+                        
+                        {/* Avatar/Action icon skeleton */}
+                        <Skeleton style={{ width: '20px', height: '20px', borderRadius: 'var(--radius-full)' }} />
+                    </Flex>
+                </Card>
             ))}
-        </div>
-    );
+        </Flex>
+    </Box>
+);
 
-    // Desktop Loading State
-    const DesktopLoadingSkeleton = () => (
-        <div className="max-h-[84vh] overflow-y-auto">
-            {/* Table Header with Refresh Button - Always visible */}
-            <div className="flex items-center justify-between mb-4 px-2">
-                <h3 className="text-lg font-semibold text-default-700">Daily Works</h3>
-                <Button
-                    variant="flat"
-                    color="primary"
-                    size="sm"
-                    radius={getThemeRadius()}
-                    isDisabled
-                    startContent={<Spinner size="sm" />}
-                >
-                    Loading...
-                </Button>
-            </div>
-            
-            <ScrollShadow className="max-h-[70vh]">
-                <div className="border border-divider rounded-lg overflow-hidden">
-                    {/* Table header - real header */}
-                    <div className="bg-default-100/80 backdrop-blur-md border-b border-divider">
-                        <div className="flex">
-                            {columns.map((column) => {
-                                const IconComponent = column.icon;
-                                return (
-                                    <div key={column.uid} className="flex-1 p-3 flex items-center justify-center gap-1 text-xs font-medium text-default-600">
-                                        {IconComponent && <IconComponent className="w-3 h-3" />}
-                                        <span>{column.name}</span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                    
-                    {/* Skeleton rows */}
+    const DesktopRowSkeleton = () => (
+    <>
+        {Array.from({ length: 8 }).map((_, rowIndex) => (
+            <RadixTable.Row key={rowIndex}>
+                {columns.map((column, colIndex) => (
+                    <RadixTable.Cell 
+                        key={colIndex} 
+                        style={{ 
+                            verticalAlign: 'middle',
+                            textAlign: column.uid === 'description' ? 'left' : 'center',
+                            minWidth: column.uid === 'description' ? 240 : column.uid === 'location' ? 192 : column.uid === 'number' ? 128 : column.uid === 'status' ? 192 : 80,
+                        }}
+                    >
+                        {column.uid === 'status' || column.uid === 'completion_time' || column.uid === 'rfi_submission_date' ? (
+                            
+                            /* Pill / Status Skeleton */
+                            <Flex justify={column.uid === 'description' ? 'start' : 'center'}>
+                                <Skeleton style={{ width: '100px', height: '26px', borderRadius: 'var(--radius-3)' }} />
+                            </Flex>
+
+                        ) : column.uid === 'description' ? (
+                            
+                            /* Multi-line Text Skeleton */
+                            <Flex direction="column" gap="2" width="100%">
+                                <Skeleton style={{ width: '100%', height: '12px' }} />
+                                <Skeleton style={{ width: '75%', height: '12px' }} />
+                            </Flex>
+
+                        ) : column.uid === 'incharge' || column.uid === 'assigned' ? (
+                            
+                            /* Avatar + Name Skeleton */
+                            <Flex align="center" gap="2" justify="center">
+                                <Skeleton style={{ width: '28px', height: '28px', borderRadius: 'var(--radius-full)' }} />
+                                <Skeleton style={{ width: '60px', height: '12px' }} />
+                            </Flex>
+
+                        ) : column.uid === 'actions' ? (
+                            
+                            /* Action Buttons Skeleton */
+                            <Flex gap="2" justify="center">
+                                <Skeleton style={{ width: '26px', height: '26px', borderRadius: 'var(--radius-2)' }} />
+                                <Skeleton style={{ width: '26px', height: '26px', borderRadius: 'var(--radius-2)' }} />
+                            </Flex>
+
+                        ) : (
+                            
+                            /* Default Short Text Skeleton */
+                            <Flex justify="center">
+                                <Skeleton style={{ width: '56px', height: '12px' }} />
+                            </Flex>
+
+                        )}
+                    </RadixTable.Cell>
+                ))}
+            </RadixTable.Row>
+        ))}
+    </>
+);
+
+const DesktopLoadingSkeleton = () => (
+    <Box style={{ maxHeight: '84vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Header with Refresh Button - Always visible */}
+        <Flex align="center" justify="between" mb="4" px="2">
+            <Text size={{ initial: '3', md: '4' }} weight="bold" color="gray" as="h3">
+                Daily Works
+            </Text>
+            <Button
+                variant="soft"
+                color="indigo"
+                size="1"
+                disabled
+            >
+                {/* Note: Radix themes doesn't have a built in spinner icon, so keeping inline animation is fine here */}
+                <ReloadIcon style={{ animation: 'spin 1s linear infinite' }} /> 
+                <Text display={{ initial: 'none', sm: 'inline' }}>Loading...</Text>
+            </Button>
+        </Flex>
+        
+        {/* Table Area */}
+        <ScrollArea type="auto" scrollbars="both" style={{ flexGrow: 1, minHeight: '400px', maxHeight: '70vh' }}>
+            <RadixTable.Root variant="surface" style={{ width: '100%', minWidth: '800px' }}>
+                <RadixTable.Header>
+                    <RadixTable.Row>
+                        {columns.map((column) => {
+                            const IconComponent = column.icon;
+                            return (
+                                <RadixTable.ColumnHeaderCell 
+                                    key={column.uid} 
+                                    style={{
+                                        textAlign: column.uid === 'description' ? 'left' : 'center',
+                                        minWidth: column.uid === 'description' ? 240 : column.uid === 'location' ? 192 : column.uid === 'number' ? 128 : column.uid === 'status' ? 192 : 80,
+                                        background: 'var(--gray-a2)',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <Flex align="center" gap="1" justify={column.uid === 'description' ? 'start' : 'center'}>
+                                        {IconComponent && <IconComponent width="14" height="14" />}
+                                        <Text size="1" weight="bold">{column.name}</Text>
+                                    </Flex>
+                                </RadixTable.ColumnHeaderCell>
+                            );
+                        })}
+                    </RadixTable.Row>
+                </RadixTable.Header>
+                
+                <RadixTable.Body>
+                    {/* Ensure your DesktopRowSkeleton component returns <RadixTable.Row> and <RadixTable.Cell> elements */}
                     <DesktopRowSkeleton />
-                </div>
-            </ScrollShadow>
-            
-            {/* Pagination - Always visible */}
-            <div className="py-4 flex justify-center">
-                <Pagination
-                    isDisabled
-                    total={lastPage || 1}
-                    page={currentPage}
-                    showControls
-                    size="sm"
-                    radius={getThemeRadius()}
-                />
-            </div>
-        </div>
-    );
-
+                </RadixTable.Body>
+            </RadixTable.Root>
+        </ScrollArea>
+        
+        {/* Pagination - Always visible */}
+        <Flex justify="center" align="center" py="4" gap="3">
+            <IconButton size="2" variant="surface" color="gray" disabled>
+                <ChevronLeftIcon />
+            </IconButton>
+            <Text size="2" weight="medium" color="gray">
+                Page {currentPage} of {lastPage || 1}
+            </Text>
+            <IconButton size="2" variant="surface" color="gray" disabled>
+                <ChevronRightIcon />
+            </IconButton>
+        </Flex>
+    </Box>
+);
     // Show loading skeleton BEFORE checking isMobile
     if (loading) {
-        if (isMobile) {
-            return (
-                <div className="space-y-3">
-                    <ScrollShadow 
-                        className="max-h-[calc(100vh-280px)] min-h-[300px]"
-                        hideScrollBar
-                    >
-                        <MobileLoadingSkeleton />
-                    </ScrollShadow>
-                </div>
-            );
-        }
-        return <DesktopLoadingSkeleton />;
-    }
+    return (
+        <Box>
+            {/* Mobile Skeleton: Visible only on small screens */}
+            <Box display={{ initial: 'block', md: 'none' }}>
+                <ScrollArea type="auto" style={{ maxHeight: 'calc(100vh - 280px)', minHeight: '300px' }}>
+                    <MobileLoadingSkeleton />
+                </ScrollArea>
+            </Box>
+
+            {/* Desktop Skeleton: Visible only on md screens and larger */}
+            <Box display={{ initial: 'none', md: 'block' }}>
+                <DesktopLoadingSkeleton />
+            </Box>
+        </Box>
+    );
+}
 
     if (isMobile) {
         return (
-            <div className="space-y-3">
-                {/* Mobile Header with Import Buttons - Icon Only for mobile */}
-                <div className="flex items-center justify-between px-2">
-                    <h3 className="text-sm font-semibold text-default-700">Daily Works</h3>
-                    <div className="flex items-center gap-1.5">
-                        <Tooltip content="Import Submission" placement="bottom">
-                            <Button
-                                variant="flat"
-                                color="secondary"
-                                size="sm"
-                                radius={getThemeRadius()}
-                                isIconOnly
-                                onPress={() => setBulkImportModalOpen(true)}
-                                aria-label="Import Submission"
-                                className="min-w-8 h-8"
-                            >
-                                <DocumentArrowDownIcon className="w-4 h-4" />
-                            </Button>
-                        </Tooltip>
-                        <Tooltip content="Import Status" placement="bottom">
-                            <Button
-                                variant="flat"
-                                color="primary"
-                                size="sm"
-                                radius={getThemeRadius()}
-                                isIconOnly
-                                onPress={() => setBulkImportResponseStatusModalOpen(true)}
-                                aria-label="Import Status"
-                                className="min-w-8 h-8"
-                            >
-                                <ClipboardDocumentCheckIcon className="w-4 h-4" />
-                            </Button>
-                        </Tooltip>
-                        <Tooltip content="Export" placement="bottom">
-                            <Button
-                                variant="flat"
-                                color="success"
-                                size="sm"
-                                radius={getThemeRadius()}
-                                isIconOnly
-                                onPress={() => openModal('exportDailyWorks')}
-                                aria-label="Export"
-                                className="min-w-8 h-8"
-                            >
-                                <ArrowDownTrayIcon className="w-4 h-4" />
-                            </Button>
-                        </Tooltip>
-                        <Tooltip content="Refresh" placement="bottom">
-                            <Button
-                                variant="flat"
-                                color="default"
-                                size="sm"
-                                radius={getThemeRadius()}
-                                isIconOnly
-                                onPress={handleRefresh}
-                                aria-label="Refresh"
-                                className="min-w-8 h-8"
-                            >
-                                <ArrowPathIcon className="w-4 h-4" />
-                            </Button>
-                        </Tooltip>
-                    </div>
-                </div>
-                <ScrollShadow 
-                    className="max-h-[calc(100vh-320px)] min-h-[300px]"
-                    hideScrollBar
+            <Flex direction="column" gap="3">
+    {/* Mobile Header with Import Buttons - Icon Only for mobile */}
+    <Flex align="center" justify="between" px="2">
+        <Text size="2" weight="bold" color="gray" as="h3">
+            Daily Works
+        </Text>
+        
+        <Flex align="center" gap="2">
+            <Tooltip content="Import Submission">
+                <IconButton
+                    variant="soft"
+                    color="violet"
+                    size="2"
+                    onClick={() => setBulkImportModalOpen(true)}
+                    aria-label="Import Submission"
                 >
-                    <MobileDailyWorkCard 
-                        works={allData || []} 
-                        selectedTab={selectedTab}
-                        setSelectedTab={setSelectedTab}
-                        expandedItems={expandedItems}
-                        toggleExpanded={toggleExpanded}
-                        openStatusModal={openStatusModal}
-                        openRfiFilesModal={openRfiFilesModal}
-                        openObjectionsModal={openObjectionsModal}
-                    />
-                </ScrollShadow>
-                {/* Mobile pagination - show when there are multiple pages */}
-                {lastPage > 1 && (
-                    <div className="flex justify-center pt-2 pb-safe">
-                        <Pagination
-                            showControls
-                            showShadow
-                            color="primary"
-                            variant="bordered"
-                            page={currentPage}
-                            total={lastPage}
-                            onChange={handlePageChange}
-                            size="sm"
-                            siblings={0}
-                            boundaries={1}
-                            radius={getThemeRadius()}
-                            classNames={{
-                                wrapper: "bg-content1/80 backdrop-blur-md border-divider/50 gap-1",
-                                item: "bg-content1/50 border-divider/30 min-w-8 h-8",
-                                cursor: "bg-primary/20 backdrop-blur-md"
-                            }}
-                            style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}
-                        />
-                    </div>
-                )}
-                
-                {/* RFI Files Modal */}
-                <RfiFilesModal
-                    isOpen={rfiModalOpen}
-                    onClose={() => {
-                        setRfiModalOpen(false);
-                        setRfiModalWork(null);
-                    }}
-                    dailyWork={rfiModalWork}
-                    onFilesUpdated={handleRfiFilesUpdated}
-                />
-                
-                {/* Status Update Modal */}
-                <StatusUpdateModal
-                    open={statusModalOpen}
-                    closeModal={() => {
-                        setStatusModalOpen(false);
-                        setStatusModalWork(null);
-                    }}
-                    dailyWork={statusModalWork}
-                    onStatusUpdated={handleStatusUpdated}
-                />
-                
-                {/* Objections Modal */}
-                <ObjectionsModal
-                    isOpen={objectionsModalOpen}
-                    onClose={() => {
-                        setObjectionsModalOpen(false);
-                        setObjectionsModalWork(null);
-                    }}
-                    dailyWork={objectionsModalWork}
-                    onObjectionsUpdated={handleObjectionsUpdated}
-                />
-                
-                {/* Objection Warning Modal - for submission date changes */}
-                <ObjectionWarningModal
-                    isOpen={objectionWarningModal.isOpen}
-                    onClose={closeObjectionWarningModal}
-                    dailyWork={objectionWarningModal.dailyWork}
-                    newSubmissionDate={objectionWarningModal.newSubmissionDate}
-                    activeObjectionsCount={objectionWarningModal.activeObjectionsCount}
-                    activeObjections={objectionWarningModal.activeObjections}
-                    isLoading={objectionWarningModal.isLoading}
-                    onConfirm={handleSubmissionTimeOverride}
-                />
-                
-                {/* Bulk Submit Modal */}
-                <BulkSubmitModal
-                    isOpen={bulkSubmitModalOpen}
-                    onClose={() => setBulkSubmitModalOpen(false)}
-                    selectedWorks={selectedWorks}
-                    onSuccess={handleBulkSubmitSuccess}
-                />
-                
-                {/* Bulk Import Submit Modal */}
-                <BulkImportSubmitModal
-                    isOpen={bulkImportModalOpen}
-                    onClose={() => setBulkImportModalOpen(false)}
-                    onSuccess={handleBulkImportSuccess}
-                />
+                    <DownloadIcon />
+                </IconButton>
+            </Tooltip>
+            
+            <Tooltip content="Import Status">
+                <IconButton
+                    variant="soft"
+                    color="indigo"
+                    size="2"
+                    onClick={() => setBulkImportResponseStatusModalOpen(true)}
+                    aria-label="Import Status"
+                >
+                    <ClipboardIcon />
+                </IconButton>
+            </Tooltip>
+            
+            <Tooltip content="Refresh">
+                <IconButton
+                    variant="soft"
+                    color="gray"
+                    size="2"
+                    onClick={handleRefresh}
+                    aria-label="Refresh"
+                >
+                    <ReloadIcon />
+                </IconButton>
+            </Tooltip>
+        </Flex>
+    </Flex>
 
-                {/* Bulk Response Status Modal */}
-                <BulkResponseStatusModal
-                    isOpen={bulkResponseStatusModalOpen}
-                    onClose={() => setBulkResponseStatusModalOpen(false)}
-                    selectedWorks={selectedWorks}
-                    onSuccess={handleBulkResponseStatusSuccess}
-                />
+    {/* Scrollable Card Area */}
+    <ScrollArea type="auto" style={{ maxHeight: 'calc(100vh - 320px)', minHeight: '300px' }}>
+        <MobileDailyWorkCard 
+            works={allData || []} 
+            selectedTab={selectedTab}
+            setSelectedTab={setSelectedTab}
+            expandedItems={expandedItems}
+            toggleExpanded={toggleExpanded}
+            openStatusModal={openStatusModal}
+            openRfiFilesModal={openRfiFilesModal}
+            openObjectionsModal={openObjectionsModal}
+        />
+    </ScrollArea>
 
-                {/* Bulk Import Response Status Modal */}
-                <BulkImportResponseStatusModal
-                    isOpen={bulkImportResponseStatusModalOpen}
-                    onClose={() => setBulkImportResponseStatusModalOpen(false)}
-                    onSuccess={handleBulkImportResponseStatusSuccess}
-                />
-            </div>
+    {/* Mobile pagination - show when there are multiple pages */}
+    {lastPage > 1 && (
+        <Flex justify="center" pt="2" pb="4">
+            <Flex gap="3" align="center">
+                <IconButton 
+                    size="2" 
+                    variant="surface" 
+                    color="gray"
+                    disabled={currentPage <= 1} 
+                    onClick={() => handlePageChange(currentPage - 1)}
+                >
+                    <ChevronLeftIcon />
+                </IconButton>
+                <Text size="2" weight="medium" color="gray">
+                    {currentPage} / {lastPage}
+                </Text>
+                <IconButton 
+                    size="2" 
+                    variant="surface" 
+                    color="gray"
+                    disabled={currentPage >= lastPage} 
+                    onClick={() => handlePageChange(currentPage + 1)}
+                >
+                    <ChevronRightIcon />
+                </IconButton>
+            </Flex>
+        </Flex>
+    )}
+    
+    {/* --- Modals --- */}
+
+    {/* RFI Files Modal */}
+    <RfiFilesModal
+        isOpen={rfiModalOpen}
+        onClose={() => {
+            setRfiModalOpen(false);
+            setRfiModalWork(null);
+        }}
+        dailyWork={rfiModalWork}
+        onFilesUpdated={handleRfiFilesUpdated}
+    />
+    
+    {/* Status Update Modal */}
+    <StatusUpdateModal
+        open={statusModalOpen}
+        closeModal={() => {
+            setStatusModalOpen(false);
+            setStatusModalWork(null);
+        }}
+        dailyWork={statusModalWork}
+        onStatusUpdated={handleStatusUpdated}
+    />
+    
+    {/* Objections Modal */}
+    <ObjectionsModal
+        isOpen={objectionsModalOpen}
+        onClose={() => {
+            setObjectionsModalOpen(false);
+            setObjectionsModalWork(null);
+        }}
+        dailyWork={objectionsModalWork}
+        onObjectionsUpdated={handleObjectionsUpdated}
+    />
+    
+    {/* Objection Warning Modal - for submission date changes */}
+    <ObjectionWarningModal
+        isOpen={objectionWarningModal.isOpen}
+        onClose={closeObjectionWarningModal}
+        dailyWork={objectionWarningModal.dailyWork}
+        newSubmissionDate={objectionWarningModal.newSubmissionDate}
+        activeObjectionsCount={objectionWarningModal.activeObjectionsCount}
+        activeObjections={objectionWarningModal.activeObjections}
+        isLoading={objectionWarningModal.isLoading}
+        onConfirm={handleSubmissionTimeOverride}
+    />
+    
+    {/* Bulk Submit Modal */}
+    <BulkSubmitModal
+        isOpen={bulkSubmitModalOpen}
+        onClose={() => setBulkSubmitModalOpen(false)}
+        selectedWorks={selectedWorks}
+        onSuccess={handleBulkSubmitSuccess}
+    />
+    
+    {/* Bulk Import Submit Modal */}
+    <BulkImportSubmitModal
+        isOpen={bulkImportModalOpen}
+        onClose={() => setBulkImportModalOpen(false)}
+        onSuccess={handleBulkImportSuccess}
+    />
+
+    {/* Bulk Response Status Modal */}
+    <BulkResponseStatusModal
+        isOpen={bulkResponseStatusModalOpen}
+        onClose={() => setBulkResponseStatusModalOpen(false)}
+        selectedWorks={selectedWorks}
+        onSuccess={handleBulkResponseStatusSuccess}
+    />
+
+    {/* Bulk Import Response Status Modal */}
+    <BulkImportResponseStatusModal
+        isOpen={bulkImportResponseStatusModalOpen}
+        onClose={() => setBulkImportResponseStatusModalOpen(false)}
+        onSuccess={handleBulkImportResponseStatusSuccess}
+    />
+</Flex>
         );
     }
 
     return (
-        <div className="max-h-[84vh] overflow-y-auto">
+        <Box style={{ display: 'flex', flexDirection: 'column', maxHeight: '84vh' }}>
             {/* Table Header with Actions */}
-            <div className="flex items-center justify-between mb-4 px-2">
-                <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold text-default-700">Daily Works</h3>
+            <Flex 
+                direction={{ initial: 'column', md: 'row' }} 
+                align={{ initial: 'start', md: 'center' }} 
+                justify="between" 
+                gap="4" 
+                mb="4" 
+                px="2"
+            >
+                {/* Title & Badge */}
+                <Flex align="center" gap="3">
+                    <Text size={{ initial: '3', md: '4' }} weight="bold">Daily Works</Text>
                     {selectedKeys.size > 0 && (
-                        <Chip size="sm" color="primary" variant="flat">
+                        <Badge size="1" color="indigo" variant="soft">
                             {selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size} selected
-                        </Chip>
+                        </Badge>
                     )}
-                </div>
-                <div className="flex items-center gap-2">
-                    {/* Bulk Actions */}
+                </Flex>
+
+                {/* Action Buttons Toolbar */}
+                <Flex 
+                    align="center" 
+                    gap="2" 
+                    wrap="wrap" 
+                    justify={{ initial: 'start', md: 'end' }}
+                >
                     {selectedKeys.size > 0 && (
                         <>
-                            <Button
-                                variant="flat"
-                                color="primary"
-                                size="sm"
-                                radius={getThemeRadius()}
-                                onPress={() => setBulkSubmitModalOpen(true)}
-                                startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
-                            >
-                                Submit RFIs ({selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size})
+                            <Button variant="soft" color="indigo" size="1" onClick={() => setBulkSubmitModalOpen(true)}>
+                                <UploadIcon /> 
+                                <Text display={{ initial: 'none', sm: 'inline' }}>Submit RFIs</Text>
+                                ({selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size})
                             </Button>
-                            <Button
-                                variant="flat"
-                                color="secondary"
-                                size="sm"
-                                radius={getThemeRadius()}
-                                onPress={() => setBulkResponseStatusModalOpen(true)}
-                                startContent={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
-                            >
-                                Response Status ({selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size})
+                            <Button variant="soft" color="violet" size="1" onClick={() => setBulkResponseStatusModalOpen(true)}>
+                                <ClipboardIcon /> 
+                                <Text display={{ initial: 'none', sm: 'inline' }}>Response Status</Text> 
+                                ({selectedKeys === "all" ? allData?.length || 0 : selectedKeys.size})
                             </Button>
-                            <Button
-                                variant="light"
-                                size="sm"
-                                radius={getThemeRadius()}
-                                onPress={() => setSelectedKeys(new Set([]))}
-                            >
+                            <Button variant="ghost" color="gray" size="1" onClick={() => setSelectedKeys(new Set([]))}>
                                 Clear
                             </Button>
                         </>
                     )}
-                    <Button
-                        variant="flat"
-                        color="secondary"
-                        size="sm"
-                        radius={getThemeRadius()}
-                        onPress={() => setBulkImportModalOpen(true)}
-                        startContent={<DocumentArrowDownIcon className="w-4 h-4" />}
-                    >
-                        Import Submission
+                    <Button variant="soft" color="violet" size="1" onClick={() => setBulkImportModalOpen(true)}>
+                        <DownloadIcon /> 
+                        <Text display={{ initial: 'none', sm: 'inline' }}>Import Submission</Text>
                     </Button>
-                    <Button
-                        variant="flat"
-                        color="primary"
-                        size="sm"
-                        radius={getThemeRadius()}
-                        onPress={() => setBulkImportResponseStatusModalOpen(true)}
-                        startContent={<ClipboardDocumentCheckIcon className="w-4 h-4" />}
-                    >
-                        Import Status
+                    <Button variant="soft" color="indigo" size="1" onClick={() => setBulkImportResponseStatusModalOpen(true)}>
+                        <ClipboardIcon /> 
+                        <Text display={{ initial: 'none', sm: 'inline' }}>Import Status</Text>
                     </Button>
-                    <Button
-                        variant="flat"
-                        color="success"
-                        size="sm"
-                        radius={getThemeRadius()}
-                        onPress={() => openModal('exportDailyWorks')}
-                        startContent={<ArrowDownTrayIcon className="w-4 h-4" />}
-                    >
-                        Export
+                    <Button variant="soft" color="green" size="1" onClick={() => openModal('exportDailyWorks')}>
+                        <DownloadIcon /> Export
                     </Button>
-                    <Button
-                        variant="flat"
-                        color="primary"
-                        size="sm"
-                        radius={getThemeRadius()}
-                        style={{
-                            backgroundColor: 'rgba(var(--color-primary), 0.1)',
-                            borderColor: 'rgba(var(--color-primary), 0.3)',
-                            color: 'var(--color-text)'
-                        }}
-                        onClick={handleRefresh}
-                        startContent={<ArrowPathIcon className="w-4 h-4" />}
-                    >
-                        Refresh
+                    <Button variant="soft" color="indigo" size="1" onClick={handleRefresh}>
+                        <ReloadIcon /> Refresh
                     </Button>
-                </div>
-            </div>
-            
-            <ScrollShadow className="max-h-[70vh]">
-                <Table
-                    selectionMode="multiple"
-                    selectedKeys={selectedKeys}
-                    onSelectionChange={setSelectedKeys}
-                    isCompact
-                    removeWrapper
-                    isStriped
-                    aria-label="Daily Works Management Table"
-                    isHeaderSticky
-                    radius={getThemeRadius()}
-                    classNames={{
-                        base: "max-h-[520px] overflow-auto",
-                        table: "min-h-[200px] w-full",
-                        thead: "z-10",
-                        tbody: "overflow-y-auto",
-                        th: "bg-default-100 text-default-700 font-semibold",
-                        td: "text-default-600",
-                    }}
-                    style={{
-                        borderRadius: `var(--borderRadius, 12px)`,
-                        fontFamily: `var(--fontFamily, "Inter")`,
-                    }}
-                >
-                    <TableHeader columns={columns}>
-                        {(column) => (
-                            <TableColumn 
-                                key={column.uid} 
-                                align={column.uid === "description" ? "start" : "center"}
-                                className={`bg-default-100/80 backdrop-blur-md ${column.width || ''}`}
-                                style={{
-                                    minWidth: column.uid === "description" ? "240px" : 
-                                            column.uid === "location" ? "192px" :
-                                            column.uid === "number" ? "128px" :
-                                            column.uid === "status" ? "192px" :
-                                            "auto"
-                                }}
-                            >
-                                <div className={`flex items-center gap-1 ${column.uid === "description" ? "justify-start" : "justify-center"}`}>
-                                    {column.icon && <column.icon className="w-3 h-3" />}
-                                    <span className="text-xs font-semibold">{column.name}</span>
-                                </div>
-                            </TableColumn>
-                        )}
-                    </TableHeader>
-                    <TableBody 
-                        items={allData || []}
-                        emptyContent={
-                            <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <DocumentTextIcon className="w-12 h-12 text-default-300 mb-4" />
-                                <h6 className="text-lg font-medium text-default-600">
-                                    No daily works found
-                                </h6>
-                                <span className="text-sm text-default-500">
-                                    No work logs available for the selected period
-                                </span>
-                            </div>
-                        }
-                    >
-                        {(work) => (
-                            <TableRow 
+                </Flex>
+            </Flex>
+
+            {/* Responsive Table Area */}
+            {/* Using flexGrow: 1 allows it to take up remaining space of the 84vh Box, 
+                and type="auto" handles scrollbars dynamically based on screen size */}
+            <ScrollArea type="auto" scrollbars="both" style={{ flexGrow: 1, minHeight: '400px' }}>
+                <RadixTable.Root variant="surface" aria-label="Daily Works Management Table" style={{ width: '100%', minWidth: '800px' }}>
+                    <RadixTable.Header>
+                        <RadixTable.Row>
+                            {columns.map(column => (
+                                <RadixTable.ColumnHeaderCell
+                                    key={column.uid}
+                                    style={{
+                                        textAlign: column.uid === 'description' ? 'left' : 'center',
+                                        // Auto-fit all cells except description, which gets a fixed constraint to allow truncation
+                                        width: column.uid === 'description' ? '300px' : 'auto',
+                                        maxWidth: column.uid === 'description' ? '300px' : 'none',
+                                        background: 'var(--gray-a2)',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    <Flex align="center" gap="1" justify={column.uid === 'description' ? 'start' : 'center'}>
+                                        {column.icon && <column.icon width="14" height="14" />}
+                                        <Text size="1" weight="bold">{column.name}</Text>
+                                    </Flex>
+                                </RadixTable.ColumnHeaderCell>
+                            ))}
+                        </RadixTable.Row>
+                    </RadixTable.Header>
+                    <RadixTable.Body>
+                        {(allData || []).length === 0 ? (
+                            <RadixTable.Row>
+                                <RadixTable.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '48px 0' }}>
+                                    <Flex direction="column" align="center" gap="2">
+                                        <FileTextIcon width={40} height={40} style={{ color: 'var(--gray-7)' }} />
+                                        <Text size="3" weight="medium" color="gray">No daily works found</Text>
+                                        <Text size="2" color="gray">No work logs available for the selected period</Text>
+                                    </Flex>
+                                </RadixTable.Cell>
+                            </RadixTable.Row>
+                        ) : (allData || []).map(work => (
+                            <RadixTable.Row
                                 key={work.id}
-                                className={work.active_objections_count > 0 ? 'bg-warning-50/40 hover:bg-warning-50/60 border-2 border-warning' : ''}
+                                style={work.active_objections_count > 0 ? { background: 'var(--orange-2)', outline: '2px solid var(--orange-6)' } : undefined}
                             >
-                                {(columnKey) => renderCell(work, columnKey)}
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </ScrollShadow>
-            {!isMobile && totalRows > 30 && (
-                <div className="py-4 flex justify-center">
-                    <Pagination
-                        showControls
-                        showShadow
-                        color="primary"
-                        variant="bordered"
-                        page={currentPage}
-                        total={lastPage}
-                        onChange={handlePageChange}
-                        size={isMediumScreen ? "sm" : "md"}
-                        radius={getThemeRadius()}
-                        classNames={{
-                            wrapper: "bg-content1/80 backdrop-blur-md border-divider/50",
-                            item: "bg-content1/50 border-divider/30",
-                            cursor: "bg-primary/20 backdrop-blur-md"
-                        }}
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
-                    />
-                </div>
+                                {columns.map(col => renderCell(work, col.uid))}
+                            </RadixTable.Row>
+                        ))}
+                    </RadixTable.Body>
+                </RadixTable.Root>
+            </ScrollArea>
+
+            {/* Pagination Navigation */}
+            {totalRows > 30 && (
+                <Flex 
+                    py="4" 
+                    justify="center" 
+                    gap="3" 
+                    align="center"
+                    /* Radix responsive display prop replaces the JS `!isMobile` check */
+                    display={{ initial: 'none', md: 'flex' }} 
+                >
+                    <Button 
+                        variant="surface" 
+                        color="gray"
+                        size="2" 
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))} 
+                        disabled={currentPage <= 1}
+                    >
+                        <ChevronLeftIcon /> Prev
+                    </Button>
+                    <Text size="2" color="gray" weight="medium">
+                        Page {currentPage} of {lastPage}
+                    </Text>
+                    <Button 
+                        variant="surface" 
+                        color="gray"
+                        size="2" 
+                        onClick={() => handlePageChange(Math.min(lastPage, currentPage + 1))} 
+                        disabled={currentPage >= lastPage}
+                    >
+                        Next <ChevronRightIcon />
+                    </Button>
+                </Flex>
             )}
+            
+            {/* --- Modals Remain Unchanged --- */}
             
             {/* RFI Files Modal */}
             <RfiFilesModal
@@ -3201,7 +2619,7 @@ const DailyWorksTable = ({
                 onObjectionsUpdated={handleObjectionsUpdated}
             />
             
-            {/* Objection Warning Modal - for submission date changes */}
+            {/* Objection Warning Modal */}
             <ObjectionWarningModal
                 isOpen={objectionWarningModal.isOpen}
                 onClose={closeObjectionWarningModal}
@@ -3242,7 +2660,7 @@ const DailyWorksTable = ({
                 onClose={() => setBulkImportResponseStatusModalOpen(false)}
                 onSuccess={handleBulkImportResponseStatusSuccess}
             />
-        </div>
+        </Box>
     );
 };
 

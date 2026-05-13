@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { router } from '@inertiajs/react';
-import { motion } from 'framer-motion';
-import { Spinner } from '@/compat/heroui';
 
 /**
  * Global Authentication Guard
@@ -83,55 +81,15 @@ const AuthGuard = ({ children, auth, url }) => {
     // This prevents flashing authenticated content to unauthenticated users
     if (isCheckingAuth && !isPublicRoute) {
         return (
-            <div className="fixed inset-0 z-9999 flex items-center justify-center bg-linear-to-br from-slate-900 via-blue-900 to-slate-900">
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="flex flex-col items-center space-y-6 text-center"
-                >
-                    {/* Logo or App Name */}
-                    <motion.div
-                        initial={{ y: -20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.2, duration: 0.6 }}
-                        className="text-3xl font-bold text-white mb-4"
-                    >
-                        DBEDC Guardian
-                    </motion.div>
-
-                    {/* Spinner */}
-                    <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.3, duration: 0.4 }}
-                    >
-                        <Spinner 
-                            size="lg" 
-                            color="primary"
-                            className="w-12 h-12"
-                        />
-                    </motion.div>
-
-                    {/* Loading text */}
-                    <motion.div
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.4, duration: 0.6 }}
-                        className="text-white/80 text-lg"
-                    >
-                        Verifying session...
-                    </motion.div>
-
-                    {/* Progress indicator */}
-                    <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: "100%" }}
-                        transition={{ delay: 0.5, duration: 1.5, ease: "easeInOut" }}
-                        className="h-1 bg-blue-500 rounded-full"
-                        style={{ maxWidth: "200px" }}
-                    />
-                </motion.div>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gray-12)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, textAlign: 'center' }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: 'white' }}>DBEDC Guardian</div>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', border: '4px solid rgba(255,255,255,0.2)', borderTopColor: 'var(--accent-9)', animation: 'spin 0.75s linear infinite' }} />
+                    <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16 }}>Verifying session...</div>
+                    <div style={{ width: 200, height: 3, background: 'rgba(255,255,255,0.15)', borderRadius: 99 }}>
+                        <div style={{ width: '60%', height: '100%', background: 'var(--accent-9)', borderRadius: 99 }} />
+                    </div>
+                </div>
             </div>
         );
     }
@@ -144,7 +102,7 @@ const AuthGuard = ({ children, auth, url }) => {
     // Fallback loading state (should rarely be seen)
     return (
         <div className="fixed inset-0 z-9999 flex items-center justify-center bg-slate-900">
-            <Spinner size="lg" color="primary" />
+            <div className="w-12 h-12 rounded-full border-4 border-blue-200 border-t-blue-500 animate-spin" />
         </div>
     );
 };

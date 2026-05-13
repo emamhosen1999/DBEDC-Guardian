@@ -221,6 +221,20 @@ class AttendanceTypeFactory extends Factory
     }
 
     /**
+     * Configure as biometric type.
+     */
+    public function biometric(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'name' => 'Biometric Device',
+            'slug' => 'biometric',
+            'config' => [
+                'validation_mode' => 'any',
+            ],
+        ]);
+    }
+
+    /**
      * Inactive state.
      */
     public function inactive(): static

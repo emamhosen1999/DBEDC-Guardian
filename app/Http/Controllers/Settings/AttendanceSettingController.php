@@ -214,6 +214,11 @@ class AttendanceSettingController extends Controller
                 $config['qr_codes'][] = $newQrCode;
                 break;
 
+            case 'biometric_device':
+                // Biometric config only stores validation_mode; devices managed via biometric_devices table
+                $config['validation_mode'] = $itemData['validation_mode'] ?? 'any';
+                break;
+
             default:
                 return response()->json([
                     'message' => 'Invalid item type.',

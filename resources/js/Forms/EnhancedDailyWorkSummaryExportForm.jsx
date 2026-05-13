@@ -1,34 +1,27 @@
 import React, { useState, useRef } from 'react';
 import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
+    Dialog,
     Button,
-    Select,
-    SelectItem,
-    DateRangePicker,
     Checkbox,
-    CheckboxGroup,
     Card,
-    CardBody,
+    Box,
+    Flex,
+    Text,
     RadioGroup,
-    Radio,
-    Divider
-} from "@/compat/heroui";
+    Separator,
+} from '@radix-ui/themes';
 import {
-    DocumentArrowDownIcon,
-    ChartBarIcon,
-    InformationCircleIcon,
-    CheckCircleIcon,
-    PhotoIcon
-} from "@heroicons/react/24/outline";
-import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+    DownloadIcon,
+    FileTextIcon,
+    ActivityLogIcon,
+    InfoCircledIcon,
+    CheckCircledIcon,
+    ImageIcon,
+    FileIcon,
+} from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import { route } from 'ziggy-js';
 import axios from 'axios';
-import { parseDate } from "@internationalized/date";
 
 const EnhancedDailyWorkSummaryExportForm = ({
     open,
@@ -62,19 +55,19 @@ const EnhancedDailyWorkSummaryExportForm = ({
             key: 'pdf',
             label: 'PDF Report',
             description: 'Professional PDF with charts and branding',
-            icon: <DocumentArrowDownIcon className="w-5 h-5 text-red-600" />
+            icon: <FileIcon style={{ width: 20, height: 20, color: 'var(--red-9)' }} />
         },
         {
             key: 'excel',
             label: 'Excel (.xlsx)',
             description: 'Comprehensive spreadsheet with multi-sheet data',
-            icon: <FileSpreadsheet size={20} className="text-green-600" />
+            icon: <FileIcon style={{ width: 20, height: 20, color: 'var(--green-9)' }} />
         },
         {
             key: 'csv',
             label: 'CSV (.csv)',
             description: 'Simple comma-separated values',
-            icon: <FileText size={20} className="text-blue-600" />
+            icon: <FileTextIcon style={{ width: 20, height: 20, color: 'var(--blue-9)' }} />
         }
     ];
 
@@ -309,152 +302,138 @@ const EnhancedDailyWorkSummaryExportForm = ({
     };
 
     return (
-        <Modal 
-            isOpen={open} 
-            onClose={closeModal}
-            size="3xl"
-            scrollBehavior="inside"
-            classNames={{
-                base: "backdrop-blur-md",
-                backdrop: "bg-black/50 backdrop-blur-sm"
-            }}
-        >
-            <ModalContent>
-                <ModalHeader className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                        <ChartBarIcon className="w-6 h-6 text-primary" />
-                        <span>Export Daily Work Summary</span>
-                    </div>
-                    <p className="text-sm text-default-500 font-normal">
-                        Export summary data with customizable grouping and format options
-                    </p>
-                </ModalHeader>
-                
-                <ModalBody>
-                    <div className="space-y-6">
-                        {/* Export Format */}
-                        <Card className="bg-default-50">
-                            <CardBody>
-                                <h4 className="font-semibold mb-3">Export Format</h4>
-                                <RadioGroup
-                                    value={exportSettings.format}
-                                    onValueChange={(value) => setExportSettings(prev => ({ ...prev, format: value }))}
-                                    orientation="horizontal"
-                                >
+        <Dialog.Root open={open} onOpenChange={closeModal}>
+            <Dialog.Content style={{ maxWidth: 700 }}>
+                <Dialog.Title>Export Daily Work Summary</Dialog.Title>
+                <Dialog.Description>Export summary data with customizable grouping and format options</Dialog.Description>
+
+                <Flex direction="column" gap="4" mt="4">
+                    {/* Export Format */}
+                    <Card>
+                        <Box p="3">
+                            <Text size="2" weight="bold" mb="3">Export Format</Text>
+                            <RadioGroup.Root
+                                value={exportSettings.format}
+                                onValueChange={(value) => setExportSettings(prev => ({ ...prev, format: value }))}
+                            >
+                                <Flex direction="column" gap="2">
                                     {exportFormats.map((format) => (
-                                        <Radio key={format.key} value={format.key}>
-                                            <div className="flex items-center gap-2">
+                                        <Flex key={format.key} asChild align="center" gap="2">
+                                            <RadioGroup.Item value={format.key}>
                                                 {format.icon}
-                                                <div>
-                                                    <div className="font-medium">{format.label}</div>
-                                                    <div className="text-xs text-default-500">{format.description}</div>
-                                                </div>
-                                            </div>
-                                        </Radio>
+                                                <Flex direction="column">
+                                                    <Text size="2" weight="medium">{format.label}</Text>
+                                                    <Text size="1" color="gray">{format.description}</Text>
+                                                </Flex>
+                                            </RadioGroup.Item>
+                                        </Flex>
                                     ))}
-                                </RadioGroup>
+                                </Flex>
+                            </RadioGroup.Root>
+                            <Flex align="center" gap="2" mt="3">
                                 <Checkbox
-                                    isSelected={exportSettings.includeCharts}
-                                    onValueChange={(checked) => setExportSettings(prev => ({ ...prev, includeCharts: checked }))}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <PhotoIcon className="w-4 h-4" />
-                                        <span>Include Charts</span>
-                                    </div>
-                                </Checkbox>
-                                {exportSettings.includeCharts && (
-                                    <div className="text-xs text-default-500 ml-6 mt-1">
-                                        Charts will be generated server-side and included in the export
-                                    </div>
-                                )}
-                            </CardBody>
-                        </Card>
+                                    checked={exportSettings.includeCharts}
+                                    onCheckedChange={(checked) => setExportSettings(prev => ({ ...prev, includeCharts: checked }))}
+                                />
+                                <ImageIcon style={{ width: 16, height: 16 }} />
+                                <Text size="2">Include Charts</Text>
+                            </Flex>
+                            {exportSettings.includeCharts && (
+                                <Text size="1" color="gray" ml="6">Charts will be generated server-side and included in the export</Text>
+                            )}
+                        </Box>
+                    </Card>
 
-                        {/* Grouping Options - Only for Excel/CSV */}
-                        {exportSettings.format !== 'pdf' && (
-                            <div>
-                                <h4 className="font-semibold mb-3">Grouping & Summary</h4>
-                                <RadioGroup
-                                    value={exportSettings.groupBy}
-                                    onValueChange={(value) => setExportSettings(prev => ({ ...prev, groupBy: value }))}
-                                >
+                    {/* Grouping Options - Only for Excel/CSV */}
+                    {exportSettings.format !== 'pdf' && (
+                        <Flex direction="column" gap="2">
+                            <Text size="2" weight="bold">Grouping & Summary</Text>
+                            <RadioGroup.Root
+                                value={exportSettings.groupBy}
+                                onValueChange={(value) => setExportSettings(prev => ({ ...prev, groupBy: value }))}
+                            >
+                                <Flex direction="column" gap="2">
                                     {groupByOptions.map((option) => (
-                                        <Radio key={option.key} value={option.key}>
-                                            <div>
-                                                <div className="font-medium">{option.label}</div>
-                                                <div className="text-xs text-default-500">{option.description}</div>
-                                            </div>
-                                        </Radio>
+                                        <Flex key={option.key} asChild align="center" gap="2">
+                                            <RadioGroup.Item value={option.key}>
+                                                <Flex direction="column">
+                                                    <Text size="2" weight="medium">{option.label}</Text>
+                                                    <Text size="1" color="gray">{option.description}</Text>
+                                                </Flex>
+                                            </RadioGroup.Item>
+                                        </Flex>
                                     ))}
-                                </RadioGroup>
-                            </div>
-                        )}
+                                </Flex>
+                            </RadioGroup.Root>
+                        </Flex>
+                    )}
 
-                        {/* Column Selection - Only for Excel/CSV */}
-                        {exportSettings.format !== 'pdf' && (
-                            <div>
-                                <h4 className="font-semibold mb-3">Columns to Export</h4>
-                                <CheckboxGroup
-                                    value={exportSettings.columns}
-                                    onValueChange={(columns) => setExportSettings(prev => ({ 
-                                        ...prev, 
-                                        columns 
-                                    }))}
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        {columnOptions.map((column) => (
-                                            <Checkbox key={column.key} value={column.key}>
-                                                <div>
-                                                    <div className="font-medium">{column.label}</div>
-                                                    <div className="text-xs text-default-500">{column.description}</div>
-                                                </div>
-                                            </Checkbox>
-                                        ))}
-                                    </div>
-                                </CheckboxGroup>
-                            </div>
-                        )}
+                    {/* Column Selection - Only for Excel/CSV */}
+                    {exportSettings.format !== 'pdf' && (
+                        <Flex direction="column" gap="2">
+                            <Text size="2" weight="bold">Columns to Export</Text>
+                            <Flex wrap="wrap" gap="2">
+                                {columnOptions.map((column) => (
+                                    <Flex key={column.key} align="center" gap="2" p="2" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-1)', minWidth: 200 }}>
+                                        <Checkbox
+                                            checked={exportSettings.columns.includes(column.key)}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                    setExportSettings(prev => ({ ...prev, columns: [...prev.columns, column.key] }));
+                                                } else {
+                                                    setExportSettings(prev => ({ ...prev, columns: prev.columns.filter(c => c !== column.key) }));
+                                                }
+                                            }}
+                                        />
+                                        <Flex direction="column">
+                                            <Text size="2" weight="medium">{column.label}</Text>
+                                            <Text size="1" color="gray">{column.description}</Text>
+                                        </Flex>
+                                    </Flex>
+                                ))}
+                            </Flex>
+                        </Flex>
+                    )}
 
-                        {/* Export Summary */}
-                        <Card className="bg-primary-50 border-primary-200">
-                            <CardBody>
-                                <div className="flex items-start space-x-3">
-                                    <InformationCircleIcon className="w-5 h-5 text-primary-600 mt-0.5" />
-                                    <div>
-                                        <h5 className="font-medium text-primary-900">Export Summary</h5>
-                                        <div className="text-sm text-primary-700 space-y-1">
-                                            <p>• Format: {exportFormats.find(f => f.key === exportSettings.format)?.label}</p>
-                                            <p>• Grouping: {groupByOptions.find(g => g.key === exportSettings.groupBy)?.label}</p>
-                                            <p>• Columns: {exportSettings.columns.length} selected</p>
-                                            <p>• Records: {filteredData.length} summary entries</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardBody>
-                        </Card>
-                    </div>
-                </ModalBody>
-                
-                <ModalFooter>
-                    <Button 
-                        variant="light" 
-                        onPress={closeModal}
-                        isDisabled={isLoading}
+                    {/* Export Summary */}
+                    <Card style={{ background: 'var(--accent-a2)' }}>
+                        <Box p="3">
+                            <Flex align="start" gap="2">
+                                <InfoCircledIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
+                                <Flex direction="column" gap="1">
+                                    <Text size="2" weight="medium" style={{ color: 'var(--accent-9)' }}>Export Summary</Text>
+                                    <Text size="1" style={{ color: 'var(--accent-11)' }}>
+                                        Format: {exportFormats.find(f => f.key === exportSettings.format)?.label}
+                                    </Text>
+                                    <Text size="1" style={{ color: 'var(--accent-11)' }}>
+                                        Grouping: {groupByOptions.find(g => g.key === exportSettings.groupBy)?.label}
+                                    </Text>
+                                    <Text size="1" style={{ color: 'var(--accent-11)' }}>
+                                        Columns: {exportSettings.columns.length} selected
+                                    </Text>
+                                    <Text size="1" style={{ color: 'var(--accent-11)' }}>
+                                        Records: {filteredData.length} summary entries
+                                    </Text>
+                                </Flex>
+                            </Flex>
+                        </Box>
+                    </Card>
+                </Flex>
+
+                <Flex gap="2" justify="end" mt="4">
+                    <Dialog.Close>
+                        <Button variant="soft" color="gray">Cancel</Button>
+                    </Dialog.Close>
+                    <Button
+                        onClick={handleExport}
+                        disabled={isLoading || (exportSettings.format !== 'pdf' && exportSettings.columns.length === 0)}
                     >
-                        Cancel
-                    </Button>
-                    <Button 
-                        color="primary" 
-                        onPress={handleExport}
-                        isLoading={isLoading}
-                        startContent={!isLoading && <Download size={16} />}
-                        isDisabled={exportSettings.columns.length === 0}
-                    >
+                        <DownloadIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                         {isLoading ? 'Exporting...' : 'Export Summary'}
                     </Button>
-                </ModalFooter>
-            </ModalContent>
-        </Modal>
+                </Flex>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

@@ -45,6 +45,21 @@ class UserController extends Controller
         ]);
     }
 
+    public function adminUnified(): \Inertia\Response
+    {
+        $this->authorize('viewAny', User::class);
+
+        return Inertia::render('Administration/AdminUnified', [
+            'title' => 'Administration',
+            'users' => User::with(['department', 'designation', 'roles'])->get(),
+            'roles' => Role::all(),
+            'permissions' => Permission::all(),
+            'devices' => \App\Models\HRM\BiometricDevice::all(),
+            'departments' => Department::all(),
+            'designations' => Designation::all(),
+        ]);
+    }
+
     /**
      * Store a new user.
      */

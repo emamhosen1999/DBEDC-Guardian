@@ -1,43 +1,10 @@
 import React, { useState, useCallback } from "react";
-import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Button,
-    Card,
-    CardBody,
-    Divider,
-    Chip,
-    Progress,
-    Accordion,
-    AccordionItem,
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    ScrollShadow,
-} from "@/compat/heroui";
-import { 
-    DocumentArrowUpIcon, 
-    DocumentTextIcon, 
-    CheckCircleIcon, 
-    ExclamationTriangleIcon,
-    XMarkIcon,
-    InformationCircleIcon,
-    TableCellsIcon,
-    DocumentIcon,
-    ClockIcon,
-    ArrowDownTrayIcon
-} from "@heroicons/react/24/outline";
+import { Dialog, Button, Badge, Separator, Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
+import { UploadIcon, FileTextIcon, CheckCircledIcon, ExclamationTriangleIcon, Cross2Icon, InfoCircledIcon, DownloadIcon } from '@radix-ui/react-icons';
 import { showToast } from "@/utils/toastUtils";
-import { getThemeRadius } from '@/Hooks/useThemeRadius.js';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
-import ImportPreviewModal from './ImportPreviewModal';
+import ImportPreviewModalRadix from './ImportPreviewModalRadix';
 
 const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refreshData, onSuccess }) => {
     // Expected Excel format data - based on actual project format
@@ -178,14 +145,13 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
 
     // Get file icon based on type
     const getFileIcon = (file) => {
-        if (!file) return <DocumentArrowUpIcon className="w-8 h-8" />;
-        
+        if (!file) return <UploadIcon style={{ width: 32, height: 32, color: 'var(--gray-9)' }} />;
         if (file.type.includes('sheet') || file.type.includes('excel')) {
-            return <TableCellsIcon className="w-8 h-8 text-green-500" />;
+            return <FileTextIcon style={{ width: 32, height: 32, color: 'var(--green-9)' }} />;
         } else if (file.type.includes('csv')) {
-            return <DocumentTextIcon className="w-8 h-8 text-blue-500" />;
+            return <FileTextIcon style={{ width: 32, height: 32, color: 'var(--blue-9)' }} />;
         }
-        return <DocumentIcon className="w-8 h-8" />;
+        return <FileTextIcon style={{ width: 32, height: 32 }} />;
     };
 
     // Format file size
@@ -300,17 +266,9 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         });
 
         showToast.promise(promise, {
-            pending: 'Uploading file...',
-            success: {
-                render({ data }) {
-                    return <>{data}</>;
-                },
-            },
-            error: {
-                render({ data }) {
-                    return <>{data}</>;
-                },
-            },
+            loading: 'Uploading file...',
+            success: (data) => data,
+            error: (data) => data,
         });
     };
 
@@ -326,368 +284,193 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
 
     return (
         <>
-        <Modal 
-            isOpen={open} 
-            onClose={handleClose}
-            size="4xl"
-            radius={getThemeRadius()}
-            placement="center"
-            scrollBehavior="inside"
-            classNames={{
-                base: "backdrop-blur-md mx-2 my-2 sm:mx-4 sm:my-8 max-h-[95vh]",
-                backdrop: "bg-black/50 backdrop-blur-sm",
-                header: "border-b border-divider",
-                body: "overflow-y-auto",
-                footer: "border-t border-divider",
-                closeButton: "hover:bg-white/5 active:bg-white/10"
-            }}
-            style={{
-                border: `var(--borderWidth, 2px) solid var(--theme-divider, #E4E4E7)`,
-                borderRadius: `var(--borderRadius, 12px)`,
-                fontFamily: `var(--fontFamily, "Inter")`,
-                transform: `scale(var(--scale, 1))`,
-            }}
-        >
-            <ModalContent>
-                {(onClose) => (
-                    <>
-                        <ModalHeader className="flex flex-col gap-1" style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            <div className="flex items-center gap-3">
-                                <div 
-                                    className="p-2 rounded-lg"
-                                    style={{
-                                        background: `color-mix(in srgb, var(--theme-primary) 15%, transparent)`,
-                                        color: 'var(--theme-primary)'
-                                    }}
-                                >
-                                    <DocumentArrowUpIcon className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-semibold text-foreground" style={{
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}>
-                                        Import Daily Works
-                                    </h2>
-                                    <p className="text-sm text-default-500">
-                                        Upload Excel or CSV file to import multiple daily work entries
-                                    </p>
-                                </div>
-                            </div>
-                        </ModalHeader>
-                        
-                        <ModalBody className="py-4 px-4 sm:py-6 sm:px-6" style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            <div className="space-y-6">
-                                {/* File Upload Section */}
-                                <div className="space-y-4">
-                                    {/* Upload Area */}
-                                    <Card 
-                                        className={`border-2 border-dashed transition-all duration-200 ${
-                                            isDragActive 
-                                                ? 'border-primary bg-primary/5' 
-                                                : file 
-                                                    ? 'border-success bg-success/5' 
-                                                    : 'border-default-300 hover:border-default-400'
-                                        }`}
-                                        radius={getThemeRadius()}
-                                    >
-                                        <CardBody className="p-8">
-                                            <div
-                                                {...getRootProps()}
-                                                className="flex flex-col items-center justify-center text-center cursor-pointer"
-                                            >
-                                                <input {...getInputProps()} />
-                                                
-                                                <div className={`p-4 rounded-full mb-4 ${
-                                                    file ? 'bg-success/10' : 'bg-default-100'
-                                                }`}>
-                                                    {getFileIcon(file)}
-                                                </div>
+            <Dialog.Root open={open} onOpenChange={(v) => { if (!v && !processing) handleClose(); }}>
+                <Dialog.Content maxWidth="700px" style={{ fontFamily: `var(--fontFamily,"Inter")` }}>
+                    <Dialog.Title>
+                        <Flex align="center" gap="3">
+                            <Box p="2" style={{ borderRadius: 8, background: 'var(--accent-a3)' }}>
+                                <UploadIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
+                            </Box>
+                            <Flex direction="column">
+                                <Text weight="bold" size="3" as="p">Import Daily Works</Text>
+                                <Text size="1" color="gray" as="p">Upload Excel or CSV file to import multiple daily work entries</Text>
+                            </Flex>
+                        </Flex>
+                    </Dialog.Title>
 
-                                                {file ? (
-                                                    <div className="space-y-2">
-                                                        <h3 className="text-lg font-medium text-foreground">
-                                                            {file.name}
-                                                        </h3>
-                                                        <p className="text-sm text-default-500">
-                                                            {formatFileSize(file.size)}
-                                                        </p>
-                                                        <div className="flex items-center gap-2 justify-center">
-                                                            <Chip
-                                                                size="sm"
-                                                                color="success"
-                                                                variant="flat"
-                                                                startContent={<CheckCircleIcon className="w-3 h-3" />}
-                                                            >
-                                                                File Ready
-                                                            </Chip>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="light"
-                                                                color="danger"
-                                                                onPress={clearFile}
-                                                                isIconOnly
-                                                            >
-                                                                <XMarkIcon className="w-4 h-4" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        <h3 className="text-lg font-medium text-foreground">
-                                                            {isDragActive ? 'Drop your file here' : 'Choose file to upload'}
-                                                        </h3>
-                                                        <p className="text-sm text-default-500">
-                                                            Drag and drop your Excel or CSV file here, or click to browse
-                                                        </p>
-                                                        <p className="text-xs text-default-400">
-                                                            Supported formats: .xlsx, .xls, .csv (Max: 10MB)
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </CardBody>
-                                    </Card>
-
-                                    {/* Upload Progress */}
-                                    {processing && (
-                                        <Card>
-                                            <CardBody className="p-4">
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm font-medium">Uploading...</span>
-                                                        <span className="text-sm text-default-500">{uploadProgress}%</span>
-                                                    </div>
-                                                    <Progress 
-                                                        value={uploadProgress} 
-                                                        color="primary"
-                                                        size="sm"
-                                                        className="w-full"
-                                                    />
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                    )}
-
-                                    {/* Validation Errors */}
-                                    {validationErrors.length > 0 && (
-                                        <Card className="border border-danger/20 bg-danger/5">
-                                            <CardBody className="p-4">
-                                                <div className="flex items-start gap-3">
-                                                    <ExclamationTriangleIcon className="w-5 h-5 text-danger mt-0.5" />
-                                                    <div>
-                                                        <h4 className="font-medium text-danger mb-1">File Validation Errors</h4>
-                                                        <ul className="space-y-1">
-                                                            {validationErrors.map((error, index) => (
-                                                                <li key={index} className="text-sm text-danger/80">
-                                                                    • {error}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                    )}
-
-                                    {/* Server Errors */}
-                                    {Object.keys(serverErrors).length > 0 && (
-                                        <Card className="border border-danger/20 bg-danger/5">
-                                            <CardBody className="p-4">
-                                                <div className="flex items-start gap-3">
-                                                    <ExclamationTriangleIcon className="w-5 h-5 text-danger mt-0.5" />
-                                                    <div>
-                                                        <h4 className="font-medium text-danger mb-1">Upload Errors</h4>
-                                                        <div className="space-y-2">
-                                                            {Object.entries(serverErrors).map(([field, errors]) => (
-                                                                <div key={field}>
-                                                                    {field !== 'general' && (
-                                                                        <p className="text-sm font-medium text-danger capitalize">{field.replace('_', ' ')}:</p>
-                                                                    )}
-                                                                    <ul className="space-y-1">
-                                                                        {Array.isArray(errors) ? errors.map((error, index) => (
-                                                                            <li key={index} className="text-sm text-danger/80">
-                                                                                • {error}
-                                                                            </li>
-                                                                        )) : (
-                                                                            <li className="text-sm text-danger/80">• {errors}</li>
-                                                                        )}
-                                                                    </ul>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                    )}
-                                </div>
-
-                                <Divider />
-
-                                {/* File Format Guide */}
-                                <Accordion variant="bordered">
-                                    <AccordionItem
-                                        key="format"
-                                        aria-label="Expected File Format"
-                                        startContent={<InformationCircleIcon className="w-5 h-5 text-primary" />}
-                                        title="Expected File Format"
-                                        subtitle="Click to view the required Excel/CSV structure"
-                                    >
-                                        <div className="space-y-4">
-                                            <div className="p-4 rounded-lg bg-default-50">
-                                                <h4 className="font-medium mb-2 text-foreground">Excel/CSV Column Structure:</h4>
-                                                <div className="text-sm text-default-600">
-                                                    Your file should have exactly 8 columns in this order (with or without headers):
-                                                </div>
-                                            </div>
-
-                                            <Table
-                                                aria-label="Expected format table"
-                                                removeWrapper
-                                                classNames={{
-                                                    th: "bg-default-100 text-default-700 text-xs font-semibold",
-                                                    td: "py-2 text-sm"
-                                                }}
-                                            >
-                                                <TableHeader>
-                                                    <TableColumn>Column</TableColumn>
-                                                    <TableColumn>Field Name</TableColumn>
-                                                    <TableColumn>Example</TableColumn>
-                                                    <TableColumn>Required</TableColumn>
-                                                    <TableColumn>Processed</TableColumn>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {expectedFormat.map((item, index) => (
-                                                        <TableRow key={index}>
-                                                            <TableCell>
-                                                                <Chip size="sm" variant="flat" color="primary">
-                                                                    {item.column}
-                                                                </Chip>
-                                                            </TableCell>
-                                                            <TableCell className="font-medium">{item.field}</TableCell>
-                                                            <TableCell className="text-default-500">{item.example}</TableCell>
-                                                            <TableCell>
-                                                                {item.required ? (
-                                                                    <Chip size="sm" color="danger" variant="flat">Required</Chip>
-                                                                ) : (
-                                                                    <Chip size="sm" color="default" variant="flat">Optional</Chip>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {item.processed ? (
-                                                                    <Chip size="sm" color="success" variant="flat">Yes</Chip>
-                                                                ) : (
-                                                                    <Chip size="sm" color="warning" variant="flat">No</Chip>
-                                                                )}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-
-                                            <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                                                <InformationCircleIcon className="w-4 h-4 text-primary mt-0.5" />
-                                                <div className="text-xs text-primary-700">
-                                                    <strong>Format Tips:</strong> 
-                                                    • Only columns A-E are processed by the system (columns F-H are for reference only)
-                                                    • Work Type examples: Structure, Embankment, Pavement
-                                                    • Quantity/Layer examples: 150 MT (metric tons), 2 Layers, 500 SQM (square meters)
-                                                    • Side values: TR-R (Traffic Right), TR-L (Traffic Left), SR-R (Service Right), SR-L (Service Left)
-                                                    • Location/Chainage format: K05+560-K05+660 (kilometer markers with ranges)
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
-                                                <ExclamationTriangleIcon className="w-4 h-4 text-warning mt-0.5" />
-                                                <div className="text-xs text-warning-700">
-                                                    <strong>Important:</strong> The first row can contain headers (they will be skipped). 
-                                                    Date format should be M/D/YYYY (e.g., 4/27/2025). RFI Number can contain multiple comma-separated values.
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </AccordionItem>
-
-                                    <AccordionItem
-                                        key="template"
-                                        aria-label="Download Template"
-                                        startContent={<ArrowDownTrayIcon className="w-5 h-5 text-success" />}
-                                        title="Download Template"
-                                        subtitle="Get a pre-formatted Excel template"
-                                    >
-                                        <div className="space-y-3">
-                                            <p className="text-sm text-default-600">
-                                                Download our Excel template with the correct 8-column format and sample daily work data:
-                                            </p>
-                                            <Button
-                                                color="success"
-                                                variant="flat"
-                                                startContent={<ArrowDownTrayIcon className="w-4 h-4" />}
-                                                onPress={() => {
-                                                    // Create and download template
-                                                    window.open(route('dailyWorks.downloadTemplate'), '_blank');
-                                                }}
-                                            >
-                                                Download Excel Template
-                                            </Button>
-                                        </div>
-                                    </AccordionItem>
-                                </Accordion>
-                            </div>
-                        </ModalBody>
-                        
-                        <ModalFooter className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            <Button
-                                color="default"
-                                variant="bordered"
-                                onPress={handleClose}
-                                disabled={processing}
-                                radius={getThemeRadius()}
-                                size="sm"
-                                style={{
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
+                    <Box style={{ overflowY: 'auto', maxHeight: 'min(70vh, 560px)' }} py="3">
+                        <Flex direction="column" gap="5">
+                            {/* Dropzone */}
+                            <Flex
+                                {...getRootProps()}
+                                style={{ cursor: 'pointer',
+                                    border: `2px dashed ${isDragActive ? 'var(--accent-8)' : file ? 'var(--green-8)' : 'var(--gray-a6)'}`,
+                                    background: isDragActive ? 'var(--accent-a2)' : file ? 'var(--green-a2)' : 'transparent',
+                                    borderRadius: 8, padding: 32, textAlign: 'center',
                                 }}
                             >
-                                Cancel
-                            </Button>
-                            <Button
-                                color="primary"
-                                onPress={handlePreview}
-                                isLoading={previewLoading}
-                                disabled={!file || validationErrors.length > 0}
-                                radius={getThemeRadius()}
-                                size="sm"
-                                startContent={!previewLoading ? <DocumentArrowUpIcon className="w-4 h-4" /> : null}
-                                style={{
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
-                            >
-                                {previewLoading ? 'Generating Preview...' : 'Preview Import'}
-                            </Button>
-                        </ModalFooter>
-                    </>
-                )}
-            </ModalContent>
-        </Modal>
+                                <input {...getInputProps()} />
+                                <Flex direction="column" align="center" gap="3">
+                                    <Box p="4" style={{ borderRadius: '50%', background: file ? 'var(--green-a3)' : 'var(--gray-a3)' }}>
+                                        {getFileIcon(file)}
+                                    </Box>
+                                    {file ? (
+                                        <Flex direction="column">
+                                            <Text size="3" weight="medium" as="p">{file.name}</Text>
+                                            <Text size="2" color="gray" as="p">{formatFileSize(file.size)}</Text>
+                                            <Flex align="center" gap="2" justify="center" mt="2">
+                                                <Badge color="green" variant="soft" size="1"><CheckCircledIcon style={{ width: 10, height: 10 }} /> File Ready</Badge>
+                                                <Button type="button" variant="ghost" color="red" size="1" onClick={(e) => { e.stopPropagation(); clearFile(); }}>
+                                                    <Cross2Icon style={{ width: 12, height: 12 }} />
+                                                </Button>
+                                            </Flex>
+                                        </Flex>
+                                    ) : (
+                                        <Flex direction="column">
+                                            <Text size="3" weight="medium" as="p">{isDragActive ? 'Drop your file here' : 'Choose file to upload'}</Text>
+                                            <Text size="2" color="gray" as="p">Drag and drop your Excel or CSV file here, or click to browse</Text>
+                                            <Text size="1" color="gray" as="p">Supported formats: .xlsx, .xls, .csv (Max: 10MB)</Text>
+                                        </Flex>
+                                    )}
+                                </Flex>
+                            </Flex>
 
-        {/* Preview Modal - kanban-style with drag-and-drop incharge validation */}
-        <ImportPreviewModal
-            isOpen={showPreviewModal}
-            onClose={() => !processing && setShowPreviewModal(false)}
-            previewData={previewData}
-            onConfirm={handleConfirmImport}
-            isImporting={processing}
-            importProgress={uploadProgress}
-        />
+                            {/* Upload progress */}
+                            {processing && (
+                                <Box p="4" style={{ border: '1px solid var(--gray-a4)', borderRadius: 8 }}>
+                                    <Flex justify="between" mb="2">
+                                        <Text size="2" weight="medium">Uploading...</Text>
+                                        <Text size="2" color="gray">{uploadProgress}%</Text>
+                                    </Flex>
+                                    <Box style={{ width: '100%', height: 6, background: 'var(--gray-a4)', borderRadius: 3, overflow: 'hidden' }}>
+                                        <Box style={{ width: `${uploadProgress}%`, height: '100%', background: 'var(--accent-9)', transition: 'width 0.3s ease' }} />
+                                    </Box>
+                                </Box>
+                            )}
+
+                            {/* Validation errors */}
+                            {validationErrors.length > 0 && (
+                                <Box p="4" style={{ border: '1px solid var(--red-a6)', borderRadius: 8, background: 'var(--red-a3)' }}>
+                                    <Flex align="start" gap="3">
+                                        <ExclamationTriangleIcon style={{ width: 18, height: 18, color: 'var(--red-9)', flexShrink: 0, marginTop: 2 }} />
+                                        <Flex direction="column">
+                                            <Text size="2" weight="medium" style={{ color: 'var(--red-11)' }} as="p" mb="1">File Validation Errors</Text>
+                                            <ul>{validationErrors.map((err, i) => <li key={i}><Text size="1" style={{ color: 'var(--red-11)' }}>• {err}</Text></li>)}</ul>
+                                        </Flex>
+                                    </Flex>
+                                </Box>
+                            )}
+
+                            {/* Server errors */}
+                            {Object.keys(serverErrors).length > 0 && (
+                                <Box p="4" style={{ border: '1px solid var(--red-a6)', borderRadius: 8, background: 'var(--red-a3)' }}>
+                                    <Flex align="start" gap="3">
+                                        <ExclamationTriangleIcon style={{ width: 18, height: 18, color: 'var(--red-9)', flexShrink: 0, marginTop: 2 }} />
+                                        <Flex direction="column">
+                                            <Text size="2" weight="medium" style={{ color: 'var(--red-11)' }} as="p" mb="1">Upload Errors</Text>
+                                            {Object.entries(serverErrors).map(([field, errors]) => (
+                                                <Flex key={field} direction="column">
+                                                    {field !== 'general' && <Text size="1" weight="medium" style={{ color: 'var(--red-11)', textTransform: 'capitalize' }} as="p">{field.replace('_', ' ')}:</Text>}
+                                                    <ul>{Array.isArray(errors) ? errors.map((e, i) => <li key={i}><Text size="1" style={{ color: 'var(--red-11)' }}>• {e}</Text></li>) : <li><Text size="1" style={{ color: 'var(--red-11)' }}>• {errors}</Text></li>}</ul>
+                                                </Flex>
+                                            ))}
+                                        </Flex>
+                                    </Flex>
+                                </Box>
+                            )}
+
+                            <Separator size="4" />
+
+                            {/* Format guide */}
+                            <details>
+                                <summary style={{ cursor: 'pointer', listStyle: 'none', userSelect: 'none' }}>
+                                    <Flex align="center" gap="2" p="2" style={{ borderRadius: 6, border: '1px solid var(--gray-a4)' }}>
+                                        <InfoCircledIcon style={{ width: 18, height: 18, color: 'var(--accent-9)', flexShrink: 0 }} />
+                                        <Flex direction="column" style={{ flex: 1 }}>
+                                            <Text size="2" weight="medium" as="p">Expected File Format</Text>
+                                            <Text size="1" color="gray" as="p">Click to view the required Excel/CSV structure</Text>
+                                        </Flex>
+                                    </Flex>
+                                </summary>
+                                <Flex direction="column" gap="3" mt="3">
+                                    <Box p="3" style={{ background: 'var(--gray-a2)', borderRadius: 6 }}>
+                                        <Text size="2" weight="medium" as="p" mb="1">Excel/CSV Column Structure:</Text>
+                                        <Text size="1" color="gray" as="p">Your file should have exactly 8 columns in this order (with or without headers):</Text>
+                                    </Box>
+                                    <ScrollArea style={{ maxHeight: 240 }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+                                                    {['COL', 'FIELD', 'EXAMPLE', 'REQ', 'PROC'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left' }}><Text size="1" weight="bold" color="gray">{h}</Text></th>)}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {expectedFormat.map((item, i) => (
+                                                    <tr key={i} style={{ borderBottom: '1px solid var(--gray-a3)' }}>
+                                                        <td style={{ padding: '5px 8px' }}><Badge size="1" color="indigo" variant="soft">{item.column}</Badge></td>
+                                                        <td style={{ padding: '5px 8px' }}><Text size="1" weight="medium">{item.field}</Text></td>
+                                                        <td style={{ padding: '5px 8px' }}><Text size="1" color="gray">{item.example}</Text></td>
+                                                        <td style={{ padding: '5px 8px' }}>{item.required ? <Badge size="1" color="red" variant="soft">Required</Badge> : <Badge size="1" color="gray" variant="soft">Optional</Badge>}</td>
+                                                        <td style={{ padding: '5px 8px' }}>{item.processed ? <Badge size="1" color="green" variant="soft">Yes</Badge> : <Badge size="1" color="amber" variant="soft">No</Badge>}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </ScrollArea>
+                                    <Box p="3" mt="3" style={{ background: 'var(--accent-a2)', border: '1px solid var(--accent-a4)', borderRadius: 6 }}>
+                                        <Flex align="start" gap="2">
+                                            <InfoCircledIcon style={{ width: 12, height: 12, color: 'var(--accent-9)', flexShrink: 0, marginTop: 2 }} />
+                                            <Text size="1" style={{ color: 'var(--accent-11)' }}><strong>Format Tips:</strong> Only columns A-E are processed. Work Type: Structure, Embankment, Pavement. Quantity: 150 MT, 2 Layers, 500 SQM. Side: TR-R, TR-L, SR-R, SR-L. Location: K05+560-K05+660.</Text>
+                                        </Flex>
+                                    </Box>
+                                    <Box p="3" mt="2" style={{ background: 'var(--amber-a2)', border: '1px solid var(--amber-a4)', borderRadius: 6 }}>
+                                        <Flex align="start" gap="2">
+                                            <ExclamationTriangleIcon style={{ width: 12, height: 12, color: 'var(--amber-9)', flexShrink: 0, marginTop: 2 }} />
+                                            <Text size="1" style={{ color: 'var(--amber-11)' }}><strong>Important:</strong> First row headers will be skipped. Date format: M/D/YYYY. RFI Number can contain multiple comma-separated values.</Text>
+                                        </Flex>
+                                    </Box>
+                                </Flex>
+                            </details>
+
+                            {/* Template download */}
+                            <details>
+                                <summary style={{ cursor: 'pointer', listStyle: 'none', userSelect: 'none' }}>
+                                    <Flex align="center" gap="2" p="2" style={{ borderRadius: 6, border: '1px solid var(--gray-a4)' }}>
+                                        <DownloadIcon style={{ width: 18, height: 18, color: 'var(--green-9)', flexShrink: 0 }} />
+                                        <Flex direction="column" style={{ flex: 1 }}>
+                                            <Text size="2" weight="medium" as="p">Download Template</Text>
+                                            <Text size="1" color="gray" as="p">Get a pre-formatted Excel template</Text>
+                                        </Flex>
+                                    </Flex>
+                                </summary>
+                                <Flex direction="column" gap="3" mt="3">
+                                    <Text size="2" color="gray" as="p">Download our Excel template with the correct 8-column format and sample daily work data:</Text>
+                                    <Button color="green" variant="soft" onClick={() => window.open(route('dailyWorks.downloadTemplate'), '_blank')}>
+                                        <DownloadIcon style={{ width: 14, height: 14 }} /> Download Excel Template
+                                    </Button>
+                                </Flex>
+                            </details>
+                        </Flex>
+                    </Box>
+
+                    <Flex justify="center" gap="2" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
+                        <Button variant="outline" color="gray" onClick={handleClose} disabled={processing} size="2">Cancel</Button>
+                        <Button color="indigo" onClick={handlePreview} loading={previewLoading} disabled={!file || validationErrors.length > 0} size="2">
+                            {!previewLoading && <UploadIcon style={{ width: 14, height: 14 }} />}
+                            {previewLoading ? 'Generating Preview...' : 'Preview Import'}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            <ImportPreviewModalRadix
+                isOpen={showPreviewModal}
+                onClose={() => !processing && setShowPreviewModal(false)}
+                previewData={previewData}
+                onConfirm={handleConfirmImport}
+                isImporting={processing}
+                importProgress={uploadProgress}
+            />
         </>
     );
 };

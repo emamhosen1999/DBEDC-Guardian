@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\Leave;
@@ -265,6 +266,13 @@ class User extends Authenticatable implements HasMedia
     public function attendanceType()
     {
         return $this->belongsTo(AttendanceType::class, 'attendance_type_id');
+    }
+
+    public function biometricDevices()
+    {
+        return $this->belongsToMany(BiometricDevice::class, 'biometric_device_users', 'user_id', 'biometric_device_id')
+            ->withPivot('device_user_id', 'is_active')
+            ->withTimestamps();
     }
 
     public function designation(): BelongsTo

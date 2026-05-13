@@ -1,27 +1,15 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { Dialog, Button, IconButton, Badge, Separator, Box, Flex, Text, ScrollArea } from '@radix-ui/themes';
 import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Button,
-    Image,
-    Spinner,
-    Chip,
-    Divider,
-    Progress,
-} from "@/compat/heroui";
-import {
-    DocumentIcon,
+    FileIcon,
     TrashIcon,
-    ArrowDownTrayIcon,
-    EyeIcon,
+    DownloadIcon,
+    EyeOpenIcon,
     PlusIcon,
-    XMarkIcon,
-    PhotoIcon,
-    DocumentTextIcon,
-} from "@heroicons/react/24/outline";
+    Cross2Icon,
+    ImageIcon,
+    FileTextIcon,
+} from "@radix-ui/react-icons";
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
 
@@ -186,237 +174,166 @@ const RfiFilesModal = ({
 
     const renderFileIcon = (file) => {
         if (file.is_image) {
-            return <PhotoIcon className="w-5 h-5 text-blue-500" />;
+            return <ImageIcon style={{ width: 20, height: 20, color: 'var(--blue-9)' }} />;
         }
-        return <DocumentTextIcon className="w-5 h-5 text-red-500" />;
+        return <FileTextIcon style={{ width: 20, height: 20, color: 'var(--red-9)' }} />;
     };
 
     const renderFilePreview = (file) => {
         if (file.is_image) {
             return (
-                <div className="relative group">
-                    <Image
+                <Box
+                    style={{ position: 'relative', width: 64, height: 64, flexShrink: 0, cursor: 'pointer', borderRadius: 'var(--radius-2)', overflow: 'hidden' }}
+                    onClick={() => handlePreview(file)}
+                >
+                    <img
                         src={file.thumb_url || file.url}
                         alt={file.name}
-                        className="w-16 h-16 object-cover rounded-lg cursor-pointer"
-                        onClick={() => handlePreview(file)}
+                        style={{ width: 64, height: 64, objectFit: 'cover', display: 'block' }}
                     />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center cursor-pointer" onClick={() => handlePreview(file)}>
-                        <EyeIcon className="w-5 h-5 text-white" />
-                    </div>
-                </div>
+                    <Flex
+                        align="center" justify="center"
+                        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', borderRadius: 'var(--radius-2)' }}
+                    >
+                        <EyeOpenIcon style={{ width: 20, height: 20, color: 'white' }} />
+                    </Flex>
+                </Box>
             );
         }
         return (
-            <div 
-                className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+            <Flex
+                align="center" justify="center"
+                style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 'var(--radius-2)', background: 'var(--red-a3)', cursor: 'pointer' }}
                 onClick={() => handlePreview(file)}
             >
-                <DocumentTextIcon className="w-8 h-8 text-red-500" />
-            </div>
+                <FileTextIcon style={{ width: 32, height: 32, color: 'var(--red-9)' }} />
+            </Flex>
         );
     };
 
     return (
         <>
-            <Modal
-                isOpen={isOpen}
-                onClose={onClose}
-                size="2xl"
-                scrollBehavior="inside"
-                placement="bottom-center"
-                classNames={{
-                    base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
-                    wrapper: "items-end sm:items-center",
-                }}
-            >
-                <ModalContent>
-                    {(onCloseModal) => (
-                        <>
-                            <ModalHeader className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                    <DocumentIcon className="w-5 h-5 text-primary" />
-                                    <span>RFI Files - {dailyWork?.number}</span>
-                                </div>
-                                <p className="text-sm text-default-500 font-normal">
-                                    Manage uploaded RFI documents and images
-                                </p>
-                            </ModalHeader>
-                            
-                            <ModalBody>
-                                {/* Upload Section */}
-                                <div className="border-2 border-dashed border-default-300 rounded-lg p-4 text-center hover:border-primary transition-colors">
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        multiple
-                                        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-                                        onChange={handleFileSelect}
-                                        className="hidden"
-                                        id="rfi-file-input"
-                                    />
-                                    
-                                    {uploading ? (
-                                        <div className="py-4">
-                                            <Progress
-                                                value={uploadProgress}
-                                                className="max-w-md mx-auto"
-                                                color="primary"
-                                                showValueLabel
-                                            />
-                                            <p className="text-sm text-default-500 mt-2">Uploading files...</p>
-                                        </div>
-                                    ) : (
-                                        <label
-                                            htmlFor="rfi-file-input"
-                                            className="cursor-pointer flex flex-col items-center gap-2 py-4"
+            <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v) onClose(); }}>
+                <Dialog.Content maxWidth="640px" style={{ fontFamily: `var(--fontFamily, "Inter")` }}>
+                    <Dialog.Title>
+                        <Flex align="center" gap="2">
+                            <FileIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
+                            <Text>RFI Files - {dailyWork?.number}</Text>
+                        </Flex>
+                    </Dialog.Title>
+                    <Dialog.Description size="2" color="gray" mb="3">
+                        Manage uploaded RFI documents and images
+                    </Dialog.Description>
+
+                    <Box>
+                        {/* Upload Section */}
+                        <Box style={{ border: '2px dashed var(--gray-a6)', borderRadius: 'var(--radius-2)', padding: '16px', textAlign: 'center' }}>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                                onChange={handleFileSelect}
+                                style={{ display: 'none' }}
+                                id="rfi-file-input"
+                            />
+                            {uploading ? (
+                                <Flex direction="column" gap="2" align="center" py="4">
+                                    <Box style={{ width: '100%', maxWidth: 320, height: 8, background: 'var(--gray-a5)', borderRadius: 99, overflow: 'hidden' }}>
+                                        <Box style={{ width: `${uploadProgress}%`, height: '100%', background: 'var(--accent-9)', transition: 'width 300ms' }} />
+                                    </Box>
+                                    <Text size="1" color="gray">Uploading files... {uploadProgress}%</Text>
+                                </Flex>
+                            ) : (
+                                <label htmlFor="rfi-file-input" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 0' }}>
+                                    <Box style={{ padding: 12, borderRadius: '50%', background: 'var(--accent-a3)' }}>
+                                        <PlusIcon style={{ width: 24, height: 24, color: 'var(--accent-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Text size="2" weight="medium" as="p">Click to upload files</Text>
+                                        <Text size="1" color="gray" as="p">Images (JPEG, PNG, WebP, GIF) or PDF files up to 10MB each</Text>
+                                    </Box>
+                                </label>
+                            )}
+                        </Box>
+
+                        <Separator size="4" my="3" />
+
+                        {/* Files List */}
+                        {loading ? (
+                            <Flex justify="center" py="8">
+                                <Box style={{ width: 32, height: 32, border: '3px solid var(--accent-a6)', borderTop: '3px solid var(--accent-9)', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
+                            </Flex>
+                        ) : files.length === 0 ? (
+                            <Flex direction="column" align="center" py="8" gap="2">
+                                <FileIcon style={{ width: 48, height: 48, opacity: 0.5, color: 'var(--gray-9)' }} />
+                                <Text size="2" color="gray">No files uploaded yet</Text>
+                            </Flex>
+                        ) : (
+                            <ScrollArea style={{ maxHeight: 360 }}>
+                                <Flex direction="column" gap="2" pr="2">
+                                    {files.map((file) => (
+                                        <Flex
+                                            key={file.id}
+                                            align="center" gap="3"
+                                            style={{ padding: 12, borderRadius: 'var(--radius-2)', background: 'var(--gray-a2)' }}
                                         >
-                                            <div className="p-3 bg-primary/10 rounded-full">
-                                                <PlusIcon className="w-6 h-6 text-primary" />
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">Click to upload files</p>
-                                                <p className="text-xs text-default-400">
-                                                    Images (JPEG, PNG, WebP, GIF) or PDF files up to 10MB each
-                                                </p>
-                                            </div>
-                                        </label>
-                                    )}
-                                </div>
+                                            {renderFilePreview(file)}
+                                            <Box style={{ flex: 1, minWidth: 0 }}>
+                                                <Text size="2" weight="medium" as="p" title={file.name} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
+                                                    {file.name}
+                                                </Text>
+                                                <Flex align="center" gap="2" mt="1">
+                                                    <Badge color={file.is_image ? 'indigo' : 'red'} variant="soft" size="1">
+                                                        {file.is_image ? 'Image' : 'PDF'}
+                                                    </Badge>
+                                                    <Text size="1" color="gray">{file.human_size}</Text>
+                                                </Flex>
+                                            </Box>
+                                            <Flex align="center" gap="1">
+                                                <IconButton size="1" variant="ghost" color="gray" onClick={() => handlePreview(file)} title="Preview">
+                                                    <EyeOpenIcon style={{ width: 16, height: 16 }} />
+                                                </IconButton>
+                                                <IconButton size="1" variant="ghost" color="gray" onClick={() => handleDownload(file)} title="Download">
+                                                    <DownloadIcon style={{ width: 16, height: 16 }} />
+                                                </IconButton>
+                                                <IconButton size="1" variant="ghost" color="red" loading={deletingId === file.id} onClick={() => handleDelete(file.id)} title="Delete">
+                                                    {deletingId !== file.id && <TrashIcon style={{ width: 16, height: 16 }} />}
+                                                </IconButton>
+                                            </Flex>
+                                        </Flex>
+                                    ))}
+                                </Flex>
+                            </ScrollArea>
+                        )}
+                    </Box>
 
-                                <Divider className="my-2" />
-
-                                {/* Files List */}
-                                {loading ? (
-                                    <div className="flex justify-center py-8">
-                                        <Spinner size="lg" />
-                                    </div>
-                                ) : files.length === 0 ? (
-                                    <div className="text-center py-8 text-default-400">
-                                        <DocumentIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                        <p>No files uploaded yet</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {files.map((file) => (
-                                            <div
-                                                key={file.id}
-                                                className="flex items-center gap-3 p-3 bg-default-50 dark:bg-default-100/10 rounded-lg hover:bg-default-100 dark:hover:bg-default-100/20 transition-colors"
-                                            >
-                                                {/* File Preview */}
-                                                {renderFilePreview(file)}
-
-                                                {/* File Info */}
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium truncate" title={file.name}>
-                                                        {file.name}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <Chip
-                                                            size="sm"
-                                                            variant="flat"
-                                                            color={file.is_image ? 'primary' : 'danger'}
-                                                            className="h-5"
-                                                        >
-                                                            {file.is_image ? 'Image' : 'PDF'}
-                                                        </Chip>
-                                                        <span className="text-xs text-default-400">
-                                                            {file.human_size}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Actions */}
-                                                <div className="flex items-center gap-1">
-                                                    <Button
-                                                        isIconOnly
-                                                        size="sm"
-                                                        variant="light"
-                                                        onPress={() => handlePreview(file)}
-                                                        title="Preview"
-                                                    >
-                                                        <EyeIcon className="w-4 h-4" />
-                                                    </Button>
-                                                    <Button
-                                                        isIconOnly
-                                                        size="sm"
-                                                        variant="light"
-                                                        onPress={() => handleDownload(file)}
-                                                        title="Download"
-                                                    >
-                                                        <ArrowDownTrayIcon className="w-4 h-4" />
-                                                    </Button>
-                                                    <Button
-                                                        isIconOnly
-                                                        size="sm"
-                                                        variant="light"
-                                                        color="danger"
-                                                        isLoading={deletingId === file.id}
-                                                        onPress={() => handleDelete(file.id)}
-                                                        title="Delete"
-                                                    >
-                                                        {deletingId !== file.id && <TrashIcon className="w-4 h-4" />}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </ModalBody>
-
-                            <ModalFooter>
-                                <div className="flex items-center justify-between w-full">
-                                    <span className="text-sm text-default-500">
-                                        {files.length} file{files.length !== 1 ? 's' : ''} uploaded
-                                    </span>
-                                    <Button color="primary" variant="light" onPress={onCloseModal}>
-                                        Close
-                                    </Button>
-                                </div>
-                            </ModalFooter>
-                        </>
-                    )}
-                </ModalContent>
-            </Modal>
+                    <Flex justify="between" align="center" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
+                        <Text size="2" color="gray">{files.length} file{files.length !== 1 ? 's' : ''} uploaded</Text>
+                        <Button color="indigo" variant="ghost" onClick={onClose}>Close</Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
 
             {/* Image Preview Modal */}
             {previewFile && (
-                <Modal
-                    isOpen={!!previewFile}
-                    onClose={() => setPreviewFile(null)}
-                    size="4xl"
-                    placement="bottom-center"
-                    classNames={{
-                        base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
-                        wrapper: "items-end sm:items-center",
-                    }}
-                >
-                    <ModalContent>
-                        {(onClosePreview) => (
-                            <>
-                                <ModalHeader className="flex items-center justify-between">
-                                    <span className="truncate">{previewFile.name}</span>
-                                    <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="light"
-                                        onPress={onClosePreview}
-                                    >
-                                        <XMarkIcon className="w-5 h-5" />
-                                    </Button>
-                                </ModalHeader>
-                                <ModalBody className="p-0">
-                                    <Image
-                                        src={previewFile.url}
-                                        alt={previewFile.name}
-                                        className="w-full h-auto max-h-[70vh] object-contain"
-                                        removeWrapper
-                                    />
-                                </ModalBody>
-                            </>
-                        )}
-                    </ModalContent>
-                </Modal>
+                <Dialog.Root open={!!previewFile} onOpenChange={(v) => { if (!v) setPreviewFile(null); }}>
+                    <Dialog.Content maxWidth="900px" style={{ padding: 0 }}>
+                        <Flex align="center" justify="between" px="4" py="3" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+                            <Text size="2" weight="medium" style={{ maxWidth: '80%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewFile.name}</Text>
+                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setPreviewFile(null)}>
+                                <Cross2Icon style={{ width: 20, height: 20 }} />
+                            </IconButton>
+                        </Flex>
+                        <Box>
+                            <img
+                                src={previewFile.url}
+                                alt={previewFile.name}
+                                style={{ width: '100%', height: 'auto', objectFit: 'contain', maxHeight: '70vh', display: 'block' }}
+                            />
+                        </Box>
+                    </Dialog.Content>
+                </Dialog.Root>
             )}
         </>
     );

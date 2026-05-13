@@ -1,25 +1,7 @@
-import React, {useState} from "react";
-import {
-    Checkbox,
-    Button,
-    Spinner,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-} from "@/compat/heroui";
-import { X, Download } from 'lucide-react';
-
+import React, { useState } from "react";
+import { Dialog, Button, Checkbox, Table, Flex, Text } from "@radix-ui/themes";
+import { Cross2Icon, DownloadIcon } from "@radix-ui/react-icons";
 import { showToast } from "@/utils/toastUtils";
-import GlassDialog from "@/Components/GlassDialog.jsx";
-
 import * as XLSX from 'xlsx';
 
 
@@ -122,60 +104,11 @@ const DailyWorkSummaryDownloadForm = ({ open, closeModal,  filteredData, users }
             }
         });
 
-        showToast.promise(
-            promise,
-            {
-                pending: {
-                    render() {
-                        return (
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <Spinner size="sm" />
-                                <span style={{ marginLeft: '8px' }}>Exporting data to Excel ...</span>
-                            </div>
-                        );
-                    },
-                    icon: false,
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary
-                    }
-                },
-                success: {
-                    render({ data }) {
-                        return (
-                            <>
-                                {data}
-                            </>
-                        );
-                    },
-                    icon: '🟢',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary
-                    }
-                },
-                error: {
-                    render({ data }) {
-                        return (
-                            <>
-                                {data}
-                            </>
-                        );
-                    },
-                    icon: '🔴',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary
-                    }
-                }
-            }
-        );
+        showToast.promise(promise, {
+            pending: 'Exporting data to Excel...',
+            success: 'Export successful!',
+            error: 'Failed to export data. Please try again.',
+        });
     };
 
 
@@ -183,53 +116,42 @@ const DailyWorkSummaryDownloadForm = ({ open, closeModal,  filteredData, users }
 
 
     return (
-        <GlassDialog open={open} onClose={closeModal}>
-            <ModalContent>
-                <ModalHeader className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold">Export Daily Works</h2>
-                    <Button
-                        isIconOnly
-                        variant="light"
-                        onPress={closeModal}
-                        className="absolute top-2 right-2"
-                    >
-                        <X size={20} />
+        <Dialog.Root open={open} onOpenChange={(v) => { if (!v) closeModal(); }}>
+            <Dialog.Content maxWidth="520px">
+                <Flex justify="between" align="center" mb="3">
+                    <Dialog.Title mb="0">Export Daily Works Summary</Dialog.Title>
+                    <Button variant="ghost" size="1" onClick={closeModal}><Cross2Icon /></Button>
+                </Flex>
+
+                <Table.Root variant="surface" mb="4">
+                    <Table.Header>
+                        <Table.Row>
+                            <Table.ColumnHeaderCell>Column Label</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Include in Export</Table.ColumnHeaderCell>
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {selectedColumns.map((column, index) => (
+                            <Table.Row key={column.key}>
+                                <Table.Cell><Text size="2">{column.label}</Text></Table.Cell>
+                                <Table.Cell>
+                                    <Checkbox
+                                        checked={column.checked}
+                                        onCheckedChange={() => handleCheckboxChange(index)}
+                                    />
+                                </Table.Cell>
+                            </Table.Row>
+                        ))}
+                    </Table.Body>
+                </Table.Root>
+
+                <Flex justify="center">
+                    <Button color="indigo" onClick={() => exportToExcel(selectedColumns)}>
+                        <DownloadIcon /> Download
                     </Button>
-                </ModalHeader>
-                <ModalBody>
-                    <Table aria-label="Export columns selection">
-                        <TableHeader>
-                            <TableColumn>Column Label</TableColumn>
-                            <TableColumn align="center">Include in Export</TableColumn>
-                        </TableHeader>
-                        <TableBody>
-                            {selectedColumns.map((column, index) => (
-                                <TableRow key={column.key}>
-                                    <TableCell>{column.label}</TableCell>
-                                    <TableCell className="text-center">
-                                        <Checkbox
-                                            isSelected={column.checked}
-                                            onValueChange={() => handleCheckboxChange(index)}
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ModalBody>
-                <ModalFooter className="flex justify-center">
-                    <Button
-                        variant="bordered"
-                        color="primary"
-                        onPress={() => exportToExcel(selectedColumns)}
-                        startContent={<Download size={16} />}
-                        className="rounded-full px-4 py-2"
-                    >
-                        Download
-                    </Button>
-                </ModalFooter>
-            </ModalContent>
-        </GlassDialog>
+                </Flex>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

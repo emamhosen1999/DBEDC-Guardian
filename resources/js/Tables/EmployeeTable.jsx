@@ -33,25 +33,20 @@ import {
   Pagination
 } from "@/compat/heroui";
 import {
-  PencilIcon,
-  TrashIcon,
-  EllipsisVerticalIcon,
-  UserIcon,
-  BuildingOfficeIcon,
-  BriefcaseIcon,
-  EnvelopeIcon,
-  PhoneIcon,
+  BackpackIcon,
   ClockIcon,
-  CogIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  HashtagIcon,
-  MapPinIcon,
-  WifiIcon,
-  MapIcon,
-  QrCodeIcon,
-  UsersIcon,
-} from "@heroicons/react/24/outline";
+  DashboardIcon,
+  DotsHorizontalIcon,
+  DotsVerticalIcon,
+  EnvelopeClosedIcon,
+  GlobeIcon,
+  HomeIcon,
+  MobileIcon,
+  Pencil1Icon,
+  PersonIcon,
+  TargetIcon,
+  TrashIcon,
+} from "@radix-ui/react-icons";
 import DeleteEmployeeModal from '@/Components/DeleteEmployeeModal';
 import ProfilePictureModal from '@/Components/ProfilePictureModal';
 import ProfileAvatar, { getProfileAvatarTokens } from '@/Components/ProfileAvatar';
@@ -88,21 +83,6 @@ const EmployeeTable = ({
     employee: null
   });
 
-  // Helper function to convert theme borderRadius to HeroUI radius values
-  const getThemeRadius = () => {
-    if (typeof window === 'undefined') return 'lg';
-    
-    const rootStyles = getComputedStyle(document.documentElement);
-    const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-    
-    const radiusValue = parseInt(borderRadius);
-    if (radiusValue === 0) return 'none';
-    if (radiusValue <= 4) return 'sm';
-    if (radiusValue <= 8) return 'md';
-    if (radiusValue <= 16) return 'lg';
-    return 'full';
-  };
-
   // Helper to extract base slug (removes _2, _3, etc. suffixes)
   const getBaseSlug = (slug) => {
     if (!slug) return '';
@@ -136,6 +116,9 @@ const EmployeeTable = ({
         // Has QR codes configured
         return (config.code) ||
                (config.qr_codes && config.qr_codes.length > 0);
+      case 'biometric':
+        // Biometric type is always valid if active (validation is per-user enrollment)
+        return true;
       default:
         return false;
     }
@@ -143,26 +126,11 @@ const EmployeeTable = ({
 
   // Category configuration for grouping
   const categoryConfig = {
-    'geo_polygon': {
-      title: 'Geo Polygon',
-      icon: MapPinIcon,
-      color: 'warning',
-    },
-    'wifi_ip': {
-      title: 'WiFi/IP',
-      icon: WifiIcon,
-      color: 'secondary',
-    },
-    'route_waypoint': {
-      title: 'Route Waypoint',
-      icon: MapIcon,
-      color: 'primary',
-    },
-    'qr_code': {
-      title: 'QR Code',
-      icon: QrCodeIcon,
-      color: 'success',
-    },
+    'geo_polygon': { title: 'Geo Polygon', icon: TargetIcon, color: 'warning' },
+    'wifi_ip': { title: 'WiFi/IP', icon: GlobeIcon, color: 'secondary' },
+    'route_waypoint': { title: 'Route Waypoint', icon: DotsHorizontalIcon, color: 'primary' },
+    'qr_code': { title: 'QR Code', icon: DashboardIcon, color: 'success' },
+    'biometric': { title: 'Biometric', icon: MobileIcon, color: 'primary' },
   };
 
   // Group attendance types by category, only including those with valid config
@@ -683,16 +651,16 @@ const EmployeeTable = ({
             {isMobile && (
               <div className="flex flex-col gap-1 text-xs text-default-500 ml-10 mt-2">
                 <div className="flex items-center gap-1 whitespace-nowrap">
-                  <HashtagIcon className="w-3 h-3" />
+                  <span style={{ fontSize: 11, fontWeight: 600 }}>#</span>
                   {user?.employee_id || 'N/A'}
                 </div>
                 <div className="flex items-center gap-1">
-                  <EnvelopeIcon className="w-3 h-3" />
+                  <EnvelopeClosedIcon style={{ width: 12, height: 12 }} />
                   <span className="truncate max-w-[150px]">{user?.email}</span>
                 </div>
                 {user?.phone && (
                   <div className="flex items-center gap-1 whitespace-nowrap">
-                    <PhoneIcon className="w-3 h-3" />
+                    <MobileIcon style={{ width: 12, height: 12 }} />
                     {user?.phone}
                   </div>
                 )}
@@ -705,12 +673,12 @@ const EmployeeTable = ({
         return (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2 text-sm">
-              <EnvelopeIcon className="w-4 h-4 text-default-400" />
+              <EnvelopeClosedIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} />
               <span className="text-foreground">{user?.email}</span>
             </div>
             {user?.phone && (
               <div className="flex items-center gap-2 text-sm">
-                <PhoneIcon className="w-4 h-4 text-default-400" />
+                <MobileIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} />
                 <span className="text-foreground">{user?.phone}</span>
               </div>
             )}
@@ -725,8 +693,8 @@ const EmployeeTable = ({
                     variant="bordered"
                     size="sm"
                     className="justify-between backdrop-blur-md border-white/20 min-w-[150px] bg-white/10 hover:bg-white/15 transition-all duration-300"
-                    startContent={<BuildingOfficeIcon className="w-4 h-4" />}
-                    endContent={<EllipsisVerticalIcon className="w-4 h-4 rotate-90" />}
+                    startContent={<HomeIcon style={{ width: 16, height: 16 }} />}
+                    endContent={<DotsHorizontalIcon style={{ width: 16, height: 16 }} />}
                   >
                     <span>
                       {user.department_name || "Select Department"}
@@ -764,8 +732,8 @@ const EmployeeTable = ({
                         : 'bg-white/10 hover:bg-white/15'
                     }`}
                     isDisabled={!departmentId}
-                    startContent={<BriefcaseIcon className="w-4 h-4" />}
-                    endContent={departmentId && <EllipsisVerticalIcon className="w-4 h-4 rotate-90" />}
+                    startContent={<BackpackIcon style={{ width: 16, height: 16 }} />}
+                    endContent={departmentId && <DotsHorizontalIcon style={{ width: 16, height: 16 }} />}
                   >
                     <span>
                       {!departmentId ? 'Select Department First' :
@@ -903,40 +871,44 @@ const EmployeeTable = ({
 
       case "attendance_type":
         const hasConfiguredTypes = groupedAttendanceTypes.length > 0;
-        
+        const biometricType = attendanceTypes?.find(t => t.slug === 'biometric');
+        const userBiometricEnrollments = user.biometric_enrollments || [];
+        const hasBiometricEnrollment = userBiometricEnrollments.length > 0 && biometricType;
+        const hasAnyOptions = hasConfiguredTypes || hasBiometricEnrollment;
+
         return (
           <div className="flex flex-col gap-2 min-w-[180px]">
-            <Dropdown isDisabled={!hasConfiguredTypes}>
+            <Dropdown isDisabled={!hasAnyOptions}>
               <DropdownTrigger>
-                <Button 
+                <Button
                   variant="bordered"
                   size="sm"
                   className={`justify-between backdrop-blur-md border-white/20 min-w-[180px] transition-all duration-300 ${
-                    !hasConfiguredTypes
+                    !hasAnyOptions
                       ? 'bg-gray-500/20 border-gray-400/40 opacity-50'
                       : 'bg-white/10 hover:bg-white/15'
                   }`}
-                  startContent={<ClockIcon className="w-4 h-4" />}
-                  endContent={hasConfiguredTypes && <EllipsisVerticalIcon className="w-4 h-4 rotate-90" />}
+                  startContent={<ClockIcon style={{ width: 16, height: 16 }} />}
+                  endContent={hasAnyOptions && <DotsHorizontalIcon style={{ width: 16, height: 16 }} />}
                 >
                   <span className="truncate">
-                    {!hasConfiguredTypes 
-                      ? 'No Types Configured' 
+                    {!hasAnyOptions
+                      ? 'No Options'
                       : (user.attendance_type_name || "Select Type")}
                   </span>
                 </Button>
               </DropdownTrigger>
-              <DropdownMenu 
+              <DropdownMenu
                 aria-label="Attendance Type options"
                 className="min-w-[200px]"
               >
                 {groupedAttendanceTypes.map((category, categoryIndex) => {
                   const CategoryIcon = category.icon;
                   return (
-                    <DropdownSection 
+                    <DropdownSection
                       key={category.slug}
                       title={category.title}
-                      showDivider={categoryIndex < groupedAttendanceTypes.length - 1}
+                      showDivider={categoryIndex < groupedAttendanceTypes.length - 1 || hasBiometricEnrollment}
                       classNames={{
                         heading: "flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-default-500 px-2 py-1"
                       }}
@@ -956,6 +928,28 @@ const EmployeeTable = ({
                     </DropdownSection>
                   );
                 })}
+                {/* Biometric section - per-user devices */}
+                {hasBiometricEnrollment && (
+                  <DropdownSection
+                    title="Biometric Devices"
+                    classNames={{
+                      heading: "flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-default-500 px-2 py-1"
+                    }}
+                  >
+                    {userBiometricEnrollments.map((enrollment) => (
+                      <DropdownItem
+                        key={`bio-${enrollment.device_id}`}
+                        onPress={() => handleAttendanceTypeChange(user.id, biometricType.id)}
+                        startContent={
+                          <span className="text-base">📱</span>
+                        }
+                        description={`Device ID: ${enrollment.device_user_id}`}
+                      >
+                        Biometric: {enrollment.device_name}
+                      </DropdownItem>
+                    ))}
+                  </DropdownSection>
+                )}
               </DropdownMenu>
             </Dropdown>
           </div>
@@ -971,13 +965,13 @@ const EmployeeTable = ({
                   variant="light" 
                   className="text-default-400 hover:text-foreground transition-all duration-300"
                 >
-                  <EllipsisVerticalIcon className="w-5 h-5" />
+                  <DotsVerticalIcon style={{ width: 20, height: 20 }} />
                 </Button>
               </DropdownTrigger>
               <DropdownMenu aria-label="Employee Actions">
                 <DropdownItem 
                   key="edit" 
-                  startContent={<PencilIcon className="w-4 h-4" />}
+                  startContent={<Pencil1Icon style={{ width: 16, height: 16 }} />}
                   href={route('profile', { user: user.id })}
                   as={Link}
                   
@@ -989,7 +983,7 @@ const EmployeeTable = ({
                   key="delete" 
                   className="text-danger"
                   color="danger"
-                  startContent={<TrashIcon className="w-4 h-4" />}
+                  startContent={<TrashIcon style={{ width: 16, height: 16 }} />}
                   onPress={() => handleDeleteClick(user)}
                 >
                   Delete
@@ -1050,7 +1044,6 @@ const EmployeeTable = ({
         background: `color-mix(in srgb, var(--theme-content1) 85%, transparent)`,
         backdropFilter: 'blur(16px)',
         border: `1px solid color-mix(in srgb, var(--theme-content2) 50%, transparent)`,
-        borderRadius: getThemeRadius(),
       }}
     >
       {/* Global loading overlay */}
@@ -1060,7 +1053,6 @@ const EmployeeTable = ({
           style={{
             background: 'color-mix(in srgb, var(--theme-content1) 20%, transparent)',
             backdropFilter: 'blur(8px)',
-            borderRadius: getThemeRadius(),
           }}
         >
           <div 
@@ -1068,7 +1060,6 @@ const EmployeeTable = ({
             style={{
               background: `color-mix(in srgb, var(--theme-content2) 50%, transparent)`,
               border: `1px solid color-mix(in srgb, var(--theme-content3) 50%, transparent)`,
-              borderRadius: getThemeRadius(),
               backdropFilter: 'blur(16px)',
             }}
           >
@@ -1125,9 +1116,8 @@ const EmployeeTable = ({
             items={allUsers || []} 
             emptyContent={
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <UserIcon 
-                  className="w-12 h-12 mb-4 opacity-40"
-                  style={{ color: 'var(--theme-foreground)' }}
+                <PersonIcon 
+                  style={{ width: 48, height: 48, marginBottom: 16, opacity: 0.4, color: 'var(--theme-foreground)' }}
                 />
                 <h6 
                   className="text-lg font-semibold mb-2"

@@ -1,48 +1,28 @@
 import {
-  HomeIcon,
-  UserGroupIcon,
-  CalendarDaysIcon,
-  Cog6ToothIcon,
-  CalendarIcon,
   ArrowRightOnRectangleIcon,
-  EnvelopeIcon,
-  DocumentTextIcon,
-  BriefcaseIcon,
-  UsersIcon,
-  FolderIcon, 
-  ChartBarSquareIcon, 
-  CreditCardIcon,
-  ShoppingBagIcon,
-  BuildingOffice2Icon,
-  BanknotesIcon,
-  WrenchScrewdriverIcon,
-  ClipboardDocumentCheckIcon,
-  DocumentDuplicateIcon,
-  ShieldCheckIcon,
-  ShieldExclamationIcon,
-  ComputerDesktopIcon,
-  PhoneIcon,
-  UserIcon,
-  ArchiveBoxIcon,
-  AcademicCapIcon,
-  TruckIcon,
-  ShoppingCartIcon,
-  TicketIcon,
   BeakerIcon,
-  CubeIcon,
-  ScaleIcon,
-  BuildingStorefrontIcon,
-  ArrowPathIcon,
-  CurrencyDollarIcon,
-  ClockIcon,
-  DocumentTextIcon as DocumentTextIconLegacy,
-  ShoppingBagIcon as ShoppingBagIconLegacy,
-  MapPinIcon,
-  // New icons added for settings regrouping:
-  Squares2X2Icon,
+  BriefcaseIcon,
+  BuildingOffice2Icon,
   BuildingOfficeIcon,
+  CalendarDaysIcon,
+  CalendarIcon,
+  ChartBarSquareIcon,
+  ClipboardDocumentCheckIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  ComputerDesktopIcon,
+  CubeIcon,
+  DocumentDuplicateIcon,
+  DocumentTextIcon,
+  FolderIcon,
   HandThumbUpIcon,
-  KeyIcon
+  HomeIcon,
+  KeyIcon,
+  MapPinIcon,
+  PhoneIcon,
+  ScaleIcon,
+  UserGroupIcon,
+  UsersIcon
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
@@ -54,9 +34,8 @@ export const getPages = (roles, permissions, auth = null) => {
   // 2. Define the shared items list (so we don't write it twice)
   const workspaceItems = [
     ...(permissions.includes('daily-works.view') ? [
-      { name: 'My Daily Work', icon: <DocumentTextIcon />, route: 'daily-works' },
-      ...(!isOnlyEmployee ? [{ name: 'Work Summary', icon: <ChartBarSquareIcon />, route: 'daily-works-summary' }] : []),
-      { name: 'My Objections', icon: <ShieldExclamationIcon />, route: 'objections.index' },
+      { name: 'Daily Works', icon: <DocumentTextIcon />, route: 'daily-works-unified' },
+     
     ] : []),
     
     ...(permissions.includes('attendance.own.view') ? [
@@ -167,6 +146,7 @@ export const getPages = (roles, permissions, auth = null) => {
       priority: 8,
       module: 'admin',
       subMenu: [
+         
           ...(permissions.includes('users.view') ? [{ 
               name: 'Users', 
               icon: <UsersIcon />, 
@@ -193,6 +173,12 @@ export const getPages = (roles, permissions, auth = null) => {
             route: 'attendance-settings.index',
             priority: 3,
             description: 'Configure attendance tracking and workforce management'
+          }, {
+            name: 'Biometric Devices', 
+            icon: <PhoneIcon className="w-5 h-5" />, 
+            route: 'biometric-devices.index',
+            priority: 3,
+            description: 'Manage ZKTeco biometric devices and user enrollments'
           }] : []),
           ...(permissions.includes('leave-settings.view') ? [{
             name: 'Leave Policy', 

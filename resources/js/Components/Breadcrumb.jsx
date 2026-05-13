@@ -4,21 +4,17 @@ import { HomeIcon } from '@radix-ui/react-icons';
 import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { getPages } from '@/Props/pages.jsx';
-import { getSettingsPages } from '@/Props/settings.jsx';
 
 const Breadcrumb = () => {
     const { props, url } = usePage();
     const { title, auth } = props;
     
-    // Get permissions and determine if we're on a settings page
+    // Get permissions
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
-    const isSettingsPage = url.startsWith('/settings') || url.includes('settings');
     
-    // Get the appropriate pages data
-    const pages = isSettingsPage 
-        ? getSettingsPages(permissions, auth) 
-        : getPages(roles, permissions, auth);
+    // Get the pages data
+    const pages = getPages(roles, permissions, auth);
     
     // Function to find a page by route name in nested structure
     const findPageByRoute = (pages, routeName) => {

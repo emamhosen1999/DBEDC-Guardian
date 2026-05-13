@@ -1,24 +1,18 @@
 import React, { useEffect, useMemo, useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { Card, Box, Flex, Text } from "@radix-ui/themes";
 import {
-    Card,
-    CardBody,
-    CardHeader,
-    Chip,
-    Skeleton,
-    Tooltip,
-} from "@/compat/heroui";
-import {
-    ArrowTrendingUpIcon,
-    ArrowTrendingDownIcon,
-    ChartBarIcon,
-    CheckCircleIcon,
-    ClockIcon,
-    DocumentTextIcon,
-    UserIcon,
-    SparklesIcon,
-    CalendarDaysIcon,
-    ArrowPathIcon,
-} from "@heroicons/react/24/outline";
+    TriangleUpIcon,
+    TriangleDownIcon,
+    BarChartIcon,
+    CheckCircledIcon,
+    TimerIcon,
+    FileTextIcon,
+    PersonIcon,
+    StarIcon,
+    CalendarIcon,
+    ReloadIcon,
+} from "@radix-ui/react-icons";
+
 import {
     AreaChart,
     Area,
@@ -41,6 +35,10 @@ import { route } from "ziggy-js";
 import dayjs from "dayjs";
 import { showToast } from "@/utils/toastUtils";
 
+const SkeletonBox = ({ height = 96 }) => (
+    <div style={{ height, background: 'var(--gray-a4)', borderRadius: 'var(--radius-2)' }} />
+);
+
 const PALETTE = {
     primary: "#0070F0",
     success: "#17C964",
@@ -56,124 +54,69 @@ const PALETTE = {
  * Lightweight wrapper that lets the parent capture a chart container as PNG
  * for inclusion in the PDF export.
  */
-const ChartCard = ({ id, title, subtitle, icon, children, className = "" }) => (
-    <Card
-        className={`bg-content2/50 backdrop-blur-sm ${className}`}
-        style={{ borderRadius: "var(--borderRadius, 12px)" }}
-        data-chart-id={id}
-    >
-        <CardHeader className="pb-1">
-            <div className="flex items-center gap-2 w-full">
-                {icon && (
-                    <div className="p-1.5 rounded-md bg-primary/10">{icon}</div>
-                )}
-                <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground truncate">
-                        {title}
-                    </h3>
-                    {subtitle && (
-                        <p className="text-xs text-default-500 truncate">{subtitle}</p>
-                    )}
-                </div>
-            </div>
-        </CardHeader>
-        <CardBody className="pt-2">{children}</CardBody>
+const ChartCard = ({ id, title, subtitle, icon, children }) => (
+    <Card data-chart-id={id}>
+        <Box px="3" pt="3" pb="1">
+            <Flex align="center" gap="2">
+                {icon && <Box p="1" style={{ borderRadius: 'var(--radius-1)', background: 'var(--accent-a3)' }}>{icon}</Box>}
+                <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="2" weight="bold" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</Text>
+                    {subtitle && <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</Text>}
+                </Box>
+            </Flex>
+        </Box>
+        <Box px="3" pb="3" pt="2">{children}</Box>
     </Card>
 );
 
-const KpiCard = ({ label, value, sub, icon, color = "primary", trend = null }) => {
-    const colorMap = {
-        primary: "text-primary",
-        success: "text-success",
-        warning: "text-warning",
-        danger: "text-danger",
-        secondary: "text-secondary",
-    };
+const radixColorMap = { primary: 'indigo', success: 'green', warning: 'orange', danger: 'red', secondary: 'violet' };
 
+const KpiCard = ({ label, value, sub, icon, color = 'primary', trend = null }) => {
+    const rc = radixColorMap[color] || 'indigo';
     return (
-        <Card
-            className="bg-content2/40 hover:bg-content2/60 transition-colors"
-            style={{ borderRadius: "var(--borderRadius, 12px)" }}
-        >
-            <CardBody className="p-3 sm:p-4">
-                <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                        <p className="text-[11px] uppercase tracking-wide text-default-500 font-medium truncate">
-                            {label}
-                        </p>
-                        <p className={`text-2xl font-bold ${colorMap[color]} mt-1`}>
-                            {value}
-                        </p>
-                        {sub && (
-                            <p className="text-xs text-default-500 mt-1 truncate">{sub}</p>
-                        )}
+        <Card>
+            <Box p="3">
+                <Flex align="start" justify="between" gap="2">
+                    <Box style={{ flex: 1, minWidth: 0 }}>
+                        <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</Text>
+                        <Text size="6" weight="bold" color={rc} as="p" mt="1">{value}</Text>
+                        {sub && <Text size="1" color="gray" as="p" mt="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</Text>}
                         {trend !== null && trend !== 0 && (
-                            <div className="flex items-center gap-1 mt-1">
-                                {trend > 0 ? (
-                                    <ArrowTrendingUpIcon className="w-3 h-3 text-success" />
-                                ) : (
-                                    <ArrowTrendingDownIcon className="w-3 h-3 text-danger" />
-                                )}
-                                <span
-                                    className={`text-xs font-semibold ${
-                                        trend > 0 ? "text-success" : "text-danger"
-                                    }`}
-                                >
-                                    {trend > 0 ? "+" : ""}
-                                    {trend}%
-                                </span>
-                            </div>
+                            <Flex align="center" gap="1" mt="1">
+                                {trend > 0 ? <TriangleUpIcon style={{ color: 'var(--green-9)', width: 12, height: 12 }} /> : <TriangleDownIcon style={{ color: 'var(--red-9)', width: 12, height: 12 }} />}
+                                <Text size="1" weight="bold" color={trend > 0 ? 'green' : 'red'}>{trend > 0 ? '+' : ''}{trend}%</Text>
+                            </Flex>
                         )}
-                    </div>
-                    <div className={`p-2 rounded-lg bg-${color}/10 flex-shrink-0`}>
-                        {React.cloneElement(icon, {
-                            className: `w-5 h-5 ${colorMap[color]}`,
-                        })}
-                    </div>
-                </div>
-            </CardBody>
+                    </Box>
+                    <Box p="2" style={{ borderRadius: 'var(--radius-2)', background: `var(--${rc}-a3)`, flexShrink: 0 }}>
+                        {React.cloneElement(icon, { style: { width: 18, height: 18, color: `var(--${rc}-9)` } })}
+                    </Box>
+                </Flex>
+            </Box>
         </Card>
     );
 };
 
-const HighlightTile = ({ label, value, sub, color = "primary" }) => {
-    const colorMap = {
-        primary: "from-primary/10 to-primary/5 text-primary",
-        success: "from-success/10 to-success/5 text-success",
-        warning: "from-warning/10 to-warning/5 text-warning",
-        danger: "from-danger/10 to-danger/5 text-danger",
-    };
-
+const HighlightTile = ({ label, value, sub, color = 'primary' }) => {
+    const rc = radixColorMap[color] || 'indigo';
     return (
-        <div
-            className={`bg-gradient-to-br ${colorMap[color]} p-3 rounded-lg border border-divider/30`}
-            style={{ borderRadius: "var(--borderRadius, 8px)" }}
-        >
-            <p className="text-[11px] uppercase tracking-wide text-default-500 font-medium">
-                {label}
-            </p>
-            <p className={`text-base font-bold mt-1 ${colorMap[color].split(" ").pop()}`}>
-                {value}
-            </p>
-            {sub && <p className="text-xs text-default-500 mt-0.5">{sub}</p>}
-        </div>
+        <Box p="3" style={{ background: `var(--${rc}-a3)`, border: `1px solid var(--${rc}-a6)`, borderRadius: 'var(--radius-2)' }}>
+            <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>{label}</Text>
+            <Text size="3" weight="bold" color={rc} as="p" mt="1">{value}</Text>
+            {sub && <Text size="1" color="gray" as="p">{sub}</Text>}
+        </Box>
     );
 };
 
 const TooltipContent = ({ active, payload, label, formatter }) => {
     if (!active || !payload || !payload.length) return null;
     return (
-        <div className="bg-content1 border border-divider rounded-lg shadow-lg p-2 text-xs">
-            {label && <p className="font-semibold mb-1">{label}</p>}
+        <div style={{ background: 'var(--color-panel-solid)', border: '1px solid var(--gray-a6)', borderRadius: 'var(--radius-2)', boxShadow: 'var(--shadow-3)', padding: '6px 10px', fontSize: 12 }}>
+            {label && <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>}
             {payload.map((entry, idx) => (
-                <div key={idx} className="flex items-center gap-1.5">
-                    <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ background: entry.color }}
-                    />
-                    <span className="text-default-600">
-                        {entry.name}: <strong>{formatter ? formatter(entry.value) : entry.value}</strong>
-                    </span>
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: entry.color, flexShrink: 0 }} />
+                    <span style={{ color: 'var(--gray-11)' }}>{entry.name}: <strong>{formatter ? formatter(entry.value) : entry.value}</strong></span>
                 </div>
             ))}
         </div>
@@ -291,134 +234,64 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
 
     if (loading && !analytics) {
         return (
-            <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <Skeleton key={i} className="h-24 rounded-lg" />
-                    ))}
-                </div>
-                <Skeleton className="h-72 rounded-lg" />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    <Skeleton className="h-72 rounded-lg" />
-                    <Skeleton className="h-72 rounded-lg" />
-                </div>
-            </div>
+            <Flex direction="column" gap="4">
+                <Flex gap="3">{Array.from({ length: 4 }).map((_, i) => <Box key={i} style={{ flex: 1 }}><SkeletonBox height={96} /></Box>)}</Flex>
+                <SkeletonBox height={288} />
+                <Flex gap="3">
+                    <Box style={{ flex: 1 }}><SkeletonBox height={288} /></Box>
+                    <Box style={{ flex: 1 }}><SkeletonBox height={288} /></Box>
+                </Flex>
+            </Flex>
         );
     }
 
     if (!analytics || kpi.totalWorks === 0) {
         return (
-            <Card className="bg-content2/50" style={{ borderRadius: "var(--borderRadius, 12px)" }}>
-                <CardBody className="p-12 text-center">
-                    <ChartBarIcon className="w-12 h-12 text-default-300 mx-auto mb-3" />
-                    <p className="text-base font-medium text-default-600">
-                        No analytics data available
-                    </p>
-                    <p className="text-sm text-default-500 mt-1">
-                        Adjust your filters or import daily works to see analytics
-                    </p>
-                </CardBody>
+            <Card>
+                <Flex direction="column" align="center" py="9" gap="2" style={{ textAlign: 'center' }}>
+                    <BarChartIcon style={{ width: 48, height: 48, color: 'var(--gray-8)' }} />
+                    <Text size="3" weight="medium" color="gray" as="p">No analytics data available</Text>
+                    <Text size="2" color="gray" as="p">Adjust your filters or import daily works to see analytics</Text>
+                </Flex>
             </Card>
         );
     }
 
     return (
-        <div ref={containerRef} className="space-y-4">
+        <Flex ref={containerRef} direction="column" gap="4">
             {/* KPI Cards Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <KpiCard
-                    label="Total Works"
-                    value={kpi.totalWorks?.toLocaleString() || 0}
-                    sub="In selected period"
-                    icon={<DocumentTextIcon />}
-                    color="primary"
-                />
-                <KpiCard
-                    label="Completed"
-                    value={kpi.completed?.toLocaleString() || 0}
-                    sub={`${kpi.completionRate || 0}% completion rate`}
-                    icon={<CheckCircleIcon />}
-                    color="success"
-                    trend={kpi.trendDirection}
-                />
-                <KpiCard
-                    label="Pending"
-                    value={kpi.pending?.toLocaleString() || 0}
-                    sub="In progress / new"
-                    icon={<ClockIcon />}
-                    color="warning"
-                />
-                <KpiCard
-                    label="RFI Submissions"
-                    value={kpi.rfiSubmissions?.toLocaleString() || 0}
-                    sub={`${kpi.rfiRate || 0}% RFI rate`}
-                    icon={<DocumentTextIcon />}
-                    color="primary"
-                />
-                <KpiCard
-                    label="Avg Daily Works"
-                    value={kpi.avgDailyWorks || 0}
-                    sub="Throughput per day"
-                    icon={<ChartBarIcon />}
-                    color="secondary"
-                />
-                <KpiCard
-                    label="Resubmissions"
-                    value={kpi.totalResubmissions?.toLocaleString() || 0}
-                    sub={`${kpi.worksWithResubmissions || 0} works affected`}
-                    icon={<ArrowPathIcon />}
-                    color="danger"
-                />
-            </div>
+            <Flex gap="3" wrap="wrap">
+                {[
+                    { label: 'Total Works',    value: kpi.totalWorks?.toLocaleString() || 0,         sub: 'In selected period',                     icon: <FileTextIcon />,      color: 'primary' },
+                    { label: 'Completed',      value: kpi.completed?.toLocaleString() || 0,           sub: `${kpi.completionRate || 0}% rate`,        icon: <CheckCircledIcon />,  color: 'success', trend: kpi.trendDirection },
+                    { label: 'Pending',        value: kpi.pending?.toLocaleString() || 0,             sub: 'In progress / new',                      icon: <TimerIcon />,         color: 'warning' },
+                    { label: 'RFI Submissions',value: kpi.rfiSubmissions?.toLocaleString() || 0,      sub: `${kpi.rfiRate || 0}% RFI rate`,           icon: <FileTextIcon />,      color: 'primary' },
+                    { label: 'Avg Daily',      value: kpi.avgDailyWorks || 0,                        sub: 'Throughput per day',                     icon: <BarChartIcon />,      color: 'secondary' },
+                    { label: 'Resubmissions',  value: kpi.totalResubmissions?.toLocaleString() || 0, sub: `${kpi.worksWithResubmissions || 0} works`, icon: <ReloadIcon />,        color: 'danger' },
+                ].map((kp, i) => (
+                    <Box key={i} style={{ flex: '1 1 140px', minWidth: 130 }}>
+                        <KpiCard {...kp} />
+                    </Box>
+                ))}
+            </Flex>
 
             {/* Highlights Row */}
             {(highlights.bestDay || highlights.busiestDay || highlights.topIncharge) && (
-                <Card
-                    className="bg-content2/40"
-                    style={{ borderRadius: "var(--borderRadius, 12px)" }}
-                >
-                    <CardHeader className="pb-1">
-                        <div className="flex items-center gap-2">
-                            <SparklesIcon className="w-4 h-4 text-warning" />
-                            <h3 className="text-sm font-semibold">Highlights</h3>
-                        </div>
-                    </CardHeader>
-                    <CardBody className="pt-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                            {highlights.bestDay && (
-                                <HighlightTile
-                                    label="Best Completion Day"
-                                    value={dayjs(highlights.bestDay.date).format("MMM D, YYYY")}
-                                    sub={`${highlights.bestDay.completionRate}% (${highlights.bestDay.completed}/${highlights.bestDay.total})`}
-                                    color="success"
-                                />
-                            )}
-                            {highlights.busiestDay && (
-                                <HighlightTile
-                                    label="Busiest Day"
-                                    value={dayjs(highlights.busiestDay.date).format("MMM D, YYYY")}
-                                    sub={`${highlights.busiestDay.total} works logged`}
-                                    color="primary"
-                                />
-                            )}
-                            {highlights.topIncharge && (
-                                <HighlightTile
-                                    label="Top Incharge"
-                                    value={highlights.topIncharge.incharge}
-                                    sub={`${highlights.topIncharge.completionRate}% completion`}
-                                    color="warning"
-                                />
-                            )}
-                            {highlights.mostCommonType && (
-                                <HighlightTile
-                                    label="Most Common Type"
-                                    value={highlights.mostCommonType.name}
-                                    sub={`${highlights.mostCommonType.value} works`}
-                                    color="primary"
-                                />
-                            )}
-                        </div>
-                    </CardBody>
+                <Card>
+                    <Box px="3" pt="3" pb="1">
+                        <Flex align="center" gap="2">
+                            <StarIcon style={{ width: 14, height: 14, color: 'var(--orange-9)' }} />
+                            <Text size="2" weight="bold">Highlights</Text>
+                        </Flex>
+                    </Box>
+                    <Box px="3" pb="3" pt="2">
+                        <Flex gap="3" wrap="wrap">
+                            {highlights.bestDay && <Box style={{ flex: '1 1 160px' }}><HighlightTile label="Best Completion Day" value={dayjs(highlights.bestDay.date).format('MMM D, YYYY')} sub={`${highlights.bestDay.completionRate}% (${highlights.bestDay.completed}/${highlights.bestDay.total})`} color="success" /></Box>}
+                            {highlights.busiestDay && <Box style={{ flex: '1 1 160px' }}><HighlightTile label="Busiest Day" value={dayjs(highlights.busiestDay.date).format('MMM D, YYYY')} sub={`${highlights.busiestDay.total} works logged`} color="primary" /></Box>}
+                            {highlights.topIncharge && <Box style={{ flex: '1 1 160px' }}><HighlightTile label="Top Incharge" value={highlights.topIncharge.incharge} sub={`${highlights.topIncharge.completionRate}% completion`} color="warning" /></Box>}
+                            {highlights.mostCommonType && <Box style={{ flex: '1 1 160px' }}><HighlightTile label="Most Common Type" value={highlights.mostCommonType.name} sub={`${highlights.mostCommonType.value} works`} color="primary" /></Box>}
+                        </Flex>
+                    </Box>
                 </Card>
             )}
 
@@ -427,7 +300,7 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
                 id="daily_trend"
                 title="Daily Work Trend"
                 subtitle="Total works vs completed vs pending over time"
-                icon={<CalendarDaysIcon className="w-4 h-4 text-primary" />}
+                icon={<CalendarIcon style={{ width: 14, height: 14, color: 'var(--accent-9)' }} />}
             >
                 <ResponsiveContainer width="100%" height={280}>
                     <AreaChart data={formattedTrend} margin={{ top: 5, right: 16, left: 0, bottom: 0 }}>
@@ -475,90 +348,47 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
             </ChartCard>
 
             {/* Chart 2 + 3: Type and Status side-by-side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <ChartCard
-                    id="work_type"
-                    title="Work Type Distribution"
-                    subtitle="Embankment / Structure / Pavement"
-                    icon={<ChartBarIcon className="w-4 h-4 text-secondary" />}
-                >
-                    {typeBreakdown.filter((t) => t.value > 0).length > 0 ? (
-                        <ResponsiveContainer width="100%" height={260}>
-                            <PieChart>
-                                <Pie
-                                    data={typeBreakdown.filter((t) => t.value > 0)}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={50}
-                                    outerRadius={90}
-                                    paddingAngle={2}
-                                    dataKey="value"
-                                    label={({ name, percent }) =>
-                                        `${name} ${(percent * 100).toFixed(0)}%`
-                                    }
-                                    labelLine={false}
-                                    fontSize={11}
-                                >
-                                    {typeBreakdown
-                                        .filter((t) => t.value > 0)
-                                        .map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                </Pie>
-                                <RTooltip content={<TooltipContent />} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-[260px] flex items-center justify-center text-default-400">
-                            No type data
-                        </div>
-                    )}
-                </ChartCard>
-
-                <ChartCard
-                    id="status"
-                    title="Status Distribution"
-                    subtitle="Completed / Pending / In Progress / Other"
-                    icon={<CheckCircleIcon className="w-4 h-4 text-success" />}
-                >
-                    {statusBreakdown.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={260}>
-                            <PieChart>
-                                <Pie
-                                    data={statusBreakdown}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={50}
-                                    outerRadius={90}
-                                    paddingAngle={2}
-                                    dataKey="value"
-                                    label={({ name, percent }) =>
-                                        `${name} ${(percent * 100).toFixed(0)}%`
-                                    }
-                                    labelLine={false}
-                                    fontSize={11}
-                                >
-                                    {statusBreakdown.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <RTooltip content={<TooltipContent />} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="h-[260px] flex items-center justify-center text-default-400">
-                            No status data
-                        </div>
-                    )}
-                </ChartCard>
-            </div>
+            <Flex gap="3" wrap="wrap">
+                <Box style={{ flex: '1 1 300px' }}>
+                    <ChartCard id="work_type" title="Work Type Distribution" subtitle="Embankment / Structure / Pavement" icon={<BarChartIcon style={{ width: 14, height: 14, color: 'var(--violet-9)' }} />}>
+                        {typeBreakdown.filter((t) => t.value > 0).length > 0 ? (
+                            <ResponsiveContainer width="100%" height={260}>
+                                <PieChart>
+                                    <Pie data={typeBreakdown.filter((t) => t.value > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
+                                        {typeBreakdown.filter((t) => t.value > 0).map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
+                                    </Pie>
+                                    <RTooltip content={<TooltipContent />} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <Flex align="center" justify="center" style={{ height: 260 }}><Text size="2" color="gray">No type data</Text></Flex>
+                        )}
+                    </ChartCard>
+                </Box>
+                <Box style={{ flex: '1 1 300px' }}>
+                    <ChartCard id="status" title="Status Distribution" subtitle="Completed / Pending / In Progress / Other" icon={<CheckCircledIcon style={{ width: 14, height: 14, color: 'var(--green-9)' }} />}>
+                        {statusBreakdown.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={260}>
+                                <PieChart>
+                                    <Pie data={statusBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
+                                        {statusBreakdown.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
+                                    </Pie>
+                                    <RTooltip content={<TooltipContent />} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <Flex align="center" justify="center" style={{ height: 260 }}><Text size="2" color="gray">No status data</Text></Flex>
+                        )}
+                    </ChartCard>
+                </Box>
+            </Flex>
 
             {/* Chart 4: Completion Rate Over Time */}
             <ChartCard
                 id="completion_rate_trend"
                 title="Completion Rate Trend"
                 subtitle="Daily completion percentage over the period"
-                icon={<ArrowTrendingUpIcon className="w-4 h-4 text-success" />}
+                icon={<TriangleUpIcon style={{ width: 14, height: 14, color: 'var(--green-9)' }} />}
             >
                 <ResponsiveContainer width="100%" height={240}>
                     <LineChart data={formattedTrend} margin={{ top: 5, right: 16, left: 0, bottom: 0 }}>
@@ -584,7 +414,7 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
                 id="rfi_trend"
                 title="RFI Submissions vs Completed"
                 subtitle="Daily RFI activity"
-                icon={<DocumentTextIcon className="w-4 h-4 text-primary" />}
+                icon={<FileTextIcon style={{ width: 14, height: 14, color: 'var(--accent-9)' }} />}
             >
                 <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={formattedTrend} margin={{ top: 5, right: 16, left: 0, bottom: 0 }}>
@@ -605,7 +435,7 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
                     id="incharge_performance"
                     title="Per-Incharge Performance"
                     subtitle="Total works and completion rate by incharge"
-                    icon={<UserIcon className="w-4 h-4 text-warning" />}
+                    icon={<PersonIcon style={{ width: 14, height: 14, color: 'var(--orange-9)' }} />}
                 >
                     <ResponsiveContainer
                         width="100%"
@@ -639,7 +469,7 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
                 id="resubmissions"
                 title="New Works vs Resubmissions"
                 subtitle="Daily breakdown of new logs vs resubmitted works"
-                icon={<ArrowPathIcon className="w-4 h-4 text-danger" />}
+                icon={<ReloadIcon style={{ width: 14, height: 14, color: 'var(--red-9)' }} />}
             >
                 <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={resubmissionsData} margin={{ top: 5, right: 16, left: 0, bottom: 0 }}>
@@ -653,7 +483,7 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
                     </BarChart>
                 </ResponsiveContainer>
             </ChartCard>
-        </div>
+        </Flex>
     );
 });
 

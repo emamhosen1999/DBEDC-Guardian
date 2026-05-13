@@ -1,44 +1,37 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
-import { 
-    BriefcaseIcon, 
+import {
+    LayersIcon,
     PlusIcon,
-    ChartBarIcon,
-    DocumentArrowUpIcon,
-    DocumentArrowDownIcon,
+    ActivityLogIcon,
+    UploadIcon,
+    DownloadIcon,
     MagnifyingGlassIcon,
-    CheckCircleIcon,
-    ClockIcon,
+    CheckCircledIcon,
+    CountdownTimerIcon,
     ExclamationTriangleIcon,
     CalendarIcon,
-    FunnelIcon,
-    AdjustmentsHorizontalIcon,
-    UserIcon,
-    MapPinIcon,
-    ArrowPathIcon,
-    DocumentPlusIcon
-} from "@heroicons/react/24/outline";
+    MixerHorizontalIcon,
+    PersonIcon,
+    TargetIcon,
+    ReloadIcon,
+    Cross2Icon,
+} from '@radix-ui/react-icons';
 import { Head } from "@inertiajs/react";
 import App from "@/Layouts/App.jsx";
 import DailyWorksTable from '@/Tables/DailyWorksTable.jsx';
-import { 
-    Card, 
-    CardHeader, 
-    CardBody, 
-    Input, 
+import {
+    Card,
+    Box,
+    Flex,
+    Text,
     Button,
-    Spinner,
-    ScrollShadow,
-    Skeleton,
-    Select,
-    SelectItem,
-    ButtonGroup
-} from "@/compat/heroui";
+    TextField,
+    Badge,
+} from '@radix-ui/themes';
 import StatsCards from "@/Components/StatsCards.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { getThemeRadius } from '@/Hooks/useThemeRadius.js';
 import DailyWorkForm from "@/Forms/DailyWorkForm.jsx";
 import DeleteDailyWorkForm from "@/Forms/DeleteDailyWorkForm.jsx";
 import EnhancedDailyWorksExportForm from "@/Forms/EnhancedDailyWorksExportForm.jsx";
@@ -93,26 +86,21 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
     
     const renderSelectedBadges = useCallback((selectedIds, options, placeholder, labelKey = 'name') => {
         if (!selectedIds || selectedIds.length === 0) {
-            return <span className="text-default-400 text-xs">{placeholder}</span>;
+            return <Text size="1" color="gray">{placeholder}</Text>;
         }
-
         const normalized = selectedIds.map(String);
         const labels = options
             ?.filter((option) => normalized.includes(String(option.id)))
             .map((option) => option[labelKey]) ?? [];
-
         if (labels.length === 0) {
-            return <span className="text-default-400 text-xs">{placeholder}</span>;
+            return <Text size="1" color="gray">{placeholder}</Text>;
         }
-
         return (
-            <div className="flex flex-wrap gap-1">
+            <Flex wrap="wrap" gap="1">
                 {labels.map((label) => (
-                    <span key={label} className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                        {label}
-                    </span>
+                    <Badge key={label} size="1" variant="soft">{label}</Badge>
                 ))}
-            </div>
+            </Flex>
         );
     }, []);
 
@@ -608,7 +596,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                 {
                     title: 'Total Works',
                     value: totalWorks.toLocaleString(),
-                    icon: <ChartBarIcon className="w-5 h-5" />,
+                    icon: <ActivityLogIcon style={{ width: 20, height: 20 }} />,
                     color: 'text-blue-600',
                     bgColor: 'bg-blue-50 dark:bg-blue-900/20',
                     description: `${todayWorks} added today`,
@@ -617,7 +605,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                 {
                     title: 'Completion Rate',
                     value: `${completionRate}%`,
-                    icon: <CheckCircleIcon className="w-5 h-5" />,
+                    icon: <CheckCircledIcon style={{ width: 20, height: 20 }} />,
                     color: completionRate >= 80 ? 'text-green-600' : completionRate >= 50 ? 'text-yellow-600' : 'text-red-600',
                     bgColor: completionRate >= 80 ? 'bg-green-50 dark:bg-green-900/20' : completionRate >= 50 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-red-50 dark:bg-red-900/20',
                     description: `${completedWorks.toLocaleString()} of ${totalWorks.toLocaleString()} completed`,
@@ -626,7 +614,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                 {
                     title: 'Pending Review',
                     value: pendingWorks.toLocaleString(),
-                    icon: <ClockIcon className="w-5 h-5" />,
+                    icon: <CountdownTimerIcon style={{ width: 20, height: 20 }} />,
                     color: pendingWorks > 100 ? 'text-orange-600' : 'text-amber-600',
                     bgColor: 'bg-orange-50 dark:bg-orange-900/20',
                     description: pendingWorks > 0 ? 'Awaiting action' : 'All caught up!',
@@ -635,7 +623,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                 {
                     title: 'Inspection Pass',
                     value: `${inspectionPassRate}%`,
-                    icon: <DocumentArrowUpIcon className="w-5 h-5" />,
+                    icon: <UploadIcon style={{ width: 20, height: 20 }} />,
                     color: inspectionPassRate >= 90 ? 'text-green-600' : inspectionPassRate >= 70 ? 'text-purple-600' : 'text-red-600',
                     bgColor: inspectionPassRate >= 90 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-purple-50 dark:bg-purple-900/20',
                     description: totalResubmissions > 0 ? `${totalResubmissions} resubmissions` : `${passedInspections} passed`,
@@ -660,7 +648,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             {
                 title: 'Total Works',
                 value: totalWorks.toLocaleString(),
-                icon: <ChartBarIcon className="w-5 h-5" />,
+                icon: <ActivityLogIcon style={{ width: 20, height: 20 }} />,
                 color: 'text-blue-600',
                 bgColor: 'bg-blue-50 dark:bg-blue-900/20',
                 description: `Showing ${data.length} on page`
@@ -668,7 +656,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             {
                 title: 'Completion Rate',
                 value: `${completionRate}%`,
-                icon: <CheckCircleIcon className="w-5 h-5" />,
+                icon: <CheckCircledIcon style={{ width: 20, height: 20 }} />,
                 color: completionRate >= 80 ? 'text-green-600' : completionRate >= 50 ? 'text-yellow-600' : 'text-red-600',
                 bgColor: completionRate >= 80 ? 'bg-green-50 dark:bg-green-900/20' : completionRate >= 50 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-red-50 dark:bg-red-900/20',
                 description: `${completedWorks} completed`
@@ -676,7 +664,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             {
                 title: 'Pending',
                 value: pendingWorks,
-                icon: <ClockIcon className="w-5 h-5" />,
+                icon: <CountdownTimerIcon style={{ width: 20, height: 20 }} />,
                 color: 'text-orange-600',
                 bgColor: 'bg-orange-50 dark:bg-orange-900/20',
                 description: 'Awaiting action'
@@ -684,7 +672,7 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
             {
                 title: 'Inspection Pass',
                 value: totalInspected > 0 ? `${inspectionPassRate}%` : '-',
-                icon: <DocumentArrowUpIcon className="w-5 h-5" />,
+                icon: <UploadIcon style={{ width: 20, height: 20 }} />,
                 color: inspectionPassRate >= 90 ? 'text-green-600' : 'text-purple-600',
                 bgColor: 'bg-purple-50 dark:bg-purple-900/20',
                 description: resubmissionWorks > 0 ? `${resubmissionWorks} resubmitted` : `${passedWorks} passed`
@@ -692,28 +680,27 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
         ];
     }, [apiStats, data, totalRows]);
 
-    // Action buttons configuration
     const actionButtons = [
         {
             label: 'Add Work',
-            icon: <PlusIcon className="w-4 h-4" />,
-            color: 'primary',
+            icon: <PlusIcon style={{ width: 16, height: 16 }} />,
+            color: 'indigo',
             variant: 'solid',
-            onPress: () => openModal('addDailyWork')
+            onClick: () => openModal('addDailyWork')
         },
         ...(userIsAdmin ? [{
             label: 'Import',
-            icon: <DocumentArrowUpIcon className="w-4 h-4" />,
-            color: 'secondary',
-            variant: 'flat',
-            onPress: () => openModal('importDailyWorks')
+            icon: <UploadIcon style={{ width: 16, height: 16 }} />,
+            color: 'violet',
+            variant: 'soft',
+            onClick: () => openModal('importDailyWorks')
         }] : []),
         {
             label: 'Export',
-            icon: <DocumentArrowDownIcon className="w-4 h-4" />,
-            color: 'success',
-            variant: 'flat',
-            onPress: () => openModal('exportDailyWorks')
+            icon: <DownloadIcon style={{ width: 16, height: 16 }} />,
+            color: 'green',
+            variant: 'soft',
+            onClick: () => openModal('exportDailyWorks')
         }
     ];
 
@@ -823,413 +810,236 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                 />
             )}
 
-            <div className="flex justify-center p-4">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="w-full max-w-[2000px]"
-                >
-                    <Card 
-                        className="transition-all duration-200"
-                        style={{
-                            border: `var(--borderWidth, 2px) solid transparent`,
-                            borderRadius: `var(--borderRadius, 12px)`,
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                            transform: `scale(var(--scale, 1))`,
-                            background: `linear-gradient(135deg, 
-                                var(--theme-content1, #FAFAFA) 20%, 
-                                var(--theme-content2, #F4F4F5) 10%, 
-                                var(--theme-content3, #F1F3F4) 20%)`,
-                        }}
-                    >
-                        {/* Main Card Content */}
-                        <CardHeader 
-                            className="border-b p-0"
-                            style={{
-                                borderColor: `var(--theme-divider, #E4E4E7)`,
-                                background: `linear-gradient(135deg, 
-                                    color-mix(in srgb, var(--theme-content1) 50%, transparent) 20%, 
-                                    color-mix(in srgb, var(--theme-content2) 30%, transparent) 10%)`,
-                            }}
+            <Flex justify="center" p="4">
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Card>
+                        {/* Header */}
+                        <Box
+                            px={isLargeScreen ? '6' : isMediumScreen ? '4' : '3'}
+                            py={isLargeScreen ? '5' : isMediumScreen ? '4' : '3'}
+                            style={{ borderBottom: '1px solid var(--gray-a4)' }}
                         >
-                            <div className={`${isLargeScreen ? 'p-6' : isMediumScreen ? 'p-4' : 'p-3'} w-full`}>
-                                <div className="flex flex-col space-y-4">
-                                    {/* Main Header Content */}
-                                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                        {/* Title Section */}
-                                        <div className="flex items-center gap-3 lg:gap-4">
-                                            <div 
-                                                className={`
-                                                    ${isLargeScreen ? 'p-3' : isMediumScreen ? 'p-2.5' : 'p-2'} 
-                                                    rounded-xl flex items-center justify-center
-                                                `}
-                                                style={{
-                                                    background: `color-mix(in srgb, var(--theme-primary) 15%, transparent)`,
-                                                    borderColor: `color-mix(in srgb, var(--theme-primary) 25%, transparent)`,
-                                                    borderWidth: `var(--borderWidth, 2px)`,
-                                                    borderRadius: `var(--borderRadius, 12px)`,
-                                                }}
-                                            >
-                                                <BriefcaseIcon 
-                                                    className={`
-                                                        ${isLargeScreen ? 'w-8 h-8' : isMediumScreen ? 'w-6 h-6' : 'w-5 h-5'}
-                                                    `}
-                                                    style={{ color: 'var(--theme-primary)' }}
-                                                />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <h4 
-                                                    className={`
-                                                        ${isLargeScreen ? 'text-2xl' : isMediumScreen ? 'text-xl' : 'text-lg'}
-                                                        font-bold text-foreground
-                                                        ${!isLargeScreen ? 'truncate' : ''}
-                                                    `}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                >
-                                                    Project Work Management
-                                                </h4>
-                                                <p 
-                                                    className={`
-                                                        ${isLargeScreen ? 'text-sm' : 'text-xs'} 
-                                                        text-default-500
-                                                        ${!isLargeScreen ? 'truncate' : ''}
-                                                    `}
-                                                    style={{
-                                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                                    }}
-                                                >
-                                                    Track daily work progress and project activities
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {/* Action Buttons */}
-                                        <div className="flex items-center gap-2 sm:gap-4 w-full lg:w-auto">
-                                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end w-full lg:w-auto">
-                                                {actionButtons.map((button, index) => (
-                                                    <Button
-                                                        key={index}
-                                                        size={isLargeScreen ? "md" : "sm"}
-                                                        variant={button.variant || "flat"}
-                                                        color={button.color || "primary"}
-                                                        startContent={!isMobile && button.icon}
-                                                        isIconOnly={isMobile}
-                                                        onPress={button.onPress}
-                                                        className={`${button.className || ''} font-medium ${isMobile ? 'min-w-9 h-9' : ''}`}
-                                                        aria-label={button.label}
-                                                        style={{
-                                                            fontFamily: `var(--fontFamily, "Inter")`,
-                                                            borderRadius: `var(--borderRadius, 12px)`,
-                                                        }}
-                                                    >
-                                                        {isMobile ? button.icon : button.label}
-                                                    </Button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        
-                        <CardBody className="pt-6">
-                            {/* Quick Stats */}
-                            <div className="relative">
-                                <StatsCards 
-                                    stats={stats} 
-                                    onRefresh={fetchStatistics}
-                                    isLoading={statsLoading}
-                                />
-                            </div>
-                            
-                            {/* Search and Filters Section - Improved Layout */}
-                            <div className="mb-4 space-y-4">
-                                {/* Row 1: Filter Toggle + Date Selector + Search */}
-                                <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-                                    {/* Filter Toggle Button - First */}
-                                    <Button
-                                        size="sm"
-                                        variant={showFilters ? 'solid' : 'bordered'}
-                                        color={showFilters ? 'primary' : 'default'}
-                                        onPress={() => setShowFilters(!showFilters)}
-                                        radius={getThemeRadius()}
-                                        className={`shrink-0 min-h-10 ${showFilters ? '' : 'border-divider/50'} ${isMobile ? 'min-w-10' : ''}`}
-                                        startContent={!isMobile && <AdjustmentsHorizontalIcon className="w-4 h-4" />}
-                                        isIconOnly={isMobile}
-                                        aria-label="Toggle filters"
-                                        style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                            <Flex
+                                direction={isLargeScreen ? 'row' : 'column'}
+                                align={isLargeScreen ? 'center' : 'start'}
+                                justify="between"
+                                gap="4"
+                            >
+                                {/* Title */}
+                                <Flex align="center" gap="3">
+                                    <Box
+                                        p={isLargeScreen ? '3' : '2'}
+                                        style={{ background: 'var(--accent-a3)', borderRadius: 'var(--radius-2)' }}
                                     >
-                                        {isMobile ? <AdjustmentsHorizontalIcon className="w-4 h-4" /> : 'Filters'}
+                                        <LayersIcon style={{ width: isLargeScreen ? 32 : 24, height: isLargeScreen ? 32 : 24, color: 'var(--accent-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Text size={isLargeScreen ? '6' : isMediumScreen ? '5' : '4'} weight="bold" as="p">Project Work Management</Text>
+                                        <Text size={isLargeScreen ? '2' : '1'} color="gray" as="p">Track daily work progress and project activities</Text>
+                                    </Box>
+                                </Flex>
+                                {/* Action Buttons */}
+                                <Flex align="center" gap="2" wrap="wrap">
+                                    {actionButtons.map((button, index) => (
+                                        <Button
+                                            key={index}
+                                            size={isLargeScreen ? '2' : '1'}
+                                            variant={button.variant}
+                                            color={button.color}
+                                            onClick={button.onClick}
+                                            aria-label={button.label}
+                                        >
+                                            {button.icon}
+                                            {!isMobile && button.label}
+                                        </Button>
+                                    ))}
+                                </Flex>
+                            </Flex>
+                        </Box>
+
+                        {/* Body */}
+                        <Box pt="6" px="4" pb="4">
+                            {/* Stats */}
+                            <Box mb="4">
+                                <StatsCards stats={stats} onRefresh={fetchStatistics} isLoading={statsLoading} />
+                            </Box>
+
+                            {/* Search and Filters */}
+                            <Box mb="4">
+                                {/* Row 1: Filter Toggle + Date + Search */}
+                                <Flex
+                                    direction={isLargeScreen ? 'row' : 'column'}
+                                    gap="3"
+                                    align={isLargeScreen ? 'center' : 'stretch'}
+                                    mb="3"
+                                >
+                                    {/* Filter Toggle */}
+                                    <Button
+                                        size="2"
+                                        variant={showFilters ? 'solid' : 'outline'}
+                                        color={showFilters ? 'indigo' : 'gray'}
+                                        onClick={() => setShowFilters(!showFilters)}
+                                        aria-label="Toggle filters"
+                                        style={{ flexShrink: 0, minHeight: 40 }}
+                                    >
+                                        <MixerHorizontalIcon style={{ width: 16, height: 16 }} />
+                                        {!isMobile && ' Filters'}
                                     </Button>
 
-                                    {/* Date Selector - Second */}
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        {!isMobile && <CalendarIcon className="w-4 h-4 text-default-500 shrink-0" />}
+                                    {/* Date Selector */}
+                                    <Flex align="center" gap="2" style={{ flexShrink: 0 }}>
+                                        {!isMobile && <CalendarIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} />}
                                         {isMobile ? (
-                                            <Input
+                                            <input
                                                 type="date"
                                                 value={selectedDate}
                                                 onChange={(e) => handleDateChange(e.target.value)}
-                                                variant="bordered"
-                                                size="sm"
-                                                radius={getThemeRadius()}
                                                 min={dateBounds.min}
                                                 max={dateBounds.max}
-                                                classNames={{
-                                                    base: "w-full",
-                                                    input: "text-foreground text-sm",
-                                                    inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",
-                                                }}
-                                                style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                                                style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40, width: '100%' }}
                                             />
                                         ) : (
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    type="date"
-                                                    labelPlacement="outside-left"
-                                                    label="From"
-                                                    value={dateRange.start}
-                                                    onChange={(e) => handleDateRangeChange({ ...dateRange, start: e.target.value })}
-                                                    variant="bordered"
-                                                    size="sm"
-                                                    radius={getThemeRadius()}
-                                                    min={dateBounds.min}
-                                                    max={dateBounds.max}
-                                                    classNames={{
-                                                        base: "w-auto",
-                                                        label: "text-xs text-default-500 whitespace-nowrap",
-                                                        input: "text-foreground text-sm",
-                                                        inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",
-                                                    }}
-                                                    style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                />
-                                                <span className="text-default-400 text-sm">—</span>
-                                                <Input
-                                                    type="date"
-                                                    labelPlacement="outside-left"
-                                                    label="To"
-                                                    value={dateRange.end}
-                                                    onChange={(e) => handleDateRangeChange({ ...dateRange, end: e.target.value })}
-                                                    variant="bordered"
-                                                    size="sm"
-                                                    radius={getThemeRadius()}
-                                                    min={dateBounds.min}
-                                                    max={dateBounds.max}
-                                                    classNames={{
-                                                        base: "w-auto",
-                                                        label: "text-xs text-default-500 whitespace-nowrap",
-                                                        input: "text-foreground text-sm",
-                                                        inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",
-                                                    }}
-                                                    style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                />
-                                            </div>
+                                            <Flex align="end" gap="2">
+                                                <Box>
+                                                    <Text size="1" color="gray" as="p" mb="1">From</Text>
+                                                    <input
+                                                        type="date"
+                                                        value={dateRange.start}
+                                                        onChange={(e) => handleDateRangeChange({ ...dateRange, start: e.target.value })}
+                                                        min={dateBounds.min}
+                                                        max={dateBounds.max}
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                                    />
+                                                </Box>
+                                                <Text color="gray" mb="1">—</Text>
+                                                <Box>
+                                                    <Text size="1" color="gray" as="p" mb="1">To</Text>
+                                                    <input
+                                                        type="date"
+                                                        value={dateRange.end}
+                                                        onChange={(e) => handleDateRangeChange({ ...dateRange, end: e.target.value })}
+                                                        min={dateBounds.min}
+                                                        max={dateBounds.max}
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
+                                                    />
+                                                </Box>
+                                            </Flex>
                                         )}
-                                    </div>
+                                    </Flex>
 
-                                    {/* Search Field - Last */}
-                                    <div className="flex-1 min-w-0">
-                                        <Input
-                                            type="text"
+                                    {/* Search */}
+                                    <Box style={{ flex: 1, minWidth: 0 }}>
+                                        <TextField.Root
                                             placeholder="Search by description, location, or notes..."
                                             value={search}
                                             onChange={(e) => handleSearch(e)}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400 shrink-0" />}
-                                            endContent={
-                                                tableLoading && search ? (
-                                                    <Spinner size="sm" color="primary" />
+                                            size="2"
+                                            style={{ minHeight: 40 }}
+                                        >
+                                            <TextField.Slot>
+                                                <MagnifyingGlassIcon style={{ width: 16, height: 16 }} />
+                                            </TextField.Slot>
+                                            <TextField.Slot side="right">
+                                                {tableLoading && search ? (
+                                                    <Box style={{ width: 16, height: 16, border: '2px solid var(--accent-a6)', borderTopColor: 'var(--accent-9)', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
                                                 ) : search ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSearch('');
+                                                    <Button size="1" variant="ghost" color="gray" onClick={() => { setSearch(''); setCurrentPage(1); }} aria-label="Clear search">
+                                                        <Cross2Icon style={{ width: 14, height: 14 }} />
+                                                    </Button>
+                                                ) : null}
+                                            </TextField.Slot>
+                                        </TextField.Root>
+                                    </Box>
+                                </Flex>
+
+                                {/* Filter Panel */}
+                                {showFilters && (
+                                    <Box p="3" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a4)' }}>
+                                        <Flex wrap="wrap" gap="3" align="end">
+                                            {/* Status */}
+                                            <Box style={{ minWidth: 160 }}>
+                                                <Text size="1" color="gray" as="p" mb="1">Status</Text>
+                                                <select
+                                                    value={filterData.status}
+                                                    onChange={(e) => { setFilterData(prev => ({ ...prev, status: e.target.value })); setCurrentPage(1); }}
+                                                    style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40, width: '100%' }}
+                                                >
+                                                    <option value="all">All Status</option>
+                                                    <option value="new">New</option>
+                                                    <option value="in-progress">In Progress</option>
+                                                    <option value="completed">Completed</option>
+                                                    <option value="rejected">Rejected</option>
+                                                    <option value="resubmission">Resubmission</option>
+                                                    <option value="pending">Pending</option>
+                                                    <option value="emergency">Emergency</option>
+                                                </select>
+                                            </Box>
+
+                                            {/* In Charge - Admin only */}
+                                            {userIsAdmin && (
+                                                <Box style={{ minWidth: 200 }}>
+                                                    <Flex align="center" gap="1" mb="1">
+                                                        <PersonIcon style={{ width: 12, height: 12, color: 'var(--gray-9)' }} />
+                                                        <Text size="1" color="gray">In Charge</Text>
+                                                    </Flex>
+                                                    <select
+                                                        multiple
+                                                        value={filterData.incharge}
+                                                        onChange={(e) => {
+                                                            const values = Array.from(e.target.selectedOptions).map(o => o.value);
+                                                            setFilterData(prev => ({ ...prev, incharge: values, jurisdiction: values.length ? [] : prev.jurisdiction }));
                                                             setCurrentPage(1);
                                                         }}
-                                                        className="text-default-400 hover:text-default-600 transition-colors"
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '4px 8px', background: 'var(--color-panel-solid)', minHeight: 40, width: '100%', maxHeight: 120 }}
                                                     >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                ) : null
-                                            }
-                                            classNames={{
-                                                input: "text-foreground text-sm",
-                                                inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",
-                                            }}
-                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                        />
-                                    </div>
-                                </div>
-                                
-                                {/* Row 2: Advanced Filters Panel */}
-                                <AnimatePresence>
-                                    {showFilters && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="overflow-hidden"
-                                        >
-                                            <div 
-                                                className="p-3 rounded-lg border"
-                                                style={{
-                                                    background: 'var(--theme-content2, rgba(244, 244, 245, 0.8))',
-                                                    borderColor: 'var(--theme-divider, rgba(228, 228, 231, 0.5))',
+                                                        {inchargeOptions?.map(u => <option key={u.id} value={String(u.id)}>{u.name}</option>)}
+                                                    </select>
+                                                </Box>
+                                            )}
+
+                                            {/* Jurisdiction - Admin only */}
+                                            {userIsAdmin && (
+                                                <Box style={{ minWidth: 200 }}>
+                                                    <Flex align="center" gap="1" mb="1">
+                                                        <TargetIcon style={{ width: 12, height: 12, color: 'var(--gray-9)' }} />
+                                                        <Text size="1" color="gray">Jurisdiction</Text>
+                                                    </Flex>
+                                                    <select
+                                                        multiple
+                                                        value={filterData.jurisdiction}
+                                                        onChange={(e) => {
+                                                            const values = Array.from(e.target.selectedOptions).map(o => o.value);
+                                                            setFilterData(prev => ({ ...prev, jurisdiction: values, incharge: values.length ? [] : prev.incharge }));
+                                                            setCurrentPage(1);
+                                                        }}
+                                                        style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '4px 8px', background: 'var(--color-panel-solid)', minHeight: 40, width: '100%', maxHeight: 120 }}
+                                                    >
+                                                        {jurisdictionOptions?.map(j => <option key={j.id} value={String(j.id)}>{j.displayLabel}</option>)}
+                                                    </select>
+                                                </Box>
+                                            )}
+
+                                            {/* Clear */}
+                                            <Button
+                                                size="2"
+                                                variant="soft"
+                                                color="red"
+                                                style={{ minHeight: 40 }}
+                                                onClick={() => {
+                                                    setFilterData({ status: 'all', incharge: [], jurisdiction: [], startDate: overallStartDate, endDate: overallEndDate });
+                                                    setCurrentPage(1);
                                                 }}
                                             >
-                                                <div className="flex flex-wrap gap-3 items-end">
-                                                    {/* Status Filter */}
-                                                    <div className="w-full sm:w-auto sm:min-w-[160px]">
-                                                        <Select
-                                                            label="Status"
-                                                            placeholder="All"
-                                                            selectedKeys={filterData.status ? [filterData.status] : ["all"]}
-                                                            onSelectionChange={(keys) => {
-                                                                const value = Array.from(keys)[0];
-                                                                setFilterData(prev => ({ ...prev, status: value }));
-                                                                setCurrentPage(1);
-                                                            }}
-                                                            variant="bordered"
-                                                            size="sm"
-                                                            radius={getThemeRadius()}
-                                                            classNames={{
-                                                                trigger: "min-h-10",
-                                                                value: "text-foreground text-sm",
-                                                            }}
-                                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                        >
-                                                            <SelectItem key="all" value="all">All Status</SelectItem>
-                                                            <SelectItem key="new" value="new">New</SelectItem>
-                                                            <SelectItem key="in-progress" value="in-progress">In Progress</SelectItem>
-                                                            <SelectItem key="completed" value="completed">Completed</SelectItem>
-                                                            <SelectItem key="rejected" value="rejected">Rejected</SelectItem>
-                                                            <SelectItem key="resubmission" value="resubmission">Resubmission</SelectItem>
-                                                            <SelectItem key="pending" value="pending">Pending</SelectItem>
-                                                            <SelectItem key="emergency" value="emergency">Emergency</SelectItem>
-                                                        </Select>
-                                                    </div>
+                                                Clear
+                                            </Button>
+                                        </Flex>
+                                    </Box>
+                                )}
+                            </Box>
 
-                                                    {/* In Charge Filter - Admin only */}
-                                                    {userIsAdmin && (
-                                                        <div className="w-full sm:w-auto sm:min-w-[200px]">
-                                                            <Select
-                                                                label="In Charge"
-                                                                placeholder="Filter by in charge..."
-                                                                selectionMode="multiple"
-                                                                selectedKeys={new Set(filterData.incharge || [])}
-                                                                onSelectionChange={(keys) => {
-                                                                    const values = Array.from(keys).filter(key => key !== 'all');
-                                                                    setFilterData(prev => ({
-                                                                        ...prev,
-                                                                        incharge: values,
-                                                                        jurisdiction: values.length ? [] : prev.jurisdiction
-                                                                    }));
-                                                                    setCurrentPage(1);
-                                                                }}
-                                                                variant="bordered"
-                                                                size="sm"
-                                                                radius={getThemeRadius()}
-                                                                startContent={<UserIcon className="w-4 h-4 text-default-400" />}
-                                                                classNames={{
-                                                                    trigger: "min-h-10",
-                                                                    value: "text-foreground text-sm",
-                                                                }}
-                                                                renderValue={() => renderSelectedBadges(filterData.incharge, inchargeOptions, 'All')}
-                                                                style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                            >
-                                                                {inchargeOptions?.map(inCharge => (
-                                                                    <SelectItem key={String(inCharge.id)} value={String(inCharge.id)}>
-                                                                        {inCharge.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </Select>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Jurisdiction Filter - Admin only */}
-                                                    {userIsAdmin && (
-                                                        <div className="w-full sm:w-auto sm:min-w-[200px]">
-                                                            <Select
-                                                                label="Jurisdiction"
-                                                                placeholder="Filter by jurisdiction..."
-                                                                selectionMode="multiple"
-                                                                selectedKeys={new Set(filterData.jurisdiction || [])}
-                                                                onSelectionChange={(keys) => {
-                                                                    const values = Array.from(keys).filter(key => key !== 'all');
-                                                                    setFilterData(prev => ({
-                                                                        ...prev,
-                                                                        jurisdiction: values,
-                                                                        incharge: values.length ? [] : prev.incharge
-                                                                    }));
-                                                                    setCurrentPage(1);
-                                                                }}
-                                                                variant="bordered"
-                                                                size="sm"
-                                                                radius={getThemeRadius()}
-                                                                startContent={<MapPinIcon className="w-4 h-4 text-default-400" />}
-                                                                classNames={{
-                                                                    trigger: "min-h-10",
-                                                                    value: "text-foreground text-sm",
-                                                                }}
-                                                                renderValue={() => renderSelectedBadges(filterData.jurisdiction, jurisdictionOptions, 'All', 'displayLabel')}
-                                                                style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                            >
-                                                                {jurisdictionOptions?.map(jurisdiction => (
-                                                                    <SelectItem key={String(jurisdiction.id)} value={String(jurisdiction.id)}>
-                                                                        {jurisdiction.displayLabel}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </Select>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Clear Filters */}
-                                                    <Button
-                                                        size="sm"
-                                                        variant="flat"
-                                                        color="danger"
-                                                        radius={getThemeRadius()}
-                                                        className="min-h-10"
-                                                        onPress={() => {
-                                                            setFilterData({
-                                                                status: 'all',
-                                                                incharge: [],
-                                                                jurisdiction: [],
-                                                                startDate: overallStartDate,
-                                                                endDate: overallEndDate
-                                                            });
-                                                            setCurrentPage(1);
-                                                        }}
-                                                        style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                    >
-                                                        Clear
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                            
                             {/* Daily Works Table */}
-                            <Card 
-                                radius={getThemeRadius()}
-                                className="bg-content2/50 backdrop-blur-md border border-divider/30"
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                    borderRadius: `var(--borderRadius, 12px)`,
-                                    backgroundColor: 'var(--theme-content2)',
-                                    borderColor: 'var(--theme-divider)',
-                                }}
-                            >
-                                <CardBody className="p-4">
+                            <Card style={{ background: 'var(--gray-a1)' }}>
+                                <Box p="4">
                                     <ErrorBoundary
                                         fallbackTitle="Unable to load daily works"
                                         fallbackDescription="There was an error loading the daily works table. Please try refreshing."
@@ -1290,12 +1100,12 @@ const DailyWorks = ({ auth, title, allData, jurisdictions, users, reports, repor
                                             />
                                         )}
                                     </ErrorBoundary>
-                                </CardBody>
+                                </Box>
                             </Card>
-                        </CardBody>
+                        </Box>
                     </Card>
-                </motion.div>
-            </div>
+                </Box>
+            </Flex>
         </>
     );
 };

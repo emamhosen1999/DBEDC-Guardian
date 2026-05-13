@@ -29,6 +29,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RfiObjectionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Settings\AttendanceSettingController;
+use App\Http\Controllers\Settings\BiometricDeviceController;
 use App\Http\Controllers\Settings\CompanySettingController;
 use App\Http\Controllers\Settings\LeaveSettingController;
 use App\Http\Controllers\SystemMonitoringController;
@@ -133,10 +134,16 @@ Route::middleware($middlewareStack)->group(function () {
 
     // Daily works routes
     Route::middleware(['permission:daily-works.view'])->group(function () {
-        Route::get('/daily-works', [DailyWorkController::class, 'index'])->name('daily-works');
+        // Unified daily works page (new consolidated page)
+        Route::get('/daily-works-unified', [DailyWorkController::class, 'unified'])->name('daily-works-unified');
+        
+        // Original routes (hidden - kept for rollback)
+        // Route::get('/daily-works', [DailyWorkController::class, 'index'])->name('daily-works');
+        // Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
+        
         Route::get('/daily-works-paginate', [DailyWorkController::class, 'paginate'])->name('dailyWorks.paginate');
         Route::get('/daily-works-all', [DailyWorkController::class, 'all'])->name('dailyWorks.all');
-        Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
+        // Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
         Route::post('/daily-works-summary/filter', [DailyWorkSummaryController::class, 'filterSummary'])->name('daily-works-summary.filter');
         Route::get('/daily-works/statistics', [DailyWorkSummaryController::class, 'getStatistics'])->name('dailyWorks.statistics');
 
@@ -357,6 +364,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // User management routes - CONSOLIDATED & REFACTORED
     Route::middleware(['permission:users.view'])->group(function () {
+        Route::get('/admin-unified', [UserController::class, 'adminUnified'])->name('admin.unified');
         Route::get('/users', [UserController::class, 'index2'])->name('users');
         Route::get('/users/paginate', [UserController::class, 'paginate'])->name('users.paginate');
         Route::get('/users/stats', [UserController::class, 'stats'])->name('users.stats');
@@ -459,6 +467,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/attendance-type/{id}/add-item', [AttendanceSettingController::class, 'addConfigItem'])->name('attendance-types.addItem');
         Route::delete('settings/attendance-type/{id}/remove-item', [AttendanceSettingController::class, 'removeConfigItem'])->name('attendance-types.removeItem');
         Route::post('settings/attendance-type/{id}/generate-qr', [AttendanceSettingController::class, 'generateQrCode'])->name('attendance-types.generateQr');
+
+        // Biometric device management routes
+        Route::get('settings/biometric-devices', [BiometricDeviceController::class, 'index'])->name('biometric-devices.index');
+        Route::post('settings/biometric-devices', [BiometricDeviceController::class, 'store'])->name('biometric-devices.store');
+        Route::put('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'update'])->name('biometric-devices.update');
+        Route::delete('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'destroy'])->name('biometric-devices.destroy');
+        Route::get('settings/biometric-devices/{id}/users', [BiometricDeviceController::class, 'deviceUsers'])->name('biometric-devices.users');
+        Route::post('settings/biometric-devices/{id}/users', [BiometricDeviceController::class, 'addUser'])->name('biometric-devices.users.add');
+        Route::delete('settings/biometric-devices/{id}/users/{userId}', [BiometricDeviceController::class, 'removeUser'])->name('biometric-devices.users.remove');
+        Route::post('settings/biometric-devices/{id}/entry', [BiometricDeviceController::class, 'addDeviceEntry'])->name('biometric-devices.entry.add');
+        Route::post('settings/biometric-devices/{id}/link', [BiometricDeviceController::class, 'linkDeviceUser'])->name('biometric-devices.users.link');
+        Route::post('settings/biometric-devices/{id}/unlink/{userId}', [BiometricDeviceController::class, 'unlinkDeviceUser'])->name('biometric-devices.users.unlink');
+        Route::post('settings/biometric-devices/{id}/regenerate-token', [BiometricDeviceController::class, 'regenerateToken'])->name('biometric-devices.regenerate-token');
     });
 
 
@@ -504,6 +525,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/tasks/attach-report', [TaskController::class, 'attachReport'])->name('attachReport');
     Route::post('/tasks/detach-report', [TaskController::class, 'detachReport'])->name('detachReport');
 });
+
+// Redirect old routes to unified admin page
+Route::get('/roles', function () {
+    return redirect()->route('admin.unified');
+})->name('roles');
 
 // Enhanced Role Management Routes (with proper permission-based access control)
 Route::middleware(['auth', 'verified', 'permission:roles.view', 'role_permission_sync'])->group(function () {

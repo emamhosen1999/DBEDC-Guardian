@@ -1,20 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import {
-    Button,
-    Input,
-    Select,
-    SelectItem,
-    Spinner,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Chip,
-} from '@/compat/heroui';
-import { X, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Dialog, Button, Badge, Box, Flex, Text, TextField, Select } from '@radix-ui/themes';
+import { ExclamationTriangleIcon, CheckCircledIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
-import GlassDialog from '@/Components/GlassDialog.jsx';
+import axios from 'axios';
 
 const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalType }) => {
     const [dailyWorkData, setDailyWorkData] = useState({
@@ -209,196 +197,132 @@ const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalTyp
         return Object.keys(validationErrors).length === 0 && formTouched;
     };
 
+    const fieldStyle = (fieldName) => isFieldInvalid(fieldName)
+        ? { outline: '2px solid var(--red-8)', borderRadius: 6 }
+        : {};
+
     return (
-        <GlassDialog open={open} onClose={closeModal}>
-            <ModalContent>
+        <Dialog.Root open={open} onOpenChange={(v) => { if (!v && !processing) closeModal(); }}>
+            <Dialog.Content maxWidth="640px" style={{ fontFamily: `var(--fontFamily,"Inter")` }}>
                 <form onSubmit={handleSubmit} noValidate>
-                    <ModalHeader className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center pb-4">
-                        <div className="flex items-center gap-2 flex-wrap pr-8 sm:pr-0">
-                            <h2 className="text-base sm:text-lg font-semibold">
+                    <Dialog.Title>
+                        <Flex align="center" gap="2" wrap="wrap">
+                            <Text weight="bold" size={{ initial: '2', sm: '3' }}>
                                 {modalType === 'add' ? 'Add Daily Work' : 'Edit Daily Work'}
-                            </h2>
+                            </Text>
                             {isFormValid() && (
-                                <Chip size="sm" color="success" variant="flat" className="flex items-center">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    <span className="hidden sm:inline">Ready to submit</span>
-                                    <span className="sm:hidden">Ready</span>
-                                </Chip>
+                                <Badge size="1" color="green" variant="soft">
+                                    <CheckCircledIcon style={{ width: 10, height: 10 }} /> Ready to submit
+                                </Badge>
                             )}
-                        </div>
-                        <Button
-                            isIconOnly
-                            variant="light"
-                            onPress={closeModal}
-                            className="absolute top-2 right-2"
-                            aria-label="Close dialog"
-                            size="sm"
-                        >
-                            <X size={18} />
-                        </Button>
-                    </ModalHeader>
+                        </Flex>
+                    </Dialog.Title>
 
-                    <ModalBody className="px-4 sm:px-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                            <Input
-                                variant="bordered"
-                                label="RFI Date"
-                                type="date"
-                                name="date"
-                                value={dailyWorkData.date}
-                                onChange={handleChange}
-                                isInvalid={isFieldInvalid('date')}
-                                errorMessage={getFieldError('date')}
-                                isRequired
-                                description="Date when the work was performed"
-                            />
-                            
-                            <Input
-                                variant="bordered"
-                                label="RFI Number"
-                                name="number"
-                                value={dailyWorkData.number}
-                                onChange={handleChange}
-                                isInvalid={isFieldInvalid('number')}
-                                errorMessage={getFieldError('number')}
-                                isRequired
-                                placeholder="RFI-2025-001"
-                                description="Unique RFI identifier"
-                            />
-                            
-                            <Input
-                                variant="bordered"
-                                label="Planned Time"
-                                name="planned_time"
-                                value={dailyWorkData.planned_time}
-                                onChange={handleChange}
-                                isInvalid={isFieldInvalid('planned_time')}
-                                errorMessage={getFieldError('planned_time')}
-                                isRequired
-                                placeholder="09:00"
-                                description="Time in HH:MM format"
-                            />
-                            
-                            <Select
-                                variant="bordered"
-                                label="Work Type"
-                                name="type"
-                                selectedKeys={[dailyWorkData.type]}
-                                onSelectionChange={(keys) => {
-                                    const value = Array.from(keys)[0];
-                                    handleChange({ target: { name: 'type', value } });
-                                }}
-                                isInvalid={isFieldInvalid('type')}
-                                errorMessage={getFieldError('type')}
-                                isRequired
-                                description="Type of construction work"
-                            >
-                                <SelectItem key="Structure" value="Structure">Structure</SelectItem>
-                                <SelectItem key="Embankment" value="Embankment">Embankment</SelectItem>
-                                <SelectItem key="Pavement" value="Pavement">Pavement</SelectItem>
-                            </Select>
-                            
-                            <Input
-                                variant="bordered"
-                                label="Location"
-                                name="location"
-                                value={dailyWorkData.location}
-                                onChange={handleChange}
-                                isInvalid={isFieldInvalid('location')}
-                                errorMessage={getFieldError('location')}
-                                isRequired
-                                placeholder="K5+100 or K5+100-K5+200"
-                                description="Chainage location"
-                            />
-                            
-                            <Input
-                                variant="bordered"
-                                label="Description"
-                                name="description"
-                                value={dailyWorkData.description}
-                                onChange={handleChange}
-                                isInvalid={isFieldInvalid('description')}
-                                errorMessage={getFieldError('description')}
-                                isRequired
-                                placeholder="Detailed work description"
-                                description="Minimum 10 characters"
-                            />
-                            
-                            <Select
-                                variant="bordered"
-                                label="Road Side"
-                                name="side"
-                                selectedKeys={[dailyWorkData.side]}
-                                onSelectionChange={(keys) => {
-                                    const value = Array.from(keys)[0];
-                                    handleChange({ target: { name: 'side', value } });
-                                }}
-                                isInvalid={isFieldInvalid('side')}
-                                errorMessage={getFieldError('side')}
-                                isRequired
-                                description="Which side of the road"
-                            >
-                                <SelectItem key="SR-R" value="SR-R">Service Road - Right</SelectItem>
-                                <SelectItem key="SR-L" value="SR-L">Service Road - Left</SelectItem>
-                                <SelectItem key="TR-R" value="TR-R">Through Road - Right</SelectItem>
-                                <SelectItem key="TR-L" value="TR-L">Through Road - Left</SelectItem>
-                            </Select>
-                            
-                            <Input
-                                variant="bordered"
-                                label={dailyWorkData.type === 'Embankment' ? 'Layer Number' : 'Quantity/Layer'}
-                                name="qty_layer"
-                                value={dailyWorkData.qty_layer}
-                                onChange={handleChange}
-                                isInvalid={isFieldInvalid('qty_layer')}
-                                errorMessage={getFieldError('qty_layer')}
-                                isRequired={false}
-                                placeholder={dailyWorkData.type === 'Embankment' ? 'Layer 1 (optional)' : 'Quantity or layer info'}
-                                description="Optional quantity or layer information"
-                            />
-                        </div>
+                    <Box style={{ overflowY: 'auto', maxHeight: 'min(65vh, 480px)' }} py="3">
+                        <Flex wrap="wrap" gap="3">
+                            {/* RFI Date */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">RFI Date <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
+                                <TextField.Root type="date" name="date" value={dailyWorkData.date} onChange={handleChange} style={fieldStyle('date')} />
+                                {getFieldError('date') && <Text size="1" style={{ color: 'var(--red-11)' }} as="p" mt="1">{getFieldError('date')}</Text>}
+                                {!getFieldError('date') && <Text size="1" color="gray" as="p" mt="1">Date when the work was performed</Text>}
+                            </Box>
 
-                        {/* Display validation summary if there are errors */}
-                        {Object.keys(validationErrors).length > 0 && (
-                            <div className="mt-4 p-3 bg-danger-50 dark:bg-danger-900/20 border border-danger-200 dark:border-danger-700 rounded-lg">
-                                <div className="flex items-start gap-2 mb-2">
-                                    <AlertCircle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
-                                    <span className="text-xs sm:text-sm font-medium text-danger">Please fix the following errors:</span>
-                                </div>
-                                <ul className="text-xs text-danger-600 dark:text-danger-400 ml-6 list-disc space-y-1">
-                                    {Object.values(validationErrors).map((error, index) => (
-                                        <li key={index}>{error}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                    </ModalBody>
+                            {/* RFI Number */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">RFI Number <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
+                                <TextField.Root name="number" value={dailyWorkData.number} onChange={handleChange} placeholder="RFI-2025-001" style={fieldStyle('number')} />
+                                {getFieldError('number') && <Text size="1" style={{ color: 'var(--red-11)' }} as="p" mt="1">{getFieldError('number')}</Text>}
+                                {!getFieldError('number') && <Text size="1" color="gray" as="p" mt="1">Unique RFI identifier</Text>}
+                            </Box>
 
-                    <ModalFooter className="flex flex-col-reverse sm:flex-row justify-end gap-2 px-4 sm:px-6 py-4">
-                        <Button
-                            variant="light"
-                            onPress={closeModal}
-                            isDisabled={processing}
-                            className="w-full sm:w-auto"
-                        >
-                            Cancel
+                            {/* Planned Time */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">Planned Time <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
+                                <TextField.Root name="planned_time" value={dailyWorkData.planned_time} onChange={handleChange} placeholder="09:00" style={fieldStyle('planned_time')} />
+                                {getFieldError('planned_time') && <Text size="1" style={{ color: 'var(--red-11)' }} as="p" mt="1">{getFieldError('planned_time')}</Text>}
+                                {!getFieldError('planned_time') && <Text size="1" color="gray" as="p" mt="1">Time in HH:MM format</Text>}
+                            </Box>
+
+                            {/* Work Type */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">Work Type <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
+                                <Select.Root value={dailyWorkData.type} onValueChange={(v) => handleChange({ target: { name: 'type', value: v } })}>
+                                    <Select.Trigger style={{ width: '100%', ...fieldStyle('type') }} />
+                                    <Select.Content>
+                                        <Select.Item value="Structure">Structure</Select.Item>
+                                        <Select.Item value="Embankment">Embankment</Select.Item>
+                                        <Select.Item value="Pavement">Pavement</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                                <Text size="1" color="gray" as="p" mt="1">Type of construction work</Text>
+                            </Box>
+
+                            {/* Location */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">Location <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
+                                <TextField.Root name="location" value={dailyWorkData.location} onChange={handleChange} placeholder="K5+100 or K5+100-K5+200" style={fieldStyle('location')} />
+                                {getFieldError('location') && <Text size="1" style={{ color: 'var(--red-11)' }} as="p" mt="1">{getFieldError('location')}</Text>}
+                                {!getFieldError('location') && <Text size="1" color="gray" as="p" mt="1">Chainage location</Text>}
+                            </Box>
+
+                            {/* Description */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">Description <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
+                                <TextField.Root name="description" value={dailyWorkData.description} onChange={handleChange} placeholder="Detailed work description" style={fieldStyle('description')} />
+                                {getFieldError('description') && <Text size="1" style={{ color: 'var(--red-11)' }} as="p" mt="1">{getFieldError('description')}</Text>}
+                                {!getFieldError('description') && <Text size="1" color="gray" as="p" mt="1">Minimum 10 characters</Text>}
+                            </Box>
+
+                            {/* Road Side */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">Road Side <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
+                                <Select.Root value={dailyWorkData.side} onValueChange={(v) => handleChange({ target: { name: 'side', value: v } })}>
+                                    <Select.Trigger style={{ width: '100%', ...fieldStyle('side') }} />
+                                    <Select.Content>
+                                        <Select.Item value="SR-R">Service Road - Right</Select.Item>
+                                        <Select.Item value="SR-L">Service Road - Left</Select.Item>
+                                        <Select.Item value="TR-R">Through Road - Right</Select.Item>
+                                        <Select.Item value="TR-L">Through Road - Left</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                                <Text size="1" color="gray" as="p" mt="1">Which side of the road</Text>
+                            </Box>
+
+                            {/* Qty/Layer */}
+                            <Box>
+                                <Text size="1" color="gray" as="p" mb="1">
+                                    {dailyWorkData.type === 'Embankment' ? 'Layer Number' : 'Quantity/Layer'}
+                                </Text>
+                                <TextField.Root
+                                    name="qty_layer"
+                                    value={dailyWorkData.qty_layer}
+                                    onChange={handleChange}
+                                    placeholder={dailyWorkData.type === 'Embankment' ? 'Layer 1 (optional)' : 'Quantity or layer info'}
+                                />
+                                <Text size="1" color="gray" as="p" mt="1">Optional quantity or layer information</Text>
+                            </Box>
+                        </Flex>
+                    </Box>
+
+                    <Box mt="4" p="3" style={{ background: 'var(--red-a3)', border: '1px solid var(--red-a6)', borderRadius: 'var(--radius-2)' }}>
+                        <Flex align="start" gap="2">
+                            <ExclamationTriangleIcon style={{ width: 16, height: 16, color: 'var(--red-9)' }} />
+                            <Text size="1" style={{ color: 'var(--red-11)' }} as="p">
+                                <Text weight="bold">Important:</Text> Ensure all required fields are filled correctly before submitting.
+                            </Text>
+                        </Flex>
+                    </Box>
+
+                    <Flex gap="2" justify="end" mt="4">
+                        <Button type="button" variant="ghost" color="gray" onClick={closeModal} disabled={processing} style={{ width: '100%' }}>Cancel</Button>
+                        <Button type="submit" color="indigo" loading={processing} disabled={!isFormValid() || processing} style={{ width: '100%' }}>
+                            {modalType === 'add' ? 'Add Daily Work' : 'Update Daily Work'}
                         </Button>
-                        <Button
-                            color="primary"
-                            type="submit"
-                            isLoading={processing}
-                            isDisabled={!isFormValid() || processing}
-                            className="min-w-24 w-full sm:w-auto"
-                        >
-                            {processing 
-                                ? (modalType === 'add' ? 'Creating...' : 'Updating...') 
-                                : (modalType === 'add' ? 'Create Work' : 'Update Work')
-                            }
-                        </Button>
-                    </ModalFooter>
+                    </Flex>
                 </form>
-            </ModalContent>
-        </GlassDialog>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

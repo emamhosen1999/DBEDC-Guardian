@@ -508,6 +508,15 @@ const EmployeeFormModal = ({
                                     ))}
                                 </Select>
                             )}
+                            {/* Biometric enrollment hint */}
+                            {(() => {
+                                const selectedType = attendanceTypes.find(t => String(t.id) === String(formData.attendance_type_id));
+                                return selectedType?.slug === 'biometric' ? (
+                                    <p className="text-xs text-primary-600 bg-primary-50 rounded p-2 mt-1">
+                                        Biometric type selected. After saving, go to <strong>Admin → Biometric Devices</strong> to enroll this employee on a device.
+                                    </p>
+                                ) : null;
+                            })()}
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>

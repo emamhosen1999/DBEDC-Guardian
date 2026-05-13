@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\LeaveController as MobileLeaveController;
 use App\Http\Controllers\Api\V1\ManagerDashboardController as MobileManagerDashboardController;
 use App\Http\Controllers\Api\V1\ProfileController as MobileProfileController;
 use App\Http\Controllers\Api\V1\SyncController as MobileSyncController;
+use App\Http\Controllers\Api\BiometricWebhookController;
 use App\Http\Controllers\Api\VersionController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SystemMonitoringController;
@@ -18,6 +19,39 @@ use Illuminate\Support\Facades\Route;
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+// Biometric device webhook (public — device-token auth handled in controller)
+Route::post('/biometric/webhook', [BiometricWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1')
+    ->name('api.biometric.webhook');
+Route::post('/biometric/heartbeat', [BiometricWebhookController::class, 'heartbeat'])
+    ->middleware('throttle:60,1')
+    ->name('api.biometric.heartbeat');
+
+// ZKTeco ADMS Push Protocol (for devices like MB460)
+// High throttle limit to accommodate peak morning/evening hours
+Route::get('/iclock/cdata', [BiometricWebhookController::class, 'admsHandshake'])
+    ->middleware('throttle:300,1')
+    ->name('api.biometric.adms.handshake');
+Route::post('/iclock/cdata', [BiometricWebhookController::class, 'admsPush'])
+    ->middleware('throttle:300,1')
+    ->name('api.biometric.adms.push');
+
+// Device command management (requires authentication)
+Route::middleware(['web', 'auth'])->prefix('biometric-devices')->group(function () {
+    Route::post('/{deviceId}/commands', [BiometricWebhookController::class, 'queueCommand'])
+        ->name('api.biometric-devices.commands.queue');
+    Route::get('/{deviceId}/commands', [BiometricWebhookController::class, 'getCommands'])
+        ->name('api.biometric-devices.commands.index');
+    Route::post('/{deviceId}/sync-users', [BiometricWebhookController::class, 'syncUsersToDevice'])
+        ->name('api.biometric-devices.sync-users');
+    Route::get('/{deviceId}/sync-status', [BiometricWebhookController::class, 'getSyncStatus'])
+        ->name('api.biometric-devices.sync-status');
+    Route::get('/{deviceId}/logs', [BiometricWebhookController::class, 'getLogs'])
+        ->name('api.biometric-devices.logs.index');
+    Route::get('/logs', [BiometricWebhookController::class, 'getLogs'])
+        ->name('api.biometric-devices.logs.all');
+});
 
 // Version check endpoints (no auth required for PWA functionality)
 Route::get('/version', [VersionController::class, 'current'])->name('api.version.current');

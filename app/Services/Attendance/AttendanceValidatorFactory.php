@@ -38,6 +38,9 @@ class AttendanceValidatorFactory
             case 'qr_code':
                 return new QrCodeValidator($attendanceType, $request);
 
+            case 'biometric':
+                return new BiometricValidator($attendanceType, $request);
+
             default:
                 throw new \InvalidArgumentException("Unsupported attendance type: {$attendanceType->slug}");
         }

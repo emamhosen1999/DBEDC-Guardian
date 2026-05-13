@@ -92,6 +92,92 @@ class DailyWorkController extends Controller
         ]);
     }
 
+    public function unified()
+    {
+        $user = User::with(['designation', 'roles'])->find(Auth::id());
+        $userDesignationTitle = $user->designation?->title;
+
+        // Data for Works tab (from DailyWorkController::index)
+        $allData = $userDesignationTitle === 'Supervision Engineer'
+            ? [
+                'allInCharges' => [],
+                'juniors' => User::where('report_to', $user->id)->get(),
+            ]
+            : (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])
+                ? []
+                : ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')
+                    ? [
+                        'allInCharges' => User::whereHas('designation', function ($q) {
+                            $q->where('title', 'Supervision Engineer');
+                        })->get(),
+                        'juniors' => [],
+                    ]
+                    : []
+                )
+            );
+        
+        $reports = Report::all();
+        $reports_with_daily_works = Report::with('daily_works')->has('daily_works')->get();
+        $users = User::with(['roles', 'designation'])->get();
+
+        // Loop through each user and add role and designation_title fields
+        $users->transform(function ($user) {
+            $user->role = $user->roles->first()?->name;
+            $user->designation_title = $user->designation?->title;
+
+            return $user;
+        });
+
+        $overallStartDate = DailyWork::min('date') ?? date('Y-m-d', strtotime('-30 days'));
+        $overallEndDate = DailyWork::max('date') ?? date('Y-m-d');
+
+        // Data for Summary tab (from DailyWorkSummaryController)
+        $isAdmin = $user->hasRole('Super Administrator') || $user->hasRole('Administrator');
+        $inCharges = $isAdmin
+            ? User::whereHas('designation', function ($q) {
+                $q->where('title', 'Supervision Engineer');
+            })->get()
+            : collect([]);
+
+        // Get summary data for initial load
+        $summaryQuery = DailyWork::with(['inchargeUser', 'assignedUser']);
+        
+        if (!$isAdmin && in_array('Employee', $user->roles->pluck('name')->toArray())) {
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                $summaryQuery->where('incharge', $user->id);
+            } elseif ($user->report_to) {
+                $summaryQuery->where('incharge', $user->report_to);
+            }
+        }
+
+        // Group by date and calculate summary stats
+        $summary = $summaryQuery
+            ->selectRaw('date, 
+                COUNT(*) as totalDailyWorks,
+                SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status IN ("new", "in-progress", "pending", "resubmission") THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN inspection_result = "pass" THEN 1 ELSE 0 END) as passedInspections,
+                SUM(CASE WHEN inspection_result = "fail" THEN 1 ELSE 0 END) as failedInspections')
+            ->groupBy('date')
+            ->orderByDesc('date')
+            ->get();
+
+        return Inertia::render('Project/DailyWorksUnified', [
+            'allData' => $allData,
+            'jurisdictions' => Jurisdiction::all(),
+            'users' => $users,
+            'title' => 'Daily Works Unified',
+            'reports' => $reports,
+            'reports_with_daily_works' => $reports_with_daily_works,
+            'overallStartDate' => $overallStartDate,
+            'overallEndDate' => $overallEndDate,
+            'summary' => $summary,
+            'inCharges' => $inCharges,
+        ]);
+    }
+
     public function paginate(Request $request)
     {
         try {

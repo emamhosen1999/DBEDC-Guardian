@@ -12,8 +12,6 @@ import '../../css/theme-transitions.css';
 import Sidebar from "@/Layouts/Sidebar.jsx";
 import { Inertia } from '@inertiajs/inertia';
 import { getDynamicPages } from '@/Props/dynamicNavigation.jsx';
-import { getSettingsPages } from '@/Props/settings.jsx';
-import { HeroUIProvider, Button } from "@/compat/heroui";
 import SessionExpiredModal from '@/Components/SessionExpiredModal.jsx';
 import { onMessageListener, requestNotificationPermission } from "@/firebase-config.js";
 import ThemeSettingDrawer from "@/Components/ThemeSettingDrawer.jsx";
@@ -110,15 +108,9 @@ function App({ children }) {
     // Memoize pages to avoid unnecessary recalculations
     // Navigation is now driven by the Module Permission Registry via auth.accessibleModules
     const pages = useMemo(() => {
-        // Check if the current URL is specifically a settings page
-        const isSettingsPage = url.startsWith('/settings') || 
-                              url.includes('settings') || 
-                              url === '/settings';
-        
-        // For settings pages, use the settings navigation
-        // For all other pages, use dynamic navigation from Module Permission Registry
-        return isSettingsPage ? getSettingsPages(permissions, auth) : getDynamicPages(auth);
-    }, [url, permissions, auth?.accessibleModules]);
+        // Use dynamic navigation from Module Permission Registry for all pages
+        return getDynamicPages(auth);
+    }, [auth?.accessibleModules]);
 
     // Theme and media query
     const theme = useTheme(darkMode ? 'dark' : 'light', themeId);
@@ -227,7 +219,7 @@ function App({ children }) {
 
             
 return (
-        <HeroUIProvider>
+        <>
             {sessionExpired && <SessionExpiredModal setSessionExpired={setSessionExpired}/>}
             <ThemeSettingDrawer
                 themeId={themeId}
@@ -320,7 +312,7 @@ return (
                         </div>
                     </div>
                 </main>
-            </HeroUIProvider>
+        </>
     );
 }
 

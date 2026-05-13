@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import { Button, Card, CardBody } from '@/compat/heroui';
-import { ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { Button, Box, Flex, Text } from '@radix-ui/themes';
+import { ExclamationTriangleIcon, ReloadIcon } from '@radix-ui/react-icons';
 
 /**
  * Error Boundary component for catching and handling React errors gracefully
@@ -63,54 +63,31 @@ class ErrorBoundary extends Component {
             } = this.props;
 
             return (
-                <Card 
-                    className="border border-danger/20 bg-danger/5"
-                    style={{ borderRadius: 'var(--borderRadius, 12px)' }}
-                >
-                    <CardBody className="flex flex-col items-center justify-center py-12 px-6 text-center">
-                        <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center mb-4">
-                            <ExclamationTriangleIcon className="w-8 h-8 text-danger" />
-                        </div>
-                        
-                        <h3 className="text-lg font-semibold text-danger mb-2">
-                            {fallbackTitle}
-                        </h3>
-                        
-                        <p className="text-sm text-default-600 mb-4 max-w-md">
-                            {fallbackDescription}
-                        </p>
-
+                <Box p="6" style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)', borderRadius: 'var(--radius-3)' }}>
+                    <Flex direction="column" align="center" justify="center" gap="4" style={{ textAlign: 'center' }}>
+                        <Box p="3" style={{ borderRadius: '50%', background: 'var(--red-a3)' }}>
+                            <ExclamationTriangleIcon style={{ width: 32, height: 32, color: 'var(--red-9)' }} />
+                        </Box>
+                        <Text size="4" weight="bold" color="red">{fallbackTitle}</Text>
+                        <Text size="2" color="gray">{fallbackDescription}</Text>
                         {showDetails && this.state.error && (
-                            <div className="w-full max-w-lg mb-4">
-                                <details className="text-left">
-                                    <summary className="text-xs text-default-500 cursor-pointer hover:text-default-700">
-                                        Error Details
-                                    </summary>
-                                    <pre className="mt-2 p-3 bg-default-100 rounded-lg text-xs text-danger overflow-x-auto">
+                            <Box style={{ width: '100%', maxWidth: 480, textAlign: 'left' }}>
+                                <details>
+                                    <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--gray-9)' }}>Error Details</summary>
+                                    <pre style={{ marginTop: 8, padding: 12, background: 'var(--gray-a3)', borderRadius: 'var(--radius-2)', fontSize: 11, color: 'var(--red-11)', overflowX: 'auto' }}>
                                         {this.state.error.toString()}
-                                        {this.state.errorInfo?.componentStack && (
-                                            <span className="text-default-500">
-                                                {this.state.errorInfo.componentStack}
-                                            </span>
-                                        )}
+                                        {this.state.errorInfo?.componentStack}
                                     </pre>
                                 </details>
-                            </div>
+                            </Box>
                         )}
-
                         {showRetry && (
-                            <Button
-                                color="danger"
-                                variant="flat"
-                                onPress={this.handleRetry}
-                                startContent={<ArrowPathIcon className="w-4 h-4" />}
-                                style={{ borderRadius: 'var(--borderRadius, 12px)' }}
-                            >
-                                Try Again
+                            <Button color="red" variant="soft" onClick={this.handleRetry}>
+                                <ReloadIcon /> Try Again
                             </Button>
                         )}
-                    </CardBody>
-                </Card>
+                    </Flex>
+                </Box>
             );
         }
 

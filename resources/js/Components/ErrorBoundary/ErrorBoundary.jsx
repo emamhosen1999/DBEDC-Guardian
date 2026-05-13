@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardBody, Button, Accordion, AccordionItem } from '@/compat/heroui';
-import { ChevronDownIcon, ArrowPathIcon, BugAntIcon, HomeIcon } from '@heroicons/react/24/outline';
+import { Button, Box, Flex, Text, Card } from '@radix-ui/themes';
+import { ExclamationTriangleIcon, ReloadIcon, HomeIcon } from '@radix-ui/react-icons';
 import { Inertia } from '@inertiajs/inertia';
 
 /**
@@ -89,113 +89,55 @@ class ErrorBoundary extends React.Component {
             const { error, errorInfo, errorId, showDetails } = this.state;
 
             return (
-                <div className="min-h-screen flex items-center justify-center bg-background p-6">
-                    <div className="max-w-2xl w-full text-center">
-                        {/* Error Icon */}
-                        <div className="flex justify-center mb-6">
-                            <BugAntIcon className="w-20 h-20 text-danger" />
-                        </div>
-
-                        {/* Error Title */}
-                        <h1 className="text-4xl font-bold text-danger mb-4">
-                            Oops! Something went wrong
-                        </h1>
-
-                        {/* Error Description */}
-                        <p className="text-lg text-default-600 mb-6">
+                <Flex align="center" justify="center" style={{ minHeight: '100vh', padding: 24 }}>
+                    <Box style={{ maxWidth: 640, width: '100%', textAlign: 'center' }}>
+                        <Flex justify="center" mb="5">
+                            <ExclamationTriangleIcon style={{ width: 80, height: 80, color: 'var(--red-9)' }} />
+                        </Flex>
+                        <Text as="p" size="7" weight="bold" color="red" mb="3">Oops! Something went wrong</Text>
+                        <Text as="p" size="3" color="gray" mb="5">
                             We encountered an unexpected error. Our team has been notified and will investigate this issue.
-                        </p>
-
-                        {/* Error ID Card */}
-                        <Card className="mb-6 bg-primary-50 dark:bg-primary-950/20 border-l-4 border-l-primary">
-                            <CardBody className="text-left">
-                                <p className="text-sm">
-                                    <strong>Error ID:</strong> <code className="font-mono bg-default-100 px-1 rounded-sm">{errorId}</code>
-                                </p>
-                                <p className="text-sm text-default-600 mt-1">
-                                    Please provide this ID when contacting support.
-                                </p>
-                            </CardBody>
+                        </Text>
+                        <Card mb="5" style={{ borderLeft: '4px solid var(--blue-9)', textAlign: 'left' }}>
+                            <Box p="3">
+                                <Text as="p" size="2"><strong>Error ID:</strong> <code style={{ fontFamily: 'monospace', background: 'var(--gray-a3)', padding: '1px 4px', borderRadius: 3 }}>{errorId}</code></Text>
+                                <Text as="p" size="1" color="gray" mt="1">Please provide this ID when contacting support.</Text>
+                            </Box>
                         </Card>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 justify-center flex-wrap mb-6">
-                            <Button
-                                color="primary"
-                                variant="solid"
-                                startContent={<ArrowPathIcon className="w-4 h-4" />}
-                                onClick={this.handleRetry}
-                            >
-                                Try Again
-                            </Button>
-
-                            <Button
-                                color="primary"
-                                variant="bordered"
-                                startContent={<HomeIcon className="w-4 h-4" />}
-                                onClick={this.handleGoHome}
-                            >
-                                Go to Dashboard
-                            </Button>
-
-                            <Button
-                                color="secondary"
-                                variant="bordered"
-                                startContent={<ArrowPathIcon className="w-4 h-4" />}
-                                onClick={this.handleReload}
-                            >
-                                Recover
-                            </Button>
-                        </div>
-
-                        {/* Error Details Accordion */}
+                        <Flex gap="2" justify="center" wrap="wrap" mb="5">
+                            <Button color="indigo" onClick={this.handleRetry}><ReloadIcon /> Try Again</Button>
+                            <Button color="indigo" variant="outline" onClick={this.handleGoHome}><HomeIcon /> Go to Dashboard</Button>
+                            <Button color="gray" variant="outline" onClick={this.handleReload}><ReloadIcon /> Recover</Button>
+                        </Flex>
                         {(error || errorInfo) && (
-                            <Accordion variant="bordered" className="mb-6">
-                                <AccordionItem
-                                    key="error-details"
-                                    aria-label="Technical Details"
-                                    title="Technical Details"
-                                    indicator={<ChevronDownIcon className="w-4 h-4" />}
-                                >
-                                    <div className="text-left space-y-4">
+                            <Box mb="5" style={{ textAlign: 'left' }}>
+                                <details style={{ border: '1px solid var(--gray-a6)', borderRadius: 'var(--radius-2)', padding: 12 }}>
+                                    <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Technical Details</summary>
+                                    <Box mt="3">
                                         {error && (
-                                            <div>
-                                                <h4 className="text-sm font-semibold text-danger mb-2">
-                                                    Error Message:
-                                                </h4>
-                                                <pre className="bg-default-100 dark:bg-default-800 p-3 rounded-lg text-xs overflow-auto font-mono">
-                                                    {error.message}
-                                                </pre>
-                                            </div>
+                                            <Box mb="3">
+                                                <Text size="2" weight="bold" color="red" as="p" mb="1">Error Message:</Text>
+                                                <pre style={{ background: 'var(--gray-a3)', padding: 12, borderRadius: 'var(--radius-2)', fontSize: 12, overflow: 'auto', fontFamily: 'monospace' }}>{error.message}</pre>
+                                            </Box>
                                         )}
-
                                         {errorInfo && (
-                                            <div>
-                                                <h4 className="text-sm font-semibold text-danger mb-2">
-                                                    Component Stack:
-                                                </h4>
-                                                <pre className="bg-default-100 dark:bg-default-800 p-3 rounded-lg text-xs overflow-auto font-mono max-h-48">
-                                                    {errorInfo.componentStack}
-                                                </pre>
-                                            </div>
+                                            <Box>
+                                                <Text size="2" weight="bold" color="red" as="p" mb="1">Component Stack:</Text>
+                                                <pre style={{ background: 'var(--gray-a3)', padding: 12, borderRadius: 'var(--radius-2)', fontSize: 12, overflow: 'auto', fontFamily: 'monospace', maxHeight: 192 }}>{errorInfo.componentStack}</pre>
+                                            </Box>
                                         )}
-                                    </div>
-                                </AccordionItem>
-                            </Accordion>
+                                    </Box>
+                                </details>
+                            </Box>
                         )}
-
-                        {/* Support Information */}
-                        <Card className="bg-default-50 dark:bg-default-900/50">
-                            <CardBody className="text-center">
-                                <h3 className="font-semibold mb-2">Need Help?</h3>
-                                <p className="text-sm text-default-600">
-                                    If this problem persists, please contact our support team at{' '}
-                                    <strong className="text-primary">support@dbedc.com</strong> with the error ID provided above.
-                                </p>
-                            </CardBody>
+                        <Card>
+                            <Box p="3" style={{ textAlign: 'center' }}>
+                                <Text as="p" size="3" weight="bold" mb="1">Need Help?</Text>
+                                <Text as="p" size="2" color="gray">If this problem persists, contact our support team at <strong style={{ color: 'var(--accent-9)' }}>support@dbedc.com</strong> with the error ID.</Text>
+                            </Box>
                         </Card>
-                    </div>
-                </div>
+                    </Box>
+                </Flex>
             );
         }
 

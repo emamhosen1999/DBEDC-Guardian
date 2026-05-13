@@ -1,44 +1,19 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Button,
-    Spinner,
-    Chip,
-    Divider,
-    Card,
-    CardBody,
-    Avatar,
-    Tooltip,
-    Checkbox,
-    CheckboxGroup,
-    Input,
-    ScrollShadow,
-    Tabs,
-    Tab,
-} from "@/compat/heroui";
+import React, { useState, useCallback, useEffect } from 'react';
+import { Dialog, Button, Badge, Card, Box, Flex, Text, TextField, ScrollArea, Tabs, Callout, Checkbox, Separator } from '@radix-ui/themes';
 import {
     ExclamationTriangleIcon,
-    DocumentIcon,
-    EyeIcon,
-    PlusIcon,
-    CheckCircleIcon,
-    XCircleIcon,
-    ClockIcon,
-    PaperAirplaneIcon,
-    LinkIcon,
+    FileIcon,
+    EyeOpenIcon,
+    CrossCircledIcon,
+    Link2Icon,
     MagnifyingGlassIcon,
-    MapPinIcon,
-    ShieldExclamationIcon,
-    DocumentTextIcon,
-    PhotoIcon,
-    ArrowTopRightOnSquareIcon,
-} from "@heroicons/react/24/outline";
+    TargetIcon,
+    FileTextIcon,
+    ImageIcon,
+    ExternalLinkIcon,
+    InfoCircledIcon,
+} from "@radix-ui/react-icons";
 import { showToast } from '@/utils/toastUtils';
-import { getThemeRadius } from '@/Hooks/useThemeRadius';
 import axios from 'axios';
 import { router } from '@inertiajs/react';
 import {
@@ -204,128 +179,75 @@ const ObjectionsModal = ({
         router.visit(route('objections.index'));
     };
 
-    // Render status chip
-    const renderStatusChip = (status) => {
+    const renderStatusBadge = (status) => {
         const config = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
         const Icon = config.icon;
+        const colorMap = { success: 'green', warning: 'amber', danger: 'red', primary: 'indigo', secondary: 'violet', default: 'gray' };
         return (
-            <Chip
-                size="sm"
-                color={config.color}
-                variant="flat"
-                startContent={<Icon className="w-3 h-3" />}
-            >
-                {config.label}
-            </Chip>
+            <Badge size="1" color={colorMap[config.color]||'gray'} variant="soft">
+                <Icon style={{ width: 10, height: 10 }} /> {config.label}
+            </Badge>
         );
     };
 
-    // Render attached objection card
     const renderAttachedObjectionCard = (objection) => {
         const isActive = ['draft', 'submitted', 'under_review'].includes(objection.status);
-
         return (
-            <Card 
-                key={objection.id} 
-                className={`mb-3 ${isActive ? 'border-l-4 border-warning' : 'border-l-4 border-success'}`}
-                shadow="sm"
-                radius={getThemeRadius()}
-            >
-                <CardBody className="p-3 sm:p-4">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2 mb-2 sm:mb-3">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
-                                {renderStatusChip(objection.status)}
-                                <Chip size="sm" variant="bordered" className="text-[10px]">
-                                    {CATEGORY_LABELS[objection.category] || objection.category}
-                                </Chip>
-                            </div>
-                            <h4 className="font-semibold text-xs sm:text-sm truncate">{objection.title}</h4>
+            <Card key={objection.id} style={{ borderLeft: `4px solid ${isActive ? 'var(--amber-8)' : 'var(--green-8)'}`, marginBottom: 12 }}>
+                <Box p="3">
+                    <Flex justify="between" gap="2" mb="2">
+                        <Box style={{ flex: 1, minWidth: 0 }}>
+                            <Flex gap="1" wrap="wrap" mb="1">
+                                {renderStatusBadge(objection.status)}
+                                <Badge size="1" variant="outline" color="gray">{CATEGORY_LABELS[objection.category] || objection.category}</Badge>
+                            </Flex>
+                            <Text weight="bold" size="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{objection.title}</Text>
                             {objection.chainage_from && objection.chainage_to && (
-                                <div className="flex items-center gap-1 text-xs text-default-500 mt-1">
-                                    <MapPinIcon className="w-3 h-3 flex-shrink-0" />
-                                    <span className="truncate">{objection.chainage_from} - {objection.chainage_to}</span>
-                                </div>
+                                <Flex align="center" gap="1" mt="1">
+                                    <TargetIcon style={{ width: 12, height: 12, flexShrink: 0 }} />
+                                    <Text size="1" color="gray" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{objection.chainage_from} - {objection.chainage_to}</Text>
+                                </Flex>
                             )}
-                        </div>
-                        <Tooltip content="Detach from this RFI">
-                            <Button
-                                isIconOnly
-                                size="sm"
-                                variant="light"
-                                color="danger"
-                                isLoading={detaching === objection.id}
-                                onPress={() => handleDetachObjection(objection.id)}
-                                className="flex-shrink-0"
-                            >
-                                <XCircleIcon className="w-4 h-4" />
-                            </Button>
-                        </Tooltip>
-                    </div>
-
-                    {/* Description */}
-                    <div className="mb-3">
-                        <p className="text-xs text-default-500 mb-1">Description:</p>
-                        <p className="text-sm line-clamp-2">{objection.description}</p>
-                    </div>
-
-                    {/* Reason */}
-                    <div className="mb-3">
-                        <p className="text-xs text-default-500 mb-1">Reason:</p>
-                        <p className="text-sm line-clamp-2">{objection.reason}</p>
-                    </div>
-
-                    {/* Resolution notes if resolved/rejected */}
+                        </Box>
+                        <Button size="1" variant="ghost" color="red" loading={detaching === objection.id} onClick={() => handleDetachObjection(objection.id)} title="Detach from this RFI">
+                            <CrossCircledIcon style={{ width: 16, height: 16 }} />
+                        </Button>
+                    </Flex>
+                    <Text size="1" color="gray" as="p" mb="1">Description:</Text>
+                    <Text size="1" as="p" mb="2" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{objection.description}</Text>
+                    <Text size="1" color="gray" as="p" mb="1">Reason:</Text>
+                    <Text size="1" as="p" mb="2" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{objection.reason}</Text>
                     {objection.resolution_notes && (
-                        <div className="mb-3 p-2 bg-default-100 rounded-lg">
-                            <p className="text-xs text-default-500 mb-1">
-                                {objection.status === 'resolved' ? 'Resolution:' : 'Rejection Reason:'}
-                            </p>
-                            <p className="text-sm">{objection.resolution_notes}</p>
-                        </div>
+                        <Box mb="2" p="2" style={{ background: 'var(--gray-a3)', borderRadius: 'var(--radius-1)' }}>
+                            <Text size="1" color="gray" as="p" mb="1">{objection.status === 'resolved' ? 'Resolution:' : 'Rejection Reason:'}</Text>
+                            <Text size="1" as="p">{objection.resolution_notes}</Text>
+                        </Box>
                     )}
-
-                    {/* Files */}
-                    {objection.files && objection.files.length > 0 && (
-                        <div className="mb-3">
-                            <p className="text-xs text-default-500 mb-2">Attachments ({objection.files.length}):</p>
-                            <div className="flex flex-wrap gap-2">
+                    {objection.files?.length > 0 && (
+                        <Box mb="2">
+                            <Text size="1" color="gray" as="p" mb="1">Attachments ({objection.files.length}):</Text>
+                            <Flex wrap="wrap" gap="2">
                                 {objection.files.slice(0, 3).map((file) => (
-                                    <div key={file.id} className="flex items-center gap-1 p-1 bg-default-100 rounded text-xs">
-                                        {file.is_image ? (
-                                            <PhotoIcon className="w-3 h-3 text-blue-500" />
-                                        ) : (
-                                            <DocumentTextIcon className="w-3 h-3 text-red-500" />
-                                        )}
-                                        <span className="max-w-[80px] truncate">{file.name}</span>
-                                        <a href={file.url} target="_blank" rel="noopener noreferrer">
-                                            <EyeIcon className="w-3 h-3 cursor-pointer hover:text-primary" />
-                                        </a>
-                                    </div>
+                                    <Flex key={file.id} align="center" gap="1" p="1" style={{ background: 'var(--gray-a3)', borderRadius: 'var(--radius-1)' }}>
+                                        {file.is_image ? <ImageIcon style={{ width: 12, height: 12 }} /> : <FileTextIcon style={{ width: 12, height: 12 }} />}
+                                        <Text size="1" style={{ maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Text>
+                                        <a href={file.url} target="_blank" rel="noopener noreferrer"><EyeOpenIcon style={{ width: 12, height: 12 }} /></a>
+                                    </Flex>
                                 ))}
-                                {objection.files.length > 3 && (
-                                    <span className="text-xs text-default-400">
-                                        +{objection.files.length - 3} more
-                                    </span>
-                                )}
-                            </div>
-                        </div>
+                                {objection.files.length > 3 && <Text size="1" color="gray">+{objection.files.length - 3} more</Text>}
+                            </Flex>
+                        </Box>
                     )}
-
-                    {/* Meta info */}
-                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-divider text-xs text-default-400">
-                        <div className="flex items-center gap-2">
-                            <Avatar
-                                size="sm"
-                                name={objection.created_by?.name || 'Unknown'}
-                                className="w-5 h-5"
-                            />
-                            <span>{objection.created_by?.name || 'Unknown'}</span>
-                        </div>
-                        <span>{new Date(objection.created_at).toLocaleDateString()}</span>
-                    </div>
-                </CardBody>
+                    <Flex justify="between" align="center" pt="2" style={{ borderTop: '1px solid var(--gray-a4)' }}>
+                        <Flex align="center" gap="2">
+                            <Box style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--accent-9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Text size="1" style={{ color: 'white', fontWeight: 'bold' }}>{(objection.created_by?.name || 'U')[0]}</Text>
+                            </Box>
+                            <Text size="1" color="gray">{objection.created_by?.name || 'Unknown'}</Text>
+                        </Flex>
+                        <Text size="1" color="gray">{new Date(objection.created_at).toLocaleDateString()}</Text>
+                    </Flex>
+                </Box>
             </Card>
         );
     };
@@ -348,236 +270,139 @@ const ObjectionsModal = ({
     ).length;
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={handleClose}
-            size="3xl"
-            scrollBehavior="inside"
-            placement="bottom-center"
-            radius={getThemeRadius()}
-            shouldBlockScroll={false}
-            hideCloseButton={false}
-            classNames={{
-                base: "max-h-[100dvh] sm:max-h-[90vh] m-0 sm:m-4 mb-0",
-                wrapper: "items-end sm:items-center",
-                body: "px-4 sm:px-6 overflow-y-auto",
-                header: "px-4 sm:px-6",
-                footer: "px-4 sm:px-6",
-            }}
-        >
-            <ModalContent>
-                {(onCloseModal) => (
-                    <>
-                        <ModalHeader className="flex flex-col gap-2 pb-4">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <ShieldExclamationIcon className="w-5 h-5 text-warning flex-shrink-0" />
-                                <span className="text-sm sm:text-base font-semibold truncate">RFI Objections - {dailyWork?.number}</span>
-                                {activeCount > 0 && (
-                                    <Chip size="sm" color="warning" variant="solid">
-                                        {activeCount} Active
-                                    </Chip>
+        <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v) handleClose(); }}>
+            <Dialog.Content maxWidth="720px">
+                <Dialog.Title>
+                    <Flex align="center" gap="2" wrap="wrap">
+                        <ExclamationTriangleIcon style={{ width: 20, height: 20, flexShrink: 0, color: 'var(--amber-9)' }} />
+                        <Text weight="bold" size="3" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>RFI Objections - {dailyWork?.number}</Text>
+                        {activeCount > 0 && <Badge color="amber" variant="solid" size="1">{activeCount} Active</Badge>}
+                    </Flex>
+                </Dialog.Title>
+                <Dialog.Description size="2" color="gray" mb="3">View attached objections or attach existing ones to this RFI</Dialog.Description>
+
+                <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
+                    <Tabs.List mb="3">
+                        <Tabs.Trigger value="attached">
+                            <Flex align="center" gap="1">
+                                <ExclamationTriangleIcon style={{ width: 12, height: 12 }} />
+                                <Text size="2">Attached ({attachedObjections.length})</Text>
+                            </Flex>
+                        </Tabs.Trigger>
+                        <Tabs.Trigger value="add">
+                            <Flex align="center" gap="1">
+                                <Link2Icon style={{ width: 12, height: 12 }} />
+                                <Text size="2">Add Objection</Text>
+                            </Flex>
+                        </Tabs.Trigger>
+                    </Tabs.List>
+
+                    <Tabs.Content value="attached">
+                        <Box py="3">
+                            {loading ? (
+                                <Flex justify="center" py="5"><Text color="gray" size="2">Loading...</Text></Flex>
+                            ) : attachedObjections.length === 0 ? (
+                                <Flex direction="column" align="center" py="6" gap="2" style={{ color: 'var(--gray-9)' }}>
+                                    <ExclamationTriangleIcon style={{ width: 48, height: 48, opacity: 0.5 }} />
+                                    <Text size="2" as="p">No objections attached to this RFI</Text>
+                                    <Text size="1" color="gray" as="p">Switch to "Add Objection" tab to attach existing objections</Text>
+                                </Flex>
+                            ) : (
+                                <ScrollArea style={{ maxHeight: 'min(50vh, 400px)' }}>
+                                    <Flex direction="column" pr="2">{attachedObjections.map(renderAttachedObjectionCard)}</Flex>
+                                </ScrollArea>
+                            )}
+                        </Box>
+                    </Tabs.Content>
+
+                    <Tabs.Content value="add">
+                        <Box py="3">
+                            <Flex direction="column" gap="3">
+                                <Callout.Root color="blue" size="1">
+                                    <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                                    <Callout.Text>
+                                        Select from existing objections to attach. To create new ones, visit the{' '}
+                                        <Button variant="ghost" size="1" onClick={goToObjectionsPage} style={{ padding: 0, height: 'auto', textDecoration: 'underline' }}>Objections page</Button>.
+                                    </Callout.Text>
+                                </Callout.Root>
+
+                                <TextField.Root placeholder="Search objections..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} size="1">
+                                    <TextField.Slot><MagnifyingGlassIcon style={{ width: 14, height: 14 }} /></TextField.Slot>
+                                </TextField.Root>
+
+                                {filteredAvailableObjections.length === 0 ? (
+                                    <Flex direction="column" align="center" py="6" gap="2" style={{ color: 'var(--gray-9)' }}>
+                                        <FileIcon style={{ width: 48, height: 48, opacity: 0.5 }} />
+                                        <Text size="2" as="p">No available objections found</Text>
+                                        <Text size="1" color="gray" as="p">Create objections on the Objections page first</Text>
+                                        <Button variant="soft" size="1" mt="3" onClick={goToObjectionsPage}>
+                                            <ExternalLinkIcon style={{ width: 14, height: 14 }} /> Go to Objections Page
+                                        </Button>
+                                    </Flex>
+                                ) : (
+                                    <>
+                                        <Text size="1" color="gray">Select objections to attach ({selectedObjections.length} selected):</Text>
+                                        <ScrollArea style={{ maxHeight: 'min(40vh,300px)' }}>
+                                            <Flex direction="column" gap="2" pr="2">
+                                                {filteredAvailableObjections.map((objection) => {
+                                                    const isSelected = selectedObjections.includes(String(objection.id));
+                                                    return (
+                                                        <Card
+                                                            key={objection.id}
+                                                            variant={isSelected ? 'surface' : 'ghost'}
+                                                            style={{ border: `1px solid ${isSelected ? 'var(--accent-9)' : 'var(--gray-a4)'}`, cursor: 'pointer', background: isSelected ? 'var(--accent-a3)' : undefined }}
+                                                            onClick={() => setSelectedObjections(prev => prev.includes(String(objection.id)) ? prev.filter(x => x !== String(objection.id)) : [...prev, String(objection.id)])}
+                                                        >
+                                                            <Flex align="start" gap="2" p="2">
+                                                                <Checkbox
+                                                                    checked={isSelected}
+                                                                    onCheckedChange={() => setSelectedObjections(prev => prev.includes(String(objection.id)) ? prev.filter(x => x !== String(objection.id)) : [...prev, String(objection.id)])}
+                                                                    mt="1"
+                                                                />
+                                                                <Box style={{ flex: 1, minWidth: 0 }}>
+                                                                    <Flex gap="1" wrap="wrap" mb="1">
+                                                                        {renderStatusBadge(objection.status)}
+                                                                        <Badge size="1" variant="outline" color="gray">{CATEGORY_LABELS[objection.category] || objection.category}</Badge>
+                                                                    </Flex>
+                                                                    <Text weight="medium" size="2" as="p">{objection.title}</Text>
+                                                                    {objection.chainage_from && objection.chainage_to && (
+                                                                        <Flex align="center" gap="1" mt="1">
+                                                                            <TargetIcon style={{ width: 12, height: 12 }} />
+                                                                            <Text size="1" color="gray">{objection.chainage_from} - {objection.chainage_to}</Text>
+                                                                        </Flex>
+                                                                    )}
+                                                                    <Text size="1" color="gray" as="p" mt="1" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{objection.description}</Text>
+                                                                </Box>
+                                                            </Flex>
+                                                        </Card>
+                                                    );
+                                                })}
+                                            </Flex>
+                                        </ScrollArea>
+                                        <Flex justify="end" pt="2">
+                                            <Button color="indigo" loading={attaching} disabled={selectedObjections.length === 0} onClick={handleAttachObjections}>
+                                                <Link2Icon style={{ width: 16, height: 16 }} />
+                                                Attach{selectedObjections.length > 0 ? ` (${selectedObjections.length})` : ''} Objection{selectedObjections.length !== 1 ? 's' : ''}
+                                            </Button>
+                                        </Flex>
+                                    </>
                                 )}
-                            </div>
-                            <p className="text-xs sm:text-sm text-default-500 font-normal">
-                                View attached objections or attach existing ones to this RFI
-                            </p>
-                        </ModalHeader>
+                            </Flex>
+                        </Box>
+                    </Tabs.Content>
+                </Tabs.Root>
 
-                        <ModalBody className="py-0">
-                            <Tabs 
-                                selectedKey={activeTab} 
-                                onSelectionChange={setActiveTab}
-                                color="primary"
-                                variant="underlined"
-                                classNames={{
-                                    tabList: "gap-2 sm:gap-4",
-                                    tab: "px-2 sm:px-0 h-10 text-xs sm:text-sm",
-                                }}
-                            >
-                                <Tab 
-                                    key="attached" 
-                                    title={
-                                        <div className="flex items-center gap-1 sm:gap-2">
-                                            <ShieldExclamationIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                                            <span>Attached ({attachedObjections.length})</span>
-                                        </div>
-                                    }
-                                >
-                                    <div className="py-4">
-                                        {loading ? (
-                                            <div className="flex justify-center py-8">
-                                                <Spinner size="lg" />
-                                            </div>
-                                        ) : attachedObjections.length === 0 ? (
-                                            <div className="text-center py-8 text-default-400">
-                                                <ShieldExclamationIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                                <p className="text-sm">No objections attached to this RFI</p>
-                                                <p className="text-xs mt-1">
-                                                    Switch to "Add Objection" tab to attach existing objections
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <ScrollShadow className="max-h-[50vh] sm:max-h-[400px]">
-                                                <div className="space-y-2">
-                                                    {attachedObjections.map(renderAttachedObjectionCard)}
-                                                </div>
-                                            </ScrollShadow>
-                                        )}
-                                    </div>
-                                </Tab>
+                <Separator size="4" my="3" />
 
-                                <Tab 
-                                    key="add" 
-                                    title={
-                                        <div className="flex items-center gap-1 sm:gap-2">
-                                            <LinkIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                                            <span className="hidden sm:inline">Add Objection</span>
-                                            <span className="sm:hidden">Add</span>
-                                        </div>
-                                    }
-                                >
-                                    <div className="py-4 space-y-3 sm:space-y-4">
-                                        {/* Info banner */}
-                                        <div className="p-2 sm:p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
-                                            <p className="text-xs sm:text-sm text-primary-700 dark:text-primary-300">
-                                                <strong>Note:</strong> Select from existing objections to attach to this RFI. 
-                                                To create a new objection, go to the{' '}
-                                                <button 
-                                                    onClick={goToObjectionsPage}
-                                                    className="underline hover:no-underline font-medium"
-                                                >
-                                                    Objections page
-                                                </button>.
-                                            </p>
-                                        </div>
-
-                                        {/* Search */}
-                                        <Input
-                                            placeholder="Search objections..."
-                                            value={searchTerm}
-                                            onValueChange={setSearchTerm}
-                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
-                                            size="sm"
-                                            isClearable
-                                            onClear={() => setSearchTerm('')}
-                                        />
-
-                                        {/* Available objections list */}
-                                        {filteredAvailableObjections.length === 0 ? (
-                                            <div className="text-center py-8 text-default-400">
-                                                <DocumentIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                                <p className="text-sm">No available objections found</p>
-                                                <p className="text-xs mt-1">
-                                                    Create objections on the Objections page first
-                                                </p>
-                                                <Button
-                                                    color="primary"
-                                                    variant="flat"
-                                                    size="sm"
-                                                    className="mt-3"
-                                                    startContent={<ArrowTopRightOnSquareIcon className="w-4 h-4" />}
-                                                    onPress={goToObjectionsPage}
-                                                >
-                                                    Go to Objections Page
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <p className="text-xs sm:text-sm text-default-600">
-                                                    Select objections to attach ({selectedObjections.length} selected):
-                                                </p>
-                                                <CheckboxGroup
-                                                    value={selectedObjections}
-                                                    onValueChange={setSelectedObjections}
-                                                >
-                                                    <ScrollShadow className="max-h-[40vh] sm:max-h-[300px]">
-                                                        <div className="space-y-2">
-                                                            {filteredAvailableObjections.map((objection) => (
-                                                                <div
-                                                                    key={objection.id}
-                                                                    className={`flex items-start gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg hover:bg-default-100 transition-colors ${
-                                                                        selectedObjections.includes(String(objection.id))
-                                                                            ? 'border-primary bg-primary-50/50 dark:bg-primary-900/20'
-                                                                            : 'border-divider'
-                                                                    }`}
-                                                                >
-                                                                    <Checkbox value={String(objection.id)} className="mt-0.5" size="sm" />
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center gap-1 sm:gap-2 flex-wrap mb-1">
-                                                                            {renderStatusChip(objection.status)}
-                                                                            <Chip size="sm" variant="bordered" className="text-[10px]">
-                                                                                {CATEGORY_LABELS[objection.category] || objection.category}
-                                                                            </Chip>
-                                                                        </div>
-                                                                        <h4 className="font-medium text-sm">{objection.title}</h4>
-                                                                        {objection.chainage_from && objection.chainage_to && (
-                                                                            <div className="flex items-center gap-1 text-xs text-default-500 mt-1">
-                                                                                <MapPinIcon className="w-3 h-3" />
-                                                                                <span>{objection.chainage_from} - {objection.chainage_to}</span>
-                                                                            </div>
-                                                                        )}
-                                                                        <p className="text-xs text-default-400 mt-1 line-clamp-2">
-                                                                            {objection.description}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </ScrollShadow>
-                                                </CheckboxGroup>
-
-                                                {/* Attach button */}
-                                                <div className="flex justify-end pt-2">
-                                                    <Button
-                                                        color="primary"
-                                                        startContent={<LinkIcon className="w-4 h-4" />}
-                                                        onPress={handleAttachObjections}
-                                                        isLoading={attaching}
-                                                        isDisabled={selectedObjections.length === 0}
-                                                        className="w-full sm:w-auto"
-                                                        size="md"
-                                                    >
-                                                        <span className="hidden sm:inline">
-                                                            Attach {selectedObjections.length > 0 ? `(${selectedObjections.length})` : ''} Objection{selectedObjections.length !== 1 ? 's' : ''}
-                                                        </span>
-                                                        <span className="sm:hidden">
-                                                            Attach {selectedObjections.length > 0 ? `(${selectedObjections.length})` : ''}
-                                                        </span>
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </Tab>
-                            </Tabs>
-                        </ModalBody>
-
-                        <ModalFooter className="py-3 sm:py-4">
-                            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between w-full gap-2">
-                                <Button
-                                    variant="flat"
-                                    size="sm"
-                                    startContent={<ArrowTopRightOnSquareIcon className="w-4 h-4" />}
-                                    onPress={goToObjectionsPage}
-                                    className="w-full sm:w-auto"
-                                >
-                                    <span className="hidden sm:inline">Go to Objections Page</span>
-                                    <span className="sm:hidden">Objections Page</span>
-                                </Button>
-                                <Button color="primary" variant="light" onPress={() => {
-                                    unlockScroll();
-                                    onCloseModal();
-                                }}
-                                className="w-full sm:w-auto"
-                                >
-                                    Close
-                                </Button>
-                            </div>
-                        </ModalFooter>
-                    </>
-                )}
-            </ModalContent>
-        </Modal>
+                <Flex justify="between" align="center" gap="2" wrap="wrap">
+                    <Button variant="soft" color="gray" size="2" onClick={goToObjectionsPage}>
+                        <ExternalLinkIcon style={{ width: 14, height: 14 }} />
+                        Go to Objections Page
+                    </Button>
+                    <Button color="indigo" variant="soft" onClick={handleClose}>Close</Button>
+                </Flex>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

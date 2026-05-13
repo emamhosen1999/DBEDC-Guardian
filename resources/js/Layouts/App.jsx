@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { usePage, router } from '@inertiajs/react';
 import { Toaster } from 'sonner';
 import { Box, Flex, IconButton, Tooltip } from '@radix-ui/themes';
-import { MixerHorizontalIcon } from '@radix-ui/react-icons';
+import { TooltipProvider } from '@radix-ui/react-tooltip';
+import { MixerHorizontalIcon,  } from '@radix-ui/react-icons';
 
 import { getPages } from '@/Props/pages.jsx';
-import { getSettingsPages } from '@/Props/settings.jsx';
 import Header from '@/Layouts/Header.jsx';
 import Sidebar from '@/Layouts/Sidebar.jsx';
 import Breadcrumb from '@/Components/Breadcrumb.jsx';
@@ -49,10 +49,7 @@ const App = React.memo(({ children }) => {
   const pages = useMemo(() => {
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
-    const isSettings = url?.startsWith('/settings') || url?.includes('settings');
-    return isSettings
-      ? getSettingsPages(permissions, auth)
-      : getPages(roles, permissions, auth);
+    return getPages(roles, permissions, auth);
   }, [auth?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSideBar = useCallback(() => {
@@ -99,24 +96,25 @@ const App = React.memo(({ children }) => {
 
 
   return (
-    <TranslationProvider>
-      <GlobalAutoTranslator>
-        <AppStateProvider>
-          {/* Theme drawer (portal, always mounted) */}
-          <RadixThemeDrawer open={themeDrawerOpen} onClose={closeThemeDrawer} />
+    <TooltipProvider>
+      <TranslationProvider>
+        <GlobalAutoTranslator>
+          <AppStateProvider>
+            {/* Theme drawer (portal, always mounted) */}
+            <RadixThemeDrawer open={themeDrawerOpen} onClose={closeThemeDrawer} />
 
-          <AuthGuard auth={auth} url={url}>
-            <NavigationProgress />
-            <Box style={{ display: 'flex', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+            <AuthGuard auth={auth} url={url}>
+              <NavigationProgress />
+              <Box style={{ display: 'flex', height: '100vh', overflow: 'hidden', position: 'relative' }}>
 
-              {/* Update notification */}
-              <UpdateNotification
-                isVisible={isUpdateAvailable}
-                onUpdate={handleUpdate}
-                onDismiss={dismissUpdate}
-                isUpdating={isUpdating}
-                version={currentVersion}
-              />
+                {/* Update notification */}
+                <UpdateNotification
+                  isVisible={isUpdateAvailable}
+                  onUpdate={handleUpdate}
+                  onDismiss={dismissUpdate}
+                  isUpdating={isUpdating}
+                  version={currentVersion}
+                />
 
               <Toaster
                 richColors
@@ -247,6 +245,7 @@ const App = React.memo(({ children }) => {
         </AppStateProvider>
       </GlobalAutoTranslator>
     </TranslationProvider>
+    </TooltipProvider>
   );
 });
 

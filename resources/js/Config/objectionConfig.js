@@ -4,18 +4,13 @@
  */
 
 import {
-    DocumentIcon,
-    CheckCircleIcon,
-    XCircleIcon,
+    FileIcon,
+    CheckCircledIcon,
+    CrossCircledIcon,
     ClockIcon,
     ExclamationTriangleIcon,
-} from "@heroicons/react/24/outline";
-import {
-    CheckCircleIcon as CheckCircleSolid,
-    XCircleIcon as XCircleSolid,
-    ExclamationTriangleIcon as ExclamationTriangleSolid,
-    DocumentArrowUpIcon,
-} from '@heroicons/react/24/solid';
+    UploadIcon,
+} from "@radix-ui/react-icons";
 
 /**
  * Status configuration for objections
@@ -24,36 +19,36 @@ import {
 export const STATUS_CONFIG = {
     draft: {
         color: 'default',
-        icon: DocumentIcon,
-        solidIcon: DocumentIcon,
+        icon: FileIcon,
+        solidIcon: FileIcon,
         label: 'Draft',
         description: 'Objection is being drafted',
     },
     submitted: {
         color: 'primary',
-        icon: DocumentArrowUpIcon,
-        solidIcon: DocumentArrowUpIcon,
+        icon: UploadIcon,
+        solidIcon: UploadIcon,
         label: 'Submitted',
         description: 'Objection submitted for review',
     },
     under_review: {
         color: 'warning',
         icon: ClockIcon,
-        solidIcon: ExclamationTriangleSolid,
+        solidIcon: ExclamationTriangleIcon,
         label: 'Under Review',
         description: 'Objection is being reviewed',
     },
     resolved: {
         color: 'success',
-        icon: CheckCircleIcon,
-        solidIcon: CheckCircleSolid,
+        icon: CheckCircledIcon,
+        solidIcon: CheckCircledIcon,
         label: 'Resolved',
         description: 'Objection has been resolved',
     },
     rejected: {
         color: 'danger',
-        icon: XCircleIcon,
-        solidIcon: XCircleSolid,
+        icon: CrossCircledIcon,
+        solidIcon: CrossCircledIcon,
         label: 'Rejected',
         description: 'Objection has been rejected',
     },

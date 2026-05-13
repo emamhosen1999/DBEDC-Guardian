@@ -6,9 +6,9 @@ import {
     Heading, Separator, Spinner, Text, TextField,
 } from '@radix-ui/themes';
 import {
-    BarChartIcon, CalendarIcon, Cross2Icon, DownloadIcon,
-    ExclamationTriangleIcon, MagnifyingGlassIcon, MixerHorizontalIcon,
-    PlusIcon, TableIcon,
+    BarChartIcon, CalendarIcon, CheckCircledIcon, ClockIcon, Cross2Icon,
+    CrossCircledIcon, DownloadIcon, ExclamationTriangleIcon,
+    MagnifyingGlassIcon, MixerHorizontalIcon, PlusIcon, TableIcon,
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 import StatsCards from '@/Components/StatsCards.jsx';
@@ -119,7 +119,7 @@ const LeavesAdmin = ({ title, allUsers }) => {
         {
             title: "Approved",
             value: leaveStats.approved,
-            icon: <CheckCircleIcon />,
+            icon: <CheckCircledIcon />,
             color: "text-success",
             iconBg: "bg-success/20",
             description: "Approved requests"
@@ -127,7 +127,7 @@ const LeavesAdmin = ({ title, allUsers }) => {
         {
             title: "Rejected",
             value: leaveStats.rejected,
-            icon: <XCircleIcon />,
+            icon: <CrossCircledIcon />,
             color: "text-danger",
             iconBg: "bg-danger/20",
             description: "Rejected requests"
@@ -135,7 +135,7 @@ const LeavesAdmin = ({ title, allUsers }) => {
         {
             title: "This Month",
             value: leaveStats.thisMonth,
-            icon: <CalendarDaysIcon />,
+            icon: <CalendarIcon />,
             color: "text-secondary",
             iconBg: "bg-secondary/20",
             description: "Current month"

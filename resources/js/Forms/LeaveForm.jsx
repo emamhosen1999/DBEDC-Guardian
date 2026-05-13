@@ -1,19 +1,7 @@
 import React, {useState, useEffect} from 'react';
-import {
-    Avatar,
-    Button,
-    Input,
-    Textarea,
-    Select,
-    SelectItem,
-    Spinner,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter
-} from "@/compat/heroui";
-import { X, CalendarIcon, UserIcon, ClockIcon } from 'lucide-react';
+import { Box, Button, Dialog, Flex, Grid, Select, Spinner, Text, TextArea, TextField } from '@radix-ui/themes';
+import { CalendarIcon, ClockIcon, PersonIcon } from '@radix-ui/react-icons';
+import axios from 'axios';
 
 import { showToast } from "@/utils/toastUtils";
 
@@ -39,22 +27,6 @@ const LeaveForm = ({
                        updateLeaveOptimized,
                        fetchLeavesStats
 }) => {
-    // Helper function to convert theme borderRadius to HeroUI radius values
-    const getThemeRadius = () => {
-        if (typeof window === 'undefined') return 'lg';
-        
-        const rootStyles = getComputedStyle(document.documentElement);
-        const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-        
-        const radiusValue = parseInt(borderRadius);
-        if (radiusValue === 0) return 'none';
-        if (radiusValue <= 4) return 'sm';
-        if (radiusValue <= 8) return 'md';
-        if (radiusValue <= 16) return 'lg';
-        return 'full';
-    };
-   
-
     const {auth} = usePage().props;
 
     const [user_id, setUserId] = useState(currentLeave?.user_id || auth.user.id);
@@ -333,286 +305,129 @@ const LeaveForm = ({
     };
 
     return (
-        <Modal 
-            isOpen={open} 
-            onClose={closeModal}
-            size="3xl"
-            radius={getThemeRadius()}
-            scrollBehavior="inside"
-            classNames={{
-                base: "backdrop-blur-md mx-2 my-2 sm:mx-4 sm:my-8 max-h-[95vh]",
-                backdrop: "bg-black/50 backdrop-blur-sm",
-                header: "border-b border-divider",
-                body: "overflow-y-auto",
-                footer: "border-t border-divider",
-                closeButton: "hover:bg-white/5 active:bg-white/10"
-            }}
-            style={{
-                border: `var(--borderWidth, 2px) solid var(--theme-divider, #E4E4E7)`,
-                borderRadius: `var(--borderRadius, 12px)`,
-                fontFamily: `var(--fontFamily, "Inter")`,
-                transform: `scale(var(--scale, 1))`,
-                
-            }}
-        >
-            <ModalContent>
-                {(onClose) => (
-                    <>
-                        <ModalHeader className="flex flex-col gap-1" style={{
-                            borderColor: `var(--theme-divider, #E4E4E7)`,
-                            
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}>
-                            <div className="flex items-center gap-2">
-                                <CalendarIcon size={20} style={{ color: 'var(--theme-primary)' }} />
-                                <span className="text-lg font-semibold" style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}>
-                                    {currentLeave ? 'Edit Leave' : 'Add Leave'}
-                                </span>
-                            </div>
-                        </ModalHeader>
-                        <form onSubmit={handleSubmit}>
-                            <ModalBody className="py-4 px-4 sm:py-6 sm:px-6" style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                                    {/* Leave Type Selection */}
-                                    <div className="col-span-1">
-                                        <Select
-                                            label="Leave Type"
-                                            placeholder="Select Leave Type"
-                                            selectionMode="single"
-                                            selectedKeys={leaveType && leaveType !== '' ? new Set([leaveType]) : new Set()}
-                                            onSelectionChange={(keys) => {
-                                                const value = Array.from(keys)[0];
-                                                setLeaveType(value || '');
-                                            }}
-                                            isInvalid={Boolean(errors.leaveType)}
-                                            errorMessage={errors.leaveType}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            startContent={<UserIcon size={16} className="text-default-400" />}
-                                            classNames={{
-                                                trigger: "min-h-unit-10",
-                                                value: "text-small"
-                                            }}
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            {leaveTypes.map((type) => {
-                                                const leaveCount = leaveCounts?.find(lc => lc.leave_type === type.type);
-                                                const remaining = leaveCount ? (type.days - leaveCount.days_used) : type.days;
-                                                const isDisabled = remaining <= 0;
-                                                
-                                                return (
-                                                    <SelectItem 
-                                                        key={type.type} 
-                                                        value={type.type}
-                                                        isDisabled={isDisabled}
-                                                        title={isDisabled ? 'No remaining leaves available' : ''}
-                                                        textValue={type.type}
-                                                    >
-                                                        <div className="flex justify-between w-full">
-                                                            <span>{type.type}</span>
-                                                            <span className="text-small text-default-500">
-                                                                {leaveCount ? 
-                                                                    `${leaveCount.days_used} / ${type.days} days` : 
-                                                                    `${type.days} days`}
-                                                            </span>
-                                                        </div>
-                                                    </SelectItem>
-                                                );
-                                            })}
-                                        </Select>
-                                    </div>
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !processing) closeModal(); }}>
+            <Dialog.Content style={{ maxWidth: 640 }}>
+                <Dialog.Title>
+                    <Flex align="center" gap="2">
+                        <CalendarIcon style={{ color: 'var(--accent-9)' }} />
+                        {currentLeave ? 'Edit Leave' : 'Add Leave'}
+                    </Flex>
+                </Dialog.Title>
 
-                                    {/* From Date */}
-                                    <div className="col-span-1">
-                                        <Input
-                                            label="From Date"
-                                            type="date"
-                                            value={fromDate}
-                                            onValueChange={setFromDate}
-                                            isInvalid={Boolean(errors.fromDate)}
-                                            errorMessage={errors.fromDate}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            startContent={<CalendarIcon size={16} className="text-default-400" />}
-                                            classNames={{
-                                                input: "text-small",
-                                                inputWrapper: "min-h-unit-10"
-                                            }}
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        />
-                                    </div>
+                <form onSubmit={handleSubmit}>
+                    <Grid columns={{ initial: '1', sm: '2' }} gap="3" mb="4">
+                        {/* Leave Type */}
+                        <Box>
+                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Leave Type</Text>
+                            <Select.Root value={leaveType} onValueChange={setLeaveType}>
+                                <Select.Trigger style={{ width: '100%' }} />
+                                <Select.Content>
+                                    {leaveTypes.map((type) => {
+                                        const leaveCount = leaveCounts?.find(lc => lc.leave_type === type.type);
+                                        const remaining = leaveCount ? (type.days - leaveCount.days_used) : type.days;
+                                        return (
+                                            <Select.Item key={type.type} value={type.type} disabled={remaining <= 0}>
+                                                {type.type} ({leaveCount ? `${leaveCount.days_used}/${type.days}` : type.days} days)
+                                            </Select.Item>
+                                        );
+                                    })}
+                                </Select.Content>
+                            </Select.Root>
+                            {errors.leaveType && <Text size="1" color="red">{errors.leaveType}</Text>}
+                        </Box>
 
-                                    {/* To Date */}
-                                    <div className="col-span-1">
-                                        <Input
-                                            label="To Date"
-                                            type="date"
-                                            value={toDate}
-                                            onValueChange={setToDate}
-                                            isInvalid={Boolean(errors.toDate)}
-                                            errorMessage={errors.toDate}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            startContent={<CalendarIcon size={16} className="text-default-400" />}
-                                            classNames={{
-                                                input: "text-small",
-                                                inputWrapper: "min-h-unit-10"
-                                            }}
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        />
-                                    </div>
+                        {/* From Date */}
+                        <Box>
+                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>From Date</Text>
+                            <TextField.Root type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} style={{ width: '100%' }}>
+                                <TextField.Slot><CalendarIcon /></TextField.Slot>
+                            </TextField.Root>
+                            {errors.fromDate && <Text size="1" color="red">{errors.fromDate}</Text>}
+                        </Box>
 
-                                    {/* Number of Days */}
-                                    <div className="col-span-1">
-                                        <Input
-                                            label="Number of Days"
-                                            value={daysCount.toString()}
-                                            isReadOnly
-                                            isInvalid={Boolean(errors.daysCount)}
-                                            errorMessage={errors.daysCount}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            startContent={<ClockIcon size={16} className="text-default-400" />}
-                                            classNames={{
-                                                input: "text-small",
-                                                inputWrapper: "min-h-unit-10"
-                                            }}
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        />
-                                    </div>
+                        {/* To Date */}
+                        <Box>
+                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>To Date</Text>
+                            <TextField.Root type="date" value={toDate} onChange={e => setToDate(e.target.value)} style={{ width: '100%' }}>
+                                <TextField.Slot><CalendarIcon /></TextField.Slot>
+                            </TextField.Root>
+                            {errors.toDate && <Text size="1" color="red">{errors.toDate}</Text>}
+                        </Box>
 
-                                    {/* Remaining Leaves */}
-                                    <div className="col-span-1">
-                                        <Input
-                                            label="Remaining Leaves"
-                                            value={`${remainingLeaves} day${remainingLeaves !== 1 ? 's' : ''} of ${leaveTypes.find(lt => lt.type === leaveType)?.days || 0} total`}
-                                            isReadOnly
-                                            isInvalid={Boolean(errors.remainingLeaves)}
-                                            errorMessage={errors.remainingLeaves}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            startContent={<ClockIcon size={16} className="text-default-400" />}
-                                            classNames={{
-                                                input: "text-small",
-                                                inputWrapper: "min-h-unit-10"
-                                            }}
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        />
-                                    </div>
+                        {/* Number of Days */}
+                        <Box>
+                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Number of Days</Text>
+                            <TextField.Root value={daysCount.toString()} readOnly style={{ width: '100%' }}>
+                                <TextField.Slot><ClockIcon /></TextField.Slot>
+                            </TextField.Root>
+                        </Box>
 
-                                    {/* Department & Employee Selection for Admin */}
-                                    {route().current() === 'leaves' && (
-                                        <div className="col-span-full">
-                                            <DepartmentEmployeeSelector
-                                                selectedDepartmentId={selectedDepartmentId}
-                                                selectedEmployeeId={user_id}
-                                                onDepartmentChange={setSelectedDepartmentId}
-                                                onEmployeeChange={setUserId}
-                                                allUsers={allUsers}
-                                                departments={departments}
-                                                showSearch={true}
-                                                error={errors}
-                                                variant="bordered"
-                                                size="sm"
-                                                showAllOption={false}
-                                                autoSelectFirstDepartment={true}
-                                                required={true}
-                                            />
-                                        </div>
-                                    )}
+                        {/* Remaining Leaves */}
+                        <Box>
+                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Remaining Leaves</Text>
+                            <TextField.Root
+                                value={`${remainingLeaves} day${remainingLeaves !== 1 ? 's' : ''} of ${leaveTypes.find(lt => lt.type === leaveType)?.days || 0} total`}
+                                readOnly style={{ width: '100%' }}
+                            >
+                                <TextField.Slot><ClockIcon /></TextField.Slot>
+                            </TextField.Root>
+                        </Box>
 
-                                    {/* Leave Reason */}
-                                    <div className="col-span-full">
-                                        <Textarea
-                                            label="Leave Reason"
-                                            placeholder="Please provide a detailed reason for your leave request..."
-                                            value={leaveReason}
-                                            onValueChange={setLeaveReason}
-                                            isInvalid={Boolean(errors.leaveReason)}
-                                            errorMessage={errors.leaveReason}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            minRows={3}
-                                            maxRows={5}
-                                            classNames={{
-                                                input: "text-small"
-                                            }}
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        />
-                                    </div>
-
-                                    {/* Approval Chain - Show only when editing existing leave with approval chain */}
-                                    {currentLeave && currentLeave.approval_chain && currentLeave.approval_chain.length > 0 && (
-                                        <div className="col-span-full">
-                                            <ApprovalChain
-                                                approvalChain={currentLeave.approval_chain}
-                                                currentLevel={currentLeave.current_approval_level}
-                                                status={currentLeave.status}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </ModalBody>
-                            <ModalFooter className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
-                                borderColor: `var(--theme-divider, #E4E4E7)`,
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}>
-                                <Button
-                                    color="default"
+                        {/* Department & Employee for admin */}
+                        {route().current() === 'leaves' && (
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                <DepartmentEmployeeSelector
+                                    selectedDepartmentId={selectedDepartmentId}
+                                    selectedEmployeeId={user_id}
+                                    onDepartmentChange={setSelectedDepartmentId}
+                                    onEmployeeChange={setUserId}
+                                    allUsers={allUsers}
+                                    departments={departments}
+                                    showSearch={true}
+                                    error={errors}
                                     variant="bordered"
-                                    onPress={onClose}
-                                    radius={getThemeRadius()}
                                     size="sm"
-                                    style={{
-                                        borderRadius: `var(--borderRadius, 8px)`,
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    color="primary"
-                                    variant="solid"
-                                    isLoading={processing}
-                                    isDisabled={processing}
-                                    radius={getThemeRadius()}
-                                    size="sm"
-                                    style={{
-                                        borderRadius: `var(--borderRadius, 8px)`,
-                                        fontFamily: `var(--fontFamily, "Inter")`,
-                                    }}
-                                >
-                                    {processing ? 'Submitting...' : 'Submit'}
-                                </Button>
-                            </ModalFooter>
-                        </form>
-                    </>
-                )}
-            </ModalContent>
-        </Modal>
+                                    showAllOption={false}
+                                    autoSelectFirstDepartment={true}
+                                    required={true}
+                                />
+                            </Box>
+                        )}
+
+                        {/* Leave Reason */}
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Leave Reason</Text>
+                            <TextArea
+                                placeholder="Please provide a detailed reason for your leave request..."
+                                value={leaveReason}
+                                onChange={e => setLeaveReason(e.target.value)}
+                                rows={3}
+                                style={{ borderColor: errors.leaveReason ? 'var(--red-7)' : undefined, width: '100%' }}
+                            />
+                            {errors.leaveReason && <Text size="1" color="red">{errors.leaveReason}</Text>}
+                        </Box>
+
+                        {/* Approval Chain */}
+                        {currentLeave?.approval_chain?.length > 0 && (
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                <ApprovalChain
+                                    approvalChain={currentLeave.approval_chain}
+                                    currentLevel={currentLeave.current_approval_level}
+                                    status={currentLeave.status}
+                                />
+                            </Box>
+                        )}
+                    </Grid>
+
+                    <Flex justify="end" gap="2">
+                        <Button type="button" variant="soft" color="gray" onClick={closeModal} disabled={processing} style={{ cursor: 'pointer' }}>Cancel</Button>
+                        <Button type="submit" disabled={processing} style={{ cursor: 'pointer' }}>
+                            {processing ? <Spinner size="1" /> : null} {processing ? 'Submitting...' : 'Submit'}
+                        </Button>
+                    </Flex>
+                </form>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

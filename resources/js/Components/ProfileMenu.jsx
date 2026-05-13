@@ -14,7 +14,7 @@ const ProfileMenu = ({ user, trigger, onThemeOpen, ...rest }) => (
         </Flex>
       )}
       <DropdownMenu.Separator />
-      <DropdownMenu.Item onClick={() => router.get(route('profile.index'))}>Profile</DropdownMenu.Item>
+      <DropdownMenu.Item onClick={() => router.get(route('profile', { user: user?.id }))}>Profile</DropdownMenu.Item>
       {onThemeOpen && <DropdownMenu.Item onClick={onThemeOpen}>Theme Settings</DropdownMenu.Item>}
       <DropdownMenu.Separator />
       <DropdownMenu.Item color="red" onClick={() => router.post(route('logout'))}>Sign out</DropdownMenu.Item>

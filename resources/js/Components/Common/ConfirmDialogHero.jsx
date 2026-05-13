@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Button
-} from '@/compat/heroui';
-import { ExclamationTriangleIcon, CheckCircleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Dialog, Button, Flex, Text } from '@radix-ui/themes';
+import { ExclamationTriangleIcon, CheckCircledIcon, InfoCircledIcon } from '@radix-ui/react-icons';
 
 /**
  * HeroUI Confirm Dialog Component
@@ -29,35 +22,14 @@ const ConfirmDialogHero = ({
 }) => {
     const displayMessage = message || description;
 
+    const iconColorMap = { danger: 'var(--red-9)', warning: 'var(--amber-9)', success: 'var(--green-9)', info: 'var(--blue-9)' };
+    const confirmColorMap = { danger: 'red', warning: 'orange', success: 'green', info: 'blue', primary: 'indigo' };
+
     const getIcon = () => {
         if (icon) return icon;
-
-        switch (type) {
-            case 'danger':
-            case 'warning':
-                return <ExclamationTriangleIcon className="w-6 h-6" />;
-            case 'success':
-                return <CheckCircleIcon className="w-6 h-6" />;
-            case 'info':
-                return <InformationCircleIcon className="w-6 h-6" />;
-            default:
-                return <ExclamationTriangleIcon className="w-6 h-6" />;
-        }
-    };
-
-    const getIconColor = () => {
-        switch (type) {
-            case 'danger':
-                return 'text-danger';
-            case 'warning':
-                return 'text-warning';
-            case 'success':
-                return 'text-success';
-            case 'info':
-                return 'text-primary';
-            default:
-                return 'text-warning';
-        }
+        if (type === 'success') return <CheckCircledIcon style={{ width: 22, height: 22 }} />;
+        if (type === 'info')    return <InfoCircledIcon   style={{ width: 22, height: 22 }} />;
+        return <ExclamationTriangleIcon style={{ width: 22, height: 22 }} />;
     };
 
     const handleConfirm = () => {
@@ -68,49 +40,25 @@ const ConfirmDialogHero = ({
     };
 
     return (
-        <Modal
-            isOpen={open}
-            onClose={onClose}
-            size="md"
-            backdrop="blur"
-            classNames={{
-                backdrop: "bg-gradient-to-t from-zinc-900 to-zinc-900/10 backdrop-opacity-20"
-            }}
-        >
-            <ModalContent>
-                {(onModalClose) => (
-                    <>
-                        <ModalHeader className="flex items-center gap-3">
-                            <span className={getIconColor()}>
-                                {getIcon()}
-                            </span>
-                            <span>{title}</span>
-                        </ModalHeader>
-                        <ModalBody>
-                            <p className="text-default-700">
-                                {displayMessage}
-                            </p>
-                        </ModalBody>
-                        <ModalFooter>
-                            <Button
-                                variant="light"
-                                onPress={onModalClose}
-                                isDisabled={isLoading}
-                            >
-                                {cancelText}
-                            </Button>
-                            <Button
-                                color={confirmColor}
-                                onPress={handleConfirm}
-                                isLoading={isLoading}
-                            >
-                                {confirmText}
-                            </Button>
-                        </ModalFooter>
-                    </>
-                )}
-            </ModalContent>
-        </Modal>
+        <Dialog.Root open={open} onOpenChange={(v) => { if (!v && !isLoading) onClose(); }}>
+            <Dialog.Content maxWidth="480px">
+                <Dialog.Title>
+                    <Flex align="center" gap="2">
+                        <span style={{ color: iconColorMap[type] || iconColorMap.warning }}>{getIcon()}</span>
+                        {title}
+                    </Flex>
+                </Dialog.Title>
+                <Dialog.Description size="2" mb="4">{displayMessage}</Dialog.Description>
+                <Flex gap="2" justify="end">
+                    <Button variant="soft" color="gray" disabled={isLoading} onClick={onClose}>
+                        {cancelText}
+                    </Button>
+                    <Button color={confirmColorMap[confirmColor] || 'red'} loading={isLoading} onClick={handleConfirm}>
+                        {confirmText}
+                    </Button>
+                </Flex>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

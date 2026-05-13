@@ -1,11 +1,5 @@
 import React, { useState, useCallback } from "react";
-import {
-    PencilIcon as EditIcon,
-    TrashIcon as DeleteIcon,
-    EllipsisVerticalIcon as MoreVertIcon
-} from '@heroicons/react/24/outline';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-
 import { usePage } from "@inertiajs/react";
 import { showToast } from '@/utils/toastUtils';
 import { getProfileAvatarTokens } from '@/Components/ProfileAvatar';
@@ -32,26 +26,18 @@ import {
     Link,
 } from "@/compat/heroui";
 import {
-    CalendarDaysIcon,
-    UserIcon,
+    CalendarIcon,
+    CheckCircledIcon,
     ClockIcon,
-    DocumentTextIcon,
-    EllipsisVerticalIcon,
-    PencilIcon,
+    CrossCircledIcon,
+    DotsVerticalIcon,
+    ExclamationTriangleIcon,
+    FileTextIcon,
+    Pencil1Icon,
+    PersonIcon,
     TrashIcon,
-    ClockIcon as ClockIconOutline,
-    SunIcon,
-    HeartIcon,
-    BriefcaseIcon,
-} from '@heroicons/react/24/outline';
-import {
-    CheckCircleIcon as CheckCircleSolid,
-    XCircleIcon as XCircleSolid,
-    ClockIcon as ClockSolid,
-    ExclamationTriangleIcon as ExclamationTriangleSolid
-} from '@heroicons/react/24/solid';
+} from '@radix-ui/react-icons';
 import axios from 'axios';
-import { PhoneOff } from "lucide-react";
 import ApprovalActions from '@/Components/Leave/ApprovalActions.jsx';
 
 
@@ -96,21 +82,6 @@ const LeaveEmployeeTable = React.forwardRef(({
         [selectedKeys]
     );
 
-     // Helper function to convert theme borderRadius to HeroUI radius values
-    const getThemeRadius = () => {
-        if (typeof window === 'undefined') return 'lg';
-        
-        const rootStyles = getComputedStyle(document.documentElement);
-        const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-        
-        const radiusValue = parseInt(borderRadius);
-        if (radiusValue === 0) return 'none';
-        if (radiusValue <= 4) return 'sm';
-        if (radiusValue <= 8) return 'md';
-        if (radiusValue <= 16) return 'lg';
-        return 'full';
-    };
-
     const topContent = React.useMemo(() => {
         const isAllSelected = selectedKeys === "all";
         const hasSelection = isAllSelected || selectedKeys.size > 0;
@@ -135,7 +106,6 @@ const LeaveEmployeeTable = React.forwardRef(({
                                     background: `color-mix(in srgb, var(--theme-danger) 20%, transparent)`,
                                     border: `1px solid color-mix(in srgb, var(--theme-danger) 30%, transparent)`,
                                     color: 'var(--theme-danger)',
-                                    borderRadius: getThemeRadius(),
                                 }}
                             >
                                 Delete {selectedCount} selected
@@ -164,38 +134,21 @@ const LeaveEmployeeTable = React.forwardRef(({
 
     // Status configuration
     const statusConfig = {
-        'New': {
-            color: 'primary',
-            icon: ExclamationTriangleSolid,
-        },
-        'Pending': {
-            color: 'warning',
-            icon: ClockSolid,
-        },
-        'Approved': {
-            color: 'success',
-            icon: CheckCircleSolid,
-        },
-        'Declined': {
-            color: 'danger',
-            icon: XCircleSolid,
-        }
+        'New': { color: 'primary', icon: ExclamationTriangleIcon },
+        'Pending': { color: 'warning', icon: ClockIcon },
+        'Approved': { color: 'success', icon: CheckCircledIcon },
+        'Declined': { color: 'danger', icon: CrossCircledIcon }
     };
 
     
 
     const getLeaveTypeIcon = (type) => {
         switch (type?.toLowerCase()) {
-            case "casual":
-                return <BriefcaseIcon className="w-3 h-3 text-blue-500" />;
-            case "weekend":
-                return <SunIcon className="w-3 h-3 text-yellow-500" />;
-            case "sick":
-                return <HeartIcon className="w-3 h-3 text-red-500" />;
-            case "earned":
-                return <ClockIcon className="w-3 h-3 text-green-500" />;
-            default:
-                return <DocumentTextIcon className="w-3 h-3 text-primary" />;
+            case "casual": return <FileTextIcon style={{ width: 12, height: 12, color: '#3b82f6' }} />;
+            case "weekend": return <CalendarIcon style={{ width: 12, height: 12, color: '#eab308' }} />;
+            case "sick": return <CrossCircledIcon style={{ width: 12, height: 12, color: '#ef4444' }} />;
+            case "earned": return <ClockIcon style={{ width: 12, height: 12, color: '#22c55e' }} />;
+            default: return <FileTextIcon style={{ width: 12, height: 12, color: 'var(--accent-9)' }} />;
         }
     };
 
@@ -301,16 +254,11 @@ const LeaveEmployeeTable = React.forwardRef(({
             <Chip
                 size="sm"
                 variant="flat"
-                startContent={<StatusIcon className="w-3 h-3" />}
-                classNames={{
-                    base: "h-6",
-                    content: "text-xs font-medium"
-                }}
+                startContent={<StatusIcon style={{ width: 12, height: 12 }} />}
                 style={{
                     background: colors.bg,
                     border: `1px solid ${colors.border}`,
                     color: colors.color,
-                    borderRadius: getThemeRadius(),
                 }}
             >
                 {status}
@@ -352,7 +300,6 @@ const LeaveEmployeeTable = React.forwardRef(({
                     background: `color-mix(in srgb, var(--theme-content1) 85%, transparent)`,
                     backdropFilter: 'blur(16px)',
                     border: `1px solid color-mix(in srgb, var(--theme-content2) 50%, transparent)`,
-                    borderRadius: getThemeRadius(),
                 }}
             >
                 <CardBody className="p-3">
@@ -369,65 +316,28 @@ const LeaveEmployeeTable = React.forwardRef(({
                             size: 'sm',
                         }),
                         }}
-                        description={
-                        user?.phone ? (
-                            <Link
-                            href={`tel:${user?.phone}`}
-                            size="sm"
-                            className="text-xs text-blue-500 hover:underline"
-                            >
-                            {user?.phone}
-                            </Link>
-                        ) : (
-                            <span className="flex items-center gap-1 text-xs text-gray-400 italic">
-                            <PhoneOff className="w-3 h-3" /> No Phone
-                            </span>
-                        )
-                        }
-                        name={
-                        <span className="text-sm font-medium">
-                            {user?.name || "Unnamed User"}
-                        </span>
-                        }
+                        description={user?.phone ? <a href={`tel:${user?.phone}`} className="text-xs text-blue-500 hover:underline">{user?.phone}</a> : <span className="text-xs text-gray-400 italic">No Phone</span>}
+                        name={<span className="text-sm font-medium">{user?.name || "Unnamed User"}</span>}
                     />
                             )}
                         </div>
                         <div className="flex items-center gap-2">
                             {getStatusChip(leave.status)}
-                            {(canEditLeaves || canDeleteLeaves) && ( // Check specific permissions for dropdown
+                            {(canEditLeaves || canDeleteLeaves) && (
                                 <Dropdown>
                                     <DropdownTrigger>
-                                        <Button
-                                            isIconOnly
-                                            size="sm"
-                                            variant="light"
-                                            className="min-w-8 h-8"
-                                        >
-                                            <EllipsisVerticalIcon className="w-4 h-4" />
+                                        <Button isIconOnly size="sm" variant="light" className="min-w-8 h-8">
+                                            <DotsVerticalIcon style={{ width: 16, height: 16 }} />
                                         </Button>
                                     </DropdownTrigger>
                                     <DropdownMenu aria-label="Leave actions">
                                         {canEditLeaves && (
-                                            <DropdownItem
-                                                key="edit"
-                                                startContent={<PencilIcon className="w-4 h-4" />}
-                                                onPress={() => {
-                                           
-                                                    setCurrentLeave(leave);
-                                                    openModal("edit_leave");
-                                                }}
-                                            >
+                                            <DropdownItem key="edit" startContent={<Pencil1Icon style={{ width: 16, height: 16 }} />} onPress={() => { setCurrentLeave(leave); openModal("edit_leave"); }}>
                                                 Edit Leave
                                             </DropdownItem>
                                         )}
                                         {canDeleteLeaves && (
-                                            <DropdownItem
-                                                key="delete"
-                                                className="text-danger"
-                                                color="danger"
-                                                startContent={<TrashIcon className="w-4 h-4" />}
-                                                onPress={() => handleClickOpen(leave.id, "delete_leave")}
-                                            >
+                                            <DropdownItem key="delete" color="danger" startContent={<TrashIcon style={{ width: 16, height: 16 }} />} onPress={() => handleClickOpen(leave.id, "delete_leave")}>
                                                 Delete Leave
                                             </DropdownItem>
                                         )}
@@ -441,16 +351,15 @@ const LeaveEmployeeTable = React.forwardRef(({
 
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                            <DocumentTextIcon className="w-4 h-4 text-primary" />
+                            <FileTextIcon style={{ width: 16, height: 16, color: 'var(--accent-9)' }} />
                             <span className="text-sm font-medium">
                                 {leave.leave_type}
                             </span>
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <CalendarDaysIcon 
-                                className="w-4 h-4 opacity-60"
-                                style={{ color: 'var(--theme-foreground)' }}
+                            <CalendarIcon 
+                                style={{ width: 16, height: 16, opacity: 0.6, color: 'var(--theme-foreground)' }}
                             />
                             <span 
                                 className="text-sm opacity-80"
@@ -465,7 +374,6 @@ const LeaveEmployeeTable = React.forwardRef(({
                                     background: 'color-mix(in srgb, var(--theme-content2) 50%, transparent)',
                                     border: `1px solid color-mix(in srgb, var(--theme-content3) 50%, transparent)`,
                                     color: 'var(--theme-foreground)',
-                                    borderRadius: getThemeRadius(),
                                 }}
                             >
                                 {duration}
@@ -474,9 +382,8 @@ const LeaveEmployeeTable = React.forwardRef(({
 
                         {leave.reason && (
                             <div className="flex items-start gap-2">
-                                <ClockIconOutline 
-                                    className="w-4 h-4 mt-0.5 opacity-60"
-                                    style={{ color: 'var(--theme-foreground)' }}
+                                <ClockIcon 
+                                    style={{ width: 16, height: 16, marginTop: 2, opacity: 0.6, color: 'var(--theme-foreground)' }}
                                 />
                                 <span 
                                     className="text-sm flex-1 opacity-80"
@@ -500,13 +407,13 @@ const LeaveEmployeeTable = React.forwardRef(({
                                         color={statusConfig[status].color}
                                         isLoading={updatingLeave === `${leave.id}-${status}`}
                                         onPress={() => {
-                                            if (updatingLeave === `${leave.id}-${status}`) return; // Prevent multiple clicks
+                                            if (updatingLeave === `${leave.id}-${status}`) return;
                                             updateLeaveStatus(leave, status);
                                         }}
                                         startContent={
                                             updatingLeave !== `${leave.id}-${status}` ? 
                                             React.createElement(statusConfig[status].icon, {
-                                                className: "w-3 h-3"
+                                                style: { width: 12, height: 12 }
                                             }) : null
                                         }
                                         classNames={{
@@ -542,26 +449,8 @@ const LeaveEmployeeTable = React.forwardRef(({
                             size: 'sm',
                         }),
                         }}
-                        description={
-                        user?.phone ? (
-                            <Link
-                            href={`tel:${user?.phone}`}
-                            size="sm"
-                            className="text-xs text-blue-500 hover:underline"
-                            >
-                            {user?.phone}
-                            </Link>
-                        ) : (
-                            <span className="flex items-center gap-1 text-xs text-gray-400 italic">
-                            <PhoneOff className="w-3 h-3" /> No Phone
-                            </span>
-                        )
-                        }
-                        name={
-                        <span className="text-sm font-medium">
-                            {user?.name || "Unnamed User"}
-                        </span>
-                        }
+                        description={user?.phone ? <a href={`tel:${user?.phone}`} className="text-xs text-blue-500 hover:underline">{user?.phone}</a> : <span className="text-xs text-gray-400 italic">No Phone</span>}
+                        name={<span className="text-sm font-medium">{user?.name || "Unnamed User"}</span>}
                     />
                     </TableCell>
                 );
@@ -584,9 +473,8 @@ const LeaveEmployeeTable = React.forwardRef(({
                 return (
                     <TableCell>
                         <div className="flex items-center gap-1">
-                            <CalendarDaysIcon 
-                                className="w-3 h-3 opacity-60"
-                                style={{ color: 'var(--theme-foreground)' }}
+                            <CalendarIcon 
+                                style={{ width: 12, height: 12, opacity: 0.6, color: 'var(--theme-foreground)' }}
                             />
                             <div>
                                 <span 
@@ -625,7 +513,6 @@ const LeaveEmployeeTable = React.forwardRef(({
                                 <ApprovalActions 
                                     leave={leave} 
                                     onApprovalComplete={() => {
-                                        // Refresh the leaves list
                                         if (fetchLeavesStats) fetchLeavesStats();
                                         window.location.reload();
                                     }}
@@ -638,24 +525,21 @@ const LeaveEmployeeTable = React.forwardRef(({
                                             size="sm" 
                                             variant="light"
                                             isDisabled={updatingLeave && updatingLeave.startsWith(`${leave.id}-`)}
-                                            onPress={() => {}} // Empty function for dropdown trigger
                                             className="min-w-8 h-8"
                                         >
-                                            <EllipsisVerticalIcon className="w-4 h-4" />
+                                            <DotsVerticalIcon style={{ width: 16, height: 16 }} />
                                         </Button>
                                     </DropdownTrigger>
-                                    <DropdownMenu
-                                        aria-label="Status actions"
-                                        onAction={(key) => updateLeaveStatus(leave, key)}
-                                    >
+                                    <DropdownMenu aria-label="Status actions">
                                         {Object.keys(statusConfig).map((status) => {
                                             const config = statusConfig[status];
                                             const StatusIcon = config.icon;
                                             return (
                                                 <DropdownItem
                                                     key={status}
-                                                    startContent={<StatusIcon className="w-4 h-4" />}
+                                                    startContent={<StatusIcon style={{ width: 16, height: 16 }} />}
                                                     color={config.color}
+                                                    onPress={() => updateLeaveStatus(leave, status)}
                                                 >
                                                     {status}
                                                 </DropdownItem>
@@ -683,45 +567,30 @@ const LeaveEmployeeTable = React.forwardRef(({
                 );
 
             case "actions":
-          
                 return (
                     <TableCell>
                         <div className="flex items-center gap-1">
                             {canEditLeaves && (
                                 <Tooltip content="Edit Leave">
                                     <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="light"
-                                        color="primary"
+                                        isIconOnly size="sm" variant="light" color="primary"
                                         isDisabled={updatingLeave && updatingLeave.startsWith(`${leave.id}-`)}
-                                        onPress={() => {
-                                            if (updatingLeave && updatingLeave.startsWith(`${leave.id}-`)) return;
-                                            setCurrentLeave(leave);
-                                            openModal("edit_leave");
-                                        }}
+                                        onPress={() => { if (updatingLeave && updatingLeave.startsWith(`${leave.id}-`)) return; setCurrentLeave(leave); openModal("edit_leave"); }}
                                         className="min-w-8 h-8"
                                     >
-                                        <PencilIcon className="w-4 h-4" />
+                                        <Pencil1Icon style={{ width: 16, height: 16 }} />
                                     </Button>
                                 </Tooltip>
                             )}
                             {canDeleteLeaves && (
                                 <Tooltip content="Delete Leave" color="danger">
                                     <Button
-                                        isIconOnly
-                                        size="sm"
-                                        variant="light"
-                                        color="danger"
+                                        isIconOnly size="sm" variant="light" color="danger"
                                         isDisabled={updatingLeave && updatingLeave.startsWith(`${leave.id}-`)}
-                                        onPress={() => {
-                                            if (updatingLeave && updatingLeave.startsWith(`${leave.id}-`)) return;
-                                            setCurrentLeave(leave);
-                                            handleClickOpen(leave.id, "delete_leave");
-                                        }}
+                                        onPress={() => { if (updatingLeave && updatingLeave.startsWith(`${leave.id}-`)) return; setCurrentLeave(leave); handleClickOpen(leave.id, "delete_leave"); }}
                                         className="min-w-8 h-8"
                                     >
-                                        <TrashIcon className="w-4 h-4" />
+                                        <TrashIcon style={{ width: 16, height: 16 }} />
                                     </Button>
                                 </Tooltip>
                             )}
@@ -735,12 +604,12 @@ const LeaveEmployeeTable = React.forwardRef(({
     }, [isAdminView, canApproveLeaves, canEditLeaves, canDeleteLeaves, isLargeScreen, updatingLeave, setCurrentLeave, openModal, handleClickOpen, updateLeaveStatus, auth, fetchLeavesStats]);
 
     const columns = [
-        ...(isAdminView ? [{ name: "Employee", uid: "employee", icon: UserIcon }] : []),
-        { name: "Leave Type", uid: "leave_type", icon: DocumentTextIcon },
-        { name: "From Date", uid: "from_date", icon: CalendarDaysIcon },
-        { name: "To Date", uid: "to_date", icon: CalendarDaysIcon },
-        { name: "Status", uid: "status", icon: ClockIconOutline },
-        { name: "Reason", uid: "reason", icon: DocumentTextIcon },
+        ...(isAdminView ? [{ name: "Employee", uid: "employee", icon: PersonIcon }] : []),
+        { name: "Leave Type", uid: "leave_type", icon: FileTextIcon },
+        { name: "From Date", uid: "from_date", icon: CalendarIcon },
+        { name: "To Date", uid: "to_date", icon: CalendarIcon },
+        { name: "Status", uid: "status", icon: ClockIcon },
+        { name: "Reason", uid: "reason", icon: FileTextIcon },
         ...(isAdminView ? [{ name: "Actions", uid: "actions" }] : [])
     ];
 
@@ -776,13 +645,8 @@ const LeaveEmployeeTable = React.forwardRef(({
                             color="primary"
                             variant="bordered"
                             page={currentPage}
-                            radius={getThemeRadius()}
                             total={lastPage}
                             onChange={handlePageChange}
-                            
-                            style={{
-                                fontFamily: `var(--fontFamily, "Inter")`,
-                            }}
                         />
                         
                     </div>
@@ -809,7 +673,6 @@ const LeaveEmployeeTable = React.forwardRef(({
                     removeWrapper
                     aria-label="Leave Management Table"
                     disabledBehavior="selection"
-                    radius={getThemeRadius()}
                     classNames={{
                         base: "max-h-[520px] overflow-auto",
                         table: "min-h-[200px] w-full",
@@ -836,7 +699,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                                 }}
                             >
                                 <div className="flex items-center gap-1">
-                                    {column.icon && <column.icon className="w-3 h-3" />}
+                                    {column.icon && React.createElement(column.icon, { style: { width: 12, height: 12 } })}
                                     <span className="text-xs font-semibold">{column.name}</span>
                                 </div>
                             </TableColumn>
@@ -846,9 +709,8 @@ const LeaveEmployeeTable = React.forwardRef(({
                         items={leaves}
                         emptyContent={
                             <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <CalendarDaysIcon 
-                                    className="w-12 h-12 mb-4 opacity-40"
-                                    style={{ color: 'var(--theme-foreground)' }}
+                                <CalendarIcon 
+                                    style={{ width: 48, height: 48, marginBottom: 16, opacity: 0.4, color: 'var(--theme-foreground)' }}
                                 />
                                 <h6 
                                     className="text-lg font-semibold mb-2"
@@ -892,13 +754,8 @@ const LeaveEmployeeTable = React.forwardRef(({
                         color="primary"
                         variant="bordered"
                         page={currentPage}
-                        radius={getThemeRadius()}
                         total={lastPage}
                         onChange={handlePageChange}
-                        
-                        style={{
-                            fontFamily: `var(--fontFamily, "Inter")`,
-                        }}
                     />
                     <div 
                         className="text-xs opacity-70"
