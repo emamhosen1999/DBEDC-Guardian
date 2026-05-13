@@ -1,7 +1,4 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { createPortal } from 'react-dom';
-import * as Dialog from '@radix-ui/react-dialog';
-import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import {
     Box,
     Flex,
@@ -10,6 +7,7 @@ import {
     Badge,
     Tabs,
     Separator,
+    Dialog,
 } from '@radix-ui/themes';
 import {
     FileTextIcon,
@@ -310,6 +308,7 @@ function SkippedSection({ skippedList, getInchargeName }) {
 export default function ImportPreviewModalRadix({
     isOpen,
     onClose,
+    onCancel,
     previewData,
     onConfirm,
     isImporting,
@@ -441,19 +440,23 @@ export default function ImportPreviewModalRadix({
     const blockConfirm = totalUnassignedAcrossSheets > 0;
 
     return (
-        createPortal(
-            <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v && !isImporting) onClose(); }}>
-                <Dialog.Portal>
-                    <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9998 }} />
-                    <Dialog.Content
-                        className="fixed inset-0 flex flex-col bg-white w-full h-full max-h-screen max-w-screen"
-                        style={{ zIndex: 9999, fontFamily: `var(--fontFamily, "Inter")` }}
-                        aria-describedby={undefined}
-                    >
-                    <VisuallyHidden.Root>
-                        <Dialog.Title>Import Preview & Incharge Validation</Dialog.Title>
-                    </VisuallyHidden.Root>
-                    {/* Header */}
+        <Dialog.Root open={isOpen} onOpenChange={(v) => { if (!v && !isImporting) onClose(); }}>
+            <Dialog.Content
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    backgroundColor: 'white',
+                    width: '100%',
+                    height: '100%',
+                    maxHeight: '100vh',
+                    maxWidth: '100vw',
+                    fontFamily: `var(--fontFamily, "Inter")`,
+                    padding: 0,
+                }}
+            >
+                {/* Header */}
                     <div className="flex items-center justify-between gap-3 px-6 py-3 border-b border-gray-200">
                         <div className="flex items-center gap-3">
                             <div
@@ -599,11 +602,9 @@ export default function ImportPreviewModalRadix({
                             )}
                         </div>
                         <div className="flex items-center gap-2">
-                            <Dialog.Close>
-                                <Button variant="soft" disabled={isImporting}>
-                                    Cancel
-                                </Button>
-                            </Dialog.Close>
+                            <Button variant="soft" disabled={isImporting} onClick={onCancel}>
+                                Cancel
+                            </Button>
                             <Button
                                 onClick={handleConfirmClick}
                                 disabled={blockConfirm || isImporting}
@@ -619,10 +620,7 @@ export default function ImportPreviewModalRadix({
                             </Button>
                         </div>
                     </div>
-                </Dialog.Content>
-            </Dialog.Portal>
-        </Dialog.Root>,
-            document.body
-        )
+            </Dialog.Content>
+        </Dialog.Root>
     );
 }

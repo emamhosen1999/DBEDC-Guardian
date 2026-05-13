@@ -52,6 +52,7 @@ import DailyWorkForm from "@/Forms/DailyWorkForm.jsx";
 import DeleteDailyWorkForm from "@/Forms/DeleteDailyWorkForm.jsx";
 import EnhancedDailyWorksExportForm from "@/Forms/EnhancedDailyWorksExportForm.jsx";
 import DailyWorksUploadForm from "@/Forms/DailyWorksUploadForm.jsx";
+import ImportPreviewModalRadix from "@/Forms/ImportPreviewModalRadix.jsx";
 import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import DailyWorkSummaryAnalytics from "@/Components/DailyWorkSummaryAnalytics.jsx";
@@ -79,6 +80,13 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     // Tab state
     const [activeTab, setActiveTab] = useState('works'); // 'works' | 'summary' | 'objections'
+
+    // Import file state for preservation when preview modal opens
+    const [importFile, setImportFile] = useState(null);
+    const [previewData, setPreviewData] = useState(null);
+    const [showImportPreview, setShowImportPreview] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const [importProgress, setImportProgress] = useState(0);
 
     // Works tab state (from DailyWorks.jsx)
     const [data, setData] = useState([]);
@@ -535,6 +543,8 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     const handleImportSuccess = (importResults) => {
         closeModal();
+        setImportFile(null); // Clear file after successful import
+        setPreviewData(null);
         
         if (importResults && Array.isArray(importResults) && importResults.length > 0) {
             const importedDates = importResults
@@ -575,6 +585,66 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         setTimeout(() => {
             fetchData(true);
         }, 100);
+    };
+
+    const handlePreviewReady = (file, data) => {
+        setImportFile(file);
+        setPreviewData(data);
+        setOpenModalType(null); // Close upload dialog
+        setShowImportPreview(true); // Open preview modal
+    };
+
+    const handlePreviewCancel = () => {
+        setShowImportPreview(false);
+        setPreviewData(null);
+        setOpenModalType('importDailyWorks'); // Reopen upload dialog
+    };
+
+    const handlePreviewConfirm = async (overrides) => {
+        setIsImporting(true);
+        setImportProgress(0);
+
+        const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content
+            || document.querySelector('input[name="_token"]')?.value
+            || window.Laravel?.csrfToken;
+
+        const formData = new FormData();
+        formData.append('file', importFile);
+        formData.append('incharge_overrides', JSON.stringify(overrides || {}));
+
+        try {
+            const response = await axios.post(route('dailyWorks.import'), formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
+                },
+                onUploadProgress: (progressEvent) => {
+                    if (!progressEvent.total) return;
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setImportProgress(percentCompleted);
+                }
+            });
+
+            if (response.status === 200) {
+                setShowImportPreview(false);
+                setPreviewData(null);
+                setImportFile(null);
+                setIsImporting(false);
+                setImportProgress(0);
+
+                // Call onSuccess with import results
+                if (typeof handleImportSuccess === 'function') {
+                    handleImportSuccess(response.data.results);
+                }
+
+                showToast.success('Daily works imported successfully');
+            }
+        } catch (error) {
+            console.error('Import error:', error);
+            setIsImporting(false);
+            setImportProgress(0);
+            showToast.error('Failed to import daily works');
+        }
     };
 
     // Enhanced useEffect for mobile/desktop mode switching and initial load
@@ -653,6 +723,8 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                     setTotalRows={setTotalRows}
                     refreshData={refreshData}
                     onSuccess={handleImportSuccess}
+                    file={importFile}
+                    onPreviewReady={handlePreviewReady}
                 />
             )}
             {openModalType === 'exportDailyWorks' && (
@@ -678,6 +750,25 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                     inCharges={allData.allInCharges}
                     currentFilters={summaryFilterData}
                     auth={auth}
+                />
+            )}
+
+            {/* Import Preview Modal */}
+            {showImportPreview && (
+                <ImportPreviewModalRadix
+                    isOpen={showImportPreview}
+                    onClose={() => {
+                        if (!isImporting) {
+                            setShowImportPreview(false);
+                            setPreviewData(null);
+                            setImportFile(null);
+                        }
+                    }}
+                    onCancel={handlePreviewCancel}
+                    previewData={previewData}
+                    onConfirm={handlePreviewConfirm}
+                    isImporting={isImporting}
+                    importProgress={importProgress}
                 />
             )}
 

@@ -5,7 +5,7 @@ import { showToast } from "@/utils/toastUtils";
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 
-const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refreshData, onSuccess }) => {
+const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refreshData, onSuccess, file: initialFile, onPreviewReady }) => {
     // Expected Excel format data - based on actual project format
     const expectedFormat = [
         { column: 'A', field: 'Date', example: '4/27/2025', required: true, processed: true },
@@ -18,12 +18,13 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         { column: 'H', field: 'Time (Optional)', example: '3:00 PM, 4:00 PM, 9:00 AM', required: false, processed: false },
     ];
 
-    const [file, setFile] = useState(null);
+    const [file, setFile] = useState(initialFile || null);
     const [processing, setProcessing] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [dragActive, setDragActive] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
     const [serverErrors, setServerErrors] = useState({});
+    const [previewLoading, setPreviewLoading] = useState(false);
 
     // Validate file before processing
     const validateFile = (file) => {
@@ -70,6 +71,58 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         setValidationErrors([]);
         setServerErrors({});
         setUploadProgress(0);
+    };
+
+    // Handle preview
+    const handlePreview = async () => {
+        if (!file) {
+            showToast.error('Please select a file to preview');
+            return;
+        }
+
+        setPreviewLoading(true);
+        setServerErrors({});
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content
+                || document.querySelector('input[name="_token"]')?.value
+                || window.Laravel?.csrfToken;
+
+            const response = await axios.post(route('dailyWorks.previewImport'), formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    ...(csrfToken && { 'X-CSRF-TOKEN': csrfToken }),
+                }
+            });
+
+            if (response.status === 200) {
+                const data = response.data.summary || response.data;
+                if (onPreviewReady) {
+                    onPreviewReady(file, data);
+                }
+                showToast.success('Preview generated successfully');
+            }
+        } catch (error) {
+            console.error('Preview error:', error);
+
+            if (error.response) {
+                if (error.response.status === 422) {
+                    setServerErrors(error.response.data.errors || {});
+                    showToast.error('Validation failed');
+                } else {
+                    const errorMessage = error.response.data.error || error.response.data.message || 'Preview failed';
+                    setServerErrors({ general: [errorMessage] });
+                    showToast.error(errorMessage);
+                }
+            } else {
+                showToast.error('Failed to generate preview');
+            }
+        } finally {
+            setPreviewLoading(false);
+        }
     };
 
     // Setup dropzone
@@ -390,9 +443,9 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
 
                     <Flex justify="center" gap="2" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
                         <Button variant="outline" color="gray" onClick={handleClose} disabled={processing} size="2">Cancel</Button>
-                        <Button color="indigo" onClick={handleConfirmImport} disabled={!file || validationErrors.length > 0 || processing} size="2">
-                            {!processing && <UploadIcon style={{ width: 14, height: 14 }} />}
-                            {processing ? 'Importing...' : 'Import'}
+                        <Button color="indigo" onClick={handlePreview} loading={previewLoading} disabled={!file || validationErrors.length > 0} size="2">
+                            {!previewLoading && <UploadIcon style={{ width: 14, height: 14 }} />}
+                            {previewLoading ? 'Generating Preview...' : 'Preview Import'}
                         </Button>
                     </Flex>
                 </Dialog.Content>
