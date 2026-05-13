@@ -4,9 +4,8 @@ import { UploadIcon, FileTextIcon, CheckCircledIcon, ExclamationTriangleIcon, Cr
 import { showToast } from "@/utils/toastUtils";
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
-import ImportPreviewModalRadix from './ImportPreviewModalRadix';
 
-const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refreshData, onSuccess }) => {
+const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refreshData, onSuccess, onPreviewReady }) => {
     // Expected Excel format data - based on actual project format
     const expectedFormat = [
         { column: 'A', field: 'Date', example: '4/27/2025', required: true, processed: true },
@@ -25,8 +24,6 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
     const [dragActive, setDragActive] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
     const [serverErrors, setServerErrors] = useState({});
-    const [previewData, setPreviewData] = useState(null);
-    const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [previewLoading, setPreviewLoading] = useState(false);
 
     // Validate file before processing
@@ -65,7 +62,6 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
             setFile(selectedFile);
             setValidationErrors([]);
             setServerErrors({});
-            setPreviewData(null);
         }
     }, []);
 
@@ -74,8 +70,6 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
         setFile(null);
         setValidationErrors([]);
         setServerErrors({});
-        setPreviewData(null);
-        setShowPreviewModal(false);
         setUploadProgress(0);
     };
 
@@ -106,8 +100,10 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
 
             if (response.status === 200) {
                 // New shape: { token, incharges, sheets }
-                setPreviewData(response.data.summary || response.data);
-                setShowPreviewModal(true);
+                const data = response.data.summary || response.data;
+                if (onPreviewReady) {
+                    onPreviewReady(data);
+                }
                 showToast.success('Preview generated successfully');
             }
         } catch (error) {
@@ -284,7 +280,7 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
 
     return (
         <>
-            <Dialog.Root open={open && !showPreviewModal} onOpenChange={(v) => { if (!v && !processing && !showPreviewModal) handleClose(); }}>
+            <Dialog.Root open={open} onOpenChange={(v) => { if (!v && !processing) handleClose(); }}>
                 <Dialog.Content maxWidth="700px" style={{ fontFamily: `var(--fontFamily,"Inter")` }} aria-describedby={undefined}>
                     <Dialog.Title>
                         <Flex align="center" gap="3">
@@ -462,15 +458,6 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
                     </Flex>
                 </Dialog.Content>
             </Dialog.Root>
-
-            <ImportPreviewModalRadix
-                isOpen={showPreviewModal}
-                onClose={() => !processing && setShowPreviewModal(false)}
-                previewData={previewData}
-                onConfirm={handleConfirmImport}
-                isImporting={processing}
-                importProgress={uploadProgress}
-            />
         </>
     );
 };
