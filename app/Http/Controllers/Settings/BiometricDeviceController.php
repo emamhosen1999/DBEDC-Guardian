@@ -44,6 +44,7 @@ class BiometricDeviceController extends Controller
             'ip_address'    => 'nullable|ip',
             'location'      => 'nullable|string|max:255',
             'model'         => 'nullable|string|max:255',
+            'protocol'      => 'nullable|in:push_sdk,adms',
             'is_active'     => 'boolean',
             'config'        => 'nullable|array',
         ]);
@@ -66,6 +67,7 @@ class BiometricDeviceController extends Controller
             'ip_address'    => 'nullable|ip',
             'location'      => 'nullable|string|max:255',
             'model'         => 'nullable|string|max:255',
+            'protocol'      => 'nullable|in:push_sdk,adms',
             'is_active'     => 'boolean',
             'config'        => 'nullable|array',
         ]);
