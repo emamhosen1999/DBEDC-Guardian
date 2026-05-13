@@ -446,6 +446,7 @@ export default function ImportPreviewModalRadix({
                 <Dialog.Content
                     className="fixed inset-0 flex flex-col bg-white w-full h-full max-h-screen max-w-screen"
                     style={{ zIndex: 801, fontFamily: `var(--fontFamily, "Inter")` }}
+                    aria-describedby={undefined}
                 >
                     <VisuallyHidden.Root>
                         <Dialog.Title>Import Preview & Incharge Validation</Dialog.Title>

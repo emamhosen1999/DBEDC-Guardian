@@ -284,8 +284,8 @@ const DailyWorksUploadForm = ({ open, closeModal, setTotalRows, setData, refresh
 
     return (
         <>
-            <Dialog.Root open={open} onOpenChange={(v) => { if (!v && !processing) handleClose(); }}>
-                <Dialog.Content maxWidth="700px" style={{ fontFamily: `var(--fontFamily,"Inter")` }}>
+            <Dialog.Root open={open && !showPreviewModal} onOpenChange={(v) => { if (!v && !processing && !showPreviewModal) handleClose(); }}>
+                <Dialog.Content maxWidth="700px" style={{ fontFamily: `var(--fontFamily,"Inter")` }} aria-describedby={undefined}>
                     <Dialog.Title>
                         <Flex align="center" gap="3">
                             <Box p="2" style={{ borderRadius: 8, background: 'var(--accent-a3)' }}>
