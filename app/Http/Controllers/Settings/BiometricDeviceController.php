@@ -284,4 +284,58 @@ class BiometricDeviceController extends Controller
 
         return response()->json(['devices' => $devices]);
     }
+
+    /**
+     * Ping a biometric device
+     */
+    public function pingDevice(Request $request, $id)
+    {
+        $device = BiometricDevice::find($id);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        if (! $device->ip_address) {
+            return response()->json(['message' => 'Device has no IP address configured'], 400);
+        }
+
+        $ipAddress = $device->ip_address;
+        $startTime = microtime(true);
+
+        // Try to ping the device
+        $pingResult = $this->executePing($ipAddress);
+
+        $latency = round((microtime(true) - $startTime) * 1000, 2);
+
+        return response()->json([
+            'success' => $pingResult,
+            'latency' => $latency,
+            'ip_address' => $ipAddress,
+            'message' => $pingResult ? 'Device is reachable' : 'Device is unreachable',
+        ]);
+    }
+
+    /**
+     * Execute ping command
+     */
+    private function executePing($ip)
+    {
+        try {
+            // Windows: ping -n 1 -w 1000 IP
+            // Linux/Mac: ping -c 1 -W 1 IP
+            $os = PHP_OS_FAMILY;
+            $command = $os === 'Windows'
+                ? "ping -n 1 -w 1000 {$ip}"
+                : "ping -c 1 -W 1 {$ip}";
+
+            $output = [];
+            $exitCode = 0;
+            exec($command, $output, $exitCode);
+
+            return $exitCode === 0;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
 }

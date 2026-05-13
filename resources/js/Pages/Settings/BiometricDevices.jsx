@@ -98,6 +98,10 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
     const [commandType,      setCommandType]      = useState('REBOOT');
     const [commandPayload,   setCommandPayload]   = useState('');
     const [sendingCommand,   setSendingCommand]   = useState(false);
+
+    // ── Ping state ──
+    const [pingingDevice,    setPingingDevice]    = useState(null);
+    const [pingResult,       setPingResult]       = useState(null);
     const [commandHistory,   setCommandHistory]   = useState([]);
     const [loadingCommands,  setLoadingCommands]  = useState(false);
     const [syncStatus,       setSyncStatus]       = useState(null);
@@ -318,6 +322,41 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
             showToast.error(err.response?.data?.message ?? 'Failed to queue command.');
         } finally {
             setSendingCommand(false);
+        }
+    };
+
+    const pingDevice = async (device) => {
+        if (!device.ip_address) {
+            showToast.error('Device has no IP address configured');
+            return;
+        }
+
+        setPingingDevice(device.id);
+        setPingResult(null);
+        try {
+            const { data } = await axios.post(route('biometric-devices.ping', device.id));
+            setPingResult({
+                deviceId: device.id,
+                success: data.success,
+                latency: data.latency,
+                message: data.message,
+            });
+
+            if (data.success) {
+                showToast.success(`Device reachable (${data.latency}ms)`);
+            } else {
+                showToast.error('Device unreachable');
+            }
+        } catch (err) {
+            showToast.error(err.response?.data?.message ?? 'Failed to ping device');
+            setPingResult({
+                deviceId: device.id,
+                success: false,
+                latency: null,
+                message: 'Ping failed',
+            });
+        } finally {
+            setPingingDevice(null);
         }
     };
 
@@ -704,6 +743,23 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
 
                                                         <Table.Cell>
                                                             <Flex gap="1">
+                                                                <Tooltip content="Ping device">
+                                                                    <IconButton
+                                                                        variant="ghost"
+                                                                        color={pingingDevice === device.id ? 'gray' : 'green'}
+                                                                        size="1"
+                                                                        onClick={() => pingDevice(device)}
+                                                                        disabled={pingingDevice === device.id}
+                                                                        aria-label="Ping device"
+                                                                    >
+                                                                        {pingingDevice === device.id ? (
+                                                                            <Spinner size="1" />
+                                                                        ) : (
+                                                                            <LightningBoltIcon width={15} height={15} />
+                                                                        )}
+                                                                    </IconButton>
+                                                                </Tooltip>
+
                                                                 <Tooltip content="Manage enrollments">
                                                                     <IconButton
                                                                         variant="ghost"

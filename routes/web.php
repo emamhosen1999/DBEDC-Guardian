@@ -486,6 +486,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/biometric-devices/{id}/unlink/{userId}', [BiometricDeviceController::class, 'unlinkDeviceUser'])->name('biometric-devices.users.unlink');
         Route::post('settings/biometric-devices/{id}/regenerate-token', [BiometricDeviceController::class, 'regenerateToken'])->name('biometric-devices.regenerate-token');
         Route::get('settings/biometric-devices/active', [BiometricDeviceController::class, 'getActiveDevices'])->name('biometric-devices.active');
+        Route::post('settings/biometric-devices/{id}/ping', [BiometricDeviceController::class, 'pingDevice'])->name('biometric-devices.ping');
     });
 
 
