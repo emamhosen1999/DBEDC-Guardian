@@ -2654,7 +2654,7 @@ const DesktopLoadingSkeleton = () => (
                                     checked={selectedKeys === "all" || (selectedKeys.size > 0 && selectedKeys.size === (allData?.length || 0))}
                                     onChange={(e) => {
                                         if (e.target.checked) {
-                                            setSelectedKeys(new Set(allData?.map(w => w.id) || []));
+                                            setSelectedKeys(new Set(allData?.map(w => String(w.id)) || []));
                                         } else {
                                             setSelectedKeys(new Set([]));
                                         }
@@ -2702,13 +2702,13 @@ const DesktopLoadingSkeleton = () => (
                                 <RadixTable.Cell style={{ width: 48, textAlign: 'center' }}>
                                     <input
                                         type="checkbox"
-                                        checked={selectedKeys === "all" || selectedKeys.has(work.id)}
+                                        checked={selectedKeys === "all" || selectedKeys.has(String(work.id))}
                                         onChange={(e) => {
-                                            const newKeys = new Set(selectedKeys === "all" ? new Set(allData?.map(w => w.id) || []) : selectedKeys);
+                                            const newKeys = new Set(selectedKeys === "all" ? new Set(allData?.map(w => String(w.id)) || []) : selectedKeys);
                                             if (e.target.checked) {
-                                                newKeys.add(work.id);
+                                                newKeys.add(String(work.id));
                                             } else {
-                                                newKeys.delete(work.id);
+                                                newKeys.delete(String(work.id));
                                             }
                                             setSelectedKeys(newKeys);
                                         }}
