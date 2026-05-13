@@ -2647,6 +2647,21 @@ const DesktopLoadingSkeleton = () => (
                 <RadixTable.Root variant="surface" aria-label="Daily Works Management Table" style={{ width: '100%', minWidth: '800px' }}>
                     <RadixTable.Header>
                         <RadixTable.Row>
+                            {/* Checkbox column for selection */}
+                            <RadixTable.ColumnHeaderCell style={{ width: 48, textAlign: 'center', background: 'var(--gray-a2)' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedKeys === "all" || (selectedKeys.size > 0 && selectedKeys.size === (allData?.length || 0))}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setSelectedKeys(new Set(allData?.map(w => w.id) || []));
+                                        } else {
+                                            setSelectedKeys(new Set([]));
+                                        }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                            </RadixTable.ColumnHeaderCell>
                             {columns.map(column => (
                                 <RadixTable.ColumnHeaderCell
                                     key={column.uid}
@@ -2670,7 +2685,7 @@ const DesktopLoadingSkeleton = () => (
                     <RadixTable.Body>
                         {(allData || []).length === 0 ? (
                             <RadixTable.Row>
-                                <RadixTable.Cell colSpan={columns.length} style={{ textAlign: 'center', padding: '48px 0' }}>
+                                <RadixTable.Cell colSpan={columns.length + 1} style={{ textAlign: 'center', padding: '48px 0' }}>
                                     <Flex direction="column" align="center" gap="2">
                                         <FileTextIcon width={40} height={40} style={{ color: 'var(--gray-7)' }} />
                                         <Text size="3" weight="medium" color="gray">No daily works found</Text>
@@ -2683,6 +2698,23 @@ const DesktopLoadingSkeleton = () => (
                                 key={work.id}
                                 style={work.active_objections_count > 0 ? { background: 'var(--orange-2)', outline: '2px solid var(--orange-6)' } : undefined}
                             >
+                                {/* Checkbox for row selection */}
+                                <RadixTable.Cell style={{ width: 48, textAlign: 'center' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedKeys === "all" || selectedKeys.has(work.id)}
+                                        onChange={(e) => {
+                                            const newKeys = new Set(selectedKeys === "all" ? new Set(allData?.map(w => w.id) || []) : selectedKeys);
+                                            if (e.target.checked) {
+                                                newKeys.add(work.id);
+                                            } else {
+                                                newKeys.delete(work.id);
+                                            }
+                                            setSelectedKeys(newKeys);
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                </RadixTable.Cell>
                                 {columns.map(col => renderCell(work, col.uid))}
                             </RadixTable.Row>
                         ))}
