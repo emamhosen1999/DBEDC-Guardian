@@ -179,6 +179,8 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
             showToast.error('Name and serial number are required.');
             return;
         }
+        console.log('Saving device with protocol:', deviceForm.protocol);
+        console.log('Full deviceForm:', deviceForm);
         setSavingDevice(true);
         try {
             if (editingDevice) {
@@ -186,10 +188,12 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                     route('biometric-devices.update', editingDevice.id),
                     deviceForm,
                 );
+                console.log('Backend response:', data);
                 setDevices(prev => prev.map(d => d.id === editingDevice.id ? data.device : d));
                 showToast.success('Device updated.');
             } else {
                 const { data } = await axios.post(route('biometric-devices.store'), deviceForm);
+                console.log('Backend response:', data);
                 setDevices(prev => [...prev, data.device]);
                 showToast.success('Device registered.');
             }
@@ -1083,7 +1087,10 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                             <Text size="2" weight="medium" as="div" mb="1">Communication Protocol</Text>
                             <Select.Root
                                 value={deviceForm.protocol}
-                                onValueChange={v => setDeviceForm(f => ({ ...f, protocol: v }))}
+                                onValueChange={v => {
+                                    console.log('Protocol selected:', v);
+                                    setDeviceForm(f => ({ ...f, protocol: v }));
+                                }}
                             >
                                 <Select.Trigger
                                     style={{ width: '100%' }}
