@@ -351,11 +351,10 @@ const DailyWorksTable = ({
         if (result?.deleted && result.deleted.length > 0 && setData) {
             const deletedIds = new Set(result.deleted);
             setData(prevWorks => prevWorks.filter(w => !deletedIds.has(w.id)));
-            setTotalRows(prev => prev - result.deleted.length);
         }
 
         showToast.success('Works deleted successfully');
-    }, [setData, setTotalRows]);
+    }, [setData]);
 
     // Function to open Status Update modal
     const openStatusModal = useCallback((work) => {

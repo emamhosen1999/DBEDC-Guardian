@@ -3,6 +3,7 @@ import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import App from "@/Layouts/App.jsx";
 import { showToast } from '@/utils/toastUtils';
 import { Head, router } from "@inertiajs/react";
+import EmployeeTable from "@/Tables/EmployeeTable.jsx";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
