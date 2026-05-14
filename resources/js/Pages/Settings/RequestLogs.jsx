@@ -26,7 +26,7 @@ import {
     MagnifyingGlassIcon,
     Cross2Icon,
     DownloadIcon,
-    EyeIcon,
+    EyeOpenIcon,
 } from '@radix-ui/react-icons';
 
 const RequestLogs = ({ title }) => {
@@ -384,7 +384,7 @@ const RequestLogs = ({ title }) => {
                                                             color="blue"
                                                             onClick={() => viewDetails(log.id)}
                                                         >
-                                                            <EyeIcon width={14} height={14} />
+                                                            <EyeOpenIcon width={14} height={14} />
                                                         </IconButton>
                                                     </Tooltip>
                                                     <Tooltip content="Delete">
