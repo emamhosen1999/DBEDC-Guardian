@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
+import { route } from 'ziggy-js';
 import App from '@/Layouts/App';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
