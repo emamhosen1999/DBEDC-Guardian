@@ -1,0 +1,522 @@
+/**
+ * UsersPanel.jsx
+ * Users tab — table with inline device-lock toggle, role dropdown, status toggle.
+ * Pure Radix UI.
+ */
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Link, router } from '@inertiajs/react';
+import {
+    Badge, Box, Button, Card, Dialog, DropdownMenu, Flex,
+    Grid, IconButton, ScrollArea, Select, Separator,
+    Spinner, Switch, Table, Text, TextField,
+} from '@radix-ui/themes';
+import {
+    BackpackIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon,
+    DotsVerticalIcon, EnvelopeClosedIcon, HomeIcon, LockClosedIcon,
+    LockOpen1Icon, MagnifyingGlassIcon, MobileIcon, Pencil1Icon,
+    PersonIcon, PlusIcon, ReloadIcon, TrashIcon,
+} from '@radix-ui/react-icons';
+import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
+import ProfileAvatar from '@/Components/ProfileAvatar.jsx';
+
+/* ── helpers ── */
+function StatPill({ label, value, color = 'gray' }) {
+    return (
+        <Badge size="2" variant="soft" color={color} radius="full">
+            <Text weight="bold">{value}</Text>
+            <Text style={{ opacity: 0.7 }}> {label}</Text>
+        </Badge>
+    );
+}
+
+/* ── main ── */
+export default function UsersPanel({
+    roles = [], departments = [], designations = [],
+    isMobile, tick, onCountChange, onSetHeaderActions, isActive,
+}) {
+    /* ── state ── */
+    const [users, setUsers]           = useState([]);
+    const [loading, setLoading]       = useState(true);
+    const [search, setSearch]         = useState('');
+    const [filterRole, setFilterRole] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [showFilters, setShowFilters]   = useState(false);
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 15, total: 0 });
+    const [devAction, setDevAction]   = useState({}); // { [userId]: bool }
+    const [stats, setStats]           = useState({ total: 0, active: 0, inactive: 0 });
+
+    /* ── delete dialog ── */
+    const [delUser, setDelUser]   = useState(null);
+    const [delLoading, setDelLoading] = useState(false);
+
+    /* ── debounce ── */
+    const debRef = useRef(null);
+    const triggerSearch = useCallback((val) => {
+        clearTimeout(debRef.current);
+        debRef.current = setTimeout(() => setSearch(val), 280);
+    }, []);
+
+    /* ── fetch ── */
+    const fetchUsers = useCallback(async () => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('users.paginate'), {
+                params: {
+                    page: pagination.currentPage,
+                    perPage: pagination.perPage,
+                    search: search || undefined,
+                    role: filterRole !== 'all' ? filterRole : undefined,
+                    status: filterStatus !== 'all' ? filterStatus : undefined,
+                },
+            });
+            const list = data.users?.data ?? data.users ?? [];
+            const total = data.users?.meta?.total ?? data.users?.total ?? list.length;
+            setUsers(list);
+            setPagination(p => ({ ...p, total }));
+            onCountChange?.(total);
+            if (data.stats) {
+                setStats({
+                    total:    data.stats.overview?.total_users   ?? total,
+                    active:   data.stats.overview?.active_users  ?? 0,
+                    inactive: data.stats.overview?.inactive_users ?? 0,
+                });
+            }
+        } catch {
+            showToast.error('Failed to load users.');
+        } finally {
+            setLoading(false);
+        }
+    }, [pagination.currentPage, pagination.perPage, search, filterRole, filterStatus]);
+
+    useEffect(() => { if (isActive) fetchUsers(); }, [fetchUsers, tick, isActive]);
+
+    /* ── header actions ── */
+    useEffect(() => {
+        if (!isActive) return;
+        onSetHeaderActions?.(
+            <Button size="2" onClick={() => router.visit(route('users.create'))}>
+                <PlusIcon /> {!isMobile && 'Add User'}
+            </Button>
+        );
+    }, [isActive, isMobile]);
+
+    /* ── optimistic helpers ── */
+    const updateUser = useCallback((id, fields) =>
+        setUsers(p => p.map(u => u.id === id ? { ...u, ...fields } : u)), []);
+
+    /* ── status toggle ── */
+    const toggleStatus = async (user) => {
+        updateUser(user.id, { active: !user.active });
+        try {
+            await axios.post(route('user.toggleStatus', { id: user.id }));
+            showToast.success('Status updated.');
+        } catch {
+            updateUser(user.id, { active: user.active }); // rollback
+            showToast.error('Failed to update status.');
+        }
+    };
+
+    /* ── device lock toggle ── */
+    const toggleDeviceLock = async (user) => {
+        setDevAction(p => ({ ...p, [user.id]: true }));
+        try {
+            const { data } = await axios.post(route('admin.users.devices.toggle', { userId: user.id }));
+            updateUser(user.id, { single_device_login_enabled: data.single_device_login_enabled });
+            showToast.success(data.message || 'Device lock updated.');
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to toggle device lock.');
+        } finally {
+            setDevAction(p => ({ ...p, [user.id]: false }));
+        }
+    };
+
+    /* ── role change ── */
+    const handleRoleChange = async (userId, roleName) => {
+        try {
+            await axios.post(route('user.updateRole', { id: userId }), { roles: [roleName] });
+            updateUser(userId, { roles: [{ name: roleName }] });
+            showToast.success('Role updated.');
+        } catch {
+            showToast.error('Failed to update role.');
+        }
+    };
+
+    /* ── delete ── */
+    const confirmDelete = async () => {
+        if (!delUser) return;
+        setDelLoading(true);
+        try {
+            await axios.delete(route('profile.delete'), {
+                data: { user_id: delUser.id },
+            });
+            setUsers(p => p.filter(u => u.id !== delUser.id));
+            setPagination(p => ({ ...p, total: p.total - 1 }));
+            onCountChange?.(pagination.total - 1);
+            setDelUser(null);
+            showToast.success('User deleted.');
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to delete user.');
+        } finally {
+            setDelLoading(false);
+        }
+    };
+
+    /* ── pagination ── */
+    const totalPages = Math.ceil(pagination.total / pagination.perPage);
+    const startRow   = (pagination.currentPage - 1) * pagination.perPage + 1;
+    const endRow     = Math.min(pagination.currentPage * pagination.perPage, pagination.total);
+    const pageNums   = useMemo(() => {
+        const total = totalPages;
+        const cur   = pagination.currentPage;
+        if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+        if (cur <= 3)   return [1, 2, 3, 4, 5];
+        if (cur >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+        return [cur - 2, cur - 1, cur, cur + 1, cur + 2];
+    }, [totalPages, pagination.currentPage]);
+
+    const hasActiveFilters = filterRole !== 'all' || filterStatus !== 'all' || search;
+
+    /* ── render ── */
+    return (
+        <Box>
+            {/* ── Stats ── */}
+            <Flex wrap="wrap" gap="2" mb="4">
+                <StatPill label="Total"    value={stats.total}    color="blue" />
+                <StatPill label="Active"   value={stats.active}   color="green" />
+                <StatPill label="Inactive" value={stats.inactive} color="red" />
+            </Flex>
+
+            {/* ── Toolbar ── */}
+            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} mb="3">
+                <Box style={{ flex: 1, minWidth: 200 }}>
+                    <TextField.Root
+                        placeholder="Search by name, email…"
+                        onChange={e => triggerSearch(e.target.value)}
+                        size="2"
+                    >
+                        <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                    </TextField.Root>
+                </Box>
+                <Flex gap="2">
+                    <Button
+                        size="2"
+                        variant={showFilters ? 'solid' : 'surface'}
+                        color={showFilters ? 'indigo' : 'gray'}
+                        onClick={() => setShowFilters(v => !v)}
+                    >
+                        Filters
+                    </Button>
+                    <IconButton size="2" variant="soft" color="gray" onClick={fetchUsers} aria-label="Refresh">
+                        <ReloadIcon />
+                    </IconButton>
+                </Flex>
+            </Flex>
+
+            {/* ── Filter Panel ── */}
+            {showFilters && (
+                <Card size="2" variant="surface" mb="3">
+                    <Grid columns={{ initial: '1', sm: '3' }} gap="4" align="end">
+                        <Box>
+                            <Text size="2" color="gray" weight="medium" as="div" mb="1">Status</Text>
+                            <Select.Root size="2" value={filterStatus} onValueChange={v => { setFilterStatus(v); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Trigger style={{ width: '100%' }} />
+                                <Select.Content>
+                                    <Select.Item value="all">All Status</Select.Item>
+                                    <Select.Item value="active">Active</Select.Item>
+                                    <Select.Item value="inactive">Inactive</Select.Item>
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+                        <Box>
+                            <Text size="2" color="gray" weight="medium" as="div" mb="1">Role</Text>
+                            <Select.Root size="2" value={filterRole} onValueChange={v => { setFilterRole(v); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Trigger style={{ width: '100%' }} />
+                                <Select.Content>
+                                    <Select.Item value="all">All Roles</Select.Item>
+                                    {roles.map(r => {
+                                        const name = typeof r === 'object' ? r.name : r;
+                                        return <Select.Item key={name} value={name}>{name}</Select.Item>;
+                                    })}
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+                        <Flex align="end">
+                            <Button size="2" variant="soft" color="red" disabled={!hasActiveFilters}
+                                onClick={() => { setFilterRole('all'); setFilterStatus('all'); setSearch(''); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                                style={{ width: '100%' }}>
+                                <Cross2Icon /> Clear
+                            </Button>
+                        </Flex>
+                    </Grid>
+                </Card>
+            )}
+
+            {/* ── Active filter chips ── */}
+            {hasActiveFilters && (
+                <Flex wrap="wrap" gap="2" align="center" mb="3">
+                    <Text size="2" color="gray">Active:</Text>
+                    {search       && <Badge size="2" variant="soft" color="gray"   radius="full">Search: "{search}"</Badge>}
+                    {filterStatus !== 'all' && <Badge size="2" variant="soft" color="blue"   radius="full">Status: {filterStatus}</Badge>}
+                    {filterRole   !== 'all' && <Badge size="2" variant="soft" color="violet" radius="full">Role: {filterRole}</Badge>}
+                </Flex>
+            )}
+
+            {/* ── Section header ── */}
+            <Flex align="center" justify="between" mb="3">
+                <Flex align="center" gap="2">
+                    <PersonIcon />
+                    <Text size="3" weight="medium">Users</Text>
+                    {!loading && <Badge size="1" variant="soft" color="gray" radius="full">{pagination.total}</Badge>}
+                </Flex>
+                {!loading && pagination.total > 0 && (
+                    <Text size="1" color="gray">{startRow}–{endRow} of {pagination.total}</Text>
+                )}
+            </Flex>
+
+            {/* ── Table ── */}
+            {loading ? (
+                <Flex align="center" justify="center" py="9" gap="3" direction="column">
+                    <Spinner size="3" /><Text color="gray" size="2">Loading users…</Text>
+                </Flex>
+            ) : users.length === 0 ? (
+                <Flex direction="column" align="center" justify="center" py="9" gap="2">
+                    <PersonIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
+                    <Text size="3" weight="medium">No users found</Text>
+                    <Text size="2" color="gray">Try adjusting your search or filters.</Text>
+                </Flex>
+            ) : (
+                <Box style={{ overflowX: 'auto' }}>
+                    <Table.Root variant="surface" size="2">
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.ColumnHeaderCell style={{ width: 40 }}>#</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
+                                {!isMobile && <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>}
+                                <Table.ColumnHeaderCell>Role</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ width: 90 }}>Status</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ width: 110 }}>Device Lock</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ width: 50, textAlign: 'center' }}>⋯</Table.ColumnHeaderCell>
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {users.map((user, idx) => {
+                                const serial   = startRow + idx;
+                                const roleName = Array.isArray(user.roles) && user.roles[0]
+                                    ? (typeof user.roles[0] === 'object' ? user.roles[0].name : user.roles[0])
+                                    : '';
+                                const isLocking = devAction[user.id];
+
+                                return (
+                                    <Table.Row key={user.id}>
+                                        {/* # */}
+                                        <Table.Cell>
+                                            <Text size="1" color="gray" weight="medium">{serial}</Text>
+                                        </Table.Cell>
+
+                                        {/* User */}
+                                        <Table.Cell>
+                                            <Flex align="center" gap="3">
+                                                <Box style={{ flexShrink: 0 }}>
+                                                    <ProfileAvatar
+                                                        src={user.profile_image_url || user.profile_image}
+                                                        name={user.name}
+                                                        size={isMobile ? 'sm' : 'md'}
+                                                    />
+                                                </Box>
+                                                <Box>
+                                                    <Text weight="bold" size="2" as="div" style={{ whiteSpace: 'nowrap' }}>
+                                                        {user.name}
+                                                    </Text>
+                                                    <Text size="1" color="gray" as="div">ID: {user.id}</Text>
+                                                    {isMobile && (
+                                                        <Flex align="center" gap="1" mt="1">
+                                                            <EnvelopeClosedIcon style={{ width: 11, height: 11 }} />
+                                                            <Text size="1" color="gray" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
+                                                                {user.email}
+                                                            </Text>
+                                                        </Flex>
+                                                    )}
+                                                </Box>
+                                            </Flex>
+                                        </Table.Cell>
+
+                                        {/* Contact */}
+                                        {!isMobile && (
+                                            <Table.Cell>
+                                                <Flex direction="column" gap="1">
+                                                    <Flex align="center" gap="2">
+                                                        <EnvelopeClosedIcon style={{ width: 13, height: 13, color: 'var(--gray-9)', flexShrink: 0 }} />
+                                                        <Text size="1" color="gray" style={{ whiteSpace: 'nowrap' }}>{user.email}</Text>
+                                                    </Flex>
+                                                    {user.phone && (
+                                                        <Flex align="center" gap="2">
+                                                            <MobileIcon style={{ width: 13, height: 13, color: 'var(--gray-9)', flexShrink: 0 }} />
+                                                            <Text size="1" color="gray">{user.phone}</Text>
+                                                        </Flex>
+                                                    )}
+                                                </Flex>
+                                            </Table.Cell>
+                                        )}
+
+                                        {/* Role */}
+                                        <Table.Cell>
+                                            <Box style={{ minWidth: 130 }}>
+                                                <DropdownMenu.Root>
+                                                    <DropdownMenu.Trigger>
+                                                        <Button size="1" variant="surface" color="gray" style={{ width: '100%', justifyContent: 'space-between', minWidth: 130 }}>
+                                                            <Text size="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {roleName || 'No Role'}
+                                                            </Text>
+                                                            <Text size="1" color="gray">▾</Text>
+                                                        </Button>
+                                                    </DropdownMenu.Trigger>
+                                                    <DropdownMenu.Content size="1">
+                                                        {roles.map(r => {
+                                                            const name = typeof r === 'object' ? r.name : r;
+                                                            return (
+                                                                <DropdownMenu.Item key={name} onSelect={() => handleRoleChange(user.id, name)}>
+                                                                    {name}
+                                                                </DropdownMenu.Item>
+                                                            );
+                                                        })}
+                                                    </DropdownMenu.Content>
+                                                </DropdownMenu.Root>
+                                            </Box>
+                                        </Table.Cell>
+
+                                        {/* Status */}
+                                        <Table.Cell>
+                                            <Flex align="center" gap="2">
+                                                <Switch
+                                                    size="1"
+                                                    checked={!!user.active}
+                                                    onCheckedChange={() => toggleStatus(user)}
+                                                    color={user.active ? 'green' : 'red'}
+                                                />
+                                                <Text size="1" color={user.active ? 'green' : 'red'} weight="medium">
+                                                    {user.active ? 'Active' : 'Inactive'}
+                                                </Text>
+                                            </Flex>
+                                        </Table.Cell>
+
+                                        {/* Device Lock */}
+                                        <Table.Cell>
+                                            <Flex align="center" gap="2">
+                                                {isLocking ? (
+                                                    <Spinner size="1" />
+                                                ) : (
+                                                    <Switch
+                                                        size="1"
+                                                        checked={!!user.single_device_login_enabled}
+                                                        onCheckedChange={() => toggleDeviceLock(user)}
+                                                        color="amber"
+                                                    />
+                                                )}
+                                                <Badge size="1" variant="soft"
+                                                    color={user.single_device_login_enabled ? 'amber' : 'gray'}>
+                                                    {user.single_device_login_enabled
+                                                        ? <><LockClosedIcon style={{ width: 9, height: 9 }} /> On</>
+                                                        : <><LockOpen1Icon  style={{ width: 9, height: 9 }} /> Off</>}
+                                                </Badge>
+                                            </Flex>
+                                        </Table.Cell>
+
+                                        {/* Actions */}
+                                        <Table.Cell>
+                                            <Flex justify="center">
+                                                <DropdownMenu.Root>
+                                                    <DropdownMenu.Trigger>
+                                                        <IconButton size="1" variant="ghost" color="gray">
+                                                            <DotsVerticalIcon />
+                                                        </IconButton>
+                                                    </DropdownMenu.Trigger>
+                                                    <DropdownMenu.Content size="1">
+                                                        <DropdownMenu.Item asChild>
+                                                            <Link href={route('profile', { user: user.id })}>
+                                                                <Flex align="center" gap="2">
+                                                                    <Pencil1Icon /> Edit Profile
+                                                                </Flex>
+                                                            </Link>
+                                                        </DropdownMenu.Item>
+                                                        <DropdownMenu.Item asChild>
+                                                            <Link href={route('admin.users.devices', { userId: user.id })}>
+                                                                <Flex align="center" gap="2">
+                                                                    <MobileIcon /> Device History
+                                                                </Flex>
+                                                            </Link>
+                                                        </DropdownMenu.Item>
+                                                        <DropdownMenu.Separator />
+                                                        <DropdownMenu.Item color="red" onSelect={() => setDelUser(user)}>
+                                                            <Flex align="center" gap="2">
+                                                                <TrashIcon /> Delete
+                                                            </Flex>
+                                                        </DropdownMenu.Item>
+                                                    </DropdownMenu.Content>
+                                                </DropdownMenu.Root>
+                                            </Flex>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                );
+                            })}
+                        </Table.Body>
+                    </Table.Root>
+                </Box>
+            )}
+
+            {/* ── Pagination ── */}
+            {!loading && pagination.total > 0 && (
+                <Flex align="center" justify="between" pt="3" mt="2" style={{ borderTop: '1px solid var(--gray-a4)' }} wrap="wrap" gap="3">
+                    <Flex align="center" gap="2">
+                        <Text size="1" color="gray">Rows</Text>
+                        <Select.Root size="1" value={String(pagination.perPage)}
+                            onValueChange={v => setPagination(p => ({ ...p, perPage: parseInt(v), currentPage: 1 }))}>
+                            <Select.Trigger />
+                            <Select.Content>
+                                {[10, 15, 20, 30, 50].map(n => <Select.Item key={n} value={String(n)}>{n}</Select.Item>)}
+                            </Select.Content>
+                        </Select.Root>
+                    </Flex>
+                    <Flex align="center" gap="2">
+                        <Text size="1" color="gray">{startRow}–{endRow} of {pagination.total}</Text>
+                        <IconButton size="1" variant="soft" color="gray" disabled={pagination.currentPage <= 1}
+                            onClick={() => setPagination(p => ({ ...p, currentPage: p.currentPage - 1 }))}>
+                            <ChevronLeftIcon />
+                        </IconButton>
+                        {pageNums.map(n => (
+                            <Button key={n} size="1"
+                                variant={n === pagination.currentPage ? 'solid' : 'soft'}
+                                color={n === pagination.currentPage ? 'indigo' : 'gray'}
+                                onClick={() => setPagination(p => ({ ...p, currentPage: n }))}>
+                                {n}
+                            </Button>
+                        ))}
+                        <IconButton size="1" variant="soft" color="gray" disabled={pagination.currentPage >= totalPages}
+                            onClick={() => setPagination(p => ({ ...p, currentPage: p.currentPage + 1 }))}>
+                            <ChevronRightIcon />
+                        </IconButton>
+                    </Flex>
+                </Flex>
+            )}
+
+            {/* ── Delete Dialog ── */}
+            <Dialog.Root open={!!delUser} onOpenChange={o => !o && setDelUser(null)}>
+                <Dialog.Content style={{ maxWidth: 420 }}>
+                    <Dialog.Title>Delete User</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        Are you sure you want to delete <Text weight="bold">{delUser?.name}</Text>?
+                        This action cannot be undone.
+                    </Dialog.Description>
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close>
+                            <Button variant="soft" color="gray">Cancel</Button>
+                        </Dialog.Close>
+                        <Button color="red" onClick={confirmDelete} disabled={delLoading}>
+                            {delLoading ? <><Spinner size="1" /> Deleting…</> : <><TrashIcon /> Delete</>}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+        </Box>
+    );
+}

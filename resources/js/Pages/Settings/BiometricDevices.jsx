@@ -117,8 +117,8 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
     // ─────────────────────────────────────────────────────────────────────────
 
     const webhookUrl = `${window.location.origin}/api/biometric/webhook`;
-    const admsUrl    = `${window.location.origin}/iclock/cdata`;
-    const admsDomain = window.location.hostname;
+    const admsUrl    = `http://device.dhakabypass.com/iclock/cdata`;
+    const admsDomain = 'device.dhakabypass.com';
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => showToast.success('Copied to clipboard.'));
