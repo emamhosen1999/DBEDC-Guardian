@@ -255,6 +255,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                 {!isMobile && <Table.ColumnHeaderCell>IP / Location</Table.ColumnHeaderCell>}
                                 <Table.ColumnHeaderCell>Protocol</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Users</Table.ColumnHeaderCell>
+                                {!isMobile && <Table.ColumnHeaderCell>Last Ping</Table.ColumnHeaderCell>}
                                 <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
                             </Table.Row>
@@ -289,6 +290,15 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                             {d.users_count ?? 0} users
                                         </Button>
                                     </Table.Cell>
+                                    {!isMobile && (
+                                        <Table.Cell>
+                                            <Text size="1" color="gray">
+                                                {d.last_heartbeat_at
+                                                    ? new Date(d.last_heartbeat_at).toLocaleString()
+                                                    : '—'}
+                                            </Text>
+                                        </Table.Cell>
+                                    )}
                                     <Table.Cell>
                                         <Flex gap="1" direction="column">
                                             <Badge color={d.is_online ? 'green' : 'gray'} variant="soft" size="1">
@@ -644,22 +654,30 @@ function LogsTab({ isMobile }) {
     const [logs, setLogs]       = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch]   = useState('');
+    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (page = 1) => {
         setLoading(true);
         try {
-            const { data } = await axios.get(route('api.biometric-devices.logs.all'));
+            const { data } = await axios.get(route('biometric-devices.logs'), {
+                params: { page, per_page: pagination.per_page }
+            });
             setLogs(data.logs ?? []);
+            setPagination({
+                current_page: data.current_page || 1,
+                per_page: data.per_page || 50,
+                total: data.total || 0,
+            });
         } catch { showToast.error('Failed to load logs.'); }
         finally { setLoading(false); }
-    }, []);
+    }, [pagination.per_page]);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => { load(1); }, [load]);
 
     const filtered = useMemo(() =>
         logs.filter(l => !search ||
             l.message?.toLowerCase().includes(search.toLowerCase()) ||
-            l.level?.toLowerCase().includes(search.toLowerCase())),
+            l.type?.toLowerCase().includes(search.toLowerCase())),
         [logs, search]);
 
     const levelColor = l => ({ error: 'red', warning: 'amber', info: 'blue' }[l] ?? 'gray');
@@ -723,6 +741,50 @@ function LogsTab({ isMobile }) {
                     </Table.Root>
                 </Box>
             )}
+
+            {/* Pagination */}
+            {pagination.total > 0 && (
+                <Flex justify="end" align="center" gap="2" mt="4">
+                    <Text size="1" color="gray">
+                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(1)}
+                    >
+                        «
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(pagination.current_page - 1)}
+                    >
+                        ‹
+                    </Button>
+                    <Text size="1" color="gray" px="2">
+                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(pagination.current_page + 1)}
+                    >
+                        ›
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
+                    >
+                        »
+                    </Button>
+                </Flex>
+            )}
         </Box>
     );
 }
@@ -730,32 +792,161 @@ function LogsTab({ isMobile }) {
 /* ── Webhook sub-tab ── */
 function WebhookTab() {
     const webhookUrl = `${window.location.origin}/api/biometric/webhook`;
-    const admsUrl    = `${window.location.origin}/api/iclock/cdata`;
-    const copy = t => navigator.clipboard.writeText(t).then(() => showToast.success('Copied!'));
-
-    const EndpointRow = ({ label, color, url }) => (
-        <Card variant="surface">
-            <Flex direction="column" gap="3">
-                <Flex align="center" gap="2">
-                    <Badge color={color} variant="soft">{label}</Badge>
-                </Flex>
-                <Flex align="center" gap="2">
-                    <Code size="2" style={{ flex: 1, background: 'var(--gray-a4)', borderRadius: 'var(--radius-2)', padding: '8px 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {url}
-                    </Code>
-                    <Tooltip content="Copy">
-                        <IconButton variant="soft" size="2" onClick={() => copy(url)}><CopyIcon /></IconButton>
-                    </Tooltip>
-                </Flex>
-            </Flex>
-        </Card>
-    );
+    const admsUrl    = `http://erp.dhakabypass.com/iclock/cdata`;
+    const admsDomain = 'erp.dhakabypass.com';
+    const copy = t => navigator.clipboard.writeText(t).then(() => showToast.success('Copied to clipboard.'));
 
     return (
         <Flex direction="column" gap="4">
-            <EndpointRow label="Push SDK" color="blue" url={`POST ${webhookUrl}`} />
-            <EndpointRow label="ADMS" color="green" url={`GET / POST ${admsUrl}`} />
 
+            {/* Push SDK */}
+            <Card variant="surface">
+                <Flex direction="column" gap="3">
+                    <Flex align="center" gap="2">
+                        <Badge color="blue" variant="soft">Push SDK</Badge>
+                        <Text size="2" weight="medium">
+                            For devices with Push SDK (K40, K60, iFace series)
+                        </Text>
+                    </Flex>
+                    <Text size="2" color="gray">
+                        Use the device's auth token as the{' '}
+                        <Code>X-Device-Token</Code> request header.
+                        Regenerate the token per device from the Devices tab.
+                    </Text>
+                    <Flex align="center" gap="2">
+                        <Box flexGrow="1" style={{ minWidth: 0 }}>
+                            <Code
+                                size="2"
+                                style={{
+                                    display: 'block',
+                                    background: 'var(--gray-a4)',
+                                    borderRadius: 'var(--radius-2)',
+                                    padding: '8px 12px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                POST {webhookUrl}
+                            </Code>
+                        </Box>
+                        <Tooltip content="Copy URL">
+                            <IconButton
+                                variant="soft"
+                                size="2"
+                                onClick={() => copy(webhookUrl)}
+                                aria-label="Copy webhook URL"
+                            >
+                                <CopyIcon width={16} height={16} />
+                            </IconButton>
+                        </Tooltip>
+                    </Flex>
+                </Flex>
+            </Card>
+
+            {/* ADMS */}
+            <Card variant="surface">
+                <Flex direction="column" gap="3">
+                    <Flex align="center" gap="2">
+                        <Badge color="green" variant="soft">ADMS</Badge>
+                        <Text size="2" weight="medium">
+                            For ZKTeco MB460 / MB360 (ADMS Push Protocol)
+                        </Text>
+                    </Flex>
+
+                    <Text size="2" color="gray">
+                        The MB460 has two push-server fields:{' '}
+                        <strong>Enable</strong> and{' '}
+                        <strong>Server Domain Name</strong>.
+                        The device automatically appends{' '}
+                        <Code size="1">/iclock/cdata</Code> to whatever you enter —
+                        enter only the domain or IP, no path, no{' '}
+                        <Code size="1">https://</Code>.
+                    </Text>
+
+                    {/* Server Domain Name field value */}
+                    <Box>
+                        <Text size="1" color="gray" as="div" mb="1">
+                            Server Domain Name — paste this into the device:
+                        </Text>
+                        <Flex align="center" gap="2">
+                            <Box flexGrow="1" style={{ minWidth: 0 }}>
+                                <Code
+                                    size="2"
+                                    style={{
+                                        display: 'block',
+                                        background: 'var(--gray-a4)',
+                                        borderRadius: 'var(--radius-2)',
+                                        padding: '8px 12px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {admsDomain}
+                                </Code>
+                            </Box>
+                            <Tooltip content="Copy domain">
+                                <IconButton
+                                    variant="soft"
+                                    size="2"
+                                    onClick={() => copy(admsDomain)}
+                                    aria-label="Copy domain"
+                                >
+                                    <CopyIcon width={16} height={16} />
+                                </IconButton>
+                            </Tooltip>
+                        </Flex>
+                    </Box>
+
+                    {/* Resulting full URL for reference */}
+                    <Box>
+                        <Text size="1" color="gray" as="div" mb="1">
+                            Full URL (for reference, device will construct this automatically):
+                        </Text>
+                        <Box flexGrow="1" style={{ minWidth: 0 }}>
+                            <Code
+                                size="2"
+                                style={{
+                                    display: 'block',
+                                    background: 'var(--gray-a4)',
+                                    borderRadius: 'var(--radius-2)',
+                                    padding: '8px 12px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {admsUrl}
+                            </Code>
+                        </Box>
+                    </Box>
+
+                    {/* DHCP warning */}
+                    <Card variant="surface" style={{ backgroundColor: 'var(--amber-a3)' }}>
+                        <Flex align="start" gap="2">
+                            <ExclamationTriangleIcon
+                                width={16}
+                                height={16}
+                                color="var(--amber-11)"
+                                style={{ flexShrink: 0, marginTop: 2 }}
+                            />
+                            <Flex direction="column" gap="1">
+                                <Text size="2" color="amber" weight="medium">
+                                    Device IP is on DHCP
+                                </Text>
+                                <Text size="1" color="amber">
+                                    If your device gets its IP via DHCP, the IP may change over time.
+                                    Consider setting a static IP reservation on your router or configuring
+                                    a static IP on the device itself.
+                                </Text>
+                            </Flex>
+                        </Flex>
+                    </Card>
+                </Flex>
+            </Card>
+
+            {/* Integration Checklist */}
             <Card variant="surface">
                 <Text size="2" weight="medium" as="div" mb="3">Integration Checklist</Text>
                 <Flex direction="column" gap="2">
