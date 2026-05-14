@@ -154,6 +154,13 @@ class BiometricWebhookController extends Controller
      */
     public function admsHandshake(Request $request)
     {
+        Log::info('ADMS handshake received', [
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'headers' => $request->headers->all(),
+            'query' => $request->query->all(),
+        ]);
+
         $serialNumber = $request->query('SN');
         $options = $request->query('options', '');
 
@@ -243,6 +250,14 @@ class BiometricWebhookController extends Controller
      */
     public function admsPush(Request $request)
     {
+        Log::info('ADMS push received', [
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'headers' => $request->headers->all(),
+            'query' => $request->query->all(),
+            'content_length' => strlen($request->getContent()),
+        ]);
+
         $rawData = $request->getContent();
         $table = $request->query('table');
 

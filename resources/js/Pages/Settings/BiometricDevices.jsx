@@ -130,10 +130,9 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
     const loadLogs = useCallback(async (deviceId = null) => {
         setLoadingLogs(true);
         try {
-            const url = deviceId
-                ? route('api.biometric-devices.logs.index', deviceId)
-                : route('api.biometric-devices.logs.all');
-            const { data } = await axios.get(url);
+            const { data } = await axios.get(route('biometric-devices.logs'), {
+                params: { limit: 200 }
+            });
             setDeviceLogs(data.logs ?? []);
         } catch {
             showToast.error('Failed to load logs.');
@@ -150,7 +149,7 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
     const filteredLogs = logSearch.trim()
         ? deviceLogs.filter(l =>
             l.message?.toLowerCase().includes(logSearch.toLowerCase()) ||
-            l.level?.toLowerCase().includes(logSearch.toLowerCase())
+            l.type?.toLowerCase().includes(logSearch.toLowerCase())
           )
         : deviceLogs;
 
@@ -900,36 +899,38 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                                         <Table.Root variant="surface">
                                             <Table.Header>
                                                 <Table.Row>
-                                                    <Table.ColumnHeaderCell>LEVEL</Table.ColumnHeaderCell>
+                                                    <Table.ColumnHeaderCell>TYPE</Table.ColumnHeaderCell>
                                                     <Table.ColumnHeaderCell>MESSAGE</Table.ColumnHeaderCell>
                                                     <Table.ColumnHeaderCell>TIME</Table.ColumnHeaderCell>
                                                 </Table.Row>
                                             </Table.Header>
                                             <Table.Body>
-                                                {filteredLogs.map(log => (
-                                                    <Table.Row key={log.id}>
+                                                {filteredLogs.map((log, index) => (
+                                                    <Table.Row key={index}>
                                                         <Table.Cell>
-                                                            <LogLevelBadge level={log.level} />
+                                                            <Badge
+                                                                color={
+                                                                    log.type === 'error' ? 'red' :
+                                                                    log.type === 'warning' ? 'amber' :
+                                                                    log.type === 'handshake' ? 'blue' :
+                                                                    log.type === 'push' ? 'green' :
+                                                                    log.type === 'command' ? 'purple' :
+                                                                    'gray'
+                                                                }
+                                                                variant="soft"
+                                                                size="1"
+                                                            >
+                                                                {log.type || 'info'}
+                                                            </Badge>
                                                         </Table.Cell>
                                                         <Table.Cell>
-                                                            <Text size="1" as="div">{log.message}</Text>
-                                                            {log.context && Object.keys(log.context).length > 0 && (
-                                                                <Code
-                                                                    size="1"
-                                                                    style={{
-                                                                        display: 'block',
-                                                                        marginTop: 4,
-                                                                        whiteSpace: 'pre-wrap',
-                                                                        wordBreak: 'break-word',
-                                                                    }}
-                                                                >
-                                                                    {JSON.stringify(log.context, null, 2)}
-                                                                </Code>
-                                                            )}
+                                                            <Text size="1" as="div" style={{ wordBreak: 'break-word' }}>
+                                                                {log.message}
+                                                            </Text>
                                                         </Table.Cell>
                                                         <Table.Cell>
                                                             <Text size="1" color="gray">
-                                                                {new Date(log.created_at).toLocaleString()}
+                                                                {log.timestamp || '—'}
                                                             </Text>
                                                         </Table.Cell>
                                                     </Table.Row>

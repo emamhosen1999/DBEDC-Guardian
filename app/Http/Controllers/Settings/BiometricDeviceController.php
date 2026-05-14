@@ -338,4 +338,58 @@ class BiometricDeviceController extends Controller
             return false;
         }
     }
+
+    /**
+     * Get ADMS request logs
+     */
+    public function getAdmsLogs(Request $request)
+    {
+        $limit = $request->get('limit', 100);
+        $logFile = storage_path('logs/laravel.log');
+
+        if (! file_exists($logFile)) {
+            return response()->json(['logs' => []]);
+        }
+
+        $logs = [];
+        $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $relevantLines = array_slice(array_reverse($lines), 0, $limit);
+
+        foreach ($relevantLines as $line) {
+            if (str_contains($line, 'ADMS') || str_contains($line, 'iclock') || str_contains($line, 'biometric')) {
+                $logs[] = [
+                    'timestamp' => $this->extractTimestamp($line),
+                    'message' => $line,
+                    'type' => $this->determineLogType($line),
+                ];
+            }
+        }
+
+        return response()->json(['logs' => $logs]);
+    }
+
+    /**
+     * Extract timestamp from log line
+     */
+    private function extractTimestamp($line)
+    {
+        if (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $matches)) {
+            return $matches[1];
+        }
+        return null;
+    }
+
+    /**
+     * Determine log type based on content
+     */
+    private function determineLogType($line)
+    {
+        if (str_contains($line, 'handshake')) return 'handshake';
+        if (str_contains($line, 'push')) return 'push';
+        if (str_contains($line, 'command')) return 'command';
+        if (str_contains($line, 'attendance')) return 'attendance';
+        if (str_contains($line, 'ERROR')) return 'error';
+        if (str_contains($line, 'WARNING')) return 'warning';
+        return 'info';
+    }
 }

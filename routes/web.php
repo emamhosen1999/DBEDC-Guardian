@@ -487,6 +487,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/biometric-devices/{id}/regenerate-token', [BiometricDeviceController::class, 'regenerateToken'])->name('biometric-devices.regenerate-token');
         Route::get('settings/biometric-devices/active', [BiometricDeviceController::class, 'getActiveDevices'])->name('biometric-devices.active');
         Route::post('settings/biometric-devices/{id}/ping', [BiometricDeviceController::class, 'pingDevice'])->name('biometric-devices.ping');
+        Route::get('settings/biometric-devices/logs', [BiometricDeviceController::class, 'getAdmsLogs'])->name('biometric-devices.logs');
+
+        // Request logs routes
+        Route::get('settings/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');
+        Route::get('settings/request-logs/list', [RequestLogController::class, 'list'])->name('request-logs.list');
+        Route::get('settings/request-logs/{id}', [RequestLogController::class, 'show'])->name('request-logs.show');
+        Route::delete('settings/request-logs/{id}', [RequestLogController::class, 'destroy'])->name('request-logs.destroy');
+        Route::post('settings/request-logs/bulk-delete', [RequestLogController::class, 'bulkDelete'])->name('request-logs.bulk-delete');
+        Route::post('settings/request-logs/clear-all', [RequestLogController::class, 'clearAll'])->name('request-logs.clear-all');
+        Route::get('settings/request-logs/export', [RequestLogController::class, 'export'])->name('request-logs.export');
     });
 
 

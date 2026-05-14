@@ -420,6 +420,9 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'audit.export' => 'Export audit data',
                 'backup.create' => 'Create system backups',
                 'backup.restore' => 'Restore system backups',
+                'request_logs.view' => 'View request logs',
+                'request_logs.delete' => 'Delete request logs',
+                'request_logs.clear_all' => 'Clear all request logs',
             ],
 
             // Compliance Management
