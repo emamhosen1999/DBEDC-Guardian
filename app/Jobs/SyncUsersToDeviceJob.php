@@ -83,7 +83,8 @@ class SyncUsersToDeviceJob implements ShouldQueue
                 ]);
 
                 // Create mapping entry (auto-link device user to system user)
-                DB::table('biometric_device_users')->insert([
+                // Use insertOrIgnore to handle race conditions gracefully
+                DB::table('biometric_device_users')->insertOrIgnore([
                     'biometric_device_id' => $this->device->id,
                     'user_id' => $employee->id,
                     'device_user_id' => $deviceUserId,
