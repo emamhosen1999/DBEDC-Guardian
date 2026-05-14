@@ -32,6 +32,7 @@ use App\Http\Controllers\Settings\AttendanceSettingController;
 use App\Http\Controllers\Settings\BiometricDeviceController;
 use App\Http\Controllers\Settings\CompanySettingController;
 use App\Http\Controllers\Settings\LeaveSettingController;
+use App\Http\Controllers\Settings\RequestLogController;
 use App\Http\Controllers\SystemMonitoringController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
