@@ -28,24 +28,32 @@ class LogRequestMiddleware
             return $response;
         }
 
-        // Limit response body size to avoid storing huge responses
-        $responseBody = $response->getContent();
-        if (strlen($responseBody) > 10000) {
-            $responseBody = substr($responseBody, 0, 10000) . '... [truncated]';
-        }
+        try {
+            // Limit response body size to avoid storing huge responses
+            $responseBody = $response->getContent();
+            if (strlen($responseBody) > 10000) {
+                $responseBody = substr($responseBody, 0, 10000) . '... [truncated]';
+            }
 
-        RequestLog::create([
-            'ip_address' => $request->ip(),
-            'method' => $request->method(),
-            'url' => $request->fullUrl(),
-            'user_agent' => $request->userAgent(),
-            'headers' => $this->sanitizeHeaders($request->headers->all()),
-            'request_body' => $this->sanitizeRequestBody($request),
-            'response_status' => $response->getStatusCode(),
-            'response_body' => $responseBody,
-            'user_id' => Auth::id(),
-            'duration_ms' => $duration,
-        ]);
+            RequestLog::create([
+                'ip_address' => $request->ip(),
+                'method' => $request->method(),
+                'url' => $request->fullUrl(),
+                'user_agent' => $request->userAgent(),
+                'headers' => $this->sanitizeHeaders($request->headers->all()),
+                'request_body' => $this->sanitizeRequestBody($request),
+                'response_status' => $response->getStatusCode(),
+                'response_body' => $responseBody,
+                'user_id' => Auth::id(),
+                'duration_ms' => $duration,
+            ]);
+        } catch (\Exception $e) {
+            // Log the error but don't break the application
+            \Log::error('RequestLogMiddleware error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'url' => $request->fullUrl(),
+            ]);
+        }
 
         return $response;
     }

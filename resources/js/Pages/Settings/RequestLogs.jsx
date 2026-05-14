@@ -21,6 +21,7 @@ import {
     Spinner,
     IconButton,
     ScrollArea,
+    Card,
 } from '@radix-ui/themes';
 import {
     TrashIcon,
@@ -29,6 +30,7 @@ import {
     Cross2Icon,
     DownloadIcon,
     EyeOpenIcon,
+    ActivityLogIcon,
 } from '@radix-ui/react-icons';
 
 const RequestLogs = ({ title }) => {
@@ -211,377 +213,413 @@ const RequestLogs = ({ title }) => {
         <>
             <Head title={title} />
             <App>
-                <Box p={{ initial: '3', sm: '4', md: '6' }}>
-                    <Flex direction="column" gap="4">
+                <Flex justify="center" p="4">
+                    <Box style={{ width: '100%', maxWidth: 2000 }}>
+                        <Card>
 
-                        {/* ── Header ── */}
-                        <Flex
-                            justify="between"
-                            align={{ initial: 'start', md: 'center' }}
-                            direction={{ initial: 'column', md: 'row' }}
-                            gap="3"
-                        >
-                            <Box>
-                                <Text size={{ initial: '5', md: '6' }} weight="bold">Request Logs</Text>
-                                {pagination.total > 0 && (
-                                    <Text size="2" color="gray" ml="2">
-                                        {pagination.total.toLocaleString()} total
-                                    </Text>
-                                )}
+                            {/* ── Page Header ─────────────────────────────────── */}
+                            <Box mb="4">
+                                <Flex
+                                    direction={{ initial: 'column', md: 'row' }}
+                                    align={{ initial: 'start', md: 'center' }}
+                                    justify="between"
+                                    gap="4"
+                                >
+                                    {/* Icon + title */}
+                                    <Flex align="center" gap="4">
+                                        <Box
+                                            p={{ initial: '2', md: '3' }}
+                                            style={{
+                                                backgroundColor: 'var(--accent-a3)',
+                                                borderRadius: 'var(--radius-2)',
+                                            }}
+                                        >
+                                            <ActivityLogIcon
+                                                width={isMobile ? 24 : 32}
+                                                height={isMobile ? 24 : 32}
+                                                color="var(--accent-9)"
+                                            />
+                                        </Box>
+                                        <Box>
+                                            <Text
+                                                size={{ initial: '4', sm: '5', md: '6' }}
+                                                weight="bold"
+                                                as="div"
+                                            >
+                                                Request Logs
+                                            </Text>
+                                            <Text
+                                                size={{ initial: '1', md: '2' }}
+                                                color="gray"
+                                                as="div"
+                                            >
+                                                View and manage all HTTP request logs
+                                                {pagination.total > 0 && ` · ${pagination.total.toLocaleString()} total`}
+                                            </Text>
+                                        </Box>
+                                    </Flex>
+
+                                    {/* Actions */}
+                                    <Flex align="center" gap="3" wrap="wrap">
+                                        <Button size={{ initial: '1', md: '2' }} variant="soft" color="green" onClick={exportLogs}>
+                                            <DownloadIcon width={16} height={16} />
+                                            {!isMobile && 'Export'}
+                                        </Button>
+                                        <Button
+                                            size={{ initial: '1', md: '2' }}
+                                            variant="soft"
+                                            color="blue"
+                                            onClick={() => loadLogs(pagination.current_page)}
+                                            disabled={loading}
+                                        >
+                                            <ReloadIcon
+                                                width={16}
+                                                height={16}
+                                                style={loading ? { animation: 'spin 1s linear infinite' } : {}}
+                                            />
+                                            {!isMobile && 'Refresh'}
+                                        </Button>
+                                        {selectedLogs.size > 0 && (
+                                            <Button size={{ initial: '1', md: '2' }} variant="solid" color="red" onClick={bulkDelete}>
+                                                <TrashIcon width={16} height={16} />
+                                                Delete ({selectedLogs.size})
+                                            </Button>
+                                        )}
+                                        <Button size={{ initial: '1', md: '2' }} variant="soft" color="red" onClick={() => setConfirmClearAll(true)}>
+                                            <TrashIcon width={16} height={16} />
+                                            {!isMobile && 'Clear All'}
+                                        </Button>
+                                    </Flex>
+                                </Flex>
                             </Box>
 
-                            <Flex gap="2" wrap="wrap" align="center">
-                                <Button size="2" variant="soft" color="indigo" onClick={applyFilters}>
-                                    <MagnifyingGlassIcon width={15} height={15} />
-                                    {!isMobile && 'Apply Filters'}
-                                </Button>
-                                <Button size="2" variant="soft" color="gray" onClick={resetFilters}>
-                                    <Cross2Icon width={15} height={15} />
-                                    {!isMobile && 'Reset'}
-                                </Button>
-                                <Button size="2" variant="soft" color="green" onClick={exportLogs}>
-                                    <DownloadIcon width={15} height={15} />
-                                    {!isMobile && 'Export'}
-                                </Button>
-                                <Button
-                                    size="2"
-                                    variant="soft"
-                                    color="blue"
-                                    onClick={() => loadLogs(pagination.current_page)}
-                                    disabled={loading}
-                                >
-                                    <ReloadIcon
-                                        width={15}
-                                        height={15}
-                                        style={loading ? { animation: 'spin 1s linear infinite' } : {}}
-                                    />
-                                    {!isMobile && 'Refresh'}
-                                </Button>
-                                {selectedLogs.size > 0 && (
-                                    <Button size="2" variant="solid" color="red" onClick={bulkDelete}>
-                                        <TrashIcon width={15} height={15} />
-                                        Delete ({selectedLogs.size})
-                                    </Button>
-                                )}
-                                <Button size="2" variant="soft" color="red" onClick={() => setConfirmClearAll(true)}>
-                                    <TrashIcon width={15} height={15} />
-                                    {!isMobile && 'Clear All'}
-                                </Button>
-                            </Flex>
-                        </Flex>
+                            <Separator size="4" mb="4" />
 
-                        {/* ── Filters ── */}
-                        <Box
-                            p="3"
-                            style={{
-                                background: 'var(--gray-a2)',
-                                borderRadius: 'var(--radius-3)',
-                                border: '1px solid var(--gray-a5)',
-                            }}
-                        >
-                            <Flex gap="2" wrap="wrap" align="end">
-                                {/* Search */}
-                                <Box style={{ flex: '1 1 200px', minWidth: 180 }}>
-                                    <Text size="1" color="gray" mb="1" as="div">Search URL</Text>
-                                    <TextField.Root
-                                        placeholder="Search URL or path..."
-                                        value={filters.search}
-                                        onChange={e => handleFilterChange('search', e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && applyFilters()}
-                                    >
-                                        <TextField.Slot>
-                                            <MagnifyingGlassIcon width={14} height={14} />
-                                        </TextField.Slot>
-                                    </TextField.Root>
-                                </Box>
-
-                                {/* IP Address */}
-                                <Box style={{ flex: '1 1 140px', minWidth: 130 }}>
-                                    <Text size="1" color="gray" mb="1" as="div">IP Address</Text>
-                                    <TextField.Root
-                                        placeholder="e.g. 192.168.1.1"
-                                        value={filters.ip_address}
-                                        onChange={e => handleFilterChange('ip_address', e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && applyFilters()}
-                                    />
-                                </Box>
-
-                                {/* Method */}
-                                <Box style={{ flex: '0 1 130px', minWidth: 120 }}>
-                                    <Text size="1" color="gray" mb="1" as="div">Method</Text>
-                                    <Select.Root
-                                        value={filters.method || 'all'}
-                                        onValueChange={v => handleFilterChange('method', v === 'all' ? '' : v)}
-                                    >
-                                        <Select.Trigger placeholder="All Methods" style={{ width: '100%' }} />
-                                        <Select.Content>
-                                            <Select.Item value="all">All Methods</Select.Item>
-                                            <Select.Separator />
-                                            <Select.Item value="GET">GET</Select.Item>
-                                            <Select.Item value="POST">POST</Select.Item>
-                                            <Select.Item value="PUT">PUT</Select.Item>
-                                            <Select.Item value="PATCH">PATCH</Select.Item>
-                                            <Select.Item value="DELETE">DELETE</Select.Item>
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-
-                                {/* Status */}
-                                <Box style={{ flex: '0 1 150px', minWidth: 140 }}>
-                                    <Text size="1" color="gray" mb="1" as="div">Status</Text>
-                                    <Select.Root
-                                        value={filters.status || 'all'}
-                                        onValueChange={v => handleFilterChange('status', v === 'all' ? '' : v)}
-                                    >
-                                        <Select.Trigger placeholder="All Status" style={{ width: '100%' }} />
-                                        <Select.Content>
-                                            <Select.Item value="all">All Status</Select.Item>
-                                            <Select.Separator />
-                                            <Select.Item value="200">200 OK</Select.Item>
-                                            <Select.Item value="201">201 Created</Select.Item>
-                                            <Select.Item value="204">204 No Content</Select.Item>
-                                            <Select.Separator />
-                                            <Select.Item value="400">400 Bad Request</Select.Item>
-                                            <Select.Item value="401">401 Unauthorized</Select.Item>
-                                            <Select.Item value="403">403 Forbidden</Select.Item>
-                                            <Select.Item value="404">404 Not Found</Select.Item>
-                                            <Select.Separator />
-                                            <Select.Item value="500">500 Server Error</Select.Item>
-                                        </Select.Content>
-                                    </Select.Root>
-                                </Box>
-
-                                {/* Start Date */}
-                                <Box style={{ flex: '0 1 160px', minWidth: 150 }}>
-                                    <Text size="1" color="gray" mb="1" as="div">From Date</Text>
-                                    <TextField.Root
-                                        type="date"
-                                        value={filters.start_date}
-                                        onChange={e => handleFilterChange('start_date', e.target.value)}
-                                    />
-                                </Box>
-
-                                {/* End Date */}
-                                <Box style={{ flex: '0 1 160px', minWidth: 150 }}>
-                                    <Text size="1" color="gray" mb="1" as="div">To Date</Text>
-                                    <TextField.Root
-                                        type="date"
-                                        value={filters.end_date}
-                                        onChange={e => handleFilterChange('end_date', e.target.value)}
-                                    />
-                                </Box>
-                            </Flex>
-                        </Box>
-
-                        <Separator size="4" />
-
-                        {/* ── Table ── */}
-                        {loading ? (
-                            <Flex justify="center" align="center" py="9" gap="3">
-                                <Spinner size="3" />
-                                <Text size="2" color="gray">Loading logs...</Text>
-                            </Flex>
-                        ) : logs.length === 0 ? (
-                            <Flex
-                                direction="column"
-                                justify="center"
-                                align="center"
-                                py="9"
-                                gap="2"
+                            {/* ── Filters ── */}
+                            <Box
+                                p="3"
+                                style={{
+                                    background: 'var(--gray-a2)',
+                                    borderRadius: 'var(--radius-3)',
+                                    border: '1px solid var(--gray-a5)',
+                                }}
                             >
-                                <Text size="4">🪵</Text>
-                                <Text size="3" color="gray" weight="medium">No logs found</Text>
-                                <Text size="2" color="gray">Try adjusting your filters or refreshing.</Text>
-                            </Flex>
-                        ) : (
-                            <ScrollArea scrollbars="horizontal">
-                                <Table.Root variant="surface" style={{ minWidth: 700 }}>
-                                    <Table.Header>
-                                        <Table.Row>
-                                            <Table.ColumnHeaderCell style={{ width: 36, paddingRight: 0 }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedLogs.size > 0 && selectedLogs.size === logs.length}
-                                                    ref={el => {
-                                                        if (el) el.indeterminate = selectedLogs.size > 0 && selectedLogs.size < logs.length;
-                                                    }}
-                                                    onChange={toggleAllSelection}
-                                                    style={{ cursor: 'pointer' }}
-                                                />
-                                            </Table.ColumnHeaderCell>
-                                            <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>IP Address</Table.ColumnHeaderCell>
-                                            <Table.ColumnHeaderCell style={{ width: 80 }}>Method</Table.ColumnHeaderCell>
-                                            <Table.ColumnHeaderCell>URL</Table.ColumnHeaderCell>
-                                            <Table.ColumnHeaderCell style={{ width: 80 }}>Status</Table.ColumnHeaderCell>
-                                            {!isTablet && <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>}
-                                            <Table.ColumnHeaderCell style={{ width: 90, whiteSpace: 'nowrap' }}>Duration</Table.ColumnHeaderCell>
-                                            {!isMobile && <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Time</Table.ColumnHeaderCell>}
-                                            <Table.ColumnHeaderCell style={{ width: 72 }}>Actions</Table.ColumnHeaderCell>
-                                        </Table.Row>
-                                    </Table.Header>
-                                    <Table.Body>
-                                        {logs.map(log => (
-                                            <Table.Row
-                                                key={log.id}
-                                                style={{
-                                                    background: selectedLogs.has(log.id)
-                                                        ? 'var(--accent-a3)'
-                                                        : undefined,
-                                                }}
-                                            >
-                                                <Table.Cell style={{ paddingRight: 0 }}>
+                                <Flex gap="2" wrap="wrap" align="end">
+                                    {/* Search */}
+                                    <Box style={{ flex: '1 1 200px', minWidth: 180 }}>
+                                        <Text size="1" color="gray" mb="1" as="div">Search URL</Text>
+                                        <TextField.Root
+                                            placeholder="Search URL or path..."
+                                            value={filters.search}
+                                            onChange={e => handleFilterChange('search', e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                                        >
+                                            <TextField.Slot>
+                                                <MagnifyingGlassIcon width={14} height={14} />
+                                            </TextField.Slot>
+                                        </TextField.Root>
+                                    </Box>
+
+                                    {/* IP Address */}
+                                    <Box style={{ flex: '1 1 140px', minWidth: 130 }}>
+                                        <Text size="1" color="gray" mb="1" as="div">IP Address</Text>
+                                        <TextField.Root
+                                            placeholder="e.g. 192.168.1.1"
+                                            value={filters.ip_address}
+                                            onChange={e => handleFilterChange('ip_address', e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                                        />
+                                    </Box>
+
+                                    {/* Method */}
+                                    <Box style={{ flex: '0 1 130px', minWidth: 120 }}>
+                                        <Text size="1" color="gray" mb="1" as="div">Method</Text>
+                                        <Select.Root
+                                            value={filters.method || 'all'}
+                                            onValueChange={v => handleFilterChange('method', v === 'all' ? '' : v)}
+                                        >
+                                            <Select.Trigger placeholder="All Methods" style={{ width: '100%' }} />
+                                            <Select.Content>
+                                                <Select.Item value="all">All Methods</Select.Item>
+                                                <Select.Separator />
+                                                <Select.Item value="GET">GET</Select.Item>
+                                                <Select.Item value="POST">POST</Select.Item>
+                                                <Select.Item value="PUT">PUT</Select.Item>
+                                                <Select.Item value="PATCH">PATCH</Select.Item>
+                                                <Select.Item value="DELETE">DELETE</Select.Item>
+                                            </Select.Content>
+                                        </Select.Root>
+                                    </Box>
+
+                                    {/* Status */}
+                                    <Box style={{ flex: '0 1 150px', minWidth: 140 }}>
+                                        <Text size="1" color="gray" mb="1" as="div">Status</Text>
+                                        <Select.Root
+                                            value={filters.status || 'all'}
+                                            onValueChange={v => handleFilterChange('status', v === 'all' ? '' : v)}
+                                        >
+                                            <Select.Trigger placeholder="All Status" style={{ width: '100%' }} />
+                                            <Select.Content>
+                                                <Select.Item value="all">All Status</Select.Item>
+                                                <Select.Separator />
+                                                <Select.Item value="200">200 OK</Select.Item>
+                                                <Select.Item value="201">201 Created</Select.Item>
+                                                <Select.Item value="204">204 No Content</Select.Item>
+                                                <Select.Separator />
+                                                <Select.Item value="400">400 Bad Request</Select.Item>
+                                                <Select.Item value="401">401 Unauthorized</Select.Item>
+                                                <Select.Item value="403">403 Forbidden</Select.Item>
+                                                <Select.Item value="404">404 Not Found</Select.Item>
+                                                <Select.Separator />
+                                                <Select.Item value="500">500 Server Error</Select.Item>
+                                            </Select.Content>
+                                        </Select.Root>
+                                    </Box>
+
+                                    {/* Start Date */}
+                                    <Box style={{ flex: '0 1 160px', minWidth: 150 }}>
+                                        <Text size="1" color="gray" mb="1" as="div">From Date</Text>
+                                        <TextField.Root
+                                            type="date"
+                                            value={filters.start_date}
+                                            onChange={e => handleFilterChange('start_date', e.target.value)}
+                                        />
+                                    </Box>
+
+                                    {/* End Date */}
+                                    <Box style={{ flex: '0 1 160px', minWidth: 150 }}>
+                                        <Text size="1" color="gray" mb="1" as="div">To Date</Text>
+                                        <TextField.Root
+                                            type="date"
+                                            value={filters.end_date}
+                                            onChange={e => handleFilterChange('end_date', e.target.value)}
+                                        />
+                                    </Box>
+
+                                    {/* Filter Actions */}
+                                    <Flex gap="2" align="end">
+                                        <Button size="2" variant="solid" color="indigo" onClick={applyFilters}>
+                                            <MagnifyingGlassIcon width={15} height={15} />
+                                            Apply
+                                        </Button>
+                                        <Button size="2" variant="soft" color="gray" onClick={resetFilters}>
+                                            <Cross2Icon width={15} height={15} />
+                                            Reset
+                                        </Button>
+                                    </Flex>
+                                </Flex>
+                            </Box>
+
+                            <Separator size="4" />
+
+                            {/* ── Table ── */}
+                            {loading ? (
+                                <Flex justify="center" align="center" py="9" gap="3">
+                                    <Spinner size="3" />
+                                    <Text size="2" color="gray">Loading logs...</Text>
+                                </Flex>
+                            ) : logs.length === 0 ? (
+                                <Flex
+                                    direction="column"
+                                    justify="center"
+                                    align="center"
+                                    py="9"
+                                    gap="2"
+                                >
+                                    <Text size="4">🪵</Text>
+                                    <Text size="3" color="gray" weight="medium">No logs found</Text>
+                                    <Text size="2" color="gray">Try adjusting your filters or refreshing.</Text>
+                                </Flex>
+                            ) : (
+                                <ScrollArea scrollbars="horizontal">
+                                    <Table.Root variant="surface" style={{ minWidth: 700 }}>
+                                        <Table.Header>
+                                            <Table.Row>
+                                                <Table.ColumnHeaderCell style={{ width: 36, paddingRight: 0 }}>
                                                     <input
                                                         type="checkbox"
-                                                        checked={selectedLogs.has(log.id)}
-                                                        onChange={() => toggleLogSelection(log.id)}
+                                                        checked={selectedLogs.size > 0 && selectedLogs.size === logs.length}
+                                                        ref={el => {
+                                                            if (el) el.indeterminate = selectedLogs.size > 0 && selectedLogs.size < logs.length;
+                                                        }}
+                                                        onChange={toggleAllSelection}
                                                         style={{ cursor: 'pointer' }}
                                                     />
-                                                </Table.Cell>
-                                                <Table.Cell>
-                                                    <Text size="1" style={{ fontFamily: 'monospace' }}>
-                                                        {log.ip_address || '—'}
-                                                    </Text>
-                                                </Table.Cell>
-                                                <Table.Cell>
-                                                    <Badge
-                                                        color={getMethodColor(log.method)}
-                                                        variant="soft"
-                                                        size="1"
-                                                        style={{ fontFamily: 'monospace', fontWeight: 700 }}
-                                                    >
-                                                        {log.method}
-                                                    </Badge>
-                                                </Table.Cell>
-                                                <Table.Cell>
-                                                    <Text
-                                                        size="1"
-                                                        style={{
-                                                            wordBreak: 'break-all',
-                                                            maxWidth: isMobile ? 160 : isTablet ? 220 : 340,
-                                                            display: 'block',
-                                                            fontFamily: 'monospace',
-                                                        }}
-                                                    >
-                                                        {log.url}
-                                                    </Text>
-                                                </Table.Cell>
-                                                <Table.Cell>
-                                                    <Badge
-                                                        color={getStatusColor(log.response_status)}
-                                                        variant="soft"
-                                                        size="1"
-                                                        style={{ fontFamily: 'monospace' }}
-                                                    >
-                                                        {log.response_status}
-                                                    </Badge>
-                                                </Table.Cell>
-                                                {!isTablet && (
-                                                    <Table.Cell>
-                                                        <Text size="1">{log.user?.name || 'Guest'}</Text>
+                                                </Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>IP Address</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ width: 80 }}>Method</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>URL</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell style={{ width: 80 }}>Status</Table.ColumnHeaderCell>
+                                                {!isTablet && <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>}
+                                                <Table.ColumnHeaderCell style={{ width: 90, whiteSpace: 'nowrap' }}>Duration</Table.ColumnHeaderCell>
+                                                {!isMobile && <Table.ColumnHeaderCell style={{ whiteSpace: 'nowrap' }}>Time</Table.ColumnHeaderCell>}
+                                                <Table.ColumnHeaderCell style={{ width: 72 }}>Actions</Table.ColumnHeaderCell>
+                                            </Table.Row>
+                                        </Table.Header>
+                                        <Table.Body>
+                                            {logs.map(log => (
+                                                <Table.Row
+                                                    key={log.id}
+                                                    style={{
+                                                        background: selectedLogs.has(log.id)
+                                                            ? 'var(--accent-a3)'
+                                                            : undefined,
+                                                    }}
+                                                >
+                                                    <Table.Cell style={{ paddingRight: 0 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedLogs.has(log.id)}
+                                                            onChange={() => toggleLogSelection(log.id)}
+                                                            style={{ cursor: 'pointer' }}
+                                                        />
                                                     </Table.Cell>
-                                                )}
-                                                <Table.Cell>
-                                                    <Text
-                                                        size="1"
-                                                        color={log.duration_ms > 1000 ? 'red' : log.duration_ms > 300 ? 'amber' : 'gray'}
-                                                        style={{ fontFamily: 'monospace' }}
-                                                    >
-                                                        {log.duration_ms}ms
-                                                    </Text>
-                                                </Table.Cell>
-                                                {!isMobile && (
                                                     <Table.Cell>
-                                                        <Text size="1" color="gray" style={{ whiteSpace: 'nowrap' }}>
-                                                            {new Date(log.created_at).toLocaleString()}
+                                                        <Text size="1" style={{ fontFamily: 'monospace' }}>
+                                                            {log.ip_address || '—'}
                                                         </Text>
                                                     </Table.Cell>
-                                                )}
-                                                <Table.Cell>
-                                                    <Flex gap="1">
-                                                        <Tooltip content="View details">
-                                                            <IconButton
-                                                                size="1"
-                                                                variant="ghost"
-                                                                color="blue"
-                                                                onClick={() => viewDetails(log.id)}
-                                                            >
-                                                                <EyeOpenIcon width={14} height={14} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip content="Delete log">
-                                                            <IconButton
-                                                                size="1"
-                                                                variant="ghost"
-                                                                color="red"
-                                                                onClick={() => deleteLog(log.id)}
-                                                            >
-                                                                <TrashIcon width={14} height={14} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Flex>
-                                                </Table.Cell>
-                                            </Table.Row>
-                                        ))}
-                                    </Table.Body>
-                                </Table.Root>
-                            </ScrollArea>
-                        )}
+                                                    <Table.Cell>
+                                                        <Badge
+                                                            color={getMethodColor(log.method)}
+                                                            variant="soft"
+                                                            size="1"
+                                                            style={{ fontFamily: 'monospace', fontWeight: 700 }}
+                                                        >
+                                                            {log.method}
+                                                        </Badge>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        <Text
+                                                            size="1"
+                                                            style={{
+                                                                wordBreak: 'break-all',
+                                                                maxWidth: isMobile ? 160 : isTablet ? 220 : 340,
+                                                                display: 'block',
+                                                                fontFamily: 'monospace',
+                                                            }}
+                                                        >
+                                                            {log.url}
+                                                        </Text>
+                                                    </Table.Cell>
+                                                    <Table.Cell>
+                                                        <Badge
+                                                            color={getStatusColor(log.response_status)}
+                                                            variant="soft"
+                                                            size="1"
+                                                            style={{ fontFamily: 'monospace' }}
+                                                        >
+                                                            {log.response_status}
+                                                        </Badge>
+                                                    </Table.Cell>
+                                                    {!isTablet && (
+                                                        <Table.Cell>
+                                                            <Text size="1">{log.user?.name || 'Guest'}</Text>
+                                                        </Table.Cell>
+                                                    )}
+                                                    <Table.Cell>
+                                                        <Text
+                                                            size="1"
+                                                            color={log.duration_ms > 1000 ? 'red' : log.duration_ms > 300 ? 'amber' : 'gray'}
+                                                            style={{ fontFamily: 'monospace' }}
+                                                        >
+                                                            {log.duration_ms}ms
+                                                        </Text>
+                                                    </Table.Cell>
+                                                    {!isMobile && (
+                                                        <Table.Cell>
+                                                            <Text size="1" color="gray" style={{ whiteSpace: 'nowrap' }}>
+                                                                {new Date(log.created_at).toLocaleString()}
+                                                            </Text>
+                                                        </Table.Cell>
+                                                    )}
+                                                    <Table.Cell>
+                                                        <Flex gap="1">
+                                                            <Tooltip content="View details">
+                                                                <IconButton
+                                                                    size="1"
+                                                                    variant="ghost"
+                                                                    color="blue"
+                                                                    onClick={() => viewDetails(log.id)}
+                                                                >
+                                                                    <EyeOpenIcon width={14} height={14} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                            <Tooltip content="Delete log">
+                                                                <IconButton
+                                                                    size="1"
+                                                                    variant="ghost"
+                                                                    color="red"
+                                                                    onClick={() => deleteLog(log.id)}
+                                                                >
+                                                                    <TrashIcon width={14} height={14} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        </Flex>
+                                                    </Table.Cell>
+                                                </Table.Row>
+                                            ))}
+                                        </Table.Body>
+                                    </Table.Root>
+                                </ScrollArea>
+                            )}
 
-                        {/* ── Pagination ── */}
-                        {pagination.total > 0 && (
-                            <Flex
-                                justify="between"
-                                align="center"
-                                gap="3"
-                                direction={{ initial: 'column', sm: 'row' }}
-                            >
-                                <Text size="1" color="gray">
-                                    Showing {from.toLocaleString()}–{to.toLocaleString()} of {pagination.total.toLocaleString()} logs
-                                    {selectedLogs.size > 0 && (
-                                        <Text as="span" color="indigo"> · {selectedLogs.size} selected</Text>
-                                    )}
-                                </Text>
-                                <Flex gap="2" align="center">
-                                    <Button
-                                        size="1"
-                                        variant="soft"
-                                        disabled={pagination.current_page === 1}
-                                        onClick={() => loadLogs(1)}
-                                    >
-                                        «
-                                    </Button>
-                                    <Button
-                                        size="1"
-                                        variant="soft"
-                                        disabled={pagination.current_page === 1}
-                                        onClick={() => loadLogs(pagination.current_page - 1)}
-                                    >
-                                        ‹ {!isMobile && 'Prev'}
-                                    </Button>
-                                    <Text size="1" color="gray" px="2">
-                                        Page {pagination.current_page} of {totalPages}
+                            {/* ── Pagination ── */}
+                            {pagination.total > 0 && (
+                                <Flex
+                                    justify="between"
+                                    align="center"
+                                    gap="3"
+                                    direction={{ initial: 'column', sm: 'row' }}
+                                >
+                                    <Text size="1" color="gray">
+                                        Showing {from.toLocaleString()}–{to.toLocaleString()} of {pagination.total.toLocaleString()} logs
+                                        {selectedLogs.size > 0 && (
+                                            <Text as="span" color="indigo"> · {selectedLogs.size} selected</Text>
+                                        )}
                                     </Text>
-                                    <Button
-                                        size="1"
-                                        variant="soft"
-                                        disabled={pagination.current_page >= totalPages}
-                                        onClick={() => loadLogs(pagination.current_page + 1)}
-                                    >
-                                        {!isMobile && 'Next'} ›
-                                    </Button>
-                                    <Button
-                                        size="1"
-                                        variant="soft"
-                                        disabled={pagination.current_page >= totalPages}
-                                        onClick={() => loadLogs(totalPages)}
-                                    >
-                                        »
-                                    </Button>
+                                    <Flex gap="2" align="center">
+                                        <Button
+                                            size="1"
+                                            variant="soft"
+                                            disabled={pagination.current_page === 1}
+                                            onClick={() => loadLogs(1)}
+                                        >
+                                            «
+                                        </Button>
+                                        <Button
+                                            size="1"
+                                            variant="soft"
+                                            disabled={pagination.current_page === 1}
+                                            onClick={() => loadLogs(pagination.current_page - 1)}
+                                        >
+                                            ‹ {!isMobile && 'Prev'}
+                                        </Button>
+                                        <Text size="1" color="gray" px="2">
+                                            Page {pagination.current_page} of {totalPages}
+                                        </Text>
+                                        <Button
+                                            size="1"
+                                            variant="soft"
+                                            disabled={pagination.current_page >= totalPages}
+                                            onClick={() => loadLogs(pagination.current_page + 1)}
+                                        >
+                                            {!isMobile && 'Next'} ›
+                                        </Button>
+                                        <Button
+                                            size="1"
+                                            variant="soft"
+                                            disabled={pagination.current_page >= totalPages}
+                                            onClick={() => loadLogs(totalPages)}
+                                        >
+                                            »
+                                        </Button>
+                                    </Flex>
                                 </Flex>
-                            </Flex>
-                        )}
-                    </Flex>
-                </Box>
+                            )}
+                        </Card>
+                    </Box>
+                </Flex>
 
                 {/* ── Details Dialog ── */}
                 <Dialog.Root open={!!showDetails} onOpenChange={() => setShowDetails(null)}>
