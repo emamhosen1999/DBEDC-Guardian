@@ -28,25 +28,8 @@ Route::post('/biometric/heartbeat', [BiometricWebhookController::class, 'heartbe
     ->middleware('throttle:60,1')
     ->name('api.biometric.heartbeat');
 
-// ZKTeco ADMS Push Protocol (for devices like MB460)
-// High throttle limit to accommodate peak morning/evening hours
-Route::get('/iclock/cdata', [BiometricWebhookController::class, 'admsHandshake'])
-    ->middleware('throttle:300,1')
-    ->name('api.biometric.adms.handshake');
-Route::post('/iclock/cdata', [BiometricWebhookController::class, 'admsPush'])
-    ->middleware('throttle:300,1')
-    ->name('api.biometric.adms.push');
-
-// Additional ADMS endpoints for standard protocol compliance
-Route::get('/iclock/getrequest', [BiometricWebhookController::class, 'admsGetRequest'])
-    ->middleware('throttle:300,1')
-    ->name('api.biometric.adms.getrequest');
-Route::post('/iclock/devicecmd', [BiometricWebhookController::class, 'admsDeviceCmd'])
-    ->middleware('throttle:300,1')
-    ->name('api.biometric.adms.devicecmd');
-Route::get('/iclock/test', [BiometricWebhookController::class, 'admsTest'])
-    ->middleware('throttle:300,1')
-    ->name('api.biometric.adms.test');
+// ZKTeco ADMS routes are in routes/iclock.php (registered without /api prefix
+// via bootstrap/app.php → then callback). The MB460 hardcodes /iclock/cdata.
 
 // Device command management (requires authentication)
 Route::middleware(['web', 'auth'])->prefix('biometric-devices')->group(function () {

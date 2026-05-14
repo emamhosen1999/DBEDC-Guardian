@@ -56,8 +56,8 @@ class BiometricWebhookController extends Controller
             ->first();
 
         if (! $mapping) {
-            // Create unlinked entry for unknown device user
-            DB::table('biometric_device_users')->insert([
+            // insertOrIgnore prevents duplicates when same unknown user punches multiple times
+            DB::table('biometric_device_users')->insertOrIgnore([
                 'biometric_device_id' => $device->id,
                 'user_id'             => null,
                 'device_user_id'      => $deviceUserId,
@@ -210,7 +210,6 @@ class BiometricWebhookController extends Controller
                 'command_type' => $command->command_type,
             ]);
 
-            // Return the command instead of "OK"
             return new \Symfony\Component\HttpFoundation\Response(
                 $command->toAdmsString(),
                 200,
@@ -228,10 +227,27 @@ class BiometricWebhookController extends Controller
             'pending_commands' => 0,
         ]);
 
-        // Return plain text response with SessionID header
-        // Use Symfony response to ensure no extra whitespace
+        // ZKTeco ADMS expects a multiline options block so the device knows from which
+        // timestamp to start syncing. Returning just "OK" causes the device to either
+        // resend all historical records or skip syncing entirely depending on firmware.
+        // ATTLOGStamp=9999 tells the device to push everything it hasn't sent yet.
+        $responseBody = implode("\r\n", [
+            "GET OPTION FROM: {$serialNumber}",
+            "ATTLOGStamp=9999",
+            "OPERLOGStamp=9999",
+            "ATTPHOTOStamp=9999",
+            "errorDelay=30",
+            "delay=10",
+            "transTimes=00:00;14:05",
+            "transFlag=1111000000",
+            "encrypt=None",
+            "ServerVer=2.4.1",
+            "PushProtVer=2.4.1",
+            "",
+        ]);
+
         return new \Symfony\Component\HttpFoundation\Response(
-            "OK",
+            $responseBody,
             200,
             [
                 'SessionID' => $sessionId,
@@ -262,13 +278,24 @@ class BiometricWebhookController extends Controller
         $table = $request->query('table');
 
         // Handle Biometric Template Uploads (Roaming)
-        if ($table === 'templatev10' || $table === 'user' || $table === 'OPERLOG') {
-            return $this->handleTemplateUpload($rawData, $table);
+        // templatev10 = fingerprint, facetmpv10 = face templates
+        if ($table === 'templatev10' || $table === 'facetmpv10') {
+            return $this->handleTemplateUpload($rawData, $table, $request);
         }
 
         // Handle User Enrollment from Device (Device → System sync)
-        if ($table === 'USER' || str_contains($rawData, 'PIN=')) {
-            return $this->handleUserEnrollment($rawData, $table);
+        // ZKTeco sends table=USERINFO for user data pushes
+        if ($table === 'USERINFO') {
+            return $this->handleUserEnrollment($rawData, $table, $request);
+        }
+
+        // OPERLOG = device operation log (door events, admin actions) — acknowledge and ignore
+        if ($table === 'OPERLOG') {
+            Log::info('ADMS push: OPERLOG received (acknowledged, not stored)', [
+                'sn' => $this->getSerialNumber($request),
+                'size' => strlen($rawData),
+            ]);
+            return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
         }
 
         // Check if the body contains a Command Acknowledgment
@@ -312,9 +339,10 @@ class BiometricWebhookController extends Controller
     /**
      * Handle user enrollment from device (Device → System sync)
      */
-    protected function handleUserEnrollment($content, $table)
+    protected function handleUserEnrollment($content, $table, Request $request)
     {
-        $serialNumber = $this->getSerialNumber($content);
+        // SN is always a query param in ADMS POST requests, never in the body
+        $serialNumber = $this->getSerialNumber($request);
         if (! $serialNumber) {
             Log::warning('User enrollment: missing serial number');
             return response('ERROR', 400)->header('Content-Type', 'text/plain');
@@ -363,7 +391,7 @@ class BiometricWebhookController extends Controller
 
                 if ($existingUser) {
                     // Auto-link to existing system user
-                    DB::table('biometric_device_users')->insert([
+                    DB::table('biometric_device_users')->insertOrIgnore([
                         'biometric_device_id' => $device->id,
                         'user_id' => $existingUser->id,
                         'device_user_id' => $pin,
@@ -379,26 +407,28 @@ class BiometricWebhookController extends Controller
                         'system_user_name' => $existingUser->name,
                     ]);
                 } else {
-                    // Create new system user
+                    // Create placeholder account as INACTIVE — admin must activate before the user
+                    // can log in or have attendance processed. Anyone who can register on the
+                    // physical device would otherwise gain an active system account.
                     $newUser = User::create([
                         'name' => $name,
                         'email' => strtolower(str_replace(' ', '.', $name)) . '@device-auto.local',
-                        'password' => bcrypt('device-auto-' . $pin),
-                        'active' => true,
+                        'password' => bcrypt(\Illuminate\Support\Str::random(32)),
+                        'active' => false,
                         'employee_id' => $pin,
                     ]);
 
-                    // Create mapping
-                    DB::table('biometric_device_users')->insert([
+                    // Create mapping (also inactive until admin reviews)
+                    DB::table('biometric_device_users')->insertOrIgnore([
                         'biometric_device_id' => $device->id,
                         'user_id' => $newUser->id,
                         'device_user_id' => $pin,
-                        'is_active' => true,
+                        'is_active' => false,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
 
-                    Log::info('User enrollment: created new system user', [
+                    Log::info('User enrollment: created inactive system user (pending admin approval)', [
                         'device_serial' => $serialNumber,
                         'device_user_id' => $pin,
                         'system_user_id' => $newUser->id,
@@ -431,9 +461,10 @@ class BiometricWebhookController extends Controller
     /**
      * Handle biometric template uploads from device (for biometric roaming)
      */
-    protected function handleTemplateUpload($content, $table)
+    protected function handleTemplateUpload($content, $table, Request $request)
     {
-        $serialNumber = $this->getSerialNumber($content);
+        // SN is always a query param in ADMS POST requests, never in the body
+        $serialNumber = $this->getSerialNumber($request);
         if (! $serialNumber) {
             Log::warning('Template upload: missing serial number');
             return response('ERROR', 400)->header('Content-Type', 'text/plain');
@@ -498,15 +529,12 @@ class BiometricWebhookController extends Controller
     }
 
     /**
-     * Extract serial number from request
+     * Extract serial number from an ADMS request.
+     * ZKTeco always sends SN as a query parameter (?SN=xxx), never in the body.
      */
-    protected function getSerialNumber($content)
+    protected function getSerialNumber(Request $request): ?string
     {
-        // Try to extract SN from content
-        if (preg_match('/SN=(?P<sn>[^\s\t\n]+)/', $content, $matches)) {
-            return $matches['sn'];
-        }
-        return null;
+        return $request->query('SN') ?: ($request->header('SN') ?: null);
     }
 
     /**
@@ -519,13 +547,8 @@ class BiometricWebhookController extends Controller
             return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
-        // Extract serial number from header or parse from data
-        $serialNumber = $request->header('SN') ?? $request->header('X-Device-Serial');
-
-        // If not in headers, try to get from query parameter (some devices send it there)
-        if (! $serialNumber) {
-            $serialNumber = $request->query('SN');
-        }
+        // ZKTeco sends SN as query param (?SN=xxx); header is a fallback for edge cases
+        $serialNumber = $this->getSerialNumber($request);
 
         if (! $serialNumber) {
             Log::warning('ADMS push: missing serial number');
@@ -566,15 +589,29 @@ class BiometricWebhookController extends Controller
                 $data = array_combine($matches[1], $matches[2]);
             }
 
-            if (! isset($data['USERID']) || ! isset($data['CHECKTIME'])) {
+            $hasUserId = isset($data['USERID']) || isset($data['EnrollNumber']);
+            $hasCheckTime = isset($data['CHECKTIME']) || isset($data['CheckTime']);
+            if (! $hasUserId || ! $hasCheckTime) {
                 $errorCount++;
                 Log::warning('ADMS push: invalid data format', ['line' => $line]);
                 continue;
             }
 
-            $deviceUserId = trim($data['USERID']);
-            $checkTime = trim($data['CHECKTIME']);
-            $checkType = isset($data['CHECKTYPE']) ? trim($data['CHECKTYPE']) : 'I'; // I = IN, O = OUT
+            $deviceUserId = trim($data['USERID'] ?? $data['EnrollNumber'] ?? '');
+            $checkTime = trim($data['CHECKTIME'] ?? $data['CheckTime'] ?? '');
+            // ZKTeco ADMS sends numeric check type: 0=IN, 1=OUT, 2=Break-Out, 3=Break-In, 4=OT-In, 5=OT-Out
+            $rawCheckType = trim($data['CHECKTYPE'] ?? $data['CheckType'] ?? '0');
+            $checkType = match ((string) $rawCheckType) {
+                '0'     => 'in',
+                '1'     => 'out',
+                '2'     => 'break_out',
+                '3'     => 'break_in',
+                '4'     => 'ot_in',
+                '5'     => 'ot_out',
+                'I', 'i' => 'in',
+                'O', 'o' => 'out',
+                default => 'in',
+            };
 
             // Resolve user from pivot table
             $mapping = DB::table('biometric_device_users')
@@ -583,8 +620,9 @@ class BiometricWebhookController extends Controller
                 ->first();
 
             if (! $mapping) {
-                // Create unlinked entry for unknown device user
-                DB::table('biometric_device_users')->insert([
+                // insertOrIgnore prevents duplicate rows when same unknown user punches several
+                // times before an admin links them (race condition on repeated ATTLOG batches)
+                DB::table('biometric_device_users')->insertOrIgnore([
                     'biometric_device_id' => $device->id,
                     'user_id'             => null,
                     'device_user_id'      => $deviceUserId,
@@ -814,18 +852,16 @@ class BiometricWebhookController extends Controller
             return response()->json(['message' => 'User sync only supported for ADMS protocol devices'], 400);
         }
 
-        // Execute sync synchronously (no queue needed)
-        $job = new \App\Jobs\SyncUsersToDeviceJob($device);
-        $job->handle();
+        \App\Jobs\SyncUsersToDeviceJob::dispatch($device);
 
-        Log::info('Bulk user sync completed synchronously', [
+        Log::info('Bulk user sync dispatched to queue', [
             'device_id' => $device->id,
             'device_serial' => $device->serial_number,
         ]);
 
         return response()->json([
-            'message' => 'User sync completed',
-            'status' => 'completed',
+            'message' => 'User sync queued. Commands will be sent to the device on its next connection.',
+            'status' => 'queued',
             'device' => $device->name,
         ]);
     }
@@ -927,7 +963,7 @@ class BiometricWebhookController extends Controller
      */
     public function admsDeviceCmd(Request $request)
     {
-        $serialNumber = $request->header('SN') ?? $request->query('SN');
+        $serialNumber = $this->getSerialNumber($request);
         $rawData = $request->getContent();
 
         if (! $serialNumber) {

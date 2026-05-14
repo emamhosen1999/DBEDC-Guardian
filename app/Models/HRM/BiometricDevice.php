@@ -57,8 +57,9 @@ class BiometricDevice extends Model
     }
 
     /**
-     * Check if device is online based on last heartbeat
-     * Device is considered online if heartbeat was within last 1 minute
+     * Check if device is online based on last heartbeat.
+     * ADMS default polling interval is 30–120 s, so 1 min caused false "offline" flicker.
+     * 5 minutes gives enough headroom without masking a genuinely disconnected device.
      */
     public function isOnline(): bool
     {
@@ -66,7 +67,7 @@ class BiometricDevice extends Model
             return false;
         }
 
-        return $this->last_heartbeat_at->gt(now()->subMinute());
+        return $this->last_heartbeat_at->gt(now()->subMinutes(5));
     }
 
     /**

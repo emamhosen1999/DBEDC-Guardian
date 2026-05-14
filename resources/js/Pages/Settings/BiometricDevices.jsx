@@ -117,7 +117,8 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
     // ─────────────────────────────────────────────────────────────────────────
 
     const webhookUrl = `${window.location.origin}/api/biometric/webhook`;
-    const admsUrl    = `${window.location.origin}/api/iclock/cdata`;
+    const admsUrl    = `${window.location.origin}/iclock/cdata`;
+    const admsDomain = window.location.hostname;
 
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text).then(() => showToast.success('Copied to clipboard.'));
@@ -997,41 +998,98 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                                                 <Flex align="center" gap="2">
                                                     <Badge color="green" variant="soft">ADMS</Badge>
                                                     <Text size="2" weight="medium">
-                                                        For devices with ADMS protocol (MB460, MB360)
+                                                        For ZKTeco MB460 / MB360 (ADMS Push Protocol)
                                                     </Text>
                                                 </Flex>
+
                                                 <Text size="2" color="gray">
-                                                    Configure the device to push to server using ZKTeco ADMS protocol.
-                                                    No auth token required — devices are identified by serial number.
+                                                    The MB460 has two push-server fields:{' '}
+                                                    <strong>Enable</strong> and{' '}
+                                                    <strong>Server Domain Name</strong>.
+                                                    The device automatically appends{' '}
+                                                    <Code size="1">/iclock/cdata</Code> to whatever you enter —
+                                                    enter only the domain or IP, no path, no{' '}
+                                                    <Code size="1">https://</Code>.
                                                 </Text>
-                                                <Flex align="center" gap="2">
-                                                    <Box flexGrow="1" style={{ minWidth: 0 }}>
-                                                        <Code
-                                                            size="2"
-                                                            style={{
-                                                                display: 'block',
-                                                                background: 'var(--gray-a4)',
-                                                                borderRadius: 'var(--radius-2)',
-                                                                padding: '8px 12px',
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                            }}
-                                                        >
-                                                            GET / POST {admsUrl}
-                                                        </Code>
-                                                    </Box>
-                                                    <Tooltip content="Copy URL">
-                                                        <IconButton
-                                                            variant="soft"
-                                                            size="2"
-                                                            onClick={() => copyToClipboard(admsUrl)}
-                                                            aria-label="Copy ADMS URL"
-                                                        >
-                                                            <CopyIcon width={16} height={16} />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </Flex>
+
+                                                {/* Server Domain Name field value */}
+                                                <Box>
+                                                    <Text size="1" color="gray" as="div" mb="1">
+                                                        Server Domain Name — paste this into the device:
+                                                    </Text>
+                                                    <Flex align="center" gap="2">
+                                                        <Box flexGrow="1" style={{ minWidth: 0 }}>
+                                                            <Code
+                                                                size="2"
+                                                                style={{
+                                                                    display: 'block',
+                                                                    background: 'var(--gray-a4)',
+                                                                    borderRadius: 'var(--radius-2)',
+                                                                    padding: '8px 12px',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                            >
+                                                                {admsDomain}
+                                                            </Code>
+                                                        </Box>
+                                                        <Tooltip content="Copy domain">
+                                                            <IconButton
+                                                                variant="soft"
+                                                                size="2"
+                                                                onClick={() => copyToClipboard(admsDomain)}
+                                                                aria-label="Copy domain"
+                                                            >
+                                                                <CopyIcon width={16} height={16} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Flex>
+                                                </Box>
+
+                                                {/* Resulting full URL for reference */}
+                                                <Box>
+                                                    <Text size="1" color="gray" as="div" mb="1">
+                                                        Resulting endpoint the device will call:
+                                                    </Text>
+                                                    <Code
+                                                        size="1"
+                                                        style={{
+                                                            display: 'block',
+                                                            background: 'var(--gray-a3)',
+                                                            borderRadius: 'var(--radius-2)',
+                                                            padding: '6px 10px',
+                                                            color: 'var(--gray-11)',
+                                                        }}
+                                                    >
+                                                        {admsUrl}
+                                                    </Code>
+                                                </Box>
+
+                                                {/* DHCP warning */}
+                                                <Card variant="surface" style={{ backgroundColor: 'var(--amber-a3)' }}>
+                                                    <Flex align="start" gap="2">
+                                                        <ExclamationTriangleIcon
+                                                            width={16}
+                                                            height={16}
+                                                            color="var(--amber-11)"
+                                                            style={{ flexShrink: 0, marginTop: 2 }}
+                                                        />
+                                                        <Flex direction="column" gap="1">
+                                                            <Text size="2" color="amber" weight="medium">
+                                                                Device IP is on DHCP
+                                                            </Text>
+                                                            <Text size="1" color="amber">
+                                                                The ADMS push (device → server) works fine on DHCP because
+                                                                the device initiates the connection. However, the Ping
+                                                                feature in the Devices tab requires a fixed IP to be
+                                                                reliable. Set a DHCP reservation in your router by binding
+                                                                the device's MAC address to a fixed IP — no firmware
+                                                                changes needed.
+                                                            </Text>
+                                                        </Flex>
+                                                    </Flex>
+                                                </Card>
                                             </Flex>
                                         </Card>
 
@@ -1042,7 +1100,7 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                                                 {[
                                                     'Register the device in the Devices tab with the correct serial number.',
                                                     'For Push SDK: copy the generated auth token and set X-Device-Token on the device.',
-                                                    'For ADMS: point the device\'s server address to the ADMS URL above.',
+                                                    'For ADMS (MB460): enable push, set Server Domain Name to this server\'s domain only — the device appends /iclock/cdata automatically.',
                                                     'Enroll fingerprints on the device, then link device IDs to employees in the Devices tab.',
                                                     'Verify attendance events are arriving via the ADMS Logs tab.',
                                                 ].map((step, i) => (

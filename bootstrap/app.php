@@ -10,6 +10,12 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // ADMS routes registered here (no prefix, no CSRF) so ZKTeco devices
+        // reach /iclock/cdata directly — the MB460 hardcodes that path.
+        then: function () {
+            \Illuminate\Support\Facades\Route::middleware('throttle:300,1')
+                ->group(base_path('routes/iclock.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
