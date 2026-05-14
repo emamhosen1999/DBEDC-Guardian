@@ -181,6 +181,9 @@ class BiometricDeviceController extends Controller
             'updated_at'          => now(),
         ]);
 
+        // Update users_count
+        $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
+
         return response()->json([
             'message' => 'Device entry added.',
         ], 201);
@@ -226,6 +229,9 @@ class BiometricDeviceController extends Controller
             ->where('id', $entry->id)
             ->update(['user_id' => $data['user_id'], 'updated_at' => now()]);
 
+        // Update users_count
+        $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
+
         $user = User::select('id', 'name', 'employee_id')->find($data['user_id']);
 
         return response()->json([
@@ -245,6 +251,9 @@ class BiometricDeviceController extends Controller
             ->where('biometric_device_id', $device->id)
             ->where('user_id', $userId)
             ->update(['user_id' => null, 'updated_at' => now()]);
+
+        // Update users_count
+        $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
 
         return response()->json(['message' => 'User unlinked from device.']);
     }

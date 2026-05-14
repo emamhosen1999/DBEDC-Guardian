@@ -12,18 +12,18 @@ class BiometricDevice extends Model
     protected $fillable = [
         'name',
         'serial_number',
-        'ip_address',
-        'location',
         'model',
-        'protocol',
+        'ip_address',
+        'port',
         'auth_token',
+        'protocol',
         'is_active',
-        'config',
         'last_heartbeat_at',
+        'notes',
+        'users_count',
     ];
 
     protected $casts = [
-        'config'             => 'array',
         'is_active'          => 'boolean',
         'last_heartbeat_at'  => 'datetime',
     ];

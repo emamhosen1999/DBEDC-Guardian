@@ -17,6 +17,7 @@ import {
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
+import DeviceUsersModal from '@/Components/DeviceUsersModal';
 
 const EMPTY_DEVICE = {
     name: '', serial_number: '', ip_address: '', location: '',
@@ -31,18 +32,19 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [saving, setSaving]           = useState(false);
     const [pinging, setPinging]         = useState(null);
     const [tokenDialog, setTokenDialog] = useState({ open: false, device: null, token: '' });
+    const [usersModalOpen, setUsersModalOpen] = useState(false);
+    const [selectedDevice, setSelectedDevice] = useState(null);
 
-    /* ── mapping modal state ── */
-    const [mapDevice, setMapDevice]     = useState(null);
-    const [mapOpen, setMapOpen]         = useState(false);
-    const [deviceUsers, setDeviceUsers] = useState([]);
-    const [loadingUsers, setLoadingUsers] = useState(false);
-    const [mapForm, setMapForm]         = useState({ device_user_id: '' });
-    const [addingUser, setAddingUser]   = useState(false);
-    const [linkEntry, setLinkEntry]     = useState(null);
-    const [linkOpen, setLinkOpen]       = useState(false);
-    const [linkForm, setLinkForm]       = useState({ user_id: '' });
-    const [linking, setLinking]         = useState(false);
+    // Device commands state
+    const [commandDevice, setCommandDevice] = useState(null);
+    const [commandType, setCommandType] = useState('REBOOT');
+    const [commandPayload, setCommandPayload] = useState('');
+    const [sendingCommand, setSendingCommand] = useState(false);
+    const [commandHistory, setCommandHistory] = useState([]);
+    const [loadingCommands, setLoadingCommands] = useState(false);
+    const [syncStatus, setSyncStatus] = useState(null);
+    const [pollingSync, setPollingSync] = useState(false);
+    const [isCommandOpen, setIsCommandOpen] = useState(false);
 
     const openAdd = () => { setEditDevice(null); setForm(EMPTY_DEVICE); setDialogOpen(true); };
     const openEdit = d => {
@@ -108,61 +110,125 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         } catch { showToast.error('Failed.'); }
     };
 
-    const openMappings = async d => {
-        setMapDevice(d); setMapForm({ device_user_id: '' });
-        setLoadingUsers(true); setMapOpen(true);
-        try {
-            const { data } = await axios.get(route('biometric-devices.users', d.id));
-            setDeviceUsers(data.entries ?? []);
-        } catch { showToast.error('Failed to load entries.'); }
-        finally { setLoadingUsers(false); }
+    const openUsersModal = (device) => {
+        setSelectedDevice(device);
+        setUsersModalOpen(true);
     };
 
-    const addEntry = async () => {
-        if (!mapForm.device_user_id.trim()) return showToast.error('Enter enrollment ID.');
-        setAddingUser(true);
+    // Device commands functions
+    const loadSyncStatus = useCallback(async () => {
+        if (!commandDevice) return;
         try {
-            await axios.post(route('biometric-devices.entry.add', mapDevice.id), { device_user_id: mapForm.device_user_id });
-            setMapForm({ device_user_id: '' });
-            const { data } = await axios.get(route('biometric-devices.users', mapDevice.id));
-            setDeviceUsers(data.entries ?? []);
-            showToast.success('Entry added.');
-        } catch (e) { showToast.error(e.response?.data?.message ?? 'Failed.'); }
-        finally { setAddingUser(false); }
+            const { data } = await axios.get(
+                route('api.biometric-devices.sync-status', commandDevice.id),
+            );
+            setSyncStatus(data);
+            if (data.pending === 0 || data.total === 0) setPollingSync(false);
+        } catch {
+            setPollingSync(false);
+        }
+    }, [commandDevice]);
+
+    useEffect(() => {
+        if (pollingSync && isCommandOpen) {
+            const interval = setInterval(loadSyncStatus, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [pollingSync, isCommandOpen, loadSyncStatus]);
+
+    const openCommandModal = async (device) => {
+        if (device.protocol !== 'adms') {
+            showToast.error('Commands only supported for ADMS protocol devices.');
+            return;
+        }
+        setCommandDevice(device);
+        setCommandType('REBOOT');
+        setCommandPayload('');
+        setLoadingCommands(true);
+        setSyncStatus(null);
+        setIsCommandOpen(true);
+        try {
+            const [{ data }, { data: statusData }] = await Promise.all([
+                axios.get(route('api.biometric-devices.commands.index', device.id)),
+                axios.get(route('api.biometric-devices.sync-status',   device.id)),
+            ]);
+            setCommandHistory(data.commands ?? []);
+            setSyncStatus(statusData);
+            if (statusData.total > 0 && statusData.pending > 0) setPollingSync(true);
+        } catch {
+            showToast.error('Failed to load command history.');
+        } finally {
+            setLoadingCommands(false);
+        }
     };
 
-    const unlinkUser = async entry => {
-        if (!confirm(`Unlink ${entry.name}?`)) return;
+    const sendCommand = async () => {
+        if (!commandDevice) return;
+        setSendingCommand(true);
         try {
-            await axios.post(route('biometric-devices.users.unlink', { id: mapDevice.id, userId: entry.user_id }));
-            const { data } = await axios.get(route('biometric-devices.users', mapDevice.id));
-            setDeviceUsers(data.entries ?? []);
-            showToast.success('Unlinked.');
-        } catch { showToast.error('Failed.'); }
+            let payload = null;
+            if (commandType === 'SET_TIME') {
+                payload = { time: commandPayload || new Date().toISOString().slice(0, 19).replace('T', ' ') };
+            } else if (commandType === 'ADD_USER' || commandType === 'UPDATE_USER') {
+                try   { payload = JSON.parse(commandPayload); }
+                catch { showToast.error('Invalid JSON payload.'); setSendingCommand(false); return; }
+            } else if (commandType === 'DELETE_USER') {
+                payload = { pin: commandPayload };
+            }
+
+            const { data } = await axios.post(
+                route('api.biometric-devices.commands.queue', commandDevice.id),
+                { device_id: commandDevice.id, command_type: commandType, payload },
+            );
+            showToast.success(`Command queued: ${data.command.adms_string}`);
+
+            const { data: historyData } = await axios.get(
+                route('api.biometric-devices.commands.index', commandDevice.id),
+            );
+            setCommandHistory(historyData.commands ?? []);
+            setCommandType('REBOOT');
+            setCommandPayload('');
+        } catch (err) {
+            showToast.error(err.response?.data?.message ?? 'Failed to queue command.');
+        } finally {
+            setSendingCommand(false);
+        }
     };
 
-    const deleteEntry = async entry => {
-        if (!confirm('Delete entry?')) return;
+    const syncUsersToDevice = async () => {
+        if (!commandDevice) return;
+        setSendingCommand(true);
         try {
-            await axios.delete(route('biometric-devices.users.remove', { id: mapDevice.id, userId: entry.user_id }));
-            setDeviceUsers(p => p.filter(e => e.id !== entry.id));
-            showToast.success('Deleted.');
-        } catch { showToast.error('Failed.'); }
+            const { data } = await axios.post(
+                route('api.biometric-devices.sync-users', commandDevice.id),
+            );
+            showToast.success(`Sync job queued for ${data.device}.`);
+            setTimeout(async () => {
+                const { data: historyData } = await axios.get(
+                    route('api.biometric-devices.commands.index', commandDevice.id),
+                );
+                setCommandHistory(historyData.commands ?? []);
+            }, 2000);
+        } catch (err) {
+            showToast.error(err.response?.data?.message ?? 'Failed to queue sync job.');
+        } finally {
+            setSendingCommand(false);
+        }
     };
 
-    const linkUser = async () => {
-        if (!linkForm.user_id) return showToast.error('Select an employee.');
-        setLinking(true);
+    const refreshCommandHistory = async () => {
+        if (!commandDevice) return;
+        setLoadingCommands(true);
         try {
-            await axios.post(route('biometric-devices.users.link', mapDevice.id), {
-                device_user_id: linkEntry.device_user_id, user_id: linkForm.user_id,
-            });
-            setLinkOpen(false);
-            const { data } = await axios.get(route('biometric-devices.users', mapDevice.id));
-            setDeviceUsers(data.entries ?? []);
-            showToast.success('Linked.');
-        } catch (e) { showToast.error(e.response?.data?.message ?? 'Failed.'); }
-        finally { setLinking(false); }
+            const { data } = await axios.get(
+                route('api.biometric-devices.commands.index', commandDevice.id),
+            );
+            setCommandHistory(data.commands ?? []);
+        } catch {
+            showToast.error('Failed to reload commands.');
+        } finally {
+            setLoadingCommands(false);
+        }
     };
 
     const copy = t => navigator.clipboard.writeText(t).then(() => showToast.success('Copied!'));
@@ -214,7 +280,14 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                         </Badge>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Badge color="accent" variant="soft" size="1">{d.users_count ?? 0}</Badge>
+                                        <Button
+                                            variant="soft"
+                                            color="accent"
+                                            size="1"
+                                            onClick={() => openUsersModal(d)}
+                                        >
+                                            {d.users_count ?? 0} users
+                                        </Button>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <Flex gap="1" direction="column">
@@ -234,16 +307,18 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                                     {pinging === d.id ? <Spinner size="1" /> : <LightningBoltIcon />}
                                                 </IconButton>
                                             </Tooltip>
-                                            <Tooltip content="Enrollments">
-                                                <IconButton size="1" variant="ghost" color="accent" onClick={() => openMappings(d)}>
-                                                    <PlusIcon />
-                                                </IconButton>
-                                            </Tooltip>
                                             <Tooltip content="Edit">
                                                 <IconButton size="1" variant="ghost" onClick={() => openEdit(d)}>
                                                     <Pencil1Icon />
                                                 </IconButton>
                                             </Tooltip>
+                                            {d.protocol === 'adms' && (
+                                                <Tooltip content="Device commands">
+                                                    <IconButton size="1" variant="ghost" color="blue" onClick={() => openCommandModal(d)}>
+                                                        <LightningBoltIcon />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
                                             {d.protocol !== 'adms' && (
                                                 <Tooltip content="Regen Token">
                                                     <IconButton size="1" variant="ghost" color="amber" onClick={() => regen(d)}>
@@ -344,64 +419,197 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                 </Dialog.Content>
             </Dialog.Root>
 
-            {/* Mappings Dialog */}
-            <Dialog.Root open={mapOpen} onOpenChange={setMapOpen}>
-                <Dialog.Content style={{ maxWidth: 600 }}>
-                    <Dialog.Title>Device Enrollments — {mapDevice?.name}</Dialog.Title>
-                    <Flex direction="column" gap="4" mt="3">
-                        <Card variant="surface">
-                            <Text size="2" weight="medium" as="div" mb="1">Add Device Entry</Text>
-                            <Flex gap="3" align="end">
-                                <Box flexGrow="1">
-                                    <TextField.Root size="2" placeholder="e.g. 1 or 00042"
-                                        value={mapForm.device_user_id}
-                                        onChange={e => setMapForm(f => ({ ...f, device_user_id: e.target.value }))} />
-                                </Box>
-                                <Button size="2" onClick={addEntry} disabled={addingUser}>
-                                    {addingUser ? <Spinner size="1" /> : <PlusIcon />} Add
-                                </Button>
+            {/* Device Commands Modal */}
+            <Dialog.Root open={isCommandOpen} onOpenChange={setIsCommandOpen}>
+                <Dialog.Content style={{ maxWidth: 620 }}>
+                    <Dialog.Title>Device Commands — {commandDevice?.name}</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        Queue commands and sync employees to this ADMS device.
+                    </Dialog.Description>
+
+                    <Flex direction="column" gap="4" mt="4">
+
+                        {/* Bulk Sync */}
+                        <Card variant="surface" style={{ backgroundColor: 'var(--accent-a3)' }}>
+                            <Flex direction="column" gap="3">
+                                <Flex justify="between" align="start" gap="3">
+                                    <Box>
+                                        <Text size="2" weight="medium" as="div">Bulk User Sync</Text>
+                                        <Text size="1" color="gray" as="div" mt="1">
+                                            Push all active employees to this device. Enroll biometrics on the
+                                            device afterwards.
+                                        </Text>
+                                    </Box>
+                                    <Button
+                                        size="2"
+                                        onClick={syncUsersToDevice}
+                                        disabled={sendingCommand}
+                                        style={{ flexShrink: 0 }}
+                                    >
+                                        {sendingCommand
+                                            ? <><Spinner size="1" /> Syncing…</>
+                                            : 'Sync All Users'}
+                                    </Button>
+                                </Flex>
+
+                                {/* Sync progress */}
+                                {syncStatus && syncStatus.total > 0 && (
+                                    <Flex direction="column" gap="2">
+                                        <Flex justify="between" align="center">
+                                            <Text size="1" weight="medium">Sync Progress</Text>
+                                            <Text size="1">{syncStatus.progress}%</Text>
+                                        </Flex>
+                                        <Box
+                                            style={{
+                                                height: 8,
+                                                backgroundColor: 'var(--gray-5)',
+                                                borderRadius: 'var(--radius-1)',
+                                                overflow: 'hidden',
+                                            }}
+                                        >
+                                            <Box
+                                                style={{
+                                                    height: '100%',
+                                                    backgroundColor: 'var(--accent-9)',
+                                                    width: `${syncStatus.progress}%`,
+                                                    transition: 'width 0.3s ease',
+                                                }}
+                                            />
+                                        </Box>
+                                        <Flex gap="3" wrap="wrap">
+                                            <Badge color="gray"  variant="soft" size="1">Total: {syncStatus.total}</Badge>
+                                            <Badge color="amber" variant="soft" size="1">Pending: {syncStatus.pending}</Badge>
+                                            <Badge color="blue"  variant="soft" size="1">Sent: {syncStatus.sent}</Badge>
+                                            <Badge color="green" variant="soft" size="1">Executed: {syncStatus.executed}</Badge>
+                                            {syncStatus.failed > 0 && (
+                                                <Badge color="red" variant="soft" size="1">Failed: {syncStatus.failed}</Badge>
+                                            )}
+                                        </Flex>
+                                    </Flex>
+                                )}
                             </Flex>
                         </Card>
 
+                        {/* Single command */}
                         <Box>
-                            <Text size="2" weight="medium" as="div" mb="2">Entries</Text>
-                            {loadingUsers ? (
-                                <Flex justify="center" py="6"><Spinner size="3" /></Flex>
-                            ) : deviceUsers.length === 0 ? (
-                                <Text size="2" color="gray">No entries yet.</Text>
+                            <Text size="2" weight="medium" as="div" mb="2">Single Command</Text>
+                            <Flex direction="column" gap="3">
+                                <Select.Root value={commandType} onValueChange={setCommandType}>
+                                    <Select.Trigger
+                                        style={{ width: '100%' }}
+                                        placeholder="Select command type"
+                                    />
+                                    <Select.Content>
+                                        <Select.Item value="REBOOT">Reboot Device</Select.Item>
+                                        <Select.Item value="SET_TIME">Set Device Time</Select.Item>
+                                        <Select.Item value="ADD_USER">Add User</Select.Item>
+                                        <Select.Item value="UPDATE_USER">Update User</Select.Item>
+                                        <Select.Item value="DELETE_USER">Delete User</Select.Item>
+                                        <Select.Item value="CLEAR_LOG">Clear Attendance Logs</Select.Item>
+                                        <Select.Item value="CLEAR_DATA">Clear All Data</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+
+                                {(commandType === 'SET_TIME' ||
+                                  commandType === 'DELETE_USER' ||
+                                  commandType === 'ADD_USER' ||
+                                  commandType === 'UPDATE_USER') && (
+                                    <Box>
+                                        <Text size="2" as="div" mb="1">
+                                            {commandType === 'SET_TIME'    && 'Time (YYYY-MM-DD HH:MM:SS)'}
+                                            {commandType === 'DELETE_USER' && 'User PIN / ID'}
+                                            {(commandType === 'ADD_USER' || commandType === 'UPDATE_USER') &&
+                                                'User Data (JSON)'}
+                                        </Text>
+                                        <TextField.Root
+                                            value={commandPayload}
+                                            onChange={e => setCommandPayload(e.target.value)}
+                                            placeholder={
+                                                commandType === 'SET_TIME'
+                                                    ? '2026-05-12 18:30:00'
+                                                    : commandType === 'DELETE_USER'
+                                                    ? '42'
+                                                    : '{"pin":"42","name":"John Doe","card":"123456"}'
+                                            }
+                                            size="2"
+                                        />
+                                        {(commandType === 'ADD_USER' || commandType === 'UPDATE_USER') && (
+                                            <Text size="1" color="gray" mt="1" as="div">
+                                                Example: {'{"pin":"42","name":"John Doe","card":"123456","privilege":0}'}
+                                            </Text>
+                                        )}
+                                    </Box>
+                                )}
+
+                                <Button
+                                    onClick={sendCommand}
+                                    disabled={sendingCommand}
+                                >
+                                    {sendingCommand ? <><Spinner size="1" /> Sending…</> : 'Send Command'}
+                                </Button>
+                            </Flex>
+                        </Box>
+
+                        {/* Command history */}
+                        <Box>
+                            <Flex justify="between" align="center" mb="2">
+                                <Text size="2" weight="medium">Command History</Text>
+                                <IconButton
+                                    variant="ghost"
+                                    size="1"
+                                    onClick={refreshCommandHistory}
+                                    disabled={loadingCommands}
+                                    aria-label="Refresh command history"
+                                >
+                                    {loadingCommands
+                                        ? <Spinner size="1" />
+                                        : <ReloadIcon />}
+                                </IconButton>
+                            </Flex>
+
+                            {loadingCommands ? (
+                                <Flex justify="center" py="4">
+                                    <Spinner size="3" />
+                                </Flex>
+                            ) : commandHistory.length === 0 ? (
+                                <Card variant="surface">
+                                    <Flex justify="center" py="4">
+                                        <Text size="2" color="gray">No commands sent yet.</Text>
+                                    </Flex>
+                                </Card>
                             ) : (
                                 <Box style={{ overflowX: 'auto' }}>
                                     <Table.Root variant="surface">
                                         <Table.Header>
                                             <Table.Row>
-                                                <Table.ColumnHeaderCell>Device ID</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell>Linked User</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
                                                 <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                                                <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
+                                                <Table.ColumnHeaderCell>Created</Table.ColumnHeaderCell>
                                             </Table.Row>
                                         </Table.Header>
                                         <Table.Body>
-                                            {deviceUsers.map(entry => (
-                                                <Table.Row key={entry.id}>
-                                                    <Table.Cell><Code size="1">{entry.device_user_id}</Code></Table.Cell>
+                                            {commandHistory.map(cmd => (
+                                                <Table.Row key={cmd.id}>
                                                     <Table.Cell>
-                                                        {entry.user_id
-                                                            ? <Box><Text size="2">{entry.name}</Text>{entry.employee_id && <Text size="1" color="gray">#{entry.employee_id}</Text>}</Box>
-                                                            : <Badge color="amber" variant="soft" size="1">Unlinked</Badge>}
+                                                        <Code size="1">{cmd.command_type}</Code>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <Badge color={entry.is_active ? 'green' : 'gray'} variant="soft" size="1">
-                                                            {entry.is_active ? 'Active' : 'Inactive'}
+                                                        <Badge
+                                                            color={
+                                                                cmd.status === 'executed' ? 'green' :
+                                                                cmd.status === 'sent' ? 'blue' :
+                                                                cmd.status === 'failed' ? 'red' : 'gray'
+                                                            }
+                                                            variant="soft"
+                                                            size="1"
+                                                        >
+                                                            {cmd.status}
                                                         </Badge>
                                                     </Table.Cell>
                                                     <Table.Cell>
-                                                        <Flex gap="1">
-                                                            {entry.user_id
-                                                                ? <Tooltip content="Unlink"><IconButton size="1" variant="ghost" color="amber" onClick={() => unlinkUser(entry)}><MinusIcon /></IconButton></Tooltip>
-                                                                : <Tooltip content="Link Employee"><IconButton size="1" variant="ghost" color="accent" onClick={() => { setLinkEntry(entry); setLinkForm({ user_id: '' }); setLinkOpen(true); }}><Pencil1Icon /></IconButton></Tooltip>
-                                                            }
-                                                            <Tooltip content="Delete"><IconButton size="1" variant="ghost" color="red" onClick={() => deleteEntry(entry)}><TrashIcon /></IconButton></Tooltip>
-                                                        </Flex>
+                                                        <Text size="1" color="gray">
+                                                            {new Date(cmd.created_at).toLocaleString()}
+                                                        </Text>
                                                     </Table.Cell>
                                                 </Table.Row>
                                             ))}
@@ -411,42 +619,22 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                             )}
                         </Box>
                     </Flex>
+
                     <Flex justify="end" mt="5">
-                        <Dialog.Close><Button variant="soft" color="gray">Close</Button></Dialog.Close>
+                        <Dialog.Close>
+                            <Button variant="soft" color="gray">Close</Button>
+                        </Dialog.Close>
                     </Flex>
                 </Dialog.Content>
             </Dialog.Root>
 
-            {/* Link Employee Dialog */}
-            <Dialog.Root open={linkOpen} onOpenChange={setLinkOpen}>
-                <Dialog.Content style={{ maxWidth: 400 }}>
-                    <Dialog.Title>Link to Employee</Dialog.Title>
-                    <Dialog.Description size="2" color="gray">
-                        Assign enrollment ID <Code size="1">{linkEntry?.device_user_id}</Code> to an employee.
-                    </Dialog.Description>
-                    <Box mt="3">
-                        <Text size="2" weight="medium" as="div" mb="1">Employee</Text>
-                        <Select.Root size="2"
-                            value={linkForm.user_id ? String(linkForm.user_id) : ''}
-                            onValueChange={v => setLinkForm(f => ({ ...f, user_id: v }))}>
-                            <Select.Trigger style={{ width: '100%' }} placeholder="Choose employee…" />
-                            <Select.Content>
-                                {(employees ?? []).map(emp => (
-                                    <Select.Item key={String(emp.id)} value={String(emp.id)}>
-                                        {emp.name}{emp.employee_id ? ` (${emp.employee_id})` : ''}
-                                    </Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
-                    </Box>
-                    <Flex gap="3" mt="5" justify="end">
-                        <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
-                        <Button onClick={linkUser} disabled={linking}>
-                            {linking ? <Spinner size="1" /> : null} Link
-                        </Button>
-                    </Flex>
-                </Dialog.Content>
-            </Dialog.Root>
+            {/* Device Users Modal */}
+            <DeviceUsersModal
+                open={usersModalOpen}
+                onOpenChange={setUsersModalOpen}
+                device={selectedDevice}
+                employees={employees}
+            />
         </Box>
     );
 }
@@ -596,6 +784,24 @@ export default function BiometricPanel({
 }) {
     const [devices, setDevices] = useState(initialDevices);
     const [subTab, setSubTab]   = useState('devices');
+
+    const refreshDevices = useCallback(async () => {
+        try {
+            const { data } = await axios.get(route('biometric-devices.index'));
+            setDevices(data.devices ?? []);
+        } catch { /* silently fail */ }
+    }, []);
+
+    // Poll devices and logs when active
+    useEffect(() => {
+        if (!isActive) return;
+
+        const interval = setInterval(() => {
+            refreshDevices();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [isActive, refreshDevices]);
 
     useEffect(() => { onCountChange?.(devices.length); }, [devices.length]);
 

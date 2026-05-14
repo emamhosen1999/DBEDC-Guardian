@@ -78,6 +78,10 @@ class BiometricDeviceCommand extends Model
                 $command .= "CLEAR DATA";
                 break;
 
+            case 'GET_USERINFO':
+                $command .= "GET USERINFO";
+                break;
+
             default:
                 $command .= "UNKNOWN";
                 break;

@@ -438,6 +438,9 @@ class BiometricWebhookController extends Controller
 
                 DB::commit();
 
+                // Update users_count
+                $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
+
                 return new \Symfony\Component\HttpFoundation\Response(
                     "OK",
                     200,
@@ -867,6 +870,75 @@ class BiometricWebhookController extends Controller
             'message' => 'User sync completed',
             'status' => 'completed',
             'device' => $device->name,
+        ]);
+    }
+
+    /**
+     * Request user data from device
+     */
+    public function requestUsersFromDevice(Request $request, $deviceId)
+    {
+        $device = BiometricDevice::find($deviceId);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        if ($device->protocol !== 'adms') {
+            return response()->json(['message' => 'User request only supported for ADMS protocol devices'], 400);
+        }
+
+        // Queue GET_USERINFO command
+        $command = BiometricDeviceCommand::create([
+            'biometric_device_id' => $device->id,
+            'command_type' => 'GET_USERINFO',
+            'payload' => [],
+            'status' => 'pending',
+            'retry_count' => 0,
+        ]);
+
+        Log::info('GET_USERINFO command queued', [
+            'device_id' => $device->id,
+            'device_serial' => $device->serial_number,
+            'command_id' => $command->id,
+        ]);
+
+        return response()->json([
+            'message' => 'GET_USERINFO command queued',
+            'status' => 'queued',
+            'command_id' => $command->id,
+            'device' => $device->name,
+        ]);
+    }
+
+    /**
+     * Get users from device (from database - users enrolled from device)
+     */
+    public function getDeviceUsers(Request $request, $deviceId)
+    {
+        $device = BiometricDevice::find($deviceId);
+
+        if (! $device) {
+            return response()->json(['message' => 'Device not found'], 404);
+        }
+
+        $users = DB::table('biometric_device_users')
+            ->where('biometric_device_id', $device->id)
+            ->leftJoin('users', 'biometric_device_users.user_id', '=', 'users.id')
+            ->select([
+                'biometric_device_users.id',
+                'biometric_device_users.device_user_id',
+                'biometric_device_users.user_id',
+                'biometric_device_users.is_active',
+                'users.name as user_name',
+                'users.email as user_email',
+                'biometric_device_users.created_at',
+            ])
+            ->get();
+
+        return response()->json([
+            'users' => $users,
+            'total' => count($users),
         ]);
     }
 
