@@ -193,9 +193,15 @@ export const getPages = (roles, permissions, auth = null) => {
             route: 'modules.index',
             description: 'Enable or disable system modules'
           }] : []),
-          ...(auth?.user && auth?.roles?.includes('Super Administrator') ? [{ 
-            name: 'Monitoring', 
-            icon: <ComputerDesktopIcon />, 
+          ...(permissions.includes('request_logs.view') ? [{
+            name: 'Request Logs',
+            icon: <DocumentTextIcon />,
+            route: 'request-logs.index',
+            description: 'View and manage all HTTP request logs'
+          }] : []),
+          ...(auth?.user && auth?.roles?.includes('Super Administrator') ? [{
+            name: 'Monitoring',
+            icon: <ComputerDesktopIcon />,
             route: 'admin.system-monitoring',
             description: 'View system health and analytics logs'
           }] : []),
