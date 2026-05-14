@@ -129,19 +129,24 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     // Summary tab state
     const [summaryFilteredData, setSummaryFilteredData] = useState([]);
+    const [summaryLoading, setSummaryLoading] = useState(false);
 
     const fetchFilteredSummaries = useCallback(async () => {
         try {
+            setSummaryLoading(true);
             const payload = {
-                startDate: filterData.startDate || dateRange.start,
-                endDate: filterData.endDate || dateRange.end,
-                status: filterData.status,
+                startDate: dateRange.start,
+                endDate: dateRange.end,
+                status: filterData.status !== 'all' ? filterData.status : '',
                 incharge: filterData.incharge,
                 jurisdiction: filterData.jurisdiction,
             };
 
+            console.log('Fetching filtered summaries with payload:', payload);
+
             const response = await axios.post('/daily-works-summary/filter', payload);
             const summaries = response.data?.summaries ?? [];
+            console.log('Received summaries:', summaries);
             setSummaryFilteredData(summaries);
             return true;
         } catch (error) {
@@ -149,6 +154,8 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
             const message = error.response?.data?.error || 'Failed to load summary data';
             showToast.error(message);
             return false;
+        } finally {
+            setSummaryLoading(false);
         }
     }, [filterData, dateRange]);
 
@@ -166,7 +173,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         if (activeTab === 'summary') {
             fetchFilteredSummaries();
         }
-    }, [activeTab, filterData, dateRange]);
+    }, [activeTab, filterData, dateRange, fetchFilteredSummaries]);
 
     // Objections tab state
     const [objectionsData, setObjectionsData] = useState([]);
@@ -913,9 +920,9 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                 <Select.Root
                                                     size="2"
                                                     value={filterData.status}
-                                                    onValueChange={(value) => { 
-                                                        setFilterData(prev => ({ ...prev, status: value })); 
-                                                        setCurrentPage(1); 
+                                                    onValueChange={(value) => {
+                                                        setFilterData(prev => ({ ...prev, status: value }));
+                                                        setCurrentPage(1);
                                                     }}
                                                 >
                                                     <Select.Trigger style={{ width: '100%' }} placeholder="Select status..." />
@@ -956,10 +963,10 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                                             ? [...filterData.incharge, String(u.id)]
                                                                             : filterData.incharge.filter(id => id !== String(u.id));
                                                                         
-                                                                        setFilterData(prev => ({ 
-                                                                            ...prev, 
+                                                                        setFilterData(prev => ({
+                                                                            ...prev,
                                                                             incharge: newValues,
-                                                                            jurisdiction: newValues.length ? [] : prev.jurisdiction 
+                                                                            jurisdiction: newValues.length ? [] : prev.jurisdiction
                                                                         }));
                                                                     }}
                                                                 >
@@ -995,10 +1002,10 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                                             ? [...filterData.jurisdiction, String(j.id)]
                                                                             : filterData.jurisdiction.filter(id => id !== String(j.id));
                                                                             
-                                                                        setFilterData(prev => ({ 
-                                                                            ...prev, 
-                                                                            jurisdiction: newValues, 
-                                                                            incharge: newValues.length ? [] : prev.incharge 
+                                                                        setFilterData(prev => ({
+                                                                            ...prev,
+                                                                            jurisdiction: newValues,
+                                                                            incharge: newValues.length ? [] : prev.incharge
                                                                         }));
                                                                     }}
                                                                 >
@@ -1214,6 +1221,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                             <DailyWorkSummaryTable
                                                 filteredData={summaryFilteredData}
                                                 onRefresh={handleSummaryRefresh}
+                                                loading={summaryLoading}
                                             />
                                        
                                     </Box>

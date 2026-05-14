@@ -74,6 +74,37 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
         </Box>
     );
 
+    const MobileLoadingSkeleton = () => (
+        <Box>
+            {onRefresh && (
+                <Flex justify="end" mb="4">
+                    <Box style={{ width: 120, height: 32, borderRadius: 'var(--radius-1)', background: 'var(--gray-a4)' }} />
+                </Flex>
+            )}
+            <ScrollArea>
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <Card key={i} mb="3" style={{ padding: 16 }}>
+                        <Flex direction="column" gap="3">
+                            <Box style={{ width: 120, height: 20, borderRadius: 'var(--radius-1)', background: 'var(--gray-a4)' }} />
+                            <Flex gap="2">
+                                <Box style={{ flex: 1, height: 16, borderRadius: 'var(--radius-1)', background: 'var(--gray-a3)' }} />
+                                <Box style={{ flex: 1, height: 16, borderRadius: 'var(--radius-1)', background: 'var(--gray-a3)' }} />
+                            </Flex>
+                            <Flex gap="2">
+                                <Box style={{ flex: 1, height: 16, borderRadius: 'var(--radius-1)', background: 'var(--gray-a3)' }} />
+                                <Box style={{ flex: 1, height: 16, borderRadius: 'var(--radius-1)', background: 'var(--gray-a3)' }} />
+                            </Flex>
+                            <Flex gap="2">
+                                <Box style={{ flex: 1, height: 16, borderRadius: 'var(--radius-1)', background: 'var(--gray-a3)' }} />
+                                <Box style={{ flex: 1, height: 16, borderRadius: 'var(--radius-1)', background: 'var(--gray-a3)' }} />
+                            </Flex>
+                        </Flex>
+                    </Card>
+                ))}
+            </ScrollArea>
+        </Box>
+    );
+
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString("en-US", {
             day: "numeric",
@@ -291,6 +322,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
     }, []);
 
     if (isMobile) {
+        if (loading) return <MobileLoadingSkeleton />;
         return (
             <Box>
                 {onRefresh && (
