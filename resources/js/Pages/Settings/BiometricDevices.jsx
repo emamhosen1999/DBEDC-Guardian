@@ -147,6 +147,51 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
         if (activeTab === 'logs') loadLogs();
     }, [activeTab, loadLogs]);
 
+    // Poll for real-time updates
+    useEffect(() => {
+        const refreshDevices = async () => {
+            try {
+                const { data } = await axios.get(route('biometric-devices.index'));
+                setDevices(data.devices ?? []);
+            } catch {
+                // Silent fail on polling errors
+            }
+        };
+
+        const refreshLogs = async () => {
+            if (activeTab === 'logs') {
+                try {
+                    const { data } = await axios.get(route('biometric-devices.logs'), {
+                        params: { limit: 200 }
+                    });
+                    setDeviceLogs(data.logs ?? []);
+                } catch {
+                    // Silent fail on polling errors
+                }
+            }
+        };
+
+        const refreshSyncStatus = async () => {
+            if (selectedDevice) {
+                try {
+                    const { data } = await axios.get(route('biometric-devices.sync-status', selectedDevice.id));
+                    setSyncStatus(data);
+                } catch {
+                    // Silent fail on polling errors
+                }
+            }
+        };
+
+        // Poll every 5 seconds
+        const interval = setInterval(() => {
+            refreshDevices();
+            refreshLogs();
+            refreshSyncStatus();
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [activeTab, selectedDevice]);
+
     const filteredLogs = logSearch.trim()
         ? deviceLogs.filter(l =>
             l.message?.toLowerCase().includes(logSearch.toLowerCase()) ||

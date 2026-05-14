@@ -591,9 +591,11 @@ class BiometricWebhookController extends Controller
 
             $hasUserId = isset($data['USERID']) || isset($data['EnrollNumber']);
             $hasCheckTime = isset($data['CHECKTIME']) || isset($data['CheckTime']);
+            
+            // Skip lines that don't match ATTLOG format (could be OPERLOG or other data)
             if (! $hasUserId || ! $hasCheckTime) {
+                // Silently skip non-ATTLOG lines to reduce log noise
                 $errorCount++;
-                Log::warning('ADMS push: invalid data format', ['line' => $line]);
                 continue;
             }
 
