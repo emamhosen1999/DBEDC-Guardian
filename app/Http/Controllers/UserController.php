@@ -38,28 +38,34 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        return Inertia::render('UsersList', [
-            'title' => 'User Management',
-            'roles' => Role::all(),
-            'departments' => Department::all(),
+        return Inertia::render('AdminUnified', [
+            'title' => 'User/Role Management',
+          
+           
+           
+
+             // Users panel
+            'roles'                  => Role::with('permissions')->get(),
+            'departments'            => Department::all(),
             'designations' => Designation::with('department')->orderBy('hierarchy_level', 'asc')->get(),
-        ]);
+
+            // Roles & Permissions panel
+            'permissions'            => Permission::all(),
+            'role_has_permissions'   => DB::table('role_has_permissions')->get(),
+            'permissionsGrouped'     => Permission::all()->groupBy('module')
+                                            ->map(fn($perms, $module) => [
+                                                'label'       => $module,
+                                                'permissions' => $perms->values(),
+                                            ]),
+            'can_manage_super_admin' => auth()->user()->can('manage super admin'),
+            'users'                  => User::with('roles')->get(),
+
+            // Biometric panel
+            'devices'   => BiometricDevice::withCount('users')->get(),
+            'employees' => User::select('id', 'name', 'employee_id')->get(),
+            ]);
     }
 
-    public function adminUnified(): \Inertia\Response
-    {
-        $this->authorize('viewAny', User::class);
-
-        return Inertia::render('Administration/AdminUnified', [
-            'title' => 'Administration',
-            'users' => User::with(['department', 'designation', 'roles'])->get(),
-            'roles' => Role::all(),
-            'permissions' => Permission::all(),
-            'devices' => \App\Models\HRM\BiometricDevice::all(),
-            'departments' => Department::all(),
-            'designations' => Designation::all(),
-        ]);
-    }
 
     /**
      * Store a new user.

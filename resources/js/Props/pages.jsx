@@ -148,18 +148,12 @@ export const getPages = (roles, permissions, auth = null) => {
       subMenu: [
          
           ...(permissions.includes('users.view') ? [{ 
-              name: 'Users', 
+              name: 'Users/Roles', 
               icon: <UsersIcon />, 
               route: 'users',
               description: 'Manage system users and access credentials'
           }] : []),
-          ...(permissions.includes('roles.view') ? [{
-            name: 'Roles & Permission', 
-            icon: <KeyIcon className="w-5 h-5" />, 
-            route: 'admin.roles-management',
-            priority: 5,
-            description: 'Manage user roles and permission system'
-          }] : []),
+         
           ...(permissions.includes('company.settings') ? [{
             name: 'Company Details', 
             icon: <BuildingOfficeIcon className="w-5 h-5" />, 
