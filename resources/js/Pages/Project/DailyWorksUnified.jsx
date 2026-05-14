@@ -161,12 +161,12 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     const canExportSummary = auth.roles.includes('Administrator') || auth.roles.includes('Super Administrator') || auth.designation === 'Supervision Engineer';
 
-    // Load summary data when summary tab is active
+    // Load summary data when summary tab is active or when filters change
     useEffect(() => {
         if (activeTab === 'summary') {
             fetchFilteredSummaries();
         }
-    }, [activeTab, fetchFilteredSummaries]);
+    }, [activeTab, filterData, dateRange]);
 
     // Objections tab state
     const [objectionsData, setObjectionsData] = useState([]);
@@ -748,7 +748,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                     closeModal={closeModal}
                     filteredData={summaryFilteredData}
                     inCharges={allData.allInCharges}
-                    currentFilters={summaryFilterData}
+                    currentFilters={filterData}
                     auth={auth}
                 />
             )}
