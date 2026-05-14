@@ -854,16 +854,18 @@ class BiometricWebhookController extends Controller
             return response()->json(['message' => 'User sync only supported for ADMS protocol devices'], 400);
         }
 
-        \App\Jobs\SyncUsersToDeviceJob::dispatch($device);
+        // Execute sync synchronously (no queue)
+        $job = new \App\Jobs\SyncUsersToDeviceJob($device);
+        $job->handle();
 
-        Log::info('Bulk user sync dispatched to queue', [
+        Log::info('Bulk user sync completed synchronously', [
             'device_id' => $device->id,
             'device_serial' => $device->serial_number,
         ]);
 
         return response()->json([
-            'message' => 'User sync queued. Commands will be sent to the device on its next connection.',
-            'status' => 'queued',
+            'message' => 'User sync completed',
+            'status' => 'completed',
             'device' => $device->name,
         ]);
     }
