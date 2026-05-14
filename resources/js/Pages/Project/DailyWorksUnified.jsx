@@ -130,6 +130,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     // Summary tab state
     const [summaryFilteredData, setSummaryFilteredData] = useState([]);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [summarySubTab, setSummarySubTab] = useState('table'); // 'table' or 'analytics'
 
     const fetchFilteredSummaries = useCallback(async () => {
         try {
@@ -755,7 +756,11 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                     closeModal={closeModal}
                     filteredData={summaryFilteredData}
                     inCharges={allData.allInCharges}
-                    currentFilters={filterData}
+                    currentFilters={{
+                        ...filterData,
+                        startDate: dateRange.start,
+                        endDate: dateRange.end
+                    }}
                     auth={auth}
                 />
             )}
@@ -1217,13 +1222,41 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                             )}
                                         </Flex>
 
-                                       
+                                        {/* Summary Sub-tabs */}
+                                        <Box mb="4">
+                                            <Tabs.Root value={summarySubTab} onValueChange={setSummarySubTab}>
+                                                <Tabs.List style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', padding: 4 }}>
+                                                    <Tabs.Trigger value="table" style={{ padding: '6px 12px', borderRadius: 'var(--radius-1)' }}>
+                                                        <Flex align="center" gap="2">
+                                                            <TableIcon style={{ width: 16, height: 16 }} />
+                                                            <Text size="2">Table View</Text>
+                                                        </Flex>
+                                                    </Tabs.Trigger>
+                                                    <Tabs.Trigger value="analytics" style={{ padding: '6px 12px', borderRadius: 'var(--radius-1)' }}>
+                                                        <Flex align="center" gap="2">
+                                                            <BarChartIcon style={{ width: 16, height: 16 }} />
+                                                            <Text size="2">Analytics</Text>
+                                                        </Flex>
+                                                    </Tabs.Trigger>
+                                                </Tabs.List>
+                                            </Tabs.Root>
+                                        </Box>
+
+                                        {summarySubTab === 'table' && (
                                             <DailyWorkSummaryTable
                                                 filteredData={summaryFilteredData}
                                                 onRefresh={handleSummaryRefresh}
                                                 loading={summaryLoading}
                                             />
-                                       
+                                        )}
+
+                                        {summarySubTab === 'analytics' && (
+                                            <DailyWorkSummaryAnalytics
+                                                filters={filterData}
+                                                data={summaryFilteredData}
+                                                isVisible={summarySubTab === 'analytics'}
+                                            />
+                                        )}
                                     </Box>
                                 </Tabs.Content>
 
