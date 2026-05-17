@@ -48,7 +48,7 @@ class BiometricValidator extends BaseAttendanceValidator
             return $this->errorResponse('User does not have an attendance type assigned.', 403);
         }
 
-        $attendanceType = AttendanceType::with('biometricDevices')->find($user->attendance_type_id);
+        $attendanceType = AttendanceType::find($user->attendance_type_id);
 
         if (! $attendanceType) {
             return $this->errorResponse("User's attendance type not found.", 403);
@@ -58,27 +58,18 @@ class BiometricValidator extends BaseAttendanceValidator
             return $this->errorResponse("User's attendance type is not biometric. Device punches not allowed.", 403);
         }
 
-        // Check per-employee specific device override first
+        // Employee must have a specific device assigned — no pool fallback
         $eat = $user->employeeAttendanceType;
-        if ($eat && $eat->biometric_device_id) {
-            if ($eat->biometric_device_id !== $device->id) {
-                return $this->errorResponse(
-                    'Punch rejected: employee is assigned to a different device.',
-                    403
-                );
-            }
-
-            return $this->successResponse('Biometric validation successful (specific device).', [
-                'device_id' => $device->id,
-                'user_id'   => $user->id,
-            ]);
+        if (! $eat || ! $eat->biometric_device_id) {
+            return $this->errorResponse(
+                'No biometric device assigned to this employee. Please assign a device first.',
+                403
+            );
         }
 
-        // Fall back to AT device pool check
-        $linkedDevices = $attendanceType->biometricDevices;
-        if ($linkedDevices->isNotEmpty() && ! $linkedDevices->contains('id', $device->id)) {
+        if ($eat->biometric_device_id !== $device->id) {
             return $this->errorResponse(
-                'This device is not assigned to the user\'s attendance zone. Punch rejected.',
+                'Punch rejected: employee is assigned to a different device.',
                 403
             );
         }

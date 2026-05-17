@@ -435,24 +435,38 @@ const EmployeeTable = ({
                                                     </DropdownMenu.Content>
                                                 </DropdownMenu.Root>
 
-                                                {/* Per-employee device picker within AT pool */}
-                                                {isBiometricSelected && user.attendance_type_devices?.length > 0 && (
+                                                {/* Per-employee device picker — required when biometric AT selected */}
+                                                {isBiometricSelected && (
                                                     <Box mt="1">
-                                                        <Select.Root
-                                                            size="1"
-                                                            value={user.biometric_device_id ? String(user.biometric_device_id) : ''}
-                                                            onValueChange={(v) => handleBiometricDeviceChange(user.id, v ? parseInt(v) : null)}
-                                                        >
-                                                            <Select.Trigger style={{ width: '100%' }} placeholder="Any device…" />
-                                                            <Select.Content>
-                                                                <Select.Item value="">Any device in pool</Select.Item>
-                                                                {user.attendance_type_devices.map(device => (
-                                                                    <Select.Item key={device.id} value={String(device.id)}>
-                                                                        {device.name}{device.location ? ` (${device.location})` : ''}
-                                                                    </Select.Item>
-                                                                ))}
-                                                            </Select.Content>
-                                                        </Select.Root>
+                                                        {user.attendance_type_devices?.length > 0 ? (
+                                                            <>
+                                                                <Select.Root
+                                                                    size="1"
+                                                                    value={user.biometric_device_id ? String(user.biometric_device_id) : ''}
+                                                                    onValueChange={(v) => handleBiometricDeviceChange(user.id, v ? parseInt(v) : null)}
+                                                                >
+                                                                    <Select.Trigger
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            outline: !user.biometric_device_id ? '1px solid var(--red-8)' : undefined,
+                                                                        }}
+                                                                        placeholder="Select device…"
+                                                                    />
+                                                                    <Select.Content>
+                                                                        {user.attendance_type_devices.map(device => (
+                                                                            <Select.Item key={device.id} value={String(device.id)}>
+                                                                                {device.name}{device.location ? ` (${device.location})` : ''}
+                                                                            </Select.Item>
+                                                                        ))}
+                                                                    </Select.Content>
+                                                                </Select.Root>
+                                                                {!user.biometric_device_id && (
+                                                                    <Badge color="red" variant="soft" size="1" mt="1">Device required</Badge>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <Badge color="orange" variant="soft" size="1">No devices in pool</Badge>
+                                                        )}
                                                     </Box>
                                                 )}
                                             </Box>
