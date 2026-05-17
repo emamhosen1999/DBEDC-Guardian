@@ -149,9 +149,15 @@ export default function UsersPanel({
 
     /* ── status toggle ── */
     const toggleStatus = async (user) => {
-        updateUser(user.id, { active: !user.active });
+        const newActive = !user.active;
+        updateUser(user.id, { active: newActive });
         try {
-            await axios.post(route('user.toggleStatus', { id: user.id }));
+            const { data } = await axios.post(
+                route('users.toggleStatus', { id: user.id }),
+                { active: newActive }
+            );
+            // Sync with server response (may include deleted_at changes)
+            if (data.user) updateUser(user.id, data.user);
             showToast.success('Status updated.');
         } catch {
             updateUser(user.id, { active: user.active }); // rollback
@@ -292,6 +298,10 @@ export default function UsersPanel({
     }, [totalPages, pagination.currentPage]);
 
     const hasActiveFilters = filterRole !== 'all' || filterStatus !== 'all' || filterDept !== 'all' || showDeleted || search;
+
+    /* ── section split (reactive) ── */
+    const activeUsers   = users.filter(u => u.active);
+    const inactiveUsers = users.filter(u => !u.active);
 
     /* ── render ── */
     return (
@@ -484,15 +494,29 @@ export default function UsersPanel({
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                            {users.map((user, idx) => {
-                                const serial   = startRow + idx;
+                            {[...activeUsers, ...inactiveUsers].map((user, idx) => {
+                                const isFirstInactive = !user.active && idx === activeUsers.length;
+                                const serial = startRow + idx;
                                 const userRoles = Array.isArray(user.roles)
                                     ? [...new Set(user.roles.map(r => typeof r === 'object' ? r.name : r).filter(Boolean))]
                                     : [];
                                 const isLocking = devAction[user.id];
 
                                 return (
-                                    <Table.Row key={user.id}>
+                                    <React.Fragment key={user.id}>
+                                    {isFirstInactive && (
+                                        <Table.Row>
+                                            <Table.Cell colSpan={isMobile ? 5 : 7} style={{ padding: '6px 12px', background: 'var(--red-a2)', borderTop: '1px solid var(--red-a5)' }}>
+                                                <Flex align="center" gap="2">
+                                                    <Badge size="1" color="red" variant="soft" radius="full">
+                                                        {inactiveUsers.length} Deactivated
+                                                    </Badge>
+                                                    <Text size="1" color="gray">Toggle the switch to re-activate</Text>
+                                                </Flex>
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    )}
+                                    <Table.Row style={!user.active ? { opacity: 0.65 } : undefined}>
                                         {/* Checkbox */}
                                         <Table.Cell>
                                             <Checkbox
@@ -650,6 +674,7 @@ export default function UsersPanel({
                                             </Flex>
                                         </Table.Cell>
                                     </Table.Row>
+                                    </React.Fragment>
                                 );
                             })}
                         </Table.Body>
