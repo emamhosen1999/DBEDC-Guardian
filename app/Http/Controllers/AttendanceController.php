@@ -817,8 +817,8 @@ class AttendanceController extends Controller
         $employee = $request->get('employee', '');
 
         try {
-            // Get users who have attendance for the selected date
-            $usersWithAttendanceQuery = User::role('Employee')
+            // Get users who have attendance for the selected date (any role with attendance_type configured)
+            $usersWithAttendanceQuery = User::whereNotNull('attendance_type_id')
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
                         ->whereDate('date', $selectedDate);
