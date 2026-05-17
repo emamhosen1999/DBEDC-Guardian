@@ -391,7 +391,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware(['precognitive'])
             ->name('users.update');
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
-        Route::post('/users/{id}/status', [UserController::class, 'toggleStatus'])->name('users.toggleStatus');
+        Route::post('/users/{userId}/status', [UserController::class, 'toggleStatus'])->name('users.toggleStatus');
         Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
         Route::post('/users/{id}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'updateEmployeeBiometricDevice'])->name('users.updateBiometricDevice');
