@@ -946,11 +946,11 @@ class AttendanceController extends Controller
 
         try {
 
-            // When not searching, get all users with Employee role
-            $allUsers = User::role('Employee')->get();
+            // When not searching, get all users configured for attendance tracking
+            $allUsers = User::whereNotNull('attendance_type_id')->get();
 
             // Get IDs of users who have attendance for the selected date
-            $presentUserIds = User::role('Employee')
+            $presentUserIds = User::whereNotNull('attendance_type_id')
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
                         ->whereDate('date', $selectedDate);
