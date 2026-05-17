@@ -390,23 +390,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/users/{id}', [UserController::class, 'update'])
             ->middleware(['precognitive'])
             ->name('users.update');
-        Route::put('/users/{id}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggleStatus');
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
         Route::post('/users/{id}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'updateBiometricDevice'])->name('users.updateBiometricDevice');
-
-        // Legacy routes for backward compatibility
-        Route::post('/user/{id}/update-department', [DepartmentController::class, 'updateUserDepartment'])->name('user.updateDepartment');
-        Route::post('/user/{id}/update-designation', [DesignationController::class, 'updateUserDesignation'])->name('user.updateDesignation');
-        Route::post('/user/{id}/update-role', [UserController::class, 'updateUserRole'])->name('user.updateRole');
-        Route::put('/user/toggle-status/{id}', [UserController::class, 'toggleStatus'])->name('user.toggleStatus');
-        Route::post('/user/{id}/update-attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('user.updateAttendanceType');
-        Route::post('/user/{id}/update-report-to', [UserController::class, 'updateReportTo'])->name('user.updateReportTo');
+        
+        // Bulk operations
+        Route::post('/users/bulk/status', [UserController::class, 'bulkUpdateStatus'])->name('users.bulk.status');
+        Route::post('/users/bulk/role', [UserController::class, 'bulkAssignRole'])->name('users.bulk.role');
     });
 
     Route::middleware(['permission:users.delete'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::post('/users/bulk/delete', [UserController::class, 'bulkDelete'])->name('users.bulk.delete');
         // Legacy route for backward compatibility
         Route::delete('/user/{id}', [EmployeeController::class, 'destroy'])->name('user.delete');
     });
@@ -489,6 +485,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('settings/biometric-devices/active', [BiometricDeviceController::class, 'getActiveDevices'])->name('biometric-devices.active');
         Route::post('settings/biometric-devices/{id}/ping', [BiometricDeviceController::class, 'pingDevice'])->name('biometric-devices.ping');
         Route::get('settings/biometric-devices/logs', [BiometricDeviceController::class, 'getAdmsLogs'])->name('biometric-devices.logs');
+        Route::get('settings/biometric-devices/health', [BiometricDeviceController::class, 'getHealthMetrics'])->name('biometric-devices.health');
+        
+        // Bulk operations
+        Route::post('settings/biometric-devices/bulk/sync', [BiometricDeviceController::class, 'bulkSyncUsers'])->name('biometric-devices.bulk.sync');
+        Route::post('settings/biometric-devices/bulk/ping', [BiometricDeviceController::class, 'bulkPing'])->name('biometric-devices.bulk.ping');
+        Route::post('settings/biometric-devices/bulk/delete', [BiometricDeviceController::class, 'bulkDelete'])->name('biometric-devices.bulk.delete');
 
         // Request logs routes
         Route::get('settings/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');

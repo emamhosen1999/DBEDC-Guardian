@@ -5,15 +5,16 @@
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
-    Badge, Box, Button, Card, Code, Dialog, Flex, Grid,
+    Badge, Box, Button, Card, Checkbox, Code, Dialog, Flex, Grid,
     IconButton, ScrollArea, Select, Separator, Spinner,
     Switch, Table, Tabs, Text, TextField, Tooltip,
 } from '@radix-ui/themes';
 import {
-    ActivityLogIcon, CheckCircledIcon, CopyIcon, Cross2Icon,
-    DesktopIcon, ExclamationTriangleIcon, GlobeIcon,
-    LightningBoltIcon, Link2Icon, MagnifyingGlassIcon,
-    MinusIcon, Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon,
+    ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, CopyIcon,
+    Cross2Icon, DesktopIcon, DotsVerticalIcon, EnvelopeClosedIcon,
+    Link2Icon, LockClosedIcon, LockOpen1Icon, MagnifyingGlassIcon,
+    MobileIcon, Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon,
+    HeartIcon, CheckIcon, CrossCircledIcon, ExclamationTriangleIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
@@ -34,6 +35,11 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [tokenDialog, setTokenDialog] = useState({ open: false, device: null, token: '' });
     const [usersModalOpen, setUsersModalOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState(null);
+
+    // Bulk selection state
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
 
     // Device commands state
     const [commandDevice, setCommandDevice] = useState(null);
@@ -113,6 +119,67 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const openUsersModal = (device) => {
         setSelectedDevice(device);
         setUsersModalOpen(true);
+    };
+
+    /* ── bulk selection handlers ── */
+    const toggleSelect = (id) => {
+        setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === devices.length && selectedIds.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(devices.map(d => d.id));
+        }
+    };
+
+    const clearSelection = () => setSelectedIds([]);
+
+    const handleBulkSync = async () => {
+        setBulkLoading(true);
+        try {
+            const { data } = await axios.post(route('biometric-devices.bulk.sync'), {
+                device_ids: selectedIds,
+            });
+            showToast.success(data.message);
+            clearSelection();
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to queue sync jobs.');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
+    const handleBulkPing = async () => {
+        setBulkLoading(true);
+        try {
+            const { data } = await axios.post(route('biometric-devices.bulk.ping'), {
+                device_ids: selectedIds,
+            });
+            showToast.success(data.message);
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to ping devices.');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        setBulkLoading(true);
+        try {
+            const { data } = await axios.post(route('biometric-devices.bulk.delete'), {
+                device_ids: selectedIds,
+            });
+            showToast.success(data.message);
+            setDevices(p => p.filter(d => !selectedIds.includes(d.id)));
+            clearSelection();
+            setBulkDeleteDialog(false);
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to delete devices.');
+        } finally {
+            setBulkLoading(false);
+        }
     };
 
     // Device commands functions
@@ -239,6 +306,32 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                 <Button size="2" onClick={openAdd}><PlusIcon /> Add Device</Button>
             </Flex>
 
+            {/* Bulk Actions Toolbar */}
+            {selectedIds.length > 0 && (
+                <Card size="2" variant="surface" mb="3" style={{ background: 'var(--indigo-a3)', border: '1px solid var(--indigo-a7)' }}>
+                    <Flex align="center" justify="between" gap="3">
+                        <Flex align="center" gap="2">
+                            <CheckIcon style={{ color: 'var(--indigo-9)' }} />
+                            <Text size="2" weight="medium">{selectedIds.length} device(s) selected</Text>
+                        </Flex>
+                        <Flex gap="2">
+                            <Button size="2" variant="soft" color="green" disabled={bulkLoading} onClick={handleBulkSync}>
+                                {bulkLoading ? <Spinner size="1" /> : 'Sync Users'}
+                            </Button>
+                            <Button size="2" variant="soft" color="indigo" disabled={bulkLoading} onClick={handleBulkPing}>
+                                {bulkLoading ? <Spinner size="1" /> : 'Ping'}
+                            </Button>
+                            <Button size="2" variant="soft" color="red" disabled={bulkLoading} onClick={() => setBulkDeleteDialog(true)}>
+                                {bulkLoading ? <Spinner size="1" /> : <><TrashIcon /> Delete</>}
+                            </Button>
+                            <IconButton size="2" variant="ghost" color="gray" onClick={clearSelection} aria-label="Clear selection">
+                                <Cross2Icon />
+                            </IconButton>
+                        </Flex>
+                    </Flex>
+                </Card>
+            )}
+
             {devices.length === 0 ? (
                 <Flex direction="column" align="center" justify="center" py="9" gap="2">
                     <DesktopIcon style={{ width: 40, height: 40, color: 'var(--gray-9)' }} />
@@ -250,6 +343,12 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                     <Table.Root variant="surface">
                         <Table.Header>
                             <Table.Row>
+                                <Table.ColumnHeaderCell style={{ width: 40 }}>
+                                    <Checkbox.Root
+                                        checked={selectedIds.length === devices.length && devices.length > 0}
+                                        onCheckedChange={toggleSelectAll}
+                                    />
+                                </Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Serial</Table.ColumnHeaderCell>
                                 {!isMobile && <Table.ColumnHeaderCell>IP / Location</Table.ColumnHeaderCell>}
@@ -263,6 +362,12 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                         <Table.Body>
                             {devices.map(d => (
                                 <Table.Row key={d.id}>
+                                    <Table.Cell>
+                                        <Checkbox.Root
+                                            checked={selectedIds.includes(d.id)}
+                                            onCheckedChange={() => toggleSelect(d.id)}
+                                        />
+                                    </Table.Cell>
                                     <Table.Cell>
                                         <Text weight="bold" size="2" as="div">{d.name}</Text>
                                         {d.model && <Text size="1" color="gray">{d.model}</Text>}
@@ -645,6 +750,25 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                 device={selectedDevice}
                 employees={employees}
             />
+
+            {/* Bulk Delete Dialog */}
+            <Dialog.Root open={bulkDeleteDialog} onOpenChange={setBulkDeleteDialog}>
+                <Dialog.Content style={{ maxWidth: 420 }}>
+                    <Dialog.Title>Delete Devices</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        Are you sure you want to delete <Text weight="bold">{selectedIds.length} device(s)</Text>?
+                        All user mappings and commands will be removed. This action cannot be undone.
+                    </Dialog.Description>
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close>
+                            <Button variant="soft" color="gray">Cancel</Button>
+                        </Dialog.Close>
+                        <Button color="red" onClick={handleBulkDelete} disabled={bulkLoading}>
+                            {bulkLoading ? <><Spinner size="1" /> Deleting…</> : <><TrashIcon /> Delete</>}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
         </Box>
     );
 }
@@ -968,6 +1092,177 @@ function WebhookTab() {
     );
 }
 
+/* ── Health sub-tab ── */
+function HealthTab({ isMobile }) {
+    const [healthData, setHealthData] = useState({ devices: [], summary: {} });
+    const [loading, setLoading] = useState(true);
+    const [filterStatus, setFilterStatus] = useState('all');
+
+    const loadHealth = useCallback(async () => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('biometric-devices.health'));
+            setHealthData(data);
+        } catch (e) {
+            showToast.error('Failed to load health metrics.');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadHealth();
+        const interval = setInterval(loadHealth, 30000); // Auto-refresh every 30 seconds
+        return () => clearInterval(interval);
+    }, [loadHealth]);
+
+    const filteredDevices = useMemo(() => {
+        if (filterStatus === 'all') return healthData.devices;
+        return healthData.devices.filter(d => d.status === filterStatus);
+    }, [healthData.devices, filterStatus]);
+
+    const statusColor = s => ({
+        healthy: 'green',
+        warning: 'amber',
+        critical: 'red',
+    }[s] ?? 'gray');
+
+    const statusIcon = s => ({
+        healthy: <CheckIcon />,
+        warning: <ExclamationTriangleIcon />,
+        critical: <CrossCircledIcon />,
+    }[s] ?? null);
+
+    const formatTime = (iso) => iso ? new Date(iso).toLocaleString() : 'Never';
+
+    return (
+        <Box>
+            {/* Summary cards */}
+            <Grid columns={{ initial: '2', sm: '4' }} gap="3" mb="4">
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">Overall Health</Text>
+                        <Text size="4" weight="bold" color={healthData.summary.overall_health_score >= 80 ? 'green' : healthData.summary.overall_health_score >= 50 ? 'amber' : 'red'}>
+                            {healthData.summary.overall_health_score ?? 0}%
+                        </Text>
+                    </Flex>
+                </Card>
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">Online</Text>
+                        <Text size="4" weight="bold" color="green">
+                            {healthData.summary.online ?? 0}
+                        </Text>
+                    </Flex>
+                </Card>
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">Offline</Text>
+                        <Text size="4" weight="bold" color="red">
+                            {healthData.summary.offline ?? 0}
+                        </Text>
+                    </Flex>
+                </Card>
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">Total Devices</Text>
+                        <Text size="4" weight="bold">
+                            {healthData.summary.total ?? 0}
+                        </Text>
+                    </Flex>
+                </Card>
+            </Grid>
+
+            {/* Filter toolbar */}
+            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
+                <Select.Root value={filterStatus} onValueChange={setFilterStatus} size="2">
+                    <Select.Trigger style={{ width: 180 }} />
+                    <Select.Content>
+                        <Select.Item value="all">All Status</Select.Item>
+                        <Select.Item value="healthy">Healthy</Select.Item>
+                        <Select.Item value="warning">Warning</Select.Item>
+                        <Select.Item value="critical">Critical</Select.Item>
+                    </Select.Content>
+                </Select.Root>
+                <Button size="2" variant="soft" color="indigo" onClick={loadHealth} disabled={loading}>
+                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+                </Button>
+            </Flex>
+
+            {/* Health table */}
+            {loading ? (
+                <Flex justify="center" py="9"><Spinner size="3" /></Flex>
+            ) : filteredDevices.length === 0 ? (
+                <Flex direction="column" align="center" justify="center" py="9" gap="2">
+                    <HeartIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
+                    <Text size="3" weight="medium">No devices found</Text>
+                </Flex>
+            ) : (
+                <Box style={{ overflowX: 'auto' }}>
+                    <Table.Root variant="surface" size="2">
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
+                                {!isMobile && <Table.ColumnHeaderCell>Serial</Table.ColumnHeaderCell>}
+                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Health Score</Table.ColumnHeaderCell>
+                                {!isMobile && <Table.ColumnHeaderCell>Last Heartbeat</Table.ColumnHeaderCell>}
+                                {!isMobile && <Table.ColumnHeaderCell>Latency</Table.ColumnHeaderCell>}
+                                {!isMobile && <Table.ColumnHeaderCell>Uptime</Table.ColumnHeaderCell>}
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {filteredDevices.map(device => (
+                                <Table.Row key={device.id}>
+                                    <Table.Cell>
+                                        <Flex direction="column">
+                                            <Text weight="bold" size="2">{device.name}</Text>
+                                            <Text size="1" color="gray">{device.ip_address}</Text>
+                                        </Flex>
+                                    </Table.Cell>
+                                    {!isMobile && (
+                                        <Table.Cell>
+                                            <Text size="1" color="gray">{device.serial_number}</Text>
+                                        </Table.Cell>
+                                    )}
+                                    <Table.Cell>
+                                        <Badge color={statusColor(device.status)} variant="soft" size="1">
+                                            <Flex align="center" gap="1">
+                                                {statusIcon(device.status)}
+                                                {device.status.toUpperCase()}
+                                            </Flex>
+                                        </Badge>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text weight="bold" color={device.health_score >= 80 ? 'green' : device.health_score >= 50 ? 'amber' : 'red'}>
+                                            {device.health_score}%
+                                        </Text>
+                                    </Table.Cell>
+                                    {!isMobile && (
+                                        <Table.Cell>
+                                            <Text size="1" color="gray">{formatTime(device.last_heartbeat)}</Text>
+                                        </Table.Cell>
+                                    )}
+                                    {!isMobile && (
+                                        <Table.Cell>
+                                            <Text size="1">{device.latency ? `${device.latency}ms` : 'N/A'}</Text>
+                                        </Table.Cell>
+                                    )}
+                                    {!isMobile && (
+                                        <Table.Cell>
+                                            <Text size="1">{device.uptime_days}d</Text>
+                                        </Table.Cell>
+                                    )}
+                                </Table.Row>
+                            ))}
+                        </Table.Body>
+                    </Table.Root>
+                </Box>
+            )}
+        </Box>
+    );
+}
+
 /* ── Main BiometricPanel ── */
 export default function BiometricPanel({
     initialDevices = [], employees = [],
@@ -1021,6 +1316,9 @@ export default function BiometricPanel({
                     <Tabs.Trigger value="devices">
                         <Flex align="center" gap="2"><DesktopIcon /> Devices</Flex>
                     </Tabs.Trigger>
+                    <Tabs.Trigger value="health">
+                        <Flex align="center" gap="2"><HeartIcon /> Device Health</Flex>
+                    </Tabs.Trigger>
                     <Tabs.Trigger value="logs">
                         <Flex align="center" gap="2"><ActivityLogIcon /> ADMS Logs</Flex>
                     </Tabs.Trigger>
@@ -1031,6 +1329,9 @@ export default function BiometricPanel({
 
                 <Tabs.Content value="devices">
                     <DevicesTab devices={devices} setDevices={setDevices} employees={employees} isMobile={isMobile} />
+                </Tabs.Content>
+                <Tabs.Content value="health">
+                    <HealthTab isMobile={isMobile} />
                 </Tabs.Content>
                 <Tabs.Content value="logs">
                     <LogsTab isMobile={isMobile} />

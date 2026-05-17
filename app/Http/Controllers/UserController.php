@@ -228,25 +228,34 @@ class UserController extends Controller
 
     public function toggleStatus($id, UpdateUserStatusRequest $request)
     {
-        $user = User::withTrashed()->findOrFail($id);
+        try {
+            $user = User::withTrashed()->findOrFail($id);
 
-        // Toggle the active status based on the request
-        $user->active = $request->input('active');
+            // Toggle the active status based on the request
+            $user->active = $request->input('active');
 
-        // Handle soft delete or restore based on the new status
-        if ($user->active) {
-            $user->restore(); // Restore the user if they were soft deleted
-        } else {
-            $user->delete();  // Soft delete the user if marking inactive
+            // Handle soft delete or restore based on the new status
+            if ($user->active) {
+                $user->restore(); // Restore the user if they were soft deleted
+            } else {
+                $user->delete();  // Soft delete the user if marking inactive
+            }
+
+            $user->save();
+
+            return response()->json([
+                'message' => 'User status updated successfully',
+                'active' => $user->active,
+                'user' => new UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice'])),
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to update user status.',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        $user->save();
-
-        return response()->json([
-            'message' => 'User status updated successfully',
-            'active' => $user->active,
-            'user' => new UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice'])),
-        ]);
     }
 
     /**
@@ -269,6 +278,111 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to delete user.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk update user status
+     */
+    public function bulkUpdateStatus(Request $request)
+    {
+        $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+            'active' => 'required|boolean',
+        ]);
+
+        try {
+            $count = DB::transaction(function () use ($request) {
+                $userId = $request->input('user_ids');
+                $active = $request->input('active');
+
+                return User::whereIn('id', $userId)->update(['active' => $active]);
+            });
+
+            return response()->json([
+                'message' => "Status updated for {$count} user(s).",
+                'count' => $count,
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to bulk update status.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk assign role to users
+     */
+    public function bulkAssignRole(Request $request)
+    {
+        $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+            'role' => 'required|string|exists:roles,name',
+        ]);
+
+        try {
+            $role = $request->input('role');
+            $userIds = $request->input('user_ids');
+
+            $users = User::whereIn('id', $userIds)->get();
+            $count = 0;
+
+            foreach ($users as $user) {
+                $user->syncRoles([$role]);
+                $count++;
+            }
+
+            return response()->json([
+                'message' => "Role '{$role}' assigned to {$count} user(s).",
+                'count' => $count,
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to bulk assign role.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk delete users (soft delete)
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+        ]);
+
+        try {
+            $count = DB::transaction(function () use ($request) {
+                $userIds = $request->input('user_ids');
+
+                // First set active to false
+                User::whereIn('id', $userIds)->update(['active' => false]);
+
+                // Then soft delete
+                return User::whereIn('id', $userIds)->delete();
+            });
+
+            return response()->json([
+                'message' => "{$count} user(s) deleted successfully.",
+                'count' => $count,
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to bulk delete users.',
                 'message' => $e->getMessage(),
             ], 500);
         }

@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         \App\Console\Commands\SendAttendanceReminders::class,
+        \App\Console\Commands\ProcessScheduledBiometricCommands::class,
     ];
 
     /**
@@ -88,6 +89,13 @@ class Kernel extends ConsoleKernel
                 Log::error('Monthly leave accrual failed');
             })
             ->withoutOverlapping()
+
+        // Process scheduled biometric device commands - runs every minute
+        $schedule->command('biometric:process-scheduled-commands')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/biometric-commands.log'));
             ->appendOutputTo(storage_path('logs/leave-accrual.log'));
     }
 

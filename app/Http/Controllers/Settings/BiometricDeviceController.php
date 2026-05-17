@@ -229,9 +229,6 @@ class BiometricDeviceController extends Controller
             ->where('id', $entry->id)
             ->update(['user_id' => $data['user_id'], 'updated_at' => now()]);
 
-        // Update users_count
-        $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
-
         $user = User::select('id', 'name', 'employee_id')->find($data['user_id']);
 
         return response()->json([
@@ -251,9 +248,6 @@ class BiometricDeviceController extends Controller
             ->where('biometric_device_id', $device->id)
             ->where('user_id', $userId)
             ->update(['user_id' => null, 'updated_at' => now()]);
-
-        // Update users_count
-        $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
 
         return response()->json(['message' => 'User unlinked from device.']);
     }
@@ -349,6 +343,84 @@ class BiometricDeviceController extends Controller
     }
 
     /**
+     * Get device health metrics
+     */
+    public function getHealthMetrics()
+    {
+        $devices = BiometricDevice::all()->map(function ($device) {
+            $isOnline = $device->isOnline();
+            $lastHeartbeat = $device->last_heartbeat_at;
+            
+            // Calculate health score (0-100)
+            $healthScore = 100;
+            
+            // Deduct points for offline status
+            if (!$isOnline) {
+                $healthScore -= 50;
+            }
+            
+            // Deduct points for old heartbeat (more than 5 minutes)
+            if ($lastHeartbeat && $lastHeartbeat->lt(now()->subMinutes(5))) {
+                $healthScore -= 30;
+            }
+            
+            // Deduct points for very old heartbeat (more than 1 hour)
+            if ($lastHeartbeat && $lastHeartbeat->lt(now()->subHour())) {
+                $healthScore -= 20;
+            }
+            
+            // Ensure score is between 0 and 100
+            $healthScore = max(0, min(100, $healthScore));
+            
+            // Calculate uptime (days since creation or last reset)
+            $uptimeDays = $device->created_at ? now()->diffInDays($device->created_at) : 0;
+            
+            // Get latency from last ping (stored in config or calculate fresh)
+            $latency = null;
+            if ($device->ip_address) {
+                $startTime = microtime(true);
+                $reachable = $this->executePing($device->ip_address);
+                $latency = $reachable ? round((microtime(true) - $startTime) * 1000, 2) : null;
+            }
+            
+            return [
+                'id' => $device->id,
+                'name' => $device->name,
+                'serial_number' => $device->serial_number,
+                'ip_address' => $device->ip_address,
+                'is_online' => $isOnline,
+                'last_heartbeat' => $lastHeartbeat ? $lastHeartbeat->toISOString() : null,
+                'latency' => $latency,
+                'uptime_days' => $uptimeDays,
+                'health_score' => $healthScore,
+                'status' => $healthScore >= 80 ? 'healthy' : ($healthScore >= 50 ? 'warning' : 'critical'),
+            ];
+        });
+
+        $totalDevices = $devices->count();
+        $onlineDevices = $devices->where('is_online', true)->count();
+        $offlineDevices = $totalDevices - $onlineDevices;
+        $healthyDevices = $devices->where('status', 'healthy')->count();
+        $warningDevices = $devices->where('status', 'warning')->count();
+        $criticalDevices = $devices->where('status', 'critical')->count();
+        
+        $overallHealthScore = $totalDevices > 0 ? round($devices->avg('health_score'), 1) : 100;
+
+        return response()->json([
+            'devices' => $devices,
+            'summary' => [
+                'total' => $totalDevices,
+                'online' => $onlineDevices,
+                'offline' => $offlineDevices,
+                'healthy' => $healthyDevices,
+                'warning' => $warningDevices,
+                'critical' => $criticalDevices,
+                'overall_health_score' => $overallHealthScore,
+            ],
+        ]);
+    }
+
+    /**
      * Get ADMS request logs
      */
     public function getAdmsLogs(Request $request)
@@ -361,44 +433,156 @@ class BiometricDeviceController extends Controller
         }
 
         $logs = [];
-        $lines = file($logFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        $relevantLines = array_slice(array_reverse($lines), 0, $limit);
+        $file = new \SplFileObject($logFile);
+        $file->seek(PHP_INT_MAX);
+        $totalLines = $file->key();
+        $linesToRead = min($limit, $totalLines);
 
-        foreach ($relevantLines as $line) {
-            if (str_contains($line, 'ADMS') || str_contains($line, 'iclock') || str_contains($line, 'biometric')) {
+        for ($i = 0; $i < $linesToRead; $i++) {
+            $file->seek($totalLines - $linesToRead + $i);
+            $line = trim($file->current());
+            if (empty($line)) continue;
+
+            // Parse log line and extract ADMS-related entries
+            if (str_contains($line, 'ADMS') || str_contains($line, 'biometric')) {
                 $logs[] = [
-                    'timestamp' => $this->extractTimestamp($line),
+                    'id' => $totalLines - $linesToRead + $i,
                     'message' => $line,
-                    'type' => $this->determineLogType($line),
+                    'level' => str_contains($line, 'ERROR') ? 'error' : (str_contains($line, 'WARNING') ? 'warning' : 'info'),
+                    'created_at' => date('Y-m-d H:i:s', $totalLines - $linesToRead + $i),
                 ];
             }
         }
 
-        return response()->json(['logs' => $logs]);
+        return response()->json([
+            'logs' => array_reverse($logs),
+            'total' => count($logs),
+            'current_page' => 1,
+            'per_page' => $limit,
+        ]);
     }
 
     /**
-     * Extract timestamp from log line
+     * Bulk sync users to multiple devices
      */
-    private function extractTimestamp($line)
+    public function bulkSyncUsers(Request $request)
     {
-        if (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $matches)) {
-            return $matches[1];
+        $request->validate([
+            'device_ids' => 'required|array',
+            'device_ids.*' => 'exists:biometric_devices,id',
+        ]);
+
+        try {
+            $deviceIds = $request->input('device_ids');
+            $count = 0;
+
+            foreach ($deviceIds as $deviceId) {
+                dispatch(new \App\Jobs\SyncUsersToDeviceJob($deviceId));
+                $count++;
+            }
+
+            return response()->json([
+                'message' => "Sync job queued for {$count} device(s).",
+                'count' => $count,
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to queue sync jobs.',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-        return null;
     }
 
     /**
-     * Determine log type based on content
+     * Bulk ping multiple devices
      */
-    private function determineLogType($line)
+    public function bulkPing(Request $request)
     {
-        if (str_contains($line, 'handshake')) return 'handshake';
-        if (str_contains($line, 'push')) return 'push';
-        if (str_contains($line, 'command')) return 'command';
-        if (str_contains($line, 'attendance')) return 'attendance';
-        if (str_contains($line, 'ERROR')) return 'error';
-        if (str_contains($line, 'WARNING')) return 'warning';
-        return 'info';
+        $request->validate([
+            'device_ids' => 'required|array',
+            'device_ids.*' => 'exists:biometric_devices,id',
+        ]);
+
+        try {
+            $deviceIds = $request->input('device_ids');
+            $results = [];
+
+            foreach ($deviceIds as $deviceId) {
+                $device = BiometricDevice::find($deviceId);
+                if (!$device || !$device->ip_address) {
+                    $results[] = ['id' => $deviceId, 'success' => false, 'message' => 'No IP address'];
+                    continue;
+                }
+
+                $startTime = microtime(true);
+                $pingResult = $this->executePing($device->ip_address);
+                $latency = round((microtime(true) - $startTime) * 1000, 2);
+
+                $results[] = [
+                    'id' => $deviceId,
+                    'success' => $pingResult,
+                    'latency' => $latency,
+                    'message' => $pingResult ? 'Reachable' : 'Unreachable',
+                ];
+            }
+
+            $reachableCount = collect($results)->where('success', true)->count();
+
+            return response()->json([
+                'message' => "Pinged {$deviceIds} device(s). {$reachableCount} reachable.",
+                'results' => $results,
+                'reachable_count' => $reachableCount,
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to ping devices.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk delete multiple devices
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'device_ids' => 'required|array',
+            'device_ids.*' => 'exists:biometric_devices,id',
+        ]);
+
+        try {
+            $deviceIds = $request->input('device_ids');
+            $count = DB::transaction(function () use ($deviceIds) {
+                // Clean up user mappings for all devices
+                DB::table('biometric_device_users')
+                    ->whereIn('biometric_device_id', $deviceIds)
+                    ->delete();
+
+                // Clean up device commands for all devices
+                DB::table('biometric_device_commands')
+                    ->whereIn('biometric_device_id', $deviceIds)
+                    ->delete();
+
+                // Delete devices
+                return BiometricDevice::whereIn('id', $deviceIds)->delete();
+            });
+
+            return response()->json([
+                'message' => "{$count} device(s) deleted successfully.",
+                'count' => $count,
+            ]);
+        } catch (\Exception $e) {
+            report($e);
+
+            return response()->json([
+                'error' => 'Failed to delete devices.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

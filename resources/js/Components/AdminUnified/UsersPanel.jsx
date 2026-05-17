@@ -6,15 +6,15 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
 import {
-    Badge, Box, Button, Card, Dialog, DropdownMenu, Flex,
-    Grid, IconButton, ScrollArea, Select, Separator,
-    Spinner, Switch, Table, Text, TextField,
+    Badge, Box, Button, Card, Checkbox, Dialog, DropdownMenu, Flex,
+    Grid, IconButton, ScrollArea, Select, Separator, Spinner,
+    Switch, Table, Tabs, Text, TextField,
 } from '@radix-ui/themes';
 import {
     BackpackIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon,
     DotsVerticalIcon, EnvelopeClosedIcon, HomeIcon, LockClosedIcon,
     LockOpen1Icon, MagnifyingGlassIcon, MobileIcon, Pencil1Icon,
-    PersonIcon, PlusIcon, ReloadIcon, TrashIcon,
+    PersonIcon, PlusIcon, ReloadIcon, TrashIcon, CheckIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
@@ -45,6 +45,12 @@ export default function UsersPanel({
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 15, total: 0 });
     const [devAction, setDevAction]   = useState({}); // { [userId]: bool }
     const [stats, setStats]           = useState({ total: 0, active: 0, inactive: 0 });
+
+    /* ── bulk selection ── */
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [bulkAction, setBulkAction]   = useState(null); // 'role' | 'status' | 'delete'
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
     /* ── delete dialog ── */
     const [delUser, setDelUser]   = useState(null);
@@ -162,6 +168,78 @@ export default function UsersPanel({
         }
     };
 
+    /* ── bulk selection ── */
+    const toggleSelect = (id) => {
+        setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === users.length && selectedIds.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(users.map(u => u.id));
+        }
+    };
+
+    const clearSelection = () => {
+        setSelectedIds([]);
+        setBulkAction(null);
+    };
+
+    /* ── bulk actions ── */
+    const handleBulkRole = async (roleName) => {
+        setBulkLoading(true);
+        try {
+            const { data } = await axios.post(route('users.bulk.role'), {
+                user_ids: selectedIds,
+                role: roleName,
+            });
+            showToast.success(data.message);
+            fetchUsers();
+            clearSelection();
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to assign role.');
+        } finally {
+            setBulkLoading(false);
+            setBulkAction(null);
+        }
+    };
+
+    const handleBulkStatus = async (status) => {
+        setBulkLoading(true);
+        try {
+            const { data } = await axios.post(route('users.bulk.status'), {
+                user_ids: selectedIds,
+                active: status,
+            });
+            showToast.success(data.message);
+            fetchUsers();
+            clearSelection();
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to update status.');
+        } finally {
+            setBulkLoading(false);
+            setBulkAction(null);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        setBulkLoading(true);
+        try {
+            const { data } = await axios.post(route('users.bulk.delete'), {
+                user_ids: selectedIds,
+            });
+            showToast.success(data.message);
+            fetchUsers();
+            clearSelection();
+            setBulkDialogOpen(false);
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to delete users.');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     /* ── pagination ── */
     const totalPages = Math.ceil(pagination.total / pagination.perPage);
     const startRow   = (pagination.currentPage - 1) * pagination.perPage + 1;
@@ -212,6 +290,49 @@ export default function UsersPanel({
                     </IconButton>
                 </Flex>
             </Flex>
+
+            {/* ── Bulk Actions Toolbar ── */}
+            {selectedIds.length > 0 && (
+                <Card size="2" variant="surface" mb="3" style={{ background: 'var(--indigo-a3)', border: '1px solid var(--indigo-a7)' }}>
+                    <Flex align="center" justify="between" gap="3">
+                        <Flex align="center" gap="2">
+                            <CheckIcon style={{ color: 'var(--indigo-9)' }} />
+                            <Text size="2" weight="medium">{selectedIds.length} user(s) selected</Text>
+                        </Flex>
+                        <Flex gap="2">
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger>
+                                    <Button size="2" variant="solid" color="indigo" disabled={bulkLoading}>
+                                        {bulkLoading ? <Spinner size="1" /> : 'Assign Role'}
+                                    </Button>
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Content size="1">
+                                    {roles.map(r => {
+                                        const name = typeof r === 'object' ? r.name : r;
+                                        return (
+                                            <DropdownMenu.Item key={name} onSelect={() => handleBulkRole(name)}>
+                                                {name}
+                                            </DropdownMenu.Item>
+                                        );
+                                    })}
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Root>
+                            <Button size="2" variant="soft" color="green" disabled={bulkLoading} onClick={() => handleBulkStatus(true)}>
+                                {bulkLoading ? <Spinner size="1" /> : 'Set Active'}
+                            </Button>
+                            <Button size="2" variant="soft" color="red" disabled={bulkLoading} onClick={() => handleBulkStatus(false)}>
+                                {bulkLoading ? <Spinner size="1" /> : 'Set Inactive'}
+                            </Button>
+                            <Button size="2" variant="soft" color="red" disabled={bulkLoading} onClick={() => setBulkDialogOpen(true)}>
+                                {bulkLoading ? <Spinner size="1" /> : <><TrashIcon /> Delete</>}
+                            </Button>
+                            <IconButton size="2" variant="ghost" color="gray" onClick={clearSelection} aria-label="Clear selection">
+                                <Cross2Icon />
+                            </IconButton>
+                        </Flex>
+                    </Flex>
+                </Card>
+            )}
 
             {/* ── Filter Panel ── */}
             {showFilters && (
@@ -290,6 +411,12 @@ export default function UsersPanel({
                     <Table.Root variant="surface" size="2">
                         <Table.Header>
                             <Table.Row>
+                                <Table.ColumnHeaderCell style={{ width: 40 }}>
+                                    <Checkbox.Root
+                                        checked={selectedIds.length === users.length && users.length > 0}
+                                        onCheckedChange={toggleSelectAll}
+                                    />
+                                </Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell style={{ width: 40 }}>#</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
                                 {!isMobile && <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>}
@@ -309,6 +436,13 @@ export default function UsersPanel({
 
                                 return (
                                     <Table.Row key={user.id}>
+                                        {/* Checkbox */}
+                                        <Table.Cell>
+                                            <Checkbox.Root
+                                                checked={selectedIds.includes(user.id)}
+                                                onCheckedChange={() => toggleSelect(user.id)}
+                                            />
+                                        </Table.Cell>
                                         {/* # */}
                                         <Table.Cell>
                                             <Text size="1" color="gray" weight="medium">{serial}</Text>
@@ -513,6 +647,25 @@ export default function UsersPanel({
                         </Dialog.Close>
                         <Button color="red" onClick={confirmDelete} disabled={delLoading}>
                             {delLoading ? <><Spinner size="1" /> Deleting…</> : <><TrashIcon /> Delete</>}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* ── Bulk Delete Dialog ── */}
+            <Dialog.Root open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+                <Dialog.Content style={{ maxWidth: 420 }}>
+                    <Dialog.Title>Delete Users</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        Are you sure you want to delete <Text weight="bold">{selectedIds.length} user(s)</Text>?
+                        This action cannot be undone.
+                    </Dialog.Description>
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close>
+                            <Button variant="soft" color="gray">Cancel</Button>
+                        </Dialog.Close>
+                        <Button color="red" onClick={handleBulkDelete} disabled={bulkLoading}>
+                            {bulkLoading ? <><Spinner size="1" /> Deleting…</> : <><TrashIcon /> Delete</>}
                         </Button>
                     </Flex>
                 </Dialog.Content>

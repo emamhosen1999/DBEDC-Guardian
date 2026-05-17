@@ -744,6 +744,7 @@ class BiometricWebhookController extends Controller
             'device_id' => 'required|exists:biometric_devices,id',
             'command_type' => 'required|in:REBOOT,SET_TIME,ADD_USER,UPDATE_USER,DELETE_USER,CLEAR_LOG,CLEAR_DATA',
             'payload' => 'nullable|array',
+            'scheduled_at' => 'nullable|date',
         ]);
 
         $device = BiometricDevice::find($validated['device_id']);
@@ -761,6 +762,7 @@ class BiometricWebhookController extends Controller
             'command_type' => $validated['command_type'],
             'payload' => $validated['payload'] ?? null,
             'status' => 'pending',
+            'scheduled_at' => $validated['scheduled_at'] ?? null,
         ]);
 
         Log::info('ADMS command queued', [
@@ -768,14 +770,16 @@ class BiometricWebhookController extends Controller
             'device_serial' => $device->serial_number,
             'command_id' => $command->id,
             'command_type' => $command->command_type,
+            'scheduled_at' => $command->scheduled_at,
         ]);
 
         return response()->json([
-            'message' => 'Command queued successfully',
+            'message' => $command->isScheduled() ? 'Command scheduled successfully' : 'Command queued successfully',
             'command' => [
                 'id' => $command->id,
                 'type' => $command->command_type,
                 'status' => $command->status,
+                'scheduled_at' => $command->scheduled_at,
                 'adms_string' => $command->toAdmsString(),
             ],
         ]);

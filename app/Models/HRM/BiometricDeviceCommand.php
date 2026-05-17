@@ -19,12 +19,14 @@ class BiometricDeviceCommand extends Model
         'error_message',
         'sent_at',
         'executed_at',
+        'scheduled_at',
     ];
 
     protected $casts = [
         'payload' => 'array',
         'sent_at' => 'datetime',
         'executed_at' => 'datetime',
+        'scheduled_at' => 'datetime',
     ];
 
     /**
@@ -135,6 +137,16 @@ class BiometricDeviceCommand extends Model
     }
 
     /**
+     * Scope for scheduled commands that are due
+     */
+    public function scopeDue($query)
+    {
+        return $query->where('status', 'pending')
+            ->whereNotNull('scheduled_at')
+            ->where('scheduled_at', '<=', now());
+    }
+
+    /**
      * Scope for a specific device
      */
     public function scopeForDevice($query, $deviceId)
@@ -148,5 +160,21 @@ class BiometricDeviceCommand extends Model
     public function scopeOldest($query)
     {
         return $query->orderBy('created_at', 'asc');
+    }
+
+    /**
+     * Check if command is scheduled
+     */
+    public function isScheduled(): bool
+    {
+        return !is_null($this->scheduled_at);
+    }
+
+    /**
+     * Check if command is due for execution
+     */
+    public function isDue(): bool
+    {
+        return $this->isScheduled() && $this->scheduled_at->lte(now());
     }
 }
