@@ -326,18 +326,18 @@ class BiometricWebhookController extends Controller
             // Check if line starts with OPLOG (space-separated format)
             if (str_starts_with(trim($line), 'OPLOG')) {
                 $parts = preg_split('/\s+/', trim($line));
-                if (count($parts) >= 5) {
-                    // Format: OPLOG <operation> <user> <datetime> <pin> <result> <params>...
+                if (count($parts) >= 4) {
+                    // Format: OPLOG <operation> <pin> <datetime> <other_fields>...
                     $data = [
                         'type' => 'OPLOG',
                         'operation' => $parts[1] ?? null,
-                        'user' => $parts[2] ?? null,
+                        'pin' => $parts[2] ?? null,
                         'datetime' => $parts[3] ?? null,
-                        'pin' => $parts[4] ?? null,
-                        'result' => $parts[5] ?? null,
+                        'result' => $parts[4] ?? null,
+                        'params' => array_slice($parts, 5),
                     ];
                     $operationType = $this->getOperLogName($parts[1] ?? '0');
-                    $userPin = $parts[4] ?? null;
+                    $userPin = $parts[2] ?? null;
                     $occurredAt = $parts[3] ?? now();
                 }
             } else {
