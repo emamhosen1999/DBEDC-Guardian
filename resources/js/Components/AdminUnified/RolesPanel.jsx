@@ -800,7 +800,7 @@ export default function RolesPanel({
                 </Tabs.Content>
 
                 <Tabs.Content value="userroles">
-                    <UserRoleTab users={users} roles={initialRoles} isMobile={isMobile} />
+                    <UserRoleTab roles={initialRoles} isMobile={isMobile} />
                 </Tabs.Content>
             </Tabs.Root>
         </Box>
