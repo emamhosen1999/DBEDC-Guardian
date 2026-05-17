@@ -43,6 +43,14 @@ class AttendanceController extends Controller
         ]);
     }
 
+
+    public function indexUnified(): \Inertia\Response
+    {
+        return Inertia::render('Attendance/AttendancePage', [
+            'title' => 'Attendance',
+        ]);
+    }
+
     public function paginate(Request $request): \Illuminate\Http\JsonResponse
     {
         try {

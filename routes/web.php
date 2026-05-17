@@ -435,6 +435,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:attendance.view'])->group(function () {
         Route::get('/attendances', [AttendanceController::class, 'index1'])->name('attendances');
         Route::get('/timesheet', [AttendanceController::class, 'index3'])->name('timesheet'); // New TimeSheet page route
+        Route::get('/attendance', [AttendanceController::class, 'indexUnified'])->name('attendance.unified'); // Unified attendance page
         Route::get('/attendances-admin-paginate', [AttendanceController::class, 'paginate'])->name('attendancesAdmin.paginate');
         Route::get('/attendance/locations-today', [AttendanceController::class, 'getUserLocationsForDate'])->name('getUserLocationsForDate');
         Route::get('/admin/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('admin.getPresentUsersForDate');

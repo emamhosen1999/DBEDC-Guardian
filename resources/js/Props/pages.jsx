@@ -39,7 +39,7 @@ export const getPages = (roles, permissions, auth = null) => {
     ] : []),
     
     ...(permissions.includes('attendance.own.view') ? [
-      { name: 'My Attendance', icon: <CalendarDaysIcon />, route: 'attendance-employee' }
+      { name: 'My Attendance', icon: <CalendarDaysIcon />, route: 'attendance.unified' }
     ] : []),
     ...(permissions.includes('leave.own.view') ? [
       { name: 'My Leaves', icon: <ArrowRightOnRectangleIcon />, route: 'leaves-employee' }
@@ -102,8 +102,7 @@ export const getPages = (roles, permissions, auth = null) => {
           icon: <CalendarDaysIcon  />,
           category: 'time',
           subMenu: [
-            ...(permissions.includes('attendance.view') ? [{ name: 'Attendance', icon: <CalendarDaysIcon  />, route: 'attendances' }] : []),
-            ...(permissions.includes('attendance.view') ? [{ name: 'Timesheet', icon: <ClockIcon  />, route: 'timesheet' }] : []),
+            ...(permissions.includes('attendance.view') ? [{ name: 'Attendance', icon: <ClockIcon  />, route: 'attendance.unified' }] : []),
             ...(permissions.includes('holidays.view') ? [{ name: 'Holidays', icon: <CalendarIcon  />, route: 'holidays' }] : []),
             ...(permissions.includes('leaves.view') ? [
               { name: 'Leave Applications', icon: <ArrowRightOnRectangleIcon  />, route: 'leaves' },
