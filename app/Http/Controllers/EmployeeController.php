@@ -428,33 +428,9 @@ class EmployeeController extends Controller
             // Execute query with pagination
             $employees = $query->paginate($perPage, ['*'], 'page', $page);
 
-            // Bulk fetch biometric enrollments for these employees
-            $employeeIds = $employees->pluck('id')->toArray();
+            // Biometric enrollments no longer use biometric_device_users table
+            // Users are now linked directly via employee_id matching device PIN
             $biometricEnrollments = [];
-            if (!empty($employeeIds)) {
-                $enrollments = DB::table('biometric_device_users as bdu')
-                    ->join('biometric_devices as bd', 'bd.id', '=', 'bdu.biometric_device_id')
-                    ->whereIn('bdu.user_id', $employeeIds)
-                    ->where('bdu.user_id', '!=', null) // Only linked enrollments
-                    ->where('bdu.is_active', true)
-                    ->select(
-                        'bdu.user_id',
-                        'bdu.device_user_id',
-                        'bdu.biometric_device_id',
-                        'bd.name as device_name',
-                        'bd.serial_number'
-                    )
-                    ->get();
-
-                foreach ($enrollments as $enrollment) {
-                    $biometricEnrollments[$enrollment->user_id][] = [
-                        'device_id' => $enrollment->biometric_device_id,
-                        'device_name' => $enrollment->device_name,
-                        'device_serial' => $enrollment->serial_number,
-                        'device_user_id' => $enrollment->device_user_id,
-                    ];
-                }
-            }
 
             // Transform data for frontend
             $employees->getCollection()->transform(function ($employee) use ($biometricEnrollments) {

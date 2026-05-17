@@ -30,19 +30,16 @@ class BiometricValidator extends BaseAttendanceValidator
             return $this->errorResponse('Biometric device is inactive.', 403);
         }
 
-        $mapping = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('device_user_id', $deviceUserId)
-            ->where('is_active', true)
-            ->first();
+        // Resolve user by matching device_user_id to employee_id
+        $user = User::where('employee_id', $deviceUserId)->first();
 
-        if (! $mapping) {
-            return $this->errorResponse('User not enrolled on this biometric device.', 403);
+        if (! $user) {
+            return $this->errorResponse('User not found with employee_id: ' . $deviceUserId, 404);
         }
 
         return $this->successResponse('Biometric validation successful.', [
             'device_id'  => $device->id,
-            'user_id'    => $mapping->user_id,
+            'user_id'    => $user->id,
         ]);
     }
 }

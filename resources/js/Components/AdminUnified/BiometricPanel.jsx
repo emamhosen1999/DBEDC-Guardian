@@ -45,8 +45,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [sendingCommand, setSendingCommand] = useState(false);
     const [commandHistory, setCommandHistory] = useState([]);
     const [loadingCommands, setLoadingCommands] = useState(false);
-    const [syncStatus, setSyncStatus] = useState(null);
-    const [pollingSync, setPollingSync] = useState(false);
     const [isCommandOpen, setIsCommandOpen] = useState(false);
 
     const openAdd = () => { setEditDevice(null); setForm(EMPTY_DEVICE); setDialogOpen(true); };
@@ -159,27 +157,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         }
     };
 
-    // Device commands functions
-    const loadSyncStatus = useCallback(async () => {
-        if (!commandDevice) return;
-        try {
-            const { data } = await axios.get(
-                route('api.biometric-devices.sync-status', commandDevice.id),
-            );
-            setSyncStatus(data);
-            if (data.pending === 0 || data.total === 0) setPollingSync(false);
-        } catch {
-            setPollingSync(false);
-        }
-    }, [commandDevice]);
-
-    useEffect(() => {
-        if (pollingSync && isCommandOpen) {
-            const interval = setInterval(loadSyncStatus, 5000);
-            return () => clearInterval(interval);
-        }
-    }, [pollingSync, isCommandOpen, loadSyncStatus]);
-
     const openCommandModal = async (device) => {
         if (device.protocol !== 'adms') {
             showToast.error('Commands only supported for ADMS protocol devices.');
@@ -189,16 +166,12 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         setCommandType('REBOOT');
         setCommandPayload('');
         setLoadingCommands(true);
-        setSyncStatus(null);
         setIsCommandOpen(true);
         try {
-            const [{ data }, { data: statusData }] = await Promise.all([
-                axios.get(route('api.biometric-devices.commands.index', device.id)),
-                axios.get(route('api.biometric-devices.sync-status',   device.id)),
-            ]);
+            const { data } = await axios.get(
+                route('api.biometric-devices.commands.index', device.id),
+            );
             setCommandHistory(data.commands ?? []);
-            setSyncStatus(statusData);
-            if (statusData.total > 0 && statusData.pending > 0) setPollingSync(true);
         } catch {
             showToast.error('Failed to load command history.');
         } finally {
@@ -438,71 +411,10 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                 <Dialog.Content style={{ maxWidth: 620 }}>
                     <Dialog.Title>Device Commands — {commandDevice?.name}</Dialog.Title>
                     <Dialog.Description size="2" color="gray">
-                        Queue commands and sync employees to this ADMS device.
+                        Queue commands to this ADMS device.
                     </Dialog.Description>
 
                     <Flex direction="column" gap="4" mt="4">
-
-                        {/* Bulk Sync */}
-                        <Card variant="surface" style={{ backgroundColor: 'var(--accent-a3)' }}>
-                            <Flex direction="column" gap="3">
-                                <Flex justify="between" align="start" gap="3">
-                                    <Box>
-                                        <Text size="2" weight="medium" as="div">Bulk User Sync</Text>
-                                        <Text size="1" color="gray" as="div" mt="1">
-                                            Push all active employees to this device. Enroll biometrics on the
-                                            device afterwards.
-                                        </Text>
-                                    </Box>
-                                    <Button
-                                        size="2"
-                                        onClick={syncUsersToDevice}
-                                        disabled={sendingCommand}
-                                        style={{ flexShrink: 0 }}
-                                    >
-                                        {sendingCommand
-                                            ? <><Spinner size="1" /> Syncing…</>
-                                            : 'Sync All Users'}
-                                    </Button>
-                                </Flex>
-
-                                {/* Sync progress */}
-                                {syncStatus && syncStatus.total > 0 && (
-                                    <Flex direction="column" gap="2">
-                                        <Flex justify="between" align="center">
-                                            <Text size="1" weight="medium">Sync Progress</Text>
-                                            <Text size="1">{syncStatus.progress}%</Text>
-                                        </Flex>
-                                        <Box
-                                            style={{
-                                                height: 8,
-                                                backgroundColor: 'var(--gray-5)',
-                                                borderRadius: 'var(--radius-1)',
-                                                overflow: 'hidden',
-                                            }}
-                                        >
-                                            <Box
-                                                style={{
-                                                    height: '100%',
-                                                    backgroundColor: 'var(--accent-9)',
-                                                    width: `${syncStatus.progress}%`,
-                                                    transition: 'width 0.3s ease',
-                                                }}
-                                            />
-                                        </Box>
-                                        <Flex gap="3" wrap="wrap">
-                                            <Badge color="gray"  variant="soft" size="1">Total: {syncStatus.total}</Badge>
-                                            <Badge color="amber" variant="soft" size="1">Pending: {syncStatus.pending}</Badge>
-                                            <Badge color="blue"  variant="soft" size="1">Sent: {syncStatus.sent}</Badge>
-                                            <Badge color="green" variant="soft" size="1">Executed: {syncStatus.executed}</Badge>
-                                            {syncStatus.failed > 0 && (
-                                                <Badge color="red" variant="soft" size="1">Failed: {syncStatus.failed}</Badge>
-                                            )}
-                                        </Flex>
-                                    </Flex>
-                                )}
-                            </Flex>
-                        </Card>
 
                         {/* Single command */}
                         <Box>

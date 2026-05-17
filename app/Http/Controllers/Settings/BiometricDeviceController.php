@@ -13,8 +13,7 @@ class BiometricDeviceController extends Controller
 {
     public function index()
     {
-        $devices = BiometricDevice::withCount('users')
-            ->orderBy('name')
+        $devices = BiometricDevice::orderBy('name')
             ->get()
             ->map(function ($device) {
                 $device->is_online = $device->isOnline();

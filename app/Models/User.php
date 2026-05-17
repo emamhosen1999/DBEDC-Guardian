@@ -268,13 +268,6 @@ class User extends Authenticatable implements HasMedia
         return $this->belongsTo(AttendanceType::class, 'attendance_type_id');
     }
 
-    public function biometricDevices()
-    {
-        return $this->belongsToMany(BiometricDevice::class, 'biometric_device_users', 'user_id', 'biometric_device_id')
-            ->withPivot('device_user_id', 'is_active')
-            ->withTimestamps();
-    }
-
     public function designation(): BelongsTo
     {
         return $this->belongsTo(Designation::class, 'designation_id');

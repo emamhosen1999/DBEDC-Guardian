@@ -29,92 +29,14 @@ class SyncUsersToDeviceJob implements ShouldQueue
 
     public function handle()
     {
-        Log::info('Starting bulk user sync job', [
+        Log::warning('SyncUsersToDeviceJob is deprecated - user sync no longer needed', [
             'device_id' => $this->device->id,
             'device_serial' => $this->device->serial_number,
         ]);
 
-        // Get all active employees with employee_id
-        $employees = User::where('active', true)
-            ->whereNotNull('employee_id')
-            ->orderBy('employee_id')
-            ->get();
-
-        if ($employees->isEmpty()) {
-            Log::warning('No active employees found for sync', [
-                'device_id' => $this->device->id,
-            ]);
-            return;
-        }
-
-        // Get existing device user IDs to avoid duplicates
-        $existingDeviceUsers = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $this->device->id)
-            ->pluck('device_user_id')
-            ->toArray();
-
-        $syncedCount = 0;
-        $skippedCount = 0;
-        $errorCount = 0;
-
-        foreach ($employees as $employee) {
-            $deviceUserId = $employee->employee_id;
-
-            // Skip if user already exists on device
-            if (in_array($deviceUserId, $existingDeviceUsers)) {
-                $skippedCount++;
-                continue;
-            }
-
-            try {
-                DB::beginTransaction();
-
-                // Create ADD_USER command
-                BiometricDeviceCommand::create([
-                    'biometric_device_id' => $this->device->id,
-                    'command_type' => 'ADD_USER',
-                    'payload' => [
-                        'pin' => $deviceUserId,
-                        'name' => $employee->name,
-                        'card' => $employee->rfid_card ?? '',
-                        'privilege' => 0,
-                    ],
-                    'status' => 'pending',
-                ]);
-
-                // Create mapping entry (auto-link device user to system user)
-                // Use insertOrIgnore to handle race conditions gracefully
-                DB::table('biometric_device_users')->insertOrIgnore([
-                    'biometric_device_id' => $this->device->id,
-                    'user_id' => $employee->id,
-                    'device_user_id' => $deviceUserId,
-                    'is_active' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                DB::commit();
-                $syncedCount++;
-            } catch (\Exception $e) {
-                DB::rollBack();
-                $errorCount++;
-                Log::error('Failed to sync user to device', [
-                    'device_id' => $this->device->id,
-                    'user_id' => $employee->id,
-                    'employee_id' => $employee->employee_id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        Log::info('Bulk user sync job completed', [
-            'device_id' => $this->device->id,
-            'device_serial' => $this->device->serial_number,
-            'synced' => $syncedCount,
-            'skipped' => $skippedCount,
-            'errors' => $errorCount,
-            'total_employees' => $employees->count(),
-        ]);
+        // User sync is no longer needed - devices use employee_id directly
+        // This job is kept for compatibility but does nothing
+        return;
     }
 
     public function failed(\Throwable $exception)
