@@ -61,7 +61,6 @@ const EmployeeTable = ({
     departments,
     designations,
     attendanceTypes,
-    biometricDevices = [],
     isMobile,
     isTablet,
     pagination,
@@ -128,14 +127,18 @@ const EmployeeTable = ({
         }
     };
 
-    const handleBiometricDeviceChange = async (userId, biometricDeviceId) => {
+    const handleBiometricDeviceChange = async (userId, deviceId) => {
         try {
-            await axios.post(route('users.updateBiometricDevice', { id: userId }), { biometric_device_id: biometricDeviceId || null });
-            const device = biometricDevices.find(d => d.id === parseInt(biometricDeviceId)) || null;
-            updateEmployeeOptimized?.(userId, { biometric_device_id: biometricDeviceId || null, biometric_device_name: device?.name || null });
-            showToast.success('Biometric device assigned');
-        } catch {
-            showToast.error('Failed to assign biometric device');
+            const { data } = await axios.post(route('users.updateBiometricDevice', { id: userId }), {
+                biometric_device_id: deviceId || null,
+            });
+            updateEmployeeOptimized?.(userId, {
+                biometric_device_id: data.biometric_device_id ?? null,
+                biometric_device_name: data.biometric_device_name ?? null,
+            });
+            showToast.success(data.message || 'Device assigned');
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to assign device');
         }
     };
 
@@ -432,23 +435,20 @@ const EmployeeTable = ({
                                                     </DropdownMenu.Content>
                                                 </DropdownMenu.Root>
 
-                                                {/* Biometric device sub-select */}
-                                                {isBiometricSelected && biometricDevices.length > 0 && (
+                                                {/* Per-employee device picker within AT pool */}
+                                                {isBiometricSelected && user.attendance_type_devices?.length > 0 && (
                                                     <Box mt="1">
                                                         <Select.Root
                                                             size="1"
                                                             value={user.biometric_device_id ? String(user.biometric_device_id) : ''}
-                                                            onValueChange={(v) => handleBiometricDeviceChange(user.id, parseInt(v))}
+                                                            onValueChange={(v) => handleBiometricDeviceChange(user.id, v ? parseInt(v) : null)}
                                                         >
-                                                            <Select.Trigger
-                                                                style={{ width: '100%' }}
-                                                                placeholder="Select device…"
-                                                            />
+                                                            <Select.Trigger style={{ width: '100%' }} placeholder="Any device…" />
                                                             <Select.Content>
-                                                                {biometricDevices.map(device => (
+                                                                <Select.Item value="">Any device in pool</Select.Item>
+                                                                {user.attendance_type_devices.map(device => (
                                                                     <Select.Item key={device.id} value={String(device.id)}>
-                                                                        {device.name}
-                                                                        {device.location ? ` (${device.location})` : ''}
+                                                                        {device.name}{device.location ? ` (${device.location})` : ''}
                                                                     </Select.Item>
                                                                 ))}
                                                             </Select.Content>

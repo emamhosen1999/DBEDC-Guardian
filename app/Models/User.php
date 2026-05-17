@@ -5,7 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
-use App\Models\HRM\BiometricDevice;
+use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\Leave;
@@ -46,25 +46,12 @@ class User extends Authenticatable implements HasMedia
         'phone',
         'email',
         'dob',
-        'address',
-        'about',
-        'report_to',
-        'password',
-        'designation_id',
-        'nid',
         'name',
         'profile_image',
-        'department_id',
         'date_of_joining',
-        'active',
         'birthday',
         'gender',
-        'passport_no',
-        'passport_exp_date',
-        'nationality',
-        'religion',
-        'marital_status',
-        'employment_of_spouse',
+        'nid',
         'number_of_children',
         'emergency_contact_primary_name',
         'emergency_contact_primary_relationship',
@@ -115,7 +102,6 @@ class User extends Authenticatable implements HasMedia
         'total_esi_rate',
         'email_verified_at',
         'attendance_type_id',
-        'attendance_config',
         'fcm_token',
         'preferences',
         'single_device_login_enabled',
@@ -146,7 +132,6 @@ class User extends Authenticatable implements HasMedia
         'designation_id' => 'integer',
         'department_id' => 'integer',
         'attendance_type_id' => 'integer',
-        'attendance_config' => 'array',
         'preferences' => 'array',
         'active' => 'boolean',
         'single_device_login_enabled' => 'boolean',
@@ -263,9 +248,14 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(Attendance::class, 'user_id');
     }
 
-    public function attendanceType()
+    public function attendanceType(): BelongsTo
     {
         return $this->belongsTo(AttendanceType::class, 'attendance_type_id');
+    }
+
+    public function employeeAttendanceType(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(EmployeeAttendanceType::class, 'user_id');
     }
 
     public function designation(): BelongsTo

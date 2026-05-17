@@ -89,6 +89,7 @@ class Kernel extends ConsoleKernel
                 Log::error('Monthly leave accrual failed');
             })
             ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/leave-accrual.log'));
 
         // Process scheduled biometric device commands - runs every minute
         $schedule->command('biometric:process-scheduled-commands')
@@ -96,7 +97,6 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/biometric-commands.log'));
-            ->appendOutputTo(storage_path('logs/leave-accrual.log'));
     }
 
     /**

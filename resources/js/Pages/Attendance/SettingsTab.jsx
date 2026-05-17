@@ -8,7 +8,7 @@ import {
     GearIcon, ClockIcon, CalendarIcon, PersonIcon,
     PlusIcon, TrashIcon, Pencil1Icon, CheckCircledIcon,
     CrossCircledIcon, MagnifyingGlassIcon, GlobeIcon,
-    LockClosedIcon, MobileIcon, SewingPinIcon,
+    LockClosedIcon, MobileIcon, SewingPinIcon, DesktopIcon,
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
@@ -30,10 +30,11 @@ L.Icon.Default.mergeOptions({
 const getBaseSlug = slug => (slug || '').replace(/_\d+$/, '');
 
 const CATEGORY_META = {
-    geo_polygon:    { title: 'Geo Polygon',    icon: <GlobeIcon />,    color: 'amber'  },
+    geo_polygon:    { title: 'Geo Polygon',    icon: <GlobeIcon />,     color: 'amber'  },
     wifi_ip:        { title: 'WiFi / IP',       icon: <LockClosedIcon />, color: 'violet' },
-    route_waypoint: { title: 'Route Waypoint', icon: <SewingPinIcon />, color: 'blue'  },
-    qr_code:        { title: 'QR Code',         icon: <MobileIcon />,   color: 'green'  },
+    route_waypoint: { title: 'Route Waypoint', icon: <SewingPinIcon />, color: 'blue'   },
+    qr_code:        { title: 'QR Code',         icon: <MobileIcon />,    color: 'green'  },
+    biometric:      { title: 'Biometric',       icon: <DesktopIcon />,   color: 'red', readonly: true },
 };
 
 /* ── tiny map click handlers (unchanged logic) ────────────── */
@@ -600,7 +601,7 @@ const SettingsTab = () => {
         Object.keys(CATEGORY_META).forEach(slug => { groups[slug] = []; });
         filtered.forEach(t => {
             const base = getBaseSlug(t.slug);
-            if (groups[base]) groups[base].push(t);
+            if (groups[base] !== undefined) groups[base].push(t);
         });
         return groups;
     }, [types, search]);
@@ -796,19 +797,24 @@ const SettingsTab = () => {
                                                 <Badge color="green" variant="soft" size="1">
                                                     {catTypes.filter(t => t.is_active).length} active
                                                 </Badge>
+                                                {meta.readonly && (
+                                                    <Badge color="gray" variant="soft" size="1">read-only</Badge>
+                                                )}
                                             </Flex>
                                         </Box>
                                     </Flex>
                                     <Flex align="center" gap="2">
-                                        <Button
-                                            size="1" variant="soft" color={meta.color}
-                                            onClick={e => {
-                                                e.stopPropagation();
-                                                setTypeModal({ open: true, type: { id: null, slug, icon: meta.icon, config: {} } });
-                                            }}
-                                        >
-                                            <PlusIcon /> Add
-                                        </Button>
+                                        {!meta.readonly && (
+                                            <Button
+                                                size="1" variant="soft" color={meta.color}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    setTypeModal({ open: true, type: { id: null, slug, icon: meta.icon, config: {} } });
+                                                }}
+                                            >
+                                                <PlusIcon /> Add
+                                            </Button>
+                                        )}
                                         <Text size="2" color="gray">{isOpen ? '▲' : '▼'}</Text>
                                     </Flex>
                                 </Flex>
@@ -817,87 +823,129 @@ const SettingsTab = () => {
                                 {isOpen && (
                                     <Box mt="3">
                                         <Separator size="4" mb="3" />
-                                        {catTypes.length === 0 ? (
-                                            <Flex direction="column" align="center" py="5" gap="2">
-                                                <Text size="2" color="gray">No {meta.title.toLowerCase()} types yet.</Text>
-                                                <Text size="1" color="gray">Click Add above to create one.</Text>
-                                            </Flex>
+
+                                        {/* ── biometric: readonly view with devices ── */}
+                                        {meta.readonly ? (
+                                            catTypes.length === 0 ? (
+                                                <Flex direction="column" align="center" py="5" gap="2">
+                                                    <Text size="2" color="gray">No biometric attendance types yet.</Text>
+                                                    <Text size="1" color="gray">Create one from the Biometric Devices admin panel and assign devices to it.</Text>
+                                                </Flex>
+                                            ) : (
+                                                <>
+                                                    <Text size="1" color="gray" mb="3" as="p">
+                                                        Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.
+                                                    </Text>
+                                                    <Table.Root size="2" variant="ghost">
+                                                        <Table.Header>
+                                                            <Table.Row>
+                                                                <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
+                                                                <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
+                                                                <Table.ColumnHeaderCell><Text size="2">Assigned Devices</Text></Table.ColumnHeaderCell>
+                                                            </Table.Row>
+                                                        </Table.Header>
+                                                        <Table.Body>
+                                                            {catTypes.map(t => (
+                                                                <Table.Row key={t.id}>
+                                                                    <Table.Cell>
+                                                                        <Text size="2" weight="medium">{t.name}</Text>
+                                                                        {t.description && <Text size="1" color="gray" as="div">{t.description}</Text>}
+                                                                    </Table.Cell>
+                                                                    <Table.Cell>
+                                                                        <Badge
+                                                                            color={t.is_active ? 'green' : 'gray'}
+                                                                            variant="soft" size="1"
+                                                                        >
+                                                                            {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
+                                                                        </Badge>
+                                                                    </Table.Cell>
+                                                                    <Table.Cell>
+                                                                        {t.biometric_devices?.length > 0 ? (
+                                                                            <Flex gap="1" wrap="wrap">
+                                                                                {t.biometric_devices.map(d => (
+                                                                                    <Badge key={d.id} color="red" variant="soft" size="1">
+                                                                                        {d.name}{d.location ? ` — ${d.location}` : ''}
+                                                                                    </Badge>
+                                                                                ))}
+                                                                            </Flex>
+                                                                        ) : (
+                                                                            <Text size="1" color="gray">No devices assigned</Text>
+                                                                        )}
+                                                                    </Table.Cell>
+                                                                </Table.Row>
+                                                            ))}
+                                                        </Table.Body>
+                                                    </Table.Root>
+                                                </>
+                                            )
                                         ) : (
-                                            <Table.Root size="2" variant="ghost">
-                                                <Table.Header>
-                                                    <Table.Row>
-                                                        <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
-                                                        <Table.ColumnHeaderCell><Text size="2">Description</Text></Table.ColumnHeaderCell>
-                                                        <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
-                                                        <Table.ColumnHeaderCell style={{ textAlign: 'right' }}><Text size="2">Actions</Text></Table.ColumnHeaderCell>
-                                                    </Table.Row>
-                                                </Table.Header>
-                                                <Table.Body>
-                                                    {catTypes.map(t => (
-                                                        <Table.Row key={t.id}>
-                                                            <Table.Cell>
-                                                                <Text size="2" weight="medium">{t.name}</Text>
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <Text size="2" color="gray">
-                                                                    {t.description || '—'}
-                                                                </Text>
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <Badge
-                                                                    color={t.is_active ? 'green' : 'gray'}
-                                                                    variant="soft" size="1"
-                                                                >
-                                                                    {t.is_active
-                                                                        ? <><CheckCircledIcon /> Active</>
-                                                                        : <><CrossCircledIcon /> Inactive</>
-                                                                    }
-                                                                </Badge>
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <Flex gap="1" justify="end">
-                                                                    <Tooltip content="Edit">
-                                                                        <IconButton
-                                                                            size="1" variant="ghost" color="blue"
-                                                                            onClick={() => setTypeModal({ open: true, type: t })}
-                                                                        >
-                                                                            <Pencil1Icon />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                    {slug === 'route_waypoint' && (
-                                                                        <Tooltip content="Configure Waypoints">
-                                                                            <IconButton
-                                                                                size="1" variant="ghost" color="blue"
-                                                                                onClick={() => setWaypointModal({ open: true, type: t })}
-                                                                            >
-                                                                                <SewingPinIcon />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                    )}
-                                                                    {slug === 'geo_polygon' && (
-                                                                        <Tooltip content="Configure Polygon">
-                                                                            <IconButton
-                                                                                size="1" variant="ghost" color="amber"
-                                                                                onClick={() => setPolygonModal({ open: true, type: t })}
-                                                                            >
-                                                                                <GlobeIcon />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                    )}
-                                                                    <Tooltip content="Delete">
-                                                                        <IconButton
-                                                                            size="1" variant="ghost" color="red"
-                                                                            onClick={() => handleTypeDelete(t)}
-                                                                        >
-                                                                            <TrashIcon />
-                                                                        </IconButton>
-                                                                    </Tooltip>
-                                                                </Flex>
-                                                            </Table.Cell>
+                                            /* ── normal editable categories ── */
+                                            catTypes.length === 0 ? (
+                                                <Flex direction="column" align="center" py="5" gap="2">
+                                                    <Text size="2" color="gray">No {meta.title.toLowerCase()} types yet.</Text>
+                                                    <Text size="1" color="gray">Click Add above to create one.</Text>
+                                                </Flex>
+                                            ) : (
+                                                <Table.Root size="2" variant="ghost">
+                                                    <Table.Header>
+                                                        <Table.Row>
+                                                            <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
+                                                            <Table.ColumnHeaderCell><Text size="2">Description</Text></Table.ColumnHeaderCell>
+                                                            <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
+                                                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}><Text size="2">Actions</Text></Table.ColumnHeaderCell>
                                                         </Table.Row>
-                                                    ))}
-                                                </Table.Body>
-                                            </Table.Root>
+                                                    </Table.Header>
+                                                    <Table.Body>
+                                                        {catTypes.map(t => (
+                                                            <Table.Row key={t.id}>
+                                                                <Table.Cell>
+                                                                    <Text size="2" weight="medium">{t.name}</Text>
+                                                                </Table.Cell>
+                                                                <Table.Cell>
+                                                                    <Text size="2" color="gray">{t.description || '—'}</Text>
+                                                                </Table.Cell>
+                                                                <Table.Cell>
+                                                                    <Badge color={t.is_active ? 'green' : 'gray'} variant="soft" size="1">
+                                                                        {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
+                                                                    </Badge>
+                                                                </Table.Cell>
+                                                                <Table.Cell>
+                                                                    <Flex gap="1" justify="end">
+                                                                        <Tooltip content="Edit">
+                                                                            <IconButton size="1" variant="ghost" color="blue"
+                                                                                onClick={() => setTypeModal({ open: true, type: t })}>
+                                                                                <Pencil1Icon />
+                                                                            </IconButton>
+                                                                        </Tooltip>
+                                                                        {slug === 'route_waypoint' && (
+                                                                            <Tooltip content="Configure Waypoints">
+                                                                                <IconButton size="1" variant="ghost" color="blue"
+                                                                                    onClick={() => setWaypointModal({ open: true, type: t })}>
+                                                                                    <SewingPinIcon />
+                                                                                </IconButton>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                        {slug === 'geo_polygon' && (
+                                                                            <Tooltip content="Configure Polygon">
+                                                                                <IconButton size="1" variant="ghost" color="amber"
+                                                                                    onClick={() => setPolygonModal({ open: true, type: t })}>
+                                                                                    <GlobeIcon />
+                                                                                </IconButton>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                        <Tooltip content="Delete">
+                                                                            <IconButton size="1" variant="ghost" color="red"
+                                                                                onClick={() => handleTypeDelete(t)}>
+                                                                                <TrashIcon />
+                                                                            </IconButton>
+                                                                        </Tooltip>
+                                                                    </Flex>
+                                                                </Table.Cell>
+                                                            </Table.Row>
+                                                        ))}
+                                                    </Table.Body>
+                                                </Table.Root>
+                                            )
                                         )}
                                     </Box>
                                 )}

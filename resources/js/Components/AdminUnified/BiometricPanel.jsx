@@ -1522,16 +1522,31 @@ export default function BiometricPanel({
         onSetHeaderActions?.(null);
     }, [isActive]);
 
+    const [syncing, setSyncing] = useState(false);
+    const syncPool = async () => {
+        setSyncing(true);
+        try {
+            await axios.post(route('biometric-devices.sync-pool'));
+            showToast.success('All devices synced to Biometric AT.');
+        } catch {
+            showToast.error('Sync failed.');
+        } finally { setSyncing(false); }
+    };
+
     return (
         <Box>
             {/* Quick stats */}
-            <Flex wrap="wrap" gap="2" mb="4">
+            <Flex wrap="wrap" gap="2" mb="4" align="center">
                 <Badge size="2" variant="soft" color="green"  radius="full">
                     <Text weight="bold">{devices.length}</Text> <Text style={{ opacity: 0.7 }}>Devices</Text>
                 </Badge>
                 <Badge size="2" variant="soft" color="blue"   radius="full">
                     <Text weight="bold">{devices.filter(d => d.is_online).length}</Text> <Text style={{ opacity: 0.7 }}>Online</Text>
                 </Badge>
+                <Badge size="2" variant="soft" color="violet" radius="full">All linked to Biometric AT</Badge>
+                <Button size="1" variant="soft" color="gray" onClick={syncPool} disabled={syncing} ml="auto">
+                    {syncing ? <Spinner size="1" /> : <ReloadIcon />} Sync Pool
+                </Button>
             </Flex>
 
             <Tabs.Root value={subTab} onValueChange={setSubTab}>

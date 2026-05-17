@@ -2,9 +2,7 @@
 
 namespace App\Models\HRM;
 
-use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 
 class BiometricDevice extends Model
@@ -15,16 +13,20 @@ class BiometricDevice extends Model
         'model',
         'ip_address',
         'port',
+        'location',
         'auth_token',
         'protocol',
         'is_active',
         'last_heartbeat_at',
         'notes',
+        'config',
+        'users_count',
     ];
 
     protected $casts = [
-        'is_active'          => 'boolean',
-        'last_heartbeat_at'  => 'datetime',
+        'is_active'         => 'boolean',
+        'last_heartbeat_at' => 'datetime',
+        'config'            => 'array',
     ];
 
     protected static function booted(): void
@@ -68,5 +70,15 @@ class BiometricDevice extends Model
     public function getOnlineStatusAttribute(): string
     {
         return $this->isOnline() ? 'online' : 'offline';
+    }
+
+    public function attendanceTypes()
+    {
+        return $this->belongsToMany(
+            AttendanceType::class,
+            'attendance_type_biometric_device',
+            'biometric_device_id',
+            'attendance_type_id'
+        )->withPivot('created_at');
     }
 }

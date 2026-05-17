@@ -15,7 +15,7 @@ class AttendanceSettingController extends Controller
     public function index()
     {
         $attendanceSettings = AttendanceSetting::first();
-        $attendanceTypes = AttendanceType::all();
+        $attendanceTypes = AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get();
 
         // Handle AJAX requests for settings data
         if (request()->expectsJson()) {

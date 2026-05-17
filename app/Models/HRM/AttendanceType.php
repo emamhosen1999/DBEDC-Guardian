@@ -3,6 +3,7 @@
 namespace App\Models\HRM;
 
 use App\Models\User;
+use App\Models\HRM\BiometricDevice;
 use Database\Factories\AttendanceTypeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -36,10 +37,19 @@ class AttendanceType extends Model
         return AttendanceTypeFactory::new();
     }
 
-    // Relationship with users
     public function users()
     {
         return $this->hasMany(User::class, 'attendance_type_id');
+    }
+
+    public function biometricDevices()
+    {
+        return $this->belongsToMany(
+            BiometricDevice::class,
+            'attendance_type_biometric_device',
+            'attendance_type_id',
+            'biometric_device_id'
+        )->withPivot('created_at');
     }
 
     // Scope for active attendance types

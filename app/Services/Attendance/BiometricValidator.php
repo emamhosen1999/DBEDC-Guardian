@@ -3,11 +3,19 @@
 namespace App\Services\Attendance;
 
 use App\Models\HRM\BiometricDevice;
-use Illuminate\Support\Facades\DB;
+use App\Models\HRM\AttendanceType;
+use App\Models\User;
 
 /**
  * Validator for biometric device attendance type.
- * Verifies device is registered + active and the device_user_id is mapped.
+ *
+ * Logic:
+ *  1. Device must be registered and active.
+ *  2. User must exist and have an attendance type whose slug starts with "biometric".
+ *  3. That attendance type must have at least one biometric device linked via the
+ *     attendance_type_biometric_device pivot table.
+ *  4. The punching device must be one of those linked devices (zone/group model).
+ *     If no devices are linked to the AT yet, any active device is accepted.
  */
 class BiometricValidator extends BaseAttendanceValidator
 {
@@ -30,16 +38,54 @@ class BiometricValidator extends BaseAttendanceValidator
             return $this->errorResponse('Biometric device is inactive.', 403);
         }
 
-        // Resolve user by matching device_user_id to employee_id
-        $user = User::where('employee_id', $deviceUserId)->first();
+        $user = User::with('employeeAttendanceType')->where('employee_id', $deviceUserId)->first();
 
         if (! $user) {
             return $this->errorResponse('User not found with employee_id: ' . $deviceUserId, 404);
         }
 
+        if (! $user->attendance_type_id) {
+            return $this->errorResponse('User does not have an attendance type assigned.', 403);
+        }
+
+        $attendanceType = AttendanceType::with('biometricDevices')->find($user->attendance_type_id);
+
+        if (! $attendanceType) {
+            return $this->errorResponse("User's attendance type not found.", 403);
+        }
+
+        if (! str_starts_with($attendanceType->slug, 'biometric')) {
+            return $this->errorResponse("User's attendance type is not biometric. Device punches not allowed.", 403);
+        }
+
+        // Check per-employee specific device override first
+        $eat = $user->employeeAttendanceType;
+        if ($eat && $eat->biometric_device_id) {
+            if ($eat->biometric_device_id !== $device->id) {
+                return $this->errorResponse(
+                    'Punch rejected: employee is assigned to a different device.',
+                    403
+                );
+            }
+
+            return $this->successResponse('Biometric validation successful (specific device).', [
+                'device_id' => $device->id,
+                'user_id'   => $user->id,
+            ]);
+        }
+
+        // Fall back to AT device pool check
+        $linkedDevices = $attendanceType->biometricDevices;
+        if ($linkedDevices->isNotEmpty() && ! $linkedDevices->contains('id', $device->id)) {
+            return $this->errorResponse(
+                'This device is not assigned to the user\'s attendance zone. Punch rejected.',
+                403
+            );
+        }
+
         return $this->successResponse('Biometric validation successful.', [
-            'device_id'  => $device->id,
-            'user_id'    => $user->id,
+            'device_id' => $device->id,
+            'user_id'   => $user->id,
         ]);
     }
 }

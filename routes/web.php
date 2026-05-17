@@ -392,8 +392,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('users.update');
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
         Route::post('/users/{id}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
+        Route::post('/users/{id}/biometric-device', [UserController::class, 'updateEmployeeBiometricDevice'])->name('users.updateBiometricDevice');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
-        Route::post('/users/{id}/biometric-device', [UserController::class, 'updateBiometricDevice'])->name('users.updateBiometricDevice');
         
         // Bulk operations
         Route::post('/users/bulk/status', [UserController::class, 'bulkUpdateStatus'])->name('users.bulk.status');
@@ -476,12 +476,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/biometric-devices', [BiometricDeviceController::class, 'store'])->name('biometric-devices.store');
         Route::put('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'update'])->name('biometric-devices.update');
         Route::delete('settings/biometric-devices/{id}', [BiometricDeviceController::class, 'destroy'])->name('biometric-devices.destroy');
-        Route::get('settings/biometric-devices/{id}/users', [BiometricDeviceController::class, 'deviceUsers'])->name('biometric-devices.users');
-        Route::post('settings/biometric-devices/{id}/users', [BiometricDeviceController::class, 'addUser'])->name('biometric-devices.users.add');
-        Route::delete('settings/biometric-devices/{id}/users/{userId}', [BiometricDeviceController::class, 'removeUser'])->name('biometric-devices.users.remove');
-        Route::post('settings/biometric-devices/{id}/entry', [BiometricDeviceController::class, 'addDeviceEntry'])->name('biometric-devices.entry.add');
-        Route::post('settings/biometric-devices/{id}/link', [BiometricDeviceController::class, 'linkDeviceUser'])->name('biometric-devices.users.link');
-        Route::post('settings/biometric-devices/{id}/unlink/{userId}', [BiometricDeviceController::class, 'unlinkDeviceUser'])->name('biometric-devices.users.unlink');
+        Route::post('settings/biometric-devices/sync-pool', [BiometricDeviceController::class, 'syncAllToPool'])->name('biometric-devices.sync-pool');
         Route::post('settings/biometric-devices/{id}/regenerate-token', [BiometricDeviceController::class, 'regenerateToken'])->name('biometric-devices.regenerate-token');
         Route::get('settings/biometric-devices/active', [BiometricDeviceController::class, 'getActiveDevices'])->name('biometric-devices.active');
         Route::post('settings/biometric-devices/{id}/ping', [BiometricDeviceController::class, 'pingDevice'])->name('biometric-devices.ping');

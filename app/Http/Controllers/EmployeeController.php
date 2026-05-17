@@ -79,6 +79,14 @@ class EmployeeController extends Controller
             // Assign default employee role
             $user->assignRole('Employee');
 
+            // Create employee_attendance_types row if AT was set
+            if ($user->attendance_type_id) {
+                \App\Models\HRM\EmployeeAttendanceType::create([
+                    'user_id'            => $user->id,
+                    'attendance_type_id' => $user->attendance_type_id,
+                ]);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -428,12 +436,26 @@ class EmployeeController extends Controller
             // Execute query with pagination
             $employees = $query->paginate($perPage, ['*'], 'page', $page);
 
-            // Biometric enrollments no longer use biometric_device_users table
-            // Users are now linked directly via employee_id matching device PIN
-            $biometricEnrollments = [];
+            // Build a type_id => [{id, name, serial_number}] map for devices linked to each AT
+            // Also eager-load employeeAttendanceType for per-employee device
+            $employees->load(['employeeAttendanceType.biometricDevice']);
+
+            $attendanceTypeIds = $employees->pluck('attendance_type_id')->filter()->unique()->values()->toArray();
+            $atDeviceMap = [];
+            if (! empty($attendanceTypeIds)) {
+                $types = \App\Models\HRM\AttendanceType::with(['biometricDevices:id,name,serial_number,location'])
+                    ->whereIn('id', $attendanceTypeIds)
+                    ->get();
+                foreach ($types as $type) {
+                    $atDeviceMap[$type->id] = $type->biometricDevices
+                        ->map(fn($d) => ['id' => $d->id, 'name' => $d->name, 'serial_number' => $d->serial_number, 'location' => $d->location])
+                        ->values()
+                        ->toArray();
+                }
+            }
 
             // Transform data for frontend
-            $employees->getCollection()->transform(function ($employee) use ($biometricEnrollments) {
+            $employees->getCollection()->transform(function ($employee) use ($atDeviceMap) {
                 // Get department name safely
                 $departmentName = null;
                 if ($employee->department_id) {
@@ -481,15 +503,12 @@ class EmployeeController extends Controller
                     }
                 }
 
-                // Get current biometric device assignment (first active enrollment)
-                $biometricDeviceId = null;
-                $biometricDeviceName = null;
-                $enrollments = $biometricEnrollments[$employee->id] ?? [];
-                if (!empty($enrollments)) {
-                    $firstEnrollment = $enrollments[0];
-                    $biometricDeviceId = $firstEnrollment['device_id'];
-                    $biometricDeviceName = $firstEnrollment['device_name'];
-                }
+                // Devices available to this employee via their attendance type
+                $attendanceTypeDevices = $employee->attendance_type_id
+                    ? ($atDeviceMap[$employee->attendance_type_id] ?? [])
+                    : [];
+
+                $eat = $employee->employeeAttendanceType;
 
                 return [
                     'id' => $employee->id,
@@ -506,9 +525,9 @@ class EmployeeController extends Controller
                     'designation_hierarchy_level' => $hierarchyLevel,
                     'attendance_type_id' => $employee->attendance_type_id,
                     'attendance_type_name' => $attendanceTypeName,
-                    'biometric_enrollments' => $biometricEnrollments[$employee->id] ?? [],
-                    'biometric_device_id' => $biometricDeviceId,
-                    'biometric_device_name' => $biometricDeviceName,
+                    'attendance_type_devices' => $attendanceTypeDevices,
+                    'biometric_device_id' => $eat?->biometric_device_id,
+                    'biometric_device_name' => $eat?->biometricDevice?->name,
                     'report_to' => $employee->report_to,
                     'reports_to' => $reportsTo,
                     'date_of_joining' => $employee->date_of_joining,

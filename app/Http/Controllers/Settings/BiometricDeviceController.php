@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricDevice;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -55,6 +56,9 @@ class BiometricDeviceController extends Controller
 
         $device = BiometricDevice::create($data);
 
+        // Auto-link new device to the single Biometric AT
+        $device->attendanceTypes()->syncWithoutDetaching([$this->getBiometricAt()->id]);
+
         return response()->json([
             'message' => 'Device registered successfully.',
             'device'  => $device->fresh(),
@@ -92,54 +96,6 @@ class BiometricDeviceController extends Controller
         return response()->json(['message' => 'Device deleted.']);
     }
 
-    public function addUser(Request $request, $id)
-    {
-        $device = BiometricDevice::findOrFail($id);
-
-        $data = $request->validate([
-            'user_id'        => 'required|exists:users,id',
-            'device_user_id' => 'required|string|max:50',
-        ]);
-
-        $exists = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('user_id', $data['user_id'])
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'User already mapped to this device.'], 422);
-        }
-
-        DB::table('biometric_device_users')->insert([
-            'biometric_device_id' => $device->id,
-            'user_id'             => $data['user_id'],
-            'device_user_id'      => $data['device_user_id'],
-            'is_active'           => true,
-            'created_at'          => now(),
-            'updated_at'          => now(),
-        ]);
-
-        $user = User::select('id', 'name', 'employee_id')->find($data['user_id']);
-
-        return response()->json([
-            'message'        => 'User mapped to device.',
-            'user'           => $user,
-            'device_user_id' => $data['device_user_id'],
-        ], 201);
-    }
-
-    public function removeUser(Request $request, $id, $userId)
-    {
-        $device = BiometricDevice::findOrFail($id);
-
-        DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('user_id', $userId)
-            ->delete();
-
-        return response()->json(['message' => 'User removed from device.']);
-    }
-
     public function regenerateToken($id)
     {
         $device = BiometricDevice::findOrFail($id);
@@ -152,126 +108,27 @@ class BiometricDeviceController extends Controller
     }
 
     /**
-     * Add a device user entry without linking to a system user (unlinked)
+     * Returns the single system-wide Biometric attendance type, creating it if absent.
      */
-    public function addDeviceEntry(Request $request, $id)
+    protected function getBiometricAt(): AttendanceType
     {
-        $device = BiometricDevice::findOrFail($id);
-
-        $data = $request->validate([
-            'device_user_id' => 'required|string|max:50',
-        ]);
-
-        $exists = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('device_user_id', $data['device_user_id'])
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'Device user ID already exists.'], 422);
-        }
-
-        DB::table('biometric_device_users')->insert([
-            'biometric_device_id' => $device->id,
-            'user_id'             => null,
-            'device_user_id'      => $data['device_user_id'],
-            'is_active'           => true,
-            'created_at'          => now(),
-            'updated_at'          => now(),
-        ]);
-
-        // Update users_count
-        $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
-
-        return response()->json([
-            'message' => 'Device entry added.',
-        ], 201);
+        return AttendanceType::firstOrCreate(
+            ['slug' => 'biometric'],
+            ['name' => 'Biometric Device', 'is_active' => true, 'config' => []]
+        );
     }
 
     /**
-     * Link an unlinked device entry to a system user
+     * Sync all existing devices that are not yet linked to the Biometric AT.
+     * Called once from the index to backfill historical devices.
      */
-    public function linkDeviceUser(Request $request, $id)
+    public function syncAllToPool()
     {
-        $device = BiometricDevice::findOrFail($id);
+        $at = $this->getBiometricAt();
+        $deviceIds = BiometricDevice::pluck('id');
+        $at->biometricDevices()->syncWithoutDetaching($deviceIds);
 
-        $data = $request->validate([
-            'device_user_id' => 'required|string|max:50',
-            'user_id'        => 'required|exists:users,id',
-        ]);
-
-        // Check if device user exists
-        $entry = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('device_user_id', $data['device_user_id'])
-            ->first();
-
-        if (!$entry) {
-            return response()->json(['message' => 'Device user entry not found.'], 404);
-        }
-
-        if ($entry->user_id) {
-            return response()->json(['message' => 'Already linked to a user.'], 422);
-        }
-
-        // Check if user already mapped to this device
-        $userExists = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('user_id', $data['user_id'])
-            ->exists();
-
-        if ($userExists) {
-            return response()->json(['message' => 'User already enrolled on this device.'], 422);
-        }
-
-        DB::table('biometric_device_users')
-            ->where('id', $entry->id)
-            ->update(['user_id' => $data['user_id'], 'updated_at' => now()]);
-
-        $user = User::select('id', 'name', 'employee_id')->find($data['user_id']);
-
-        return response()->json([
-            'message' => 'User linked to device entry.',
-            'user'    => $user,
-        ]);
-    }
-
-    /**
-     * Unlink a user from a device entry (set user_id to null)
-     */
-    public function unlinkDeviceUser(Request $request, $id, $userId)
-    {
-        $device = BiometricDevice::findOrFail($id);
-
-        DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('user_id', $userId)
-            ->update(['user_id' => null, 'updated_at' => now()]);
-
-        return response()->json(['message' => 'User unlinked from device.']);
-    }
-
-    /**
-     * Get all device entries (linked + unlinked)
-     */
-    public function deviceUsers($id)
-    {
-        $device = BiometricDevice::findOrFail($id);
-
-        $entries = DB::table('biometric_device_users as bdu')
-            ->leftJoin('users as u', 'u.id', '=', 'bdu.user_id')
-            ->where('bdu.biometric_device_id', $device->id)
-            ->select(
-                'bdu.id',
-                'bdu.user_id',
-                'bdu.device_user_id',
-                'bdu.is_active',
-                'u.name',
-                'u.employee_id'
-            )
-            ->get();
-
-        return response()->json(['entries' => $entries]);
+        return response()->json(['message' => 'All devices synced to Biometric AT.', 'at_id' => $at->id]);
     }
 
     /**
@@ -554,8 +411,10 @@ class BiometricDeviceController extends Controller
                 'punch_time' => $log->punch_time,
                 'date' => $punchTime ? $punchTime->format('Y-m-d') : null,
                 'time' => $punchTime ? $punchTime->format('H:i:s') : null,
-                'check_type' => $log->check_type,
-                'created_at' => $log->created_at,
+                'check_type'          => $log->check_type,
+                'punch_status'        => $log->punch_status ?? 'processed',
+                'punch_status_reason' => $log->punch_status_reason ?? null,
+                'created_at'          => $log->created_at,
             ];
         })->toArray();
 
@@ -603,7 +462,7 @@ class BiometricDeviceController extends Controller
             $reachableCount = collect($results)->where('success', true)->count();
 
             return response()->json([
-                'message' => "Pinged {$deviceIds} device(s). {$reachableCount} reachable.",
+                'message' => 'Pinged ' . count($deviceIds) . ' device(s). ' . $reachableCount . ' reachable.',
                 'results' => $results,
                 'reachable_count' => $reachableCount,
             ]);
@@ -630,8 +489,8 @@ class BiometricDeviceController extends Controller
         try {
             $deviceIds = $request->input('device_ids');
             $count = DB::transaction(function () use ($deviceIds) {
-                // Clean up user mappings for all devices
-                DB::table('biometric_device_users')
+                // Detach attendance type associations for all devices
+                DB::table('attendance_type_biometric_device')
                     ->whereIn('biometric_device_id', $deviceIds)
                     ->delete();
 

@@ -212,10 +212,10 @@ const PunchStatusCard = React.memo(() => {
         return ['geo_polygon', 'route_waypoint'].includes(attendanceTypeBaseSlug);
     }, [attendanceTypeBaseSlug]);
 
-    // Check if user has assigned biometric device
+    // Check if the user's attendance type has biometric devices assigned
     const hasBiometricDevice = useMemo(() => {
-        return Boolean(user?.biometric_device_id && user?.biometric_device_name);
-    }, [user?.biometric_device_id, user?.biometric_device_name]);
+        return Boolean(user?.attendance_type_devices?.length > 0);
+    }, [user?.attendance_type_devices]);
 
     // Biometric users should not punch via web interface
     const isBiometricUser = requiresBiometric && hasBiometricDevice;
@@ -1174,7 +1174,7 @@ const PunchStatusCard = React.memo(() => {
                                         Biometric Device Assigned
                                     </Text>
                                     <Text size="1" color="gray" style={{ display: 'block' }}>
-                                        {user?.biometric_device_name}
+                                        {user?.attendance_type_devices?.map(d => d.name).join(', ')}
                                     </Text>
                                     <Text size="1" color="gray" style={{ display: 'block', marginTop: 2 }}>
                                         Please use your assigned device to punch in/out
@@ -1202,7 +1202,7 @@ const PunchStatusCard = React.memo(() => {
                     {/* Validation Badges */}
                     <Flex justify="center" gap="2" mb={{ initial: '3', md: '4' }} wrap="wrap">
                         {isBiometricUser && (
-                            <Tooltip content={`Biometric device: ${user?.biometric_device_name}`}>
+                            <Tooltip content={`Biometric device(s): ${user?.attendance_type_devices?.map(d => d.name).join(', ')}`}>
                                 <Badge color="blue" variant="soft" size="1">
                                     <Flex align="center" gap="1"><LockClosedIcon /> Biometric</Flex>
                                 </Badge>

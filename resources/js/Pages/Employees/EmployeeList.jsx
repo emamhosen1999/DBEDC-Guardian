@@ -134,7 +134,6 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
     /* ── server state ── */
     const [employees, setEmployees] = useState([]);
     const [allManagers, setAllManagers] = useState([]);
-    const [biometricDevices, setBiometricDevices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalRows, setTotalRows] = useState(0);
 
@@ -194,14 +193,7 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
         } catch { /* silent */ }
     }, []);
 
-    const fetchBiometricDevices = useCallback(async () => {
-        try {
-            const { data } = await axios.get(route('biometric-devices.active'));
-            if (data.devices) setBiometricDevices(data.devices);
-        } catch { /* silent */ }
-    }, []);
-
-    useEffect(() => { fetchEmployees(); fetchStats(); fetchBiometricDevices(); }, [fetchEmployees]);
+    useEffect(() => { fetchEmployees(); fetchStats(); }, [fetchEmployees]);
 
     /* ── filter helpers ── */
     const handleSearchChange = useCallback((value) => {
@@ -646,7 +638,6 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
                                 designations={designations}
                                 attendanceTypes={attendanceTypes}
                                 allManagers={allManagers}
-                                biometricDevices={biometricDevices}
                                 isMobile={isMobile}
                                 isTablet={isTablet}
                                 pagination={pagination}

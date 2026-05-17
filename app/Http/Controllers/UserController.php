@@ -61,8 +61,9 @@ class UserController extends Controller
             'users'                  => User::with('roles')->get(),
 
             // Biometric panel
-            'devices'   => BiometricDevice::all(),
-            'employees' => User::select('id', 'name', 'employee_id')->get(),
+            'devices'        => BiometricDevice::all(),
+            'employees'      => User::select('id', 'name', 'employee_id')->get(),
+            'attendanceTypes' => AttendanceType::where('is_active', true)->select('id', 'name', 'slug')->get(),
             ]);
     }
 
@@ -425,13 +426,13 @@ class UserController extends Controller
 
             // If you have a belongsTo relationship: $user->attendanceType()
             $user->attendanceType()->associate($attendanceType);
-
-            // Optionally update config if you have a JSON column for user-specific config
-            if ($request->has('attendance_config')) {
-                $user->attendance_config = $request->attendance_config;
-            }
-
             $user->save();
+
+            // Sync employee_attendance_types row (clear device when AT changes)
+            \App\Models\HRM\EmployeeAttendanceType::updateOrCreate(
+                ['user_id' => $user->id],
+                ['attendance_type_id' => $attendanceType->id, 'biometric_device_id' => null]
+            );
 
             return response()->json([
                 'success' => true,
@@ -448,67 +449,46 @@ class UserController extends Controller
         }
     }
 
-    public function updateBiometricDevice(Request $request, $id)
+    public function updateEmployeeBiometricDevice(Request $request, $id)
     {
         $user = User::findOrFail($id);
-
         $this->authorize('update', $user);
 
-        try {
-            $request->validate([
-                'biometric_device_id' => 'nullable|exists:biometric_devices,id',
-            ]);
+        $request->validate([
+            'biometric_device_id' => 'nullable|exists:biometric_devices,id',
+        ]);
 
-            $biometricDeviceId = $request->biometric_device_id;
+        $deviceId = $request->biometric_device_id ?: null;
 
-            // Remove existing biometric device assignments for this user
-            DB::table('biometric_device_users')
-                ->where('user_id', $user->id)
-                ->delete();
+        if ($deviceId && $user->attendance_type_id) {
+            $inPool = AttendanceType::find($user->attendance_type_id)
+                ?->biometricDevices()
+                ->where('biometric_devices.id', $deviceId)
+                ->exists();
 
-            // If a new device is provided, add the assignment
-            if ($biometricDeviceId) {
-                $device = BiometricDevice::findOrFail($biometricDeviceId);
-
-                // Generate a device_user_id (could be user ID or employee ID)
-                $deviceUserId = $user->employee_id ?? strval($user->id);
-
-                // Check if this device_user_id already exists for this device
-                $exists = DB::table('biometric_device_users')
-                    ->where('biometric_device_id', $device->id)
-                    ->where('device_user_id', $deviceUserId)
-                    ->exists();
-
-                if ($exists) {
-                    return response()->json([
-                        'success' => false,
-                        'messages' => ['Device user ID already exists on this device.'],
-                    ], 422);
-                }
-
-                DB::table('biometric_device_users')->insert([
-                    'biometric_device_id' => $device->id,
-                    'user_id' => $user->id,
-                    'device_user_id' => $deviceUserId,
-                    'is_active' => true,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+            if (! $inPool) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Device does not belong to this employee\'s attendance type.',
+                ], 422);
             }
-
-            return response()->json([
-                'success' => true,
-                'messages' => ['Biometric device assignment updated successfully.'],
-                'user' => new UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice', 'attendanceType'])),
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'messages' => ['Failed to update biometric device assignment.'],
-                'errors' => [$e->getMessage()],
-            ], 500);
         }
+
+        $eat = \App\Models\HRM\EmployeeAttendanceType::firstOrCreate(
+            ['user_id' => $user->id],
+            ['attendance_type_id' => $user->attendance_type_id]
+        );
+        $eat->biometric_device_id = $deviceId;
+        $eat->save();
+
+        $device = $deviceId ? BiometricDevice::find($deviceId) : null;
+
+        return response()->json([
+            'success'             => true,
+            'message'             => $device ? "Assigned to {$device->name}." : 'Device assignment cleared.',
+            'biometric_device_id' => $deviceId,
+            'biometric_device_name' => $device?->name,
+        ]);
     }
 
     public function paginate(Request $request): \Illuminate\Http\JsonResponse
