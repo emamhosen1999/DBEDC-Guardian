@@ -79,7 +79,7 @@ export default function UsersPanel({
                 const found = roles.find(r => String(r.id) === key || (typeof r === 'object' ? r.name : r) === key);
                 return found ? (typeof found === 'object' ? found.name : found) : key;
             });
-            await axios.post(route('user.updateRole', { id: roleDialogUser.id }), { roles: roleNames });
+            await axios.post(route('users.updateRole', { id: roleDialogUser.id }), { roles: roleNames });
             updateUser(roleDialogUser.id, {
                 roles: roleNames.map(n => ({ name: n })),
             });

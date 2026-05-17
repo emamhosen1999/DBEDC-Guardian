@@ -580,7 +580,7 @@ function UserRoleTab({ roles, isMobile }) {
                 const found = roles.find(r => String(r.id) === key || r.name === key);
                 return found ? found.name : key;
             });
-            await axios.post(route('user.updateRole', { id: editUser.id }), { roles: roleNames });
+            await axios.post(route('users.updateRole', { id: editUser.id }), { roles: roleNames });
             setUsers(p => p.map(u => u.id === editUser.id
                 ? { ...u, roles: roleNames.map(n => ({ name: n })) }
                 : u));
@@ -761,9 +761,6 @@ export default function RolesPanel({
                 </Badge>
                 <Badge size="2" variant="soft" color="indigo" radius="full">
                     <Text weight="bold">{permissions.length}</Text> <Text style={{ opacity: 0.7 }}>Permissions</Text>
-                </Badge>
-                <Badge size="2" variant="soft" color="teal" radius="full">
-                    <Text weight="bold">{users.length}</Text> <Text style={{ opacity: 0.7 }}>Users</Text>
                 </Badge>
             </Flex>
 
