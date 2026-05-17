@@ -1226,7 +1226,7 @@ function AttLogTab({ isMobile }) {
                         <Table.Header>
                             <Table.Row>
                                 <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>User ID</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Employee ID</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>User Name</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Time</Table.ColumnHeaderCell>
@@ -1240,7 +1240,7 @@ function AttLogTab({ isMobile }) {
                                         <Text size="1">{log.device_name || 'Unknown'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1" color="gray">{log.user_pin || '—'}</Text>
+                                        <Text size="1" color="gray">{log.employee_id || log.user_pin || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <Text weight="medium" size="2">{log.user_name}</Text>

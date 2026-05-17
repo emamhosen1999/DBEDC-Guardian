@@ -550,6 +550,7 @@ class BiometricDeviceController extends Controller
                 'device_name' => $devices[$log->biometric_device_id] ?? 'Unknown',
                 'serial_number' => $log->serial_number,
                 'user_pin' => $log->user_pin,
+                'employee_id' => $log->employee_id,
                 'user_id' => $log->user_id,
                 'user_name' => $log->user_id ? ($users[$log->user_id] ?? 'Unknown') : 'Unlinked',
                 'punch_time' => $log->punch_time,
