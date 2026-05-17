@@ -346,76 +346,75 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                 <Table.ColumnHeaderCell style={{ width: 40 }}>
                                     <Checkbox.Root
                                         checked={selectedIds.length === devices.length && devices.length > 0}
+                                        onCheckedChange={toggleSelectAll}
                                     />
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Text weight="bold" size="2" as="div">{d.name}</Text>
-                                    {d.model && <Text size="1" color="gray">{d.model}</Text>}
-                                </Table.Cell>
-                                <Table.Cell><Code size="1">{d.serial_number}</Code></Table.Cell>
-                                <Table.Cell>
-                                    {d.ip_address && <Text size="1" as="div">{d.ip_address}</Text>}
-                                    {d.location && <Text size="1" color="gray">{d.location}</Text>}
-                                    {!d.ip_address && !d.location && <Text size="1" color="gray">—</Text>}
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Badge color={d.protocol === 'adms' ? 'green' : 'blue'} variant="soft" size="1">
-                                        {d.protocol === 'adms' ? 'ADMS' : 'Push SDK'}
-                                    </Badge>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Button
-                                        variant="soft"
-                                        color="accent"
-                                        size="1"
-                                        onClick={() => openUsersModal(d)}
-                                    >
-                                        {d.users_count ?? 0} users
-                                    </Button>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Text size="1" color="gray">{d.last_ping ? new Date(d.last_ping).toLocaleString() : 'Never'}</Text>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Badge color={d.is_active ? 'green' : 'red'} variant="soft" size="1">
-                                        {d.is_active ? 'Active' : 'Inactive'}
-                                    </Badge>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Flex gap="1">
-                                        <Tooltip content="Ping device">
-                                            <IconButton size="1" variant="soft" color="indigo" onClick={() => handlePing(d)}>
-                                                <ReloadIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip content="Edit device">
-                                            <IconButton size="1" variant="soft" color="gray" onClick={() => openEdit(d)}>
-                                                <Pencil1Icon />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip content="Delete device">
-                                            <IconButton size="1" variant="soft" color="red" onClick={() => openDelete(d)}>
-                                                <TrashIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </Flex>
-                                </Table.Cell>
+                                </Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Serial</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>IP / Location</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Protocol</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Users</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Last Ping</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
                             </Table.Row>
-                                                <Tooltip content="Device commands">
-                                                    <IconButton size="1" variant="ghost" color="blue" onClick={() => openCommandModal(d)}>
-                                                        <LightningBoltIcon />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
-                                            {d.protocol !== 'adms' && (
-                                                <Tooltip content="Regen Token">
-                                                    <IconButton size="1" variant="ghost" color="amber" onClick={() => regen(d)}>
-                                                        <ReloadIcon />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
-                                            <Tooltip content="Delete">
-                                                <IconButton size="1" variant="ghost" color="red" onClick={() => deleteDevice(d)}>
+                        </Table.Header>
+                        <Table.Body>
+                            {devices.map(d => (
+                                <Table.Row key={d.id}>
+                                    <Table.Cell>
+                                        <Checkbox.Root
+                                            checked={selectedIds.includes(d.id)}
+                                            onCheckedChange={() => toggleSelect(d.id)}
+                                        />
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text weight="bold" size="2" as="div">{d.name}</Text>
+                                        {d.model && <Text size="1" color="gray">{d.model}</Text>}
+                                    </Table.Cell>
+                                    <Table.Cell><Code size="1">{d.serial_number}</Code></Table.Cell>
+                                    <Table.Cell>
+                                        {d.ip_address && <Text size="1" as="div">{d.ip_address}</Text>}
+                                        {d.location   && <Text size="1" color="gray">{d.location}</Text>}
+                                        {!d.ip_address && !d.location && <Text size="1" color="gray">—</Text>}
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Badge color={d.protocol === 'adms' ? 'green' : 'blue'} variant="soft" size="1">
+                                            {d.protocol === 'adms' ? 'ADMS' : 'Push SDK'}
+                                        </Badge>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Button
+                                            variant="soft"
+                                            color="accent"
+                                            size="1"
+                                            onClick={() => openUsersModal(d)}
+                                        >
+                                            {d.users_count ?? 0} users
+                                        </Button>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{d.last_ping ? new Date(d.last_ping).toLocaleString() : 'Never'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Badge color={d.is_active ? 'green' : 'red'} variant="soft" size="1">
+                                            {d.is_active ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Flex gap="1">
+                                            <Tooltip content="Ping device">
+                                                <IconButton size="1" variant="soft" color="indigo" onClick={() => handlePing(d)}>
+                                                    <ReloadIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip content="Edit device">
+                                                <IconButton size="1" variant="soft" color="gray" onClick={() => openEdit(d)}>
+                                                    <Pencil1Icon />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip content="Delete device">
+                                                <IconButton size="1" variant="soft" color="red" onClick={() => openDelete(d)}>
                                                     <TrashIcon />
                                                 </IconButton>
                                             </Tooltip>
