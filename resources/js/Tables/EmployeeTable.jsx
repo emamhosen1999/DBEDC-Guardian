@@ -96,7 +96,7 @@ const EmployeeTable = ({
     /* ── handlers ── */
     const handleDepartmentChange = async (userId, departmentId) => {
         try {
-            await axios.post(route('user.updateDepartment', { id: userId }), { department: departmentId });
+            await axios.put(route('users.update-department', { id: userId }), { department_id: departmentId });
             const dept = departments.find(d => d.id === parseInt(departmentId)) || null;
             updateEmployeeOptimized?.(userId, { department_id: departmentId, department_name: dept?.name || null, designation_id: null, designation_name: null });
             showToast.success('Department updated');
@@ -107,7 +107,7 @@ const EmployeeTable = ({
 
     const handleDesignationChange = async (userId, designationId) => {
         try {
-            await axios.post(route('user.updateDesignation', { id: userId }), { designation_id: designationId });
+            await axios.post(route('users.updateDesignation', { id: userId }), { designation_id: designationId });
             const desig = designations.find(d => d.id === parseInt(designationId)) || null;
             updateEmployeeOptimized?.(userId, { designation_id: designationId, designation_name: desig?.title || null });
             showToast.success('Designation updated');
@@ -118,7 +118,7 @@ const EmployeeTable = ({
 
     const handleAttendanceTypeChange = async (userId, attendanceTypeId) => {
         try {
-            await axios.post(route('user.updateAttendanceType', { id: userId }), { attendance_type_id: attendanceTypeId });
+            await axios.post(route('users.updateAttendanceType', { id: userId }), { attendance_type_id: attendanceTypeId });
             const type = attendanceTypes.find(t => t.id === parseInt(attendanceTypeId)) || null;
             updateEmployeeOptimized?.(userId, { attendance_type_id: attendanceTypeId, attendance_type_name: type?.name || null });
             showToast.success('Attendance type updated');
