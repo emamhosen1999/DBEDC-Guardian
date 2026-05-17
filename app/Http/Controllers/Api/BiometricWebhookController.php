@@ -49,47 +49,10 @@ class BiometricWebhookController extends Controller
         // 2. Update heartbeat
         $device->update(['last_heartbeat_at' => now()]);
 
-        // 3. Resolve user from pivot
-        $mapping = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->where('device_user_id', $deviceUserId)
-            ->first();
-
-        if (! $mapping) {
-            // insertOrIgnore prevents duplicates when same unknown user punches multiple times
-            DB::table('biometric_device_users')->insertOrIgnore([
-                'biometric_device_id' => $device->id,
-                'user_id'             => null,
-                'device_user_id'      => $deviceUserId,
-                'is_active'           => true,
-                'created_at'          => now(),
-                'updated_at'          => now(),
-            ]);
-
-            Log::info('Biometric webhook: created unlinked entry for unknown device user', [
-                'device_serial'  => $serialNumber,
-                'device_user_id' => $deviceUserId,
-            ]);
-
-            return response()->json([
-                'message' => 'Punch not processed — device user not linked. Unlinked entry created for manual linking.',
-                'requires_linking' => true,
-                'device_user_id' => $deviceUserId,
-            ], 202);
-        }
-
-        // If mapping exists but user_id is null (unlinked), return similar response
-        if (!$mapping->user_id) {
-            return response()->json([
-                'message' => 'Punch not processed — device user not linked to a system user.',
-                'requires_linking' => true,
-                'device_user_id' => $deviceUserId,
-            ], 202);
-        }
-
-        $user = User::find($mapping->user_id);
+        // 3. Resolve user by matching PIN to employee_id
+        $user = User::where('employee_id', $deviceUserId)->first();
         if (! $user) {
-            return response()->json(['message' => 'System user not found.'], 404);
+            return response()->json(['message' => 'User not found with employee_id: ' . $deviceUserId], 404);
         }
 
         // 4. Build a synthetic request for the punch service
@@ -413,18 +376,17 @@ class BiometricWebhookController extends Controller
             try {
                 DB::beginTransaction();
 
-                // Check if device user already exists
-                $existingMapping = DB::table('biometric_device_users')
-                    ->where('biometric_device_id', $device->id)
-                    ->where('device_user_id', $pin)
-                    ->first();
+                // Try to find existing system user by employee_id (PIN)
+                $existingUser = User::where('employee_id', $pin)->first();
 
-                if ($existingMapping) {
-                    // User already mapped, skip
+                if ($existingUser) {
+                    // User already exists with this employee_id
                     DB::rollBack();
-                    Log::info('User enrollment: device user already mapped', [
+                    Log::info('User enrollment: user already exists with employee_id', [
                         'device_serial' => $serialNumber,
                         'device_user_id' => $pin,
+                        'system_user_id' => $existingUser->id,
+                        'system_user_name' => $existingUser->name,
                     ]);
                     return new \Symfony\Component\HttpFoundation\Response(
                         "OK",
@@ -433,60 +395,25 @@ class BiometricWebhookController extends Controller
                     );
                 }
 
-                // Try to find existing system user by name
-                $existingUser = User::where('name', $name)->first();
+                // Create placeholder account as INACTIVE — admin must activate before the user
+                // can log in or have attendance processed. Anyone who can register on the
+                // physical device would otherwise gain an active system account.
+                $newUser = User::create([
+                    'name' => $name,
+                    'email' => strtolower(str_replace(' ', '.', $name)) . '@device-auto.local',
+                    'password' => bcrypt(\Illuminate\Support\Str::random(32)),
+                    'active' => false,
+                    'employee_id' => $pin,
+                ]);
 
-                if ($existingUser) {
-                    // Auto-link to existing system user
-                    DB::table('biometric_device_users')->insertOrIgnore([
-                        'biometric_device_id' => $device->id,
-                        'user_id' => $existingUser->id,
-                        'device_user_id' => $pin,
-                        'is_active' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-
-                    Log::info('User enrollment: auto-linked to existing system user', [
-                        'device_serial' => $serialNumber,
-                        'device_user_id' => $pin,
-                        'system_user_id' => $existingUser->id,
-                        'system_user_name' => $existingUser->name,
-                    ]);
-                } else {
-                    // Create placeholder account as INACTIVE — admin must activate before the user
-                    // can log in or have attendance processed. Anyone who can register on the
-                    // physical device would otherwise gain an active system account.
-                    $newUser = User::create([
-                        'name' => $name,
-                        'email' => strtolower(str_replace(' ', '.', $name)) . '@device-auto.local',
-                        'password' => bcrypt(\Illuminate\Support\Str::random(32)),
-                        'active' => false,
-                        'employee_id' => $pin,
-                    ]);
-
-                    // Create mapping (also inactive until admin reviews)
-                    DB::table('biometric_device_users')->insertOrIgnore([
-                        'biometric_device_id' => $device->id,
-                        'user_id' => $newUser->id,
-                        'device_user_id' => $pin,
-                        'is_active' => false,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-
-                    Log::info('User enrollment: created inactive system user (pending admin approval)', [
-                        'device_serial' => $serialNumber,
-                        'device_user_id' => $pin,
-                        'system_user_id' => $newUser->id,
-                        'system_user_name' => $newUser->name,
-                    ]);
-                }
+                Log::info('User enrollment: created inactive system user (pending admin approval)', [
+                    'device_serial' => $serialNumber,
+                    'device_user_id' => $pin,
+                    'system_user_id' => $newUser->id,
+                    'system_user_name' => $newUser->name,
+                ]);
 
                 DB::commit();
-
-                // Update users_count
-                $device->update(['users_count' => DB::table('biometric_device_users')->where('biometric_device_id', $device->id)->count()]);
 
                 return new \Symfony\Component\HttpFoundation\Response(
                     "OK",
@@ -500,7 +427,7 @@ class BiometricWebhookController extends Controller
                     'device_user_id' => $pin,
                     'error' => $e->getMessage(),
                 ]);
-                return response('ERROR', 500)->header('Content-Type', 'text/plain');
+                return response('ERROR', 500)->header('Content-Type' => 'text/plain');
             }
         }
 
@@ -678,13 +605,10 @@ class BiometricWebhookController extends Controller
             // ZKTeco ADMS sends numeric check type: 0=IN, 1=OUT, 2=Break-Out, 3=Break-In, 4=OT-In, 5=OT-Out
             $rawCheckType = trim($data['Status'] ?? '0');
 
-            // Resolve user_id and employee_id from biometric_device_users mapping
-            $deviceUser = DB::table('biometric_device_users')
-                ->where('biometric_device_id', $device->id)
-                ->where('device_user_pin', $deviceUserId)
-                ->first();
-            $resolvedUserId = $deviceUser ? $deviceUser->user_id : null;
-            $resolvedEmployeeId = $deviceUser ? $deviceUser->employee_id : null;
+            // Resolve user_id and employee_id by matching PIN to employee_id directly
+            $user = User::where('employee_id', $deviceUserId)->first();
+            $resolvedUserId = $user ? $user->id : null;
+            $resolvedEmployeeId = $user ? $user->employee_id : null;
 
             // Store raw ATTLOG entry
             DB::table('biometric_att_logs')->insert([
@@ -692,7 +616,6 @@ class BiometricWebhookController extends Controller
                 'serial_number' => $serialNumber,
                 'user_pin' => $deviceUserId,
                 'user_id' => $resolvedUserId,
-                'employee_id' => $resolvedEmployeeId,
                 'punch_time' => $checkTime,
                 'check_type' => $checkType,
                 'verify_code' => $data['VerifyCode'] ?? null,
@@ -715,40 +638,15 @@ class BiometricWebhookController extends Controller
                 default => 'in',
             };
 
-            // Resolve user from pivot table
-            $mapping = DB::table('biometric_device_users')
-                ->where('biometric_device_id', $device->id)
-                ->where('device_user_id', $deviceUserId)
-                ->first();
-
-            if (! $mapping) {
-                // insertOrIgnore prevents duplicate rows when same unknown user punches several
-                // times before an admin links them (race condition on repeated ATTLOG batches)
-                DB::table('biometric_device_users')->insertOrIgnore([
-                    'biometric_device_id' => $device->id,
-                    'user_id'             => null,
-                    'device_user_id'      => $deviceUserId,
-                    'is_active'           => true,
-                    'created_at'          => now(),
-                    'updated_at'          => now(),
-                ]);
-
-                Log::info('ADMS push: created unlinked entry', [
-                    'device_serial'  => $serialNumber,
-                    'device_user_id' => $deviceUserId,
-                ]);
-                continue;
-            }
-
-            // If unlinked, skip processing
-            if (! $mapping->user_id) {
-                continue;
-            }
+            // Resolve user_id and employee_id by matching PIN to employee_id directly
+            $user = User::where('employee_id', $deviceUserId)->first();
+            $resolvedUserId = $user ? $user->id : null;
+            $resolvedEmployeeId = $user ? $user->employee_id : null;
 
             // Idempotency check: avoid duplicate punches
             // Check if attendance record already exists for this exact punch
             $existingAttendance = DB::table('attendances')
-                ->where('user_id', $mapping->user_id)
+                ->where('user_id', $resolvedUserId)
                 ->where('punch_time', $checkTime)
                 ->where('source', 'biometric')
                 ->first();
@@ -914,133 +812,6 @@ class BiometricWebhookController extends Controller
         }
 
         return response()->json(['commands' => $commandsArray]);
-    }
-
-    /**
-     * Get sync status for a device (for progress bar)
-     */
-    public function getSyncStatus(Request $request, $deviceId)
-    {
-        $device = BiometricDevice::find($deviceId);
-
-        if (! $device) {
-            return response()->json(['message' => 'Device not found'], 404);
-        }
-
-        $total = BiometricDeviceCommand::where('biometric_device_id', $deviceId)->count();
-        $pending = BiometricDeviceCommand::where('biometric_device_id', $deviceId)->where('status', 'pending')->count();
-        $sent = BiometricDeviceCommand::where('biometric_device_id', $deviceId)->where('status', 'sent')->count();
-        $executed = BiometricDeviceCommand::where('biometric_device_id', $deviceId)->where('status', 'executed')->count();
-        $failed = BiometricDeviceCommand::where('biometric_device_id', $deviceId)->where('status', 'failed')->count();
-
-        return response()->json([
-            'total' => $total,
-            'pending' => $pending,
-            'sent' => $sent,
-            'executed' => $executed,
-            'failed' => $failed,
-            'progress' => $total > 0 ? round(($executed / $total) * 100, 1) : 0,
-        ]);
-    }
-
-    /**
-     * Sync all system users to a device
-     */
-    public function syncUsersToDevice(Request $request, $deviceId)
-    {
-        $device = BiometricDevice::find($deviceId);
-
-        if (! $device) {
-            return response()->json(['message' => 'Device not found'], 404);
-        }
-
-        if ($device->protocol !== 'adms') {
-            return response()->json(['message' => 'User sync only supported for ADMS protocol devices'], 400);
-        }
-
-        // Execute sync synchronously (no queue)
-        $job = new \App\Jobs\SyncUsersToDeviceJob($device);
-        $job->handle();
-
-        Log::info('Bulk user sync completed synchronously', [
-            'device_id' => $device->id,
-            'device_serial' => $device->serial_number,
-        ]);
-
-        return response()->json([
-            'message' => 'User sync completed',
-            'status' => 'completed',
-            'device' => $device->name,
-        ]);
-    }
-
-    /**
-     * Request user data from device
-     */
-    public function requestUsersFromDevice(Request $request, $deviceId)
-    {
-        $device = BiometricDevice::find($deviceId);
-
-        if (! $device) {
-            return response()->json(['message' => 'Device not found'], 404);
-        }
-
-        if ($device->protocol !== 'adms') {
-            return response()->json(['message' => 'User request only supported for ADMS protocol devices'], 400);
-        }
-
-        // Queue GET_USERINFO command
-        $command = BiometricDeviceCommand::create([
-            'biometric_device_id' => $device->id,
-            'command_type' => 'GET_USERINFO',
-            'payload' => [],
-            'status' => 'pending',
-            'retry_count' => 0,
-        ]);
-
-        Log::info('GET_USERINFO command queued', [
-            'device_id' => $device->id,
-            'device_serial' => $device->serial_number,
-            'command_id' => $command->id,
-        ]);
-
-        return response()->json([
-            'message' => 'GET_USERINFO command queued',
-            'status' => 'queued',
-            'command_id' => $command->id,
-            'device' => $device->name,
-        ]);
-    }
-
-    /**
-     * Get users from device (from database - users enrolled from device)
-     */
-    public function getDeviceUsers(Request $request, $deviceId)
-    {
-        $device = BiometricDevice::find($deviceId);
-
-        if (! $device) {
-            return response()->json(['message' => 'Device not found'], 404);
-        }
-
-        $users = DB::table('biometric_device_users')
-            ->where('biometric_device_id', $device->id)
-            ->leftJoin('users', 'biometric_device_users.user_id', '=', 'users.id')
-            ->select([
-                'biometric_device_users.id',
-                'biometric_device_users.device_user_id',
-                'biometric_device_users.user_id',
-                'biometric_device_users.is_active',
-                'users.name as user_name',
-                'users.email as user_email',
-                'biometric_device_users.created_at',
-            ])
-            ->get();
-
-        return response()->json([
-            'users' => $users,
-            'total' => count($users),
-        ]);
     }
 
     /**

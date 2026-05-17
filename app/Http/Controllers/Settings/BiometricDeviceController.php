@@ -550,7 +550,6 @@ class BiometricDeviceController extends Controller
                 'device_name' => $devices[$log->biometric_device_id] ?? 'Unknown',
                 'serial_number' => $log->serial_number,
                 'user_pin' => $log->user_pin,
-                'employee_id' => $log->employee_id,
                 'user_id' => $log->user_id,
                 'user_name' => $log->user_id ? ($users[$log->user_id] ?? 'Unknown') : 'Unlinked',
                 'punch_time' => $log->punch_time,
@@ -567,39 +566,6 @@ class BiometricDeviceController extends Controller
             'per_page' => $logs->perPage(),
             'total' => $logs->total(),
         ]);
-    }
-
-    /**
-     * Bulk sync users to multiple devices
-     */
-    public function bulkSyncUsers(Request $request)
-    {
-        $request->validate([
-            'device_ids' => 'required|array',
-            'device_ids.*' => 'exists:biometric_devices,id',
-        ]);
-
-        try {
-            $deviceIds = $request->input('device_ids');
-            $count = 0;
-
-            foreach ($deviceIds as $deviceId) {
-                dispatch(new \App\Jobs\SyncUsersToDeviceJob($deviceId));
-                $count++;
-            }
-
-            return response()->json([
-                'message' => "Sync job queued for {$count} device(s).",
-                'count' => $count,
-            ]);
-        } catch (\Exception $e) {
-            report($e);
-
-            return response()->json([
-                'error' => 'Failed to queue sync jobs.',
-                'message' => $e->getMessage(),
-            ], 500);
-        }
     }
 
     /**

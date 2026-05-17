@@ -37,14 +37,6 @@ Route::middleware(['web', 'auth'])->prefix('biometric-devices')->group(function 
         ->name('api.biometric-devices.commands.queue');
     Route::get('/{deviceId}/commands', [BiometricWebhookController::class, 'getCommands'])
         ->name('api.biometric-devices.commands.index');
-    Route::post('/{deviceId}/sync-users', [BiometricWebhookController::class, 'syncUsersToDevice'])
-        ->name('api.biometric-devices.sync-users');
-    Route::get('/{deviceId}/sync-status', [BiometricWebhookController::class, 'getSyncStatus'])
-        ->name('api.biometric-devices.sync-status');
-    Route::post('/{deviceId}/request-users', [BiometricWebhookController::class, 'requestUsersFromDevice'])
-        ->name('api.biometric-devices.request-users');
-    Route::get('/{deviceId}/users', [BiometricWebhookController::class, 'getDeviceUsers'])
-        ->name('api.biometric-devices.users.index');
     Route::get('/{deviceId}/logs', [BiometricWebhookController::class, 'getLogs'])
         ->name('api.biometric-devices.logs.index');
     Route::get('/logs', [BiometricWebhookController::class, 'getLogs'])

@@ -18,7 +18,6 @@ import {
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
-import DeviceUsersModal from '@/Components/DeviceUsersModal';
 
 const EMPTY_DEVICE = {
     name: '', serial_number: '', ip_address: '', location: '',
@@ -33,8 +32,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [saving, setSaving]           = useState(false);
     const [pinging, setPinging]         = useState(null);
     const [tokenDialog, setTokenDialog] = useState({ open: false, device: null, token: '' });
-    const [usersModalOpen, setUsersModalOpen] = useState(false);
-    const [selectedDevice, setSelectedDevice] = useState(null);
 
     // Bulk selection state
     const [selectedIds, setSelectedIds] = useState([]);
@@ -116,11 +113,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         } catch { showToast.error('Failed.'); }
     };
 
-    const openUsersModal = (device) => {
-        setSelectedDevice(device);
-        setUsersModalOpen(true);
-    };
-
     /* ── bulk selection handlers ── */
     const toggleSelect = (id) => {
         setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
@@ -135,21 +127,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     };
 
     const clearSelection = () => setSelectedIds([]);
-
-    const handleBulkSync = async () => {
-        setBulkLoading(true);
-        try {
-            const { data } = await axios.post(route('biometric-devices.bulk.sync'), {
-                device_ids: selectedIds,
-            });
-            showToast.success(data.message);
-            clearSelection();
-        } catch (e) {
-            showToast.error(e.response?.data?.message || 'Failed to queue sync jobs.');
-        } finally {
-            setBulkLoading(false);
-        }
-    };
 
     const handleBulkPing = async () => {
         setBulkLoading(true);
@@ -262,42 +239,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         }
     };
 
-    const syncUsersToDevice = async () => {
-        if (!commandDevice) return;
-        setSendingCommand(true);
-        try {
-            const { data } = await axios.post(
-                route('api.biometric-devices.sync-users', commandDevice.id),
-            );
-            showToast.success(`Sync job queued for ${data.device}.`);
-            setTimeout(async () => {
-                const { data: historyData } = await axios.get(
-                    route('api.biometric-devices.commands.index', commandDevice.id),
-                );
-                setCommandHistory(historyData.commands ?? []);
-            }, 2000);
-        } catch (err) {
-            showToast.error(err.response?.data?.message ?? 'Failed to queue sync job.');
-        } finally {
-            setSendingCommand(false);
-        }
-    };
-
-    const refreshCommandHistory = async () => {
-        if (!commandDevice) return;
-        setLoadingCommands(true);
-        try {
-            const { data } = await axios.get(
-                route('api.biometric-devices.commands.index', commandDevice.id),
-            );
-            setCommandHistory(data.commands ?? []);
-        } catch {
-            showToast.error('Failed to reload commands.');
-        } finally {
-            setLoadingCommands(false);
-        }
-    };
-
     const copy = t => navigator.clipboard.writeText(t).then(() => showToast.success('Copied!'));
 
     return (
@@ -315,9 +256,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                             <Text size="2" weight="medium">{selectedIds.length} device(s) selected</Text>
                         </Flex>
                         <Flex gap="2">
-                            <Button size="2" variant="soft" color="green" disabled={bulkLoading} onClick={handleBulkSync}>
-                                {bulkLoading ? <Spinner size="1" /> : 'Sync Users'}
-                            </Button>
                             <Button size="2" variant="soft" color="indigo" disabled={bulkLoading} onClick={handleBulkPing}>
                                 {bulkLoading ? <Spinner size="1" /> : 'Ping'}
                             </Button>
@@ -353,7 +291,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                 <Table.ColumnHeaderCell>Serial</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>IP / Location</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Protocol</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Users</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Last Ping</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Actions</Table.ColumnHeaderCell>
@@ -382,16 +319,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                         <Badge color={d.protocol === 'adms' ? 'green' : 'blue'} variant="soft" size="1">
                                             {d.protocol === 'adms' ? 'ADMS' : 'Push SDK'}
                                         </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Button
-                                            variant="soft"
-                                            color="accent"
-                                            size="1"
-                                            onClick={() => openUsersModal(d)}
-                                        >
-                                            {d.users_count ?? 0} users
-                                        </Button>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <Text size="1" color="gray">{d.last_ping ? new Date(d.last_ping).toLocaleString() : 'Never'}</Text>
@@ -714,14 +641,6 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                     </Flex>
                 </Dialog.Content>
             </Dialog.Root>
-
-            {/* Device Users Modal */}
-            <DeviceUsersModal
-                open={usersModalOpen}
-                onOpenChange={setUsersModalOpen}
-                device={selectedDevice}
-                employees={employees}
-            />
 
             {/* Bulk Delete Dialog */}
             <Dialog.Root open={bulkDeleteDialog} onOpenChange={setBulkDeleteDialog}>
@@ -1240,7 +1159,7 @@ function AttLogTab({ isMobile }) {
                                         <Text size="1">{log.device_name || 'Unknown'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1" color="gray">{log.employee_id || log.user_pin || '—'}</Text>
+                                        <Text size="1" color="gray">{log.user_pin || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <Text weight="medium" size="2">{log.user_name}</Text>
@@ -1694,9 +1613,6 @@ export default function BiometricPanel({
                 </Badge>
                 <Badge size="2" variant="soft" color="blue"   radius="full">
                     <Text weight="bold">{devices.filter(d => d.is_online).length}</Text> <Text style={{ opacity: 0.7 }}>Online</Text>
-                </Badge>
-                <Badge size="2" variant="soft" color="violet" radius="full">
-                    <Text weight="bold">{devices.reduce((acc, d) => acc + (d.users_count ?? 0), 0)}</Text> <Text style={{ opacity: 0.7 }}>Enrolled</Text>
                 </Badge>
             </Flex>
 
