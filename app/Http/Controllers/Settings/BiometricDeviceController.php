@@ -369,6 +369,11 @@ class BiometricDeviceController extends Controller
                 $healthScore -= 20;
             }
             
+            // Deduct points for inactive device
+            if (!$device->is_active) {
+                $healthScore -= 10;
+            }
+            
             // Ensure score is between 0 and 100
             $healthScore = max(0, min(100, $healthScore));
             
@@ -389,6 +394,7 @@ class BiometricDeviceController extends Controller
                 'serial_number' => $device->serial_number,
                 'ip_address' => $device->ip_address,
                 'is_online' => $isOnline,
+                'is_active' => $device->is_active,
                 'last_heartbeat' => $lastHeartbeat ? $lastHeartbeat->toISOString() : null,
                 'latency' => $latency,
                 'uptime_days' => $uptimeDays,
@@ -459,6 +465,100 @@ class BiometricDeviceController extends Controller
             'total' => count($logs),
             'current_page' => 1,
             'per_page' => $limit,
+        ]);
+    }
+
+    /**
+     * Get OPERLOG entries from database
+     */
+    public function getOperLogs(Request $request)
+    {
+        $request->validate([
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'device_id' => 'nullable|exists:biometric_devices,id',
+        ]);
+
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 50);
+        $deviceId = $request->input('device_id');
+
+        $query = DB::table('biometric_oper_logs')
+            ->orderBy('occurred_at', 'desc');
+
+        if ($deviceId) {
+            $query->where('biometric_device_id', $deviceId);
+        }
+
+        $logs = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'logs' => $logs->items(),
+            'current_page' => $logs->currentPage(),
+            'per_page' => $logs->perPage(),
+            'total' => $logs->total(),
+        ]);
+    }
+
+    /**
+     * Get ATTLOG entries (attendance logs from biometric devices)
+     */
+    public function getAttLogs(Request $request)
+    {
+        $request->validate([
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'device_id' => 'nullable|exists:biometric_devices,id',
+            'user_id' => 'nullable|exists:users,id',
+        ]);
+
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 50);
+        $deviceId = $request->input('device_id');
+        $userId = $request->input('user_id');
+
+        $query = DB::table('attendances')
+            ->where('source', 'biometric')
+            ->orderBy('punch_time', 'desc');
+
+        if ($deviceId) {
+            // Filter by device through user mapping
+            $userIds = DB::table('biometric_device_users')
+                ->where('biometric_device_id', $deviceId)
+                ->whereNotNull('user_id')
+                ->pluck('user_id')
+                ->toArray();
+            $query->whereIn('user_id', $userIds);
+        }
+
+        if ($userId) {
+            $query->where('user_id', $userId);
+        }
+
+        $logs = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Load user information
+        $userIds = collect($logs->items())->pluck('user_id')->unique()->toArray();
+        $users = User::whereIn('id', $userIds)->pluck('name', 'id')->toArray();
+
+        $logsWithUsers = collect($logs->items())->map(function ($log) use ($users) {
+            return [
+                'id' => $log->id,
+                'user_id' => $log->user_id,
+                'user_name' => $users[$log->user_id] ?? 'Unknown',
+                'punch_time' => $log->punch_time,
+                'punch_in' => $log->punch_in,
+                'punch_out' => $log->punch_out,
+                'source' => $log->source,
+                'created_at' => $log->created_at,
+            ];
+        })->toArray();
+
+        return response()->json([
+            'logs' => $logsWithUsers,
+            'current_page' => $logs->currentPage(),
+            'per_page' => $logs->perPage(),
+            'total' => $logs->total(),
         ]);
     }
 

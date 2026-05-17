@@ -289,12 +289,16 @@ class BiometricWebhookController extends Controller
             return $this->handleUserEnrollment($rawData, $table, $request);
         }
 
-        // OPERLOG = device operation log (door events, admin actions) — acknowledge and ignore
+        // OPERLOG = device operation log (door events, admin actions) — store for audit trail
         if ($table === 'OPERLOG') {
-            Log::info('ADMS push: OPERLOG received (acknowledged, not stored)', [
+            Log::info('ADMS push: OPERLOG received', [
                 'sn' => $this->getSerialNumber($request),
                 'size' => strlen($rawData),
             ]);
+
+            // Store OPERLOG entries for audit trail
+            $this->storeOperLog($rawData, $request);
+
             return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
         }
 
@@ -334,6 +338,49 @@ class BiometricWebhookController extends Controller
 
         // Default: Handle Attendance Logs
         return $this->processAttendanceLogs($rawData, $request);
+    }
+
+    /**
+     * Store OPERLOG entries for audit trail
+     */
+    protected function storeOperLog($rawData, $request)
+    {
+        $serialNumber = $this->getSerialNumber($request);
+        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
+
+        $lines = explode("\n", trim($rawData));
+        
+        foreach ($lines as $line) {
+            if (empty(trim($line))) {
+                continue;
+            }
+
+            // Parse OPERLOG format
+            // Format: PIN=42\tDateTime=2026-05-12 18:30:05\tOperation=Door\tResult=Success
+            $data = [];
+            if (preg_match_all('/([^=\t\n]+)=([^\t\n]*)/', $line, $matches)) {
+                $data = array_combine($matches[1], $matches[2]);
+            }
+
+            DB::table('biometric_oper_logs')->insert([
+                'biometric_device_id' => $device ? $device->id : null,
+                'serial_number' => $serialNumber,
+                'raw_data' => $line,
+                'operation_type' => $data['Operation'] ?? $data['operation'] ?? null,
+                'user_pin' => $data['PIN'] ?? $data['pin'] ?? null,
+                'context' => json_encode($data),
+                'occurred_at' => isset($data['DateTime']) || isset($data['dateTime']) 
+                    ? $data['DateTime'] ?? $data['dateTime'] 
+                    : now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        Log::info('ADMS push: OPERLOG stored', [
+            'serial' => $serialNumber,
+            'entries_count' => count($lines),
+        ]);
     }
 
     /**
@@ -574,6 +621,13 @@ class BiometricWebhookController extends Controller
         // Update heartbeat
         $device->update(['last_heartbeat_at' => now()]);
 
+        // Log the raw data for debugging
+        Log::info('ADMS push: raw ATTLOG data', [
+            'serial' => $serialNumber,
+            'raw_data' => $rawData,
+            'data_length' => strlen($rawData),
+        ]);
+
         // Parse the attendance data using robust regex
         // Format: Multiple lines, each line: USERID=xxx\tCHECKTIME=xxx\tCHECKTYPE=I/O\tVERIFYCODE=x\tSENSORID=x
         $lines = explode("\n", trim($rawData));
@@ -592,6 +646,12 @@ class BiometricWebhookController extends Controller
                 $data = array_combine($matches[1], $matches[2]);
             }
 
+            Log::info('ADMS push: parsing ATTLOG line', [
+                'serial' => $serialNumber,
+                'line' => $line,
+                'parsed_data' => $data,
+            ]);
+
             $hasUserId = isset($data['USERID']) || isset($data['EnrollNumber']);
             $hasCheckTime = isset($data['CHECKTIME']) || isset($data['CheckTime']);
             
@@ -599,6 +659,13 @@ class BiometricWebhookController extends Controller
             if (! $hasUserId || ! $hasCheckTime) {
                 // Silently skip non-ATTLOG lines to reduce log noise
                 $errorCount++;
+                Log::warning('ADMS push: line does not match ATTLOG format', [
+                    'serial' => $serialNumber,
+                    'line' => $line,
+                    'parsed_data' => $data,
+                    'has_user_id' => $hasUserId,
+                    'has_check_time' => $hasCheckTime,
+                ]);
                 continue;
             }
 

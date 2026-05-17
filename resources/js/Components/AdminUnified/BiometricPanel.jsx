@@ -885,6 +885,425 @@ function LogsTab({ isMobile }) {
     );
 }
 
+/* ── Heartbeat sub-tab ── */
+function HeartbeatTab({ isMobile }) {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
+
+    const load = useCallback(async (page = 1) => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('biometric-devices.logs'), {
+                params: { page, per_page: pagination.per_page }
+            });
+            setLogs(data.logs ?? []);
+            setPagination({
+                current_page: data.current_page || 1,
+                per_page: data.per_page || 50,
+                total: data.total || 0,
+            });
+        } catch { showToast.error('Failed to load heartbeat logs.'); }
+        finally { setLoading(false); }
+    }, [pagination.per_page]);
+
+    useEffect(() => { load(1); }, [load]);
+
+    const filtered = useMemo(() =>
+        logs.filter(l => !search ||
+            l.message?.toLowerCase().includes(search.toLowerCase()) ||
+            l.type?.toLowerCase().includes(search.toLowerCase())),
+        [logs, search]);
+
+    const levelColor = l => ({ error: 'red', warning: 'amber', info: 'blue' }[l] ?? 'gray');
+
+    return (
+        <Box>
+            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
+                <TextField.Root placeholder="Search heartbeat logs…" size="2" style={{ maxWidth: 360, flex: 1 }}
+                    onChange={e => setSearch(e.target.value)}>
+                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                    {search && (
+                        <TextField.Slot side="right">
+                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
+                        </TextField.Slot>
+                    )}
+                </TextField.Root>
+                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
+                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+                </Button>
+            </Flex>
+
+            {loading ? (
+                <Flex justify="center" py="9"><Spinner size="3" /></Flex>
+            ) : filtered.length === 0 ? (
+                <Flex direction="column" align="center" justify="center" py="9" gap="2">
+                    <ActivityLogIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
+                    <Text size="3" weight="medium">{search ? 'No matching logs' : 'No heartbeat logs yet'}</Text>
+                </Flex>
+            ) : (
+                <Box style={{ overflowX: 'auto' }}>
+                    <Table.Root variant="surface">
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.ColumnHeaderCell style={{ width: 80 }}>Level</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Message</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell style={{ width: 160 }}>Time</Table.ColumnHeaderCell>
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {filtered.map(log => (
+                                <Table.Row key={log.id}>
+                                    <Table.Cell>
+                                        <Badge color={levelColor(log.level)} variant="soft" size="1">
+                                            {(log.level ?? 'info').toUpperCase()}
+                                        </Badge>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{log.message}</Text>
+                                        {log.context && Object.keys(log.context).length > 0 && (
+                                            <Code size="1" style={{ display: 'block', marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                                {JSON.stringify(log.context, null, 2)}
+                                            </Code>
+                                        )}
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{new Date(log.created_at).toLocaleString()}</Text>
+                                    </Table.Cell>
+                                </Table.Row>
+                            ))}
+                        </Table.Body>
+                    </Table.Root>
+                </Box>
+            )}
+
+            {/* Pagination */}
+            {pagination.total > 0 && (
+                <Flex justify="end" align="center" gap="2" mt="4">
+                    <Text size="1" color="gray">
+                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(1)}
+                    >
+                        «
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(pagination.current_page - 1)}
+                    >
+                        ‹
+                    </Button>
+                    <Text size="1" color="gray" px="2">
+                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(pagination.current_page + 1)}
+                    >
+                        ›
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
+                    >
+                        »
+                    </Button>
+                </Flex>
+            )}
+        </Box>
+    );
+}
+
+/* ── OPERLOG sub-tab ── */
+function OperLogTab({ isMobile }) {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
+
+    const load = useCallback(async (page = 1) => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('biometric-devices.operlogs'), {
+                params: { page, per_page: pagination.per_page }
+            });
+            setLogs(data.logs ?? []);
+            setPagination({
+                current_page: data.current_page || 1,
+                per_page: data.per_page || 50,
+                total: data.total || 0,
+            });
+        } catch { showToast.error('Failed to load OPERLOG entries.'); }
+        finally { setLoading(false); }
+    }, [pagination.per_page]);
+
+    useEffect(() => { load(1); }, [load]);
+
+    const filtered = useMemo(() =>
+        logs.filter(l => !search ||
+            l.operation_type?.toLowerCase().includes(search.toLowerCase()) ||
+            l.user_pin?.toLowerCase().includes(search.toLowerCase())),
+        [logs, search]);
+
+    return (
+        <Box>
+            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
+                <TextField.Root placeholder="Search OPERLOG…" size="2" style={{ maxWidth: 360, flex: 1 }}
+                    onChange={e => setSearch(e.target.value)}>
+                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                    {search && (
+                        <TextField.Slot side="right">
+                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
+                        </TextField.Slot>
+                    )}
+                </TextField.Root>
+                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
+                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+                </Button>
+            </Flex>
+
+            {loading ? (
+                <Flex justify="center" py="9"><Spinner size="3" /></Flex>
+            ) : filtered.length === 0 ? (
+                <Flex direction="column" align="center" justify="center" py="9" gap="2">
+                    <LockClosedIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
+                    <Text size="3" weight="medium">{search ? 'No matching logs' : 'No OPERLOG entries yet'}</Text>
+                </Flex>
+            ) : (
+                <Box style={{ overflowX: 'auto' }}>
+                    <Table.Root variant="surface">
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.ColumnHeaderCell>Operation</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>User PIN</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Serial</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Occurred At</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Details</Table.ColumnHeaderCell>
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {filtered.map(log => (
+                                <Table.Row key={log.id}>
+                                    <Table.Cell>
+                                        <Badge color="blue" variant="soft" size="1">
+                                            {log.operation_type || 'Unknown'}
+                                        </Badge>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{log.user_pin || '—'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{log.serial_number}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{log.occurred_at ? new Date(log.occurred_at).toLocaleString() : '—'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{log.raw_data}</Text>
+                                    </Table.Cell>
+                                </Table.Row>
+                            ))}
+                        </Table.Body>
+                    </Table.Root>
+                </Box>
+            )}
+
+            {/* Pagination */}
+            {pagination.total > 0 && (
+                <Flex justify="end" align="center" gap="2" mt="4">
+                    <Text size="1" color="gray">
+                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(1)}
+                    >
+                        «
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(pagination.current_page - 1)}
+                    >
+                        ‹
+                    </Button>
+                    <Text size="1" color="gray" px="2">
+                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(pagination.current_page + 1)}
+                    >
+                        ›
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
+                    >
+                        »
+                    </Button>
+                </Flex>
+            )}
+        </Box>
+    );
+}
+
+/* ── ATTLOG sub-tab ── */
+function AttLogTab({ isMobile }) {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
+
+    const load = useCallback(async (page = 1) => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('biometric-devices.attlogs'), {
+                params: { page, per_page: pagination.per_page }
+            });
+            setLogs(data.logs ?? []);
+            setPagination({
+                current_page: data.current_page || 1,
+                per_page: data.per_page || 50,
+                total: data.total || 0,
+            });
+        } catch { showToast.error('Failed to load ATTLOG entries.'); }
+        finally { setLoading(false); }
+    }, [pagination.per_page]);
+
+    useEffect(() => { load(1); }, [load]);
+
+    const filtered = useMemo(() =>
+        logs.filter(l => !search ||
+            l.user_name?.toLowerCase().includes(search.toLowerCase())),
+        [logs, search]);
+
+    return (
+        <Box>
+            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
+                <TextField.Root placeholder="Search by user name…" size="2" style={{ maxWidth: 360, flex: 1 }}
+                    onChange={e => setSearch(e.target.value)}>
+                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                    {search && (
+                        <TextField.Slot side="right">
+                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
+                        </TextField.Slot>
+                    )}
+                </TextField.Root>
+                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
+                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+                </Button>
+            </Flex>
+
+            {loading ? (
+                <Flex justify="center" py="9"><Spinner size="3" /></Flex>
+            ) : filtered.length === 0 ? (
+                <Flex direction="column" align="center" justify="center" py="9" gap="2">
+                    <EnvelopeClosedIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
+                    <Text size="3" weight="medium">{search ? 'No matching logs' : 'No ATTLOG entries yet'}</Text>
+                </Flex>
+            ) : (
+                <Box style={{ overflowX: 'auto' }}>
+                    <Table.Root variant="surface">
+                        <Table.Header>
+                            <Table.Row>
+                                <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Punch Time</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Punch In</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Punch Out</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Source</Table.ColumnHeaderCell>
+                            </Table.Row>
+                        </Table.Header>
+                        <Table.Body>
+                            {filtered.map(log => (
+                                <Table.Row key={log.id}>
+                                    <Table.Cell>
+                                        <Text weight="medium" size="2">{log.user_name}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{log.punch_time ? new Date(log.punch_time).toLocaleString() : '—'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{log.punch_in ? new Date(log.punch_in).toLocaleString() : '—'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{log.punch_out ? new Date(log.punch_out).toLocaleString() : '—'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Badge color="green" variant="soft" size="1">{log.source}</Badge>
+                                    </Table.Cell>
+                                </Table.Row>
+                            ))}
+                        </Table.Body>
+                    </Table.Root>
+                </Box>
+            )}
+
+            {/* Pagination */}
+            {pagination.total > 0 && (
+                <Flex justify="end" align="center" gap="2" mt="4">
+                    <Text size="1" color="gray">
+                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(1)}
+                    >
+                        «
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page === 1}
+                        onClick={() => load(pagination.current_page - 1)}
+                    >
+                        ‹
+                    </Button>
+                    <Text size="1" color="gray" px="2">
+                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
+                    </Text>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(pagination.current_page + 1)}
+                    >
+                        ›
+                    </Button>
+                    <Button
+                        size="1"
+                        variant="soft"
+                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
+                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
+                    >
+                        »
+                    </Button>
+                </Flex>
+            )}
+        </Box>
+    );
+}
+
 /* ── Webhook sub-tab ── */
 function WebhookTab() {
     const webhookUrl = `${window.location.origin}/api/biometric/webhook`;
@@ -1283,8 +1702,14 @@ export default function BiometricPanel({
                     <Tabs.Trigger value="health">
                         <Flex align="center" gap="2"><HeartIcon /> Device Health</Flex>
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="logs">
-                        <Flex align="center" gap="2"><ActivityLogIcon /> ADMS Logs</Flex>
+                    <Tabs.Trigger value="heartbeat">
+                        <Flex align="center" gap="2"><ActivityLogIcon /> Heartbeat</Flex>
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="operlog">
+                        <Flex align="center" gap="2"><LockClosedIcon /> OPERLOG</Flex>
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="attlog">
+                        <Flex align="center" gap="2"><EnvelopeClosedIcon /> ATTLOG</Flex>
                     </Tabs.Trigger>
                     <Tabs.Trigger value="webhook">
                         <Flex align="center" gap="2"><Link2Icon /> Webhook Config</Flex>
@@ -1297,8 +1722,14 @@ export default function BiometricPanel({
                 <Tabs.Content value="health">
                     <HealthTab isMobile={isMobile} />
                 </Tabs.Content>
-                <Tabs.Content value="logs">
-                    <LogsTab isMobile={isMobile} />
+                <Tabs.Content value="heartbeat">
+                    <HeartbeatTab isMobile={isMobile} />
+                </Tabs.Content>
+                <Tabs.Content value="operlog">
+                    <OperLogTab isMobile={isMobile} />
+                </Tabs.Content>
+                <Tabs.Content value="attlog">
+                    <AttLogTab isMobile={isMobile} />
                 </Tabs.Content>
                 <Tabs.Content value="webhook">
                     <WebhookTab />

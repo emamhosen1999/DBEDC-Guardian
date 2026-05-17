@@ -486,6 +486,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/biometric-devices/{id}/ping', [BiometricDeviceController::class, 'pingDevice'])->name('biometric-devices.ping');
         Route::get('settings/biometric-devices/logs', [BiometricDeviceController::class, 'getAdmsLogs'])->name('biometric-devices.logs');
         Route::get('settings/biometric-devices/health', [BiometricDeviceController::class, 'getHealthMetrics'])->name('biometric-devices.health');
+        Route::get('settings/biometric-devices/operlogs', [BiometricDeviceController::class, 'getOperLogs'])->name('biometric-devices.operlogs');
+        Route::get('settings/biometric-devices/attlogs', [BiometricDeviceController::class, 'getAttLogs'])->name('biometric-devices.attlogs');
         
         // Bulk operations
         Route::post('settings/biometric-devices/bulk/sync', [BiometricDeviceController::class, 'bulkSyncUsers'])->name('biometric-devices.bulk.sync');
