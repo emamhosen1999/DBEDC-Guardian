@@ -483,7 +483,13 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                 <IconButton
                                     variant="ghost"
                                     size="1"
-                                    onClick={refreshCommandHistory}
+                                    onClick={() => {
+                                        setLoadingCommands(true);
+                                        axios.get(route('api.biometric-devices.commands.index', commandDevice.id))
+                                            .then(({ data }) => setCommandHistory(data.commands ?? []))
+                                            .catch(() => showToast.error('Failed to refresh command history.'))
+                                            .finally(() => setLoadingCommands(false));
+                                    }}
                                     disabled={loadingCommands}
                                     aria-label="Refresh command history"
                                 >
