@@ -374,7 +374,7 @@ class BiometricWebhookController extends Controller
      */
     protected function getOperLogName($code): string
     {
-        return match ($code) {
+        return match((string)$code) {
             '0' => 'Verify',
             '1' => 'Finger',
             '2' => 'Face',
@@ -479,7 +479,7 @@ class BiometricWebhookController extends Controller
                     'device_user_id' => $pin,
                     'error' => $e->getMessage(),
                 ]);
-                return response('ERROR', 500)->header('Content-Type' => 'text/plain');
+                return response('ERROR', 500)->header('Content-Type', 'text/plain');
             }
         }
 
