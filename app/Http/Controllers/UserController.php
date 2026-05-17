@@ -526,8 +526,9 @@ class UserController extends Controller
 
             $showDeleted = $request->boolean('showDeleted', false);
 
-            // Base query — soft-deleted users only when explicitly requested
-            $query = ($showDeleted ? User::withTrashed() : User::query())
+            // Always withTrashed — inactive users are soft-deleted by design.
+            // showDeleted additionally surfaces explicitly-deleted users in the UI.
+            $query = User::withTrashed()
                 ->with(['department', 'designation', 'roles', 'currentDevice', 'reportsTo']);
 
             // Filters
@@ -544,7 +545,17 @@ class UserController extends Controller
             }
 
             if ($status && $status !== 'all') {
-                $query->where('active', $status === 'active' ? 1 : 0);
+                if ($status === 'active') {
+                    $query->where('active', 1)->whereNull('deleted_at');
+                } elseif ($status === 'inactive') {
+                    $query->where('active', 0);
+                }
+            } elseif (! $showDeleted) {
+                // Default (no status filter, showDeleted off): hide explicitly-deleted users
+                // but still show inactive (soft-deleted via deactivation, active=0)
+                $query->where(function ($q) {
+                    $q->whereNull('deleted_at')->orWhere('active', 0);
+                });
             }
 
             if ($department && $department !== 'all') {

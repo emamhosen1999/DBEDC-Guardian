@@ -64,8 +64,9 @@ export default function UsersPanel({
     const [roleSaving, setRoleSaving] = useState(false);
 
     const openRoleDialog = (user) => {
+        // Always key by name — reliable regardless of whether API returns role IDs
         const current = new Set(
-            (user.roles || []).map(r => String(typeof r === 'object' ? (r.id ?? r.name) : r))
+            (user.roles || []).map(r => (typeof r === 'object' ? r.name : r))
         );
         setRoleDialogSelected(current);
         setRoleDialogUser(user);
@@ -75,10 +76,7 @@ export default function UsersPanel({
         if (!roleDialogUser) return;
         setRoleSaving(true);
         try {
-            const roleNames = Array.from(roleDialogSelected).map(key => {
-                const found = roles.find(r => String(r.id) === key || (typeof r === 'object' ? r.name : r) === key);
-                return found ? (typeof found === 'object' ? found.name : found) : key;
-            });
+            const roleNames = Array.from(roleDialogSelected); // keys are already names
             await axios.post(route('users.updateRole', { id: roleDialogUser.id }), { roles: roleNames });
             updateUser(roleDialogUser.id, {
                 roles: roleNames.map(n => ({ name: n })),
@@ -489,7 +487,7 @@ export default function UsersPanel({
                             {users.map((user, idx) => {
                                 const serial   = startRow + idx;
                                 const userRoles = Array.isArray(user.roles)
-                                    ? user.roles.map(r => typeof r === 'object' ? r.name : r).filter(Boolean)
+                                    ? [...new Set(user.roles.map(r => typeof r === 'object' ? r.name : r).filter(Boolean))]
                                     : [];
                                 const isLocking = devAction[user.id];
 
@@ -701,8 +699,8 @@ export default function UsersPanel({
                     <Dialog.Description size="2" color="gray">Toggle roles on/off. Changes replace the current role set.</Dialog.Description>
                     <Flex direction="column" gap="2" mt="3">
                         {roles.map(r => {
-                            const key  = String(r.id ?? (typeof r === 'object' ? r.name : r));
                             const name = typeof r === 'object' ? r.name : r;
+                            const key  = name; // use name as key — consistent with openRoleDialog
                             const checked = roleDialogSelected.has(key);
                             return (
                                 <Flex key={key} align="center" gap="3"
