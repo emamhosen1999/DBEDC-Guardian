@@ -61,7 +61,7 @@ class UserController extends Controller
             'users'                  => User::with('roles')->get(),
 
             // Biometric panel
-            'devices'   => BiometricDevice::withCount('users')->get(),
+            'devices'   => BiometricDevice::all(),
             'employees' => User::select('id', 'name', 'employee_id')->get(),
             ]);
     }

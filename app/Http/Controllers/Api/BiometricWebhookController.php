@@ -713,10 +713,10 @@ class BiometricWebhookController extends Controller
                 continue;
             }
 
-            $user = User::find($mapping->user_id);
+            $user = User::find($resolvedUserId);
             if (! $user) {
                 $errorCount++;
-                Log::warning('ADMS push: system user not found', ['user_id' => $mapping->user_id]);
+                Log::warning('ADMS push: system user not found', ['user_id' => $resolvedUserId]);
                 continue;
             }
 

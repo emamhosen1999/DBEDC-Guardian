@@ -20,7 +20,6 @@ class BiometricDevice extends Model
         'is_active',
         'last_heartbeat_at',
         'notes',
-        'users_count',
     ];
 
     protected $casts = [
@@ -35,13 +34,6 @@ class BiometricDevice extends Model
                 $device->auth_token = Str::random(48);
             }
         });
-    }
-
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'biometric_device_users', 'biometric_device_id', 'user_id')
-            ->withPivot('device_user_id', 'is_active')
-            ->withTimestamps();
     }
 
     public function scopeActive($query)
