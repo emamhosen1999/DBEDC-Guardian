@@ -10,11 +10,11 @@ import {
     Switch, Table, Tabs, Text, TextField, Tooltip,
 } from '@radix-ui/themes';
 import {
-    ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, CopyIcon,
-    Cross2Icon, DesktopIcon, DotsVerticalIcon, EnvelopeClosedIcon,
-    Link2Icon, LockClosedIcon, LockOpen1Icon, MagnifyingGlassIcon,
-    MobileIcon, Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon,
-    HeartIcon, CheckIcon, CrossCircledIcon, ExclamationTriangleIcon,
+    ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, ChevronLeftIcon,
+    ChevronRightIcon, CopyIcon, Cross2Icon, DesktopIcon, DotsVerticalIcon,
+    EnvelopeClosedIcon, Link2Icon, LockClosedIcon, LockOpen1Icon,
+    MagnifyingGlassIcon, MobileIcon, Pencil1Icon, PlusIcon, ReloadIcon,
+    TrashIcon, HeartIcon, CheckIcon, CrossCircledIcon, ExclamationTriangleIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
@@ -1003,150 +1003,6 @@ function OperLogTab({ isMobile }) {
     );
 }
 
-/* ── ATTLOG sub-tab ── */
-function AttLogTab({ isMobile }) {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [search, setSearch] = useState('');
-    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
-
-    const load = useCallback(async (page = 1) => {
-        setLoading(true);
-        try {
-            const { data } = await axios.get(route('biometric-devices.attlogs'), {
-                params: { page, per_page: pagination.per_page }
-            });
-            setLogs(data.logs ?? []);
-            setPagination({
-                current_page: data.current_page || 1,
-                per_page: data.per_page || 50,
-                total: data.total || 0,
-            });
-        } catch { showToast.error('Failed to load ATTLOG entries.'); }
-        finally { setLoading(false); }
-    }, [pagination.per_page]);
-
-    useEffect(() => { load(1); }, [load]);
-
-    const filtered = useMemo(() =>
-        logs.filter(l => !search ||
-            l.user_name?.toLowerCase().includes(search.toLowerCase())),
-        [logs, search]);
-
-    return (
-        <Box>
-            <Flex direction={{ initial: 'column', sm: 'row' }} gap="3" align={{ initial: 'stretch', sm: 'center' }} justify="between" mb="4">
-                <TextField.Root placeholder="Search by user name…" size="2" style={{ maxWidth: 360, flex: 1 }}
-                    onChange={e => setSearch(e.target.value)}>
-                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                    {search && (
-                        <TextField.Slot side="right">
-                            <IconButton size="1" variant="ghost" color="gray" onClick={() => setSearch('')}><Cross2Icon /></IconButton>
-                        </TextField.Slot>
-                    )}
-                </TextField.Root>
-                <Button size="2" variant="soft" color="indigo" onClick={() => load(1)} disabled={loading}>
-                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
-                </Button>
-            </Flex>
-
-            {loading ? (
-                <Flex justify="center" py="9"><Spinner size="3" /></Flex>
-            ) : filtered.length === 0 ? (
-                <Flex direction="column" align="center" justify="center" py="9" gap="2">
-                    <EnvelopeClosedIcon style={{ width: 36, height: 36, color: 'var(--gray-9)' }} />
-                    <Text size="3" weight="medium">{search ? 'No matching logs' : 'No ATTLOG entries yet'}</Text>
-                </Flex>
-            ) : (
-                <Box style={{ overflowX: 'auto' }}>
-                    <Table.Root variant="surface">
-                        <Table.Header>
-                            <Table.Row>
-                                <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Employee ID</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>User Name</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Time</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
-                            </Table.Row>
-                        </Table.Header>
-                        <Table.Body>
-                            {filtered.map(log => (
-                                <Table.Row key={log.id}>
-                                    <Table.Cell>
-                                        <Text size="1">{log.device_name || 'Unknown'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="1" color="gray">{log.user_pin || '—'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text weight="medium" size="2">{log.user_name}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="1">{log.date || '—'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="1">{log.time || '—'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge color={log.check_type === 'in' ? 'green' : 'red'} variant="soft" size="1">
-                                            {log.check_type?.toUpperCase() || 'IN'}
-                                        </Badge>
-                                    </Table.Cell>
-                                </Table.Row>
-                            ))}
-                        </Table.Body>
-                    </Table.Root>
-                </Box>
-            )}
-
-            {/* Pagination */}
-            {pagination.total > 0 && (
-                <Flex justify="end" align="center" gap="2" mt="4">
-                    <Text size="1" color="gray">
-                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(1)}
-                    >
-                        «
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(pagination.current_page - 1)}
-                    >
-                        ‹
-                    </Button>
-                    <Text size="1" color="gray" px="2">
-                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(pagination.current_page + 1)}
-                    >
-                        ›
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
-                    >
-                        »
-                    </Button>
-                </Flex>
-            )}
-        </Box>
-    );
-}
-
 /* ── Webhook sub-tab ── */
 function WebhookTab() {
     const webhookUrl = `${window.location.origin}/api/biometric/webhook`;
@@ -1484,6 +1340,189 @@ function HealthTab({ isMobile }) {
                         </Table.Body>
                     </Table.Root>
                 </Box>
+            )}
+        </Box>
+    );
+}
+
+/* ── ATTLOG sub-tab ── */
+const STATUS_META = {
+    processed:    { color: 'green',  label: 'Processed' },
+    unknown_user: { color: 'orange', label: 'Unknown User' },
+    failed:       { color: 'red',    label: 'Failed' },
+    wrong_device: { color: 'red',    label: 'Wrong Device' },
+    duplicate:    { color: 'gray',   label: 'Duplicate' },
+};
+
+function AttLogTab({ isMobile }) {
+    const [logs,     setLogs]     = useState([]);
+    const [stats,    setStats]    = useState({ total: 0, processed: 0, unknown_user: 0, failed: 0 });
+    const [loading,  setLoading]  = useState(false);
+    const [search,   setSearch]   = useState('');
+    const [status,   setStatus]   = useState('all');
+    const [page,     setPage]     = useState(1);
+    const [total,    setTotal]    = useState(0);
+    const perPage = 25;
+    const debRef  = React.useRef(null);
+
+    const fetchLogs = React.useCallback(async (q = search, s = status, p = page) => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('biometric-devices.attlogs'), {
+                params: {
+                    search: q || undefined,
+                    status: s !== 'all' ? s : undefined,
+                    page: p,
+                    per_page: perPage,
+                },
+            });
+            const items = data.logs?.data ?? data.logs ?? [];
+            setLogs(items);
+            setTotal(data.logs?.total ?? items.length);
+            if (data.stats) setStats(data.stats);
+        } catch {
+            showToast.error('Failed to load att logs.');
+        } finally {
+            setLoading(false);
+        }
+    }, [search, status, page]);
+
+    React.useEffect(() => { fetchLogs(); }, []);
+
+    const triggerSearch = (val) => {
+        setSearch(val);
+        setPage(1);
+        clearTimeout(debRef.current);
+        debRef.current = setTimeout(() => fetchLogs(val, status, 1), 300);
+    };
+
+    const changeStatus = (val) => {
+        setStatus(val);
+        setPage(1);
+        fetchLogs(search, val, 1);
+    };
+
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+    return (
+        <Box>
+            {/* Stats */}
+            <Flex wrap="wrap" gap="2" mb="4">
+                <Badge size="2" variant="soft" color="blue"   radius="full"><Text weight="bold">{stats.total}</Text> <Text style={{ opacity: 0.7 }}>Total</Text></Badge>
+                <Badge size="2" variant="soft" color="green"  radius="full"><Text weight="bold">{stats.processed}</Text> <Text style={{ opacity: 0.7 }}>Processed</Text></Badge>
+                <Badge size="2" variant="soft" color="orange" radius="full"><Text weight="bold">{stats.unknown_user}</Text> <Text style={{ opacity: 0.7 }}>Unknown User</Text></Badge>
+                <Badge size="2" variant="soft" color="red"    radius="full"><Text weight="bold">{stats.failed}</Text> <Text style={{ opacity: 0.7 }}>Failed/Rejected</Text></Badge>
+                <Button size="1" variant="soft" color="gray" ml="auto" onClick={() => fetchLogs(search, status, page)}>
+                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+                </Button>
+            </Flex>
+
+            {/* Filters */}
+            <Flex gap="3" mb="3" wrap="wrap" align="center">
+                <TextField.Root placeholder="Search PIN or name…" size="2" style={{ maxWidth: 280 }}
+                    onChange={e => triggerSearch(e.target.value)}>
+                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                </TextField.Root>
+                <Select.Root size="2" value={status} onValueChange={changeStatus}>
+                    <Select.Trigger style={{ width: 160 }} />
+                    <Select.Content>
+                        <Select.Item value="all">All Status</Select.Item>
+                        <Select.Item value="processed">Processed</Select.Item>
+                        <Select.Item value="unknown_user">Unknown User</Select.Item>
+                        <Select.Item value="failed">Failed</Select.Item>
+                        <Select.Item value="wrong_device">Wrong Device</Select.Item>
+                        <Select.Item value="duplicate">Duplicate</Select.Item>
+                    </Select.Content>
+                </Select.Root>
+                {loading && <Spinner size="2" />}
+                <Text size="1" color="gray" ml="auto">{total} records</Text>
+            </Flex>
+
+            {/* Table */}
+            <Box style={{ overflowX: 'auto' }}>
+                <Table.Root variant="surface" size="1">
+                    <Table.Header>
+                        <Table.Row>
+                            <Table.ColumnHeaderCell>PIN</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Punch Time</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                            {!isMobile && <Table.ColumnHeaderCell>Reason</Table.ColumnHeaderCell>}
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {logs.map(log => {
+                            const meta = STATUS_META[log.punch_status] ?? { color: 'gray', label: log.punch_status };
+                            const isUnknown = log.punch_status === 'unknown_user';
+                            return (
+                                <Table.Row key={log.id} style={isUnknown ? { background: 'var(--orange-a2)' } : undefined}>
+                                    <Table.Cell>
+                                        <Code size="1" variant="soft">{log.user_pin}</Code>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        {log.user ? (
+                                            <Flex direction="column">
+                                                <Text size="1" weight="medium">{log.user.name}</Text>
+                                                {isUnknown && (
+                                                    <Badge size="1" color="orange" variant="soft" radius="full">Auto-created</Badge>
+                                                )}
+                                            </Flex>
+                                        ) : (
+                                            <Text size="1" color="gray">—</Text>
+                                        )}
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{log.device?.name ?? log.serial_number}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{log.punch_time ? new Date(log.punch_time).toLocaleString() : '—'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Badge size="1" variant="soft" color={log.check_type === 'out' ? 'red' : 'green'} radius="full">
+                                            {log.check_type?.toUpperCase() ?? 'IN'}
+                                        </Badge>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Badge size="1" variant="soft" color={meta.color} radius="full">{meta.label}</Badge>
+                                    </Table.Cell>
+                                    {!isMobile && (
+                                        <Table.Cell>
+                                            <Text size="1" color="gray" style={{ maxWidth: 260, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {log.punch_status_reason ?? '—'}
+                                            </Text>
+                                        </Table.Cell>
+                                    )}
+                                </Table.Row>
+                            );
+                        })}
+                        {!loading && logs.length === 0 && (
+                            <Table.Row>
+                                <Table.Cell colSpan={isMobile ? 6 : 7}>
+                                    <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
+                                        No att logs found.
+                                    </Text>
+                                </Table.Cell>
+                            </Table.Row>
+                        )}
+                    </Table.Body>
+                </Table.Root>
+            </Box>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <Flex align="center" justify="end" gap="2" mt="3">
+                    <IconButton size="1" variant="soft" disabled={page <= 1}
+                        onClick={() => { const p = page - 1; setPage(p); fetchLogs(search, status, p); }}>
+                        <ChevronLeftIcon />
+                    </IconButton>
+                    <Text size="1" color="gray">{page} / {totalPages}</Text>
+                    <IconButton size="1" variant="soft" disabled={page >= totalPages}
+                        onClick={() => { const p = page + 1; setPage(p); fetchLogs(search, status, p); }}>
+                        <ChevronRightIcon />
+                    </IconButton>
+                </Flex>
             )}
         </Box>
     );

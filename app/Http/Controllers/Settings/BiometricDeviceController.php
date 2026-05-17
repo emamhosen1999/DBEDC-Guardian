@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -367,62 +368,44 @@ class BiometricDeviceController extends Controller
      */
     public function getAttLogs(Request $request)
     {
-        $request->validate([
-            'page' => 'nullable|integer|min:1',
-            'per_page' => 'nullable|integer|min:1|max:100',
-            'device_id' => 'nullable|exists:biometric_devices,id',
-            'user_id' => 'nullable|exists:users,id',
-        ]);
-
-        $page = $request->input('page', 1);
-        $perPage = $request->input('per_page', 50);
+        $perPage  = (int) $request->input('per_page', 25);
+        $page     = (int) $request->input('page', 1);
+        $search   = $request->input('search');
+        $status   = $request->input('status');
         $deviceId = $request->input('device_id');
-        $userId = $request->input('user_id');
 
-        $query = DB::table('biometric_att_logs')
-            ->orderBy('punch_time', 'desc');
+        $query = BiometricAttLog::with([
+            'user:id,name,employee_id,profile_image',
+            'device:id,name,serial_number',
+        ])->orderByDesc('punch_time');
 
-        if ($deviceId) {
-            $query->where('biometric_device_id', $deviceId);
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('user_pin', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn ($u) => $u->withTrashed()
+                      ->where('name', 'like', "%{$search}%")
+                      ->orWhere('employee_id', 'like', "%{$search}%"));
+            });
         }
 
-        if ($userId) {
-            $query->where('user_id', $userId);
+        if ($status && $status !== 'all') {
+            $query->where('punch_status', $status);
+        }
+
+        if ($deviceId && $deviceId !== 'all') {
+            $query->where('biometric_device_id', $deviceId);
         }
 
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
 
-        $deviceIds = collect($logs->items())->pluck('biometric_device_id')->unique()->toArray();
-        $devices = BiometricDevice::whereIn('id', $deviceIds)->pluck('name', 'id')->toArray();
-
-        $userIds = collect($logs->items())->pluck('user_id')->unique()->toArray();
-        $users = User::whereIn('id', $userIds)->pluck('name', 'id')->toArray();
-
-        $logsWithDetails = collect($logs->items())->map(function ($log) use ($devices, $users) {
-            $punchTime = $log->punch_time ? new \DateTime($log->punch_time) : null;
-            return [
-                'id' => $log->id,
-                'device_id' => $log->biometric_device_id,
-                'device_name' => $devices[$log->biometric_device_id] ?? 'Unknown',
-                'serial_number' => $log->serial_number,
-                'user_pin' => $log->user_pin,
-                'user_id' => $log->user_id,
-                'user_name' => $log->user_id ? ($users[$log->user_id] ?? 'Unknown') : 'Unlinked',
-                'punch_time' => $log->punch_time,
-                'date' => $punchTime ? $punchTime->format('Y-m-d') : null,
-                'time' => $punchTime ? $punchTime->format('H:i:s') : null,
-                'check_type'          => $log->check_type,
-                'punch_status'        => $log->punch_status ?? 'processed',
-                'punch_status_reason' => $log->punch_status_reason ?? null,
-                'created_at'          => $log->created_at,
-            ];
-        })->toArray();
-
         return response()->json([
-            'logs' => $logsWithDetails,
-            'current_page' => $logs->currentPage(),
-            'per_page' => $logs->perPage(),
-            'total' => $logs->total(),
+            'logs'  => $logs,
+            'stats' => [
+                'total'        => BiometricAttLog::count(),
+                'processed'    => BiometricAttLog::where('punch_status', 'processed')->count(),
+                'unknown_user' => BiometricAttLog::where('punch_status', 'unknown_user')->count(),
+                'failed'       => BiometricAttLog::whereIn('punch_status', ['failed', 'wrong_device', 'duplicate'])->count(),
+            ],
         ]);
     }
 

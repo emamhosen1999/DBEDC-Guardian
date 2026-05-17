@@ -6,6 +6,7 @@ use App\Events\BiometricAttendanceReceived;
 use App\Events\BiometricDeviceConnected;
 use App\Http\Controllers\Controller;
 use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDeviceCommand;
 use App\Models\User;
@@ -50,13 +51,61 @@ class BiometricWebhookController extends Controller
         // 2. Update heartbeat
         $device->update(['last_heartbeat_at' => now()]);
 
-        // 3. Resolve user by matching PIN to employee_id
-        $user = User::where('employee_id', $deviceUserId)->first();
+        $resolvedPunchTime = $punchTime ? \Carbon\Carbon::parse($punchTime) : now();
+
+        // 3. Create an ATTLOG record immediately (every punch is stored, regardless of outcome)
+        $attLog = BiometricAttLog::create([
+            'biometric_device_id' => $device->id,
+            'serial_number'       => $serialNumber,
+            'user_pin'            => $deviceUserId,
+            'user_id'             => null,
+            'punch_time'          => $resolvedPunchTime,
+            'occurred_at'         => now(),
+            'check_type'          => $request->input('check_type', 'in'),
+            'verify_code'         => $request->input('verify_code'),
+            'work_code'           => $request->input('work_code'),
+            'raw_data'            => $request->getContent() ?: null,
+            'punch_status'        => 'failed',
+            'punch_status_reason' => 'Pending processing',
+        ]);
+
+        // 4. Resolve user by matching PIN to employee_id
+        $user = User::withTrashed()->where('employee_id', $deviceUserId)->first();
+
         if (! $user) {
-            return response()->json(['message' => 'User not found with employee_id: ' . $deviceUserId], 404);
+            // Auto-create as inactive placeholder so admin can link/activate later
+            $user = User::create([
+                'name'        => 'Device User ' . $deviceUserId,
+                'email'       => 'device_user_' . $deviceUserId . '@placeholder.local',
+                'password'    => bcrypt(\Illuminate\Support\Str::random(32)),
+                'employee_id' => $deviceUserId,
+                'active'      => false,
+            ]);
+            $user->delete(); // soft-delete = inactive
+
+            $attLog->update([
+                'user_id'             => $user->id,
+                'punch_status'        => 'unknown_user',
+                'punch_status_reason' => 'Auto-created as inactive placeholder. Assign attendance type to activate.',
+            ]);
+
+            Log::warning('Biometric webhook: unknown user auto-created', [
+                'employee_id'   => $deviceUserId,
+                'new_user_id'   => $user->id,
+                'device_serial' => $serialNumber,
+            ]);
+
+            return response()->json([
+                'message'  => 'User auto-created as inactive. Assign attendance type to enable punching.',
+                'user_id'  => $user->id,
+                'log_id'   => $attLog->id,
+            ], 202);
         }
 
-        // 4. Build a synthetic request for the punch service
+        // Link the log to the resolved user
+        $attLog->update(['user_id' => $user->id]);
+
+        // 5. Build a synthetic request for the punch service
         $syntheticRequest = Request::create('/biometric/punch', 'POST', [
             'device_serial'  => $serialNumber,
             'device_user_id' => $deviceUserId,
@@ -64,25 +113,82 @@ class BiometricWebhookController extends Controller
             'punch_time'     => $punchTime,
         ]);
 
-        // 5. Process through the existing punch service
+        // 6. Process through the existing punch service
         try {
             $punchService = new AttendancePunchService();
             $result = $punchService->processPunch($user, $syntheticRequest);
+
+            $status = $result['status'] === 'success' ? 'processed' : 'failed';
+            $attLog->update([
+                'punch_status'        => $status,
+                'punch_status_reason' => $result['message'] ?? null,
+            ]);
 
             Log::info('Biometric punch processed', [
                 'user_id'       => $user->id,
                 'device_serial' => $serialNumber,
                 'result_status' => $result['status'],
+                'log_id'        => $attLog->id,
             ]);
 
             return response()->json($result, $result['status'] === 'error' ? ($result['code'] ?? 422) : 200);
         } catch (\Exception $e) {
+            $attLog->update([
+                'punch_status'        => 'failed',
+                'punch_status_reason' => $e->getMessage(),
+            ]);
+
             Log::error('Biometric webhook punch error: ' . $e->getMessage(), [
                 'user_id'       => $user->id,
                 'device_serial' => $serialNumber,
+                'log_id'        => $attLog->id,
             ]);
+
             return response()->json(['message' => 'Failed to process punch.'], 500);
         }
+    }
+
+    /**
+     * Paginated ATTLOG list for admin UI.
+     */
+    public function attLogs(Request $request)
+    {
+        $perPage  = (int) $request->input('perPage', 25);
+        $page     = (int) $request->input('page', 1);
+        $search   = $request->input('search');
+        $status   = $request->input('status');
+        $deviceId = $request->input('device_id');
+
+        $query = BiometricAttLog::with(['user:id,name,employee_id,profile_image', 'device:id,name,serial_number'])
+            ->orderByDesc('punch_time');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('user_pin', 'like', "%{$search}%")
+                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")
+                      ->orWhere('employee_id', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($status && $status !== 'all') {
+            $query->where('punch_status', $status);
+        }
+
+        if ($deviceId && $deviceId !== 'all') {
+            $query->where('biometric_device_id', $deviceId);
+        }
+
+        $logs = $query->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'logs'  => $logs,
+            'stats' => [
+                'total'        => BiometricAttLog::count(),
+                'processed'    => BiometricAttLog::where('punch_status', 'processed')->count(),
+                'unknown_user' => BiometricAttLog::where('punch_status', 'unknown_user')->count(),
+                'failed'       => BiometricAttLog::whereIn('punch_status', ['failed', 'wrong_device', 'duplicate'])->count(),
+            ],
+        ]);
     }
 
     /**

@@ -253,6 +253,11 @@ class UserController extends Controller
                 'active' => $user->active,
                 'user' => new UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice'])),
             ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'User not found.',
+                'message' => 'The user no longer exists in the system.',
+            ], 404);
         } catch (\Exception $e) {
             report($e);
 

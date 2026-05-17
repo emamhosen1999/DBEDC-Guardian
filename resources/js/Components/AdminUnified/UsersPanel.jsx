@@ -159,9 +159,15 @@ export default function UsersPanel({
             // Sync with server response (may include deleted_at changes)
             if (data.user) updateUser(user.id, data.user);
             showToast.success('Status updated.');
-        } catch {
-            updateUser(user.id, { active: user.active }); // rollback
-            showToast.error('Failed to update status.');
+        } catch (e) {
+            if (e.response?.status === 404) {
+                // User no longer exists - remove from local state
+                setUsers(prev => prev.filter(u => u.id !== user.id));
+                showToast.error('User no longer exists in the system.');
+            } else {
+                updateUser(user.id, { active: user.active }); // rollback
+                showToast.error('Failed to update status.');
+            }
         }
     };
 
