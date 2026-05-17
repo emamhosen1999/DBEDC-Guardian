@@ -120,7 +120,15 @@ const EmployeeTable = ({
         try {
             await axios.post(route('users.updateAttendanceType', { id: userId }), { attendance_type_id: attendanceTypeId });
             const type = attendanceTypes.find(t => t.id === parseInt(attendanceTypeId)) || null;
-            updateEmployeeOptimized?.(userId, { attendance_type_id: attendanceTypeId, attendance_type_name: type?.name || null });
+            const devices = (type?.biometric_devices ?? []).map(d => ({
+                id: d.id, name: d.name, serial_number: d.serial_number, location: d.location,
+            }));
+            updateEmployeeOptimized?.(userId, {
+                attendance_type_id: attendanceTypeId,
+                attendance_type_name: type?.name || null,
+                attendance_type_devices: devices,
+                biometric_device_id: null,
+            });
             showToast.success('Attendance type updated');
         } catch {
             showToast.error('Failed to update attendance type');

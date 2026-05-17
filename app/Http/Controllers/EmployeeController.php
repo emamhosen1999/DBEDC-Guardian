@@ -26,7 +26,7 @@ class EmployeeController extends Controller
             'title' => 'Employee Management',
             'departments' => Department::where('is_active', true)->get(),
             'designations' => Designation::where('is_active', true)->get(),
-            'attendanceTypes' => AttendanceType::where('is_active', true)->get(),
+            'attendanceTypes' => AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->where('is_active', true)->get(),
         ]);
     }
 

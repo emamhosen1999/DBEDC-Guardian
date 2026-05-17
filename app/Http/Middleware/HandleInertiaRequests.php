@@ -41,7 +41,11 @@ class HandleInertiaRequests extends Middleware
         }
 
         $user = $request->user();
-        $userWithRelations = $user ? \App\Models\User::with(['designation', 'attendanceType'])->find($user->id) : null;
+        $userWithRelations = $user ? \App\Models\User::with([
+            'designation',
+            'attendanceType.biometricDevices:id,name',
+            'employeeAttendanceType.biometricDevice:id,name',
+        ])->find($user->id) : null;
 
         // Get company settings for global use
         $companySettings = CompanySetting::first();
@@ -58,6 +62,11 @@ class HandleInertiaRequests extends Middleware
                         'slug' => $userWithRelations->attendanceType->slug,
                         'config' => $userWithRelations->attendanceType->config ?? [],
                     ] : null,
+                    'attendance_type_devices' => $userWithRelations->attendanceType
+                        ?->biometricDevices
+                        ?->map(fn($d) => ['id' => $d->id, 'name' => $d->name])
+                        ->values()->toArray() ?? [],
+                    'biometric_device_name' => $userWithRelations->employeeAttendanceType?->biometricDevice?->name,
                 ] : null,
                 'isAuthenticated' => (bool) $user,
                 'sessionValid' => $user && $request->session()->isStarted(),

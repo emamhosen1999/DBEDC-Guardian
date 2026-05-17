@@ -212,13 +212,16 @@ const PunchStatusCard = React.memo(() => {
         return ['geo_polygon', 'route_waypoint'].includes(attendanceTypeBaseSlug);
     }, [attendanceTypeBaseSlug]);
 
-    // Check if the user's attendance type has biometric devices assigned
-    const hasBiometricDevice = useMemo(() => {
-        return Boolean(user?.attendance_type_devices?.length > 0);
-    }, [user?.attendance_type_devices]);
+    // Biometric users always punch via device — disable web punch
+    const isBiometricUser = requiresBiometric;
 
-    // Biometric users should not punch via web interface
-    const isBiometricUser = requiresBiometric && hasBiometricDevice;
+    // Specific device assigned to this employee, or fall back to pool names
+    const assignedDeviceName = useMemo(() => {
+        if (user?.biometric_device_name) return user.biometric_device_name;
+        const pool = user?.attendance_type_devices ?? [];
+        if (pool.length > 0) return pool.map(d => d.name).join(', ');
+        return null;
+    }, [user?.biometric_device_name, user?.attendance_type_devices]);
 
     // ===== LOCATION MANAGEMENT - SIMPLIFIED =====
 
@@ -1152,7 +1155,7 @@ const PunchStatusCard = React.memo(() => {
                         style={{ width: '100%', marginBottom: 'var(--space-3)' }}
                     >
                         {isBiometricUser
-                            ? <Flex align="center" gap="2"><LockClosedIcon /> Use Biometric Device</Flex>
+                            ? <Flex align="center" gap="2"><LockClosedIcon />{assignedDeviceName ? `Use ${assignedDeviceName}` : 'Use Biometric Device'}</Flex>
                             : attendanceState.loading
                             ? <Flex align="center" gap="2"><Spinner size="1" /> Processing...</Flex>
                             : <Flex align="center" gap="2">{statusConfig.icon} {statusConfig.action}</Flex>
@@ -1165,19 +1168,29 @@ const PunchStatusCard = React.memo(() => {
                             <Flex align="center" gap="3" p="3">
                                 <Flex align="center" justify="center" style={{
                                     width: 40, height: 40, borderRadius: '50%',
-                                    background: 'var(--accent-9)', color: 'white'
+                                    background: 'var(--accent-9)', color: 'white',
+                                    flexShrink: 0,
                                 }}>
-                                    <LockClosedIcon style={{ width: 20, height: 20 }} />
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" />
+                                        <path d="M14 13.12c0 2.38 0 6.38-1 8.88" />
+                                        <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" />
+                                        <path d="M2 12a10 10 0 0 1 18-6" />
+                                        <path d="M2 17c1 .5 2.31.86 3 1" />
+                                        <path d="M22 6c0 3.37-.85 6.37-2.3 9" />
+                                        <path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" />
+                                        <path d="M8.65 22c.21-.66.45-1.32.57-2" />
+                                        <path d="M9 6.8a6 6 0 0 1 9 5.2v2" />
+                                    </svg>
                                 </Flex>
                                 <Box flex={1}>
                                     <Text size="2" weight="medium" style={{ display: 'block', color: 'var(--accent-11)' }}>
-                                        Biometric Device Assigned
-                                    </Text>
-                                    <Text size="1" color="gray" style={{ display: 'block' }}>
-                                        {user?.attendance_type_devices?.map(d => d.name).join(', ')}
+                                        {assignedDeviceName ?? 'Biometric Device'}
                                     </Text>
                                     <Text size="1" color="gray" style={{ display: 'block', marginTop: 2 }}>
-                                        Please use your assigned device to punch in/out
+                                        {assignedDeviceName
+                                            ? 'Use this device to punch in/out'
+                                            : 'No device assigned yet — contact HR'}
                                     </Text>
                                 </Box>
                             </Flex>
@@ -1202,9 +1215,12 @@ const PunchStatusCard = React.memo(() => {
                     {/* Validation Badges */}
                     <Flex justify="center" gap="2" mb={{ initial: '3', md: '4' }} wrap="wrap">
                         {isBiometricUser && (
-                            <Tooltip content={`Biometric device(s): ${user?.attendance_type_devices?.map(d => d.name).join(', ')}`}>
+                            <Tooltip content={assignedDeviceName ? `Assigned device: ${assignedDeviceName}` : 'No biometric device assigned yet'}>
                                 <Badge color="blue" variant="soft" size="1">
-                                    <Flex align="center" gap="1"><LockClosedIcon /> Biometric</Flex>
+                                    <Flex align="center" gap="1">
+                                        <LockClosedIcon />
+                                        {assignedDeviceName ?? 'Biometric — No device'}
+                                    </Flex>
                                 </Badge>
                             </Tooltip>
                         )}
