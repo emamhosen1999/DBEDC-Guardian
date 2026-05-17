@@ -344,7 +344,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                         <Table.Header>
                             <Table.Row>
                                 <Table.ColumnHeaderCell style={{ width: 40 }}>
-                                    <Checkbox.Root
+                                    <Checkbox
                                         checked={selectedIds.length === devices.length && devices.length > 0}
                                         onCheckedChange={toggleSelectAll}
                                     />
@@ -363,7 +363,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                             {devices.map(d => (
                                 <Table.Row key={d.id}>
                                     <Table.Cell>
-                                        <Checkbox.Root
+                                        <Checkbox
                                             checked={selectedIds.includes(d.id)}
                                             onCheckedChange={() => toggleSelect(d.id)}
                                         />
