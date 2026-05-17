@@ -1203,12 +1203,12 @@ function HealthTab({ isMobile }) {
                         <Table.Header>
                             <Table.Row>
                                 <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
-                                {!isMobile && <Table.ColumnHeaderCell>Serial</Table.ColumnHeaderCell>}
+                                <Table.ColumnHeaderCell>Serial</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Health Score</Table.ColumnHeaderCell>
-                                {!isMobile && <Table.ColumnHeaderCell>Last Heartbeat</Table.ColumnHeaderCell>}
-                                {!isMobile && <Table.ColumnHeaderCell>Latency</Table.ColumnHeaderCell>}
-                                {!isMobile && <Table.ColumnHeaderCell>Uptime</Table.ColumnHeaderCell>}
+                                <Table.ColumnHeaderCell>Last Heartbeat</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Latency</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Uptime</Table.ColumnHeaderCell>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
@@ -1220,11 +1220,9 @@ function HealthTab({ isMobile }) {
                                             <Text size="1" color="gray">{device.ip_address}</Text>
                                         </Flex>
                                     </Table.Cell>
-                                    {!isMobile && (
-                                        <Table.Cell>
-                                            <Text size="1" color="gray">{device.serial_number}</Text>
-                                        </Table.Cell>
-                                    )}
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{device.serial_number}</Text>
+                                    </Table.Cell>
                                     <Table.Cell>
                                         <Badge color={statusColor(device.status)} variant="soft" size="1">
                                             <Flex align="center" gap="1">
@@ -1238,21 +1236,15 @@ function HealthTab({ isMobile }) {
                                             {device.health_score}%
                                         </Text>
                                     </Table.Cell>
-                                    {!isMobile && (
-                                        <Table.Cell>
-                                            <Text size="1" color="gray">{formatTime(device.last_heartbeat)}</Text>
-                                        </Table.Cell>
-                                    )}
-                                    {!isMobile && (
-                                        <Table.Cell>
-                                            <Text size="1">{device.latency ? `${device.latency}ms` : 'N/A'}</Text>
-                                        </Table.Cell>
-                                    )}
-                                    {!isMobile && (
-                                        <Table.Cell>
-                                            <Text size="1">{device.uptime_days}d</Text>
-                                        </Table.Cell>
-                                    )}
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{formatTime(device.last_heartbeat)}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{device.latency ? `${device.latency}ms` : 'N/A'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1">{device.uptime_days}d</Text>
+                                    </Table.Cell>
                                 </Table.Row>
                             ))}
                         </Table.Body>
