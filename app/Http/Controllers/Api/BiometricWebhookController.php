@@ -318,23 +318,46 @@ class BiometricWebhookController extends Controller
                 continue;
             }
 
-            // Parse OPERLOG format
-            // Format: PIN=42\tDateTime=2026-05-12 18:30:05\tOperation=Door\tResult=Success
             $data = [];
-            if (preg_match_all('/([^=\t\n]+)=([^\t\n]*)/', $line, $matches)) {
-                $data = array_combine($matches[1], $matches[2]);
+            $operationType = null;
+            $userPin = null;
+            $occurredAt = now();
+
+            // Check if line starts with OPLOG (space-separated format)
+            if (str_starts_with(trim($line), 'OPLOG')) {
+                $parts = preg_split('/\s+/', trim($line));
+                if (count($parts) >= 5) {
+                    // Format: OPLOG <operation> <user> <datetime> <pin> <result> <params>...
+                    $data = [
+                        'type' => 'OPLOG',
+                        'operation' => $parts[1] ?? null,
+                        'user' => $parts[2] ?? null,
+                        'datetime' => $parts[3] ?? null,
+                        'pin' => $parts[4] ?? null,
+                        'result' => $parts[5] ?? null,
+                    ];
+                    $operationType = $this->getOperLogName($parts[1] ?? '0');
+                    $userPin = $parts[4] ?? null;
+                    $occurredAt = $parts[3] ?? now();
+                }
+            } else {
+                // Parse key=value format (FP, USER, etc.)
+                if (preg_match_all('/([^=\t\n]+)=([^\t\n]*)/', $line, $matches)) {
+                    $data = array_combine($matches[1], $matches[2]);
+                }
+                $operationType = $data['Operation'] ?? $data['operation'] ?? $data['type'] ?? null;
+                $userPin = $data['PIN'] ?? $data['pin'] ?? null;
+                $occurredAt = $data['DateTime'] ?? $data['dateTime'] ?? now();
             }
 
             DB::table('biometric_oper_logs')->insert([
                 'biometric_device_id' => $device ? $device->id : null,
                 'serial_number' => $serialNumber,
                 'raw_data' => $line,
-                'operation_type' => $data['Operation'] ?? $data['operation'] ?? null,
-                'user_pin' => $data['PIN'] ?? $data['pin'] ?? null,
+                'operation_type' => $operationType,
+                'user_pin' => $userPin,
                 'context' => json_encode($data),
-                'occurred_at' => isset($data['DateTime']) || isset($data['dateTime']) 
-                    ? $data['DateTime'] ?? $data['dateTime'] 
-                    : now(),
+                'occurred_at' => $occurredAt,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -344,6 +367,35 @@ class BiometricWebhookController extends Controller
             'serial' => $serialNumber,
             'entries_count' => count($lines),
         ]);
+    }
+
+    /**
+     * Convert OPLOG operation code to human-readable name
+     */
+    protected function getOperLogName($code): string
+    {
+        return match ($code) {
+            '0' => 'Verify',
+            '1' => 'Finger',
+            '2' => 'Face',
+            '3' => 'Card',
+            '4' => 'Password',
+            '5' => 'General',
+            '6' => 'Enroll User',
+            '7' => 'Enroll FP',
+            '8' => 'Enroll Face',
+            '9' => 'Enroll Card',
+            '10' => 'Enroll Password',
+            '12' => 'Delete User',
+            '13' => 'Delete FP',
+            '14' => 'Delete Face',
+            '15' => 'Delete Card',
+            '16' => 'Delete Password',
+            '30' => 'Enroll FP',
+            '70' => 'Verify FP',
+            '151' => 'Super Admin',
+            default => 'Unknown',
+        };
     }
 
     /**
