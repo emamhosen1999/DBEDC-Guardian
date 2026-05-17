@@ -451,11 +451,17 @@ class BiometricDeviceController extends Controller
 
             // Parse log line and extract ADMS-related entries
             if (str_contains($line, 'ADMS') || str_contains($line, 'biometric')) {
+                // Extract timestamp from log line format: [2026-05-17 11:31:10]
+                $timestamp = null;
+                if (preg_match('/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/', $line, $matches)) {
+                    $timestamp = $matches[1];
+                }
+
                 $logs[] = [
                     'id' => $totalLines - $linesToRead + $i,
                     'message' => $line,
                     'level' => str_contains($line, 'ERROR') ? 'error' : (str_contains($line, 'WARNING') ? 'warning' : 'info'),
-                    'created_at' => date('Y-m-d H:i:s', $totalLines - $linesToRead + $i),
+                    'created_at' => $timestamp,
                 ];
             }
         }
@@ -517,17 +523,11 @@ class BiometricDeviceController extends Controller
         $deviceId = $request->input('device_id');
         $userId = $request->input('user_id');
 
-        $query = DB::table('attendances')
-            ->orderBy('date', 'desc')
-            ->orderBy('punchin', 'desc');
+        $query = DB::table('biometric_att_logs')
+            ->orderBy('punch_time', 'desc');
 
         if ($deviceId) {
-            $userIds = DB::table('biometric_device_users')
-                ->where('biometric_device_id', $deviceId)
-                ->whereNotNull('user_id')
-                ->pluck('user_id')
-                ->toArray();
-            $query->whereIn('user_id', $userIds);
+            $query->where('biometric_device_id', $deviceId);
         }
 
         if ($userId) {
@@ -536,25 +536,32 @@ class BiometricDeviceController extends Controller
 
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
 
+        $deviceIds = collect($logs->items())->pluck('biometric_device_id')->unique()->toArray();
+        $devices = BiometricDevice::whereIn('id', $deviceIds)->pluck('name', 'id')->toArray();
+
         $userIds = collect($logs->items())->pluck('user_id')->unique()->toArray();
         $users = User::whereIn('id', $userIds)->pluck('name', 'id')->toArray();
 
-        $logsWithUsers = collect($logs->items())->map(function ($log) use ($users) {
+        $logsWithDetails = collect($logs->items())->map(function ($log) use ($devices, $users) {
+            $punchTime = $log->punch_time ? new \DateTime($log->punch_time) : null;
             return [
                 'id' => $log->id,
+                'device_id' => $log->biometric_device_id,
+                'device_name' => $devices[$log->biometric_device_id] ?? 'Unknown',
+                'serial_number' => $log->serial_number,
+                'user_pin' => $log->user_pin,
                 'user_id' => $log->user_id,
-                'user_name' => $users[$log->user_id] ?? 'Unknown',
-                'date' => $log->date,
-                'punchin' => $log->punchin,
-                'punchout' => $log->punchout,
-                'punchin_location' => $log->punchin_location,
-                'punchout_location' => $log->punchout_location,
+                'user_name' => $log->user_id ? ($users[$log->user_id] ?? 'Unknown') : 'Unlinked',
+                'punch_time' => $log->punch_time,
+                'date' => $punchTime ? $punchTime->format('Y-m-d') : null,
+                'time' => $punchTime ? $punchTime->format('H:i:s') : null,
+                'check_type' => $log->check_type,
                 'created_at' => $log->created_at,
             ];
         })->toArray();
 
         return response()->json([
-            'logs' => $logsWithUsers,
+            'logs' => $logsWithDetails,
             'current_page' => $logs->currentPage(),
             'per_page' => $logs->perPage(),
             'total' => $logs->total(),

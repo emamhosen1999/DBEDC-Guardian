@@ -677,6 +677,30 @@ class BiometricWebhookController extends Controller
             $checkTime = trim($data['DateTime'] ?? '');
             // ZKTeco ADMS sends numeric check type: 0=IN, 1=OUT, 2=Break-Out, 3=Break-In, 4=OT-In, 5=OT-Out
             $rawCheckType = trim($data['Status'] ?? '0');
+
+            // Resolve user_id from biometric_device_users mapping
+            $deviceUser = DB::table('biometric_device_users')
+                ->where('biometric_device_id', $device->id)
+                ->where('device_user_pin', $deviceUserId)
+                ->first();
+            $resolvedUserId = $deviceUser ? $deviceUser->user_id : null;
+
+            // Store raw ATTLOG entry
+            DB::table('biometric_att_logs')->insert([
+                'biometric_device_id' => $device->id,
+                'serial_number' => $serialNumber,
+                'user_pin' => $deviceUserId,
+                'user_id' => $resolvedUserId,
+                'punch_time' => $checkTime,
+                'check_type' => $checkType,
+                'verify_code' => $data['VerifyCode'] ?? null,
+                'work_code' => $data['WorkCode'] ?? null,
+                'raw_data' => $line,
+                'context' => json_encode($data),
+                'occurred_at' => $checkTime,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
             $checkType = match ((string) $rawCheckType) {
                 '0'     => 'in',
                 '1'     => 'out',
