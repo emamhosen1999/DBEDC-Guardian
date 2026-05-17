@@ -25,7 +25,9 @@ class AttendanceController extends Controller
     public function indexUnified(): \Inertia\Response
     {
         return Inertia::render('Attendance/AttendancePage', [
-            'title' => 'Attendance',
+            'title'            => 'Attendance',
+            'attendanceSettings' => \App\Models\HRM\AttendanceSetting::first(),
+            'attendanceTypes'    => \App\Models\HRM\AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get(),
         ]);
     }
 
