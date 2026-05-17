@@ -153,7 +153,7 @@ export default function UsersPanel({
         updateUser(user.id, { active: newActive });
         try {
             const { data } = await axios.post(
-                route('users.toggleStatus', { id: user.id }),
+                route('users.toggleStatus', { userId: user.id }),
                 { active: newActive }
             );
             // Sync with server response (may include deleted_at changes)
