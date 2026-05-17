@@ -375,7 +375,7 @@ class BiometricDeviceController extends Controller
         $deviceId = $request->input('device_id');
 
         $query = BiometricAttLog::with([
-            'user:id,name,employee_id,profile_image',
+            'user:id,name,employee_id',
             'device:id,name,serial_number',
         ])->orderByDesc('punch_time');
 
