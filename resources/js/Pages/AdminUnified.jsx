@@ -3,19 +3,16 @@
  * Single-page admin shell: Users | Roles & Permissions | Biometric Devices
  * Pure Radix UI — no Tailwind, no HeroUI, no custom CSS
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import {
-    Badge, Box, Button, Card, Flex, Heading, IconButton,
-    Separator, Spinner, Tabs, Text, TextField,
+    Badge, Box, Card, Flex, Heading,
+    Separator, Tabs, Text,
 } from '@radix-ui/themes';
 import {
-    GearIcon, LockClosedIcon, MagnifyingGlassIcon,
-    PersonIcon, PlusIcon, ReloadIcon,
+    GearIcon, LockClosedIcon, PersonIcon,
 } from '@radix-ui/react-icons';
-import axios from 'axios';
 import App from '@/Layouts/App.jsx';
-import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
 // Tab panels (split files for load-balancing)
@@ -36,7 +33,6 @@ const AdminUnified = ({
     role_has_permissions = [],
     permissionsGrouped = {},
     can_manage_super_admin = false,
-    users: initialUsers = [],
     // Biometric
     devices: initialDevices = [],
     employees = [],
@@ -44,14 +40,9 @@ const AdminUnified = ({
     const isMobile = useMediaQuery('(max-width: 640px)');
     const [activeTab, setActiveTab] = useState('users');
 
-    /* ── shared refresh counters ── */
-    const [usersTick,  setUsersTick]  = useState(0);
-    const [rolesTick,  setRolesTick]  = useState(0);
-    const [bioTick,    setBioTick]    = useState(0);
-
     /* ── per-tab quick stats (header badges) ── */
     const [quickStats, setQuickStats] = useState({
-        totalUsers:  initialUsers.length,
+        totalUsers:  0,
         totalRoles:  roles.length,
         totalDevices: initialDevices.length,
     });
@@ -142,7 +133,7 @@ const AdminUnified = ({
                                     departments={departments}
                                     designations={designations}
                                     isMobile={isMobile}
-                                    tick={usersTick}
+                                    tick={0}
                                     onCountChange={n => setQuickStats(p => ({ ...p, totalUsers: n }))}
                                     onSetHeaderActions={setHeaderActions}
                                     isActive={activeTab === 'users'}
@@ -156,10 +147,9 @@ const AdminUnified = ({
                                     permissions={permissions}
                                     roleHasPermissions={role_has_permissions}
                                     permissionsGrouped={permissionsGrouped}
-                                    users={initialUsers}
                                     canManageSuperAdmin={can_manage_super_admin}
                                     isMobile={isMobile}
-                                    tick={rolesTick}
+                                    tick={0}
                                     onCountChange={n => setQuickStats(p => ({ ...p, totalRoles: n }))}
                                     onSetHeaderActions={setHeaderActions}
                                     isActive={activeTab === 'roles'}
@@ -172,7 +162,7 @@ const AdminUnified = ({
                                     initialDevices={initialDevices}
                                     employees={employees}
                                     isMobile={isMobile}
-                                    tick={bioTick}
+                                    tick={0}
                                     onCountChange={n => setQuickStats(p => ({ ...p, totalDevices: n }))}
                                     onSetHeaderActions={setHeaderActions}
                                     isActive={activeTab === 'biometric'}

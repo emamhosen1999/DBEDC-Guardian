@@ -7,7 +7,7 @@
  * - Sub-tab 3: User-Role assignment table
  * Pure Radix UI.
  */
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
     Badge, Box, Button, Card, Dialog, DropdownMenu, Flex,
     Grid, IconButton, ScrollArea, Select, Separator,
@@ -50,8 +50,9 @@ function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canMan
             const url    = editRole ? `/api/roles/${editRole.id}` : '/api/roles';
             const method = editRole ? 'put' : 'post';
             const { data } = await axios[method](url, form);
-            setRoles(p => editRole ? p.map(r => r.id === editRole.id ? data.role : r) : [...p, data.role]);
-            onRolesChange?.();
+            const next = editRole ? roles.map(r => r.id === editRole.id ? data.role : r) : [...roles, data.role];
+            setRoles(next);
+            onRolesChange?.(next.length);
             setDialogOpen(false);
             showToast.success(editRole ? 'Role updated.' : 'Role created.');
         } catch (e) {
@@ -66,8 +67,9 @@ function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canMan
         setDelLoading(true);
         try {
             await axios.delete(`/api/roles/${delRole.id}`);
-            setRoles(p => p.filter(r => r.id !== delRole.id));
-            onRolesChange?.();
+            const next = roles.filter(r => r.id !== delRole.id);
+            setRoles(next);
+            onRolesChange?.(next.length);
             setDelOpen(false);
             showToast.success('Role deleted.');
         } catch (e) {
@@ -521,18 +523,46 @@ function AssignmentTab({ roles, permissions, permissionsGrouped, getRolePermissi
 }
 
 /* ── sub-tab: User-Role ── */
-function UserRoleTab({ users, roles, isMobile }) {
-    const [search, setSearch] = useState('');
+function UserRoleTab({ roles, isMobile }) {
+    const [users,    setUsers]    = useState([]);
+    const [loading,  setLoading]  = useState(false);
+    const [search,   setSearch]   = useState('');
+    const [page,     setPage]     = useState(1);
+    const [total,    setTotal]    = useState(0);
+    const perPage = 20;
+    const debRef  = useRef(null);
+
+    const fetchUsers = useCallback(async (q = search, p = page) => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('users.paginate'), {
+                params: { page: p, perPage, search: q || undefined },
+            });
+            const list = data.users?.data ?? data.users ?? [];
+            setUsers(list);
+            setTotal(data.users?.total ?? list.length);
+        } catch {
+            showToast.error('Failed to load users.');
+        } finally {
+            setLoading(false);
+        }
+    }, [search, page]);
+
+    useEffect(() => { fetchUsers(); }, []);
+
+    const triggerSearch = (val) => {
+        setSearch(val);
+        setPage(1);
+        clearTimeout(debRef.current);
+        debRef.current = setTimeout(() => fetchUsers(val, 1), 280);
+    };
+
+    const totalPages = Math.max(1, Math.ceil(total / perPage));
+
     const [editUser, setEditUser] = useState(null);
     const [selectedRoles, setSelectedRoles] = useState(new Set());
     const [saving, setSaving] = useState(false);
     const [dialogOpen, setDialogOpen] = useState(false);
-
-    const filtered = useMemo(() =>
-        users.filter(u => !search ||
-            u.name?.toLowerCase().includes(search.toLowerCase()) ||
-            u.email?.toLowerCase().includes(search.toLowerCase())),
-        [users, search]);
 
     const openEdit = (user) => {
         setEditUser(user);
@@ -546,7 +576,14 @@ function UserRoleTab({ users, roles, isMobile }) {
         if (!editUser) return;
         setSaving(true);
         try {
-            await axios.post(`/api/users/${editUser.id}/roles`, { roles: Array.from(selectedRoles) });
+            const roleNames = Array.from(selectedRoles).map(key => {
+                const found = roles.find(r => String(r.id) === key || r.name === key);
+                return found ? found.name : key;
+            });
+            await axios.post(route('user.updateRole', { id: editUser.id }), { roles: roleNames });
+            setUsers(p => p.map(u => u.id === editUser.id
+                ? { ...u, roles: roleNames.map(n => ({ name: n })) }
+                : u));
             showToast.success('User roles updated.');
             setDialogOpen(false);
         } catch (e) {
@@ -558,12 +595,14 @@ function UserRoleTab({ users, roles, isMobile }) {
 
     return (
         <Box>
-            <Box mb="3">
+            <Flex align="center" gap="3" mb="3" wrap="wrap">
                 <TextField.Root placeholder="Search users…" size="2" style={{ maxWidth: 360 }}
-                    onChange={e => setSearch(e.target.value)}>
+                    onChange={e => triggerSearch(e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                 </TextField.Root>
-            </Box>
+                {loading && <Spinner size="2" />}
+                <Text size="1" color="gray" ml="auto">{total} users</Text>
+            </Flex>
 
             <Box style={{ overflowX: 'auto' }}>
                 <Table.Root variant="surface">
@@ -577,7 +616,7 @@ function UserRoleTab({ users, roles, isMobile }) {
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
-                        {filtered.map((user, i) => {
+                        {users.map((user, i) => {
                             const roleNames = (user.roles || []).map(r => typeof r === 'object' ? r.name : r);
                             return (
                                 <Table.Row key={user.id}>
@@ -615,7 +654,7 @@ function UserRoleTab({ users, roles, isMobile }) {
                                 </Table.Row>
                             );
                         })}
-                        {filtered.length === 0 && (
+                        {!loading && users.length === 0 && (
                             <Table.Row>
                                 <Table.Cell colSpan={5}>
                                     <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
@@ -627,6 +666,21 @@ function UserRoleTab({ users, roles, isMobile }) {
                     </Table.Body>
                 </Table.Root>
             </Box>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <Flex align="center" justify="end" gap="2" mt="3">
+                    <IconButton size="1" variant="soft" disabled={page <= 1}
+                        onClick={() => { const p = page - 1; setPage(p); fetchUsers(search, p); }}>
+                        <ChevronLeftIcon />
+                    </IconButton>
+                    <Text size="1" color="gray">{page} / {totalPages}</Text>
+                    <IconButton size="1" variant="soft" disabled={page >= totalPages}
+                        onClick={() => { const p = page + 1; setPage(p); fetchUsers(search, p); }}>
+                        <ChevronRightIcon />
+                    </IconButton>
+                </Flex>
+            )}
 
             {/* Edit Roles Dialog */}
             <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -671,7 +725,7 @@ function UserRoleTab({ users, roles, isMobile }) {
 /* ── Main RolesPanel ── */
 export default function RolesPanel({
     roles: initialRoles = [], permissions = [], roleHasPermissions = [],
-    permissionsGrouped = {}, users = [], canManageSuperAdmin = false,
+    permissionsGrouped = {}, canManageSuperAdmin = false,
     isMobile, tick, onCountChange, onSetHeaderActions, isActive,
 }) {
     const [subTab, setSubTab] = useState('roles');
@@ -695,9 +749,8 @@ export default function RolesPanel({
 
     useEffect(() => {
         if (!isActive) return;
-        onCountChange?.(initialRoles.length);
         onSetHeaderActions?.(null); // no global action for roles tab
-    }, [isActive, initialRoles.length]);
+    }, [isActive]);
 
     return (
         <Box>
@@ -730,7 +783,7 @@ export default function RolesPanel({
                         getRolePermissions={getRolePermissions}
                         canManageSuperAdmin={canManageSuperAdmin}
                         isMobile={isMobile}
-                        onRolesChange={() => onCountChange?.(initialRoles.length)}
+                        onRolesChange={n => onCountChange?.(n)}
                     />
                 </Tabs.Content>
 

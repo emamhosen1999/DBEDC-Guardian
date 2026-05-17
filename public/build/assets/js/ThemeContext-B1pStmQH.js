@@ -1,0 +1,1 @@
+import"./vendor-radix-D7GuNXnQ.js";import{a as e}from"./vendor-inertia-MwkBbx0Z.js";const t=e.createContext(),o={themeSettings:{mode:"light",activeTheme:"heroui",customColors:{},layout:{},background:{}},setThemeSettings:()=>{},applyTheme:()=>{},toggleDarkMode:()=>{},isDarkMode:!1,currentThemeConfig:{}},a=()=>e.useContext(t)||o;export{a as u};

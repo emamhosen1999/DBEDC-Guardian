@@ -128,7 +128,6 @@ Route::middleware($middlewareStack)->group(function () {
     Route::get('/admin/attendance/export/excel', [AttendanceController::class, 'exportAdminExcel'])->name('attendance.exportAdminExcel');
     Route::get('/admin/attendance/export/pdf', [AttendanceController::class, 'exportAdminPdf'])->name('attendance.exportAdminPdf');
     Route::get('/attendance/export/pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.exportPdf');
-    Route::get('/get-all-users-attendance-for-date', [AttendanceController::class, 'getAllUsersAttendanceForDate'])->name('getAllUsersAttendanceForDate');
     Route::get('/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('getPresentUsersForDate');
     Route::get('/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('getAbsentUsersForDate');
     Route::get('/get-client-ip', [AttendanceController::class, 'getClientIp'])->name('getClientIp');
@@ -392,6 +391,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware(['precognitive'])
             ->name('users.update');
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
+        Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
         Route::post('/users/{id}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'updateEmployeeBiometricDevice'])->name('users.updateBiometricDevice');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');

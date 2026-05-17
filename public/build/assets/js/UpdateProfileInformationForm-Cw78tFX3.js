@@ -1,1 +1,0 @@
-import{j as s}from"./vendor-radix-M8Vunu7m.js";import{a,f as r}from"./vendor-inertia-MwkBbx0Z.js";import"./vendor-utils-DT8Y_88y.js";const u=()=>{const[t,e]=a.useState(!1),{data:o,setData:p,post:m,processing:i,errors:n}=r({email:"",password:"",remember:!1});return s.jsx("div",{className:"auth-page-wrapper pt-5"})};export{u as default};

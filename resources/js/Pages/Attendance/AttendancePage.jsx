@@ -2,13 +2,10 @@ import React, { useState, useCallback } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import App from '@/Layouts/App';
 import {
-    Box, Flex, Text, Button, Card, Tabs, Separator,
-    IconButton, Tooltip,
+    Box, Flex, Text, Card, Tabs, Separator,
 } from '@radix-ui/themes';
 import {
     ClockIcon, CalendarIcon, GearIcon,
-    DownloadIcon, ReloadIcon,
-    PersonIcon, CheckCircledIcon,
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
@@ -31,16 +28,6 @@ const AttendancePage = ({ title }) => {
     const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [selectedMonth,setSelectedMonth]= useState(dayjs().format('YYYY-MM'));
 
-    /* mark-as-present modal state */
-    const [modalState, setModalState] = useState({ type: null, user: null, date: null });
-
-    const handleMarkAsPresent = useCallback((user, date) => {
-        setModalState({ type: 'mark_as_present', user, date });
-    }, []);
-    const handleModalClose = useCallback(() => {
-        setModalState({ type: null, user: null, date: null });
-    }, []);
-
     /* date change — keep daily and monthly in sync */
     const handleDateChange = useCallback(e => {
         const val = e.target.value;
@@ -53,9 +40,7 @@ const AttendancePage = ({ title }) => {
     }, []);
 
     /* permissions */
-    const canManage = auth.permissions?.includes('attendance.manage') || false;
-    const canExport = auth.permissions?.includes('attendance.export') || canManage;
-    const canSettings = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || false;
+    const canSettings = auth.permissions?.includes('attendance.settings') || false;
 
     /* tab definitions */
     const tabs = [
@@ -71,17 +56,6 @@ const AttendancePage = ({ title }) => {
     return (
         <>
             <Head title={title || 'Attendance'} />
-
-            {/* ── optional modals ─────────────────────────────── */}
-            {/* {modalState.type === 'mark_as_present' && (
-                <MarkAsPresentForm
-                    open
-                    closeModal={handleModalClose}
-                    selectedDate={modalState.date}
-                    currentUser={modalState.user}
-                    refreshTimeSheet={() => {}}
-                />
-            )} */}
 
             <Flex justify="center" p={{ initial: '3', md: '4' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
@@ -133,22 +107,26 @@ const AttendancePage = ({ title }) => {
 
                                 {/* header action buttons */}
                                 <Flex align="center" gap="2" wrap="wrap">
-                                    {/* quick date display */}
-                                    <Flex
-                                        align="center"
-                                        gap="1"
-                                        px="2"
-                                        py="1"
-                                        style={{
-                                            background: 'var(--gray-a3)',
-                                            borderRadius: 'var(--radius-2)',
-                                        }}
-                                    >
-                                        <CalendarIcon style={{ color: 'var(--gray-9)', width: 13 }} />
-                                        <Text size="1" color="gray">
-                                            {dayjs(selectedDate).format('MMM D, YYYY')}
-                                        </Text>
-                                    </Flex>
+                                    {/* context-aware date badge */}
+                                    {activeTab !== 'settings' && (
+                                        <Flex
+                                            align="center"
+                                            gap="1"
+                                            px="2"
+                                            py="1"
+                                            style={{
+                                                background: 'var(--gray-a3)',
+                                                borderRadius: 'var(--radius-2)',
+                                            }}
+                                        >
+                                            <CalendarIcon style={{ color: 'var(--gray-9)', width: 13 }} />
+                                            <Text size="1" color="gray">
+                                                {activeTab === 'monthly'
+                                                    ? dayjs(selectedMonth + '-01').format('MMM YYYY')
+                                                    : dayjs(selectedDate).format('MMM D, YYYY')}
+                                            </Text>
+                                        </Flex>
+                                    )}
                                 </Flex>
                             </Flex>
                         </Box>
@@ -170,11 +148,6 @@ const AttendancePage = ({ title }) => {
                                         <Flex align="center" gap="2">
                                             {tab.icon}
                                             {!isMobile && tab.label}
-                                            {isMobile && (
-                                                <Tooltip content={tab.label}>
-                                                    <Box style={{ width: 0, height: 0 }} />
-                                                </Tooltip>
-                                            )}
                                         </Flex>
                                     </Tabs.Trigger>
                                 ))}
@@ -186,7 +159,7 @@ const AttendancePage = ({ title }) => {
                                     <DailyTimesheetTab
                                         selectedDate={selectedDate}
                                         onDateChange={handleDateChange}
-                                        onMarkAsPresent={handleMarkAsPresent}
+                                        isActive={activeTab === 'timesheet'}
                                     />
                                 </Box>
                             </Tabs.Content>

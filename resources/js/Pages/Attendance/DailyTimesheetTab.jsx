@@ -231,7 +231,7 @@ const Pagination = ({ currentPage, lastPage, onChange }) => {
 const DailyTimesheetTab = ({
     selectedDate,
     onDateChange,
-    onMarkAsPresent,
+    isActive = true,
 }) => {
     const { auth, url } = usePage().props;
 
@@ -316,7 +316,7 @@ const DailyTimesheetTab = ({
 
     /* polling */
     const checkUpdates = useCallback(async () => {
-        if (!selectedDate) return;
+        if (!selectedDate || !isActive || document.visibilityState === 'hidden') return;
         try {
             const res = await fetch(route('check-timesheet-updates', {
                 date: dayjs(selectedDate).format('YYYY-MM-DD'),
@@ -371,6 +371,24 @@ const DailyTimesheetTab = ({
     }, [selectedDate]);
 
     const getUserLeave = (uid) => leaves.find(l => String(l.user_id) === String(uid));
+
+    /* mark as present */
+    const [markingId, setMarkingId] = useState(null);
+    const handleMarkAsPresent = useCallback(async (user, date) => {
+        setMarkingId(user.id);
+        try {
+            await axios.post(route('attendance.mark-as-present'), {
+                user_id: user.id,
+                date: dayjs(date).format('YYYY-MM-DD'),
+            });
+            await Promise.all([fetchPresent(currentPage, true), fetchAbsent()]);
+        } catch (e) {
+            const msg = e.response?.data?.message || 'Failed to mark as present.';
+            alert(msg);
+        } finally {
+            setMarkingId(null);
+        }
+    }, [fetchPresent, fetchAbsent, currentPage]);
 
     /* ── render ─────────────────────────────────────────────── */
     return (
@@ -563,7 +581,8 @@ const DailyTimesheetTab = ({
                                 absentUsers={absentUsers}
                                 getUserLeave={getUserLeave}
                                 isLoaded={isLoaded}
-                                onMarkAsPresent={onMarkAsPresent}
+                                onMarkAsPresent={handleMarkAsPresent}
+                                markingId={markingId}
                                 selectedDate={selectedDate}
                                 canManage={canManage}
                             />

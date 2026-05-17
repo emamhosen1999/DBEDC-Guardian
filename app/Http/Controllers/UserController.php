@@ -34,6 +34,11 @@ class UserController extends Controller
         ]);
     }
 
+    public function adminUnified(): \Inertia\Response
+    {
+        return $this->index2();
+    }
+
     public function index2(): \Inertia\Response
     {
         $this->authorize('viewAny', User::class);
@@ -58,7 +63,6 @@ class UserController extends Controller
                                                 'permissions' => $perms->values(),
                                             ]),
             'can_manage_super_admin' => auth()->user()->can('manage super admin'),
-            'users'                  => User::with('roles')->get(),
 
             // Biometric panel
             'devices'        => BiometricDevice::all(),
@@ -285,6 +289,21 @@ class UserController extends Controller
     }
 
     /**
+     * Restore a soft-deleted user.
+     */
+    public function restore($id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+        $this->authorize('update', $user);
+        $user->restore();
+
+        return response()->json([
+            'message' => 'User restored successfully.',
+            'user'    => new \App\Http\Resources\UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice'])),
+        ]);
+    }
+
+    /**
      * Bulk update user status
      */
     public function bulkUpdateStatus(Request $request)
@@ -336,12 +355,14 @@ class UserController extends Controller
             $count = 0;
 
             foreach ($users as $user) {
-                $user->syncRoles([$role]);
+                if (! $user->hasRole($role)) {
+                    $user->assignRole($role);
+                }
                 $count++;
             }
 
             return response()->json([
-                'message' => "Role '{$role}' assigned to {$count} user(s).",
+                'message' => "Role '{$role}' added to {$count} user(s).",
                 'count' => $count,
             ]);
         } catch (\Exception $e) {
@@ -503,8 +524,10 @@ class UserController extends Controller
             $status = $request->input('status');
             $department = $request->input('department');
 
-            // Base query
-            $query = User::withTrashed()
+            $showDeleted = $request->boolean('showDeleted', false);
+
+            // Base query — soft-deleted users only when explicitly requested
+            $query = ($showDeleted ? User::withTrashed() : User::query())
                 ->with(['department', 'designation', 'roles', 'currentDevice', 'reportsTo']);
 
             // Filters
@@ -534,8 +557,18 @@ class UserController extends Controller
             // Paginate
             $users = $query->paginate($perPage, ['*'], 'page', $page);
 
+            $baseStats = User::query();
+            if ($showDeleted) $baseStats = User::withTrashed();
+
             return response()->json([
                 'users' => new UserCollection($users),
+                'stats' => [
+                    'overview' => [
+                        'total_users'    => (clone $baseStats)->count(),
+                        'active_users'   => (clone $baseStats)->where('active', 1)->count(),
+                        'inactive_users' => (clone $baseStats)->where('active', 0)->count(),
+                    ],
+                ],
             ]);
         } catch (\Throwable $e) {
             report($e);

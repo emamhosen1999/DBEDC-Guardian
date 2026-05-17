@@ -385,7 +385,10 @@ const MobileMonthCalendar = ({ rows, days, month, year, leaveTypes, leaveCounts,
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════ */
 const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
-    const { auth } = usePage().props;
+    const { auth, url } = usePage().props;
+
+    const canViewAll  = auth.permissions?.includes('attendance.view') || false;
+    const isAdminView = canViewAll && url !== '/attendance-employee';
 
     const [rows,       setRows]       = useState([]);
     const [leaveTypes, setLeaveTypes] = useState([]);
@@ -419,14 +422,18 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
                 dayjs(selectedMonth + '-01').year(),
             ];
             const [attRes, settingsRes] = await Promise.all([
-                axios.get(route('attendancesAdmin.paginate'), {
-                    params: {
-                        page: 1, perPage: 200,
-                        employee,
-                        currentYear:  yearNum2,
-                        currentMonth: monthNum2,
-                    },
-                }),
+                isAdminView
+                    ? axios.get(route('attendancesAdmin.paginate'), {
+                        params: {
+                            page: 1, perPage: 200,
+                            employee,
+                            currentYear:  yearNum2,
+                            currentMonth: monthNum2,
+                        },
+                    })
+                    : axios.get(route('getCurrentUserAttendanceForDate'), {
+                        params: { currentMonth: monthNum2, currentYear: yearNum2 },
+                    }),
                 axios.get('/settings/attendance', {
                     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 }),
@@ -499,42 +506,48 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
                         <ChevronRightIcon />
                     </Button>
 
-                    <TextField.Root
-                        size="2"
-                        placeholder="Search employee…"
-                        value={employee}
-                        onChange={e => setEmployee(e.target.value)}
-                        style={{ width: 200 }}
-                    >
-                        <TextField.Slot>
-                            <PersonIcon />
-                        </TextField.Slot>
-                    </TextField.Root>
+                    {isAdminView && (
+                        <TextField.Root
+                            size="2"
+                            placeholder="Search employee…"
+                            value={employee}
+                            onChange={e => setEmployee(e.target.value)}
+                            style={{ width: 200 }}
+                        >
+                            <TextField.Slot>
+                                <PersonIcon />
+                            </TextField.Slot>
+                        </TextField.Root>
+                    )}
                 </Flex>
 
-                {/* right: refresh + export */}
+                {/* right: refresh + export (admin only) */}
                 <Flex gap="2" align="center" wrap="wrap">
                     <Tooltip content="Refresh">
                         <Button size="2" variant="soft" color="gray" onClick={fetchData}>
                             <ReloadIcon />
                         </Button>
                     </Tooltip>
-                    <Button
-                        size="2" variant="soft" color="green"
-                        disabled={loading || downloading !== ''}
-                        onClick={() => exportFile('excel')}
-                    >
-                        <DownloadIcon />
-                        {downloading === 'excel' ? 'Exporting…' : 'Excel'}
-                    </Button>
-                    <Button
-                        size="2" variant="soft" color="red"
-                        disabled={loading || downloading !== ''}
-                        onClick={() => exportFile('pdf')}
-                    >
-                        <DownloadIcon />
-                        {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
-                    </Button>
+                    {isAdminView && (
+                        <>
+                            <Button
+                                size="2" variant="soft" color="green"
+                                disabled={loading || downloading !== ''}
+                                onClick={() => exportFile('excel')}
+                            >
+                                <DownloadIcon />
+                                {downloading === 'excel' ? 'Exporting…' : 'Excel'}
+                            </Button>
+                            <Button
+                                size="2" variant="soft" color="red"
+                                disabled={loading || downloading !== ''}
+                                onClick={() => exportFile('pdf')}
+                            >
+                                <DownloadIcon />
+                                {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
+                            </Button>
+                        </>
+                    )}
                 </Flex>
             </Flex>
 

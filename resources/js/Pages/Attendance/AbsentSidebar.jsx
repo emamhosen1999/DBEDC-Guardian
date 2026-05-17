@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     Box, Flex, Text, Badge, Avatar, Button,
-    ScrollArea, Skeleton, Card,
+    ScrollArea, Skeleton, Card, Spinner,
 } from '@radix-ui/themes';
 import {
     CrossCircledIcon,
@@ -35,6 +35,7 @@ const AbsentSidebar = ({
     getUserLeave,
     isLoaded = true,
     onMarkAsPresent,
+    markingId = null,
     selectedDate,
     canManage = false,
 }) => {
@@ -145,10 +146,13 @@ const AbsentSidebar = ({
                                                         variant="soft"
                                                         color="green"
                                                         style={{ marginTop: 2, width: '100%' }}
+                                                        disabled={markingId === user.id}
                                                         onClick={() => onMarkAsPresent(user, selectedDate)}
                                                     >
-                                                        <CheckCircledIcon width={11} height={11} />
-                                                        Mark Present
+                                                        {markingId === user.id
+                                                            ? <Spinner size="1" />
+                                                            : <CheckCircledIcon width={11} height={11} />}
+                                                        {markingId === user.id ? 'Marking…' : 'Mark Present'}
                                                     </Button>
                                                 )}
                                             </Flex>

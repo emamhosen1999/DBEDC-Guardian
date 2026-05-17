@@ -14,7 +14,7 @@ import {
     BackpackIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon,
     DotsVerticalIcon, EnvelopeClosedIcon, HomeIcon, LockClosedIcon,
     LockOpen1Icon, MagnifyingGlassIcon, MobileIcon, Pencil1Icon,
-    PersonIcon, PlusIcon, ReloadIcon, TrashIcon, CheckIcon,
+    PersonIcon, PlusIcon, ReloadIcon, ResetIcon, TrashIcon, CheckIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
@@ -41,6 +41,8 @@ export default function UsersPanel({
     const [search, setSearch]         = useState('');
     const [filterRole, setFilterRole] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [filterDept, setFilterDept]   = useState('all');
+    const [showDeleted, setShowDeleted] = useState(false);
     const [showFilters, setShowFilters]   = useState(false);
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 15, total: 0 });
     const [devAction, setDevAction]   = useState({}); // { [userId]: bool }
@@ -55,6 +57,40 @@ export default function UsersPanel({
     /* ── delete dialog ── */
     const [delUser, setDelUser]   = useState(null);
     const [delLoading, setDelLoading] = useState(false);
+
+    /* ── role dialog ── */
+    const [roleDialogUser, setRoleDialogUser] = useState(null);
+    const [roleDialogSelected, setRoleDialogSelected] = useState(new Set());
+    const [roleSaving, setRoleSaving] = useState(false);
+
+    const openRoleDialog = (user) => {
+        const current = new Set(
+            (user.roles || []).map(r => String(typeof r === 'object' ? (r.id ?? r.name) : r))
+        );
+        setRoleDialogSelected(current);
+        setRoleDialogUser(user);
+    };
+
+    const saveRoles = async () => {
+        if (!roleDialogUser) return;
+        setRoleSaving(true);
+        try {
+            const roleNames = Array.from(roleDialogSelected).map(key => {
+                const found = roles.find(r => String(r.id) === key || (typeof r === 'object' ? r.name : r) === key);
+                return found ? (typeof found === 'object' ? found.name : found) : key;
+            });
+            await axios.post(route('user.updateRole', { id: roleDialogUser.id }), { roles: roleNames });
+            updateUser(roleDialogUser.id, {
+                roles: roleNames.map(n => ({ name: n })),
+            });
+            setRoleDialogUser(null);
+            showToast.success('Roles updated.');
+        } catch {
+            showToast.error('Failed to update roles.');
+        } finally {
+            setRoleSaving(false);
+        }
+    };
 
     /* ── debounce ── */
     const debRef = useRef(null);
@@ -74,6 +110,8 @@ export default function UsersPanel({
                     search: search || undefined,
                     role: filterRole !== 'all' ? filterRole : undefined,
                     status: filterStatus !== 'all' ? filterStatus : undefined,
+                    department: filterDept !== 'all' ? filterDept : undefined,
+                    showDeleted: showDeleted || undefined,
                 },
             });
             const list = data.users?.data ?? data.users ?? [];
@@ -93,7 +131,7 @@ export default function UsersPanel({
         } finally {
             setLoading(false);
         }
-    }, [pagination.currentPage, pagination.perPage, search, filterRole, filterStatus]);
+    }, [pagination.currentPage, pagination.perPage, search, filterRole, filterStatus, filterDept, showDeleted]);
 
     useEffect(() => { if (isActive) fetchUsers(); }, [fetchUsers, tick, isActive]);
 
@@ -137,14 +175,16 @@ export default function UsersPanel({
         }
     };
 
-    /* ── role change ── */
-    const handleRoleChange = async (userId, roleName) => {
+
+    /* ── restore ── */
+    const restoreUser = async (user) => {
         try {
-            await axios.post(route('user.updateRole', { id: userId }), { roles: [roleName] });
-            updateUser(userId, { roles: [{ name: roleName }] });
-            showToast.success('Role updated.');
-        } catch {
-            showToast.error('Failed to update role.');
+            await axios.post(route('users.restore', { id: user.id }));
+            setUsers(p => p.filter(u => u.id !== user.id));
+            setPagination(p => ({ ...p, total: p.total - 1 }));
+            showToast.success(`${user.name} restored.`);
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to restore user.');
         }
     };
 
@@ -253,7 +293,7 @@ export default function UsersPanel({
         return [cur - 2, cur - 1, cur, cur + 1, cur + 2];
     }, [totalPages, pagination.currentPage]);
 
-    const hasActiveFilters = filterRole !== 'all' || filterStatus !== 'all' || search;
+    const hasActiveFilters = filterRole !== 'all' || filterStatus !== 'all' || filterDept !== 'all' || showDeleted || search;
 
     /* ── render ── */
     return (
@@ -337,7 +377,7 @@ export default function UsersPanel({
             {/* ── Filter Panel ── */}
             {showFilters && (
                 <Card size="2" variant="surface" mb="3">
-                    <Grid columns={{ initial: '1', sm: '3' }} gap="4" align="end">
+                    <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" align="end">
                         <Box>
                             <Text size="2" color="gray" weight="medium" as="div" mb="1">Status</Text>
                             <Select.Root size="2" value={filterStatus} onValueChange={v => { setFilterStatus(v); setPagination(p => ({ ...p, currentPage: 1 })); }}>
@@ -362,10 +402,27 @@ export default function UsersPanel({
                                 </Select.Content>
                             </Select.Root>
                         </Box>
-                        <Flex align="end">
+                            <Box>
+                            <Text size="2" color="gray" weight="medium" as="div" mb="1">Department</Text>
+                            <Select.Root size="2" value={filterDept} onValueChange={v => { setFilterDept(v); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Trigger style={{ width: '100%' }} />
+                                <Select.Content>
+                                    <Select.Item value="all">All Departments</Select.Item>
+                                    {departments.map(d => (
+                                        <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+                        <Flex align="end" gap="2">
+                            <Button size="2" variant={showDeleted ? 'solid' : 'soft'} color="amber"
+                                onClick={() => { setShowDeleted(v => !v); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                                style={{ flex: 1 }}>
+                                {showDeleted ? 'Hide Deleted' : 'Show Deleted'}
+                            </Button>
                             <Button size="2" variant="soft" color="red" disabled={!hasActiveFilters}
-                                onClick={() => { setFilterRole('all'); setFilterStatus('all'); setSearch(''); setPagination(p => ({ ...p, currentPage: 1 })); }}
-                                style={{ width: '100%' }}>
+                                onClick={() => { setFilterRole('all'); setFilterStatus('all'); setFilterDept('all'); setShowDeleted(false); setSearch(''); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                                style={{ flex: 1 }}>
                                 <Cross2Icon /> Clear
                             </Button>
                         </Flex>
@@ -380,6 +437,8 @@ export default function UsersPanel({
                     {search       && <Badge size="2" variant="soft" color="gray"   radius="full">Search: "{search}"</Badge>}
                     {filterStatus !== 'all' && <Badge size="2" variant="soft" color="blue"   radius="full">Status: {filterStatus}</Badge>}
                     {filterRole   !== 'all' && <Badge size="2" variant="soft" color="violet" radius="full">Role: {filterRole}</Badge>}
+                    {filterDept   !== 'all' && <Badge size="2" variant="soft" color="orange" radius="full">Dept: {departments.find(d => String(d.id) === filterDept)?.name ?? filterDept}</Badge>}
+                    {showDeleted  && <Badge size="2" variant="soft" color="red"    radius="full">Showing deleted</Badge>}
                 </Flex>
             )}
 
@@ -429,9 +488,9 @@ export default function UsersPanel({
                         <Table.Body>
                             {users.map((user, idx) => {
                                 const serial   = startRow + idx;
-                                const roleName = Array.isArray(user.roles) && user.roles[0]
-                                    ? (typeof user.roles[0] === 'object' ? user.roles[0].name : user.roles[0])
-                                    : '';
+                                const userRoles = Array.isArray(user.roles)
+                                    ? user.roles.map(r => typeof r === 'object' ? r.name : r).filter(Boolean)
+                                    : [];
                                 const isLocking = devAction[user.id];
 
                                 return (
@@ -495,27 +554,21 @@ export default function UsersPanel({
 
                                         {/* Role */}
                                         <Table.Cell>
-                                            <Box style={{ minWidth: 130 }}>
-                                                <DropdownMenu.Root>
-                                                    <DropdownMenu.Trigger>
-                                                        <Button size="1" variant="surface" color="gray" style={{ width: '100%', justifyContent: 'space-between', minWidth: 130 }}>
-                                                            <Text size="1" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {roleName || 'No Role'}
-                                                            </Text>
-                                                            <Text size="1" color="gray">▾</Text>
-                                                        </Button>
-                                                    </DropdownMenu.Trigger>
-                                                    <DropdownMenu.Content size="1">
-                                                        {roles.map(r => {
-                                                            const name = typeof r === 'object' ? r.name : r;
-                                                            return (
-                                                                <DropdownMenu.Item key={name} onSelect={() => handleRoleChange(user.id, name)}>
-                                                                    {name}
-                                                                </DropdownMenu.Item>
-                                                            );
-                                                        })}
-                                                    </DropdownMenu.Content>
-                                                </DropdownMenu.Root>
+                                            <Box style={{ minWidth: 150 }}>
+                                                {userRoles.length > 0 && (
+                                                    <Flex gap="1" wrap="wrap" mb="1">
+                                                        {userRoles.slice(0, 2).map(r => (
+                                                            <Badge key={r} size="1" variant="soft" color="violet" radius="full">{r}</Badge>
+                                                        ))}
+                                                        {userRoles.length > 2 && (
+                                                            <Badge size="1" variant="soft" color="gray" radius="full">+{userRoles.length - 2}</Badge>
+                                                        )}
+                                                    </Flex>
+                                                )}
+                                                <Button size="1" variant="ghost" color="indigo" style={{ width: '100%', justifyContent: 'flex-start' }}
+                                                    onClick={() => openRoleDialog(user)}>
+                                                    <Text size="1" color="indigo">Edit roles…</Text>
+                                                </Button>
                                             </Box>
                                         </Table.Cell>
 
@@ -581,11 +634,19 @@ export default function UsersPanel({
                                                             </Link>
                                                         </DropdownMenu.Item>
                                                         <DropdownMenu.Separator />
-                                                        <DropdownMenu.Item color="red" onSelect={() => setDelUser(user)}>
-                                                            <Flex align="center" gap="2">
-                                                                <TrashIcon /> Delete
-                                                            </Flex>
-                                                        </DropdownMenu.Item>
+                                                        {user.deleted_at ? (
+                                                            <DropdownMenu.Item color="green" onSelect={() => restoreUser(user)}>
+                                                                <Flex align="center" gap="2">
+                                                                    <ResetIcon /> Restore
+                                                                </Flex>
+                                                            </DropdownMenu.Item>
+                                                        ) : (
+                                                            <DropdownMenu.Item color="red" onSelect={() => setDelUser(user)}>
+                                                                <Flex align="center" gap="2">
+                                                                    <TrashIcon /> Delete
+                                                                </Flex>
+                                                            </DropdownMenu.Item>
+                                                        )}
                                                     </DropdownMenu.Content>
                                                 </DropdownMenu.Root>
                                             </Flex>
@@ -633,13 +694,48 @@ export default function UsersPanel({
                 </Flex>
             )}
 
+            {/* ── Role Dialog ── */}
+            <Dialog.Root open={!!roleDialogUser} onOpenChange={o => !o && setRoleDialogUser(null)}>
+                <Dialog.Content style={{ maxWidth: 380 }}>
+                    <Dialog.Title>Edit Roles — {roleDialogUser?.name}</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">Toggle roles on/off. Changes replace the current role set.</Dialog.Description>
+                    <Flex direction="column" gap="2" mt="3">
+                        {roles.map(r => {
+                            const key  = String(r.id ?? (typeof r === 'object' ? r.name : r));
+                            const name = typeof r === 'object' ? r.name : r;
+                            const checked = roleDialogSelected.has(key);
+                            return (
+                                <Flex key={key} align="center" gap="3"
+                                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-2)', background: 'var(--gray-a2)' }}>
+                                    <Switch size="1" checked={checked} color="violet"
+                                        onCheckedChange={() => {
+                                            setRoleDialogSelected(p => {
+                                                const n = new Set(p);
+                                                n.has(key) ? n.delete(key) : n.add(key);
+                                                return n;
+                                            });
+                                        }} />
+                                    <Text size="2" weight="medium">{name}</Text>
+                                </Flex>
+                            );
+                        })}
+                    </Flex>
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
+                        <Button onClick={saveRoles} disabled={roleSaving}>
+                            {roleSaving ? <><Spinner size="1" /> Saving…</> : 'Save'}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
             {/* ── Delete Dialog ── */}
             <Dialog.Root open={!!delUser} onOpenChange={o => !o && setDelUser(null)}>
                 <Dialog.Content style={{ maxWidth: 420 }}>
                     <Dialog.Title>Delete User</Dialog.Title>
                     <Dialog.Description size="2" color="gray">
                         Are you sure you want to delete <Text weight="bold">{delUser?.name}</Text>?
-                        This action cannot be undone.
+                        This will soft-delete the user — you can restore them via the Show Deleted filter.
                     </Dialog.Description>
                     <Flex gap="3" mt="5" justify="end">
                         <Dialog.Close>

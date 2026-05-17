@@ -80,9 +80,7 @@ class AttendanceController extends Controller
 
     private function getEmployeeUsersWithAttendanceAndLeaves($year, $month)
     {
-        return User::whereHas('roles', function ($query) {
-            $query->where('name', 'Employee');
-        })->with([
+        return User::role('Employee')->with([
             'attendances' => function ($query) use ($year, $month) {
                 $query->whereYear('date', $year)
                     ->whereMonth('date', $month);
@@ -817,8 +815,8 @@ class AttendanceController extends Controller
         $employee = $request->get('employee', '');
 
         try {
-            // Get users who have attendance for the selected date (any role with attendance_type configured)
-            $usersWithAttendanceQuery = User::whereNotNull('attendance_type_id')
+            // Get users who have attendance for the selected date
+            $usersWithAttendanceQuery = User::role('Employee')
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
                         ->whereDate('date', $selectedDate);
@@ -945,12 +943,24 @@ class AttendanceController extends Controller
         $selectedDate = Carbon::parse($request->query('date'))->format('Y-m-d');
 
         try {
+            // Skip absent calculation on weekends
+            $settings    = \App\Models\HRM\AttendanceSetting::first();
+            $weekendDays = $settings?->weekend_days ?? ['saturday', 'sunday'];
+            $dayName     = strtolower(Carbon::parse($selectedDate)->format('l'));
+            if (in_array($dayName, $weekendDays)) {
+                return response()->json([
+                    'absent_users' => [],
+                    'leaves'       => [],
+                    'total_absent' => 0,
+                    'is_weekend'   => true,
+                ]);
+            }
 
-            // When not searching, get all users configured for attendance tracking
-            $allUsers = User::whereNotNull('attendance_type_id')->get();
+            // When not searching, get all users with Employee role
+            $allUsers = User::role('Employee')->get();
 
             // Get IDs of users who have attendance for the selected date
-            $presentUserIds = User::whereNotNull('attendance_type_id')
+            $presentUserIds = User::role('Employee')
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
                         ->whereDate('date', $selectedDate);
