@@ -656,6 +656,17 @@ class BiometricWebhookController extends Controller
             $checkTime = trim($data['DateTime'] ?? '');
             // ZKTeco ADMS sends numeric check type: 0=IN, 1=OUT, 2=Break-Out, 3=Break-In, 4=OT-In, 5=OT-Out
             $rawCheckType = trim($data['Status'] ?? '0');
+            $checkType = match ((string) $rawCheckType) {
+                '0'     => 'in',
+                '1'     => 'out',
+                '2'     => 'break_out',
+                '3'     => 'break_in',
+                '4'     => 'ot_in',
+                '5'     => 'ot_out',
+                'I', 'i' => 'in',
+                'O', 'o' => 'out',
+                default => 'in',
+            };
 
             // Resolve user_id and employee_id by matching PIN to employee_id directly
             $user = User::where('employee_id', $deviceUserId)->first();
@@ -678,22 +689,6 @@ class BiometricWebhookController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            $checkType = match ((string) $rawCheckType) {
-                '0'     => 'in',
-                '1'     => 'out',
-                '2'     => 'break_out',
-                '3'     => 'break_in',
-                '4'     => 'ot_in',
-                '5'     => 'ot_out',
-                'I', 'i' => 'in',
-                'O', 'o' => 'out',
-                default => 'in',
-            };
-
-            // Resolve user_id and employee_id by matching PIN to employee_id directly
-            $user = User::where('employee_id', $deviceUserId)->first();
-            $resolvedUserId = $user ? $user->id : null;
-            $resolvedEmployeeId = $user ? $user->employee_id : null;
 
             // Idempotency check: avoid duplicate punches
             // Check if attendance record already exists for this exact punch
