@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Events\BiometricAttendanceReceived;
 use App\Events\BiometricDeviceConnected;
 use App\Http\Controllers\Controller;
+use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDeviceCommand;
 use App\Models\User;
@@ -338,7 +339,8 @@ class BiometricWebhookController extends Controller
                     ];
                     $operationType = $this->getOperLogName($parts[1] ?? '0');
                     $userPin = $parts[2] ?? null;
-                    $occurredAt = $parts[3] ?? now();
+                    $rawOccurredAt = $parts[3] ?? null;
+                    $occurredAt = $rawOccurredAt ? \Carbon\Carbon::parse($rawOccurredAt) : now();
                 }
             } else {
                 // Parse key=value format (FP, USER, etc.)
@@ -347,7 +349,8 @@ class BiometricWebhookController extends Controller
                 }
                 $operationType = $data['Operation'] ?? $data['operation'] ?? $data['type'] ?? null;
                 $userPin = $data['PIN'] ?? $data['pin'] ?? null;
-                $occurredAt = $data['DateTime'] ?? $data['dateTime'] ?? now();
+                $rawOccurredAt2 = $data['DateTime'] ?? $data['dateTime'] ?? null;
+                $occurredAt = $rawOccurredAt2 ? \Carbon\Carbon::parse($rawOccurredAt2) : now();
             }
 
             DB::table('biometric_oper_logs')->insert([
@@ -512,6 +515,16 @@ class BiometricWebhookController extends Controller
             $userId = $matches['userid'];
             $template = trim($matches['template']);
             
+            // Resolve system user by employee_id (PIN)
+            $systemUser = User::where('employee_id', $userId)->first();
+            if (! $systemUser) {
+                Log::warning('Template upload: no system user for device PIN', [
+                    'device_serial' => $serialNumber,
+                    'device_user_id' => $userId,
+                ]);
+                return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
+            }
+
             // Determine template type based on table
             $templateType = $table === 'templatev10' ? 'fingerprint' : 'face';
 
@@ -524,9 +537,11 @@ class BiometricWebhookController extends Controller
                         'template_type' => $templateType,
                     ],
                     [
+                        'user_id' => $systemUser->id,
                         'template_data' => $template,
                         'template_size' => strlen($template),
                         'template_version' => $table,
+                        'created_at' => now(),
                         'updated_at' => now(),
                     ]
                 );
@@ -668,50 +683,112 @@ class BiometricWebhookController extends Controller
                 default => 'in',
             };
 
-            // Resolve user_id and employee_id by matching PIN to employee_id directly
+            // Resolve user by matching PIN to employee_id
             $user = User::where('employee_id', $deviceUserId)->first();
-            $resolvedUserId = $user ? $user->id : null;
-            $resolvedEmployeeId = $user ? $user->employee_id : null;
 
-            // Store raw ATTLOG entry
-            DB::table('biometric_att_logs')->insert([
-                'biometric_device_id' => $device->id,
-                'serial_number' => $serialNumber,
-                'user_pin' => $deviceUserId,
-                'user_id' => $resolvedUserId,
-                'punch_time' => $checkTime,
-                'check_type' => $checkType,
-                'verify_code' => $data['VerifyCode'] ?? null,
-                'work_code' => $data['WorkCode'] ?? null,
-                'raw_data' => $line,
-                'context' => json_encode($data),
-                'occurred_at' => $checkTime,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Idempotency check: avoid duplicate punches
-            // Check if attendance record already exists for this exact punch
-            $existingAttendance = DB::table('attendances')
-                ->where('user_id', $resolvedUserId)
-                ->where('punch_time', $checkTime)
-                ->where('source', 'biometric')
-                ->first();
-
-            if ($existingAttendance) {
-                $duplicateCount++;
-                Log::info('ADMS push: duplicate punch skipped', [
-                    'device_serial' => $serialNumber,
+            if (! $user) {
+                $errorCount++;
+                Log::warning('ADMS push: user not found', [
+                    'device_serial'  => $serialNumber,
                     'device_user_id' => $deviceUserId,
-                    'check_time' => $checkTime,
+                ]);
+                DB::table('biometric_att_logs')->insert([
+                    'biometric_device_id'   => $device->id,
+                    'serial_number'         => $serialNumber,
+                    'user_pin'              => $deviceUserId,
+                    'user_id'               => null,
+                    'punch_time'            => $checkTime,
+                    'check_type'            => $checkType,
+                    'punch_status'          => 'unknown_user',
+                    'punch_status_reason'   => 'No user matched employee_id: ' . $deviceUserId,
+                    'verify_code'           => $data['VerifyCode'] ?? null,
+                    'work_code'             => $data['WorkCode'] ?? null,
+                    'raw_data'              => $line,
+                    'context'               => json_encode($data),
+                    'occurred_at'           => $checkTime,
+                    'created_at'            => now(),
+                    'updated_at'            => now(),
                 ]);
                 continue;
             }
 
-            $user = User::find($resolvedUserId);
-            if (! $user) {
+            // Validate attendance type
+            if (! $user->attendance_type_id) {
                 $errorCount++;
-                Log::warning('ADMS push: system user not found', ['user_id' => $resolvedUserId]);
+                Log::warning('ADMS push: user has no attendance type', [
+                    'device_serial' => $serialNumber,
+                    'user_id'       => $user->id,
+                ]);
+                continue;
+            }
+
+            $attendanceType = AttendanceType::with('biometricDevices')->find($user->attendance_type_id);
+
+            if (! $attendanceType || ! str_starts_with($attendanceType->slug, 'biometric')) {
+                $errorCount++;
+                Log::warning('ADMS push: user attendance type is not biometric', [
+                    'device_serial'        => $serialNumber,
+                    'user_id'              => $user->id,
+                    'attendance_type_slug' => $attendanceType?->slug ?? null,
+                ]);
+                continue;
+            }
+
+            // Zone/group device check: if the AT has linked devices, punch must come from one of them
+            $linkedDevices = $attendanceType->biometricDevices;
+            $wrongDevice   = $linkedDevices->isNotEmpty() && ! $linkedDevices->contains('id', $device->id);
+
+            // Store raw ATTLOG entry with punch_status
+            DB::table('biometric_att_logs')->insert([
+                'biometric_device_id'  => $device->id,
+                'serial_number'        => $serialNumber,
+                'user_pin'             => $deviceUserId,
+                'user_id'              => $user->id,
+                'punch_time'           => $checkTime,
+                'check_type'           => $checkType,
+                'punch_status'         => $wrongDevice ? 'wrong_device' : 'processed',
+                'punch_status_reason'  => $wrongDevice ? 'Device not in attendance zone' : null,
+                'verify_code'          => $data['VerifyCode'] ?? null,
+                'work_code'            => $data['WorkCode'] ?? null,
+                'raw_data'             => $line,
+                'context'              => json_encode($data),
+                'occurred_at'          => $checkTime,
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ]);
+
+            if ($wrongDevice) {
+                $errorCount++;
+                Log::warning('ADMS push: punch from device not in attendance zone', [
+                    'device_serial'    => $serialNumber,
+                    'device_id'        => $device->id,
+                    'user_id'          => $user->id,
+                    'attendance_type'  => $attendanceType->slug,
+                ]);
+                continue;
+            }
+
+            // Idempotency check: skip duplicate punches
+            $existingAttendance = DB::table('attendances')
+                ->where('user_id', $user->id)
+                ->where(function ($query) use ($checkTime) {
+                    $query->where('punchin', $checkTime)
+                          ->orWhere('punchout', $checkTime);
+                })
+                ->exists();
+
+            if ($existingAttendance) {
+                $duplicateCount++;
+                DB::table('biometric_att_logs')
+                    ->where('user_id', $user->id)
+                    ->where('punch_time', $checkTime)
+                    ->where('serial_number', $serialNumber)
+                    ->update(['punch_status' => 'duplicate', 'updated_at' => now()]);
+                Log::info('ADMS push: duplicate punch skipped', [
+                    'device_serial'  => $serialNumber,
+                    'device_user_id' => $deviceUserId,
+                    'check_time'     => $checkTime,
+                ]);
                 continue;
             }
 
@@ -721,41 +798,49 @@ class BiometricWebhookController extends Controller
                 'device_user_id' => $deviceUserId,
                 'source'         => 'biometric',
                 'punch_time'     => $checkTime,
-                'check_type'     => $checkType, // Pass CHECKTYPE to help determine IN/OUT
+                'check_type'     => $checkType,
             ]);
 
             // Process through existing punch service
             try {
                 $punchService = new AttendancePunchService();
-                $result = $punchService->processPunch($user, $syntheticRequest);
+                $result       = $punchService->processPunch($user, $syntheticRequest);
 
                 if ($result['status'] === 'success') {
                     $processedCount++;
                 } else {
                     $errorCount++;
+                    DB::table('biometric_att_logs')
+                        ->where('user_id', $user->id)
+                        ->where('punch_time', $checkTime)
+                        ->where('serial_number', $serialNumber)
+                        ->update([
+                            'punch_status'        => 'failed',
+                            'punch_status_reason' => $result['message'] ?? null,
+                            'updated_at'          => now(),
+                        ]);
                 }
 
                 Log::info('ADMS punch processed', [
-                    'user_id'       => $user->id,
-                    'device_serial' => $serialNumber,
+                    'user_id'        => $user->id,
+                    'device_serial'  => $serialNumber,
                     'device_user_id' => $deviceUserId,
-                    'check_time'    => $checkTime,
-                    'check_type'    => $checkType,
-                    'result_status' => $result['status'],
+                    'check_time'     => $checkTime,
+                    'check_type'     => $checkType,
+                    'result_status'  => $result['status'],
                 ]);
 
-                // Dispatch attendance received event
                 event(new BiometricAttendanceReceived($device, $user, [
                     'device_user_id' => $deviceUserId,
-                    'check_time' => $checkTime,
-                    'check_type' => $checkType,
-                    'result' => $result,
+                    'check_time'     => $checkTime,
+                    'check_type'     => $checkType,
+                    'result'         => $result,
                 ]));
             } catch (\Exception $e) {
                 $errorCount++;
                 Log::error('ADMS punch error: ' . $e->getMessage(), [
-                    'user_id'       => $user->id,
-                    'device_serial' => $serialNumber,
+                    'user_id'        => $user->id,
+                    'device_serial'  => $serialNumber,
                     'device_user_id' => $deviceUserId,
                 ]);
             }
@@ -784,7 +869,7 @@ class BiometricWebhookController extends Controller
     {
         $validated = $request->validate([
             'device_id' => 'required|exists:biometric_devices,id',
-            'command_type' => 'required|in:REBOOT,SET_TIME,ADD_USER,UPDATE_USER,DELETE_USER,CLEAR_LOG,CLEAR_DATA',
+            'command_type' => 'required|in:REBOOT,SET_TIME,ADD_USER,UPDATE_USER,DELETE_USER,CLEAR_LOG,CLEAR_DATA,GET_USERINFO',
             'payload' => 'nullable|array',
             'scheduled_at' => 'nullable|date',
         ]);
@@ -862,29 +947,28 @@ class BiometricWebhookController extends Controller
     }
 
     /**
-     * Get ADMS logs for monitoring
+     * Get ADMS operation logs for monitoring (from biometric_oper_logs table)
      */
     public function getLogs(Request $request, $deviceId = null)
     {
-        $query = DB::table('logs')
-            ->where('message', 'like', '%ADMS%')
-            ->orderBy('created_at', 'desc')
+        $query = DB::table('biometric_oper_logs')
+            ->orderBy('occurred_at', 'desc')
             ->limit(100);
 
         if ($deviceId) {
-            $device = BiometricDevice::find($deviceId);
-            if ($device) {
-                $query->where('message', 'like', '%' . $device->serial_number . '%');
-            }
+            $query->where('biometric_device_id', $deviceId);
         }
 
         $logs = $query->get()->map(function ($log) {
             return [
-                'id' => $log->id,
-                'level' => $log->level ?? 'info',
-                'message' => $log->message,
-                'context' => json_decode($log->context ?? '[]', true),
-                'created_at' => $log->created_at,
+                'id'             => $log->id,
+                'level'          => 'info',
+                'serial_number'  => $log->serial_number,
+                'operation_type' => $log->operation_type,
+                'user_pin'       => $log->user_pin,
+                'raw_data'       => $log->raw_data,
+                'context'        => json_decode($log->context ?? '[]', true),
+                'created_at'     => $log->occurred_at,
             ];
         });
 
