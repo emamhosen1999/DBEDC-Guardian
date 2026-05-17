@@ -1225,17 +1225,23 @@ function AttLogTab({ isMobile }) {
                     <Table.Root variant="surface">
                         <Table.Header>
                             <Table.Row>
-                                <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>User ID</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>User Name</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Punch In</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Punch Out</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>In Location</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Out Location</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Time</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
                             {filtered.map(log => (
                                 <Table.Row key={log.id}>
+                                    <Table.Cell>
+                                        <Text size="1">{log.device_name || 'Unknown'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{log.user_pin || '—'}</Text>
+                                    </Table.Cell>
                                     <Table.Cell>
                                         <Text weight="medium" size="2">{log.user_name}</Text>
                                     </Table.Cell>
@@ -1243,16 +1249,12 @@ function AttLogTab({ isMobile }) {
                                         <Text size="1">{log.date || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1">{log.punchin || '—'}</Text>
+                                        <Text size="1">{log.time || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1">{log.punchout || '—'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="1" color="gray">{log.punchin_location || '—'}</Text>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Text size="1" color="gray">{log.punchout_location || '—'}</Text>
+                                        <Badge color={log.check_type === 'in' ? 'green' : 'red'} variant="soft" size="1">
+                                            {log.check_type?.toUpperCase() || 'IN'}
+                                        </Badge>
                                     </Table.Cell>
                                 </Table.Row>
                             ))}
