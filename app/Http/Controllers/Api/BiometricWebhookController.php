@@ -53,6 +53,18 @@ class BiometricWebhookController extends Controller
 
         $resolvedPunchTime = $punchTime ? \Carbon\Carbon::parse($punchTime) : now();
 
+        // Parse check_type from verify_code (ZKTeco standard: 0=in, 1=out, 2=break_in, 3=break_out, 4=ot_in, 5=ot_out)
+        $verifyCode = $request->input('verify_code');
+        $checkTypeMap = [
+            0 => 'in',
+            1 => 'out',
+            2 => 'break_in',
+            3 => 'break_out',
+            4 => 'ot_in',
+            5 => 'ot_out',
+        ];
+        $checkType = $checkTypeMap[$verifyCode] ?? $request->input('check_type', 'in');
+
         // 3. Create an ATTLOG record immediately (every punch is stored, regardless of outcome)
         $attLog = BiometricAttLog::create([
             'biometric_device_id' => $device->id,
@@ -61,8 +73,8 @@ class BiometricWebhookController extends Controller
             'user_id'             => null,
             'punch_time'          => $resolvedPunchTime,
             'occurred_at'         => now(),
-            'check_type'          => $request->input('check_type', 'in'),
-            'verify_code'         => $request->input('verify_code'),
+            'check_type'          => $checkType,
+            'verify_code'         => $verifyCode,
             'work_code'           => $request->input('work_code'),
             'raw_data'            => $request->getContent() ?: null,
             'punch_status'        => 'failed',
