@@ -102,7 +102,7 @@ export const getPages = (roles, permissions, auth = null) => {
           icon: <CalendarDaysIcon  />,
           category: 'time',
           subMenu: [
-            ...(permissions.includes('attendance.view') ? [{ name: 'Attendance', icon: <ClockIcon  />, route: 'attendance.unified' }] : []),
+            ...(permissions.includes('attendance.view') ? [{ name: 'Attendances', icon: <ClockIcon  />, route: 'attendance.unified' }] : []),
             ...(permissions.includes('holidays.view') ? [{ name: 'Holidays', icon: <CalendarIcon  />, route: 'holidays' }] : []),
             ...(permissions.includes('leaves.view') ? [
               { name: 'Leave Applications', icon: <ArrowRightOnRectangleIcon  />, route: 'leaves' },
@@ -160,19 +160,7 @@ export const getPages = (roles, permissions, auth = null) => {
             priority: 2,
             description: 'Configure organizational structure, company information, and brand assets'
           }] : []),
-          ...(permissions.includes('attendance.settings') ? [{
-            name: 'Time & Attendance', 
-            icon: <ClockIcon className="w-5 h-5" />, 
-            route: 'attendance-settings.index',
-            priority: 3,
-            description: 'Configure attendance tracking and workforce management'
-          }, {
-            name: 'Biometric Devices', 
-            icon: <PhoneIcon className="w-5 h-5" />, 
-            route: 'biometric-devices.index',
-            priority: 3,
-            description: 'Manage ZKTeco biometric devices and user enrollments'
-          }] : []),
+         
           ...(permissions.includes('leave-settings.view') ? [{
             name: 'Leave Policy', 
             icon: <HandThumbUpIcon className="w-5 h-5" />, 

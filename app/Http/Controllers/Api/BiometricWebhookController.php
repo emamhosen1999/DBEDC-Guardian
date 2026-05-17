@@ -628,8 +628,8 @@ class BiometricWebhookController extends Controller
             'data_length' => strlen($rawData),
         ]);
 
-        // Parse the attendance data using robust regex
-        // Format: Multiple lines, each line: USERID=xxx\tCHECKTIME=xxx\tCHECKTYPE=I/O\tVERIFYCODE=x\tSENSORID=x
+        // Parse the attendance data
+        // Format: Multiple lines, each line tab-separated: PIN\tDateTime\tStatus\tVerifyCode\tWorkCode\tReserved...
         $lines = explode("\n", trim($rawData));
         $processedCount = 0;
         $errorCount = 0;
@@ -640,10 +640,15 @@ class BiometricWebhookController extends Controller
                 continue;
             }
 
-            // Use regex for robust parsing (handles missing keys, extra whitespace)
+            // Parse tab-separated format
+            $parts = explode("\t", trim($line));
             $data = [];
-            if (preg_match_all('/([^=\t\n]+)=([^\t\n]*)/', $line, $matches)) {
-                $data = array_combine($matches[1], $matches[2]);
+            if (count($parts) >= 2) {
+                $data['PIN'] = $parts[0] ?? null;
+                $data['DateTime'] = $parts[1] ?? null;
+                $data['Status'] = $parts[2] ?? '0';
+                $data['VerifyCode'] = $parts[3] ?? null;
+                $data['WorkCode'] = $parts[4] ?? null;
             }
 
             Log::info('ADMS push: parsing ATTLOG line', [
@@ -652,12 +657,11 @@ class BiometricWebhookController extends Controller
                 'parsed_data' => $data,
             ]);
 
-            $hasUserId = isset($data['USERID']) || isset($data['EnrollNumber']);
-            $hasCheckTime = isset($data['CHECKTIME']) || isset($data['CheckTime']);
-            
-            // Skip lines that don't match ATTLOG format (could be OPERLOG or other data)
+            $hasUserId = !empty($data['PIN']);
+            $hasCheckTime = !empty($data['DateTime']);
+
+            // Skip lines that don't match ATTLOG format
             if (! $hasUserId || ! $hasCheckTime) {
-                // Silently skip non-ATTLOG lines to reduce log noise
                 $errorCount++;
                 Log::warning('ADMS push: line does not match ATTLOG format', [
                     'serial' => $serialNumber,
@@ -669,10 +673,10 @@ class BiometricWebhookController extends Controller
                 continue;
             }
 
-            $deviceUserId = trim($data['USERID'] ?? $data['EnrollNumber'] ?? '');
-            $checkTime = trim($data['CHECKTIME'] ?? $data['CheckTime'] ?? '');
+            $deviceUserId = trim($data['PIN'] ?? '');
+            $checkTime = trim($data['DateTime'] ?? '');
             // ZKTeco ADMS sends numeric check type: 0=IN, 1=OUT, 2=Break-Out, 3=Break-In, 4=OT-In, 5=OT-Out
-            $rawCheckType = trim($data['CHECKTYPE'] ?? $data['CheckType'] ?? '0');
+            $rawCheckType = trim($data['Status'] ?? '0');
             $checkType = match ((string) $rawCheckType) {
                 '0'     => 'in',
                 '1'     => 'out',

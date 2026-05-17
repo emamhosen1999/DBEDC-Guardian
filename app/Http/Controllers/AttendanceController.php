@@ -21,28 +21,6 @@ use Throwable;
 
 class AttendanceController extends Controller
 {
-    public function index1(): \Inertia\Response
-    {
-        return Inertia::render('AttendanceAdmin', [
-            'allUsers' => User::role('Employee')->get(),
-            'title' => 'Attendances of Employees',
-        ]);
-    }
-
-    public function index2(): \Inertia\Response
-    {
-        return Inertia::render('AttendanceEmployee', [
-            'title' => 'Attendances',
-        ]);
-    }
-
-    public function index3(): \Inertia\Response
-    {
-        return Inertia::render('TimeSheet', [
-            'title' => 'Time Sheet',
-        ]);
-    }
-
 
     public function indexUnified(): \Inertia\Response
     {

@@ -518,11 +518,10 @@ class BiometricDeviceController extends Controller
         $userId = $request->input('user_id');
 
         $query = DB::table('attendances')
-            ->where('source', 'biometric')
-            ->orderBy('punch_time', 'desc');
+            ->orderBy('date', 'desc')
+            ->orderBy('punchin', 'desc');
 
         if ($deviceId) {
-            // Filter by device through user mapping
             $userIds = DB::table('biometric_device_users')
                 ->where('biometric_device_id', $deviceId)
                 ->whereNotNull('user_id')
@@ -537,7 +536,6 @@ class BiometricDeviceController extends Controller
 
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
 
-        // Load user information
         $userIds = collect($logs->items())->pluck('user_id')->unique()->toArray();
         $users = User::whereIn('id', $userIds)->pluck('name', 'id')->toArray();
 
@@ -546,10 +544,11 @@ class BiometricDeviceController extends Controller
                 'id' => $log->id,
                 'user_id' => $log->user_id,
                 'user_name' => $users[$log->user_id] ?? 'Unknown',
-                'punch_time' => $log->punch_time,
-                'punch_in' => $log->punch_in,
-                'punch_out' => $log->punch_out,
-                'source' => $log->source,
+                'date' => $log->date,
+                'punchin' => $log->punchin,
+                'punchout' => $log->punchout,
+                'punchin_location' => $log->punchin_location,
+                'punchout_location' => $log->punchout_location,
                 'created_at' => $log->created_at,
             ];
         })->toArray();

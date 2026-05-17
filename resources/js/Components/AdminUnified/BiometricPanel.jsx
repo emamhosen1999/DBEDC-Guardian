@@ -1226,10 +1226,11 @@ function AttLogTab({ isMobile }) {
                         <Table.Header>
                             <Table.Row>
                                 <Table.ColumnHeaderCell>User</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Punch Time</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Punch In</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Punch Out</Table.ColumnHeaderCell>
-                                <Table.ColumnHeaderCell>Source</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>In Location</Table.ColumnHeaderCell>
+                                <Table.ColumnHeaderCell>Out Location</Table.ColumnHeaderCell>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
@@ -1239,16 +1240,19 @@ function AttLogTab({ isMobile }) {
                                         <Text weight="medium" size="2">{log.user_name}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1">{log.punch_time ? new Date(log.punch_time).toLocaleString() : '—'}</Text>
+                                        <Text size="1">{log.date || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1">{log.punch_in ? new Date(log.punch_in).toLocaleString() : '—'}</Text>
+                                        <Text size="1">{log.punchin || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1">{log.punch_out ? new Date(log.punch_out).toLocaleString() : '—'}</Text>
+                                        <Text size="1">{log.punchout || '—'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Badge color="green" variant="soft" size="1">{log.source}</Badge>
+                                        <Text size="1" color="gray">{log.punchin_location || '—'}</Text>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Text size="1" color="gray">{log.punchout_location || '—'}</Text>
                                     </Table.Cell>
                                 </Table.Row>
                             ))}
