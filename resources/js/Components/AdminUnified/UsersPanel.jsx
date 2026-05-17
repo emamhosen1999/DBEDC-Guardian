@@ -412,7 +412,7 @@ export default function UsersPanel({
                         <Table.Header>
                             <Table.Row>
                                 <Table.ColumnHeaderCell style={{ width: 40 }}>
-                                    <Checkbox.Root
+                                    <Checkbox
                                         checked={selectedIds.length === users.length && users.length > 0}
                                         onCheckedChange={toggleSelectAll}
                                     />
@@ -438,7 +438,7 @@ export default function UsersPanel({
                                     <Table.Row key={user.id}>
                                         {/* Checkbox */}
                                         <Table.Cell>
-                                            <Checkbox.Root
+                                            <Checkbox
                                                 checked={selectedIds.includes(user.id)}
                                                 onCheckedChange={() => toggleSelect(user.id)}
                                             />
