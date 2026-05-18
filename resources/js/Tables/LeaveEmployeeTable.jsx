@@ -331,16 +331,18 @@ const LeaveEmployeeTable = React.forwardRef(({
                                         </Button>
                                     </DropdownTrigger>
                                     <DropdownMenu aria-label="Leave actions">
-                                        {canEditLeaves && (
-                                            <DropdownItem key="edit" startContent={<Pencil1Icon style={{ width: 16, height: 16 }} />} onPress={() => { setCurrentLeave(leave); openModal("edit_leave"); }}>
-                                                Edit Leave
-                                            </DropdownItem>
-                                        )}
-                                        {canDeleteLeaves && (
-                                            <DropdownItem key="delete" color="danger" startContent={<TrashIcon style={{ width: 16, height: 16 }} />} onPress={() => handleClickOpen(leave.id, "delete_leave")}>
-                                                Delete Leave
-                                            </DropdownItem>
-                                        )}
+                                        <>
+                                            {canEditLeaves && (
+                                                <DropdownItem key="edit" startContent={<Pencil1Icon style={{ width: 16, height: 16 }} />} onPress={() => { setCurrentLeave(leave); openModal("edit_leave"); }}>
+                                                    Edit Leave
+                                                </DropdownItem>
+                                            )}
+                                            {canDeleteLeaves && (
+                                                <DropdownItem key="delete" color="danger" startContent={<TrashIcon style={{ width: 16, height: 16 }} />} onPress={() => handleClickOpen(leave.id, "delete_leave")}>
+                                                    Delete Leave
+                                                </DropdownItem>
+                                            )}
+                                        </>
                                     </DropdownMenu>
                                 </Dropdown>
                             )}
@@ -531,20 +533,22 @@ const LeaveEmployeeTable = React.forwardRef(({
                                         </Button>
                                     </DropdownTrigger>
                                     <DropdownMenu aria-label="Status actions">
-                                        {Object.keys(statusConfig).map((status) => {
-                                            const config = statusConfig[status];
-                                            const StatusIcon = config.icon;
-                                            return (
-                                                <DropdownItem
-                                                    key={status}
-                                                    startContent={<StatusIcon style={{ width: 16, height: 16 }} />}
-                                                    color={config.color}
-                                                    onPress={() => updateLeaveStatus(leave, status)}
-                                                >
-                                                    {status}
-                                                </DropdownItem>
-                                            );
-                                        })}
+                                        <>
+                                            {Object.keys(statusConfig).map((status) => {
+                                                const config = statusConfig[status];
+                                                const StatusIcon = config.icon;
+                                                return (
+                                                    <DropdownItem
+                                                        key={status}
+                                                        startContent={<StatusIcon style={{ width: 16, height: 16 }} />}
+                                                        color={config.color}
+                                                        onPress={() => updateLeaveStatus(leave, status)}
+                                                    >
+                                                        {status}
+                                                    </DropdownItem>
+                                                );
+                                            })}
+                                        </>
                                     </DropdownMenu>
                                 </Dropdown>
                             )}
