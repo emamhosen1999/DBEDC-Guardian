@@ -161,19 +161,7 @@ export const getPages = (roles, permissions, auth = null) => {
             description: 'Configure organizational structure, company information, and brand assets'
           }] : []),
          
-          ...(permissions.includes('leave-settings.view') ? [{
-            name: 'Leave Policy', 
-            icon: <HandThumbUpIcon className="w-5 h-5" />, 
-            route: 'leave-settings',
-            priority: 4,
-            description: 'Manage leave types and approval workflows'
-          }] : []),
-          ...(permissions.includes('modules.view') ? [{ 
-            name: 'Modules', 
-            icon: <CubeIcon />, 
-            route: 'modules.index',
-            description: 'Enable or disable system modules'
-          }] : []),
+       
           ...(permissions.includes('request_logs.view') ? [{
             name: 'Request Logs',
             icon: <DocumentTextIcon />,

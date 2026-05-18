@@ -277,6 +277,19 @@ class LeaveController extends Controller
         ]);
     }
 
+    public function getSummaryData()
+    {
+        $filters = [
+            'year' => now()->year,
+            'department_id' => null,
+            'employee_id' => null,
+            'status' => null,
+            'leave_type' => null,
+        ];
+
+        return $this->summaryService->generateLeaveSummary($filters);
+    }
+
     public function bulkApprove(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
