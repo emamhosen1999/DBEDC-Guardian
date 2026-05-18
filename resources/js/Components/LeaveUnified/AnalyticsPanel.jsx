@@ -11,7 +11,7 @@ import {
     IconButton, Select, Separator, Spinner, Text,
 } from '@radix-ui/themes';
 import {
-    BarChartIcon, BuildingOfficeIcon, CalendarIcon,
+    BarChartIcon, HomeIcon, CalendarIcon,
     CheckCircledIcon, ClockIcon, CrossCircledIcon, ReloadIcon,
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';

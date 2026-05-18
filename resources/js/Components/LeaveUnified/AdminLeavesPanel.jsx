@@ -188,18 +188,10 @@ export default function AdminLeavesPanel({
         } catch { showToast.error('Bulk reject failed.'); }
     }, [fetchLeaves, fetchStats]);
 
-    /**
-     * LeaveEmployeeTable calls onBulkDelete with an array of IDs.
-     * BulkDeleteModal needs full leave objects to display names/dates and
-     * check approval status — so we resolve IDs against the current leaves list.
-     */
-    const handleBulkDelete = useCallback(ids => {
-        const fullLeaves = ids
-            .map(id => leaves.find(l => String(l.id) === String(id)))
-            .filter(Boolean);
+    const handleBulkDelete = useCallback(fullLeaves => {
         setSelectedForBulkDelete(fullLeaves);
         openModal('bulkDelete');
-    }, [openModal, leaves]);
+    }, [openModal]);
 
     /* ── leave type options ── */
     const leaveTypeOptions = useMemo(() => {
@@ -211,8 +203,6 @@ export default function AdminLeavesPanel({
 
     const hasActiveFilters = filters.employee ||
         filters.status.length || filters.leaveType.length || filters.department.length;
-
-    const memoizedLeaves = useMemo(() => leaves, [leaves]);
 
     /* ── render ── */
     return (
@@ -375,10 +365,10 @@ export default function AdminLeavesPanel({
                     <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
                     <Callout.Text>{error}</Callout.Text>
                 </Callout.Root>
-            ) : memoizedLeaves?.length > 0 ? (
+            ) : leaves?.length > 0 ? (
                 <LeaveEmployeeTable
                     ref={leaveTableRef}
-                    leaves={memoizedLeaves}
+                    leaves={leaves}
                     allUsers={allUsers}
                     totalRows={totalRows}
                     lastPage={lastPage}
@@ -430,8 +420,8 @@ export default function AdminLeavesPanel({
             {modalStates.deleteLeave && (
                 <DeleteLeaveForm
                     open={modalStates.deleteLeave}
-                    handleClose={() => closeModal('deleteLeave')}
-                    leave={currentLeave}
+                    closeModal={() => closeModal('deleteLeave')}
+                    leaveId={currentLeave?.id}
                     setLeaves={setLeaves}
                     fetchLeavesStats={fetchStats}
                 />
@@ -439,7 +429,7 @@ export default function AdminLeavesPanel({
 
             {modalStates.bulkLeave && (
                 <BulkLeaveModal
-                    isOpen={modalStates.bulkLeave}
+                    open={modalStates.bulkLeave}
                     onClose={() => closeModal('bulkLeave')}
                     allUsers={allUsers}
                     onSuccess={() => { fetchLeaves(); fetchStats(); }}

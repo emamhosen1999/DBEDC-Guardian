@@ -108,7 +108,7 @@ export default function MyLeavesPanel({
         } finally {
             setLoading(false);
         }
-    }, [pagination, filters, auth.user.id, onCountChange]);
+    }, [pagination, filters, auth.user.id]);
 
     useEffect(() => {
         if (isActive) fetchLeaves();
@@ -270,8 +270,8 @@ export default function MyLeavesPanel({
             {modalStates.deleteLeave && (
                 <DeleteLeaveForm
                     open={modalStates.deleteLeave}
-                    handleClose={() => closeModal('deleteLeave')}
-                    leave={currentLeave}
+                    closeModal={() => closeModal('deleteLeave')}
+                    leaveId={currentLeave?.id}
                     setLeaves={setLeaves}
                     fetchLeavesStats={fetchLeaves}
                 />
@@ -279,7 +279,7 @@ export default function MyLeavesPanel({
 
             {modalStates.bulkLeave && (
                 <BulkLeaveModal
-                    isOpen={modalStates.bulkLeave}
+                    open={modalStates.bulkLeave}
                     onClose={() => closeModal('bulkLeave')}
                     allUsers={allUsers}
                     onSuccess={fetchLeaves}
@@ -288,8 +288,10 @@ export default function MyLeavesPanel({
 
             {modalStates.bulkDelete && (
                 <BulkDeleteModal
-                    isOpen={modalStates.bulkDelete}
+                    open={modalStates.bulkDelete}
                     onClose={() => closeModal('bulkDelete')}
+                    selectedLeaves={[]}
+                    allUsers={allUsers}
                     onSuccess={() => { fetchLeaves(); closeModal('bulkDelete'); }}
                 />
             )}

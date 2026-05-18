@@ -11,7 +11,7 @@
  * "My Leaves" panel removed — self-service is handled separately.
  * Same page-shell pattern as DailyWorksUnified.jsx.
  */
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import {
     Badge, Box, Button, Card, Flex, Heading,
@@ -42,6 +42,7 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
 
     /* quick-count badge populated by AdminLeavesPanel callback */
     const [counts, setCounts] = useState({ all: 0 });
+    const handleAllCount = useCallback(n => setCounts(p => ({ ...p, all: n })), []);
 
     /* per-tab header actions injected by each panel */
     const [headerActions, setHeaderActions] = useState(null);
@@ -158,7 +159,7 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                                         allUsers={allUsers}
                                         isMobile={isMobile}
                                         isActive={activeTab === 'all'}
-                                        onCountChange={n => setCounts(p => ({ ...p, all: n }))}
+                                        onCountChange={handleAllCount}
                                         onSetHeaderActions={setHeaderActions}
                                     />
                                 </Tabs.Content>
