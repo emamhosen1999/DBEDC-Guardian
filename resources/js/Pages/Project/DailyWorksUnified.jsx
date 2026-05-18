@@ -28,7 +28,7 @@ import {
     TargetIcon,
     ChevronDownIcon
 } from '@radix-ui/react-icons';
-import { Head } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import App from "@/Layouts/App.jsx";
 import {
     Box,
@@ -1278,7 +1278,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                 <Button 
                                                     variant="soft" 
                                                     color="indigo"
-                                                    onClick={() => window.location.href = '/objections'}
+                                                    onClick={() => router.visit('/objections')}
                                                 >
                                                     Go to Original Objections Page
                                                 </Button>

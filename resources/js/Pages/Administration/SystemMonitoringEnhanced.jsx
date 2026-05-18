@@ -23,7 +23,6 @@ import {
   Select,
   SelectItem
 } from "@/compat/heroui";
-import { useTheme } from '@/Contexts/ThemeContext';
 import { 
   Button as HeroButton,
   Select as HeroSelect,
@@ -86,9 +85,6 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SystemMonitoringEnhanced = ({ title, initialData }) => {
-    const { isDark } = useTheme();
-    const primaryColor = getThemePrimaryColor();
-    
     // Custom media query
     const [isMobile, setIsMobile] = useState(false);
     
@@ -127,7 +123,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
         }, parseInt(refreshInterval) * 1000);
 
         return () => clearInterval(interval);
-    }, [autoRefresh, refreshInterval]);
+    }, [autoRefresh, refreshInterval, refreshData]);
 
     // Data fetching
     const refreshData = useCallback(async () => {

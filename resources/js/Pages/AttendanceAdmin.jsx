@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {Head} from '@inertiajs/react';
 import { 
     Button, 
@@ -49,24 +50,10 @@ const getThemeRadius = () => {
 
 
 const AttendanceAdmin = React.memo(({title}) => {
-    // Custom media query logic - matching AttendanceEmployee
-    const [isMobile, setIsMobile] = useState(false);
-    const [isTablet, setIsTablet] = useState(false);
-    const [isLargeScreen, setIsLargeScreen] = useState(false);
-    const [isMediumScreen, setIsMediumScreen] = useState(false);
-    
-    useEffect(() => {
-        const checkScreenSize = () => {
-            setIsMobile(window.innerWidth < 640);
-            setIsTablet(window.innerWidth < 768);
-            setIsLargeScreen(window.innerWidth >= 1025);
-            setIsMediumScreen(window.innerWidth >= 641 && window.innerWidth <= 1024);
-        };
-        
-        checkScreenSize();
-        window.addEventListener('resize', checkScreenSize);
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
+    const isMobile       = useMediaQuery('(max-width: 639px)');
+    const isTablet        = useMediaQuery('(max-width: 767px)');
+    const isLargeScreen   = useMediaQuery('(min-width: 1025px)');
+    const isMediumScreen  = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
 
     const [loading, setLoading] = useState(false);
 

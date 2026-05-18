@@ -18,15 +18,47 @@ class AttendancePunchService
     public function processPunch($user, Request $request): array
     {
         try {
-            $today = Carbon::today();
+            // Use device-provided punch_time when available (biometric batch sync).
+            // Fallback to now() for manual/web punches that omit the field.
+            $punchTime = $request->input('punch_time')
+                ? Carbon::parse($request->input('punch_time'))
+                : Carbon::now();
+            $punchDate = $punchTime->copy()->startOfDay();
 
-            $existingAttendance = $this->getExistingAttendance($user->id, $today);
+            // Honour explicit check_type sent by biometric devices (ZKTeco: in/out/break_*).
+            // Absent check_type falls back to the original toggle behaviour (for manual punches).
+            $checkType = $request->input('check_type');
 
-            if ($existingAttendance && ! $existingAttendance->punchout) {
-                return $this->punchOut($existingAttendance, $request, $user);
-            } else {
-                return $this->punchIn($user, $today, $request);
+            $existingAttendance = $this->getExistingAttendance($user->id, $punchDate);
+
+            $isOutPunch = in_array($checkType, ['out', 'break_out', 'ot_out']);
+            $isInPunch  = in_array($checkType, ['in',  'break_in',  'ot_in']);
+
+            if ($isOutPunch) {
+                if ($existingAttendance && ! $existingAttendance->punchout) {
+                    return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+                }
+                return [
+                    'status'  => 'error',
+                    'message' => 'No open attendance record to punch out from.',
+                    'code'    => 422,
+                ];
             }
+
+            if ($isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
+                return [
+                    'status'  => 'error',
+                    'message' => 'Already punched in for this period.',
+                    'code'    => 422,
+                ];
+            }
+
+            // No explicit check_type (manual toggle) or explicit 'in': decide by existing record.
+            if (! $isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
+                return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+            }
+
+            return $this->punchIn($user, $punchDate, $request, $punchTime);
 
         } catch (\Exception $e) {
             Log::error('Attendance punch error: '.$e->getMessage(), [
@@ -56,10 +88,10 @@ class AttendancePunchService
     /**
      * Process punch out
      */
-    private function punchOut(Attendance $attendance, Request $request, $user): array
+    private function punchOut(Attendance $attendance, Request $request, $user, Carbon $punchTime): array
     {
         $attendance->update([
-            'punchout' => Carbon::now(),
+            'punchout' => $punchTime,
             'punchout_location' => $this->formatLocation($request),
         ]);
 
@@ -77,12 +109,12 @@ class AttendancePunchService
     /**
      * Process punch in
      */
-    private function punchIn($user, Carbon $date, Request $request): array
+    private function punchIn($user, Carbon $date, Request $request, Carbon $punchTime): array
     {
         $attendance = Attendance::create([
             'user_id' => $user->id,
             'date' => $date,
-            'punchin' => Carbon::now(),
+            'punchin' => $punchTime,
             'punchin_location' => $this->formatLocation($request),
         ]);
 

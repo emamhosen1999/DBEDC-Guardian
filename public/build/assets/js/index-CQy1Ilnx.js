@@ -1,0 +1,1 @@
+import{j as t,a as m,o as e}from"./vendor-radix-VbKxErpz.js";import"./vendor-inertia-MwkBbx0Z.js";const x=({children:s,className:r,style:a,...o})=>t.jsx(m,{style:a,...o,children:s}),c=({children:s,className:r,style:a,...o})=>t.jsx(e,{style:a,...o,children:s});export{x as G,c as a};

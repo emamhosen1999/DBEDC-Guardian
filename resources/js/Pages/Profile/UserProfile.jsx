@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
     ButtonGroup,
     Button,
@@ -88,20 +89,8 @@ const projects = [
 const UserProfile = ({ title, allUsers, report_to, departments, designations }) => {
     const { auth } = usePage().props;
     
-    // Custom media queries
-    const [isMobile, setIsMobile] = useState(false);
-    const [isTablet, setIsTablet] = useState(false);
-    
-    useEffect(() => {
-        const checkScreenSize = () => {
-            setIsMobile(window.innerWidth < 640);
-            setIsTablet(window.innerWidth < 768);
-        };
-        
-        checkScreenSize();
-        window.addEventListener('resize', checkScreenSize);
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
+    const isMobile = useMediaQuery('(max-width: 639px)');
+    const isTablet  = useMediaQuery('(max-width: 767px)');
     
     const [user, setUser] = useState(usePage().props.user);
     const [selectedTab, setSelectedTab] = useState("overview");
@@ -601,7 +590,7 @@ const UserProfile = ({ title, allUsers, report_to, departments, designations }) 
                     <div className="space-y-4">
                         {user.experiences.map((experience, index) => (
                             <motion.div
-                                key={index}
+                                key={experience.id ?? index}
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: index * 0.1 }}

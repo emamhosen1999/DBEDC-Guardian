@@ -1554,12 +1554,12 @@ export default function BiometricPanel({
         return () => clearInterval(interval);
     }, [isActive, refreshDevices]);
 
-    useEffect(() => { onCountChange?.(devices.length); }, [devices.length]);
+    useEffect(() => { onCountChange?.(devices.length); }, [devices.length, onCountChange]);
 
     useEffect(() => {
         if (!isActive) return;
         onSetHeaderActions?.(null);
-    }, [isActive]);
+    }, [isActive, onSetHeaderActions]);
 
     const [syncing, setSyncing] = useState(false);
     const syncPool = async () => {

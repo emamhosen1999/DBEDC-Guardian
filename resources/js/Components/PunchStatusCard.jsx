@@ -1321,7 +1321,7 @@ const PunchStatusCard = React.memo(() => {
                                 {attendanceState.todayPunches.length > 0 ? (
                                     <Flex direction="column" gap="2">
                                         {attendanceState.todayPunches.map((punch, index) => (
-                                            <Card key={index} variant="surface">
+                                            <Card key={punch.id ?? punch.punchin_time ?? index} variant="surface">
                                                 <Box p="3">
                                                     <Grid columns="2" gap="3">
                                                         <Box>

@@ -117,23 +117,74 @@ class BiometricWebhookController extends Controller
         // Link the log to the resolved user
         $attLog->update(['user_id' => $user->id]);
 
-        // 5. Build a synthetic request for the punch service
+        // 5. Validate attendance type
+        if (! $user->attendance_type_id) {
+            $attLog->update([
+                'punch_status'        => 'failed',
+                'punch_status_reason' => 'User has no attendance type assigned',
+            ]);
+            Log::warning('Biometric webhook: user has no attendance type', [
+                'user_id' => $user->id, 'device_serial' => $serialNumber,
+            ]);
+            return response()->json(['message' => 'User has no attendance type assigned.'], 422);
+        }
+
+        $attendanceType = AttendanceType::with('biometricDevices')->find($user->attendance_type_id);
+
+        if (! $attendanceType || ! str_starts_with($attendanceType->slug, 'biometric')) {
+            $attLog->update([
+                'punch_status'        => 'failed',
+                'punch_status_reason' => 'Attendance type is not biometric: ' . ($attendanceType?->slug ?? 'not found'),
+            ]);
+            Log::warning('Biometric webhook: attendance type is not biometric', [
+                'user_id' => $user->id, 'attendance_type_slug' => $attendanceType?->slug,
+            ]);
+            return response()->json(['message' => 'User attendance type does not allow biometric punching.'], 422);
+        }
+
+        // 6. Zone check — if the attendance type has linked devices, punch must come from one of them
+        $linkedDevices = $attendanceType->biometricDevices;
+        if ($linkedDevices->isNotEmpty() && ! $linkedDevices->contains('id', $device->id)) {
+            $attLog->update([
+                'punch_status'        => 'wrong_device',
+                'punch_status_reason' => 'Device not in attendance zone',
+            ]);
+            Log::warning('Biometric webhook: punch from device not in attendance zone', [
+                'device_id' => $device->id, 'user_id' => $user->id,
+            ]);
+            return response()->json(['message' => 'Device is not authorised for this user\'s attendance zone.'], 403);
+        }
+
+        // 7. Idempotency — skip if this exact punch time already exists for the user
+        $existingAttendance = DB::table('attendances')
+            ->where('user_id', $user->id)
+            ->where(function ($q) use ($resolvedPunchTime) {
+                $q->where('punchin', $resolvedPunchTime)->orWhere('punchout', $resolvedPunchTime);
+            })
+            ->exists();
+
+        if ($existingAttendance) {
+            $attLog->update(['punch_status' => 'duplicate']);
+            return response()->json(['message' => 'Duplicate punch — already recorded.'], 200);
+        }
+
+        // 8. Build a synthetic request for the punch service
         $syntheticRequest = Request::create('/biometric/punch', 'POST', [
             'device_serial'  => $serialNumber,
             'device_user_id' => $deviceUserId,
             'source'         => 'biometric',
-            'punch_time'     => $punchTime,
+            'punch_time'     => $resolvedPunchTime->toISOString(),
+            'check_type'     => $checkType,
         ]);
 
-        // 6. Process through the existing punch service
+        // 9. Process through the existing punch service
         try {
             $punchService = new AttendancePunchService();
             $result = $punchService->processPunch($user, $syntheticRequest);
 
-            $status = $result['status'] === 'success' ? 'processed' : 'failed';
             $attLog->update([
-                'punch_status'        => $status,
-                'punch_status_reason' => $result['message'] ?? null,
+                'punch_status'        => $result['status'] === 'success' ? 'processed' : 'failed',
+                'punch_status_reason' => $result['status'] === 'success' ? null : ($result['message'] ?? null),
             ]);
 
             Log::info('Biometric punch processed', [
@@ -192,13 +243,20 @@ class BiometricWebhookController extends Controller
 
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
 
+        $stats = DB::table('biometric_att_logs')->selectRaw("
+            COUNT(*) as total,
+            SUM(punch_status = 'processed')   as processed,
+            SUM(punch_status = 'unknown_user') as unknown_user,
+            SUM(punch_status IN ('failed','wrong_device','duplicate')) as failed
+        ")->first();
+
         return response()->json([
             'logs'  => $logs,
             'stats' => [
-                'total'        => BiometricAttLog::count(),
-                'processed'    => BiometricAttLog::where('punch_status', 'processed')->count(),
-                'unknown_user' => BiometricAttLog::where('punch_status', 'unknown_user')->count(),
-                'failed'       => BiometricAttLog::whereIn('punch_status', ['failed', 'wrong_device', 'duplicate'])->count(),
+                'total'        => (int) ($stats->total        ?? 0),
+                'processed'    => (int) ($stats->processed    ?? 0),
+                'unknown_user' => (int) ($stats->unknown_user ?? 0),
+                'failed'       => (int) ($stats->failed       ?? 0),
             ],
         ]);
     }
@@ -276,9 +334,12 @@ class BiometricWebhookController extends Controller
         // Generate session ID for this connection
         $sessionId = bin2hex(random_bytes(16));
 
-        // Fetch one pending command at a time (sequential processing is safer for ADMS)
+        // Fetch one pending command at a time — only deliver commands that are due now
         $command = BiometricDeviceCommand::where('biometric_device_id', $device->id)
             ->where('status', 'pending')
+            ->where(function ($q) {
+                $q->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', now());
+            })
             ->oldest()
             ->first();
 
@@ -373,12 +434,15 @@ class BiometricWebhookController extends Controller
 
         // OPERLOG = device operation log (door events, admin actions) — store for audit trail
         if ($table === 'OPERLOG') {
-            Log::info('ADMS push: OPERLOG received', [
-                'sn' => $this->getSerialNumber($request),
-                'size' => strlen($rawData),
-            ]);
+            $sn = $this->getSerialNumber($request);
+            $operDevice = $sn ? BiometricDevice::where('serial_number', $sn)->first() : null;
 
-            // Store OPERLOG entries for audit trail
+            if (! $operDevice || ! $operDevice->is_active) {
+                Log::warning('ADMS push: OPERLOG from unknown/inactive device', ['sn' => $sn]);
+                return new \Symfony\Component\HttpFoundation\Response('ERROR', 401, ['Content-Type' => 'text/plain']);
+            }
+
+            Log::info('ADMS push: OPERLOG received', ['sn' => $sn, 'size' => strlen($rawData)]);
             $this->storeOperLog($rawData, $request);
 
             return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
@@ -392,29 +456,37 @@ class BiometricWebhookController extends Controller
             parse_str($normalizedData, $ackData);
 
             if (isset($ackData['ID'])) {
-                $command = BiometricDeviceCommand::find($ackData['ID']);
+                // Authenticate device before marking command as executed
+                $ackSn   = $this->getSerialNumber($request);
+                $ackDevice = $ackSn ? BiometricDevice::where('serial_number', $ackSn)->first() : null;
+
+                if (! $ackDevice) {
+                    Log::warning('ADMS acknowledgment: unknown device', ['sn' => $ackSn, 'command_id' => $ackData['ID']]);
+                    return new \Symfony\Component\HttpFoundation\Response('ERROR', 401, ['Content-Type' => 'text/plain']);
+                }
+
+                $command = BiometricDeviceCommand::where('id', $ackData['ID'])
+                    ->where('biometric_device_id', $ackDevice->id)
+                    ->first();
+
                 if ($command) {
                     $returnCode = $ackData['Return'] ?? '1';
                     $command->markAsExecuted($returnCode);
 
                     Log::info('ADMS command acknowledged', [
-                        'serial' => $request->header('SN'),
-                        'command_id' => $command->id,
+                        'serial'       => $ackSn,
+                        'command_id'   => $command->id,
                         'command_type' => $command->command_type,
-                        'return_code' => $returnCode,
+                        'return_code'  => $returnCode,
                     ]);
                 } else {
-                    Log::warning('ADMS acknowledgment: command not found', [
-                        'serial' => $request->header('SN'),
+                    Log::warning('ADMS acknowledgment: command not found or device mismatch', [
+                        'serial'     => $ackSn,
                         'command_id' => $ackData['ID'],
                     ]);
                 }
 
-                return new \Symfony\Component\HttpFoundation\Response(
-                    "OK",
-                    200,
-                    ['Content-Type' => 'text/plain']
-                );
+                return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
             }
         }
 
@@ -532,8 +604,8 @@ class BiometricWebhookController extends Controller
         }
 
         $device = BiometricDevice::where('serial_number', $serialNumber)->first();
-        if (! $device) {
-            Log::warning('User enrollment: unknown device', ['serial' => $serialNumber]);
+        if (! $device || ! $device->is_active) {
+            Log::warning('User enrollment: unknown or inactive device', ['serial' => $serialNumber]);
             return response('ERROR', 401)->header('Content-Type', 'text/plain');
         }
 
@@ -573,7 +645,7 @@ class BiometricWebhookController extends Controller
                 // physical device would otherwise gain an active system account.
                 $newUser = User::create([
                     'name' => $name,
-                    'email' => strtolower(str_replace(' ', '.', $name)) . '@device-auto.local',
+                    'email' => 'device-auto-' . $pin . '@device-auto.local',
                     'password' => bcrypt(\Illuminate\Support\Str::random(32)),
                     'active' => false,
                     'employee_id' => $pin,
@@ -621,8 +693,8 @@ class BiometricWebhookController extends Controller
         }
 
         $device = BiometricDevice::where('serial_number', $serialNumber)->first();
-        if (! $device) {
-            Log::warning('Template upload: unknown device', ['serial' => $serialNumber]);
+        if (! $device || ! $device->is_active) {
+            Log::warning('Template upload: unknown or inactive device', ['serial' => $serialNumber]);
             return response('ERROR', 401)->header('Content-Type', 'text/plain');
         }
 
@@ -746,6 +818,7 @@ class BiometricWebhookController extends Controller
         $processedCount = 0;
         $errorCount = 0;
         $duplicateCount = 0;
+        $punchService = new AttendancePunchService();
 
         foreach ($lines as $line) {
             if (empty(trim($line))) {
@@ -830,8 +903,8 @@ class BiometricWebhookController extends Controller
                 $attLogReason = 'Pending processing';
             }
 
-            // Log the punch immediately
-            DB::table('biometric_att_logs')->insert([
+            // Log the punch immediately — one row per punch, updated in-place as status advances
+            $logId = DB::table('biometric_att_logs')->insertGetId([
                 'biometric_device_id'   => $device->id,
                 'serial_number'         => $serialNumber,
                 'user_pin'              => $deviceUserId,
@@ -858,6 +931,11 @@ class BiometricWebhookController extends Controller
             // Validate attendance type
             if (! $user->attendance_type_id) {
                 $errorCount++;
+                DB::table('biometric_att_logs')->where('id', $logId)->update([
+                    'punch_status'        => 'failed',
+                    'punch_status_reason' => 'User has no attendance type assigned',
+                    'updated_at'          => now(),
+                ]);
                 Log::warning('ADMS push: user has no attendance type', [
                     'device_serial' => $serialNumber,
                     'user_id'       => $user->id,
@@ -869,6 +947,11 @@ class BiometricWebhookController extends Controller
 
             if (! $attendanceType || ! str_starts_with($attendanceType->slug, 'biometric')) {
                 $errorCount++;
+                DB::table('biometric_att_logs')->where('id', $logId)->update([
+                    'punch_status'        => 'failed',
+                    'punch_status_reason' => 'Attendance type is not biometric: ' . ($attendanceType?->slug ?? 'not found'),
+                    'updated_at'          => now(),
+                ]);
                 Log::warning('ADMS push: user attendance type is not biometric', [
                     'device_serial'        => $serialNumber,
                     'user_id'              => $user->id,
@@ -881,26 +964,12 @@ class BiometricWebhookController extends Controller
             $linkedDevices = $attendanceType->biometricDevices;
             $wrongDevice   = $linkedDevices->isNotEmpty() && ! $linkedDevices->contains('id', $device->id);
 
-            // Store raw ATTLOG entry with punch_status
-            DB::table('biometric_att_logs')->insert([
-                'biometric_device_id'  => $device->id,
-                'serial_number'        => $serialNumber,
-                'user_pin'             => $deviceUserId,
-                'user_id'              => $user->id,
-                'punch_time'           => $checkTime,
-                'check_type'           => $checkType,
-                'punch_status'         => $wrongDevice ? 'wrong_device' : 'processed',
-                'punch_status_reason'  => $wrongDevice ? 'Device not in attendance zone' : null,
-                'verify_code'          => $data['VerifyCode'] ?? null,
-                'work_code'            => $data['WorkCode'] ?? null,
-                'raw_data'             => $line,
-                'context'              => json_encode($data),
-                'occurred_at'          => $checkTime,
-                'created_at'           => now(),
-                'updated_at'           => now(),
-            ]);
-
             if ($wrongDevice) {
+                DB::table('biometric_att_logs')->where('id', $logId)->update([
+                    'punch_status'        => 'wrong_device',
+                    'punch_status_reason' => 'Device not in attendance zone',
+                    'updated_at'          => now(),
+                ]);
                 $errorCount++;
                 Log::warning('ADMS push: punch from device not in attendance zone', [
                     'device_serial'    => $serialNumber,
@@ -923,9 +992,7 @@ class BiometricWebhookController extends Controller
             if ($existingAttendance) {
                 $duplicateCount++;
                 DB::table('biometric_att_logs')
-                    ->where('user_id', $user->id)
-                    ->where('punch_time', $checkTime)
-                    ->where('serial_number', $serialNumber)
+                    ->where('id', $logId)
                     ->update(['punch_status' => 'duplicate', 'updated_at' => now()]);
                 Log::info('ADMS push: duplicate punch skipped', [
                     'device_serial'  => $serialNumber,
@@ -946,17 +1013,17 @@ class BiometricWebhookController extends Controller
 
             // Process through existing punch service
             try {
-                $punchService = new AttendancePunchService();
-                $result       = $punchService->processPunch($user, $syntheticRequest);
+                $result = $punchService->processPunch($user, $syntheticRequest);
 
                 if ($result['status'] === 'success') {
                     $processedCount++;
+                    DB::table('biometric_att_logs')
+                        ->where('id', $logId)
+                        ->update(['punch_status' => 'processed', 'punch_status_reason' => null, 'updated_at' => now()]);
                 } else {
                     $errorCount++;
                     DB::table('biometric_att_logs')
-                        ->where('user_id', $user->id)
-                        ->where('punch_time', $checkTime)
-                        ->where('serial_number', $serialNumber)
+                        ->where('id', $logId)
                         ->update([
                             'punch_status'        => 'failed',
                             'punch_status_reason' => $result['message'] ?? null,
@@ -1149,9 +1216,12 @@ class BiometricWebhookController extends Controller
         // Update heartbeat
         $device->update(['last_heartbeat_at' => now()]);
 
-        // Fetch pending commands
+        // Fetch pending commands — only deliver commands that are due now
         $command = BiometricDeviceCommand::where('biometric_device_id', $device->id)
             ->where('status', 'pending')
+            ->where(function ($q) {
+                $q->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', now());
+            })
             ->oldest()
             ->first();
 

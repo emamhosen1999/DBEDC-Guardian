@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from "@inertiajs/react";
 import App from "@/Layouts/App";
 import { motion } from "framer-motion";
@@ -51,20 +52,8 @@ import {
 const LeaveSettings = () => {
     const { title, leaveTypes: initialLeaveTypes } = usePage().props;
     
-    // Custom media queries (following LeavesAdmin pattern)
-    const [isMobile, setIsMobile] = useState(false);
-    const [isTablet, setIsTablet] = useState(false);
-    
-    useEffect(() => {
-        const checkScreenSize = () => {
-            setIsMobile(window.innerWidth < 640);
-            setIsTablet(window.innerWidth < 768);
-        };
-        
-        checkScreenSize();
-        window.addEventListener('resize', checkScreenSize);
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
+    const isMobile = useMediaQuery('(max-width: 639px)');
+    const isTablet  = useMediaQuery('(max-width: 767px)');
 
     // State management
     const [leaveTypes, setLeaveTypes] = useState(initialLeaveTypes || []);

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from '@inertiajs/react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Card, 
     CardBody, 
@@ -55,20 +55,9 @@ import { showToast } from '@/utils/toastUtils';
 const LeavesAdmin = ({ title, allUsers }) => {
     const { auth } = usePage().props;
     
-    // Custom media queries
-    const [isMobile, setIsMobile] = useState(false);
-    const [isTablet, setIsTablet] = useState(false);
-    
-    useEffect(() => {
-        const checkScreenSize = () => {
-            setIsMobile(window.innerWidth < 640);
-            setIsTablet(window.innerWidth < 768);
-        };
-        
-        checkScreenSize();
-        window.addEventListener('resize', checkScreenSize);
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
+    // Responsive queries
+    const isMobile = useMediaQuery('(max-width: 639px)');
+    const isTablet = useMediaQuery('(max-width: 767px)');
 
     // State management - Enhanced for admin view
     const [loading, setLoading] = useState(false);

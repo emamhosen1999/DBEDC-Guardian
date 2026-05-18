@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import {
@@ -57,14 +58,7 @@ const Designations = ({ title, initialDesignations, departments, managers, paren
         total: 0, active: 0, inactive: 0, parent_designations: 0
     });
 
-    // Add responsive handling
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-    
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    const isMobile = useMediaQuery('(max-width: 767px)');
 
     const canCreateDesignation = auth.permissions?.includes('designations.create') || false;
     const canEditDesignation = auth.permissions?.includes('designations.update') || false;

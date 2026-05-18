@@ -928,7 +928,7 @@ const BiometricDevices = ({ title, devices: initialDevices, employees }) => {
                                             </Table.Header>
                                             <Table.Body>
                                                 {filteredLogs.map((log, index) => (
-                                                    <Table.Row key={index}>
+                                                    <Table.Row key={log.id ?? index}>
                                                         <Table.Cell>
                                                             <Badge
                                                                 color={

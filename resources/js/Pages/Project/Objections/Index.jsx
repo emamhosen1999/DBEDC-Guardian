@@ -1382,7 +1382,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     <div className="space-y-1 mt-2">
                                         {selectedFiles.map((file, index) => (
                                             <div
-                                                key={index}
+                                                key={`${file.name}-${file.size}`}
                                                 className="flex items-center justify-between p-2 bg-default-100 rounded-lg"
                                             >
                                                 <div className="flex items-center gap-2 flex-1 min-w-0">

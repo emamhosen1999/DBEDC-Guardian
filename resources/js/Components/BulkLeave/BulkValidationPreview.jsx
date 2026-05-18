@@ -94,7 +94,7 @@ const BulkValidationPreview = ({
                     <Text size="3" weight="medium" mb="3" style={{ display: 'block' }}>Date-by-Date Results</Text>
                     <Flex direction="column" gap="2" style={{ maxHeight: 160, overflowY: 'auto' }}>
                         {validationResults.map((result, index) => (
-                            <Flex key={index} justify="between" align="start" p="2" style={{ background: 'var(--gray-a1)', borderRadius: 'var(--radius-1)', border: '1px solid var(--gray-a3)' }}>
+                            <Flex key={result.date ?? index} justify="between" align="start" p="2" style={{ background: 'var(--gray-a1)', borderRadius: 'var(--radius-1)', border: '1px solid var(--gray-a3)' }}>
                                 <Flex align="center" gap="2">
                                     {getStatusIcon(result.status)}
                                     <Box>

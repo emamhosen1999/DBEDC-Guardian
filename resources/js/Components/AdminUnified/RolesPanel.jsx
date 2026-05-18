@@ -750,7 +750,7 @@ export default function RolesPanel({
     useEffect(() => {
         if (!isActive) return;
         onSetHeaderActions?.(null); // no global action for roles tab
-    }, [isActive]);
+    }, [isActive, onSetHeaderActions]);
 
     return (
         <Box>

@@ -60,7 +60,7 @@ export default function ApprovalChain({ approvalChain, currentLevel, status }) {
 
                         return (
                             <div
-                                key={index}
+                                key={level.level ?? index}
                                 className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
                                     isCurrentLevel 
                                         ? 'bg-warning-50 dark:bg-warning-900/20 border-l-3 border-warning' 

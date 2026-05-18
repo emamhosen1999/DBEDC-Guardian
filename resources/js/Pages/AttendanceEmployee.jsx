@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
@@ -8,7 +9,6 @@ import {
   CardHeader,
   Input,
 } from "@/compat/heroui";
-import { useTheme } from '@/Contexts/ThemeContext';
 import App from "@/Layouts/App.jsx";
 import StatsCards from '@/Components/StatsCards.jsx';
 import AttendanceEmployeeTable from "@/Tables/AttendanceEmployeeTable.jsx";
@@ -26,19 +26,8 @@ import {
 const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, absentDays, lateArrivals }) => {
     const { auth } = usePage().props;
     
-    // Media query logic
-    const [isLargeScreen, setIsLargeScreen] = useState(false);
-    const [isMediumScreen, setIsMediumScreen] = useState(false);
-    
-    useEffect(() => {
-        const checkScreenSize = () => {
-            setIsLargeScreen(window.innerWidth >= 1025);
-            setIsMediumScreen(window.innerWidth >= 641 && window.innerWidth <= 1024);
-        };
-        checkScreenSize();
-        window.addEventListener('resize', checkScreenSize);
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
+    const isLargeScreen  = useMediaQuery('(min-width: 1025px)');
+    const isMediumScreen  = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
     
     // Helper function for radius
     const getThemeRadius = () => {

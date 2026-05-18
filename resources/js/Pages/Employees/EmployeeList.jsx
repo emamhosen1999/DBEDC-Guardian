@@ -193,7 +193,7 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
         } catch { /* silent */ }
     }, []);
 
-    useEffect(() => { fetchEmployees(); fetchStats(); }, [fetchEmployees]);
+    useEffect(() => { fetchEmployees(); fetchStats(); }, [fetchEmployees, fetchStats]);
 
     /* ── filter helpers ── */
     const handleSearchChange = useCallback((value) => {

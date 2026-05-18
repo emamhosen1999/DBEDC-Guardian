@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage, router } from "@inertiajs/react";
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -932,22 +933,9 @@ const ModuleManagement = (props) => {
         return 'full';
     };
 
-    // Responsive screen checks
-    const [isMobile, setIsMobile] = React.useState(false);
-    const [isTablet, setIsTablet] = React.useState(false);
-    const [isLargeScreen, setIsLargeScreen] = React.useState(false);
-    
-    React.useEffect(() => {
-        const checkScreenSize = () => {
-            setIsMobile(window.innerWidth < 640);
-            setIsTablet(window.innerWidth < 768);
-            setIsLargeScreen(window.innerWidth >= 1025);
-        };
-        
-        checkScreenSize();
-        window.addEventListener('resize', checkScreenSize);
-        return () => window.removeEventListener('resize', checkScreenSize);
-    }, []);
+    const isMobile      = useMediaQuery('(max-width: 639px)');
+    const isTablet       = useMediaQuery('(max-width: 767px)');
+    const isLargeScreen  = useMediaQuery('(min-width: 1025px)');
 
     return (
         <App>

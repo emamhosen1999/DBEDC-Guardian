@@ -13,6 +13,7 @@ import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import AbsentSidebar from './AbsentSidebar';
+import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
@@ -241,6 +242,7 @@ const DailyTimesheetTab = ({
     const isAdminView = canViewAll && url !== '/attendance-employee';
 
     /* state */
+    const [updateMap,    setUpdateMap]    = useState(false);
     const [attendances,  setAttendances]  = useState([]);
     const [absentUsers,  setAbsentUsers]  = useState([]);
     const [leaves,       setLeaves]       = useState([]);
@@ -293,7 +295,7 @@ const DailyTimesheetTab = ({
         } finally {
             setIsLoaded(true);
         }
-    }, [selectedDate, perPage, employee, isAdminView, currentPage]);
+    }, [selectedDate, perPage, employee, isAdminView]);
 
     /* fetch absent */
     const fetchAbsent = useCallback(async () => {
@@ -337,13 +339,11 @@ const DailyTimesheetTab = ({
 
     useEffect(() => {
         Promise.all([fetchPresent(1), fetchAbsent()]);
-        // eslint-disable-next-line
-    }, [selectedDate, perPage, employee]);
+    }, [selectedDate, perPage, employee, fetchPresent, fetchAbsent]);
 
     useEffect(() => {
         if (currentPage > 1) fetchPresent(currentPage);
-        // eslint-disable-next-line
-    }, [currentPage]);
+    }, [currentPage, fetchPresent]);
 
     useEffect(() => {
         const id = setInterval(checkUpdates, 5000);
@@ -589,6 +589,13 @@ const DailyTimesheetTab = ({
                         </Box>
                     )}
                 </Flex>
+            )}
+
+            {/* ── Map: admin only ─────────────────────────────── */}
+            {isAdminView && (
+                <Box mt="4">
+                    <UserLocationsCard selectedDate={selectedDate} updateMap={updateMap} />
+                </Box>
             )}
         </Box>
     );

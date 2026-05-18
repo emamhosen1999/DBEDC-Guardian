@@ -583,7 +583,7 @@ const TimeSheetTable = ({ handleDateChange, selectedDate, updateTimeSheet, exter
                 currentPage
             };
         }
-        // eslint-disable-next-line
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate, currentPage, perPage, employee, filterData, updateTimeSheet, refreshKey]);
 
     // Sync external filter data

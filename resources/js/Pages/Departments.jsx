@@ -42,16 +42,15 @@ import App from '@/Layouts/App.jsx';
 import DepartmentTable from '@/Tables/DepartmentTable.jsx';
 import DepartmentForm from '@/Forms/DepartmentForm.jsx';
 import DeleteDepartmentForm from '@/Forms/DeleteDepartmentForm.jsx';
-import { useTheme } from '@/Contexts/ThemeContext';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import dayjs from 'dayjs';
 
 const Departments = ({ title, departments: initialDepartments, managers, parentDepartments, stats: initialStats, filters: initialFilters }) => {
     const { auth } = usePage().props;
-    const { theme } = useTheme();
-    const [isMobile] = useState(window.innerWidth < 640);
-    const [isTablet] = useState(window.innerWidth < 768);
+    const isMobile = useMediaQuery('(max-width: 639px)');
+    const isTablet = useMediaQuery('(max-width: 767px)');
     
     // State for departments data
     const [departmentsData, setDepartmentsData] = useState(initialDepartments || { data: [] });

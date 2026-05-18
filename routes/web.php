@@ -38,6 +38,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Models\User;
 // APK Install Gate (public, always accessible)
 use Inertia\Inertia;
 
@@ -291,7 +292,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['permission:letters.update'])->put('/letters-update', [LetterController::class, 'update'])->name('letters.update');    // Leave management routes
     Route::middleware(['permission:leaves.view'])->group(function () {
-        Route::get('/leaves', [LeaveController::class, 'index2'])->name('leaves');
+        Route::get('/leaves', function () {
+    return Inertia::render('LeavesUnified', [
+        'title'       => 'Leave Management',
+        'allUsers'    => User::with('department')->get(),
+        'summaryData' => app(LeaveController::class)->getSummaryData(), // your existing logic
+    ]);
+})->middleware('auth')->name('leaves.index');
         Route::get('/leave-summary', [LeaveController::class, 'leaveSummary'])->name('leave-summary');
         Route::post('/leave-update-status', [LeaveController::class, 'updateStatus'])->name('leave-update-status');
 

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
     Box, Flex, Text, Table, Badge, Avatar, Button,
     TextField, ScrollArea, Skeleton, Tooltip, Select,
@@ -399,12 +400,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
     const [downloading,setDownloading]= useState('');
 
     /* responsive detection */
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-    useEffect(() => {
-        const fn = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', fn);
-        return () => window.removeEventListener('resize', fn);
-    }, []);
+    const isMobile = useMediaQuery('(max-width: 767px)');
 
     /* derived */
     const yearNum  = dayjs(selectedMonth + '-01').year();

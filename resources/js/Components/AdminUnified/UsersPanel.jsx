@@ -141,7 +141,7 @@ export default function UsersPanel({
                 <PlusIcon /> {!isMobile && 'Add User'}
             </Button>
         );
-    }, [isActive, isMobile]);
+    }, [isActive, isMobile, onSetHeaderActions]);
 
     /* ── optimistic helpers ── */
     const updateUser = useCallback((id, fields) =>

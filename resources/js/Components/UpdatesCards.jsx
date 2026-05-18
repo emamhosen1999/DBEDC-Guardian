@@ -119,7 +119,7 @@ const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => (
             {items.map((item, index) => {
                 const leaves = item.leaves?.filter((l) => l.leave_type === item.type) ?? [];
                 return (
-                    <React.Fragment key={index}>
+                    <React.Fragment key={item.type ?? index}>
                         <Flex justify="between" align="center" py="2">
                             <Flex direction="column" style={{ flex: 1, marginRight: 8 }}>
                                 <Text size="2">{item.text}</Text>

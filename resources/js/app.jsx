@@ -2,7 +2,7 @@ import './bootstrap';
 import '../css/app.css';
 import React from 'react';
 import {createRoot} from 'react-dom/client';
-import {createInertiaApp} from '@inertiajs/react';
+import {createInertiaApp, router} from '@inertiajs/react';
 import {resolvePageComponent} from 'laravel-vite-plugin/inertia-helpers';
 import axios from 'axios';
 import ErrorBoundary from './Components/ErrorBoundary/ErrorBoundary';
@@ -70,16 +70,11 @@ axios.interceptors.response.use(
             // Immediately redirect to login without showing modal
             console.warn('Session expired or unauthenticated, redirecting to login');
             
-            if (typeof window !== 'undefined' && window.Inertia) {
-                window.Inertia.visit('/login', {
-                    method: 'get',
-                    preserveState: false,
-                    preserveScroll: false,
-                    replace: true
-                });
-            } else {
-                window.location.href = '/login';
-            }
+            router.visit('/login', {
+                preserveState: false,
+                preserveScroll: false,
+                replace: true,
+            });
             
             return Promise.reject(error);
         }
@@ -87,15 +82,6 @@ axios.interceptors.response.use(
         return Promise.reject(error);
     }
 );
-
-// Legacy code for CSRF token refresh (kept for compatibility but should not be needed)
-if (false) {
-    axios.interceptors.response.use(
-        // Placeholder for legacy code - already handled above
-        (response) => response,
-        (error) => Promise.reject(error)
-    );
-}
 
 createInertiaApp({
     // Disable default progress bar - using custom LoadingIndicator instead
