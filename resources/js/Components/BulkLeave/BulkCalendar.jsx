@@ -261,15 +261,19 @@ const BulkCalendar = ({
                 <Badge color="gray" variant="outline">Weekend</Badge>
             </Flex>
                 
-                {/* Week days header - compact */}
-                <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
+                {/* Week days header */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 6 }}>
                     {weekDays.map(day => (
-                        <div 
-                            key={day} 
-                            className="flex items-center justify-center w-8 h-6 sm:w-10 sm:h-8 text-xs sm:text-sm font-medium"
+                        <div
+                            key={day}
                             style={{
-                                color: `var(--theme-foreground-600, #71717A)`,
-                                fontFamily: `var(--fontFamily, "Inter")`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: 28,
+                                fontSize: 11,
+                                fontWeight: 500,
+                                color: 'var(--gray-9)',
                             }}
                         >
                             {day}
@@ -277,69 +281,72 @@ const BulkCalendar = ({
                     ))}
                 </div>
                 
-                {/* Calendar grid - responsive */}
-                <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+                {/* Calendar grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
                     {calendarDays.map((dayData, index) => {
                         const status = getDateStatus(dayData);
+                        const hasBorder = status.isSelected || status.hasExistingLeave || status.isPublicHoliday || status.isToday;
                         
                         return (
                             <div
                                 key={index}
                                 onClick={() => handleDateClick(dayData)}
-                                className={`
-                                    relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 min-h-8 sm:min-h-10
-                                    rounded-md transition-all duration-200 text-xs sm:text-sm select-none
-                                    ${status.selectable ? 'cursor-pointer' : 'cursor-not-allowed'}
-                                    ${!dayData.isCurrentMonth ? 'opacity-30' : ''}
-                                    ${loading ? 'opacity-50 pointer-events-none' : ''}
-                                    ${status.isSelected ? 'font-bold border-2 shadow-md scale-105 z-10' : ''}
-                                    ${status.hasExistingLeave && !status.isSelected ? 'border-2 font-medium cursor-not-allowed' : ''}
-                                    ${status.isPublicHoliday && !status.isSelected && !status.hasExistingLeave ? 'border-2 font-medium cursor-not-allowed' : ''}
-                                    ${status.isToday && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday ? 'font-semibold border-2 shadow-sm' : ''}
-                                    ${status.isWeekend && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday ? 'border opacity-70' : ''}
-                                    ${!status.selectable && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday && !status.isWeekend ? 'cursor-not-allowed opacity-60' : ''}
-                                    ${status.selectable && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday && !status.isWeekend ? 'border border-transparent hover:scale-105' : ''}
-                                `}
                                 style={{
-                                    backgroundColor: status.isSelected 
-                                        ? 'var(--theme-primary)' 
-                                        : status.hasExistingLeave && !status.isSelected 
-                                        ? 'var(--theme-danger)' 
+                                    position: 'relative',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    aspectRatio: '1',
+                                    minHeight: 34,
+                                    fontSize: 12,
+                                    fontWeight: status.isSelected ? 700 : status.isToday ? 600 : status.hasExistingLeave || status.isPublicHoliday ? 500 : 400,
+                                    userSelect: 'none',
+                                    cursor: status.selectable ? 'pointer' : 'not-allowed',
+                                    opacity: !dayData.isCurrentMonth ? 0.3 : (loading ? 0.5 : (status.isWeekend && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday ? 0.7 : 1)),
+                                    pointerEvents: loading ? 'none' : 'auto',
+                                    border: hasBorder ? '2px solid' : status.isWeekend ? '1px solid' : '1px solid transparent',
+                                    boxShadow: status.isSelected ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
+                                    transform: status.isSelected ? 'scale(1.05)' : 'none',
+                                    transition: 'background-color 0.15s, transform 0.15s, box-shadow 0.15s',
+                                    zIndex: status.isSelected ? 10 : 'auto',
+                                    backgroundColor: status.isSelected
+                                        ? 'var(--accent-9)'
+                                        : status.hasExistingLeave && !status.isSelected
+                                        ? 'var(--red-9)'
                                         : status.isPublicHoliday && !status.isSelected && !status.hasExistingLeave
-                                        ? 'var(--theme-warning)'
+                                        ? 'var(--amber-9)'
                                         : status.isToday && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday
-                                        ? 'var(--theme-secondary-200)'
+                                        ? 'var(--violet-a4)'
                                         : status.isWeekend && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday
-                                        ? 'var(--theme-content2)'
+                                        ? 'var(--gray-a3)'
                                         : loading
-                                        ? 'var(--theme-content2)'
+                                        ? 'var(--gray-a3)'
                                         : 'transparent',
-                                    color: status.isSelected 
-                                        ? 'var(--theme-primary-foreground)' 
-                                        : status.hasExistingLeave && !status.isSelected 
-                                        ? 'var(--theme-danger-foreground)' 
+                                    color: status.isSelected
+                                        ? 'white'
+                                        : status.hasExistingLeave && !status.isSelected
+                                        ? 'white'
                                         : status.isPublicHoliday && !status.isSelected && !status.hasExistingLeave
-                                        ? 'var(--theme-warning-foreground)'
+                                        ? 'var(--amber-12)'
                                         : status.isToday && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday
-                                        ? 'var(--theme-secondary-800)'
+                                        ? 'var(--violet-11)'
                                         : status.isWeekend && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday
-                                        ? 'var(--theme-foreground-500)'
+                                        ? 'var(--gray-9)'
                                         : !status.selectable && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday && !status.isWeekend
-                                        ? 'var(--theme-foreground-400)'
-                                        : 'var(--theme-foreground-900)',
-                                    borderColor: status.isSelected 
-                                        ? 'var(--theme-primary-600)' 
-                                        : status.hasExistingLeave && !status.isSelected 
-                                        ? 'var(--theme-danger-600)' 
+                                        ? 'var(--gray-7)'
+                                        : 'var(--gray-12)',
+                                    borderColor: status.isSelected
+                                        ? 'var(--accent-10)'
+                                        : status.hasExistingLeave && !status.isSelected
+                                        ? 'var(--red-10)'
                                         : status.isPublicHoliday && !status.isSelected && !status.hasExistingLeave
-                                        ? 'var(--theme-warning-600)'
+                                        ? 'var(--amber-10)'
                                         : status.isToday && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday
-                                        ? 'var(--theme-secondary-500)'
+                                        ? 'var(--violet-8)'
                                         : status.isWeekend && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && !status.isToday
-                                        ? 'var(--theme-divider)'
+                                        ? 'var(--gray-a5)'
                                         : 'transparent',
-                                    borderRadius: `var(--borderRadius, 8px)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
+                                    borderRadius: 'var(--radius-2)',
                                 }}
                                 role="button"
                                 tabIndex={status.selectable ? 0 : -1}
@@ -356,11 +363,19 @@ const BulkCalendar = ({
                             >
                                 {dayData.date}
                                 
-                                {/* Weekend indicator - hidden on mobile */}
+                                {/* Weekend indicator dot */}
                                 {status.isWeekend && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && (
-                                    <div 
-                                        className="absolute top-0.5 right-0.5 w-1 h-1 rounded-full opacity-50 hidden sm:block"
-                                        style={{ backgroundColor: 'var(--theme-foreground-500)' }}
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            top: 2,
+                                            right: 2,
+                                            width: 4,
+                                            height: 4,
+                                            borderRadius: '50%',
+                                            opacity: 0.5,
+                                            backgroundColor: 'var(--gray-9)',
+                                        }}
                                     />
                                 )}
                             </div>
