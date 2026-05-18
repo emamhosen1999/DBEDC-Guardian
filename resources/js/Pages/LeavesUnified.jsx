@@ -1,56 +1,60 @@
 /**
  * LeavesUnified.jsx
  * Single-page Leave Management shell — tabbed, pure Radix UI.
+ *
  * Tabs:
  *   1. All Leaves   (admin table view)
- *   2. My Leaves    (employee view)
- *   3. Summary      (per-employee / per-department pivot)
- *   4. Analytics    (charts via API)
+ *   2. Summary      (per-employee / per-department pivot)
+ *   3. Analytics    (charts via API)
+ *   4. Settings     (leave types CRUD — admin only)
  *
- * Same page-shell pattern as AdminUnified.jsx.
+ * "My Leaves" panel removed — self-service is handled separately.
+ * Same page-shell pattern as DailyWorksUnified.jsx.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import {
     Badge, Box, Button, Card, Flex, Heading,
-    IconButton, Separator, Tabs, Text,
+    Separator, Tabs, Text,
 } from '@radix-ui/themes';
 import {
     BarChartIcon, CalendarIcon, CheckCircledIcon,
-    ClockIcon, LayersIcon, PersonIcon, PlusIcon,
+    GearIcon, LayersIcon,
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
-import AdminLeavesPanel  from '@/Components/LeaveUnified/AdminLeavesPanel.jsx';
-import MyLeavesPanel     from '@/Components/LeaveUnified/MyLeavesPanel.jsx';
-import SummaryPanel      from '@/Components/LeaveUnified/SummaryPanel.jsx';
-import AnalyticsPanel    from '@/Components/LeaveUnified/AnalyticsPanel.jsx';
+import AdminLeavesPanel    from '@/Components/LeaveUnified/AdminLeavesPanel.jsx';
+import SummaryPanel        from '@/Components/LeaveUnified/SummaryPanel.jsx';
+import AnalyticsPanel      from '@/Components/LeaveUnified/AnalyticsPanel.jsx';
+import LeaveSettingsPanel  from '@/Components/LeaveUnified/LeaveSettingsPanel.jsx';
 
-const LeavesUnified = ({ title, allUsers, summaryData }) => {
+const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
     const { auth }  = usePage().props;
     const isMobile  = useMediaQuery('(max-width: 640px)');
+    const isDesktop = useMediaQuery('(min-width: 1025px)');
 
-    const isAdmin   = auth.permissions?.includes('leaves.view') || false;
-    const canCreate = auth.permissions?.includes('leaves.create') || false;
+    const isAdmin    = auth.permissions?.includes('leaves.view')     || false;
+    const canSettings = auth.roles?.includes('Administrator')
+                     || auth.roles?.includes('Super Administrator')  || false;
 
-    const [activeTab, setActiveTab] = useState(isAdmin ? 'all' : 'my');
+    const [activeTab, setActiveTab] = useState('all');
 
-    /* quick-count badges populated by panels via callbacks */
-    const [counts, setCounts] = useState({ all: 0, my: 0, pending: 0 });
+    /* quick-count badge populated by AdminLeavesPanel callback */
+    const [counts, setCounts] = useState({ all: 0 });
 
-    /* header actions injected per-tab */
+    /* per-tab header actions injected by each panel */
     const [headerActions, setHeaderActions] = useState(null);
 
     return (
         <>
             <Head title={title || 'Leave Management'} />
 
-            <Flex justify="center" p="4">
+            <Flex justify="center" p={{ initial: '3', md: '4' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
                     <Card>
 
-                        {/* ── Page Header ── */}
+                        {/* ── Page Header ─────────────────────────────── */}
                         <Box mb="4">
                             <Flex
                                 direction={{ initial: 'column', sm: 'row' }}
@@ -58,19 +62,31 @@ const LeavesUnified = ({ title, allUsers, summaryData }) => {
                                 justify="between"
                                 gap="4"
                             >
+                                {/* icon + title */}
                                 <Flex align="center" gap="3">
-                                    <Box p="3" style={{
-                                        background: 'var(--accent-a3)',
-                                        borderRadius: 'var(--radius-2)',
-                                        border: '1px solid var(--accent-a6)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <CalendarIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
+                                    <Box
+                                        p={{ initial: '2', md: '3' }}
+                                        style={{
+                                            background: 'var(--accent-a3)',
+                                            borderRadius: 'var(--radius-2)',
+                                            border: '1px solid var(--accent-a6)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}
+                                    >
+                                        <CalendarIcon
+                                            style={{
+                                                width: isDesktop ? 26 : 20,
+                                                height: isDesktop ? 26 : 20,
+                                                color: 'var(--accent-9)',
+                                            }}
+                                        />
                                     </Box>
                                     <Box>
-                                        <Heading size="5">Leave Management</Heading>
+                                        <Heading size={{ initial: '4', md: '5' }}>
+                                            Leave Management
+                                        </Heading>
                                         <Text size="2" color="gray">
-                                            Requests · Approvals · Summary · Analytics
+                                            Requests · Approvals · Summary · Analytics · Settings
                                         </Text>
                                     </Box>
                                 </Flex>
@@ -84,10 +100,11 @@ const LeavesUnified = ({ title, allUsers, summaryData }) => {
 
                         <Separator size="4" mb="4" />
 
-                        {/* ── Tabs ── */}
+                        {/* ── Tabs ─────────────────────────────────────── */}
                         <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
                             <Tabs.List mb="4">
 
+                                {/* All Leaves — admin only */}
                                 {isAdmin && (
                                     <Tabs.Trigger value="all">
                                         <Flex align="center" gap="2">
@@ -102,18 +119,7 @@ const LeavesUnified = ({ title, allUsers, summaryData }) => {
                                     </Tabs.Trigger>
                                 )}
 
-                                <Tabs.Trigger value="my">
-                                    <Flex align="center" gap="2">
-                                        <PersonIcon />
-                                        {!isMobile && 'My Leaves'}
-                                        {counts.my > 0 && (
-                                            <Badge size="1" variant="soft" color="green" radius="full">
-                                                {counts.my}
-                                            </Badge>
-                                        )}
-                                    </Flex>
-                                </Tabs.Trigger>
-
+                                {/* Summary — admin only */}
                                 {isAdmin && (
                                     <Tabs.Trigger value="summary">
                                         <Flex align="center" gap="2">
@@ -123,6 +129,7 @@ const LeavesUnified = ({ title, allUsers, summaryData }) => {
                                     </Tabs.Trigger>
                                 )}
 
+                                {/* Analytics — admin only */}
                                 {isAdmin && (
                                     <Tabs.Trigger value="analytics">
                                         <Flex align="center" gap="2">
@@ -132,9 +139,19 @@ const LeavesUnified = ({ title, allUsers, summaryData }) => {
                                     </Tabs.Trigger>
                                 )}
 
+                                {/* Settings — super admin only */}
+                                {canSettings && (
+                                    <Tabs.Trigger value="settings">
+                                        <Flex align="center" gap="2">
+                                            <GearIcon />
+                                            {!isMobile && 'Settings'}
+                                        </Flex>
+                                    </Tabs.Trigger>
+                                )}
+
                             </Tabs.List>
 
-                            {/* ── All Leaves (Admin) ── */}
+                            {/* ── All Leaves ───────────────────────────── */}
                             {isAdmin && (
                                 <Tabs.Content value="all">
                                     <AdminLeavesPanel
@@ -147,18 +164,7 @@ const LeavesUnified = ({ title, allUsers, summaryData }) => {
                                 </Tabs.Content>
                             )}
 
-                            {/* ── My Leaves (Employee) ── */}
-                            <Tabs.Content value="my">
-                                <MyLeavesPanel
-                                    allUsers={allUsers}
-                                    isMobile={isMobile}
-                                    isActive={activeTab === 'my'}
-                                    onCountChange={n => setCounts(p => ({ ...p, my: n }))}
-                                    onSetHeaderActions={setHeaderActions}
-                                />
-                            </Tabs.Content>
-
-                            {/* ── Summary ── */}
+                            {/* ── Summary ──────────────────────────────── */}
                             {isAdmin && (
                                 <Tabs.Content value="summary">
                                     <SummaryPanel
@@ -170,12 +176,24 @@ const LeavesUnified = ({ title, allUsers, summaryData }) => {
                                 </Tabs.Content>
                             )}
 
-                            {/* ── Analytics ── */}
+                            {/* ── Analytics ────────────────────────────── */}
                             {isAdmin && (
                                 <Tabs.Content value="analytics">
                                     <AnalyticsPanel
                                         isMobile={isMobile}
                                         isActive={activeTab === 'analytics'}
+                                        onSetHeaderActions={setHeaderActions}
+                                    />
+                                </Tabs.Content>
+                            )}
+
+                            {/* ── Settings ─────────────────────────────── */}
+                            {canSettings && (
+                                <Tabs.Content value="settings">
+                                    <LeaveSettingsPanel
+                                        leaveTypes={leaveTypes || []}
+                                        isMobile={isMobile}
+                                        isActive={activeTab === 'settings'}
                                         onSetHeaderActions={setHeaderActions}
                                     />
                                 </Tabs.Content>

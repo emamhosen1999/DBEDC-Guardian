@@ -3,6 +3,13 @@
  * "All Leaves" tab — admin view: full filter set, stats row,
  * paginated table (reuses existing LeaveEmployeeTable + LeaveForm modals).
  * Pure Radix UI shell — no HeroUI, no Tailwind.
+ *
+ * Fix: BulkDeleteModal prop names corrected:
+ *   isOpen       → open
+ *   selectedIds  → selectedLeaves  (full leave objects, resolved from leaves state)
+ *   allUsers     added (required by BulkDeleteModal for name display)
+ *
+ * Fix: handleBulkDelete now resolves IDs → full leave objects before storing.
  */
 import React, {
     useState, useEffect, useCallback, useMemo, useRef,
@@ -48,14 +55,14 @@ export default function AdminLeavesPanel({
     const canDelete  = auth.permissions?.includes('leaves.delete')  || false;
 
     /* ── data ── */
-    const [leaves,     setLeaves]     = useState([]);
-    const [leavesData, setLeavesData] = useState({ leaveTypes: [] });
+    const [leaves,      setLeaves]      = useState([]);
+    const [leavesData,  setLeavesData]  = useState({ leaveTypes: [] });
     const [departments, setDepartments] = useState([]);
-    const [totalRows,  setTotalRows]  = useState(0);
-    const [lastPage,   setLastPage]   = useState(1);
-    const [loading,    setLoading]    = useState(false);
-    const [error,      setError]      = useState('');
-    const [leaveStats, setLeaveStats] = useState({
+    const [totalRows,   setTotalRows]   = useState(0);
+    const [lastPage,    setLastPage]    = useState(1);
+    const [loading,     setLoading]     = useState(false);
+    const [error,       setError]       = useState('');
+    const [leaveStats,  setLeaveStats]  = useState({
         total: 0, pending: 0, approved: 0, rejected: 0, thisMonth: 0, thisWeek: 0,
     });
 
@@ -77,8 +84,8 @@ export default function AdminLeavesPanel({
         bulkLeave:    false,
         bulkDelete:   false,
     });
-    const [currentLeave, setCurrentLeave] = useState(null);
-    const [selectedForBulkDelete, setSelectedForBulkDelete] = useState([]);
+    const [currentLeave,          setCurrentLeave]          = useState(null);
+    const [selectedForBulkDelete, setSelectedForBulkDelete] = useState([]); // full leave objects
     const leaveTableRef = useRef(null);
 
     /* ── helpers ── */
@@ -105,9 +112,9 @@ export default function AdminLeavesPanel({
                     perPage:    pagination.perPage,
                     employee:   filters.employee || undefined,
                     month:      filters.selectedMonth,
-                    status:     filters.status.length    ? filters.status    : undefined,
-                    leave_type: filters.leaveType.length ? filters.leaveType : undefined,
-                    department: filters.department.length? filters.department: undefined,
+                    status:     filters.status.length     ? filters.status     : undefined,
+                    leave_type: filters.leaveType.length  ? filters.leaveType  : undefined,
+                    department: filters.department.length ? filters.department : undefined,
                     admin_view: true,
                     view_all:   true,
                 },
@@ -181,10 +188,18 @@ export default function AdminLeavesPanel({
         } catch { showToast.error('Bulk reject failed.'); }
     }, [fetchLeaves, fetchStats]);
 
+    /**
+     * LeaveEmployeeTable calls onBulkDelete with an array of IDs.
+     * BulkDeleteModal needs full leave objects to display names/dates and
+     * check approval status — so we resolve IDs against the current leaves list.
+     */
     const handleBulkDelete = useCallback(ids => {
-        setSelectedForBulkDelete(ids);
+        const fullLeaves = ids
+            .map(id => leaves.find(l => String(l.id) === String(id)))
+            .filter(Boolean);
+        setSelectedForBulkDelete(fullLeaves);
         openModal('bulkDelete');
-    }, [openModal]);
+    }, [openModal, leaves]);
 
     /* ── leave type options ── */
     const leaveTypeOptions = useMemo(() => {
@@ -204,12 +219,12 @@ export default function AdminLeavesPanel({
         <Box>
             {/* ── Stats row ── */}
             <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total"     value={leaveStats.total}     color="blue"   />
-                <StatPill label="Pending"   value={leaveStats.pending}   color="amber"  />
-                <StatPill label="Approved"  value={leaveStats.approved}  color="green"  />
-                <StatPill label="Rejected"  value={leaveStats.rejected}  color="red"    />
-                <StatPill label="This Month"value={leaveStats.thisMonth} color="violet" />
-                <StatPill label="This Week" value={leaveStats.thisWeek}  color="cyan"   />
+                <StatPill label="Total"      value={leaveStats.total}     color="blue"   />
+                <StatPill label="Pending"    value={leaveStats.pending}   color="amber"  />
+                <StatPill label="Approved"   value={leaveStats.approved}  color="green"  />
+                <StatPill label="Rejected"   value={leaveStats.rejected}  color="red"    />
+                <StatPill label="This Month" value={leaveStats.thisMonth} color="violet" />
+                <StatPill label="This Week"  value={leaveStats.thisWeek}  color="cyan"   />
             </Flex>
 
             {/* ── Toolbar ── */}
@@ -217,7 +232,6 @@ export default function AdminLeavesPanel({
                 direction={{ initial: 'column', sm: 'row' }}
                 gap="3" align={{ initial: 'stretch', sm: 'center' }} mb="3"
             >
-                {/* Search */}
                 <Box style={{ flex: 1, minWidth: 200 }}>
                     <TextField.Root
                         placeholder="Search by employee name…"
@@ -228,7 +242,6 @@ export default function AdminLeavesPanel({
                     </TextField.Root>
                 </Box>
 
-                {/* Month picker */}
                 <TextField.Root
                     type="month"
                     size="2"
@@ -237,7 +250,6 @@ export default function AdminLeavesPanel({
                     style={{ maxWidth: 180 }}
                 />
 
-                {/* Filters toggle */}
                 <Button
                     size="2"
                     variant={showFilters ? 'solid' : 'surface'}
@@ -252,7 +264,6 @@ export default function AdminLeavesPanel({
             {showFilters && (
                 <Card size="2" variant="surface" mb="3">
                     <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4" align="end">
-                        {/* Status */}
                         <Box>
                             <Text size="2" color="gray" weight="medium" as="div" mb="1">Status</Text>
                             <Select.Root size="2"
@@ -268,7 +279,6 @@ export default function AdminLeavesPanel({
                             </Select.Root>
                         </Box>
 
-                        {/* Leave Type */}
                         <Box>
                             <Text size="2" color="gray" weight="medium" as="div" mb="1">Leave Type</Text>
                             <Select.Root size="2"
@@ -283,7 +293,6 @@ export default function AdminLeavesPanel({
                             </Select.Root>
                         </Box>
 
-                        {/* Department */}
                         <Box>
                             <Text size="2" color="gray" weight="medium" as="div" mb="1">Department</Text>
                             <Select.Root size="2"
@@ -299,7 +308,6 @@ export default function AdminLeavesPanel({
                             </Select.Root>
                         </Box>
 
-                        {/* Clear */}
                         <Flex align="end">
                             <Button size="2" variant="soft" color="red"
                                 disabled={!hasActiveFilters}
@@ -313,7 +321,6 @@ export default function AdminLeavesPanel({
                         </Flex>
                     </Grid>
 
-                    {/* Active filter chips */}
                     {hasActiveFilters && (
                         <Flex gap="2" wrap="wrap" mt="3" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
                             {filters.employee && (
@@ -439,11 +446,13 @@ export default function AdminLeavesPanel({
                 />
             )}
 
+            {/* ── BulkDeleteModal: corrected prop names ── */}
             {modalStates.bulkDelete && (
                 <BulkDeleteModal
-                    isOpen={modalStates.bulkDelete}
+                    open={modalStates.bulkDelete}
                     onClose={() => closeModal('bulkDelete')}
-                    selectedIds={selectedForBulkDelete}
+                    selectedLeaves={selectedForBulkDelete}
+                    allUsers={allUsers}
                     onSuccess={() => { fetchLeaves(); fetchStats(); closeModal('bulkDelete'); }}
                 />
             )}
