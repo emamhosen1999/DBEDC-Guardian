@@ -802,31 +802,56 @@ class BiometricWebhookController extends Controller
             };
 
             // Resolve user by matching PIN to employee_id
-            $user = User::where('employee_id', $deviceUserId)->first();
+            $user = User::withTrashed()->where('employee_id', $deviceUserId)->first();
 
             if (! $user) {
-                $errorCount++;
-                Log::warning('ADMS push: user not found', [
+                // Auto-create as inactive placeholder so admin can link/activate later
+                $user = User::create([
+                    'name'        => 'Device User ' . $deviceUserId,
+                    'email'       => 'device_user_' . $deviceUserId . '@placeholder.local',
+                    'password'    => bcrypt(\Illuminate\Support\Str::random(32)),
+                    'employee_id' => $deviceUserId,
+                    'active'      => false,
+                ]);
+                // Soft-delete to make it inactive
+                $user->delete();
+                $attLogUserId = $user->id;
+                $attLogStatus = 'unknown_user';
+                $attLogReason = 'Auto-created as inactive placeholder';
+
+                Log::info('ADMS push: auto-created inactive user', [
                     'device_serial'  => $serialNumber,
                     'device_user_id' => $deviceUserId,
+                    'new_user_id'    => $user->id,
                 ]);
-                DB::table('biometric_att_logs')->insert([
-                    'biometric_device_id'   => $device->id,
-                    'serial_number'         => $serialNumber,
-                    'user_pin'              => $deviceUserId,
-                    'user_id'               => null,
-                    'punch_time'            => $checkTime,
-                    'check_type'            => $checkType,
-                    'punch_status'          => 'unknown_user',
-                    'punch_status_reason'   => 'No user matched employee_id: ' . $deviceUserId,
-                    'verify_code'           => $data['VerifyCode'] ?? null,
-                    'work_code'             => $data['WorkCode'] ?? null,
-                    'raw_data'              => $line,
-                    'context'               => json_encode($data),
-                    'occurred_at'           => $checkTime,
-                    'created_at'            => now(),
-                    'updated_at'            => now(),
-                ]);
+            } else {
+                $attLogUserId = $user->id;
+                $attLogStatus = 'failed';
+                $attLogReason = 'Pending processing';
+            }
+
+            // Log the punch immediately
+            DB::table('biometric_att_logs')->insert([
+                'biometric_device_id'   => $device->id,
+                'serial_number'         => $serialNumber,
+                'user_pin'              => $deviceUserId,
+                'user_id'               => $attLogUserId,
+                'punch_time'            => $checkTime,
+                'check_type'            => $checkType,
+                'punch_status'          => $attLogStatus,
+                'punch_status_reason'   => $attLogReason,
+                'verify_code'           => $data['VerifyCode'] ?? null,
+                'work_code'             => $data['WorkCode'] ?? null,
+                'raw_data'              => $line,
+                'context'               => json_encode($data),
+                'occurred_at'           => $checkTime,
+                'created_at'            => now(),
+                'updated_at'            => now(),
+            ]);
+
+            // If user was just auto-created, skip further processing
+            if ($attLogStatus === 'unknown_user') {
+                $errorCount++;
                 continue;
             }
 
