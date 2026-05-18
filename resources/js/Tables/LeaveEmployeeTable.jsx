@@ -342,6 +342,11 @@ const LeaveEmployeeTable = React.forwardRef(({
                                                     Delete Leave
                                                 </DropdownItem>
                                             )}
+                                            {!canEditLeaves && !canDeleteLeaves && (
+                                                <DropdownItem key="none" isDisabled>
+                                                    No actions available
+                                                </DropdownItem>
+                                            )}
                                         </>
                                     </DropdownMenu>
                                 </Dropdown>
