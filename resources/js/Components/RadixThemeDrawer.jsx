@@ -9,7 +9,6 @@ import {
   GRAY_COLORS,
   RADIUS_OPTIONS,
   SCALING_OPTIONS,
-  PANEL_BACKGROUNDS,
   FONT_FAMILIES,
 } from '@/Contexts/RadixThemeContext';
 import { SunIcon, MoonIcon, ResetIcon, CopyIcon, CheckIcon } from '@radix-ui/react-icons';
@@ -183,24 +182,6 @@ export default function RadixThemeDrawer({ open, onClose }) {
 
               <Separator size="4" my="4" />
 
-              {/* ── Panel background ─────────────────────────────────── */}
-              <Text id="panel-bg-title" size="2" weight="medium" mb="3">Panel background</Text>
-              <div role="group" aria-labelledby="panel-bg-title"
-                style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-                {PANEL_BACKGROUNDS.map((pb) => (
-                  <label key={pb} className="rt-ThemePanelRadioCard">
-                    <input className="rt-ThemePanelRadioCardInput" type="radio" name="panelBackground" value={pb}
-                      checked={settings.panelBackground === pb}
-                      onChange={() => updateSettings({ panelBackground: pb })} />
-                    <Flex align="center" justify="center" gap="2" style={{ height: 32 }}>
-                      <Text size="1" weight="medium" style={{ textTransform: 'capitalize' }}>{pb}</Text>
-                    </Flex>
-                  </label>
-                ))}
-              </div>
-
-              <Separator size="4" my="4" />
-
               {/* ── Font family (OUR ADDITION) ────────────────────────── */}
               <Text id="font-title" size="2" weight="medium" mb="3">Font family</Text>
               <Select.Root value={settings.fontFamily} onValueChange={(v) => updateSettings({ fontFamily: v })}>
@@ -217,8 +198,13 @@ export default function RadixThemeDrawer({ open, onClose }) {
               {/* ── Page background (OUR ADDITION) ───────────────────── */}
               <Text id="page-bg-title" size="2" weight="medium" mb="3">Page background</Text>
               <div role="group" aria-labelledby="page-bg-title"
-                style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-                {[{val:'grid', label:'Grid + Glow'}, {val:'none', label:'None'}].map(({ val, label }) => (
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8, marginBottom: 4 }}>
+                {[
+                  {val:'grid', label:'Grid + Glow'},
+                  {val:'none', label:'None'},
+                  {val:'gradient', label:'Gradient'},
+                  {val:'pattern', label:'Pattern'},
+                ].map(({ val, label }) => (
                   <label key={val} className="rt-ThemePanelRadioCard">
                     <input className="rt-ThemePanelRadioCardInput" type="radio" name="bgStyle" value={val}
                       checked={settings.bgStyle === val}
@@ -229,9 +215,13 @@ export default function RadixThemeDrawer({ open, onClose }) {
                         border: '1px solid var(--gray-a5)',
                         backgroundImage: val === 'grid'
                           ? 'radial-gradient(circle, var(--accent-a7) 1px, transparent 1px)'
+                          : val === 'gradient'
+                          ? 'linear-gradient(135deg, var(--accent-a3), var(--accent-a5))'
+                          : val === 'pattern'
+                          ? 'repeating-linear-gradient(45deg, var(--gray-a4) 0px, var(--gray-a4) 2px, transparent 2px, transparent 8px)'
                           : 'none',
                         background: val === 'none' ? 'var(--gray-a3)' : undefined,
-                        backgroundSize: val === 'grid' ? '8px 8px' : undefined,
+                        backgroundSize: val === 'grid' ? '8px 8px' : val === 'pattern' ? '8px 8px' : undefined,
                       }} />
                       <Text size="1" weight="medium">{label}</Text>
                     </Flex>
