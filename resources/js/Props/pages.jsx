@@ -105,7 +105,7 @@ export const getPages = (roles, permissions, auth = null) => {
             ...(permissions.includes('attendance.view') ? [{ name: 'Attendances', icon: <ClockIcon  />, route: 'attendance.unified' }] : []),
             ...(permissions.includes('holidays.view') ? [{ name: 'Holidays', icon: <CalendarIcon  />, route: 'holidays' }] : []),
             ...(permissions.includes('leaves.view') ? [
-              { name: 'Leaves', icon: <ArrowRightOnRectangleIcon  />, route: 'leaves.index' },
+              { name: 'Leave Management', icon: <ArrowRightOnRectangleIcon  />, route: 'leaves.index' },
 
             ] : []),
           ]

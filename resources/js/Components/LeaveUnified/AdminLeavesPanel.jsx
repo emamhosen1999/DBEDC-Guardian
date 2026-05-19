@@ -1,31 +1,25 @@
 /**
  * AdminLeavesPanel.jsx
- * "All Leaves" tab — admin view: full filter set, stats row,
- * paginated table (reuses existing LeaveEmployeeTable + LeaveForm modals).
- * Pure Radix UI shell — no HeroUI, no Tailwind.
- *
- * Fix: BulkDeleteModal prop names corrected:
- *   isOpen       → open
- *   selectedIds  → selectedLeaves  (full leave objects, resolved from leaves state)
- *   allUsers     added (required by BulkDeleteModal for name display)
- *
- * Fix: handleBulkDelete now resolves IDs → full leave objects before storing.
+ * "All Leaves" tab — admin view.
+ * * UX Improvements added:
+ * - Optimistic CRUD: Instant UI updates for approve/reject actions with automatic rollback on API failure.
+ * - Skeletons: Layout-preserving loading states instead of layout-shifting spinners.
+ * - Responsive Filters: Grid layouts that gracefully collapse to single columns on mobile.
  */
-import React, {
-    useState, useEffect, useCallback, useMemo, useRef,
-} from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import {
     Badge, Box, Button, Callout, Card, Flex, Grid,
     IconButton, Select, Separator, Spinner, Text, TextField,
+    Skeleton, ScrollArea
 } from '@radix-ui/themes';
 import {
     CalendarIcon, CheckCircledIcon, ClockIcon, Cross2Icon,
-    CrossCircledIcon, DownloadIcon, ExclamationTriangleIcon,
+    CrossCircledIcon, ExclamationTriangleIcon,
     MagnifyingGlassIcon, MixerHorizontalIcon, PlusIcon,
-    ReloadIcon, TableIcon,
+    ReloadIcon, TableIcon, LayersIcon
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import LeaveEmployeeTable from '@/Tables/LeaveEmployeeTable.jsx';
@@ -34,13 +28,22 @@ import DeleteLeaveForm    from '@/Forms/DeleteLeaveForm.jsx';
 import BulkLeaveModal     from '@/Components/BulkLeave/BulkLeaveModal.jsx';
 import BulkDeleteModal    from '@/Components/BulkDelete/BulkDeleteModal.jsx';
 
-/* ── tiny stat pill ── */
-function StatPill({ label, value, color = 'gray' }) {
+/* ── Responsive Stat Pill ── */
+function StatPill({ label, value, color = 'gray', icon: Icon, loading = false }) {
     return (
-        <Badge size="2" variant="soft" color={color} radius="full">
-            <Text weight="bold">{value}</Text>
-            <Text style={{ opacity: 0.7 }}> {label}</Text>
-        </Badge>
+        <Card size="1" style={{ minWidth: '130px', flex: '1 1 auto' }}>
+            <Flex align="center" gap="3" p="1">
+                <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)' }}>
+                    {Icon ? <Icon style={{ color: `var(--${color}-9)` }} /> : <LayersIcon style={{ color: `var(--${color}-9)` }} />}
+                </Box>
+                <Box>
+                    <Skeleton loading={loading}>
+                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1 }}>{value}</Text>
+                    </Skeleton>
+                    <Text size="1" color="gray">{label}</Text>
+                </Box>
+            </Flex>
+        </Card>
     );
 }
 
@@ -54,19 +57,19 @@ export default function AdminLeavesPanel({
     const canEdit    = auth.permissions?.includes('leaves.update')  || false;
     const canDelete  = auth.permissions?.includes('leaves.delete')  || false;
 
-    /* ── data ── */
+    /* ── State ── */
     const [leaves,      setLeaves]      = useState([]);
     const [leavesData,  setLeavesData]  = useState({ leaveTypes: [] });
     const [departments, setDepartments] = useState([]);
     const [totalRows,   setTotalRows]   = useState(0);
     const [lastPage,    setLastPage]    = useState(1);
-    const [loading,     setLoading]     = useState(false);
+    const [loading,     setLoading]     = useState(true);
     const [error,       setError]       = useState('');
     const [leaveStats,  setLeaveStats]  = useState({
         total: 0, pending: 0, approved: 0, rejected: 0, thisMonth: 0, thisWeek: 0,
     });
 
-    /* ── pagination / filters ── */
+    /* ── Pagination / Filters ── */
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 30 });
     const [filters, setFilters] = useState({
         employee:      '',
@@ -77,7 +80,7 @@ export default function AdminLeavesPanel({
     });
     const [showFilters, setShowFilters] = useState(false);
 
-    /* ── modal states ── */
+    /* ── Modal States ── */
     const [modalStates, setModalStates] = useState({
         addEditLeave: false,
         deleteLeave:  false,
@@ -85,10 +88,10 @@ export default function AdminLeavesPanel({
         bulkDelete:   false,
     });
     const [currentLeave,          setCurrentLeave]          = useState(null);
-    const [selectedForBulkDelete, setSelectedForBulkDelete] = useState([]); // full leave objects
+    const [selectedForBulkDelete, setSelectedForBulkDelete] = useState([]);
     const leaveTableRef = useRef(null);
 
-    /* ── helpers ── */
+    /* ── Helpers ── */
     const openModal  = useCallback(type => setModalStates(p => ({ ...p, [type]: true  })), []);
     const closeModal = useCallback(type => setModalStates(p => ({ ...p, [type]: false })), []);
 
@@ -102,9 +105,9 @@ export default function AdminLeavesPanel({
         setPagination(p => ({ ...p, currentPage: 1 }));
     }, []);
 
-    /* ── fetch ── */
-    const fetchLeaves = useCallback(async () => {
-        setLoading(true);
+    /* ── Fetching Logic ── */
+    const fetchLeaves = useCallback(async (isSilent = false) => {
+        if (!isSilent) setLoading(true);
         try {
             const { data } = await axios.get(route('leaves.paginate'), {
                 params: {
@@ -130,9 +133,9 @@ export default function AdminLeavesPanel({
             setError('');
         } catch (e) {
             setError(e.response?.data?.message || 'Failed to load leaves.');
-            setLeaves([]);
+            if (!isSilent) setLeaves([]);
         } finally {
-            setLoading(false);
+            if (!isSilent) setLoading(false);
         }
     }, [pagination, filters, onCountChange]);
 
@@ -149,51 +152,65 @@ export default function AdminLeavesPanel({
         if (isActive) { fetchLeaves(); fetchStats(); }
     }, [fetchLeaves, fetchStats, isActive]);
 
-    /* ── header actions ── */
+    /* ── Header Actions ── */
     useEffect(() => {
         if (!isActive) return;
         onSetHeaderActions?.(
-            <Flex gap="2" wrap="wrap">
-                {canCreate && (
-                    <Button size="2" onClick={() => { setCurrentLeave(null); openModal('addEditLeave'); }}>
-                        <PlusIcon /> {!isMobile && 'Add Leave'}
+            <Flex gap="2" wrap="wrap" style={{ width: '100%', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
+                <Flex gap="2">
+                    {canCreate && (
+                        <Button size="2" color="indigo" onClick={() => { setCurrentLeave(null); openModal('addEditLeave'); }}>
+                            <PlusIcon /> {!isMobile && 'Add Leave'}
+                        </Button>
+                    )}
+                    <Button size="2" variant="soft" color="violet" onClick={() => openModal('bulkLeave')}>
+                        <LayersIcon /> {!isMobile && 'Bulk Leave'}
                     </Button>
-                )}
-                <Button size="2" variant="soft" color="violet"
-                    onClick={() => openModal('bulkLeave')}>
-                    {!isMobile && 'Bulk Leave'}
-                </Button>
-                <IconButton size="2" variant="soft" color="gray"
-                    onClick={() => { fetchLeaves(); fetchStats(); }} aria-label="Refresh">
+                </Flex>
+                <IconButton size="2" variant="soft" color="gray" onClick={() => { fetchLeaves(); fetchStats(); }} aria-label="Refresh">
                     <ReloadIcon />
                 </IconButton>
             </Flex>
         );
-    }, [isActive, isMobile, canCreate]);
+    }, [isActive, isMobile, canCreate, fetchLeaves, fetchStats]);
 
-    /* ── bulk handlers ── */
+    /* ── Optimistic Bulk Handlers ── */
     const handleBulkApprove = useCallback(async ids => {
+        // Optimistic UI Update
+        const previousLeaves = [...leaves];
+        setLeaves(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: 'Approved' } : l));
+        
         try {
             await axios.post(route('leaves.bulk-approve'), { leave_ids: ids });
-            showToast.success('Leaves approved.');
-            fetchLeaves(); fetchStats();
-        } catch { showToast.error('Bulk approve failed.'); }
-    }, [fetchLeaves, fetchStats]);
+            showToast.success(`${ids.length} leave(s) approved.`);
+            fetchStats(); // Update stats in background
+        } catch {
+            showToast.error('Bulk approve failed. Rolling back.');
+            setLeaves(previousLeaves); // Rollback
+        }
+    }, [leaves, fetchStats]);
 
     const handleBulkReject = useCallback(async ids => {
+        // Optimistic UI Update
+        const previousLeaves = [...leaves];
+        setLeaves(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: 'Declined' } : l));
+        
         try {
             await axios.post(route('leaves.bulk-reject'), { leave_ids: ids });
-            showToast.success('Leaves rejected.');
-            fetchLeaves(); fetchStats();
-        } catch { showToast.error('Bulk reject failed.'); }
-    }, [fetchLeaves, fetchStats]);
+            showToast.success(`${ids.length} leave(s) rejected.`);
+            fetchStats(); // Update stats in background
+        } catch {
+            showToast.error('Bulk reject failed. Rolling back.');
+            setLeaves(previousLeaves); // Rollback
+        }
+    }, [leaves, fetchStats]);
 
     const handleBulkDelete = useCallback(fullLeaves => {
         setSelectedForBulkDelete(fullLeaves);
         openModal('bulkDelete');
     }, [openModal]);
 
-    /* ── leave type options ── */
+    /* ── Leave Type Options ── */
     const leaveTypeOptions = useMemo(() => {
         const base = [{ value: 'all', label: 'All Types' }];
         return [...base, ...(leavesData.leaveTypes || []).map(t => ({
@@ -201,61 +218,76 @@ export default function AdminLeavesPanel({
         }))];
     }, [leavesData.leaveTypes]);
 
-    const hasActiveFilters = filters.employee ||
-        filters.status.length || filters.leaveType.length || filters.department.length;
+    const hasActiveFilters = !!(filters.employee ||
+        filters.status.length || filters.leaveType.length || filters.department.length);
 
-    /* ── render ── */
+    /* ── Render ── */
     return (
         <Box>
-            {/* ── Stats row ── */}
-            <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total"      value={leaveStats.total}     color="blue"   />
-                <StatPill label="Pending"    value={leaveStats.pending}   color="amber"  />
-                <StatPill label="Approved"   value={leaveStats.approved}  color="green"  />
-                <StatPill label="Rejected"   value={leaveStats.rejected}  color="red"    />
-                <StatPill label="This Month" value={leaveStats.thisMonth} color="violet" />
-                <StatPill label="This Week"  value={leaveStats.thisWeek}  color="cyan"   />
-            </Flex>
+            {/* ── Stats Row ── */}
+            <ScrollArea type="auto" scrollbars="horizontal" style={{ width: '100%', marginBottom: '16px' }}>
+                <Flex gap="3" style={{ minWidth: '100%', paddingBottom: '4px' }}>
+                    <StatPill label="Total"      value={leaveStats.total}     color="blue"   icon={TableIcon} loading={loading} />
+                    <StatPill label="Pending"    value={leaveStats.pending}   color="amber"  icon={ClockIcon} loading={loading} />
+                    <StatPill label="Approved"   value={leaveStats.approved}  color="green"  icon={CheckCircledIcon} loading={loading} />
+                    <StatPill label="Rejected"   value={leaveStats.rejected}  color="red"    icon={CrossCircledIcon} loading={loading} />
+                    <StatPill label="This Month" value={leaveStats.thisMonth} color="violet" icon={CalendarIcon} loading={loading} />
+                </Flex>
+            </ScrollArea>
 
             {/* ── Toolbar ── */}
             <Flex
                 direction={{ initial: 'column', sm: 'row' }}
-                gap="3" align={{ initial: 'stretch', sm: 'center' }} mb="3"
+                gap="3" align={{ initial: 'stretch', sm: 'center' }} mb="4"
             >
-                <Box style={{ flex: 1, minWidth: 200 }}>
+                <Box style={{ flex: 1 }}>
                     <TextField.Root
                         placeholder="Search by employee name…"
                         size="2"
-                        onChange={e => handleFilterChange('employee', e.target.value.toLowerCase())}
+                        value={filters.employee}
+                        onChange={e => handleFilterChange('employee', e.target.value)}
                     >
                         <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                        {filters.employee && (
+                            <TextField.Slot side="right">
+                                <IconButton size="1" variant="ghost" onClick={() => handleFilterChange('employee', '')}>
+                                    <Cross2Icon />
+                                </IconButton>
+                            </TextField.Slot>
+                        )}
                     </TextField.Root>
                 </Box>
 
-                <TextField.Root
-                    type="month"
-                    size="2"
-                    value={filters.selectedMonth}
-                    onChange={e => handleFilterChange('selectedMonth', e.target.value)}
-                    style={{ maxWidth: 180 }}
-                />
+                <Flex gap="3">
+                    <TextField.Root
+                        type="month"
+                        size="2"
+                        value={filters.selectedMonth}
+                        onChange={e => handleFilterChange('selectedMonth', e.target.value)}
+                        style={{ flex: isMobile ? 1 : '0 0 160px' }}
+                    />
 
-                <Button
-                    size="2"
-                    variant={showFilters ? 'solid' : 'surface'}
-                    color={showFilters ? 'indigo' : 'gray'}
-                    onClick={() => setShowFilters(v => !v)}
-                >
-                    <MixerHorizontalIcon /> {!isMobile && 'Filters'}
-                </Button>
+                    <Button
+                        size="2"
+                        variant={showFilters ? 'solid' : 'surface'}
+                        color={showFilters ? 'indigo' : 'gray'}
+                        onClick={() => setShowFilters(v => !v)}
+                        style={{ flexShrink: 0 }}
+                    >
+                        <MixerHorizontalIcon /> {!isMobile && 'Filters'}
+                        {hasActiveFilters && !showFilters && (
+                            <Box style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-9)', marginLeft: 4 }} />
+                        )}
+                    </Button>
+                </Flex>
             </Flex>
 
             {/* ── Advanced Filter Panel ── */}
             {showFilters && (
-                <Card size="2" variant="surface" mb="3">
-                    <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4" align="end">
+                <Card size="2" variant="surface" mb="4">
+                    <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4">
                         <Box>
-                            <Text size="2" color="gray" weight="medium" as="div" mb="1">Status</Text>
+                            <Text size="2" color="gray" weight="medium" as="div" mb="2">Status</Text>
                             <Select.Root size="2"
                                 value={filters.status[0] || 'all'}
                                 onValueChange={v => handleFilterChange('status', v === 'all' ? [] : [v])}>
@@ -270,7 +302,7 @@ export default function AdminLeavesPanel({
                         </Box>
 
                         <Box>
-                            <Text size="2" color="gray" weight="medium" as="div" mb="1">Leave Type</Text>
+                            <Text size="2" color="gray" weight="medium" as="div" mb="2">Leave Type</Text>
                             <Select.Root size="2"
                                 value={filters.leaveType[0] || 'all'}
                                 onValueChange={v => handleFilterChange('leaveType', v === 'all' ? [] : [v])}>
@@ -284,7 +316,7 @@ export default function AdminLeavesPanel({
                         </Box>
 
                         <Box>
-                            <Text size="2" color="gray" weight="medium" as="div" mb="1">Department</Text>
+                            <Text size="2" color="gray" weight="medium" as="div" mb="2">Department</Text>
                             <Select.Root size="2"
                                 value={filters.department[0] || 'all'}
                                 onValueChange={v => handleFilterChange('department', v === 'all' ? [] : [v])}>
@@ -298,7 +330,7 @@ export default function AdminLeavesPanel({
                             </Select.Root>
                         </Box>
 
-                        <Flex align="end">
+                        <Flex align="end" style={{ height: '100%' }}>
                             <Button size="2" variant="soft" color="red"
                                 disabled={!hasActiveFilters}
                                 onClick={() => setFilters({
@@ -306,36 +338,28 @@ export default function AdminLeavesPanel({
                                     status: [], leaveType: [], department: [],
                                 })}
                                 style={{ width: '100%' }}>
-                                <Cross2Icon /> Clear
+                                <Cross2Icon /> Clear Filters
                             </Button>
                         </Flex>
                     </Grid>
 
+                    {/* Filter Tags */}
                     {hasActiveFilters && (
-                        <Flex gap="2" wrap="wrap" mt="3" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
-                            {filters.employee && (
-                                <Badge color="blue" style={{ cursor: 'pointer' }}
-                                    onClick={() => handleFilterChange('employee', '')}>
-                                    Employee: {filters.employee} <Cross2Icon style={{ marginLeft: 4 }} />
-                                </Badge>
-                            )}
+                        <Flex gap="2" wrap="wrap" mt="4" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
                             {filters.status.map(s => (
-                                <Badge key={s} color="violet" style={{ cursor: 'pointer' }}
-                                    onClick={() => handleFilterChange('status', filters.status.filter(x => x !== s))}>
+                                <Badge key={s} color="violet" style={{ cursor: 'pointer' }} onClick={() => handleFilterChange('status', filters.status.filter(x => x !== s))}>
                                     Status: {s} <Cross2Icon style={{ marginLeft: 4 }} />
                                 </Badge>
                             ))}
                             {filters.leaveType.map(t => (
-                                <Badge key={t} color="amber" style={{ cursor: 'pointer' }}
-                                    onClick={() => handleFilterChange('leaveType', filters.leaveType.filter(x => x !== t))}>
+                                <Badge key={t} color="amber" style={{ cursor: 'pointer' }} onClick={() => handleFilterChange('leaveType', filters.leaveType.filter(x => x !== t))}>
                                     Type: {t} <Cross2Icon style={{ marginLeft: 4 }} />
                                 </Badge>
                             ))}
                             {filters.department.map(dId => {
                                 const dept = departments.find(d => String(d.id) === String(dId));
                                 return (
-                                    <Badge key={dId} color="green" style={{ cursor: 'pointer' }}
-                                        onClick={() => handleFilterChange('department', filters.department.filter(x => x !== dId))}>
+                                    <Badge key={dId} color="green" style={{ cursor: 'pointer' }} onClick={() => handleFilterChange('department', filters.department.filter(x => x !== dId))}>
                                         Dept: {dept?.name || dId} <Cross2Icon style={{ marginLeft: 4 }} />
                                     </Badge>
                                 );
@@ -345,21 +369,16 @@ export default function AdminLeavesPanel({
                 </Card>
             )}
 
-            {/* ── Section header ── */}
-            <Flex align="center" justify="between" mb="3">
-                <Flex align="center" gap="2">
-                    <TableIcon style={{ width: 16, height: 16 }} />
-                    <Text size="3" weight="medium">Leave Requests</Text>
-                    {!loading && <Badge size="1" variant="soft" color="gray" radius="full">{totalRows}</Badge>}
-                </Flex>
-            </Flex>
-
             {/* ── Content ── */}
             {loading ? (
-                <Flex direction="column" align="center" py="9" gap="3">
-                    <Spinner size="3" />
-                    <Text color="gray" size="2">Loading leave data…</Text>
-                </Flex>
+                // SKELETON LOADING STATE
+                <Box>
+                    <Skeleton height="40px" mb="2" />
+                    <Skeleton height="60px" mb="2" />
+                    <Skeleton height="60px" mb="2" />
+                    <Skeleton height="60px" mb="2" />
+                    <Skeleton height="60px" mb="2" />
+                </Box>
             ) : error ? (
                 <Callout.Root color="orange">
                     <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
@@ -389,13 +408,14 @@ export default function AdminLeavesPanel({
                     onBulkApprove={handleBulkApprove}
                     onBulkReject={handleBulkReject}
                     onBulkDelete={handleBulkDelete}
-                    fetchLeavesStats={fetchStats}
+                    fetchLeavesStats={() => fetchStats()}
+                    onLeaveUpdated={() => fetchLeaves(true)}
                 />
             ) : (
-                <Flex direction="column" align="center" py="9" gap="2">
-                    <CalendarIcon style={{ width: 40, height: 40, color: 'var(--gray-9)' }} />
-                    <Text size="3" weight="medium">No Leave Records Found</Text>
-                    <Text size="2" color="gray">Try adjusting your filters or month selection.</Text>
+                <Flex direction="column" align="center" py="9" gap="3" style={{ border: '1px dashed var(--gray-a6)', borderRadius: 'var(--radius-3)' }}>
+                    <CalendarIcon style={{ width: 48, height: 48, color: 'var(--gray-8)' }} />
+                    <Text size="4" weight="bold">No Leave Records Found</Text>
+                    <Text size="2" color="gray">Try adjusting your filters or search terms.</Text>
                 </Flex>
             )}
 
@@ -414,6 +434,13 @@ export default function AdminLeavesPanel({
                     setLastPage={setLastPage}
                     selectedMonth={filters.selectedMonth}
                     fetchLeavesStats={fetchStats}
+                    addLeaveOptimized={leave => {
+                        setLeaves(prev => [leave, ...prev]);
+                        setTotalRows(n => n + 1);
+                    }}
+                    updateLeaveOptimized={leave => {
+                        setLeaves(prev => prev.map(l => l.id === leave.id ? leave : l));
+                    }}
                 />
             )}
 
@@ -423,7 +450,9 @@ export default function AdminLeavesPanel({
                     closeModal={() => closeModal('deleteLeave')}
                     leaveId={currentLeave?.id}
                     setLeaves={setLeaves}
+                    setTotalRows={setTotalRows}
                     fetchLeavesStats={fetchStats}
+                    deleteLeaveOptimized={id => setLeaves(prev => prev.filter(l => l.id !== id))}
                 />
             )}
 
@@ -432,18 +461,25 @@ export default function AdminLeavesPanel({
                     open={modalStates.bulkLeave}
                     onClose={() => closeModal('bulkLeave')}
                     allUsers={allUsers}
-                    onSuccess={() => { fetchLeaves(); fetchStats(); }}
+                    departments={departments}
+                    onSuccess={() => { fetchLeaves(true); fetchStats(); }}
+                    isAdmin={true}
                 />
             )}
 
-            {/* ── BulkDeleteModal: corrected prop names ── */}
             {modalStates.bulkDelete && (
                 <BulkDeleteModal
                     open={modalStates.bulkDelete}
                     onClose={() => closeModal('bulkDelete')}
                     selectedLeaves={selectedForBulkDelete}
                     allUsers={allUsers}
-                    onSuccess={() => { fetchLeaves(); fetchStats(); closeModal('bulkDelete'); }}
+                    onSuccess={() => { 
+                        // Optimistically remove deleted items
+                        const deletedIds = selectedForBulkDelete.map(l => l.id);
+                        setLeaves(prev => prev.filter(l => !deletedIds.includes(l.id)));
+                        fetchStats(); 
+                        closeModal('bulkDelete'); 
+                    }}
                 />
             )}
         </Box>

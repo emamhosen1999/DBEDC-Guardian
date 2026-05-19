@@ -159,7 +159,8 @@ const BulkDeleteModal = ({
                     <ScrollArea style={{ maxHeight: 280, border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-2)' }}>
                         {selectedLeaves.map((leave, index) => {
                             const isApproved = leave.status?.toLowerCase() === 'approved';
-                            const statusColor = isApproved ? 'green' : leave.status?.toLowerCase() === 'pending' ? 'amber' : leave.status?.toLowerCase() === 'rejected' ? 'red' : 'gray';
+                            const statusLower = leave.status?.toLowerCase();
+                            const statusColor = statusLower === 'approved' ? 'green' : statusLower === 'pending' ? 'amber' : (statusLower === 'declined' || statusLower === 'rejected') ? 'red' : 'gray';
                             return (
                                 <Box key={leave.id} p="3" style={{ opacity: isApproved ? 0.6 : 1, background: isApproved ? 'var(--red-a2)' : undefined }}>
                                     <Flex align="center" gap="2" mb="1" wrap="wrap">

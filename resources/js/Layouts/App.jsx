@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { usePage, router } from '@inertiajs/react';
-import { Toaster } from 'sonner';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { usePage } from '@inertiajs/react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 import { Box, Flex, IconButton, Tooltip } from '@radix-ui/themes';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { MixerHorizontalIcon,  } from '@radix-ui/react-icons';
+import {Toaster} from 'react-hot-toast';
 
 import { getPages } from '@/Props/pages.jsx';
 import Header from '@/Layouts/Header.jsx';
@@ -13,12 +15,10 @@ import BottomNav from '@/Layouts/BottomNav.jsx';
 import RadixThemeDrawer from '@/Components/RadixThemeDrawer.jsx';
 import UpdateNotification from '@/Components/UpdateNotification.jsx';
 import AuthGuard from '@/Components/AuthGuard.jsx';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { TranslationProvider } from '@/Contexts/TranslationContext';
 import { GlobalAutoTranslator } from '@/Contexts/GlobalAutoTranslator';
 import { AppStateProvider } from '@/Contexts/AppStateContext';
 import { useVersionManager } from '@/Hooks/useVersionManager.js';
-import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 import NavigationProgress from '@/Components/NavigationProgress.jsx';
 
 import '@/utils/serviceWorkerManager.js';
@@ -44,6 +44,7 @@ const App = React.memo(({ children }) => {
 
   const { currentVersion, isUpdateAvailable, forceUpdate, dismissUpdate } = useVersionManager();
   const { settings } = useRadixTheme();
+  const isTranslucent = settings.panelBackground === 'translucent';
 
   // Build nav pages once per auth identity
   const pages = useMemo(() => {
@@ -203,6 +204,7 @@ const App = React.memo(({ children }) => {
                 <Box
                   as="main"
                   id="main-content"
+                  
                   style={{
                     flex: 1,
                     overflowY: 'auto',
