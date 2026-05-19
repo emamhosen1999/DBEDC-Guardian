@@ -71,8 +71,6 @@ const BulkCalendar = ({
     const finalExistingLeaves = fetchFromAPI ? apiCalendarData.existingLeaves : existingLeaves;
     const finalPublicHolidays = fetchFromAPI ? apiCalendarData.publicHolidays : publicHolidays;
 
-   
-
     // Get calendar days data for the current month
     const calendarDays = useMemo(() => {
         const year = currentDate.getFullYear();
@@ -194,14 +192,12 @@ const BulkCalendar = ({
             const fromDate = leave.from_date.split('T')[0]; // Get just the date part
             const toDate = leave.to_date.split('T')[0]; // Get just the date part
             
-        
             return dateString >= fromDate && dateString <= toDate;
         });
         
         // Check for public holiday - direct string comparison
         const isPublicHoliday = finalPublicHolidays.includes(dateString);
         
-    
         // Allow selection of past dates for bulk leave (removed isPast restriction)
         // Disable selectability during loading, for holidays, and existing leaves
         const selectable = !loading && 
@@ -221,46 +217,82 @@ const BulkCalendar = ({
         };
     }, [selectedDates, finalExistingLeaves, finalPublicHolidays, minDate, maxDate, loading]);
 
-    const monthYear = currentDate.toLocaleDateString('en-US', { 
-        month: 'long', 
-        year: 'numeric' 
-    });
+    const monthLabel = currentDate.toLocaleDateString('en-US', { month: 'long' });
+    const yearLabel = currentDate.getFullYear();
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-        <Box p="4" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a4)', width: '100%' }}>
-            {/* Header */}
-            <Flex justify="between" align="center" mb="3">
-                <Flex align="center" gap="2">
-                    <CalendarIcon style={{ color: 'var(--accent-9)' }} />
-                    <Text size="3" weight="medium">{monthYear}</Text>
-                    {fetchFromAPI && loadedYear && <Badge color="blue" variant="outline">{loadedYear}</Badge>}
+        <Box
+            style={{
+                width: '100%',
+                background: 'var(--gray-a2)',
+                borderRadius: 'var(--radius-3)',
+                border: '1px solid var(--gray-a4)',
+            }}
+        >
+            {/* Card Header */}
+            <Box
+                px="4"
+                pt="4"
+                pb="3"
+                style={{ borderBottom: '1px solid var(--gray-a3)' }}
+            >
+                <Flex justify="between" align="center">
+                    <Flex align="center" gap="2">
+                        <CalendarIcon
+                            style={{ color: 'var(--accent-9)', width: 18, height: 18, flexShrink: 0 }}
+                        />
+                        <Flex align="baseline" gap="1">
+                            <Text size="3" weight="semibold">{monthLabel}</Text>
+                            <Text size="2" color="gray" weight="regular">{yearLabel}</Text>
+                        </Flex>
+                        {fetchFromAPI && loading && (
+                            <Spinner size="1" />
+                        )}
+                    </Flex>
+                    <Flex align="center" gap="1">
+                        <IconButton
+                            size="1"
+                            variant="ghost"
+                            onClick={goToPreviousMonth}
+                            disabled={loading}
+                            aria-label="Previous month"
+                        >
+                            <ChevronLeftIcon />
+                        </IconButton>
+                        <Button
+                            size="1"
+                            variant="ghost"
+                            onClick={goToToday}
+                            disabled={loading}
+                        >
+                            Today
+                        </Button>
+                        <IconButton
+                            size="1"
+                            variant="ghost"
+                            onClick={goToNextMonth}
+                            disabled={loading}
+                            aria-label="Next month"
+                        >
+                            <ChevronRightIcon />
+                        </IconButton>
+                    </Flex>
                 </Flex>
-                <Flex align="center" gap="1">
-                    <IconButton size="1" variant="ghost" onClick={goToPreviousMonth} disabled={loading}><ChevronLeftIcon /></IconButton>
-                    <Button size="1" variant="ghost" onClick={goToToday} disabled={loading}>Today</Button>
-                    <IconButton size="1" variant="ghost" onClick={goToNextMonth} disabled={loading}><ChevronRightIcon /></IconButton>
-                </Flex>
-            </Flex>
+            </Box>
 
-            {/* Loading */}
-            {loading && (
-                <Flex align="center" gap="2" justify="center" py="2" mb="3" style={{ background: 'var(--gray-a3)', borderRadius: 'var(--radius-1)' }}>
-                    <Spinner size="1" />
-                    <Text size="1" color="gray">Loading calendar data for {currentDate.getFullYear()}...</Text>
+            {/* Card Body */}
+            <Box px="4" pb="4" pt="3">
+                {/* Legend */}
+                <Flex gap="2" wrap="wrap" mb="4">
+                    <Badge color="blue" variant="solid">Selected</Badge>
+                    <Badge color="red" variant="solid">Leave</Badge>
+                    <Badge color="amber" variant="solid">Holiday</Badge>
+                    <Badge color="violet" variant="solid">Today</Badge>
+                    <Badge color="gray" variant="outline">Weekend</Badge>
                 </Flex>
-            )}
 
-            {/* Legend */}
-            <Flex gap="2" wrap="wrap" mb="3">
-                <Badge color="blue" variant="solid">Selected</Badge>
-                <Badge color="red" variant="solid">Leave</Badge>
-                <Badge color="amber" variant="solid">Holiday</Badge>
-                <Badge color="violet" variant="solid">Today</Badge>
-                <Badge color="gray" variant="outline">Weekend</Badge>
-            </Flex>
-                
                 {/* Week days header */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 6 }}>
                     {weekDays.map(day => (
@@ -280,13 +312,13 @@ const BulkCalendar = ({
                         </div>
                     ))}
                 </div>
-                
+
                 {/* Calendar grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
                     {calendarDays.map((dayData, index) => {
                         const status = getDateStatus(dayData);
                         const hasBorder = status.isSelected || status.hasExistingLeave || status.isPublicHoliday || status.isToday;
-                        
+
                         return (
                             <div
                                 key={index}
@@ -297,7 +329,7 @@ const BulkCalendar = ({
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     aspectRatio: '1',
-                                    minHeight: 34,
+                                    minHeight: 36,
                                     fontSize: 12,
                                     fontWeight: status.isSelected ? 700 : status.isToday ? 600 : status.hasExistingLeave || status.isPublicHoliday ? 500 : 400,
                                     userSelect: 'none',
@@ -350,9 +382,11 @@ const BulkCalendar = ({
                                 }}
                                 role="button"
                                 tabIndex={status.selectable ? 0 : -1}
-                                title={status.hasExistingLeave ? 'Existing leave - cannot select' : 
-                                       status.isPublicHoliday ? 'Public holiday - cannot select' : 
-                                       !status.selectable ? 'Not selectable' : ''}
+                                title={
+                                    status.hasExistingLeave ? 'Existing leave - cannot select' : 
+                                    status.isPublicHoliday ? 'Public holiday - cannot select' : 
+                                    !status.selectable ? 'Not selectable' : ''
+                                }
                                 aria-label={`${dayData.fullDate.toDateString()}${status.isSelected ? ' (selected)' : ''}${status.hasExistingLeave ? ' (existing leave)' : ''}${status.isPublicHoliday ? ' (public holiday)' : ''}`}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
@@ -362,7 +396,7 @@ const BulkCalendar = ({
                                 }}
                             >
                                 {dayData.date}
-                                
+
                                 {/* Weekend indicator dot */}
                                 {status.isWeekend && !status.isSelected && !status.hasExistingLeave && !status.isPublicHoliday && (
                                     <div
@@ -382,13 +416,32 @@ const BulkCalendar = ({
                         );
                     })}
                 </div>
-                
+
                 {/* Selection summary */}
                 {selectedDates.length > 0 && (
-                    <Box mt="3" p="3" style={{ background: 'var(--accent-a3)', borderRadius: 'var(--radius-1)', border: '1px solid var(--accent-a5)' }}>
-                        <Text size="2" weight="medium" color="blue" style={{ display: 'block', marginBottom: 8 }}>
-                            {selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected
-                        </Text>
+                    <Box
+                        mt="3"
+                        p="3"
+                        style={{
+                            background: 'var(--accent-a3)',
+                            borderRadius: 'var(--radius-2)',
+                            border: '1px solid var(--accent-a5)',
+                        }}
+                    >
+                        <Flex justify="between" align="center" mb="2">
+                            <Text size="2" weight="semibold" color="blue">
+                                {selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected
+                            </Text>
+                            <Button
+                                size="1"
+                                variant="ghost"
+                                color="gray"
+                                onClick={() => onDatesChange([])}
+                                style={{ cursor: 'pointer', fontSize: 11 }}
+                            >
+                                Clear all
+                            </Button>
+                        </Flex>
                         <Flex gap="1" wrap="wrap">
                             {selectedDates.slice(0, 8).map(date => (
                                 <Badge key={date} color="blue" variant="solid">
@@ -396,11 +449,14 @@ const BulkCalendar = ({
                                 </Badge>
                             ))}
                             {selectedDates.length > 8 && (
-                                <Badge color="blue" variant="outline">+{selectedDates.length - 8} more</Badge>
+                                <Badge color="blue" variant="outline">
+                                    +{selectedDates.length - 8} more
+                                </Badge>
                             )}
                         </Flex>
                     </Box>
                 )}
+            </Box>
         </Box>
     );
 };

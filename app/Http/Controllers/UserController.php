@@ -66,7 +66,7 @@ class UserController extends Controller
 
             // Biometric panel
             'devices'        => BiometricDevice::all(),
-            'employees'      => User::select('id', 'name', 'employee_id')->get(),
+            'employees'      => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->get(),
             'attendanceTypes' => AttendanceType::where('is_active', true)->select('id', 'name', 'slug')->get(),
             ]);
     }
@@ -301,6 +301,8 @@ class UserController extends Controller
         $user = User::withTrashed()->findOrFail($id);
         $this->authorize('update', $user);
         $user->restore();
+        $user->active = true;
+        $user->save();
 
         return response()->json([
             'message' => 'User restored successfully.',
@@ -321,10 +323,18 @@ class UserController extends Controller
 
         try {
             $count = DB::transaction(function () use ($request) {
-                $userId = $request->input('user_ids');
-                $active = $request->input('active');
+                $userIds = $request->input('user_ids');
+                $active  = $request->input('active');
 
-                return User::whereIn('id', $userId)->update(['active' => $active]);
+                if ($active) {
+                    // Restore soft-deleted users and mark active
+                    User::withTrashed()->whereIn('id', $userIds)->restore();
+                    return User::whereIn('id', $userIds)->update(['active' => true]);
+                } else {
+                    // Mark inactive then soft-delete (mirrors toggleStatus behaviour)
+                    User::whereIn('id', $userIds)->update(['active' => false]);
+                    return User::whereIn('id', $userIds)->delete();
+                }
             });
 
             return response()->json([
@@ -567,22 +577,21 @@ class UserController extends Controller
                 $query->where('department_id', $department);
             }
 
+            $statsQuery = clone $query;
+
             // Sort active users first
             $query->orderByDesc('active')->orderBy('name');
 
             // Paginate
             $users = $query->paginate($perPage, ['*'], 'page', $page);
 
-            $baseStats = User::query();
-            if ($showDeleted) $baseStats = User::withTrashed();
-
             return response()->json([
                 'users' => new UserCollection($users),
                 'stats' => [
                     'overview' => [
-                        'total_users'    => (clone $baseStats)->count(),
-                        'active_users'   => (clone $baseStats)->where('active', 1)->count(),
-                        'inactive_users' => (clone $baseStats)->where('active', 0)->count(),
+                        'total_users'    => (clone $statsQuery)->count(),
+                        'active_users'   => (clone $statsQuery)->where('active', 1)->count(),
+                        'inactive_users' => (clone $statsQuery)->where('active', 0)->count(),
                     ],
                 ],
             ]);
