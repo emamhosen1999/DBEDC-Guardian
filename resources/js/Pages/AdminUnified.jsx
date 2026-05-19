@@ -132,6 +132,7 @@ const AdminUnified = ({
                                     roles={roles}
                                     departments={departments}
                                     designations={designations}
+                                    allUsers={employees}
                                     isMobile={isMobile}
                                     tick={0}
                                     onCountChange={n => setQuickStats(p => ({ ...p, totalUsers: n }))}

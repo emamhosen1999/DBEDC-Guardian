@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Box, Button, Dialog, Flex, Select, Spinner, Switch, Text, TextField } from '@radix-ui/themes';
-import { CalendarIcon, CheckCircledIcon, ExclamationTriangleIcon, PersonIcon } from '@radix-ui/react-icons';
+import { Box, Button, Dialog, Flex, Select, Spinner, Switch, Text, TextArea, TextField } from '@radix-ui/themes';
+import { CalendarIcon, CheckCircledIcon, Cross2Icon, ExclamationTriangleIcon, MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons';
 
 import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
@@ -22,7 +22,6 @@ const BulkLeaveModal = ({
 }) => {
     const { auth } = usePage().props;
 
-    
     // Form state
     const [selectedDates, setSelectedDates] = useState([]);
     const [selectedDepartmentId, setSelectedDepartmentId] = useState(null);
@@ -271,8 +270,6 @@ const BulkLeaveModal = ({
                     allow_partial_success: allowPartialSuccess
                 });
 
-             
-
                 if (response.status === 200 || response.status === 201) {
                     // Pass the response data to parent component for optimized updates
                     // Follow the same pattern as single leave form
@@ -338,153 +335,374 @@ const BulkLeaveModal = ({
 
     return (
         <Dialog.Root open={open} onOpenChange={v => { if (!v && !isSubmitting && !isValidating) onClose(); }}>
-            <Dialog.Content style={{ maxWidth: 900 }}>
-                <Dialog.Title>
-                    <Flex align="center" gap="2">
-                        <CalendarIcon style={{ color: 'var(--accent-9)' }} />
-                        <Box>
-                            Add Bulk Leave
-                            <Text size="1" color="gray" style={{ display: 'block', fontWeight: 'normal' }}>Select multiple dates and create leave requests in batch</Text>
-                        </Box>
-                    </Flex>
-                </Dialog.Title>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* Left: Calendar */}
-                    <Box>
-                        <Flex align="center" gap="2" mb="2">
-                            <CalendarIcon style={{ color: 'var(--accent-9)' }} />
-                            <Text size="3" weight="medium">Select Dates</Text>
-                        </Flex>
-                        <BulkCalendar
-                            selectedDates={selectedDates}
-                            onDatesChange={(dates) => { setSelectedDates(dates); setHasValidated(false); }}
-                            userId={selectedUserId}
-                            fetchFromAPI={true}
-                        />
-                    </Box>
-
-                    {/* Right: Form + Validation */}
-                    <Flex direction="column" gap="3">
-                        <Flex align="center" gap="2">
-                            <PersonIcon style={{ color: 'var(--accent-9)' }} />
-                            <Text size="3" weight="medium">Leave Details</Text>
-                        </Flex>
-
-                        {/* Admin user selector */}
-                        {isAdmin && allUsers.length > 0 && (
-                            <DepartmentEmployeeSelector
-                                selectedDepartmentId={selectedDepartmentId}
-                                selectedEmployeeId={selectedUserId}
-                                onDepartmentChange={setSelectedDepartmentId}
-                                onEmployeeChange={(empId) => { setSelectedUserId(empId); setSelectedLeaveType(''); setHasValidated(false); setUserLeaveTypes([]); }}
-                                allUsers={allUsers}
-                                departments={departments}
-                                showSearch={true}
-                                error={errors}
-                                variant="outlined"
-                                showAllOption={false}
-                                autoSelectFirstDepartment={false}
-                                required={true}
-                                disabled={isSubmitting || isValidating}
-                            />
-                        )}
-
-                        {/* Leave Type */}
-                        <Box>
-                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Leave Type</Text>
-                            <Select.Root
-                                value={selectedLeaveType}
-                                onValueChange={(v) => { setSelectedLeaveType(v); setHasValidated(false); }}
-                                disabled={isSubmitting || isValidating || loadingLeaveTypes}
-                            >
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    {loadingLeaveTypes ? (
-                                        <Select.Item value="__loading" disabled>Loading leave types...</Select.Item>
-                                    ) : leaveTypes.map((type) => {
-                                        const remaining = userLeaveTypes.length > 0 ? type.remaining : (() => {
-                                            const lc = leaveCounts?.find(lc => lc.leave_type === type.type);
-                                            return lc ? (type.days - lc.days_used) : type.days;
-                                        })();
-                                        return (
-                                            <Select.Item key={type.type} value={type.type} disabled={remaining <= 0}>
-                                                {type.type} ({remaining} remaining)
-                                            </Select.Item>
-                                        );
-                                    })}
-                                </Select.Content>
-                            </Select.Root>
-                            {errors.leave_type_id && <Text size="1" color="red">{errors.leave_type_id}</Text>}
-                        </Box>
-
-                        {/* Remaining leaves */}
-                        {selectedLeaveType && (() => {
-                            const st = leaveTypes.find(lt => lt.type === selectedLeaveType);
-                            const remaining = userLeaveTypes.length > 0 ? st?.remaining : (() => {
-                                const lc = leaveCounts?.find(lc => lc.leave_type === selectedLeaveType);
-                                return lc ? (st?.days - lc.days_used) : st?.days;
-                            })();
-                            return (
+            <Dialog.Content
+                style={{
+                    maxWidth: 900,
+                    maxHeight: '95vh',
+                    padding: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                }}
+            >
+                {/* Modal Header */}
+                <Box
+                    px="5"
+                    py="4"
+                    style={{
+                        borderBottom: '1px solid var(--gray-a4)',
+                        flexShrink: 0,
+                    }}
+                >
+                    <Flex justify="between" align="start">
+                        <Dialog.Title
+                            style={{
+                                margin: 0,
+                                fontSize: 'inherit',
+                                fontWeight: 'inherit',
+                                lineHeight: 'inherit',
+                            }}
+                        >
+                            <Flex align="center" gap="2">
+                                <CalendarIcon
+                                    style={{ color: 'var(--accent-9)', width: 20, height: 20, flexShrink: 0 }}
+                                />
                                 <Box>
-                                    <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Remaining Leaves</Text>
-                                    <TextField.Root value={`${remaining || 0} remaining of ${st?.days || 0} total`} readOnly style={{ width: '100%' }} />
+                                    <Text size="4" weight="semibold" style={{ display: 'block' }}>
+                                        Add Bulk Leave
+                                    </Text>
+                                    <Text size="1" color="gray" style={{ display: 'block' }}>
+                                        Select multiple dates and create leave requests in batch
+                                    </Text>
                                 </Box>
-                            );
-                        })()}
+                            </Flex>
+                        </Dialog.Title>
 
-                        {/* Reason */}
+                        <Dialog.Close asChild>
+                            <Button
+                                size="1"
+                                variant="ghost"
+                                color="gray"
+                                style={{ cursor: 'pointer', marginTop: 2 }}
+                                disabled={isSubmitting}
+                                aria-label="Close"
+                            >
+                                <Cross2Icon />
+                            </Button>
+                        </Dialog.Close>
+                    </Flex>
+                </Box>
+
+                {/* Modal Body — scrollable */}
+                <Box
+                    px="5"
+                    py="4"
+                    style={{
+                        overflowY: 'auto',
+                        flex: 1,
+                        minHeight: 0,
+                    }}
+                >
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
+                        {/* Left Column: Calendar */}
                         <Box>
-                            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Reason for Leave <Text color="red">*</Text></Text>
-                            <TextField.Root
-                                placeholder="Please provide a detailed reason..."
-                                value={reason}
-                                onChange={e => { setReason(e.target.value); setHasValidated(false); }}
-                                maxLength={500}
-                                disabled={isSubmitting || isValidating}
-                                style={{ borderColor: (errors.reason || (reason.length > 0 && reason.length < 5)) ? 'var(--red-7)' : undefined, width: '100%' }}
+                            <Flex align="center" gap="2" mb="3">
+                                <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
+                                <Text size="3" weight="semibold">Select Dates</Text>
+                            </Flex>
+                            <BulkCalendar
+                                selectedDates={selectedDates}
+                                onDatesChange={(dates) => {
+                                    setSelectedDates(dates);
+                                    setHasValidated(false); // Reset validation when dates change
+                                }}
+                                userId={selectedUserId}
+                                fetchFromAPI={true} // Enable API-driven data fetching
                             />
-                            {errors.reason && <Text size="1" color="red">{errors.reason}</Text>}
-                            {reason.length > 0 && reason.length < 5 && <Text size="1" color="red">Reason must be at least 5 characters</Text>}
-                            {reason.length >= 5 && <Text size="1" color="gray">{reason.length}/500 characters</Text>}
                         </Box>
 
-                        {/* Partial success toggle */}
-                        <Flex align="start" gap="2">
-                            <Switch size="1" checked={allowPartialSuccess} onCheckedChange={setAllowPartialSuccess} disabled={isSubmitting || isValidating} />
+                        {/* Right Column: Form and Validation */}
+                        <Flex direction="column" gap="4">
+                            {/* Form Controls */}
                             <Box>
-                                <Text size="2" weight="medium">Allow partial success</Text>
-                                <Text size="1" color="gray" style={{ display: 'block' }}>Valid dates will be processed even if some dates fail validation</Text>
-                            </Box>
-                        </Flex>
+                                <Flex align="center" gap="2" mb="3">
+                                    <PersonIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
+                                    <Text size="3" weight="semibold">Leave Details</Text>
+                                </Flex>
 
-                        {/* Summary */}
-                        {selectedDates.length > 0 && (
-                            <Box p="3" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a4)' }}>
-                                <Text size="1" color="gray" style={{ display: 'block', marginBottom: 4 }}>Selected Dates Summary</Text>
-                                <Text size="3" weight="medium">{selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected</Text>
-                                {selectedLeaveType && <Text size="1" color="gray" style={{ display: 'block' }}>Leave type: {selectedLeaveType}</Text>}
+                                <Flex direction="column" gap="3">
+                                    {/* Department & User Selection (Admin only) */}
+                                    {isAdmin && (
+                                        <DepartmentEmployeeSelector
+                                            selectedDepartmentId={selectedDepartmentId}
+                                            selectedEmployeeId={selectedUserId}
+                                            onDepartmentChange={setSelectedDepartmentId}
+                                            onEmployeeChange={(empId) => {
+                                                setSelectedUserId(empId);
+                                                setSelectedLeaveType(''); // Reset leave type when user changes
+                                                setHasValidated(false);
+                                                setUserLeaveTypes([]); // Clear current user leave types
+                                            }}
+                                            allUsers={allUsers}
+                                            departments={departments}
+                                            showSearch={true}
+                                            error={errors}
+                                            variant="outlined"
+                                            showAllOption={false}
+                                            autoSelectFirstDepartment={false} // Let our initialization effect handle this
+                                            required={true}
+                                            disabled={isSubmitting || isValidating}
+                                        />
+                                    )}
+
+                                    {/* Leave Type Selection */}
+                                    <Box>
+                                        <Text
+                                            as="label"
+                                            size="1"
+                                            weight="medium"
+                                            style={{ display: 'block', marginBottom: 4 }}
+                                        >
+                                            Leave Type
+                                        </Text>
+                                        <Select.Root
+                                            value={selectedLeaveType}
+                                            onValueChange={(v) => {
+                                                setSelectedLeaveType(v);
+                                                setHasValidated(false);
+                                            }}
+                                            disabled={isSubmitting || isValidating || loadingLeaveTypes}
+                                        >
+                                            <Select.Trigger
+                                                style={{ width: '100%' }}
+                                                placeholder="Select Leave Type"
+                                            />
+                                            <Select.Content>
+                                                {loadingLeaveTypes ? (
+                                                    <Select.Item value="__loading" disabled>
+                                                        Loading leave types...
+                                                    </Select.Item>
+                                                ) : (
+                                                    leaveTypes.map((type) => {
+                                                        const remaining = userLeaveTypes.length > 0
+                                                            ? type.remaining
+                                                            : (() => {
+                                                                const lc = leaveCounts?.find(lc => lc.leave_type === type.type);
+                                                                return lc ? (type.days - lc.days_used) : type.days;
+                                                            })();
+                                                        return (
+                                                            <Select.Item
+                                                                key={type.type}
+                                                                value={type.type}
+                                                                disabled={remaining <= 0}
+                                                            >
+                                                                {type.type} ({remaining} remaining)
+                                                            </Select.Item>
+                                                        );
+                                                    })
+                                                )}
+                                            </Select.Content>
+                                        </Select.Root>
+                                        {errors.leave_type_id && (
+                                            <Text size="1" color="red" style={{ display: 'block', marginTop: 4 }}>
+                                                {errors.leave_type_id}
+                                            </Text>
+                                        )}
+                                    </Box>
+
+                                    {/* Remaining Leaves Display */}
+                                    {selectedLeaveType && (() => {
+                                        const st = leaveTypes.find(lt => lt.type === selectedLeaveType);
+                                        const remaining = userLeaveTypes.length > 0
+                                            ? st?.remaining
+                                            : (() => {
+                                                const lc = leaveCounts?.find(lc => lc.leave_type === selectedLeaveType);
+                                                return lc ? (st?.days - lc.days_used) : st?.days;
+                                            })();
+                                        return (
+                                            <Box>
+                                                <Text
+                                                    as="label"
+                                                    size="1"
+                                                    weight="medium"
+                                                    style={{ display: 'block', marginBottom: 4 }}
+                                                >
+                                                    Remaining Leaves
+                                                </Text>
+                                                <TextField.Root
+                                                    value={`${remaining || 0} remaining of ${st?.days || 0} total`}
+                                                    readOnly
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </Box>
+                                        );
+                                    })()}
+
+                                    {/* Reason */}
+                                    <Box>
+                                        <Text
+                                            as="label"
+                                            size="1"
+                                            weight="medium"
+                                            style={{ display: 'block', marginBottom: 4 }}
+                                        >
+                                            Reason for Leave{' '}
+                                            <Text as="span" color="red">*</Text>
+                                        </Text>
+                                        <TextArea
+                                            placeholder="Please provide a detailed reason for your leave request..."
+                                            value={reason}
+                                            onChange={(e) => {
+                                                setReason(e.target.value);
+                                                setHasValidated(false);
+                                            }}
+                                            maxLength={500}
+                                            rows={3}
+                                            disabled={isSubmitting || isValidating}
+                                            style={{
+                                                width: '100%',
+                                                resize: 'vertical',
+                                                borderColor: (errors.reason || (reason.length > 0 && reason.length < 5))
+                                                    ? 'var(--red-7)'
+                                                    : undefined,
+                                            }}
+                                        />
+                                        {errors.reason && (
+                                            <Text size="1" color="red" style={{ display: 'block', marginTop: 4 }}>
+                                                {errors.reason}
+                                            </Text>
+                                        )}
+                                        {reason.length > 0 && reason.length < 5 && (
+                                            <Text size="1" color="red" style={{ display: 'block', marginTop: 4 }}>
+                                                Reason must be at least 5 characters
+                                            </Text>
+                                        )}
+                                        {reason.length >= 5 && (
+                                            <Text size="1" color="gray" style={{ display: 'block', marginTop: 4 }}>
+                                                {reason.length}/500 characters
+                                            </Text>
+                                        )}
+                                    </Box>
+
+                                    {/* Options — partial success toggle */}
+                                    <Flex align="start" gap="3">
+                                        <Switch
+                                            size="1"
+                                            checked={allowPartialSuccess}
+                                            onCheckedChange={setAllowPartialSuccess}
+                                            disabled={isSubmitting || isValidating}
+                                        />
+                                        <Box>
+                                            <Text size="2" weight="medium" style={{ display: 'block' }}>
+                                                Allow partial success
+                                            </Text>
+                                            <Text size="1" color="gray" style={{ display: 'block' }}>
+                                                Valid dates will be processed even if some dates fail validation
+                                            </Text>
+                                        </Box>
+                                    </Flex>
+                                </Flex>
                             </Box>
+
+                            {/* Summary Information */}
+                            {selectedDates.length > 0 && (
+                                <Box
+                                    p="3"
+                                    style={{
+                                        background: 'var(--gray-a2)',
+                                        borderRadius: 'var(--radius-2)',
+                                        border: '1px solid var(--gray-a4)',
+                                    }}
+                                >
+                                    <Text size="1" color="gray" style={{ display: 'block', marginBottom: 4 }}>
+                                        Selected Dates Summary
+                                    </Text>
+                                    <Text size="3" weight="medium" style={{ display: 'block' }}>
+                                        <Text as="span" weight="bold">{selectedDates.length}</Text>
+                                        {' '}date{selectedDates.length !== 1 ? 's' : ''} selected
+                                    </Text>
+                                    {selectedLeaveType && (
+                                        <Text size="1" color="gray" style={{ display: 'block', marginTop: 2 }}>
+                                            Leave type: {selectedLeaveType}
+                                        </Text>
+                                    )}
+                                </Box>
+                            )}
+
+                            {/* Validation and Preview */}
+                            <BulkValidationPreview
+                                validationResults={validationResults}
+                                balanceImpact={balanceImpact}
+                                isValidating={isValidating}
+                            />
+                        </Flex>
+                    </div>
+                </Box>
+
+                {/* Modal Footer */}
+                <Box
+                    px="5"
+                    py="3"
+                    style={{
+                        borderTop: '1px solid var(--gray-a4)',
+                        flexShrink: 0,
+                    }}
+                >
+                    <Flex direction="column" gap="2">
+                        {/* Re-validate hint */}
+                        {validationResults.length > 0 && !hasValidated && !isValidating && (
+                            <Flex
+                                align="center"
+                                gap="1"
+                                px="1"
+                                style={{ opacity: 0.85 }}
+                            >
+                                <ExclamationTriangleIcon
+                                    style={{ color: 'var(--amber-9)', width: 13, height: 13, flexShrink: 0 }}
+                                />
+                                <Text size="1" color="amber">
+                                    Dates or details changed — please re-validate before submitting.
+                                </Text>
+                            </Flex>
                         )}
 
-                        {/* Validation Preview */}
-                        <BulkValidationPreview validationResults={validationResults} balanceImpact={balanceImpact} isValidating={isValidating} />
-                    </Flex>
-                </div>
+                        <Flex justify="between" align="center" gap="2">
+                            <Button
+                                variant="soft"
+                                color="gray"
+                                onClick={onClose}
+                                disabled={isSubmitting}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </Button>
 
-                <Flex justify="between" align="center" gap="2" mt="4">
-                    <Button variant="soft" color="gray" onClick={onClose} disabled={isSubmitting} style={{ cursor: 'pointer' }}>Cancel</Button>
-                    <Flex gap="2">
-                        <Button variant="outline" onClick={handleValidate} disabled={!canValidate || isSubmitting} style={{ cursor: 'pointer' }}>
-                            {isValidating ? <Spinner size="1" /> : <ExclamationTriangleIcon />}
-                            {isValidating ? 'Validating...' : 'Validate Dates'}
-                        </Button>
-                        <Button onClick={handleSubmit} disabled={!canSubmit || isValidating} style={{ cursor: 'pointer' }}>
-                            {isSubmitting ? <Spinner size="1" /> : <CheckCircledIcon />}
-                            {isSubmitting ? 'Creating...' : `Create ${selectedDates.length} Leave${selectedDates.length !== 1 ? 's' : ''}`}
-                        </Button>
+                            <Flex gap="2">
+                                <Button
+                                    variant="outline"
+                                    onClick={handleValidate}
+                                    disabled={!canValidate || isSubmitting}
+                                    style={{ cursor: canValidate && !isSubmitting ? 'pointer' : 'not-allowed' }}
+                                >
+                                    {isValidating ? <Spinner size="1" /> : <MagnifyingGlassIcon />}
+                                    {isValidating ? 'Validating...' : 'Validate Dates'}
+                                </Button>
+
+                                <Button
+                                    onClick={handleSubmit}
+                                    disabled={!canSubmit || isValidating}
+                                    style={{ cursor: canSubmit && !isValidating ? 'pointer' : 'not-allowed' }}
+                                >
+                                    {isSubmitting ? <Spinner size="1" /> : <CheckCircledIcon />}
+                                    {isSubmitting
+                                        ? 'Creating...'
+                                        : `Create ${selectedDates.length} Leave${selectedDates.length !== 1 ? 's' : ''}`
+                                    }
+                                </Button>
+                            </Flex>
+                        </Flex>
                     </Flex>
-                </Flex>
+                </Box>
             </Dialog.Content>
         </Dialog.Root>
     );

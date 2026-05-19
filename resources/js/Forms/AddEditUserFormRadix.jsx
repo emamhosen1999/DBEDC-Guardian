@@ -13,6 +13,7 @@ import {
     Badge,
     ScrollArea,
     IconButton,
+    Checkbox,
     Spinner
 } from '@radix-ui/themes';
 import {
@@ -25,7 +26,7 @@ import {
 import { useForm } from 'laravel-precognition-react';
 import { showToast } from "@/utils/toastUtils";
 
-const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, setUsers, open, closeModal, editMode = false }) => {
+const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, setUsers, open, closeModal, editMode = false, onSuccess }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [selectedImage, setSelectedImage] = useState(user?.profile_image_url || user?.profile_image || null);
     const [selectedImageFile, setSelectedImageFile] = useState(null);
@@ -35,7 +36,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
     // Initialize Precognition form with proper method and URL
     const form = useForm(
         editMode ? 'put' : 'post',
-        editMode && user?.id ? route('users.update', { user: user.id }) : route('users.store'),
+        editMode && user?.id ? route('users.update', { id: user.id }) : route('users.store'),
         {
             id: user?.id || '',
             name: user?.name || '',
@@ -173,8 +174,8 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             setUsers(prevUsers => [...prevUsers, response.data.user]);
                         }
                     }
-                    closeModal();
                     showToast.success(`User ${editMode ? 'updated' : 'created'} successfully`);
+                    if (onSuccess) { onSuccess(response); } else { closeModal(); }
                 },
                 onError: (errors) => {
                     const errorMessages = Object.values(errors).flat();
@@ -201,6 +202,15 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
         if (form.touched(key)) {
             form.validate(key);
         }
+    };
+
+    const toggleRole = (roleName, checked) => {
+        const currentRoles = Array.isArray(form.data.roles) ? form.data.roles : [];
+        const nextRoles = checked
+            ? [...new Set([...currentRoles, roleName])]
+            : currentRoles.filter(role => role !== roleName);
+
+        handleChange('roles', nextRoles);
     };
 
     const handleTogglePasswordVisibility = () => {
@@ -348,7 +358,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             <Box>
                                 <Text as="label" size="1" weight="medium">Department</Text>
                                 <Select.Root
-                                    value={form.data.department_id || ''}
+                                    value={form.data.department_id ? String(form.data.department_id) : undefined}
                                     onValueChange={(value) => handleChange('department_id', value)}
                                     onOpenChange={() => form.validate('department_id')}
                                 >
@@ -369,7 +379,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             <Box>
                                 <Text as="label" size="1" weight="medium">Designation</Text>
                                 <Select.Root
-                                    value={form.data.designation_id || ''}
+                                    value={form.data.designation_id ? String(form.data.designation_id) : undefined}
                                     onValueChange={(value) => handleChange('designation_id', value)}
                                     disabled={!form.data.department_id || filteredDesignations.length === 0}
                                 >
@@ -390,7 +400,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             <Box>
                                 <Text as="label" size="1" weight="medium">Gender</Text>
                                 <Select.Root
-                                    value={form.data.gender || ''}
+                                    value={form.data.gender || undefined}
                                     onValueChange={(value) => handleChange('gender', value)}
                                 >
                                     <Select.Trigger placeholder="Select gender" mt="1" />
@@ -459,7 +469,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             <Box gridColumn="1 / -1">
                                 <Text as="label" size="1" weight="medium">Reports To</Text>
                                 <Select.Root
-                                    value={form.data.report_to ? String(form.data.report_to) : ''}
+                                    value={form.data.report_to ? String(form.data.report_to) : undefined}
                                     onValueChange={(value) => handleChange('report_to', value)}
                                     disabled={!form.data.department_id || !form.data.designation_id || filteredReportTo.length === 0}
                                 >
@@ -512,23 +522,24 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                         {/* Roles Selection */}
                         <Box>
                             <Text as="label" size="1" weight="medium">Roles</Text>
-                            <Select.Root
-                                value={form.data.roles || []}
-                                onValueChange={(values) => handleChange('roles', values)}
-                                multiple
-                            >
-                                <Select.Trigger placeholder="Select user roles" mt="1" />
-                                <Select.Content>
-                                    {roles?.map((role) => {
-                                        const roleName = typeof role === 'object' ? role.name : role;
-                                        return (
-                                            <Select.Item key={roleName} value={roleName}>
+                            <Flex gap="3" wrap mt="2">
+                                {roles?.map((role) => {
+                                    const roleName = typeof role === 'object' ? role.name : role;
+                                    const checked = Array.isArray(form.data.roles) && form.data.roles.includes(roleName);
+
+                                    return (
+                                        <Text as="label" size="2" key={roleName}>
+                                            <Flex gap="2" align="center">
+                                                <Checkbox
+                                                    checked={checked}
+                                                    onCheckedChange={(value) => toggleRole(roleName, value === true)}
+                                                />
                                                 {roleName}
-                                            </Select.Item>
-                                        );
-                                    })}
-                                </Select.Content>
-                            </Select.Root>
+                                            </Flex>
+                                        </Text>
+                                    );
+                                })}
+                            </Flex>
                             {form.data.roles && form.data.roles.length > 0 && (
                                 <Flex gap="1" wrap mt="2">
                                     {form.data.roles.map((role) => (

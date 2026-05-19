@@ -4,7 +4,7 @@
  * Pure Radix UI.
  */
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Link, router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import {
     Badge, Box, Button, Card, Checkbox, Dialog, DropdownMenu, Flex,
     Grid, IconButton, ScrollArea, Select, Separator, Spinner,
@@ -19,6 +19,7 @@ import {
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import ProfileAvatar from '@/Components/ProfileAvatar.jsx';
+import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
 
 /* ── helpers ── */
 function StatPill({ label, value, color = 'gray' }) {
@@ -32,7 +33,7 @@ function StatPill({ label, value, color = 'gray' }) {
 
 /* ── main ── */
 export default function UsersPanel({
-    roles = [], departments = [], designations = [],
+    roles = [], departments = [], designations = [], allUsers = [],
     isMobile, tick, onCountChange, onSetHeaderActions, isActive,
 }) {
     /* ── state ── */
@@ -47,6 +48,10 @@ export default function UsersPanel({
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 15, total: 0 });
     const [devAction, setDevAction]   = useState({}); // { [userId]: bool }
     const [stats, setStats]           = useState({ total: 0, active: 0, inactive: 0 });
+
+    /* ── add / edit dialog ── */
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [editUser, setEditUser]           = useState(null);
 
     /* ── bulk selection ── */
     const [selectedIds, setSelectedIds] = useState([]);
@@ -137,7 +142,7 @@ export default function UsersPanel({
     useEffect(() => {
         if (!isActive) return;
         onSetHeaderActions?.(
-            <Button size="2" onClick={() => router.visit(route('users.create'))}>
+            <Button size="2" onClick={() => setAddDialogOpen(true)}>
                 <PlusIcon /> {!isMobile && 'Add User'}
             </Button>
         );
@@ -159,6 +164,7 @@ export default function UsersPanel({
             // Sync with server response (may include deleted_at changes)
             if (data.user) updateUser(user.id, data.user);
             showToast.success('Status updated.');
+            fetchUsers(); // refresh stats + re-sort list
         } catch (e) {
             if (e.response?.status === 404) {
                 // User no longer exists - remove from local state
@@ -190,9 +196,8 @@ export default function UsersPanel({
     const restoreUser = async (user) => {
         try {
             await axios.post(route('users.restore', { id: user.id }));
-            setUsers(p => p.filter(u => u.id !== user.id));
-            setPagination(p => ({ ...p, total: p.total - 1 }));
             showToast.success(`${user.name} restored.`);
+            fetchUsers(); // refetch so restored user reappears correctly
         } catch (e) {
             showToast.error(e.response?.data?.message || 'Failed to restore user.');
         }
@@ -203,14 +208,10 @@ export default function UsersPanel({
         if (!delUser) return;
         setDelLoading(true);
         try {
-            await axios.delete(route('profile.delete'), {
-                data: { user_id: delUser.id },
-            });
-            setUsers(p => p.filter(u => u.id !== delUser.id));
-            setPagination(p => ({ ...p, total: p.total - 1 }));
-            onCountChange?.(pagination.total - 1);
+            await axios.delete(route('users.destroy', { id: delUser.id }));
             setDelUser(null);
             showToast.success('User deleted.');
+            fetchUsers(); // refresh stats + list after soft-delete
         } catch (e) {
             showToast.error(e.response?.data?.message || 'Failed to delete user.');
         } finally {
@@ -647,10 +648,15 @@ export default function UsersPanel({
                                                         </IconButton>
                                                     </DropdownMenu.Trigger>
                                                     <DropdownMenu.Content size="1">
+                                                        <DropdownMenu.Item onSelect={() => setEditUser(user)}>
+                                                            <Flex align="center" gap="2">
+                                                                <Pencil1Icon /> Edit User
+                                                            </Flex>
+                                                        </DropdownMenu.Item>
                                                         <DropdownMenu.Item asChild>
                                                             <Link href={route('profile', { user: user.id })}>
                                                                 <Flex align="center" gap="2">
-                                                                    <Pencil1Icon /> Edit Profile
+                                                                    <PersonIcon /> Full Profile
                                                                 </Flex>
                                                             </Link>
                                                         </DropdownMenu.Item>
@@ -783,7 +789,7 @@ export default function UsersPanel({
                     <Dialog.Title>Delete Users</Dialog.Title>
                     <Dialog.Description size="2" color="gray">
                         Are you sure you want to delete <Text weight="bold">{selectedIds.length} user(s)</Text>?
-                        This action cannot be undone.
+                        This is a soft delete — users can be restored via the Show Deleted filter.
                     </Dialog.Description>
                     <Flex gap="3" mt="5" justify="end">
                         <Dialog.Close>
@@ -795,6 +801,38 @@ export default function UsersPanel({
                     </Flex>
                 </Dialog.Content>
             </Dialog.Root>
+
+            {/* ── Add User Dialog ── */}
+            {addDialogOpen && (
+                <AddEditUserFormRadix
+                    user={null}
+                    allUsers={allUsers}
+                    departments={departments}
+                    designations={designations}
+                    roles={roles}
+                    setUsers={null}
+                    open={addDialogOpen}
+                    closeModal={() => setAddDialogOpen(false)}
+                    editMode={false}
+                    onSuccess={() => { setAddDialogOpen(false); fetchUsers(); }}
+                />
+            )}
+
+            {/* ── Edit User Dialog ── */}
+            {editUser && (
+                <AddEditUserFormRadix
+                    user={editUser}
+                    allUsers={allUsers}
+                    departments={departments}
+                    designations={designations}
+                    roles={roles}
+                    setUsers={null}
+                    open={!!editUser}
+                    closeModal={() => setEditUser(null)}
+                    editMode={true}
+                    onSuccess={() => { setEditUser(null); fetchUsers(); }}
+                />
+            )}
         </Box>
     );
 }
