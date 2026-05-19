@@ -14,7 +14,7 @@ import {
   UsersIcon,
   EnvelopeIcon
 } from "@heroicons/react/24/outline";
-import ProfileAvatar from '@/Components/ProfileAvatar';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
 const UserRolesTable = ({ 
   users = [], 

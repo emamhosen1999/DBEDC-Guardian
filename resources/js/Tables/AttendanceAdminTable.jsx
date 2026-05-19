@@ -1,5 +1,5 @@
 import React, {useMemo} from 'react';
-import { getProfileAvatarTokens } from '@/Components/ProfileAvatar';
+import { getProfileAvatarTokens } from '@/Components/Profile/ProfileAvatar';
 import {
     Chip,
     Divider,

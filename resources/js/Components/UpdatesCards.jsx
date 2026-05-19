@@ -19,7 +19,7 @@ import { usePage } from "@inertiajs/react";
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import axios from 'axios';
-import ProfileAvatar from '@/Components/ProfileAvatar';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
 dayjs.extend(isBetween);
 

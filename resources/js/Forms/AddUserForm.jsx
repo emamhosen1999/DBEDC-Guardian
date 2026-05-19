@@ -18,7 +18,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import GlassDialog from "@/Components/GlassDialog.jsx";
 import {PhotoCamera} from "@mui/icons-material";
 
-import ProfileAvatar from '@/Components/ProfileAvatar';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
 import LoadingButton from "@mui/lab/LoadingButton";
 import { showToast } from "@/utils/toastUtils";
