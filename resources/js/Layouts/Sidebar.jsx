@@ -245,8 +245,6 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { auth, app } = usePage().props;
   const collapsed = !isMobile && !sideBarOpen;
-  const { settings } = useRadixTheme();
-  const isTranslucent = settings.panelBackground === 'translucent';
 
   const { openSubMenus, setOpenSubMenus: updateOpenSubMenus } = useSidebarState();
   const [activePage, setActivePage] = useState(url);
@@ -337,13 +335,13 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
     ));
 
   return (
-    <Box className={isTranslucent ? 'rt-glass' : undefined}
+    <Box
       style={{
         width: isMobile ? 260 : (collapsed ? 56 : 240),
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: isTranslucent ? undefined : 'var(--color-panel-solid)',
+        background: 'var(--color-panel-solid)',
         borderRight: '1px solid var(--gray-a4)',
         flexShrink: 0,
         overflow: 'hidden',

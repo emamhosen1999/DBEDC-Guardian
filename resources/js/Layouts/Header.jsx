@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Link, usePage, router } from '@inertiajs/react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { Link, usePage } from "@inertiajs/react";
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
   Avatar,
   Badge,
@@ -27,7 +28,6 @@ import {
 } from '@radix-ui/react-icons';
 import LanguageSwitcher from '@/Components/LanguageSwitcher';
 import { useRadixTheme } from '@/Contexts/RadixThemeContext';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -46,7 +46,6 @@ const VDivider = () => (
 const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) => {
   const { auth, app, notifications, title } = usePage().props;
   const { settings, toggleAppearance } = useRadixTheme();
-  const isTranslucent = settings.panelBackground === 'translucent';
   const isMobile  = useMediaQuery('(max-width: 640px)');
   const isTablet  = useMediaQuery('(max-width: 1024px)');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -104,12 +103,11 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
     return (
       <Box
         as="header"
-        className={isTranslucent ? 'rt-glass' : undefined}
         style={{
           height: 56, display: 'flex', alignItems: 'center',
           paddingInline: 10, gap: 6,
           borderBottom: '1px solid var(--gray-a4)',
-          background: isTranslucent ? undefined : 'var(--color-panel-solid)',
+          background: 'var(--color-panel-solid)',
           position: 'sticky', top: 0, zIndex: 100, flexShrink: 0,
         }}
       >
@@ -141,7 +139,6 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
   return (
     <Box
       as="header"
-      className={isTranslucent ? 'rt-glass' : undefined}
       style={{
         height: 56,
         display: 'flex',
@@ -149,7 +146,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
         paddingInline: 12,
         gap: 4,
         borderBottom: '1px solid var(--gray-a4)',
-        background: isTranslucent ? undefined : 'var(--color-panel-solid)',
+        background: 'var(--color-panel-solid)',
         position: 'sticky',
         top: 0,
         zIndex: 100,

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { Box, Flex, IconButton, Text, Tooltip } from '@radix-ui/themes';
-import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 import {
   HomeIcon,
   PersonIcon,
@@ -12,8 +11,6 @@ import {
 
 const BottomNav = ({ toggleThemeDrawer }) => {
   const { url, auth } = usePage().props;
-  const { settings } = useRadixTheme();
-  const isTranslucent = settings.panelBackground === 'translucent';
   const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
@@ -43,7 +40,6 @@ const BottomNav = ({ toggleThemeDrawer }) => {
   return (
     <Box
       as="nav"
-      className={isTranslucent ? 'rt-glass' : undefined}
       style={{
         position: 'fixed',
         bottom: 0,
@@ -53,7 +49,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
-        background: isTranslucent ? undefined : 'var(--color-panel-solid)',
+        background: 'var(--color-panel-solid)',
         borderTop: '1px solid var(--gray-a4)',
         zIndex: 200,
         paddingBottom: 'env(safe-area-inset-bottom)',

@@ -15,7 +15,7 @@ export const RADIUS_OPTIONS = ['none', 'small', 'medium', 'large', 'full'];
 
 export const SCALING_OPTIONS = ['90%', '95%', '100%', '105%', '110%'];
 
-export const PANEL_BACKGROUNDS = ['solid', 'translucent', 'bordered', 'glass'];
+export const PANEL_BACKGROUNDS = ['solid'];
 
 export const BG_STYLES = ['grid', 'none', 'gradient', 'pattern'];
 
@@ -68,7 +68,6 @@ export const RadixThemeProvider = ({ children }) => {
     applyFontFamily(settings.fontFamily);
     applyCustomAccent(settings.customAccentHex);
     syncAppearanceClass(settings.appearance);
-    syncPanelBackground(settings.panelBackground);
   }, [settings]);
 
   const updateSettings = useCallback((patch) => {
@@ -116,10 +115,6 @@ function syncAppearanceClass(appearance) {
     html.classList.add('light');
     html.classList.remove('dark');
   }
-}
-
-function syncPanelBackground(panelBackground) {
-  document.documentElement.setAttribute('data-panel-background', panelBackground);
 }
 
 export { RadixThemeContext };
