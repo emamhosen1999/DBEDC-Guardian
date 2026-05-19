@@ -29,9 +29,9 @@ class UpdateUserRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'email' => ['sometimes', 'email', Rule::unique('users')->ignore($userId)],
-            'phone' => ['nullable', 'string', 'max:20', Rule::unique('users')->ignore($userId)],
-            'employee_id' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($userId)],
+            'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($userId)],
+            'phone' => ['nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($userId)],
+            'employee_id' => ['nullable', 'string', 'max:50', Rule::unique('users', 'employee_id')->ignore($userId)],
             'department_id' => ['nullable', 'exists:departments,id'],
             'designation_id' => ['nullable', 'exists:designations,id'],
             'attendance_type_id' => ['nullable', 'exists:attendance_types,id'],
