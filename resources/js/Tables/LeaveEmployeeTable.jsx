@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { usePage, router } from "@inertiajs/react";
+import { usePage } from "@inertiajs/react";
 import { showToast } from '@/utils/toastUtils';
 import {
     Avatar, Badge, Box, Button, Card,
@@ -79,6 +79,7 @@ const LeaveEmployeeTable = React.forwardRef(({
     canEditLeaves = false,
     canDeleteLeaves = false,
     fetchLeavesStats,
+    onLeaveUpdated,
 }, ref) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
@@ -202,13 +203,13 @@ const LeaveEmployeeTable = React.forwardRef(({
                                     </DropdownMenu.Trigger>
                                     <DropdownMenu.Content size="1">
                                         {canEditLeaves && (
-                                            <DropdownMenu.Item onSelect={() => { setCurrentLeave(leave); openModal('edit_leave'); }}>
+                                            <DropdownMenu.Item onSelect={() => { setCurrentLeave(leave); openModal('addEditLeave'); }}>
                                                 <Pencil1Icon /> Edit Leave
                                             </DropdownMenu.Item>
                                         )}
                                         {canEditLeaves && canDeleteLeaves && <DropdownMenu.Separator />}
                                         {canDeleteLeaves && (
-                                            <DropdownMenu.Item color="red" onSelect={() => handleClickOpen(leave.id, 'delete_leave')}>
+                                            <DropdownMenu.Item color="red" onSelect={() => handleClickOpen(leave.id, 'deleteLeave')}>
                                                 <TrashIcon /> Delete Leave
                                             </DropdownMenu.Item>
                                         )}
@@ -325,7 +326,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                     <Flex align="center" gap="1">
                         {getStatusBadge(leave.status)}
                         {canApproveThisLeave ? (
-                            <ApprovalActions leave={leave} onApprovalComplete={() => { fetchLeavesStats?.(); router.reload(); }} />
+                            <ApprovalActions leave={leave} onApprovalComplete={() => { fetchLeavesStats?.(); onLeaveUpdated?.(); }} />
                         ) : isAdminView && canApproveLeaves && (
                             <DropdownMenu.Root>
                                 <DropdownMenu.Trigger>
@@ -366,7 +367,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                             <Tooltip content="Edit Leave">
                                 <IconButton size="1" variant="ghost"
                                     disabled={!!updatingLeave?.startsWith(`${leave.id}-`)}
-                                    onClick={() => { setCurrentLeave(leave); openModal('edit_leave'); }}>
+                                    onClick={() => { setCurrentLeave(leave); openModal('addEditLeave'); }}>
                                     <Pencil1Icon />
                                 </IconButton>
                             </Tooltip>
@@ -375,7 +376,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                             <Tooltip content="Delete Leave">
                                 <IconButton size="1" variant="ghost" color="red"
                                     disabled={!!updatingLeave?.startsWith(`${leave.id}-`)}
-                                    onClick={() => { handleClickOpen(leave.id, 'delete_leave'); }}>
+                                    onClick={() => { handleClickOpen(leave.id, 'deleteLeave'); }}>
                                     <TrashIcon />
                                 </IconButton>
                             </Tooltip>

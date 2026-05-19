@@ -23,7 +23,7 @@ const DeleteLeaveForm = ({ open, closeModal, leaveId, setLeavesData, setLeaves, 
                     // Optimistic update approach
                     if (deleteLeaveOptimized) {
                         deleteLeaveOptimized(leaveId);
-                        setTotalRows(prev => Math.max(0, prev - 1)); // Ensure total doesn't go negative
+                        if (setTotalRows) setTotalRows(prev => Math.max(0, prev - 1));
                         if (fetchLeavesStats) {
                             fetchLeavesStats();
                         }

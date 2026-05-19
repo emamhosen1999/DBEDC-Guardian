@@ -277,14 +277,14 @@ class LeaveController extends Controller
         ]);
     }
 
-    public function getSummaryData()
+    public function getSummaryData(?Request $request = null): array
     {
         $filters = [
-            'year' => now()->year,
-            'department_id' => null,
-            'employee_id' => null,
-            'status' => null,
-            'leave_type' => null,
+            'year'          => $request?->integer('summary_year', now()->year) ?? now()->year,
+            'department_id' => $request?->input('summary_dept') ?: null,
+            'employee_id'   => null,
+            'status'        => null,
+            'leave_type'    => null,
         ];
 
         return $this->summaryService->generateLeaveSummary($filters);

@@ -56,7 +56,7 @@ const AdminUnified = ({
 
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card>
+                    <Card className={isTranslucent ? 'rt-glass' : undefined}>
 
                         {/* ── Page Header ── */}
                         <Box mb="4">

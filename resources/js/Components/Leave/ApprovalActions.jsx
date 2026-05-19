@@ -3,7 +3,6 @@ import { Box, Button, Dialog, Flex, Spinner, Text, TextArea } from '@radix-ui/th
 import { CheckIcon, Cross2Icon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
-import { route } from 'ziggy-js';
 
 export default function ApprovalActions({ leave, onApprovalComplete }) {
     const [isApproveOpen, setIsApproveOpen] = useState(false);

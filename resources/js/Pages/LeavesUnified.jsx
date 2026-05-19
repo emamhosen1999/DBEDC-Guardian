@@ -1,21 +1,13 @@
 /**
  * LeavesUnified.jsx
  * Single-page Leave Management shell — tabbed, pure Radix UI.
- *
- * Tabs:
- *   1. All Leaves   (admin table view)
- *   2. Summary      (per-employee / per-department pivot)
- *   3. Analytics    (charts via API)
- *   4. Settings     (leave types CRUD — admin only)
- *
- * "My Leaves" panel removed — self-service is handled separately.
- * Same page-shell pattern as DailyWorksUnified.jsx.
+ * Aligned with AdminUnified.jsx theming.
  */
 import React, { useState, useCallback } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import {
-    Badge, Box, Button, Card, Flex, Heading,
-    Separator, Tabs, Text,
+    Badge, Box, Card, Flex, Heading,
+    Separator, Tabs, Text, ScrollArea
 } from '@radix-ui/themes';
 import {
     BarChartIcon, CalendarIcon, CheckCircledIcon,
@@ -32,7 +24,6 @@ import LeaveSettingsPanel  from '@/Components/LeaveUnified/LeaveSettingsPanel.js
 const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
     const { auth }  = usePage().props;
     const isMobile  = useMediaQuery('(max-width: 640px)');
-    const isDesktop = useMediaQuery('(min-width: 1025px)');
 
     const isAdmin    = auth.permissions?.includes('leaves.view')     || false;
     const canSettings = auth.roles?.includes('Administrator')
@@ -51,11 +42,11 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
         <>
             <Head title={title || 'Leave Management'} />
 
-            <Flex justify="center" p={{ initial: '3', md: '4' }}>
+            <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
                     <Card>
 
-                        {/* ── Page Header ─────────────────────────────── */}
+                        {/* ── Page Header ── */}
                         <Box mb="4">
                             <Flex
                                 direction={{ initial: 'column', sm: 'row' }}
@@ -63,36 +54,24 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                                 justify="between"
                                 gap="4"
                             >
-                                {/* icon + title */}
                                 <Flex align="center" gap="3">
-                                    <Box
-                                        p={{ initial: '2', md: '3' }}
-                                        style={{
-                                            background: 'var(--accent-a3)',
-                                            borderRadius: 'var(--radius-2)',
-                                            border: '1px solid var(--accent-a6)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}
-                                    >
-                                        <CalendarIcon
-                                            style={{
-                                                width: isDesktop ? 26 : 20,
-                                                height: isDesktop ? 26 : 20,
-                                                color: 'var(--accent-9)',
-                                            }}
-                                        />
+                                    <Box p="3" style={{
+                                        background: 'var(--accent-a3)',
+                                        borderRadius: 'var(--radius-2)',
+                                        border: '1px solid var(--accent-a6)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <CalendarIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
                                     </Box>
                                     <Box>
-                                        <Heading size={{ initial: '4', md: '5' }}>
-                                            Leave Management
-                                        </Heading>
+                                        <Heading size="5">Leave Management</Heading>
                                         <Text size="2" color="gray">
-                                            Requests · Approvals · Summary · Analytics · Settings
+                                            Manage requests, view analytics, and configure policies
                                         </Text>
                                     </Box>
                                 </Flex>
 
-                                {/* dynamic per-tab actions */}
+                                {/* Dynamic actions per tab */}
                                 <Flex gap="2" align="center" wrap="wrap">
                                     {headerActions}
                                 </Flex>
@@ -101,58 +80,62 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
 
                         <Separator size="4" mb="4" />
 
-                        {/* ── Tabs ─────────────────────────────────────── */}
+                        {/* ── Tabs ── */}
                         <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-                            <Tabs.List mb="4">
+                            
+                            {/* ScrollArea ensures tabs don't squash on mobile devices */}
+                            <ScrollArea type="auto" scrollbars="horizontal">
+                                <Tabs.List mb="4" style={{ whiteSpace: 'nowrap', width: 'max-content', minWidth: '100%' }}>
 
-                                {/* All Leaves — admin only */}
-                                {isAdmin && (
-                                    <Tabs.Trigger value="all">
-                                        <Flex align="center" gap="2">
-                                            <LayersIcon />
-                                            {!isMobile && 'All Leaves'}
-                                            {counts.all > 0 && (
-                                                <Badge size="1" variant="soft" color="blue" radius="full">
-                                                    {counts.all}
-                                                </Badge>
-                                            )}
-                                        </Flex>
-                                    </Tabs.Trigger>
-                                )}
+                                    {/* All Leaves — admin only */}
+                                    {isAdmin && (
+                                        <Tabs.Trigger value="all">
+                                            <Flex align="center" gap="2">
+                                                <LayersIcon />
+                                                {!isMobile && 'All Leaves'}
+                                                {counts.all > 0 && (
+                                                    <Badge size="1" variant="soft" color="blue" radius="full">
+                                                        {counts.all}
+                                                    </Badge>
+                                                )}
+                                            </Flex>
+                                        </Tabs.Trigger>
+                                    )}
 
-                                {/* Summary — admin only */}
-                                {isAdmin && (
-                                    <Tabs.Trigger value="summary">
-                                        <Flex align="center" gap="2">
-                                            <CheckCircledIcon />
-                                            {!isMobile && 'Summary'}
-                                        </Flex>
-                                    </Tabs.Trigger>
-                                )}
+                                    {/* Summary — admin only */}
+                                    {isAdmin && (
+                                        <Tabs.Trigger value="summary">
+                                            <Flex align="center" gap="2">
+                                                <CheckCircledIcon />
+                                                {!isMobile && 'Summary'}
+                                            </Flex>
+                                        </Tabs.Trigger>
+                                    )}
 
-                                {/* Analytics — admin only */}
-                                {isAdmin && (
-                                    <Tabs.Trigger value="analytics">
-                                        <Flex align="center" gap="2">
-                                            <BarChartIcon />
-                                            {!isMobile && 'Analytics'}
-                                        </Flex>
-                                    </Tabs.Trigger>
-                                )}
+                                    {/* Analytics — admin only */}
+                                    {isAdmin && (
+                                        <Tabs.Trigger value="analytics">
+                                            <Flex align="center" gap="2">
+                                                <BarChartIcon />
+                                                {!isMobile && 'Analytics'}
+                                            </Flex>
+                                        </Tabs.Trigger>
+                                    )}
 
-                                {/* Settings — super admin only */}
-                                {canSettings && (
-                                    <Tabs.Trigger value="settings">
-                                        <Flex align="center" gap="2">
-                                            <GearIcon />
-                                            {!isMobile && 'Settings'}
-                                        </Flex>
-                                    </Tabs.Trigger>
-                                )}
+                                    {/* Settings — super admin only */}
+                                    {canSettings && (
+                                        <Tabs.Trigger value="settings">
+                                            <Flex align="center" gap="2">
+                                                <GearIcon />
+                                                {!isMobile && 'Settings'}
+                                            </Flex>
+                                        </Tabs.Trigger>
+                                    )}
 
-                            </Tabs.List>
+                                </Tabs.List>
+                            </ScrollArea>
 
-                            {/* ── All Leaves ───────────────────────────── */}
+                            {/* ── Tab Contents ── */}
                             {isAdmin && (
                                 <Tabs.Content value="all">
                                     <AdminLeavesPanel
@@ -165,7 +148,6 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                                 </Tabs.Content>
                             )}
 
-                            {/* ── Summary ──────────────────────────────── */}
                             {isAdmin && (
                                 <Tabs.Content value="summary">
                                     <SummaryPanel
@@ -177,7 +159,6 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                                 </Tabs.Content>
                             )}
 
-                            {/* ── Analytics ────────────────────────────── */}
                             {isAdmin && (
                                 <Tabs.Content value="analytics">
                                     <AnalyticsPanel
@@ -188,7 +169,6 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                                 </Tabs.Content>
                             )}
 
-                            {/* ── Settings ─────────────────────────────── */}
                             {canSettings && (
                                 <Tabs.Content value="settings">
                                     <LeaveSettingsPanel

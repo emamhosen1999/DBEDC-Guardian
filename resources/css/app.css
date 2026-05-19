@@ -138,6 +138,73 @@ font[style] {
   z-index: 1;
 }
 
+/* ─── Glass panel (used by shell when panelBackground === translucent) ─── */
+.rt-glass {
+  position: relative;
+  border-color: var(--gray-a5);
+}
+
+/* Dark mode: light tint at visible alpha */
+html.dark .rt-glass,
+.dark .rt-glass {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Light mode: stronger white tint */
+html.light .rt-glass,
+.light .rt-glass {
+  background: rgba(255, 255, 255, 0.325) !important;
+}
+
+/* Noise texture overlay for glass panels */
+.rt-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Ensure children of glass panels sit above the noise layer */
+.rt-glass > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Glass effect on cards when panelBackground is translucent ─── */
+[data-panel-background="translucent"] .rt-Card {
+  position: relative;
+}
+
+html.dark[data-panel-background="translucent"] .rt-Card {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+html.light[data-panel-background="translucent"] .rt-Card {
+  background: rgba(255, 255, 255, 0.325) !important;
+}
+
+/* Noise texture overlay for cards */
+[data-panel-background="translucent"] .rt-Card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Ensure card content sits above noise */
+[data-panel-background="translucent"] .rt-Card > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* ─── Responsive display utilities ──────────────────────────────── */
 /* Hidden on <768 px, flex on ≥768 px */
 .show-md {

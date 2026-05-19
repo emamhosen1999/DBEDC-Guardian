@@ -292,11 +292,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['permission:letters.update'])->put('/letters-update', [LetterController::class, 'update'])->name('letters.update');    // Leave management routes
     Route::middleware(['permission:leaves.view'])->group(function () {
-        Route::get('/leaves', function () {
+        Route::get('/leaves', function (\Illuminate\Http\Request $request) {
     return Inertia::render('LeavesUnified', [
         'title'       => 'Leave Management',
         'allUsers'    => User::with('department')->get(),
-        'summaryData' => app(LeaveController::class)->getSummaryData(), // your existing logic
+        'summaryData' => app(LeaveController::class)->getSummaryData($request),
+        'leaveTypes'  => \App\Models\HRM\LeaveSetting::all(),
     ]);
 })->middleware('auth')->name('leaves.index');
         Route::get('/leave-summary', [LeaveController::class, 'leaveSummary'])->name('leave-summary');
