@@ -19,7 +19,7 @@ import React, { useEffect, useState } from "react";
 import { X, Camera, Eye, EyeOff, Lock, UserIcon, CalendarIcon } from 'lucide-react';
 import { useForm } from 'laravel-precognition-react';
 import { showToast } from "@/utils/toastUtils";
-import ProfileAvatar from '@/Components/ProfileAvatar';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
 
 const AddEditUserForm = ({user, allUsers, departments, designations, roles, setUsers, open, closeModal, editMode = false }) => {

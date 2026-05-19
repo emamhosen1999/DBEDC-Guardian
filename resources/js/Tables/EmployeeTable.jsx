@@ -32,7 +32,7 @@ import {
 } from '@radix-ui/react-icons';
 import DeleteEmployeeModal from '@/Components/DeleteEmployeeModal';
 import ProfilePictureModal from '@/Components/ProfilePictureModal';
-import ProfileAvatar, { getProfileAvatarTokens } from '@/Components/ProfileAvatar';
+import ProfileAvatar, { getProfileAvatarTokens } from '@/Components/Profile/ProfileAvatar';
 
 /* ─── helpers ─── */
 function getBaseSlug(slug) {

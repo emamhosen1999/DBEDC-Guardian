@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Flex, Text, Box } from '@radix-ui/themes';
-import ProfileAvatar from './ProfileAvatar';
+import ProfileAvatar from './Profile/ProfileAvatar';
 
 const EnhancedProfileCard = ({ user, actions, ...rest }) => (
   <Card>

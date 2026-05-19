@@ -33,7 +33,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 import GlassDialog from './GlassDialog';
-import ProfileAvatar from '@/Components/ProfileAvatar';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
 const EmployeeFormModal = ({ 
     open, 

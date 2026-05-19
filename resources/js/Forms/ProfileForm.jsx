@@ -17,7 +17,7 @@ import {
 import React, {useEffect, useState} from "react";
 import { X, Camera } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";
-import ProfileAvatar from '@/Components/ProfileAvatar';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
 const ProfileForm = ({user, allUsers, departments, designations,setUser, open, closeModal }) => {
 

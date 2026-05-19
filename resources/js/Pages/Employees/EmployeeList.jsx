@@ -1,4 +1,4 @@
-import ProfileAvatar from "@/Components/ProfileAvatar.jsx";
+import ProfileAvatar from "@/Components/Profile/ProfileAvatar.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import App from "@/Layouts/App.jsx";
 import { showToast } from '@/utils/toastUtils';

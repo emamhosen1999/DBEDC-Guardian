@@ -18,7 +18,7 @@ import {
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
-import ProfileAvatar from '@/Components/ProfileAvatar.jsx';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar.jsx';
 import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
 
 /* ── helpers ── */

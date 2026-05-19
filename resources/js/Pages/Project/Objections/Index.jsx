@@ -79,7 +79,7 @@ import { getThemeRadius } from '@/Hooks/useThemeRadius.js';
 import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
 import PullToRefresh from "@/Components/Common/PullToRefresh.jsx";
 import SwipeableCard from '@/Components/Common/SwipeableCard';
-import ProfileAvatar from '@/Components/ProfileAvatar';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 import {
     STATUS_CONFIG,
     CATEGORY_CONFIG,

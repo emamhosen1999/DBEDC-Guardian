@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge, Box, Button, Dialog, Flex, Text } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, TrashIcon } from '@radix-ui/react-icons';
-import ProfileAvatar from './ProfileAvatar';
+import ProfileAvatar from './Profile/ProfileAvatar';
 
 const DeleteEmployeeModal = ({ 
     open, 

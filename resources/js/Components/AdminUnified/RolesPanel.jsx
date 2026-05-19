@@ -21,7 +21,7 @@ import {
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
-import ProfileAvatar from '@/Components/ProfileAvatar.jsx';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar.jsx';
 
 /* ── sub-tab: Roles ── */
 function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canManageSuperAdmin, isMobile, onRolesChange }) {
