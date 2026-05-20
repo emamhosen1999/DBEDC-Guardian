@@ -43,9 +43,9 @@ const WorkLocationsTab = ({ isActive }) => {
         if (!isActive) return;
         setLoading(true);
         try {
-            const response = await axios.get(route('work-locations.api'));
-            setAllData(response.data);
-            setFilteredData(response.data);
+            const response = await axios.get(route('allWorkLocations'));
+            setAllData(response.data.work_locations);
+            setFilteredData(response.data.work_locations);
         } catch (error) {
             showToast.error("Failed to load work locations");
         } finally {
