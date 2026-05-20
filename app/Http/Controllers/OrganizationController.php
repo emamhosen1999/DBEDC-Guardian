@@ -25,7 +25,7 @@ class OrganizationController extends Controller
             ->with(['biometricDevices:id,name,serial_number,location'])
             ->get();
             
-        $activeUsers = User::select('id', 'name', 'email', 'profile_image', 'department_id', 'designation_id')
+        $activeUsers = User::select('id', 'name', 'email', 'department_id', 'designation_id')
             ->whereNull('deleted_at')
             ->get();
 
