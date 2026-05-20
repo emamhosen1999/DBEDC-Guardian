@@ -99,7 +99,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     // Date state management
     const [selectedDate, setSelectedDate] = useState(overallEndDate);
     const [dateRange, setDateRange] = useState({
-        start: overallStartDate,
+        start: overallEndDate,
         end: overallEndDate
     });
     
@@ -113,7 +113,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         status: 'all',
         incharge: [],
         jurisdiction: [],
-        startDate: overallStartDate,
+        startDate: overallEndDate,
         endDate: overallEndDate
     });
     
@@ -543,48 +543,28 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
     const handleImportSuccess = (importResults) => {
         closeModal();
-        setImportFile(null); // Clear file after successful import
+        setImportFile(null);
         setPreviewData(null);
-        
-        if (importResults && Array.isArray(importResults) && importResults.length > 0) {
-            const importedDates = importResults
-                .filter(result => result.date)
-                .map(result => result.date);
-            
-            if (importedDates.length > 0) {
-                const sortedDates = importedDates.sort((a, b) => new Date(b) - new Date(a));
-                const latestImportDate = sortedDates[0];
-                
-                if (isMobile) {
-                    setSelectedDate(latestImportDate);
-                } else {
-                    const currentEnd = new Date(dateRange.end);
-                    const importDate = new Date(latestImportDate);
-                    
-                    if (importDate > currentEnd) {
-                        setDateRange(prev => ({
-                            ...prev,
-                            end: latestImportDate
-                        }));
-                        setDateBounds(prev => ({
-                            ...prev,
-                            max: latestImportDate
-                        }));
-                    } else {
-                        setDateRange(prev => ({
-                            ...prev,
-                            end: latestImportDate
-                        }));
-                    }
-                }
+
+        const importedDates = (importResults || [])
+            .filter(r => r.date)
+            .map(r => r.date)
+            .sort((a, b) => new Date(b) - new Date(a));
+
+        if (importedDates.length > 0) {
+            const latestDate = importedDates[0];
+            setDateBounds(prev => ({ ...prev, max: latestDate }));
+            if (isMobile) {
+                setSelectedDate(latestDate);
+            } else {
+                // Navigate view to the imported date — useEffect[dateRange] will fetch automatically
+                setDateRange({ start: latestDate, end: latestDate });
             }
-        }
-        
-        setCurrentPage(1);
-        
-        setTimeout(() => {
+        } else {
+            // No date info in results, just refresh current view
             fetchData(true);
-        }, 100);
+        }
+        setCurrentPage(1);
     };
 
     const handlePreviewReady = (file, data) => {
