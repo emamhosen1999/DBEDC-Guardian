@@ -70,6 +70,9 @@ const EmployeeTable = ({
     onPageChange,
     onRowsPerPageChange,
 }) => {
+    // Log employee data on mount and when it changes
+    console.log('[EmployeeTable] Received employees count:', allUsers.length);
+    console.log('[EmployeeTable] Employee data:', allUsers.map(u => ({ id: u.id, employee_id: u.employee_id, name: u.name })));
     /* ── modal state ── */
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState(null);
