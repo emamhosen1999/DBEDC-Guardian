@@ -13,10 +13,10 @@ import {
 } from '@radix-ui/react-icons';
 
 // Assumes these are moved to Pages/Organization/Components/
-import TablePagination from '../Components/TablePagination.jsx';
-import DeleteEmployeeModal from '../Components/DeleteEmployeeModal.jsx';
-import ProfilePictureModal from '../Components/ProfilePictureModal.jsx';
-import ProfileAvatar from '../Components/ProfileAvatar.jsx';
+import TablePagination from '../../../Components/TablePagination.jsx';
+import DeleteEmployeeModal from '../../../Components/DeleteEmployeeModal.jsx';
+import ProfilePictureModal from '../../../Components/ProfilePictureModal.jsx';
+import ProfileAvatar from '../../../Components/Profile/ProfileAvatar.jsx';
 
 /* ─── helpers ─── */
 function getBaseSlug(slug) {

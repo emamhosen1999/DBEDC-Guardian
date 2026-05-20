@@ -14,7 +14,7 @@ import {
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
 import EmployeeTable from '../Tables/EmployeeTable.jsx';
-import ProfileAvatar from '../Components/ProfileAvatar.jsx';
+import ProfileAvatar from '../../../Components/Profile/ProfileAvatar.jsx';
 
 /* ─── stat pill component ─── */
 const StatPill = ({ label, value, color = 'gray' }) => (

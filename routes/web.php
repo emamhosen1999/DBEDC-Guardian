@@ -41,6 +41,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 // APK Install Gate (public, always accessible)
 use Inertia\Inertia;
+use App\Http\Controllers\OrganizationController;
 
 Route::get('/install-app', function () {
     return Inertia::render('InstallApp');
@@ -351,6 +352,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/employees/paginate', [\App\Http\Controllers\EmployeeController::class, 'paginate'])->name('employees.paginate');
         Route::get('/employees/stats', [\App\Http\Controllers\EmployeeController::class, 'stats'])->name('employees.stats');
     });
+
+    // The Master Organization Page
+    Route::get('/organization', [OrganizationController::class, 'index'])->name('organization.index');
 
     // Department management routes
     Route::middleware(['permission:departments.view'])->get('/departments', [DepartmentController::class, 'index'])->name('departments');

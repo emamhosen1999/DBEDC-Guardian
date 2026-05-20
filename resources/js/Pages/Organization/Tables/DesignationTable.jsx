@@ -8,7 +8,7 @@ import {
     Pencil1Icon, TrashIcon, PersonIcon,
     CheckCircledIcon, CrossCircledIcon, DotsVerticalIcon
 } from '@radix-ui/react-icons';
-import TablePagination from '../Components/TablePagination.jsx';
+import TablePagination from '../../../Components/TablePagination.jsx';
 
 const DesignationTable = ({
     designations, onEdit, onDelete, loading,
