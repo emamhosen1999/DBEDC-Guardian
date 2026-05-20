@@ -156,31 +156,6 @@ export default function UsersPanel({
     const updateUser = useCallback((id, fields) =>
         setUsers(p => p.map(u => u.id === id ? { ...u, ...fields } : u)), []);
 
-    /* ── status toggle ── */
-    const toggleStatus = async (user) => {
-        const newActive = !user.deleted_at;
-        updateUser(user.id, { deleted_at: newActive ? null : now().toISOString() });
-        try {
-            const { data } = await axios.post(
-                route('users.toggleStatus', { userId: user.id }),
-                { active: newActive }
-            );
-            // Sync with server response (may include deleted_at changes)
-            if (data.user) updateUser(user.id, data.user);
-            showToast.success('Status updated.');
-            fetchUsers(); // refresh stats + re-sort list
-        } catch (e) {
-            if (e.response?.status === 404) {
-                // User no longer exists - remove from local state
-                setUsers(prev => prev.filter(u => u.id !== user.id));
-                showToast.error('User no longer exists in the system.');
-            } else {
-                updateUser(user.id, { deleted_at: user.deleted_at }); // rollback
-                showToast.error('Failed to update status.');
-            }
-        }
-    };
-
     /* ── device lock toggle ── */
     const toggleDeviceLock = async (user) => {
         setDevAction(p => ({ ...p, [user.id]: true }));
@@ -603,12 +578,6 @@ export default function UsersPanel({
                                         {/* Status */}
                                         <Table.Cell>
                                             <Flex align="center" gap="2">
-                                                <Switch
-                                                    size="1"
-                                                    checked={!user.deleted_at}
-                                                    onCheckedChange={() => toggleStatus(user)}
-                                                    color={!user.deleted_at ? 'green' : 'red'}
-                                                />
                                                 <Text size="1" color={!user.deleted_at ? 'green' : 'red'} weight="medium">
                                                     {!user.deleted_at ? 'Active' : 'Inactive'}
                                                 </Text>

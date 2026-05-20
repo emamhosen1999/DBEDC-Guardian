@@ -99,8 +99,12 @@ const EmployeeTable = ({
             const dept = departments.find(d => d.id === parseInt(departmentId)) || null;
             updateEmployeeOptimized?.(userId, { department_id: departmentId, department_name: dept?.name || null, designation_id: null, designation_name: null });
             showToast.success('Department updated');
-        } catch {
-            showToast.error('Failed to update department');
+        } catch (e) {
+            if (e.response?.status === 404) {
+                showToast.error('User not found. Please refresh the page.');
+            } else {
+                showToast.error('Failed to update department');
+            }
         }
     };
 
@@ -110,8 +114,12 @@ const EmployeeTable = ({
             const desig = designations.find(d => d.id === parseInt(designationId)) || null;
             updateEmployeeOptimized?.(userId, { designation_id: designationId, designation_name: desig?.title || null });
             showToast.success('Designation updated');
-        } catch {
-            showToast.error('Failed to update designation');
+        } catch (e) {
+            if (e.response?.status === 404) {
+                showToast.error('User not found. Please refresh the page.');
+            } else {
+                showToast.error('Failed to update designation');
+            }
         }
     };
 
@@ -129,8 +137,12 @@ const EmployeeTable = ({
                 biometric_device_id: null,
             });
             showToast.success('Attendance type updated');
-        } catch {
-            showToast.error('Failed to update attendance type');
+        } catch (e) {
+            if (e.response?.status === 404) {
+                showToast.error('User not found. Please refresh the page.');
+            } else {
+                showToast.error('Failed to update attendance type');
+            }
         }
     };
 
@@ -145,7 +157,11 @@ const EmployeeTable = ({
             });
             showToast.success(data.message || 'Device assigned');
         } catch (e) {
-            showToast.error(e.response?.data?.message || 'Failed to assign device');
+            if (e.response?.status === 404) {
+                showToast.error('User not found. Please refresh the page.');
+            } else {
+                showToast.error(e.response?.data?.message || 'Failed to assign device');
+            }
         }
     };
 
