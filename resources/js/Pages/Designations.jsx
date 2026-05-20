@@ -1,43 +1,38 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from '@inertiajs/react';
-import { motion } from 'framer-motion';
-import {
-    Select, SelectItem, Card, CardBody, Button, ButtonGroup, Chip, Pagination, Input, Spinner
-} from "@/compat/heroui";
-import {
-    BuildingOffice2Icon, PlusIcon, FunnelIcon, MagnifyingGlassIcon,
-    UserGroupIcon, CheckCircleIcon, XCircleIcon, DocumentArrowDownIcon,
-    ChartBarIcon, Squares2X2Icon, TableCellsIcon, AdjustmentsHorizontalIcon,
-    BuildingOfficeIcon, UsersIcon, PencilIcon
-} from '@heroicons/react/24/outline';
-import GlassCard from '@/Components/GlassCard.jsx';
-import PageHeader from '@/Components/PageHeader.jsx';
-import StatsCards from '@/Components/StatsCards.jsx';
+import { 
+    Box, Card, Flex, Grid, Heading, Text, 
+    Button, TextField, Select, Separator, Spinner 
+} from '@radix-ui/themes';
+import { 
+    LayersIcon, CheckCircledIcon, CrossCircledIcon, 
+    PersonIcon, MagnifyingGlassIcon, PlusIcon 
+} from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
+import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+
 import DesignationTable from '@/Tables/DesignationTable.jsx';
 import DesignationForm from '@/Forms/DesignationForm.jsx';
 import DeleteDesignationForm from '@/Forms/DeleteDesignationForm.jsx';
-import axios from 'axios';
-import { showToast } from '@/utils/toastUtils';
 
-const Designations = ({ title, initialDesignations, departments, managers, parentDesignations, allDesignations, stats: initialStats, filters: initialFilters }) => {
+const Designations = ({ title, initialDesignations, departments, allDesignations, stats: initialStats, filters: initialFilters }) => {
     const { auth } = usePage().props;
+    const isMobile = useMediaQuery('(max-width: 767px)');
 
-    const [designationsData, setDesignationsData] = useState(initialDesignations || { data: [] });
+    const [designationsData, setDesignationsData] = useState(initialDesignations || { data: [], total: 0 });
     const [loading, setLoading] = useState(false);
     const [modalState, setModalState] = useState({ type: null, designation: null });
-    // Find department with most designations
+
     const defaultDepartment = useMemo(() => {
         if (!departments || departments.length === 0) return 'all';
-        
         const deptCounts = {};
         allDesignations?.forEach(des => {
             if (des.department_id) {
                 deptCounts[des.department_id] = (deptCounts[des.department_id] || 0) + 1;
             }
         });
-        
         const maxDept = Object.entries(deptCounts).sort((a, b) => b[1] - a[1])[0];
         return maxDept ? String(maxDept[0]) : 'all';
     }, [departments, allDesignations]);
@@ -46,25 +41,20 @@ const Designations = ({ title, initialDesignations, departments, managers, paren
         search: initialFilters?.search || '',
         status: initialFilters?.status || 'all',
         department: initialFilters?.department || defaultDepartment,
-        parentDesignation: initialFilters?.parentDesignation || 'all'
     });
-    const [showFilters, setShowFilters] = useState(false);
-    const [viewMode, setViewMode] = useState('table');
+    
     const [pagination, setPagination] = useState({
         currentPage: initialDesignations?.current_page || 1,
         perPage: initialDesignations?.per_page || 10
     });
+
     const [stats, setStats] = useState(initialStats || {
         total: 0, active: 0, inactive: 0, parent_designations: 0
     });
 
-    const isMobile = useMediaQuery('(max-width: 767px)');
-
     const canCreateDesignation = auth.permissions?.includes('designations.create') || false;
     const canEditDesignation = auth.permissions?.includes('designations.update') || false;
     const canDeleteDesignation = auth.permissions?.includes('designations.delete') || false;
-
-
 
     const fetchDesignations = useCallback(async () => {
         setLoading(true);
@@ -75,14 +65,11 @@ const Designations = ({ title, initialDesignations, departments, managers, paren
                     per_page: pagination.perPage,
                     search: filters.search,
                     status: filters.status,
-                    department: filters.department !== 'all' ? filters.department : undefined,
-                    parent_designation: filters.parentDesignation
+                    department: filters.department !== 'all' ? filters.department : undefined
                 }
             });
-     
             setDesignationsData(response.data.designations || response.data);
         } catch (error) {
-            console.error('Error fetching designations:', error);
             showToast.error('Failed to load designations data');
         } finally {
             setLoading(false);
@@ -96,7 +83,7 @@ const Designations = ({ title, initialDesignations, departments, managers, paren
                 setStats(response.data.stats);
             }
         } catch (error) {
-            console.error('Error fetching designation stats:', error);
+            console.error('Error fetching stats:', error);
         }
     }, []);
 
@@ -115,204 +102,146 @@ const Designations = ({ title, initialDesignations, departments, managers, paren
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleRowsPerPageChange = (rowsPerPage) => {
-        setPagination({ currentPage: 1, perPage: rowsPerPage });
-    };
+    const openModal = (type, designation = null) => setModalState({ type, designation });
+    const closeModal = () => setModalState({ type: null, designation: null });
 
-    const openModal = (type, designation = null) => {
-        setModalState({ type, designation });
-    };
-
-    const closeModal = () => {
-        setModalState({ type: null, designation: null });
-    };
-
-    // Optimistically update table after add/edit/delete without full reload
     const handleSuccess = (updatedDesignation = null, action = null) => {
         if (action === 'add' && updatedDesignation) {
-            setDesignationsData(prev => {
-                const newData = [updatedDesignation, ...prev.data];
-                return { ...prev, data: newData, total: (prev.total || 0) + 1 };
-            });
+            setDesignationsData(prev => ({ ...prev, data: [updatedDesignation, ...prev.data], total: (prev.total || 0) + 1 }));
         } else if (action === 'edit' && updatedDesignation) {
-            setDesignationsData(prev => {
-                const newData = prev.data.map(d => d.id === updatedDesignation.id ? updatedDesignation : d);
-                return { ...prev, data: newData };
-            });
+            setDesignationsData(prev => ({ ...prev, data: prev.data.map(d => d.id === updatedDesignation.id ? updatedDesignation : d) }));
         } else if (action === 'delete' && updatedDesignation) {
-            setDesignationsData(prev => {
-                const newData = prev.data.filter(d => d.id !== updatedDesignation.id);
-                return { ...prev, data: newData, total: (prev.total || 1) - 1 };
-            });
+            setDesignationsData(prev => ({ ...prev, data: prev.data.filter(d => d.id !== updatedDesignation.id), total: (prev.total || 1) - 1 }));
         } else {
-            // fallback: refetch
             fetchDesignations();
             fetchDesignationStats();
         }
     };
 
-    const statsCards = useMemo(() => [
-        {
-            title: 'Total Designations',
-            value: stats.total,
-            icon: <BuildingOffice2Icon className="w-5 h-5" />,
-            color: 'text-blue-400',
-            iconBg: 'bg-blue-500/20',
-            description: 'All designations'
-        },
-        {
-            title: 'Active',
-            value: stats.active,
-            icon: <CheckCircleIcon className="w-5 h-5" />,
-            color: 'text-green-400',
-            iconBg: 'bg-green-500/20',
-            description: 'Active designations'
-        },
-        {
-            title: 'Inactive',
-            value: stats.inactive,
-            icon: <XCircleIcon className="w-5 h-5" />,
-            color: 'text-red-400',
-            iconBg: 'bg-red-500/20',
-            description: 'Inactive designations'
-        },
-        {
-            title: 'Parent Designations',
-            value: stats.parent_designations,
-            icon: <UserGroupIcon className="w-5 h-5" />,
-            color: 'text-purple-400',
-            iconBg: 'bg-purple-500/20',
-            description: 'Top-level designations'
-        },
-    ], [stats]);
-
-    const actionButtons = useMemo(() => {
-        const buttons = [];
-        if (canCreateDesignation) {
-            buttons.push({
-                label: isMobile ? "Add" : "Add Designation",
-                icon: <PlusIcon className="w-4 h-4" />,
-                onPress: () => openModal('add_designation'),
-                className: "bg-linear-to-r from-(--theme-primary) to-(--theme-secondary) text-white font-medium hover:opacity-90"
-            });
-        }
-        return buttons;
-    }, [canCreateDesignation, isMobile]);
+    // Radix Stats Cards Configuration
+    const statsCards = [
+        { title: 'Total Designations', value: stats.total, icon: <LayersIcon width="20" height="20" />, color: 'var(--blue-9)', bg: 'var(--blue-3)' },
+        { title: 'Active', value: stats.active, icon: <CheckCircledIcon width="20" height="20" />, color: 'var(--green-9)', bg: 'var(--green-3)' },
+        { title: 'Inactive', value: stats.inactive, icon: <CrossCircledIcon width="20" height="20" />, color: 'var(--red-9)', bg: 'var(--red-3)' },
+        { title: 'Top-Level', value: stats.parent_designations, icon: <PersonIcon width="20" height="20" />, color: 'var(--purple-9)', bg: 'var(--purple-3)' }
+    ];
 
     return (
         <App>
-            <Head title={title} />
-            <div className="flex justify-center p-4">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                >
-                    <GlassCard>
-                        <PageHeader
-                            title="Designation Management"
-                            subtitle="Manage company designations and hierarchy"
-                            icon={<BuildingOffice2Icon className="w-8 h-8" />}
-                            variant="default"
-                            actionButtons={actionButtons}
-                        >
-                            <div className="p-4 sm:p-6">
-                                <StatsCards stats={statsCards} className="mb-6" />
-                                {/* Search and Filters Section */}
-                                <div className="mb-6 space-y-4">
-                                    {/* Search */}
-                                    <div className="flex-1">
-                                        <Input
-                                            label="Search Designations"
-                                            placeholder="Search by title..."
-                                            value={filters.search}
-                                            onValueChange={(value) => handleFilterChange('search', value)}
-                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
-                                            variant="bordered"
-                                            size={isMobile ? "sm" : "md"}
-                                            classNames={{
-                                                base: "w-full",
-                                                input: "bg-transparent",
-                                                inputWrapper: "border-default-200 hover:border-default-300",
-                                            }}
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        />
-                                    </div>
+            <Head title={title || "Designations"} />
+            
+            <Flex justify="center" p="4">
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Card size="4">
+                        {/* ── Page Header ── */}
+                        <Box mb="5">
+                            <Flex justify="between" align="center" direction={{ initial: 'column', sm: 'row' }} gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--accent-a3)', borderRadius: 'var(--radius-2)' }}>
+                                        <LayersIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5">Designation Management</Heading>
+                                        <Text size="2" color="gray">Manage company designations and hierarchy</Text>
+                                    </Box>
+                                </Flex>
+                                {canCreateDesignation && (
+                                    <Button onClick={() => openModal('add_designation')} color="indigo">
+                                        <PlusIcon /> {isMobile ? "Add" : "Add Designation"}
+                                    </Button>
+                                )}
+                            </Flex>
+                        </Box>
 
-                                    {/* Filters */}
-                                    <div className="flex flex-wrap gap-3">
-                                        <Select
-                                            label="Department"
-                                            selectedKeys={filters.department ? [filters.department] : []}
-                                            onSelectionChange={(keys) => handleFilterChange('department', Array.from(keys)[0])}
-                                            variant="bordered"
-                                            size={isMobile ? "sm" : "md"}
-                                            className="w-48"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            <SelectItem key="all">All Departments</SelectItem>
-                                            {departments?.map((dept) => (
-                                                <SelectItem key={String(dept.id)}>
-                                                    {dept.name}
-                                                </SelectItem>
-                                            ))}
-                                        </Select>
+                        <Separator size="4" mb="5" />
 
-                                        <Select
-                                            label="Status"
-                                            selectedKeys={filters.status ? [filters.status] : []}
-                                            onSelectionChange={(keys) => handleFilterChange('status', Array.from(keys)[0])}
-                                            variant="bordered"
-                                            size={isMobile ? "sm" : "md"}
-                                            className="w-32"
-                                            style={{
-                                                fontFamily: `var(--fontFamily, "Inter")`,
-                                            }}
-                                        >
-                                            <SelectItem key="all">All Status</SelectItem>
-                                            <SelectItem key="active">Active</SelectItem>
-                                            <SelectItem key="inactive">Inactive</SelectItem>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div>
-                                    {loading ? (
-                                        <div className="text-center py-6">
-                                            <Spinner size="lg" />
-                                            <p className="mt-4 text-default-500">Loading...</p>
-                                        </div>
-                                    ) : (
-                                        <DesignationTable
-                                            designations={designationsData}
-                                            loading={loading}
-                                            onEdit={canEditDesignation ? (designation) => openModal('edit_designation', designation) : undefined}
-                                            onDelete={canDeleteDesignation ? (designation) => openModal('delete_designation', designation) : undefined}
-                                            onView={(designation) => openModal('view_designation', designation)}
-                                            pagination={pagination}
-                                            onPageChange={handlePageChange}
-                                            onRowsPerPageChange={handleRowsPerPageChange}
-                                            canEditDesignation={canEditDesignation}
-                                            canDeleteDesignation={canDeleteDesignation}
-                                        />
-                                    )}
-                                </div>
-                            </div>
-                        </PageHeader>
-                    </GlassCard>
-                </motion.div>
-            </div>
+                        {/* ── Stats Row ── */}
+                        <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
+                            {statsCards.map((stat, idx) => (
+                                <Card key={idx} variant="surface">
+                                    <Flex align="center" gap="3">
+                                        <Box p="2" style={{ backgroundColor: stat.bg, color: stat.color, borderRadius: 'var(--radius-2)' }}>
+                                            {stat.icon}
+                                        </Box>
+                                        <Box>
+                                            <Text size="2" color="gray" as="div">{stat.title}</Text>
+                                            <Text size="5" weight="bold">{stat.value}</Text>
+                                        </Box>
+                                    </Flex>
+                                </Card>
+                            ))}
+                        </Grid>
 
+                        {/* ── Filters ── */}
+                        <Flex gap="3" wrap="wrap" mb="5" align="end">
+                            <Box style={{ flexGrow: 1, minWidth: '250px' }}>
+                                <Text size="2" weight="medium" mb="1" display="block">Search Designations</Text>
+                                <TextField.Root 
+                                    placeholder="Search by title..." 
+                                    value={filters.search} 
+                                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                                >
+                                    <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                                </TextField.Root>
+                            </Box>
+                            
+                            <Box style={{ minWidth: '200px' }}>
+                                <Text size="2" weight="medium" mb="1" display="block">Department</Text>
+                                <Select.Root value={filters.department} onValueChange={(v) => handleFilterChange('department', v)}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Departments</Select.Item>
+                                        {departments?.map(dept => (
+                                            <Select.Item key={dept.id} value={String(dept.id)}>{dept.name}</Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+
+                            <Box style={{ minWidth: '150px' }}>
+                                <Text size="2" weight="medium" mb="1" display="block">Status</Text>
+                                <Select.Root value={filters.status} onValueChange={(v) => handleFilterChange('status', v)}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Status</Select.Item>
+                                        <Select.Item value="active">Active</Select.Item>
+                                        <Select.Item value="inactive">Inactive</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                        </Flex>
+
+                        {/* ── Data Table ── */}
+                        <Box>
+                            {loading && designationsData.data.length === 0 ? (
+                                <Flex justify="center" align="center" py="8" direction="column" gap="3">
+                                    <Spinner size="3" />
+                                    <Text color="gray">Loading designations...</Text>
+                                </Flex>
+                            ) : (
+                                <DesignationTable
+                                    designations={designationsData}
+                                    loading={loading}
+                                    onEdit={canEditDesignation ? (d) => openModal('edit_designation', d) : undefined}
+                                    onDelete={canDeleteDesignation ? (d) => openModal('delete_designation', d) : undefined}
+                                    pagination={pagination}
+                                    onPageChange={handlePageChange}
+                                />
+                            )}
+                        </Box>
+
+                    </Card>
+                </Box>
+            </Flex>
+
+            {/* ── Modals ── */}
             {(modalState.type === 'add_designation' || modalState.type === 'edit_designation') && (
                 <DesignationForm
                     open={true}
                     departments={departments}
                     designations={allDesignations}
                     onClose={closeModal}
-                    onSuccess={(designation) => handleSuccess(designation, modalState.type === 'add_designation' ? 'add' : 'edit')}
+                    onSuccess={(d) => handleSuccess(d, modalState.type === 'add_designation' ? 'add' : 'edit')}
                     designation={modalState.designation}
                 />
             )}
@@ -321,7 +250,7 @@ const Designations = ({ title, initialDesignations, departments, managers, paren
                 <DeleteDesignationForm
                     open={true}
                     onClose={closeModal}
-                    onSuccess={(designation) => handleSuccess(designation, 'delete')}
+                    onSuccess={(d) => handleSuccess(d, 'delete')}
                     designation={modalState.designation}
                 />
             )}

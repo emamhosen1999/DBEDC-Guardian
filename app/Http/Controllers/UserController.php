@@ -788,6 +788,9 @@ class UserController extends Controller
                 $query->where('attendance_type_id', $attendanceType);
             }
 
+            // Sort by created_at (newest first)
+            $query->orderBy('created_at', 'desc');
+
             // Execute query with pagination
             $employees = $query->with('reportsTo')->paginate($perPage, ['*'], 'page', $page);
 

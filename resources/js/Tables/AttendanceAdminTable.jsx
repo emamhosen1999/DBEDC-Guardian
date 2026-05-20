@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useMemo, useState} from 'react';
 import { getProfileAvatarTokens } from '@/Components/Profile/ProfileAvatar';
 import {
     Chip,
@@ -19,8 +19,11 @@ import {
     CardHeader
 } from "@/compat/heroui";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { usePage } from '@inertiajs/react';
+import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
 
-import {CalendarDaysIcon, DocumentChartBarIcon, UserIcon, ArrowPathIcon} from '@heroicons/react/24/outline';
+import {CalendarDaysIcon, DocumentChartBarIcon, UserIcon, ArrowPathIcon, PencilIcon, TrashIcon} from '@heroicons/react/24/outline';
 import {
     CheckCircleIcon as CheckSolid,
     ExclamationTriangleIcon as ExclamationSolid,
@@ -28,6 +31,7 @@ import {
     XCircleIcon as XSolid
 } from '@heroicons/react/24/solid';
 import dayjs from 'dayjs';
+import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
 
 // Theme utility function
 const getThemeRadius = () => {
@@ -55,9 +59,16 @@ const AttendanceAdminTable = ({
                                   attendanceSettings,
                                   onRefresh
                               }) => {
+    const { auth } = usePage().props;
+    const canCorrectAttendance = auth.permissions?.includes('attendance.correct') || false;
+    
     const isLargeScreen = useMediaQuery('(min-width: 1025px)');
     const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
     const isMobile = useMediaQuery('(max-width: 640px)');
+
+    // Editing state
+    const [editingCell, setEditingCell] = useState(null); // { userId, date, field: 'punchin' | 'punchout' }
+    const [editValue, setEditValue] = useState('');
 
     // Get the number of days in the current month
     const daysInMonth = dayjs(`${currentYear}-${currentMonth}-01`).daysInMonth();
@@ -142,6 +153,81 @@ const AttendanceAdminTable = ({
         };
     };
 
+    // Handle time correction save
+    const handleTimeSave = async (userId, date, field, value) => {
+        try {
+            // Find attendance record for this user and date
+            const attendanceRecord = await axios.get(route('attendancesAdmin.paginate'), {
+                params: {
+                    currentYear,
+                    currentMonth,
+                    employee: '',
+                    page: 1,
+                    perPage: 1000,
+                }
+            }).then(res => {
+                const userAttendance = res.data.data.find(u => u.id === userId);
+                if (userAttendance && userAttendance[date]) {
+                    return userAttendance[date];
+                }
+                return null;
+            });
+
+            if (attendanceRecord && attendanceRecord.attendance_id) {
+                // Update existing record
+                const formattedTime = dayjs(`${date} ${value}`).format('YYYY-MM-DD HH:mm:ss');
+                await axios.post(route('attendance.correct.update', attendanceRecord.attendance_id), {
+                    [field]: formattedTime,
+                });
+                showToast.success(`${field === 'punchin' ? 'Punch-in' : 'Punch-out'} time updated successfully`);
+            } else {
+                // Create new record
+                const formattedTime = dayjs(`${date} ${value}`).format('YYYY-MM-DD HH:mm:ss');
+                await axios.post(route('attendance.correct.add'), {
+                    user_id: userId,
+                    date: date,
+                    [field]: formattedTime,
+                });
+                showToast.success(`${field === 'punchin' ? 'Punch-in' : 'Punch-out'} time added successfully`);
+            }
+
+            setEditingCell(null);
+            setEditValue('');
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            console.error('Error updating attendance:', error);
+            showToast.error(error.response?.data?.error || 'Failed to update attendance');
+        }
+    };
+
+    // Handle delete attendance
+    const handleDeleteAttendance = async (attendanceId) => {
+        if (!confirm('Are you sure you want to delete this attendance record?')) {
+            return;
+        }
+
+        try {
+            await axios.delete(route('attendance.correct.delete', attendanceId));
+            showToast.success('Attendance record deleted successfully');
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            console.error('Error deleting attendance:', error);
+            showToast.error('Failed to delete attendance record');
+        }
+    };
+
+    // Start editing a cell
+    const startEdit = (userId, date, field, currentValue) => {
+        setEditingCell({ userId, date, field });
+        setEditValue(currentValue || '');
+    };
+
+    // Cancel editing
+    const cancelEdit = () => {
+        setEditingCell(null);
+        setEditValue('');
+    };
+
     // Mobile card component for better mobile experience
     const MobileAttendanceCard = ({
                                       data,
@@ -215,14 +301,76 @@ const AttendanceAdminTable = ({
                                     key={day}
                                     placement="top"
                                     content={
-                                        <div className="text-sm space-y-1" style={{
+                                        <div className="text-sm space-y-2 p-2 min-w-[200px]" style={{
                                             fontFamily: `var(--fontFamily, "Inter")`,
                                         }}>
                                             <div><strong>Status:</strong> {status}</div>
-                                            <div><strong>Punch In:</strong> {cellData?.punch_in || '-'}</div>
-                                            <div><strong>Punch Out:</strong> {cellData?.punch_out || '-'}</div>
+                                            
+                                            {canCorrectAttendance && (
+                                                <>
+                                                    <div className="flex items-center gap-2">
+                                                        <strong>Punch In:</strong>
+                                                        {editingCell?.userId === data.id && editingCell?.date === dateKey && editingCell?.field === 'punchin' ? (
+                                                            <AttendanceTimePicker
+                                                                value={cellData?.punch_in ? dayjs(cellData.punch_in).format('HH:mm') : ''}
+                                                                onSave={(time) => handleTimeSave(data.id, dateKey, 'punchin', time)}
+                                                                onCancel={cancelEdit}
+                                                                label="In"
+                                                            />
+                                                        ) : (
+                                                            <span 
+                                                                className="cursor-pointer text-blue-500 hover:underline"
+                                                                onClick={() => startEdit(data.id, dateKey, 'punchin', cellData?.punch_in ? dayjs(cellData.punch_in).format('HH:mm') : '')}
+                                                            >
+                                                                {cellData?.punch_in ? dayjs(cellData.punch_in).format('HH:mm') : '-'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center gap-2">
+                                                        <strong>Punch Out:</strong>
+                                                        {editingCell?.userId === data.id && editingCell?.date === dateKey && editingCell?.field === 'punchout' ? (
+                                                            <AttendanceTimePicker
+                                                                value={cellData?.punch_out ? dayjs(cellData.punch_out).format('HH:mm') : ''}
+                                                                onSave={(time) => handleTimeSave(data.id, dateKey, 'punchout', time)}
+                                                                onCancel={cancelEdit}
+                                                                label="Out"
+                                                            />
+                                                        ) : (
+                                                            <span 
+                                                                className="cursor-pointer text-blue-500 hover:underline"
+                                                                onClick={() => startEdit(data.id, dateKey, 'punchout', cellData?.punch_out ? dayjs(cellData.punch_out).format('HH:mm') : '')}
+                                                            >
+                                                                {cellData?.punch_out ? dayjs(cellData.punch_out).format('HH:mm') : '-'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                            
+                                            {!canCorrectAttendance && (
+                                                <>
+                                                    <div><strong>Punch In:</strong> {cellData?.punch_in ? dayjs(cellData.punch_in).format('HH:mm') : '-'}</div>
+                                                    <div><strong>Punch Out:</strong> {cellData?.punch_out ? dayjs(cellData.punch_out).format('HH:mm') : '-'}</div>
+                                                </>
+                                            )}
+                                            
                                             <div><strong>Work Hours:</strong> {cellData?.total_work_hours || '00:00'}</div>
-                                            <div><strong>Remarks:</strong> {cellData?.remarks || 'N/A'}</div>
+                                            
+                                            {canCorrectAttendance && cellData?.attendance_id && (
+                                                <div className="pt-2 border-t">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="light"
+                                                        color="danger"
+                                                        startContent={<TrashIcon className="w-3 h-3" />}
+                                                        onPress={() => handleDeleteAttendance(cellData.attendance_id)}
+                                                        className="text-xs"
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     }
                                 >

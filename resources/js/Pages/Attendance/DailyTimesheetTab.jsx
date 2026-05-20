@@ -14,6 +14,7 @@ import dayjs from 'dayjs';
 import axios from 'axios';
 import AbsentSidebar from './AbsentSidebar';
 import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
+import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
@@ -31,9 +32,9 @@ const formatTime = (timeString, date) => {
     } catch { return 'Invalid'; }
 };
 
-/* ── cell renderer ────────────────────────────────────────── */
+/* ── table cell renderer ─────────────────────────────────────── */
 
-const Cell = ({ attendance, colUid, isAdminView }) => {
+const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStartEdit, onCancelEdit, onSaveTime, onDelete }) => {
     const isToday = dayjs(attendance.date).isSame(dayjs(), 'day');
 
     switch (colUid) {
@@ -72,44 +73,79 @@ const Cell = ({ attendance, colUid, isAdminView }) => {
                 </Table.Cell>
             );
 
-        case 'clockin_time':
+        case 'clockin_time': {
+            const timeStr = formatTime(attendance.punchin_time, attendance.date);
+            const isEditing = editingCell?.attendanceId === attendance.id && editingCell?.field === 'punchin';
+            
             return (
                 <Table.Cell>
-                    <Flex direction="column" gap="1">
-                        {attendance.punches?.length > 0
-                            ? attendance.punches.filter(p => p.punch_in).map((p, i) => (
-                                <Text key={i} size="2">
-                                    <Text size="2" color="gray">{i + 1}.&nbsp;</Text>
-                                    {formatTime(p.punch_in, attendance.date) || '—'}
+                    {canCorrect && isEditing ? (
+                        <AttendanceTimePicker
+                            value={attendance.punchin_time ? dayjs(attendance.punchin_time).format('HH:mm') : ''}
+                            onSave={(time) => onSaveTime(attendance.id, 'punchin', time)}
+                            onCancel={onCancelEdit}
+                            label="In"
+                        />
+                    ) : (
+                        <Flex align="center" gap="2">
+                            <ClockIcon style={{ color: 'var(--green-9)', width: 14, flexShrink: 0 }} />
+                            {canCorrect ? (
+                                <Text 
+                                    size="2" 
+                                    weight="medium"
+                                    style={{ cursor: 'pointer', color: 'var(--accent-11)' }}
+                                    onClick={() => onStartEdit(attendance.id, 'punchin')}
+                                >
+                                    {timeStr || <Text size="2" color="gray">—</Text>}
                                 </Text>
-                              ))
-                            : <Text size="2" color="gray">Not clocked in</Text>
-                        }
-                    </Flex>
+                            ) : (
+                                <Text size="2" weight="medium">
+                                    {timeStr || <Text size="2" color="gray">—</Text>}
+                                </Text>
+                            )}
+                        </Flex>
+                    )}
                 </Table.Cell>
             );
+        }
 
-        case 'clockout_time':
+        case 'clockout_time': {
+            const hasPunches = attendance.punches && attendance.punches.length > 0;
+            const isEditing = editingCell?.attendanceId === attendance.id && editingCell?.field === 'punchout';
+            
             return (
                 <Table.Cell>
-                    <Flex direction="column" gap="1">
-                        {attendance.punches?.length > 0
-                            ? attendance.punches.map((p, i) => (
-                                <Text key={i} size="2">
-                                    <Text size="2" color="gray">{i + 1}.&nbsp;</Text>
-                                    {p.punch_out
-                                        ? formatTime(p.punch_out, attendance.date)
-                                        : <Text size="2" color="gray">—</Text>
-                                    }
-                                </Text>
-                              ))
-                            : attendance.punchin_time
-                                ? <Text size="2" color="gray">{isToday ? 'Still working' : 'Missing punch-out'}</Text>
-                                : <Text size="2" color="gray">Not started</Text>
-                        }
-                    </Flex>
+                    {canCorrect && isEditing ? (
+                        <AttendanceTimePicker
+                            value={attendance.punchout_time ? dayjs(attendance.punchout_time).format('HH:mm') : ''}
+                            onSave={(time) => onSaveTime(attendance.id, 'punchout', time)}
+                            onCancel={onCancelEdit}
+                            label="Out"
+                        />
+                    ) : (
+                        <Flex align="center" gap="2">
+                            {hasPunches ? (
+                                attendance.punches.map((p, idx) => (
+                                    <Flex key={idx} align="center" gap="2">
+                                        <ClockIcon style={{ color: 'var(--red-9)', width: 14, flexShrink: 0 }} />
+                                        <Text size="2" weight="medium">
+                                            {p.punch_out
+                                                ? formatTime(p.punch_out, attendance.date)
+                                                : <Text size="2" color="gray">—</Text>
+                                            }
+                                        </Text>
+                                    </Flex>
+                                  ))
+                            ) : attendance.punchout_time ? (
+                                <Text size="2" color="gray">{isToday ? 'Still working' : 'Missing punch-out'}</Text>
+                            ) : (
+                                <Text size="2" color="gray">Not started</Text>
+                            )}
+                        </Flex>
+                    )}
                 </Table.Cell>
             );
+        }
 
         case 'production_time': {
             const mins       = attendance.total_work_minutes || 0;
@@ -238,6 +274,7 @@ const DailyTimesheetTab = ({
 
     const canViewAll = auth.permissions?.includes('attendance.view')   || false;
     const canManage  = auth.permissions?.includes('attendance.manage') || false;
+    const canCorrect = auth.permissions?.includes('attendance.correct') || false;
     const canExport  = auth.permissions?.includes('attendance.export') || canManage;
     const isAdminView = canViewAll && url !== '/attendance-employee';
 
@@ -256,6 +293,9 @@ const DailyTimesheetTab = ({
     const [downloading,  setDownloading]  = useState('');
     const [lastChecked,  setLastChecked]  = useState(null);
     const prevUpdateRef = useRef(null);
+
+    // Editing state for inline correction
+    const [editingCell, setEditingCell] = useState(null); // { attendanceId, field: 'punchin' | 'punchout' }
 
     /* columns */
     const columns = useMemo(() => [
@@ -371,6 +411,55 @@ const DailyTimesheetTab = ({
     }, [selectedDate]);
 
     const getUserLeave = (uid) => leaves.find(l => String(l.user_id) === String(uid));
+
+    // Handle time correction save
+    const handleTimeSave = async (attendanceId, field, time) => {
+        try {
+            const formattedTime = dayjs(`${selectedDate} ${time}`).format('YYYY-MM-DD HH:mm:ss');
+            
+            if (attendanceId) {
+                // Update existing record
+                await axios.post(route('attendance.correct.update', attendanceId), {
+                    [field]: formattedTime,
+                });
+            } else {
+                // Need to find the attendance record first or create new one
+                // For now, we'll just update if it exists
+                alert('Cannot create new attendance record from this view. Please use mark as present.');
+            }
+
+            setEditingCell(null);
+            await fetchPresent(currentPage, true);
+        } catch (error) {
+            console.error('Error updating attendance:', error);
+            alert(error.response?.data?.error || 'Failed to update attendance');
+        }
+    };
+
+    // Handle delete attendance
+    const handleDeleteAttendance = async (attendanceId) => {
+        if (!confirm('Are you sure you want to delete this attendance record?')) {
+            return;
+        }
+
+        try {
+            await axios.delete(route('attendance.correct.delete', attendanceId));
+            await fetchPresent(currentPage, true);
+        } catch (error) {
+            console.error('Error deleting attendance:', error);
+            alert('Failed to delete attendance record');
+        }
+    };
+
+    // Start editing a cell
+    const startEdit = (attendanceId, field) => {
+        setEditingCell({ attendanceId, field });
+    };
+
+    // Cancel editing
+    const cancelEdit = () => {
+        setEditingCell(null);
+    };
 
     /* mark as present */
     const [markingId, setMarkingId] = useState(null);
@@ -560,7 +649,18 @@ const DailyTimesheetTab = ({
                                             : attendances.map(a => (
                                                 <Table.Row key={a.id || a.user_id}>
                                                     {columns.map(c => (
-                                                        <Cell key={c.uid} attendance={a} colUid={c.uid} isAdminView={isAdminView} />
+                                                        <Cell 
+                                                            key={c.uid} 
+                                                            attendance={a} 
+                                                            colUid={c.uid} 
+                                                            isAdminView={isAdminView}
+                                                            canCorrect={canCorrect}
+                                                            editingCell={editingCell}
+                                                            onStartEdit={startEdit}
+                                                            onCancelEdit={cancelEdit}
+                                                            onSaveTime={handleTimeSave}
+                                                            onDelete={handleDeleteAttendance}
+                                                        />
                                                     ))}
                                                 </Table.Row>
                                               ))

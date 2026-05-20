@@ -80,23 +80,27 @@ class AttendanceController extends Controller
 
     private function getEmployeeUsersWithAttendanceAndLeaves($year, $month)
     {
-        return User::role('Employee')->with([
-            'attendances' => function ($query) use ($year, $month) {
-                $query->whereYear('date', $year)
-                    ->whereMonth('date', $month);
-            },
-            'leaves' => function ($query) use ($year, $month) {
-                $query->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
-                    ->select('leaves.*', 'leave_settings.type as leave_type')
-                    ->where(function ($query) use ($year, $month) {
-                        $query->whereYear('leaves.from_date', $year)
-                            ->whereMonth('leaves.from_date', $month)
-                            ->orWhereYear('leaves.to_date', $year)
-                            ->whereMonth('leaves.to_date', $month);
-                    })
-                    ->orderBy('leaves.from_date', 'desc');
-            },
-        ])->get();
+        return User::role('Employee')
+            ->leftJoin('designations', 'users.designation_id', '=', 'designations.id')
+            ->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
+            ->orderBy('users.name')
+            ->with([
+                'attendances' => function ($query) use ($year, $month) {
+                    $query->whereYear('date', $year)
+                        ->whereMonth('date', $month);
+                },
+                'leaves' => function ($query) use ($year, $month) {
+                    $query->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
+                        ->select('leaves.*', 'leave_settings.type as leave_type')
+                        ->where(function ($query) use ($year, $month) {
+                            $query->whereYear('leaves.from_date', $year)
+                                ->whereMonth('leaves.from_date', $month)
+                                ->orWhereYear('leaves.to_date', $year)
+                                ->whereMonth('leaves.to_date', $month);
+                        })
+                        ->orderBy('leaves.from_date', 'desc');
+                },
+            ])->get();
     }
 
     private function getHolidaysForMonth($year, $month)
@@ -556,12 +560,12 @@ class AttendanceController extends Controller
             $userIds = $paginatedUsers->pluck('id');
 
             // Get ALL attendance records for these users on the selected date
+            // Sort by created_at ascending so first puncher comes first
             $attendanceRecords = Attendance::with('user')
                 ->whereNotNull('punchin')
                 ->whereDate('date', $selectedDate)
                 ->whereIn('user_id', $userIds)
-                ->orderBy('user_id')
-                ->orderBy('punchin')
+                ->orderBy('created_at', 'asc')
                 ->get();            // Identify absent users: filter out users who don't have any attendance record
             // Only include users that match the search criteria
             $absentUsers = $allUsers->filter(function ($user) use ($usersWithAttendance) {
@@ -1684,6 +1688,166 @@ class AttendanceController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'PDF export failed: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update attendance record (correction)
+     */
+    public function updateAttendanceRecord(Request $request, $id): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('attendance.correct');
+
+        try {
+            $attendance = Attendance::findOrFail($id);
+
+            $validated = $request->validate([
+                'punchin' => 'nullable|date_format:Y-m-d H:i:s',
+                'punchout' => 'nullable|date_format:Y-m-d H:i:s',
+            ]);
+
+            // Validate punch-in is before punch-out if both provided
+            if (!empty($validated['punchin']) && !empty($validated['punchout'])) {
+                $punchin = Carbon::parse($validated['punchin']);
+                $punchout = Carbon::parse($validated['punchout']);
+                if ($punchin->gte($punchout)) {
+                    return response()->json([
+                        'error' => 'Punch-in time must be before punch-out time',
+                    ], 422);
+                }
+            }
+
+            $attendance->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Attendance record updated successfully',
+                'attendance' => $attendance->fresh(['user']),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating attendance record', [
+                'error' => $e->getMessage(),
+                'attendance_id' => $id,
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update attendance record',
+            ], 500);
+        }
+    }
+
+    /**
+     * Add new attendance record
+     */
+    public function addAttendanceRecord(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('attendance.correct');
+
+        try {
+            $validated = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'date' => 'required|date',
+                'punchin' => 'nullable|date_format:Y-m-d H:i:s',
+                'punchout' => 'nullable|date_format:Y-m-d H:i:s',
+                'punchin_location' => 'nullable|array',
+                'punchout_location' => 'nullable|array',
+            ]);
+
+            // Validate punch-in is before punch-out if both provided
+            if (!empty($validated['punchin']) && !empty($validated['punchout'])) {
+                $punchin = Carbon::parse($validated['punchin']);
+                $punchout = Carbon::parse($validated['punchout']);
+                if ($punchin->gte($punchout)) {
+                    return response()->json([
+                        'error' => 'Punch-in time must be before punch-out time',
+                    ], 422);
+                }
+            }
+
+            $attendance = Attendance::create([
+                'user_id' => $validated['user_id'],
+                'date' => $validated['date'],
+                'punchin' => $validated['punchin'],
+                'punchout' => $validated['punchout'],
+                'punchin_location' => isset($validated['punchin_location']) ? json_encode($validated['punchin_location']) : null,
+                'punchout_location' => isset($validated['punchout_location']) ? json_encode($validated['punchout_location']) : null,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Attendance record added successfully',
+                'attendance' => $attendance->fresh(['user']),
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('Error adding attendance record', [
+                'error' => $e->getMessage(),
+                'request' => $request->all(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to add attendance record',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete attendance record
+     */
+    public function deleteAttendanceRecord($id): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('attendance.correct');
+
+        try {
+            $attendance = Attendance::findOrFail($id);
+            $attendance->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Attendance record deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error deleting attendance record', [
+                'error' => $e->getMessage(),
+                'attendance_id' => $id,
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to delete attendance record',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update attendance status symbol
+     */
+    public function updateAttendanceStatus(Request $request, $id): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('attendance.correct');
+
+        try {
+            $attendance = Attendance::findOrFail($id);
+
+            $validated = $request->validate([
+                'symbol' => 'required|string|max:10',
+            ]);
+
+            $attendance->symbol = $validated['symbol'];
+            $attendance->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Attendance status updated successfully',
+                'attendance' => $attendance->fresh(['user']),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating attendance status', [
+                'error' => $e->getMessage(),
+                'attendance_id' => $id,
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update attendance status',
             ], 500);
         }
     }
