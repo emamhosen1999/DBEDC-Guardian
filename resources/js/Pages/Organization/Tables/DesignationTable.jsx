@@ -117,7 +117,7 @@ const DesignationTable = ({
             </Table.Root>
 
             <TablePagination
-                pagination={pagination}
+                pagination={{ ...pagination, total: designations?.total || 0 }}
                 onPageChange={onPageChange}
                 onRowsPerPageChange={onRowsPerPageChange}
                 loading={loading}

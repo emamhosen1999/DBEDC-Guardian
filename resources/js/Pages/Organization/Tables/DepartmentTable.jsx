@@ -188,7 +188,7 @@ const DepartmentTable = ({
             </Table.Root>
 
             <TablePagination
-                pagination={pagination}
+                pagination={{ ...pagination, total: departments?.total || 0 }}
                 onPageChange={onPageChange}
                 onRowsPerPageChange={onRowsPerPageChange}
                 loading={loading}

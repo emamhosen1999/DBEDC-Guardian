@@ -80,7 +80,7 @@ const DesignationsTab = ({ isActive }) => {
 
     useEffect(() => { fetchDesignations(); fetchDesignationStats(); }, [fetchDesignations, fetchDesignationStats]);
 
-    const handleFilterChange = (key, value) => { setFilters(prev => ({ ...prev, [key]: value })); setPagination(prev => ({ ...p, currentPage: 1 })); };
+    const handleFilterChange = (key, value) => { setFilters(prev => ({ ...prev, [key]: value })); setPagination(prev => ({ ...prev, currentPage: 1 })); };
     const clearFilters = () => { setFilters({ search: '', status: 'all', department: 'all' }); setPagination(p => ({ ...p, currentPage: 1 })); };
 
     const openModal = (type, designation = null) => setModalState({ type, designation });
