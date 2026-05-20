@@ -73,7 +73,7 @@ const DepartmentCard = ({ department, onEdit, onView }) => {
 };
 
 const DepartmentsTab = ({ isActive }) => {
-    const { auth, departments: initialDepartments, managers, parentDepartments, stats: initialStats } = usePage().props;
+    const { auth, departmentsData: initialDepartments, managers, parentDepartments, stats: initialStats } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 639px)');
     const isTablet = useMediaQuery('(max-width: 767px)');
 

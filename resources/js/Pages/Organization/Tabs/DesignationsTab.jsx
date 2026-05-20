@@ -25,7 +25,7 @@ const StatPill = ({ label, value, color = 'gray' }) => (
 );
 
 const DesignationsTab = ({ isActive }) => {
-    const { auth, initialDesignations, departments, allDesignations, stats: initialStats } = usePage().props;
+    const { auth, initialDesignations, departments, allDesignations, designationStats: initialStats } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 767px)');
 
     const [designationsData, setDesignationsData] = useState(initialDesignations || { data: [], total: 0 });

@@ -48,30 +48,30 @@ class OrganizationController extends Controller
         ];
 
         // 5. Initial Paginated Data (Optional: passing the first page directly to avoid layout shift)
-        $initialDepartments = Department::with(['manager:id,name,profile_image', 'parent:id,name'])
+        $initialDepartments = Department::with(['manager:id,name,email', 'parent:id,name'])
             ->withCount('employees')
             ->paginate(10);
             
         $initialDesignations = Designation::with('department:id,name')
-            ->withCount('employees')
+            ->withCount(['users as employee_count'])
             ->paginate(10);
 
         return Inertia::render('Organization/OrganizationPage', [
             'title' => 'Organization Directory',
             
-            // Shared Data
+            // Shared Data (flat, for dropdowns)
             'departments' => $departments,
             'designations' => $designations,
             'attendanceTypes' => $attendanceTypes,
             
             // Employee Tab specific
-            'allManagers' => $activeUsers, // or apply your specific manager logic here
+            'allManagers' => $activeUsers,
             
             // Department Tab specific
             'managers' => $activeUsers,
             'parentDepartments' => $parentDepartments,
-            'departmentsData' => $initialDepartments, // Matched to initialDepartments in props
-            'stats' => $departmentStats, // DepartmentsTab expects this as initialStats
+            'departmentsData' => $initialDepartments,
+            'stats' => $departmentStats,
             
             // Designation Tab specific
             'allDesignations' => $designations,
