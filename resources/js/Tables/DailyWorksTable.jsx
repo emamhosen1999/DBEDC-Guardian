@@ -2699,100 +2699,11 @@ const DesktopLoadingSkeleton = () => (
                 </RadixTable.Root>
             </ScrollArea>
 
-            {/* Pagination Navigation */}
-            {totalRows > 30 && (
-                <Flex 
-                    py="4" 
-                    justify="center" 
-                    gap="3" 
-                    align="center"
-                    /* Radix responsive display prop replaces the JS `!isMobile` check */
-                    display={{ initial: 'none', md: 'flex' }} 
-                >
-                    <Button 
-                        variant="surface" 
-                        color="gray"
-                        size="2" 
-                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))} 
-                        disabled={currentPage <= 1}
-                    >
-                        <ChevronLeftIcon /> Prev
-                    </Button>
-                    <Text size="2" color="gray" weight="medium">
-                        Page {currentPage} of {lastPage}
-                    </Text>
-                    <Button 
-                        variant="surface" 
-                        color="gray"
-                        size="2" 
-                        onClick={() => handlePageChange(Math.min(lastPage, currentPage + 1))} 
-                        disabled={currentPage >= lastPage}
-                    >
-                        Next <ChevronRightIcon />
-                    </Button>
-                </Flex>
-            )}
-            
-            {/* --- Modals Remain Unchanged --- */}
-            
-            {/* RFI Files Modal */}
-            <RfiFilesModal
-                isOpen={rfiModalOpen}
-                onClose={() => {
-                    setRfiModalOpen(false);
-                    setRfiModalWork(null);
-                }}
-                dailyWork={rfiModalWork}
-                onFilesUpdated={handleRfiFilesUpdated}
-            />
-            
-            {/* Status Update Modal */}
-            <StatusUpdateModal
-                open={statusModalOpen}
-                closeModal={() => {
-                    setStatusModalOpen(false);
-                    setStatusModalWork(null);
-                }}
-                dailyWork={statusModalWork}
-                onStatusUpdated={handleStatusUpdated}
-            />
-            
-            {/* Objections Modal */}
-            <ObjectionsModal
-                isOpen={objectionsModalOpen}
-                onClose={() => {
-                    setObjectionsModalOpen(false);
-                    setObjectionsModalWork(null);
-                }}
-                dailyWork={objectionsModalWork}
-                onObjectionsUpdated={handleObjectionsUpdated}
-            />
-            
-            {/* Objection Warning Modal */}
-            <ObjectionWarningModal
-                isOpen={objectionWarningModal.isOpen}
-                onClose={closeObjectionWarningModal}
-                dailyWork={objectionWarningModal.dailyWork}
-                newSubmissionDate={objectionWarningModal.newSubmissionDate}
-                activeObjectionsCount={objectionWarningModal.activeObjectionsCount}
-                activeObjections={objectionWarningModal.activeObjections}
-                isLoading={objectionWarningModal.isLoading}
-                onConfirm={handleSubmissionTimeOverride}
-            />
-            
-            {/* Bulk Submit Modal */}
-            <BulkSubmitModal
-                isOpen={bulkSubmitModalOpen}
-                onClose={() => setBulkSubmitModalOpen(false)}
-                selectedWorks={selectedWorks}
-                onSuccess={handleBulkSubmitSuccess}
-            />
-            
-            {/* Bulk Import Submit Modal */}
-            <BulkImportSubmitModal
-                isOpen={bulkImportModalOpen}
-                onClose={() => setBulkImportModalOpen(false)}
-                onSuccess={handleBulkImportSuccess}
+            {/* Pagination - Always visible */}
+            <TablePagination
+                pagination={{ currentPage, perPage: 20, total: totalRows }}
+                onPageChange={onPageChange}
+                onRowsPerPageChange={onRowsPerPageChange}
             />
 
             {/* Bulk Response Status Modal */}
@@ -2808,6 +2719,39 @@ const DesktopLoadingSkeleton = () => (
                 isOpen={bulkImportResponseStatusModalOpen}
                 onClose={() => setBulkImportResponseStatusModalOpen(false)}
                 onSuccess={handleBulkImportResponseStatusSuccess}
+            />
+
+            {/* Bulk Incharge Modal */}
+            <BulkInchargeModal
+                isOpen={bulkInchargeModalOpen}
+                onClose={() => setBulkInchargeModalOpen(false)}
+                selectedWorks={selectedWorks}
+                incharges={allInCharges}
+                onSuccess={handleBulkInchargeSuccess}
+            />
+
+            {/* Bulk Status Modal */}
+            <BulkStatusModal
+                isOpen={bulkStatusModalOpen}
+                onClose={() => setBulkStatusModalOpen(false)}
+                selectedWorks={selectedWorks}
+                onSuccess={handleBulkStatusSuccess}
+            />
+
+            {/* Bulk Completion Date Modal */}
+            <BulkCompletionDateModal
+                isOpen={bulkCompletionDateModalOpen}
+                onClose={() => setBulkCompletionDateModalOpen(false)}
+                selectedWorks={selectedWorks}
+                onSuccess={handleBulkCompletionDateSuccess}
+            />
+
+            {/* Bulk Delete Modal */}
+            <BulkDeleteModal
+                isOpen={bulkDeleteModalOpen}
+                onClose={() => setBulkDeleteModalOpen(false)}
+                selectedWorks={selectedWorks}
+                onSuccess={handleBulkDeleteSuccess}
             />
         </Box>
     );
