@@ -11,12 +11,12 @@ use Inertia\Inertia;
 
 class SupplierController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('SCM/Suppliers/Index', [
             'suppliers' => Supplier::query()
                 ->latest()
-                ->paginate(10),
+                ->paginate($request->get('per_page', 20)),
             'status' => session('status'),
         ]);
     }

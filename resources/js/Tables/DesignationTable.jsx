@@ -1,24 +1,25 @@
 import React from 'react';
 import { usePage } from "@inertiajs/react";
-import { 
-    Table, Badge, Tooltip, IconButton, DropdownMenu, 
-    Button, Flex, Text, Box 
+import {
+    Table, Badge, Tooltip, IconButton, DropdownMenu,
+    Button, Flex, Text, Box
 } from '@radix-ui/themes';
-import { 
-    Pencil1Icon, TrashIcon, PersonIcon, 
-    CheckCircledIcon, CrossCircledIcon, DotsVerticalIcon, 
-    ChevronLeftIcon, ChevronRightIcon 
+import {
+    Pencil1Icon, TrashIcon, PersonIcon,
+    CheckCircledIcon, CrossCircledIcon, DotsVerticalIcon
 } from '@radix-ui/react-icons';
 import NoDataMessage from '@/Components/NoDataMessage';
+import TablePagination from '@/Components/TablePagination.jsx';
 
-const DesignationTable = ({ 
-    designations, 
-    onEdit, 
-    onDelete, 
-    loading, 
+const DesignationTable = ({
+    designations,
+    onEdit,
+    onDelete,
+    loading,
     isMobile,
-    pagination, 
-    onPageChange, 
+    pagination,
+    onPageChange,
+    onRowsPerPageChange,
     canEditDesignation = false,
     canDeleteDesignation = false
 }) => {
@@ -169,37 +170,12 @@ const DesignationTable = ({
             </Table.Root>
 
             {/* Pagination */}
-            {designations?.total > 0 && (
-                <Flex justify="between" align="center" mt="4" px="2" wrap="wrap" gap="3">
-                    <Text size="2" color="gray">
-                        Showing {startRecord} to {endRecord} of {designations.total} designations
-                    </Text>
-                    
-                    <Flex gap="2" align="center">
-                        <Button 
-                            variant="soft" 
-                            color="gray" 
-                            size="1" 
-                            disabled={pagination.currentPage === 1}
-                            onClick={() => onPageChange(pagination.currentPage - 1)}
-                        >
-                            <ChevronLeftIcon /> Prev
-                        </Button>
-                        <Text size="2" weight="medium">
-                            Page {pagination.currentPage} of {totalPages}
-                        </Text>
-                        <Button 
-                            variant="soft" 
-                            color="gray" 
-                            size="1" 
-                            disabled={pagination.currentPage === totalPages}
-                            onClick={() => onPageChange(pagination.currentPage + 1)}
-                        >
-                            Next <ChevronRightIcon />
-                        </Button>
-                    </Flex>
-                </Flex>
-            )}
+            <TablePagination
+                pagination={pagination}
+                onPageChange={onPageChange}
+                onRowsPerPageChange={onRowsPerPageChange}
+                loading={loading}
+            />
         </Box>
     );
 };

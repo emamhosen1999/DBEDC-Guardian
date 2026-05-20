@@ -11,12 +11,12 @@ use Inertia\Inertia;
 
 class ReturnManagementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('SCM/ReturnManagement/Index', [
             'returns' => ReturnRequest::with(['requester', 'approver', 'returnable'])
                 ->latest()
-                ->paginate(15),
+                ->paginate($request->get('per_page', 20)),
             'stats' => [
                 'total_returns' => ReturnRequest::count(),
                 'pending_approval' => ReturnRequest::where('status', 'requested')->count(),

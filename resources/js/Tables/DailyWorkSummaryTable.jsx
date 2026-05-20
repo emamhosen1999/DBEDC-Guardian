@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
     Table as RadixTable,
@@ -24,10 +24,30 @@ import {
     TargetIcon,
     ExclamationTriangleIcon,
 } from '@radix-ui/react-icons';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 
 const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => {
     const isMobile = useMediaQuery('(max-width: 1024px)');
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [perPage, setPerPage] = useState(20);
+
+    // Calculate pagination
+    const total = filteredData?.length || 0;
+    const totalPages = Math.ceil(total / perPage);
+    const startIndex = (currentPage - 1) * perPage;
+    const paginatedData = filteredData?.slice(startIndex, startIndex + perPage) || [];
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPerPage(newPerPage);
+        setCurrentPage(1);
+    };
 
     const columns = [
         { name: 'Date',             uid: 'date',                   icon: CalendarIcon },
@@ -377,8 +397,8 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                         </RadixTable.Row>
                     </RadixTable.Header>
                     <RadixTable.Body>
-                        {filteredData?.length > 0 ? (
-                            filteredData.map((summary) => (
+                        {paginatedData?.length > 0 ? (
+                            paginatedData.map((summary) => (
                                 <RadixTable.Row key={summary.date}>
                                     {columns.map((col) => (
                                         <React.Fragment key={col.uid}>
@@ -401,6 +421,14 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                     </RadixTable.Body>
                 </RadixTable.Root>
             </ScrollArea>
+
+            {/* Pagination */}
+            <TablePagination
+                pagination={{ currentPage, perPage, total }}
+                onPageChange={handlePageChange}
+                onRowsPerPageChange={handleRowsPerPageChange}
+                loading={loading}
+            />
         </Box>
     );
 };

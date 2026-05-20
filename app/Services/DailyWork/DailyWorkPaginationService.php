@@ -27,7 +27,7 @@ class DailyWorkPaginationService
         $userDesignationTitle = $user->designation?->title;
         $isAdmin = $user->hasRole('Super Administrator') || $user->hasRole('Administrator');
 
-        $perPage = (int) $request->get('perPage', 30);
+        $perPage = (int) $request->get('perPage', 20);
         $page = $request->get('search') != '' ? 1 : $request->get('page', 1);
         $search = $request->get('search');
         $statusFilter = $request->get('status');

@@ -12,12 +12,12 @@ use Inertia\Inertia;
 
 class LogisticsController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('SCM/Logistics/Index', [
             'shipments' => LogisticsShipment::with(['carrier', 'fromLocation', 'toLocation'])
                 ->latest()
-                ->paginate(15),
+                ->paginate($request->get('per_page', 20)),
             'carriers' => LogisticsCarrier::where('is_active', true)->get(),
             'stats' => [
                 'total_shipments' => LogisticsShipment::count(),
@@ -167,10 +167,10 @@ class LogisticsController extends Controller
     }
 
     // Carriers Management
-    public function carriers()
+    public function carriers(Request $request)
     {
         return Inertia::render('SCM/Logistics/Carriers', [
-            'carriers' => LogisticsCarrier::latest()->paginate(10),
+            'carriers' => LogisticsCarrier::latest()->paginate($request->get('per_page', 20)),
             'status' => session('status'),
         ]);
     }

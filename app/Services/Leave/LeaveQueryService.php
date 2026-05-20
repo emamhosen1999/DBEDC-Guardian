@@ -15,7 +15,7 @@ class LeaveQueryService
     /**
      * Get leave records with pagination and filtering
      */
-    public function getLeaveRecords(Request $request, int $perPage = 30, int $page = 1, ?string $employee = '', ?int $year = null, ?string $month = null): array
+    public function getLeaveRecords(Request $request, int $perPage = 20, int $page = 1, ?string $employee = '', ?int $year = null, ?string $month = null): array
     {
         $user = Auth::user();
 

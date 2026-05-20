@@ -8,34 +8,19 @@ import {
     Separator, Spinner, Table, Text, Tooltip,
 } from '@radix-ui/themes';
 import {
-    CalendarIcon, CheckCircledIcon, ChevronLeftIcon, ChevronRightIcon,
+    CalendarIcon, CheckCircledIcon,
     ClockIcon, CrossCircledIcon, DotsVerticalIcon,
     ExclamationTriangleIcon, FileTextIcon,
     Pencil1Icon, PersonIcon, TrashIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import ApprovalActions from '@/Components/Leave/ApprovalActions.jsx';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 
 
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
-const TablePagination = ({ currentPage, lastPage, totalRows, onChange }) => (
-    <Flex align="center" justify="between" mt="3" px="1">
-        <Text size="1" color="gray">
-            Page {currentPage} of {lastPage} &mdash; {totalRows} records
-        </Text>
-        <Flex align="center" gap="1">
-            <Button size="1" variant="soft" disabled={currentPage <= 1} onClick={() => onChange(currentPage - 1)}>
-                <ChevronLeftIcon /> Prev
-            </Button>
-            <Button size="1" variant="soft" disabled={currentPage >= lastPage} onClick={() => onChange(currentPage + 1)}>
-                Next <ChevronRightIcon />
-            </Button>
-        </Flex>
-    </Flex>
-);
-
 const UserCell = ({ user }) => (
     <Flex align="center" gap="2">
         <Avatar
@@ -69,6 +54,7 @@ const LeaveEmployeeTable = React.forwardRef(({
     totalRows,
     lastPage,
     perPage,
+    onRowsPerPageChange,
     selectedMonth,
     employee,
     isAdminView = false,
@@ -410,8 +396,11 @@ const LeaveEmployeeTable = React.forwardRef(({
                     ))}
                 </ScrollArea>
                 {totalRows > perPage && (
-                    <TablePagination currentPage={currentPage} lastPage={lastPage}
-                        totalRows={totalRows} perPage={perPage} onChange={handlePageChange} />
+                    <TablePagination
+                        pagination={{ currentPage, perPage, total: totalRows }}
+                        onPageChange={handlePageChange}
+                        onRowsPerPageChange={onRowsPerPageChange}
+                    />
                 )}
             </Box>
         );
@@ -457,8 +446,11 @@ const LeaveEmployeeTable = React.forwardRef(({
                 </Table.Root>
             </ScrollArea>
             {totalRows > perPage && (
-                <TablePagination currentPage={currentPage} lastPage={lastPage}
-                    totalRows={totalRows} perPage={perPage} onChange={handlePageChange} />
+                <TablePagination
+                    pagination={{ currentPage, perPage, total: totalRows }}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={onRowsPerPageChange}
+                />
             )}
         </Box>
     );

@@ -15,12 +15,12 @@ use Inertia\Inertia;
 
 class PurchaseController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('SCM/Purchases/Index', [
             'purchases' => PurchaseOrder::with(['supplier', 'user', 'items.inventoryItem'])
                 ->latest()
-                ->paginate(15),
+                ->paginate($request->get('per_page', 20)),
             'stats' => [
                 'total_orders' => PurchaseOrder::count(),
                 'pending_approval' => PurchaseOrder::where('status', 'pending_approval')->count(),

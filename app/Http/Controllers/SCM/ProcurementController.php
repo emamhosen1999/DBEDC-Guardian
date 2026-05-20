@@ -14,12 +14,12 @@ use Inertia\Inertia;
 
 class ProcurementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('SCM/Procurement/Index', [
             'requests' => ProcurementRequest::with(['requester', 'department', 'approver', 'items'])
                 ->latest()
-                ->paginate(15),
+                ->paginate($request->get('per_page', 20)),
             'stats' => [
                 'total_requests' => ProcurementRequest::count(),
                 'pending_approval' => ProcurementRequest::where('status', 'submitted')->count(),

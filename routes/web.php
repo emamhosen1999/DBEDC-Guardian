@@ -401,7 +401,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
         Route::post('/users/{userId}/status', [UserController::class, 'toggleStatus'])->name('users.toggleStatus');
         Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
-        Route::post('/users/{id}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
+        Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'updateEmployeeBiometricDevice'])->name('users.updateBiometricDevice');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
         

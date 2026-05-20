@@ -14,12 +14,12 @@ use Inertia\Inertia;
 
 class ProductionPlanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('SCM/ProductionPlan/Index', [
             'plans' => ProductionPlan::with(['product', 'assignedUser', 'materials.inventoryItem'])
                 ->latest()
-                ->paginate(15),
+                ->paginate($request->get('per_page', 20)),
             'stats' => [
                 'total_plans' => ProductionPlan::count(),
                 'active_plans' => ProductionPlan::whereIn('status', ['scheduled', 'in_progress'])->count(),
