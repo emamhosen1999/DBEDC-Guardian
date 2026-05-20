@@ -551,9 +551,6 @@ class UserController extends Controller
                 } elseif ($status === 'inactive') {
                     $query->whereNotNull('deleted_at');
                 }
-            } elseif (! $showDeleted) {
-                // Default (no status filter, showDeleted off): hide explicitly-deleted users
-                $query->whereNull('deleted_at');
             }
 
             if ($department && $department !== 'all') {
@@ -562,8 +559,8 @@ class UserController extends Controller
 
             $statsQuery = clone $query;
 
-            // Sort active users first (not deleted)
-            $query->whereNull('deleted_at')->orderBy('name');
+            // Sort: active users first (not deleted), then inactive (deleted)
+            $query->orderByRaw('ISNULL(deleted_at) DESC')->orderBy('name');
 
             // Paginate
             $users = $query->paginate($perPage, ['*'], 'page', $page);
