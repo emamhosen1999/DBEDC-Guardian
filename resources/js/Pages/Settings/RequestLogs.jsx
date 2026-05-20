@@ -5,6 +5,7 @@ import App from '@/Layouts/App';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import axios from 'axios';
+import TablePagination from '@/Components/TablePagination.jsx';
 import {
     Box,
     Flex,
@@ -81,6 +82,11 @@ const RequestLogs = ({ title }) => {
             setLoading(false);
         }
     }, [filters, pagination.per_page]);
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, per_page: newPerPage }));
+        loadLogs(1);
+    };
 
     useEffect(() => {
         loadLogs(1);
@@ -573,48 +579,20 @@ const RequestLogs = ({ title }) => {
                                     direction={{ initial: 'column', sm: 'row' }}
                                 >
                                     <Text size="1" color="gray">
-                                        Showing {from.toLocaleString()}–{to.toLocaleString()} of {pagination.total.toLocaleString()} logs
                                         {selectedLogs.size > 0 && (
-                                            <Text as="span" color="indigo"> · {selectedLogs.size} selected</Text>
+                                            <Text as="span" color="indigo">{selectedLogs.size} selected · </Text>
                                         )}
                                     </Text>
-                                    <Flex gap="2" align="center">
-                                        <Button
-                                            size="1"
-                                            variant="soft"
-                                            disabled={pagination.current_page === 1}
-                                            onClick={() => loadLogs(1)}
-                                        >
-                                            «
-                                        </Button>
-                                        <Button
-                                            size="1"
-                                            variant="soft"
-                                            disabled={pagination.current_page === 1}
-                                            onClick={() => loadLogs(pagination.current_page - 1)}
-                                        >
-                                            ‹ {!isMobile && 'Prev'}
-                                        </Button>
-                                        <Text size="1" color="gray" px="2">
-                                            Page {pagination.current_page} of {totalPages}
-                                        </Text>
-                                        <Button
-                                            size="1"
-                                            variant="soft"
-                                            disabled={pagination.current_page >= totalPages}
-                                            onClick={() => loadLogs(pagination.current_page + 1)}
-                                        >
-                                            {!isMobile && 'Next'} ›
-                                        </Button>
-                                        <Button
-                                            size="1"
-                                            variant="soft"
-                                            disabled={pagination.current_page >= totalPages}
-                                            onClick={() => loadLogs(totalPages)}
-                                        >
-                                            »
-                                        </Button>
-                                    </Flex>
+                                    <TablePagination
+                                        pagination={{
+                                            currentPage: pagination.current_page,
+                                            perPage: pagination.per_page,
+                                            total: pagination.total
+                                        }}
+                                        onPageChange={(page) => loadLogs(page)}
+                                        onRowsPerPageChange={handleRowsPerPageChange}
+                                        loading={loading}
+                                    />
                                 </Flex>
                             )}
                         </Card>

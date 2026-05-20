@@ -11,6 +11,7 @@ import BulkInchargeModal from '@/Components/DailyWork/BulkInchargeModal';
 import BulkStatusModal from '@/Components/DailyWork/BulkStatusModal';
 import BulkCompletionDateModal from '@/Components/DailyWork/BulkCompletionDateModal';
 import BulkDeleteModal from '@/Components/DailyWork/BulkDeleteModal';
+import TablePagination from '@/Components/TablePagination.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { showToast } from '@/utils/toastUtils';
 import { router, usePage } from "@inertiajs/react";
@@ -22,7 +23,6 @@ import {
     CalendarIcon,
     CheckCircledIcon,
     CheckIcon, ChevronDownIcon,
-    ChevronLeftIcon, ChevronRightIcon,
     ClipboardIcon,
     ClockIcon,
     CrossCircledIcon,
@@ -107,22 +107,23 @@ const HighlightedText = ({ text, searchTerm }) => {
 };
 
 const DailyWorksTable = ({ 
-    allData, 
-    setData, 
-    loading, 
-    handleClickOpen, 
-    allInCharges, 
-    reports, 
-    juniors, 
-    reports_with_daily_works, 
-    openModal, 
-    setCurrentRow, 
-    filteredData, 
+    allData,
+    setData,
+    loading,
+    handleClickOpen,
+    allInCharges,
+    reports,
+    juniors,
+    reports_with_daily_works,
+    openModal,
+    setCurrentRow,
+    filteredData,
     setFilteredData,
     currentPage,
     totalRows,
     lastPage,
     onPageChange,
+    onRowsPerPageChange,
     searchTerm = ''
 }) => {
     const { auth, users, jurisdictions } = usePage().props;
@@ -2317,19 +2318,14 @@ const DesktopLoadingSkeleton = () => (
                 </RadixTable.Body>
             </RadixTable.Root>
         </ScrollArea>
-        
+
         {/* Pagination - Always visible */}
-        <Flex justify="center" align="center" py="4" gap="3">
-            <IconButton size="2" variant="surface" color="gray" disabled>
-                <ChevronLeftIcon />
-            </IconButton>
-            <Text size="2" weight="medium" color="gray">
-                Page {currentPage} of {lastPage || 1}
-            </Text>
-            <IconButton size="2" variant="surface" color="gray" disabled>
-                <ChevronRightIcon />
-            </IconButton>
-        </Flex>
+        <TablePagination
+            pagination={{ currentPage, perPage: 20, total: totalRows }}
+            onPageChange={onPageChange}
+            onRowsPerPageChange={onRowsPerPageChange}
+            loading={loading}
+        />
     </Box>
 );
     // Show loading skeleton BEFORE checking isMobile
@@ -2415,31 +2411,12 @@ const DesktopLoadingSkeleton = () => (
 
     {/* Mobile pagination - show when there are multiple pages */}
     {lastPage > 1 && (
-        <Flex justify="center" pt="2" pb="4">
-            <Flex gap="3" align="center">
-                <IconButton 
-                    size="2" 
-                    variant="surface" 
-                    color="gray"
-                    disabled={currentPage <= 1} 
-                    onClick={() => handlePageChange(currentPage - 1)}
-                >
-                    <ChevronLeftIcon />
-                </IconButton>
-                <Text size="2" weight="medium" color="gray">
-                    {currentPage} / {lastPage}
-                </Text>
-                <IconButton 
-                    size="2" 
-                    variant="surface" 
-                    color="gray"
-                    disabled={currentPage >= lastPage} 
-                    onClick={() => handlePageChange(currentPage + 1)}
-                >
-                    <ChevronRightIcon />
-                </IconButton>
-            </Flex>
-        </Flex>
+        <TablePagination
+            pagination={{ currentPage, perPage: 20, total: totalRows }}
+            onPageChange={onPageChange}
+            onRowsPerPageChange={onRowsPerPageChange}
+            loading={loading}
+        />
     )}
     
     {/* --- Modals --- */}

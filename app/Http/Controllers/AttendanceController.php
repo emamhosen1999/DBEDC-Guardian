@@ -34,7 +34,7 @@ class AttendanceController extends Controller
     public function paginate(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            $perPage = (int) $request->get('perPage', 30);
+            $perPage = (int) $request->get('perPage', 20);
             $page = (int) $request->get('page', 1);
             $employee = $request->get('employee');
             $currentMonth = $request->get('currentMonth');

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useRef } from "react";
 import { Link, router } from '@inertiajs/react';
 import { showToast } from "@/utils/toastUtils";
 import axios from 'axios';
+import TablePagination from '@/Components/TablePagination.jsx';
 import {
     Avatar,
     Badge,
@@ -18,8 +19,6 @@ import {
 } from '@radix-ui/themes';
 import {
     BackpackIcon,
-    ChevronLeftIcon,
-    ChevronRightIcon,
     ClockIcon,
     DotsVerticalIcon,
     EnvelopeClosedIcon,
@@ -556,87 +555,12 @@ const EmployeeTable = ({
             </Box>
 
             {/* ── Pagination Footer ── */}
-            {pagination && !loading && pagination.total > 0 && (
-                <Flex
-                    align="center"
-                    justify="between"
-                    pt="3"
-                    mt="2"
-                    style={{ borderTop: '1px solid var(--gray-a4)' }}
-                    wrap="wrap"
-                    gap="3"
-                >
-                    {/* Rows per page */}
-                    <Flex align="center" gap="2">
-                        <Text size="1" color="gray">Rows per page</Text>
-                        <Select.Root
-                            size="1"
-                            value={String(pagination.perPage)}
-                            onValueChange={(v) => onRowsPerPageChange?.(parseInt(v))}
-                        >
-                            <Select.Trigger />
-                            <Select.Content>
-                                {[10, 20, 30, 50].map(n => (
-                                    <Select.Item key={n} value={String(n)}>{n}</Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
-                    </Flex>
-
-                    {/* Info + nav */}
-                    <Flex align="center" gap="3">
-                        <Text size="1" color="gray">
-                            {startRow}–{endRow} of {pagination.total}
-                        </Text>
-                        <Flex gap="1">
-                            <IconButton
-                                size="1"
-                                variant="soft"
-                                color="gray"
-                                disabled={pagination.currentPage <= 1}
-                                onClick={() => onPageChange?.(pagination.currentPage - 1)}
-                                aria-label="Previous page"
-                            >
-                                <ChevronLeftIcon />
-                            </IconButton>
-                            {/* Page number pills */}
-                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                                let page;
-                                if (totalPages <= 5) {
-                                    page = i + 1;
-                                } else if (pagination.currentPage <= 3) {
-                                    page = i + 1;
-                                } else if (pagination.currentPage >= totalPages - 2) {
-                                    page = totalPages - 4 + i;
-                                } else {
-                                    page = pagination.currentPage - 2 + i;
-                                }
-                                return (
-                                    <Button
-                                        key={page}
-                                        size="1"
-                                        variant={page === pagination.currentPage ? 'solid' : 'soft'}
-                                        color={page === pagination.currentPage ? 'indigo' : 'gray'}
-                                        onClick={() => onPageChange?.(page)}
-                                    >
-                                        {page}
-                                    </Button>
-                                );
-                            })}
-                            <IconButton
-                                size="1"
-                                variant="soft"
-                                color="gray"
-                                disabled={pagination.currentPage >= totalPages}
-                                onClick={() => onPageChange?.(pagination.currentPage + 1)}
-                                aria-label="Next page"
-                            >
-                                <ChevronRightIcon />
-                            </IconButton>
-                        </Flex>
-                    </Flex>
-                </Flex>
-            )}
+            <TablePagination
+                pagination={pagination}
+                onPageChange={onPageChange}
+                onRowsPerPageChange={onRowsPerPageChange}
+                loading={loading}
+            />
 
             {/* ── Modals ── */}
             <DeleteEmployeeModal

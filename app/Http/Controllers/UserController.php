@@ -445,9 +445,9 @@ class UserController extends Controller
         ]);
     }
 
-    public function updateUserAttendanceType(Request $request, $id)
+    public function updateUserAttendanceType(Request $request, $userId)
     {
-        $user = User::findOrFail($id);
+        $user = User::findOrFail($userId);
 
         $this->authorize('updateAttendanceType', $user);
 
@@ -532,7 +532,7 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
 
         try {
-            $perPage = $request->input('perPage', 10);
+            $perPage = $request->input('perPage', 20);
             $page = $request->input('page', 1);
             $search = $request->input('search');
             $role = $request->input('role');
@@ -756,7 +756,7 @@ class UserController extends Controller
     {
         try {
             // Extract filter parameters
-            $perPage = $request->input('perPage', 10);
+            $perPage = $request->input('perPage', 20);
             $page = $request->input('page', 1);
             $search = $request->input('search', '');
             $department = $request->input('department');

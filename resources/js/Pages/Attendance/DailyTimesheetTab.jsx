@@ -6,7 +6,7 @@ import {
 import {
     MagnifyingGlassIcon, CalendarIcon, ClockIcon, PersonIcon,
     ExclamationTriangleIcon, CheckCircledIcon, DownloadIcon,
-    ChevronLeftIcon, ChevronRightIcon, MobileIcon,
+    MobileIcon,
     ReloadIcon, UpdateIcon,
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
@@ -15,6 +15,7 @@ import axios from 'axios';
 import AbsentSidebar from './AbsentSidebar';
 import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
 import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
@@ -219,48 +220,6 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
         default:
             return <Table.Cell><Text size="2" color="gray">—</Text></Table.Cell>;
     }
-};
-
-/* ── pagination ───────────────────────────────────────────── */
-
-const Pagination = ({ currentPage, lastPage, onChange }) => {
-    const pages = Array.from({ length: lastPage }, (_, i) => i + 1)
-        .filter(p => p === 1 || p === lastPage || Math.abs(p - currentPage) <= 1)
-        .reduce((acc, p, i, arr) => {
-            if (i > 0 && p - arr[i - 1] > 1) acc.push('…');
-            acc.push(p);
-            return acc;
-        }, []);
-
-    return (
-        <Flex justify="center" align="center" gap="1" pt="3" pb="2" wrap="wrap">
-            <Button
-                variant="ghost" size="1" color="gray"
-                disabled={currentPage <= 1}
-                onClick={() => onChange(currentPage - 1)}
-            >
-                <ChevronLeftIcon />
-            </Button>
-            {pages.map((p, i) =>
-                p === '…'
-                    ? <Text key={`e${i}`} size="1" color="gray" style={{ padding: '0 2px' }}>…</Text>
-                    : <Button
-                        key={p}
-                        size="1"
-                        variant={p === currentPage ? 'solid' : 'ghost'}
-                        color={p === currentPage ? 'accent' : 'gray'}
-                        onClick={() => onChange(p)}
-                      >{p}</Button>
-            )}
-            <Button
-                variant="ghost" size="1" color="gray"
-                disabled={currentPage >= lastPage}
-                onClick={() => onChange(currentPage + 1)}
-            >
-                <ChevronRightIcon />
-            </Button>
-        </Flex>
-    );
 };
 
 /* ── main ─────────────────────────────────────────────────── */
@@ -670,7 +629,12 @@ const DailyTimesheetTab = ({
                         </ScrollArea>
 
                         {lastPage > 1 && isLoaded && (
-                            <Pagination currentPage={currentPage} lastPage={lastPage} onChange={setCurrentPage} />
+                            <TablePagination
+                                pagination={{ currentPage, perPage, total: totalRows }}
+                                onPageChange={setCurrentPage}
+                                onRowsPerPageChange={(v) => setPerPage(v)}
+                                loading={!isLoaded}
+                            />
                         )}
                     </Box>
 
