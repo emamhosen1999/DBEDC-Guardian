@@ -907,6 +907,8 @@ class AttendanceController extends Controller
                     'date' => $firstRecord->date,
                     'punchin_time' => $firstPunch->punchin,
                     'punchout_time' => $lastCompletePunch ? $lastCompletePunch->punchout : null,
+                    'punchin_id' => $firstPunch->id,
+                    'punchout_id' => $lastCompletePunch?->id ?? null,
                     'punchin_location' => $firstPunch->punchin_location_array,
                     'punchout_location' => $lastCompletePunch ? $lastCompletePunch->punchout_location_array : null,
                     'total_work_minutes' => round($totalWorkMinutes, 2),

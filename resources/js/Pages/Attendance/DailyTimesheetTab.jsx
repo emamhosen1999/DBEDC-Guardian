@@ -76,14 +76,15 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
 
         case 'clockin_time': {
             const timeStr = formatTime(attendance.punchin_time, attendance.date);
-            const isEditing = editingCell?.attendanceId === attendance.id && editingCell?.field === 'punchin';
+            const punchinRecordId = attendance.punchin_id ?? attendance.id;
+            const isEditing = editingCell?.attendanceId === punchinRecordId && editingCell?.field === 'punchin';
             
             return (
                 <Table.Cell>
                     {canCorrect && isEditing ? (
                         <AttendanceTimePicker
                             value={attendance.punchin_time ? dayjs(attendance.punchin_time).format('HH:mm') : ''}
-                            onSave={(time) => onSaveTime(attendance.id, 'punchin', time)}
+                            onSave={(time) => onSaveTime(punchinRecordId, 'punchin', time)}
                             onCancel={onCancelEdit}
                             label="In"
                         />
@@ -95,7 +96,7 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
                                     size="2" 
                                     weight="medium"
                                     style={{ cursor: 'pointer', color: 'var(--accent-11)' }}
-                                    onClick={() => onStartEdit(attendance.id, 'punchin')}
+                                    onClick={() => onStartEdit(punchinRecordId, 'punchin')}
                                 >
                                     {timeStr || <Text size="2" color="gray">—</Text>}
                                 </Text>
@@ -112,14 +113,15 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
 
         case 'clockout_time': {
             const hasPunches = attendance.punches && attendance.punches.length > 0;
-            const isEditing = editingCell?.attendanceId === attendance.id && editingCell?.field === 'punchout';
+            const punchoutRecordId = attendance.punchout_id ?? attendance.id;
+            const isEditing = editingCell?.attendanceId === punchoutRecordId && editingCell?.field === 'punchout';
             
             return (
                 <Table.Cell>
                     {canCorrect && isEditing ? (
                         <AttendanceTimePicker
                             value={attendance.punchout_time ? dayjs(attendance.punchout_time).format('HH:mm') : ''}
-                            onSave={(time) => onSaveTime(attendance.id, 'punchout', time)}
+                            onSave={(time) => onSaveTime(punchoutRecordId, 'punchout', time)}
                             onCancel={onCancelEdit}
                             label="Out"
                         />
