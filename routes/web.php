@@ -399,14 +399,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware(['precognitive'])
             ->name('users.update');
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
-        Route::post('/users/{userId}/status', [UserController::class, 'toggleStatus'])->name('users.toggleStatus');
         Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
         Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'updateEmployeeBiometricDevice'])->name('users.updateBiometricDevice');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
         
         // Bulk operations
-        Route::post('/users/bulk/status', [UserController::class, 'bulkUpdateStatus'])->name('users.bulk.status');
         Route::post('/users/bulk/role', [UserController::class, 'bulkAssignRole'])->name('users.bulk.role');
     });
 

@@ -231,38 +231,6 @@ class UserController extends Controller
         }
     }
 
-    public function toggleStatus($userId, Request $request)
-    {
-        try {
-            $user = User::withTrashed()->findOrFail($userId);
-            $request->validate(['active' => 'required|boolean']);
-
-            // Handle soft delete or restore based on the new status
-            if ($request->input('active')) {
-                $user->restore(); // Restore the user if they were soft deleted
-            } else {
-                $user->delete();  // Soft delete the user if marking inactive
-            }
-
-            return response()->json([
-                'message' => 'User status updated successfully',
-                'user' => new UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice'])),
-            ]);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'error' => 'User not found.',
-                'message' => 'The user no longer exists in the system.',
-            ], 404);
-        } catch (\Exception $e) {
-            report($e);
-
-            return response()->json([
-                'error' => 'Failed to update user status.',
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
     /**
      * Delete a user (soft delete).
      */
@@ -299,45 +267,6 @@ class UserController extends Controller
             'message' => 'User restored successfully.',
             'user'    => new \App\Http\Resources\UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice'])),
         ]);
-    }
-
-    /**
-     * Bulk update user status
-     */
-    public function bulkUpdateStatus(Request $request)
-    {
-        $request->validate([
-            'user_ids' => 'required|array',
-            'user_ids.*' => 'exists:users,id',
-            'active' => 'required|boolean',
-        ]);
-
-        try {
-            $count = DB::transaction(function () use ($request) {
-                $userIds = $request->input('user_ids');
-                $active  = $request->input('active');
-
-                if ($active) {
-                    // Restore soft-deleted users
-                    return User::withTrashed()->whereIn('id', $userIds)->restore();
-                } else {
-                    // Soft-delete users
-                    return User::whereIn('id', $userIds)->delete();
-                }
-            });
-
-            return response()->json([
-                'message' => "Status updated for {$count} user(s).",
-                'count' => $count,
-            ]);
-        } catch (\Exception $e) {
-            report($e);
-
-            return response()->json([
-                'error' => 'Failed to bulk update status.',
-                'message' => $e->getMessage(),
-            ], 500);
-        }
     }
 
     /**

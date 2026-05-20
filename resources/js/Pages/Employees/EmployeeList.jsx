@@ -174,7 +174,7 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
                     attendanceType: filters.attendanceType,
                 },
             });
-            setEmployees(data.employees.data);
+            setEmployees(data.employees.data.filter(e => !e.deleted_at));
             setTotalRows(data.employees.total);
             setPagination(prev => ({ ...prev, total: data.employees.total }));
             if (data.allManagers) setAllManagers(data.allManagers);

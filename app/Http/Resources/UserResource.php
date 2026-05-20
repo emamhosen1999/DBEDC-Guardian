@@ -84,7 +84,6 @@ class UserResource extends JsonResource
                     'update' => $request->user()->can('update', $this->resource),
                     'delete' => $request->user()->can('delete', $this->resource),
                     'update_roles' => $request->user()->can('updateRoles', $this->resource),
-                    'toggle_status' => $request->user()->can('toggleStatus', $this->resource),
                     'manage_devices' => $request->user()->can('manageDevices', $this->resource),
                 ];
             }),
