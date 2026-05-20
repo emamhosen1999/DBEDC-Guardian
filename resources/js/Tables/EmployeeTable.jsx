@@ -95,11 +95,14 @@ const EmployeeTable = ({
     /* ── handlers ── */
     const handleDepartmentChange = async (userId, departmentId) => {
         try {
+            console.log('[handleDepartmentChange] Request:', { userId, departmentId });
             await axios.put(route('users.update-department', { id: userId }), { department_id: departmentId });
+            console.log('[handleDepartmentChange] Success');
             const dept = departments.find(d => d.id === parseInt(departmentId)) || null;
             updateEmployeeOptimized?.(userId, { department_id: departmentId, department_name: dept?.name || null, designation_id: null, designation_name: null });
             showToast.success('Department updated');
         } catch (e) {
+            console.log('[handleDepartmentChange] Error:', e.response?.status, e.response?.data);
             if (e.response?.status === 404) {
                 showToast.error('User not found. Please refresh the page.');
             } else {
@@ -110,11 +113,14 @@ const EmployeeTable = ({
 
     const handleDesignationChange = async (userId, designationId) => {
         try {
+            console.log('[handleDesignationChange] Request:', { userId, designationId });
             await axios.post(route('users.updateDesignation', { id: userId }), { designation_id: designationId });
+            console.log('[handleDesignationChange] Success');
             const desig = designations.find(d => d.id === parseInt(designationId)) || null;
             updateEmployeeOptimized?.(userId, { designation_id: designationId, designation_name: desig?.title || null });
             showToast.success('Designation updated');
         } catch (e) {
+            console.log('[handleDesignationChange] Error:', e.response?.status, e.response?.data);
             if (e.response?.status === 404) {
                 showToast.error('User not found. Please refresh the page.');
             } else {
@@ -125,7 +131,9 @@ const EmployeeTable = ({
 
     const handleAttendanceTypeChange = async (userId, attendanceTypeId) => {
         try {
+            console.log('[handleAttendanceTypeChange] Request:', { userId, attendanceTypeId });
             await axios.post(route('users.updateAttendanceType', { id: userId }), { attendance_type_id: attendanceTypeId });
+            console.log('[handleAttendanceTypeChange] Success');
             const type = attendanceTypes.find(t => t.id === parseInt(attendanceTypeId)) || null;
             const devices = (type?.biometric_devices ?? []).map(d => ({
                 id: d.id, name: d.name, serial_number: d.serial_number, location: d.location,
@@ -138,6 +146,7 @@ const EmployeeTable = ({
             });
             showToast.success('Attendance type updated');
         } catch (e) {
+            console.log('[handleAttendanceTypeChange] Error:', e.response?.status, e.response?.data);
             if (e.response?.status === 404) {
                 showToast.error('User not found. Please refresh the page.');
             } else {
@@ -148,15 +157,18 @@ const EmployeeTable = ({
 
     const handleBiometricDeviceChange = async (userId, deviceId) => {
         try {
+            console.log('[handleBiometricDeviceChange] Request:', { userId, deviceId });
             const { data } = await axios.post(route('users.updateBiometricDevice', { id: userId }), {
                 biometric_device_id: deviceId || null,
             });
+            console.log('[handleBiometricDeviceChange] Response:', data);
             updateEmployeeOptimized?.(userId, {
                 biometric_device_id: data.biometric_device_id ?? null,
                 biometric_device_name: data.biometric_device_name ?? null,
             });
             showToast.success(data.message || 'Device assigned');
         } catch (e) {
+            console.log('[handleBiometricDeviceChange] Error:', e.response?.status, e.response?.data);
             if (e.response?.status === 404) {
                 showToast.error('User not found. Please refresh the page.');
             } else {
@@ -169,10 +181,13 @@ const EmployeeTable = ({
         if (reportToDebounceRef.current[userId]) clearTimeout(reportToDebounceRef.current[userId]);
         reportToDebounceRef.current[userId] = setTimeout(async () => {
             try {
+                console.log('[debouncedUpdateReportTo] Request:', { userId, reportToId });
                 const { data } = await axios.post(route('users.updateReportTo', { id: userId }), { report_to: reportToId || null });
+                console.log('[debouncedUpdateReportTo] Response:', data);
                 updateEmployeeOptimized?.(userId, { report_to: reportToId || null, reports_to: data.user?.reports_to || null });
                 showToast.success('Manager assigned');
-            } catch {
+            } catch (e) {
+                console.log('[debouncedUpdateReportTo] Error:', e.response?.status, e.response?.data);
                 showToast.error('Failed to update manager');
             }
         }, 500);
@@ -201,12 +216,15 @@ const EmployeeTable = ({
         if (!employeeToDelete) return;
         setDeleteLoading(true);
         try {
+            console.log('[handleDeleteConfirm] Request:', { id: employeeToDelete.id, name: employeeToDelete.name });
             await axios.delete(route('user.delete', { id: employeeToDelete.id }));
+            console.log('[handleDeleteConfirm] Success');
             deleteEmployeeOptimized?.(employeeToDelete.id);
             setDeleteModalOpen(false);
             setEmployeeToDelete(null);
             showToast.success('Employee deleted');
         } catch (err) {
+            console.log('[handleDeleteConfirm] Error:', err.response?.status, err.response?.data);
             const msg = err.response?.status === 403 ? 'Permission denied'
                 : err.response?.status === 404 ? 'Employee not found'
                 : err.response?.data?.error || 'Failed to delete employee';
