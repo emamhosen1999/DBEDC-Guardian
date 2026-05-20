@@ -949,11 +949,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin/events')->group(function 
 if (config('features.commercial_stack')) {
     require __DIR__.'/modules.php';
 }
-require __DIR__.'/compliance.php';
+
 require __DIR__.'/quality.php';
-require __DIR__.'/analytics.php';
-require __DIR__.'/project-management.php';
+
 require __DIR__.'/hr.php';
-require __DIR__.'/dms.php';
+
 
 require __DIR__.'/auth.php';
