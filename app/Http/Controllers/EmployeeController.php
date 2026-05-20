@@ -438,8 +438,8 @@ class EmployeeController extends Controller
                 ->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
                 ->orderBy('users.name');
 
-            // Execute query with pagination
-            $employees = $query->paginate($perPage, ['*'], 'page', $page);
+            // ✅ FIX: Change ['*'] to ['users.*'] to prevent the designation ID from overwriting the user ID
+            $employees = $query->paginate($perPage, ['users.*'], 'page', $page);
 
             // Build a type_id => [{id, name, serial_number}] map for devices linked to each AT
             // Also eager-load employeeAttendanceType for per-employee device
