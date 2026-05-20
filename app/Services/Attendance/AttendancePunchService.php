@@ -18,11 +18,8 @@ class AttendancePunchService
     public function processPunch($user, Request $request): array
     {
         try {
-            // Use device-provided punch_time when available (biometric batch sync).
-            // Fallback to now() for manual/web punches that omit the field.
-            $punchTime = $request->input('punch_time')
-                ? Carbon::parse($request->input('punch_time'))
-                : Carbon::now();
+            // Always use server time for all attendance punches
+            $punchTime = Carbon::now();
             $punchDate = $punchTime->copy()->startOfDay();
 
             // Honour explicit check_type sent by biometric devices (ZKTeco: in/out/break_*).

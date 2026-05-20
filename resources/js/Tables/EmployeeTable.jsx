@@ -96,8 +96,8 @@ const EmployeeTable = ({
     /* ── handlers ── */
     const handleDepartmentChange = async (userId, departmentId) => {
         try {
-           
-            await axios.put(route('users.update-department', { id: userId }), { department_id: departmentId });
+
+            await axios.put(route('users.update-department', { id: userId }), { department: departmentId });
           
             const dept = departments.find(d => d.id === parseInt(departmentId)) || null;
             updateEmployeeOptimized?.(userId, { department_id: departmentId, department_name: dept?.name || null, designation_id: null, designation_name: null });
