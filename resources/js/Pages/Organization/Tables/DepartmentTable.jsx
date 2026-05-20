@@ -11,8 +11,8 @@ import {
     DotsVerticalIcon
 } from '@radix-ui/react-icons';
 import dayjs from 'dayjs';
-import TablePagination from '../Components/TablePagination.jsx';
-import ProfileAvatar from '../Components/ProfileAvatar.jsx';
+import TablePagination from '../../../Components/TablePagination.jsx';
+import ProfileAvatar from '../../../Components/Profile/ProfileAvatar.jsx';
 
 const DepartmentTable = ({
     departments, onEdit, onDelete, onView, loading,

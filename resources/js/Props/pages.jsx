@@ -85,15 +85,10 @@ export const getPages = (roles, permissions, auth = null) => {
       subMenu: [
         // Core Employee Management
         ...((permissions.includes('employees.view') || permissions.includes('departments.view') || permissions.includes('designations.view')) ? [{
-          name: 'Employees',
+          name: 'Organization',
           icon: <UserGroupIcon  />,
           category: 'core',
-          subMenu: [
-            ...(permissions.includes('employees.view') ? [{ name: 'Employee', icon: <UserGroupIcon  />, route: 'employees' }] : []),
-            ...(permissions.includes('departments.view') ? [{ name: 'Departments', icon: <BuildingOffice2Icon  />, route: 'departments' }] : []),
-            ...(permissions.includes('designations.view') ? [{ name: 'Designations', icon: <BriefcaseIcon  />, route: 'designations.index' }] : []),
-            ...(permissions.includes('jurisdiction.view') ? [{ name: 'Work Locations', icon: <MapPinIcon />, route: 'jurisdiction' }] : []),
-          ]
+          route: 'organization.index'
         }] : []),
         
         // Time & Attendance Management
