@@ -464,6 +464,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/attendance/bulk-mark-as-present', [AttendanceController::class, 'bulkMarkAsPresent'])->name('attendance.bulk-mark-as-present');
     });
 
+    // Attendance correction routes
+    Route::middleware(['permission:attendance.correct'])->group(function () {
+        Route::post('/attendance/{id}/correct', [AttendanceController::class, 'updateAttendanceRecord'])->name('attendance.correct.update');
+        Route::post('/attendance/add', [AttendanceController::class, 'addAttendanceRecord'])->name('attendance.correct.add');
+        Route::delete('/attendance/{id}', [AttendanceController::class, 'deleteAttendanceRecord'])->name('attendance.correct.delete');
+        Route::patch('/attendance/{id}/status', [AttendanceController::class, 'updateAttendanceStatus'])->name('attendance.correct.status');
+    });
+
     // Employee attendance stats route
     Route::middleware(['permission:attendance.own.view'])->group(function () {
         Route::get('/attendance/my-monthly-stats', [AttendanceController::class, 'getMonthlyAttendanceStats'])->name('attendance.myMonthlyStats');

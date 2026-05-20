@@ -97,6 +97,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'attendance.create' => 'Create attendance records',
                 'attendance.update' => 'Update attendance records',
                 'attendance.delete' => 'Delete attendance records',
+                'attendance.correct' => 'Correct attendance records (edit punch-in/out)',
                 'attendance.import' => 'Import attendance data',
                 'attendance.export' => 'Export attendance data',
                 'holidays.view' => 'View holidays',

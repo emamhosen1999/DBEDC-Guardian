@@ -433,6 +433,11 @@ class EmployeeController extends Controller
                 }
             }
 
+            // Sort by designation hierarchy (lower hierarchy_level = higher rank)
+            $query->leftJoin('designations', 'users.designation_id', '=', 'designations.id')
+                ->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
+                ->orderBy('users.name');
+
             // Execute query with pagination
             $employees = $query->paginate($perPage, ['*'], 'page', $page);
 
