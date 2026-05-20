@@ -377,20 +377,24 @@ const DailyTimesheetTab = ({
     const handleTimeSave = async (attendanceId, field, time) => {
         try {
             const formattedTime = dayjs(`${selectedDate} ${time}`).format('YYYY-MM-DD HH:mm:ss');
-            
-            if (attendanceId) {
-                // Update existing record
-                await axios.post(route('attendance.correct.update', attendanceId), {
-                    [field]: formattedTime,
-                });
-            } else {
-                // Need to find the attendance record first or create new one
-                // For now, we'll just update if it exists
+
+            if (!attendanceId) {
                 alert('Cannot create new attendance record from this view. Please use mark as present.');
+                return;
             }
 
+            await axios.post(route('attendance.correct.update', attendanceId), {
+                [field]: formattedTime,
+            });
+
             setEditingCell(null);
-            await fetchPresent(currentPage, true);
+
+            // Update the matching grouped row in local state — no full reload needed
+            const timeField = field === 'punchin' ? 'punchin_time' : 'punchout_time';
+            const idField   = field === 'punchin' ? 'punchin_id'   : 'punchout_id';
+            setAttendances(prev =>
+                prev.map(a => a[idField] === attendanceId ? { ...a, [timeField]: formattedTime } : a)
+            );
         } catch (error) {
             console.error('Error updating attendance:', error);
             alert(error.response?.data?.error || 'Failed to update attendance');
