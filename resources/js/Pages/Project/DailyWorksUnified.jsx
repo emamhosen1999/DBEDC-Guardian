@@ -135,11 +135,11 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                 jurisdiction: filterData.jurisdiction,
             };
 
-            console.log('Fetching filtered summaries with payload:', payload);
+          
 
             const response = await axios.post('/daily-works-summary/filter', payload);
             const summaries = response.data?.summaries ?? [];
-            console.log('Received summaries:', summaries);
+           
             setSummaryFilteredData(summaries);
             return true;
         } catch (error) {
