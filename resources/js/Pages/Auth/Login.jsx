@@ -304,8 +304,7 @@ export default function Login({
                     
                     // Handle device blocking errors
                     if (errors.device_blocking) {
-                        console.log('Device blocking error detected:', errors.device_blocking);
-                        console.log('Current uiState before update:', uiState);
+                       
                         
                         setUiState(prevState => {
                             const newState = {
@@ -316,7 +315,7 @@ export default function Login({
                                     blockedDeviceInfo: errors.device_blocking.blocked_device_info || null
                                 }
                             };
-                            console.log('Setting new uiState:', newState);
+                          
                             return newState;
                         });
                         

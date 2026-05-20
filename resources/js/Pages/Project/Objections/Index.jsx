@@ -449,7 +449,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
 
     // Suggest RFIs by chainage or search (filtered by type if provided)
     const handleSuggestRfis = async (chainageFrom, chainageTo, searchQuery = '', objectionType = null) => {
-        console.log('handleSuggestRfis called:', { chainageFrom: chainageFrom?.substring(0, 50), chainageTo, searchQuery, objectionType });
+      
         setRfiSearchLoading(true);
         try {
             const params = {};
@@ -458,9 +458,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
             if (searchQuery) params.search = searchQuery;
             if (objectionType) params.type = objectionType;
             
-            console.log('Calling API with params:', { ...params, chainage_from: params.chainage_from?.substring(0, 50) });
+           
             const response = await axios.get(route('objections.suggestRfis'), { params });
-            console.log('API response:', { count: response.data.rfis?.length, matchType: response.data.match_type });
+           
             setSuggestedRfis(response.data.rfis || []);
         } catch (error) {
             console.error('Failed to suggest RFIs:', error);

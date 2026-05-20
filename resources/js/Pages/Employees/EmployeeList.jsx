@@ -172,12 +172,9 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
                 designation: filters.designation,
                 attendanceType: filters.attendanceType,
             };
-            console.log('[fetchEmployees] Request params:', params);
+           
             const { data } = await axios.get(route('employees.paginate'), { params });
-            console.log('[fetchEmployees] Response employees count:', data.employees.data.length);
-            console.log('[fetchEmployees] Response employee IDs:', data.employees.data.map(e => e.id));
-            console.log('[fetchEmployees] Response employees with deleted_at:', data.employees.data.filter(e => e.deleted_at).map(e => ({ id: e.id, name: e.name, deleted_at: e.deleted_at })));
-            console.log('[fetchEmployees] Employees after filter:', data.employees.data.filter(e => !e.deleted_at).map(e => ({ id: e.id, employee_id: e.employee_id, name: e.name })));
+          
             setEmployees(data.employees.data.filter(e => !e.deleted_at));
             setTotalRows(data.employees.total);
             setPagination(prev => ({ ...prev, total: data.employees.total }));
@@ -192,9 +189,9 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
 
     const fetchStats = useCallback(async () => {
         try {
-            console.log('[fetchStats] Requesting stats...');
+           
             const { data } = await axios.get(route('employees.stats'));
-            console.log('[fetchStats] Response stats:', data.stats);
+         
             if (data.stats) setStats(data.stats);
         } catch { /* silent */ }
     }, []);
