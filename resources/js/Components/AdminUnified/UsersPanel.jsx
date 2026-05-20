@@ -20,6 +20,10 @@ import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar.jsx';
 import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
+import TablePagination from '@/Components/TablePagination.jsx';
+
+// Helper function to get current timestamp
+const now = () => new Date().toISOString();
 
 /* ── helpers ── */
 function StatPill({ label, value, color = 'gray' }) {
@@ -45,7 +49,7 @@ export default function UsersPanel({
     const [filterDept, setFilterDept]   = useState('all');
     const [showDeleted, setShowDeleted] = useState(false);
     const [showFilters, setShowFilters]   = useState(false);
-    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 15, total: 0 });
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const [devAction, setDevAction]   = useState({}); // { [userId]: bool }
     const [stats, setStats]           = useState({ total: 0, active: 0, inactive: 0 });
 
@@ -154,8 +158,8 @@ export default function UsersPanel({
 
     /* ── status toggle ── */
     const toggleStatus = async (user) => {
-        const newActive = !user.active;
-        updateUser(user.id, { active: newActive });
+        const newActive = !user.deleted_at;
+        updateUser(user.id, { deleted_at: newActive ? null : now().toISOString() });
         try {
             const { data } = await axios.post(
                 route('users.toggleStatus', { userId: user.id }),
@@ -171,7 +175,7 @@ export default function UsersPanel({
                 setUsers(prev => prev.filter(u => u.id !== user.id));
                 showToast.error('User no longer exists in the system.');
             } else {
-                updateUser(user.id, { active: user.active }); // rollback
+                updateUser(user.id, { deleted_at: user.deleted_at }); // rollback
                 showToast.error('Failed to update status.');
             }
         }
@@ -291,24 +295,20 @@ export default function UsersPanel({
         }
     };
 
-    /* ── pagination ── */
-    const totalPages = Math.ceil(pagination.total / pagination.perPage);
-    const startRow   = (pagination.currentPage - 1) * pagination.perPage + 1;
-    const endRow     = Math.min(pagination.currentPage * pagination.perPage, pagination.total);
-    const pageNums   = useMemo(() => {
-        const total = totalPages;
-        const cur   = pagination.currentPage;
-        if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-        if (cur <= 3)   return [1, 2, 3, 4, 5];
-        if (cur >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
-        return [cur - 2, cur - 1, cur, cur + 1, cur + 2];
-    }, [totalPages, pagination.currentPage]);
+    /* ── pagination handlers ── */
+    const handlePageChange = (page) => {
+        setPagination(prev => ({ ...prev, currentPage: page }));
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
 
     const hasActiveFilters = filterRole !== 'all' || filterStatus !== 'all' || filterDept !== 'all' || showDeleted || search;
 
     /* ── section split (reactive) ── */
-    const activeUsers   = users.filter(u => u.active);
-    const inactiveUsers = users.filter(u => !u.active);
+    const activeUsers   = users.filter(u => !u.deleted_at);
+    const inactiveUsers = users.filter(u => u.deleted_at);
 
     /* ── render ── */
     return (
@@ -464,9 +464,6 @@ export default function UsersPanel({
                     <Text size="3" weight="medium">Users</Text>
                     {!loading && <Badge size="1" variant="soft" color="gray" radius="full">{pagination.total}</Badge>}
                 </Flex>
-                {!loading && pagination.total > 0 && (
-                    <Text size="1" color="gray">{startRow}–{endRow} of {pagination.total}</Text>
-                )}
             </Flex>
 
             {/* ── Table ── */}
@@ -502,7 +499,7 @@ export default function UsersPanel({
                         </Table.Header>
                         <Table.Body>
                             {[...activeUsers, ...inactiveUsers].map((user, idx) => {
-                                const isFirstInactive = !user.active && idx === activeUsers.length;
+                                const isFirstInactive = user.deleted_at && idx === activeUsers.length;
                                 const serial = startRow + idx;
                                 const userRoles = Array.isArray(user.roles)
                                     ? [...new Set(user.roles.map(r => typeof r === 'object' ? r.name : r).filter(Boolean))]
@@ -523,7 +520,7 @@ export default function UsersPanel({
                                             </Table.Cell>
                                         </Table.Row>
                                     )}
-                                    <Table.Row style={!user.active ? { opacity: 0.65 } : undefined}>
+                                    <Table.Row style={user.deleted_at ? { opacity: 0.65 } : undefined}>
                                         {/* Checkbox */}
                                         <Table.Cell>
                                             <Checkbox
@@ -606,12 +603,12 @@ export default function UsersPanel({
                                             <Flex align="center" gap="2">
                                                 <Switch
                                                     size="1"
-                                                    checked={!!user.active}
+                                                    checked={!user.deleted_at}
                                                     onCheckedChange={() => toggleStatus(user)}
-                                                    color={user.active ? 'green' : 'red'}
+                                                    color={!user.deleted_at ? 'green' : 'red'}
                                                 />
-                                                <Text size="1" color={user.active ? 'green' : 'red'} weight="medium">
-                                                    {user.active ? 'Active' : 'Inactive'}
+                                                <Text size="1" color={!user.deleted_at ? 'green' : 'red'} weight="medium">
+                                                    {!user.deleted_at ? 'Active' : 'Inactive'}
                                                 </Text>
                                             </Flex>
                                         </Table.Cell>
@@ -696,37 +693,12 @@ export default function UsersPanel({
 
             {/* ── Pagination ── */}
             {!loading && pagination.total > 0 && (
-                <Flex align="center" justify="between" pt="3" mt="2" style={{ borderTop: '1px solid var(--gray-a4)' }} wrap="wrap" gap="3">
-                    <Flex align="center" gap="2">
-                        <Text size="1" color="gray">Rows</Text>
-                        <Select.Root size="1" value={String(pagination.perPage)}
-                            onValueChange={v => setPagination(p => ({ ...p, perPage: parseInt(v), currentPage: 1 }))}>
-                            <Select.Trigger />
-                            <Select.Content>
-                                {[10, 15, 20, 30, 50].map(n => <Select.Item key={n} value={String(n)}>{n}</Select.Item>)}
-                            </Select.Content>
-                        </Select.Root>
-                    </Flex>
-                    <Flex align="center" gap="2">
-                        <Text size="1" color="gray">{startRow}–{endRow} of {pagination.total}</Text>
-                        <IconButton size="1" variant="soft" color="gray" disabled={pagination.currentPage <= 1}
-                            onClick={() => setPagination(p => ({ ...p, currentPage: p.currentPage - 1 }))}>
-                            <ChevronLeftIcon />
-                        </IconButton>
-                        {pageNums.map(n => (
-                            <Button key={n} size="1"
-                                variant={n === pagination.currentPage ? 'solid' : 'soft'}
-                                color={n === pagination.currentPage ? 'indigo' : 'gray'}
-                                onClick={() => setPagination(p => ({ ...p, currentPage: n }))}>
-                                {n}
-                            </Button>
-                        ))}
-                        <IconButton size="1" variant="soft" color="gray" disabled={pagination.currentPage >= totalPages}
-                            onClick={() => setPagination(p => ({ ...p, currentPage: p.currentPage + 1 }))}>
-                            <ChevronRightIcon />
-                        </IconButton>
-                    </Flex>
-                </Flex>
+                <TablePagination
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    loading={loading}
+                />
             )}
 
             {/* ── Role Dialog ── */}

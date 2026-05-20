@@ -18,6 +18,7 @@ import {
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 const EMPTY_DEVICE = {
     name: '', serial_number: '', ip_address: '', location: '',
@@ -587,23 +588,23 @@ function LogsTab({ isMobile }) {
     const [logs, setLogs]       = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch]   = useState('');
-    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
 
-    const load = useCallback(async (page = 1) => {
+    const load = useCallback(async (page = pagination.currentPage, pp = pagination.perPage) => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.logs'), {
-                params: { page, per_page: pagination.per_page }
+                params: { page, per_page: pp }
             });
             setLogs(data.logs ?? []);
-            setPagination({
-                current_page: data.current_page || 1,
-                per_page: data.per_page || 50,
+            setPagination(prev => ({
+                ...prev,
+                currentPage: data.current_page || 1,
                 total: data.total || 0,
-            });
+            }));
         } catch { showToast.error('Failed to load logs.'); }
         finally { setLoading(false); }
-    }, [pagination.per_page]);
+    }, [pagination.currentPage, pagination.perPage]);
 
     useEffect(() => { load(1); }, [load]);
 
@@ -612,6 +613,14 @@ function LogsTab({ isMobile }) {
             l.message?.toLowerCase().includes(search.toLowerCase()) ||
             l.type?.toLowerCase().includes(search.toLowerCase())),
         [logs, search]);
+
+    const handlePageChange = (page) => {
+        setPagination(prev => ({ ...prev, currentPage: page }));
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
 
     const levelColor = l => ({ error: 'red', warning: 'amber', info: 'blue' }[l] ?? 'gray');
 
@@ -677,46 +686,12 @@ function LogsTab({ isMobile }) {
 
             {/* Pagination */}
             {pagination.total > 0 && (
-                <Flex justify="end" align="center" gap="2" mt="4">
-                    <Text size="1" color="gray">
-                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(1)}
-                    >
-                        «
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(pagination.current_page - 1)}
-                    >
-                        ‹
-                    </Button>
-                    <Text size="1" color="gray" px="2">
-                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(pagination.current_page + 1)}
-                    >
-                        ›
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
-                    >
-                        »
-                    </Button>
-                </Flex>
+                <TablePagination
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    loading={loading}
+                />
             )}
         </Box>
     );
@@ -727,23 +702,23 @@ function HeartbeatTab({ isMobile }) {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
 
-    const load = useCallback(async (page = 1) => {
+    const load = useCallback(async (page = pagination.currentPage, pp = pagination.perPage) => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.logs'), {
-                params: { page, per_page: pagination.per_page }
+                params: { page, per_page: pp }
             });
             setLogs(data.logs ?? []);
-            setPagination({
-                current_page: data.current_page || 1,
-                per_page: data.per_page || 50,
+            setPagination(prev => ({
+                ...prev,
+                currentPage: data.current_page || 1,
                 total: data.total || 0,
-            });
+            }));
         } catch { showToast.error('Failed to load heartbeat logs.'); }
         finally { setLoading(false); }
-    }, [pagination.per_page]);
+    }, [pagination.currentPage, pagination.perPage]);
 
     useEffect(() => { load(1); }, [load]);
 
@@ -752,6 +727,14 @@ function HeartbeatTab({ isMobile }) {
             l.message?.toLowerCase().includes(search.toLowerCase()) ||
             l.type?.toLowerCase().includes(search.toLowerCase())),
         [logs, search]);
+
+    const handlePageChange = (page) => {
+        setPagination(prev => ({ ...prev, currentPage: page }));
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
 
     const levelColor = l => ({ error: 'red', warning: 'amber', info: 'blue' }[l] ?? 'gray');
 
@@ -817,46 +800,12 @@ function HeartbeatTab({ isMobile }) {
 
             {/* Pagination */}
             {pagination.total > 0 && (
-                <Flex justify="end" align="center" gap="2" mt="4">
-                    <Text size="1" color="gray">
-                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(1)}
-                    >
-                        «
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(pagination.current_page - 1)}
-                    >
-                        ‹
-                    </Button>
-                    <Text size="1" color="gray" px="2">
-                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(pagination.current_page + 1)}
-                    >
-                        ›
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
-                    >
-                        »
-                    </Button>
-                </Flex>
+                <TablePagination
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    loading={loading}
+                />
             )}
         </Box>
     );
@@ -867,23 +816,23 @@ function OperLogTab({ isMobile }) {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
-    const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0 });
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
 
-    const load = useCallback(async (page = 1) => {
+    const load = useCallback(async (page = pagination.currentPage, pp = pagination.perPage) => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.operlogs'), {
-                params: { page, per_page: pagination.per_page }
+                params: { page, per_page: pp }
             });
             setLogs(data.logs ?? []);
-            setPagination({
-                current_page: data.current_page || 1,
-                per_page: data.per_page || 50,
+            setPagination(prev => ({
+                ...prev,
+                currentPage: data.current_page || 1,
                 total: data.total || 0,
-            });
+            }));
         } catch { showToast.error('Failed to load OPERLOG entries.'); }
         finally { setLoading(false); }
-    }, [pagination.per_page]);
+    }, [pagination.currentPage, pagination.perPage]);
 
     useEffect(() => { load(1); }, [load]);
 
@@ -892,6 +841,14 @@ function OperLogTab({ isMobile }) {
             l.operation_type?.toLowerCase().includes(search.toLowerCase()) ||
             l.user_pin?.toLowerCase().includes(search.toLowerCase())),
         [logs, search]);
+
+    const handlePageChange = (page) => {
+        setPagination(prev => ({ ...prev, currentPage: page }));
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
 
     return (
         <Box>
@@ -958,46 +915,12 @@ function OperLogTab({ isMobile }) {
 
             {/* Pagination */}
             {pagination.total > 0 && (
-                <Flex justify="end" align="center" gap="2" mt="4">
-                    <Text size="1" color="gray">
-                        Showing {(pagination.current_page - 1) * pagination.per_page + 1} to {Math.min(pagination.current_page * pagination.per_page, pagination.total)} of {pagination.total}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(1)}
-                    >
-                        «
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page === 1}
-                        onClick={() => load(pagination.current_page - 1)}
-                    >
-                        ‹
-                    </Button>
-                    <Text size="1" color="gray" px="2">
-                        Page {pagination.current_page} of {Math.ceil(pagination.total / pagination.per_page)}
-                    </Text>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(pagination.current_page + 1)}
-                    >
-                        ›
-                    </Button>
-                    <Button
-                        size="1"
-                        variant="soft"
-                        disabled={pagination.current_page >= Math.ceil(pagination.total / pagination.per_page)}
-                        onClick={() => load(Math.ceil(pagination.total / pagination.per_page))}
-                    >
-                        »
-                    </Button>
-                </Flex>
+                <TablePagination
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    loading={loading}
+                />
             )}
         </Box>
     );
@@ -1360,12 +1283,10 @@ function AttLogTab({ isMobile }) {
     const [loading,  setLoading]  = useState(false);
     const [search,   setSearch]   = useState('');
     const [status,   setStatus]   = useState('all');
-    const [page,     setPage]     = useState(1);
-    const [total,    setTotal]    = useState(0);
-    const perPage = 25;
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const debRef  = React.useRef(null);
 
-    const fetchLogs = React.useCallback(async (q = search, s = status, p = page) => {
+    const fetchLogs = React.useCallback(async (q = search, s = status, p = pagination.currentPage, pp = pagination.perPage) => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('biometric-devices.attlogs'), {
@@ -1373,36 +1294,42 @@ function AttLogTab({ isMobile }) {
                     search: q || undefined,
                     status: s !== 'all' ? s : undefined,
                     page: p,
-                    per_page: perPage,
+                    per_page: pp,
                 },
             });
             const items = data.logs?.data ?? data.logs ?? [];
             setLogs(items);
-            setTotal(data.logs?.total ?? items.length);
+            setPagination(prev => ({ ...prev, total: data.logs?.total ?? items.length }));
             if (data.stats) setStats(data.stats);
         } catch {
             showToast.error('Failed to load att logs.');
         } finally {
             setLoading(false);
         }
-    }, [search, status, page]);
+    }, [search, status, pagination.currentPage, pagination.perPage]);
 
-    React.useEffect(() => { fetchLogs(); }, []);
+    React.useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
     const triggerSearch = (val) => {
         setSearch(val);
-        setPage(1);
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
         clearTimeout(debRef.current);
-        debRef.current = setTimeout(() => fetchLogs(val, status, 1), 300);
+        debRef.current = setTimeout(() => fetchLogs(val, status, 1, pagination.perPage), 300);
     };
 
-    const changeStatus = (val) => {
+    const triggerStatus = (val) => {
         setStatus(val);
-        setPage(1);
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
         fetchLogs(search, val, 1);
     };
 
-    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const handlePageChange = (page) => {
+        setPagination(prev => ({ ...prev, currentPage: page }));
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
 
     return (
         <Box>
@@ -1412,7 +1339,7 @@ function AttLogTab({ isMobile }) {
                 <Badge size="2" variant="soft" color="green"  radius="full"><Text weight="bold">{stats.processed}</Text> <Text style={{ opacity: 0.7 }}>Processed</Text></Badge>
                 <Badge size="2" variant="soft" color="orange" radius="full"><Text weight="bold">{stats.unknown_user}</Text> <Text style={{ opacity: 0.7 }}>Unknown User</Text></Badge>
                 <Badge size="2" variant="soft" color="red"    radius="full"><Text weight="bold">{stats.failed}</Text> <Text style={{ opacity: 0.7 }}>Failed/Rejected</Text></Badge>
-                <Button size="1" variant="soft" color="gray" ml="auto" onClick={() => fetchLogs(search, status, page)}>
+                <Button size="1" variant="soft" color="gray" ml="auto" onClick={() => fetchLogs(search, status, pagination.currentPage)}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
             </Flex>
@@ -1423,7 +1350,7 @@ function AttLogTab({ isMobile }) {
                     onChange={e => triggerSearch(e.target.value)}>
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                 </TextField.Root>
-                <Select.Root size="2" value={status} onValueChange={changeStatus}>
+                <Select.Root size="2" value={status} onValueChange={triggerStatus}>
                     <Select.Trigger style={{ width: 160 }} />
                     <Select.Content>
                         <Select.Item value="all">All Status</Select.Item>
@@ -1435,7 +1362,7 @@ function AttLogTab({ isMobile }) {
                     </Select.Content>
                 </Select.Root>
                 {loading && <Spinner size="2" />}
-                <Text size="1" color="gray" ml="auto">{total} records</Text>
+                <Text size="1" color="gray" ml="auto">{pagination.total} records</Text>
             </Flex>
 
             {/* Table */}
@@ -1511,18 +1438,13 @@ function AttLogTab({ isMobile }) {
             </Box>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <Flex align="center" justify="end" gap="2" mt="3">
-                    <IconButton size="1" variant="soft" disabled={page <= 1}
-                        onClick={() => { const p = page - 1; setPage(p); fetchLogs(search, status, p); }}>
-                        <ChevronLeftIcon />
-                    </IconButton>
-                    <Text size="1" color="gray">{page} / {totalPages}</Text>
-                    <IconButton size="1" variant="soft" disabled={page >= totalPages}
-                        onClick={() => { const p = page + 1; setPage(p); fetchLogs(search, status, p); }}>
-                        <ChevronRightIcon />
-                    </IconButton>
-                </Flex>
+            {pagination.total > 0 && (
+                <TablePagination
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    loading={loading}
+                />
             )}
         </Box>
     );

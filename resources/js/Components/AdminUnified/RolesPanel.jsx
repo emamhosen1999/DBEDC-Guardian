@@ -22,6 +22,7 @@ import {
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar.jsx';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 /* ── sub-tab: Roles ── */
 function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canManageSuperAdmin, isMobile, onRolesChange }) {
@@ -527,37 +528,41 @@ function UserRoleTab({ roles, isMobile }) {
     const [users,    setUsers]    = useState([]);
     const [loading,  setLoading]  = useState(false);
     const [search,   setSearch]   = useState('');
-    const [page,     setPage]     = useState(1);
-    const [total,    setTotal]    = useState(0);
-    const perPage = 20;
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const debRef  = useRef(null);
 
-    const fetchUsers = useCallback(async (q = search, p = page) => {
+    const fetchUsers = useCallback(async (q = search, p = pagination.currentPage, pp = pagination.perPage) => {
         setLoading(true);
         try {
             const { data } = await axios.get(route('users.paginate'), {
-                params: { page: p, perPage, search: q || undefined },
+                params: { page: p, perPage: pp, search: q || undefined },
             });
             const list = data.users?.data ?? data.users ?? [];
             setUsers(list);
-            setTotal(data.users?.total ?? list.length);
+            setPagination(prev => ({ ...prev, total: data.users?.total ?? list.length }));
         } catch {
             showToast.error('Failed to load users.');
         } finally {
             setLoading(false);
         }
-    }, [search, page]);
+    }, [search, pagination.currentPage, pagination.perPage]);
 
     useEffect(() => { fetchUsers(); }, []);
 
     const triggerSearch = (val) => {
         setSearch(val);
-        setPage(1);
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
         clearTimeout(debRef.current);
-        debRef.current = setTimeout(() => fetchUsers(val, 1), 280);
+        debRef.current = setTimeout(() => fetchUsers(val, 1, pagination.perPage), 280);
     };
 
-    const totalPages = Math.max(1, Math.ceil(total / perPage));
+    const handlePageChange = (page) => {
+        setPagination(prev => ({ ...prev, currentPage: page }));
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
 
     const [editUser, setEditUser] = useState(null);
     const [selectedRoles, setSelectedRoles] = useState(new Set());
@@ -668,18 +673,13 @@ function UserRoleTab({ roles, isMobile }) {
             </Box>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <Flex align="center" justify="end" gap="2" mt="3">
-                    <IconButton size="1" variant="soft" disabled={page <= 1}
-                        onClick={() => { const p = page - 1; setPage(p); fetchUsers(search, p); }}>
-                        <ChevronLeftIcon />
-                    </IconButton>
-                    <Text size="1" color="gray">{page} / {totalPages}</Text>
-                    <IconButton size="1" variant="soft" disabled={page >= totalPages}
-                        onClick={() => { const p = page + 1; setPage(p); fetchUsers(search, p); }}>
-                        <ChevronRightIcon />
-                    </IconButton>
-                </Flex>
+            {pagination.total > 0 && (
+                <TablePagination
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    loading={loading}
+                />
             )}
 
             {/* Edit Roles Dialog */}

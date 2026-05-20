@@ -231,26 +231,21 @@ class UserController extends Controller
         }
     }
 
-    public function toggleStatus($userId, UpdateUserStatusRequest $request)
+    public function toggleStatus($userId, Request $request)
     {
         try {
             $user = User::withTrashed()->findOrFail($userId);
-
-            // Toggle the active status based on the request
-            $user->active = $request->input('active');
+            $request->validate(['active' => 'required|boolean']);
 
             // Handle soft delete or restore based on the new status
-            if ($user->active) {
+            if ($request->input('active')) {
                 $user->restore(); // Restore the user if they were soft deleted
             } else {
                 $user->delete();  // Soft delete the user if marking inactive
             }
 
-            $user->save();
-
             return response()->json([
                 'message' => 'User status updated successfully',
-                'active' => $user->active,
                 'user' => new UserResource($user->fresh(['department', 'designation', 'roles', 'currentDevice'])),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -278,8 +273,6 @@ class UserController extends Controller
         $this->authorize('delete', $user);
 
         try {
-            $user->active = false;
-            $user->save();
             $user->delete();
 
             return response()->json(['message' => 'User deleted successfully.']);
@@ -301,8 +294,6 @@ class UserController extends Controller
         $user = User::withTrashed()->findOrFail($id);
         $this->authorize('update', $user);
         $user->restore();
-        $user->active = true;
-        $user->save();
 
         return response()->json([
             'message' => 'User restored successfully.',
@@ -327,12 +318,10 @@ class UserController extends Controller
                 $active  = $request->input('active');
 
                 if ($active) {
-                    // Restore soft-deleted users and mark active
-                    User::withTrashed()->whereIn('id', $userIds)->restore();
-                    return User::whereIn('id', $userIds)->update(['active' => true]);
+                    // Restore soft-deleted users
+                    return User::withTrashed()->whereIn('id', $userIds)->restore();
                 } else {
-                    // Mark inactive then soft-delete (mirrors toggleStatus behaviour)
-                    User::whereIn('id', $userIds)->update(['active' => false]);
+                    // Soft-delete users
                     return User::whereIn('id', $userIds)->delete();
                 }
             });
@@ -404,10 +393,7 @@ class UserController extends Controller
             $count = DB::transaction(function () use ($request) {
                 $userIds = $request->input('user_ids');
 
-                // First set active to false
-                User::whereIn('id', $userIds)->update(['active' => false]);
-
-                // Then soft delete
+                // Soft delete users
                 return User::whereIn('id', $userIds)->delete();
             });
 
@@ -561,16 +547,13 @@ class UserController extends Controller
 
             if ($status && $status !== 'all') {
                 if ($status === 'active') {
-                    $query->where('active', 1)->whereNull('deleted_at');
+                    $query->whereNull('deleted_at');
                 } elseif ($status === 'inactive') {
-                    $query->where('active', 0);
+                    $query->whereNotNull('deleted_at');
                 }
             } elseif (! $showDeleted) {
                 // Default (no status filter, showDeleted off): hide explicitly-deleted users
-                // but still show inactive (soft-deleted via deactivation, active=0)
-                $query->where(function ($q) {
-                    $q->whereNull('deleted_at')->orWhere('active', 0);
-                });
+                $query->whereNull('deleted_at');
             }
 
             if ($department && $department !== 'all') {
@@ -579,8 +562,8 @@ class UserController extends Controller
 
             $statsQuery = clone $query;
 
-            // Sort active users first
-            $query->orderByDesc('active')->orderBy('name');
+            // Sort active users first (not deleted)
+            $query->whereNull('deleted_at')->orderBy('name');
 
             // Paginate
             $users = $query->paginate($perPage, ['*'], 'page', $page);
@@ -590,8 +573,8 @@ class UserController extends Controller
                 'stats' => [
                     'overview' => [
                         'total_users'    => (clone $statsQuery)->count(),
-                        'active_users'   => (clone $statsQuery)->where('active', 1)->count(),
-                        'inactive_users' => (clone $statsQuery)->where('active', 0)->count(),
+                        'active_users'   => (clone $statsQuery)->whereNull('deleted_at')->count(),
+                        'inactive_users' => (clone $statsQuery)->whereNotNull('deleted_at')->count(),
                     ],
                 ],
             ]);
@@ -613,9 +596,8 @@ class UserController extends Controller
         try {
             // Basic user counts
             $totalUsers = User::withTrashed()->count();
-            $activeUsers = User::withTrashed()->where('active', 1)->count();
-            $inactiveUsers = User::withTrashed()->where('active', 0)->count();
-            $deletedUsers = User::onlyTrashed()->count();
+            $activeUsers = User::whereNull('deleted_at')->count();
+            $inactiveUsers = User::onlyTrashed()->count();
 
             // Role and permission analytics
             $roleCount = Role::count();
@@ -651,7 +633,6 @@ class UserController extends Controller
             $statusRatio = [
                 'active_percentage' => $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 1) : 0,
                 'inactive_percentage' => $totalUsers > 0 ? round(($inactiveUsers / $totalUsers) * 100, 1) : 0,
-                'deleted_percentage' => $totalUsers > 0 ? round(($deletedUsers / $totalUsers) * 100, 1) : 0,
             ];
 
             // User growth analytics
@@ -685,7 +666,6 @@ class UserController extends Controller
                     'total_users' => $totalUsers,
                     'active_users' => $activeUsers,
                     'inactive_users' => $inactiveUsers,
-                    'deleted_users' => $deletedUsers,
                     'total_roles' => $roleCount,
                     'total_departments' => Department::count(),
                 ],
@@ -697,7 +677,6 @@ class UserController extends Controller
                     'by_status' => [
                         ['name' => 'Active', 'count' => $activeUsers, 'percentage' => $statusRatio['active_percentage']],
                         ['name' => 'Inactive', 'count' => $inactiveUsers, 'percentage' => $statusRatio['inactive_percentage']],
-                        ['name' => 'Deleted', 'count' => $deletedUsers, 'percentage' => $statusRatio['deleted_percentage']],
                     ],
                 ],
 
@@ -803,7 +782,7 @@ class UserController extends Controller
                     'phone' => $employee->phone,
                     'employee_id' => $employee->employee_id,
                     'profile_image_url' => $employee->profile_image_url,
-                    'active' => $employee->active,
+                    'deleted_at' => $employee->deleted_at,
                     // Include department ID and name
                     'department_id' => $employee->department_id,
                     'department_name' => $employee->department?->name,
@@ -832,9 +811,9 @@ class UserController extends Controller
 
             // Get stats
             $stats = [
-                'total' => User::count(),
-                'active' => User::where('active', 1)->count(),
-                'inactive' => User::where('active', 0)->count(),
+                'total' => User::withTrashed()->count(),
+                'active' => User::whereNull('deleted_at')->count(),
+                'inactive' => User::onlyTrashed()->count(),
                 'departments' => Department::count(),
                 'designations' => Designation::count(),
             ];

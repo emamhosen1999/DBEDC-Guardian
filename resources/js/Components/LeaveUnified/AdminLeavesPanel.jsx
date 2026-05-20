@@ -394,7 +394,7 @@ export default function AdminLeavesPanel({
                     currentPage={pagination.currentPage}
                     perPage={pagination.perPage}
                     setCurrentPage={page => setPagination(p => ({ ...p, currentPage: page }))}
-                    setPerPage={n => setPagination({ currentPage: 1, perPage: n })}
+                    onRowsPerPageChange={n => setPagination({ currentPage: 1, perPage: n })}
                     handleClickOpen={handleClickOpen}
                     setCurrentLeave={setCurrentLeave}
                     openModal={openModal}
