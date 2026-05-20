@@ -304,6 +304,8 @@ export default function UsersPanel({
         setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
     };
 
+    const startRow = (pagination.currentPage - 1) * pagination.perPage + 1;
+
     const hasActiveFilters = filterRole !== 'all' || filterStatus !== 'all' || filterDept !== 'all' || showDeleted || search;
 
     /* ── section split (reactive) ── */
