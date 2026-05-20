@@ -133,7 +133,6 @@ class User extends Authenticatable implements HasMedia
         'department_id' => 'integer',
         'attendance_type_id' => 'integer',
         'preferences' => 'array',
-        'active' => 'boolean',
         'single_device_login_enabled' => 'boolean',
         'device_reset_at' => 'datetime',
     ];
@@ -185,21 +184,6 @@ class User extends Authenticatable implements HasMedia
         ]);
     }
 
-    /**
-     * Query scope for active users only.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('active', true);
-    }
-
-    /**
-     * Query scope for inactive users only.
-     */
-    public function scopeInactive($query)
-    {
-        return $query->where('active', false);
-    }
 
     public function ledProjects()
     {
@@ -221,21 +205,6 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(Education::class);
     }
 
-    public function setActiveStatus(bool $status)
-    {
-        if ($status) {
-            // Restore the user if it's soft deleted
-            if ($this->trashed()) {
-                $this->restore();
-            }
-            $this->active = true;
-        } else {
-            // Soft delete the user and mark as inactive
-            $this->active = false;
-            $this->delete();
-        }
-        $this->save();
-    }
 
     public function leaves()
     {

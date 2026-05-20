@@ -282,6 +282,10 @@ const LeavesEmployee = ({ title, allUsers }) => {
     }
   }, [pagination.page]);
 
+  const handleRowsPerPageChange = useCallback((newPerPage) => {
+    setPagination(prev => ({ ...prev, perPage: newPerPage, page: 1 }));
+  }, []);
+
   // Effect for data fetching
   useEffect(() => {
     fetchLeaves();
@@ -791,6 +795,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
                 totalRows={totalRows}
                 lastPage={lastPage}
                 perPage={pagination.perPage}
+                onRowsPerPageChange={handleRowsPerPageChange}
                 selectedMonth={filters.selectedMonth}
                 employee={''}
                 isAdminView={false}

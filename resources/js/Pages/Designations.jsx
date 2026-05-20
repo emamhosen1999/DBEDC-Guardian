@@ -102,6 +102,10 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
+
     const openModal = (type, designation = null) => setModalState({ type, designation });
     const closeModal = () => setModalState({ type: null, designation: null });
 
@@ -226,6 +230,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                                     onDelete={canDeleteDesignation ? (d) => openModal('delete_designation', d) : undefined}
                                     pagination={pagination}
                                     onPageChange={handlePageChange}
+                                    onRowsPerPageChange={handleRowsPerPageChange}
                                 />
                             )}
                         </Box>
