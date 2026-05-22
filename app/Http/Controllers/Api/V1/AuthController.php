@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\MobileLoginRequest;
+use App\Http\Responses\ApiResponse;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\DeviceAuthService;
@@ -14,6 +15,8 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
+    use ApiResponse;
+
     public function __construct(private readonly DeviceAuthService $deviceAuthService) {}
 
     public function login(MobileLoginRequest $request): JsonResponse
@@ -23,17 +26,15 @@ class AuthController extends Controller
         $user = User::query()->where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'The provided credentials are incorrect.',
-            ], 422);
+            return $this->errorResponse(
+                'The provided credentials are incorrect.',
+                'INVALID_CREDENTIALS',
+                401
+            );
         }
 
         if (! $user->active) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This account has been deactivated. Please contact your administrator.',
-            ], 403);
+            return $this->forbiddenResponse('This account has been deactivated. Please contact your administrator.');
         }
 
         $deviceId = (string) ($credentials['device_id'] ?? '');
@@ -50,6 +51,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => $deviceCheck['message'],
+                'error_code' => 'DEVICE_LOCKED',
                 'code' => 'device_locked',
                 'data' => [
                     'blocked_device_info' => $blockedDevice ? [
@@ -73,10 +75,11 @@ class AuthController extends Controller
         );
 
         if (! $device) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to register this device for secure login.',
-            ], 422);
+            return $this->errorResponse(
+                'Failed to register this device for secure login.',
+                'DEVICE_REGISTRATION_FAILED',
+                422
+            );
         }
 
         $tokenName = $deviceName !== '' ? $deviceName : ($device->device_name ?: 'mobile-app');
@@ -106,24 +109,20 @@ class AuthController extends Controller
             'reportsTo',
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Login successful.',
-            'data' => [
-                'token' => $token,
-                'token_type' => 'Bearer',
-                'user' => new UserResource($user),
-                'active_device' => [
-                    'id' => $device->id,
-                    'device_id' => $device->device_id,
-                    'device_name' => $device->device_name,
-                    'platform' => $device->platform,
-                    'model' => $device->device_model,
-                    'os_version' => $device->os_version,
-                    'last_used_at' => $device->last_used_at,
-                ],
+        return $this->successResponse([
+            'token' => $token,
+            'token_type' => 'Bearer',
+            'user' => new UserResource($user),
+            'active_device' => [
+                'id' => $device->id,
+                'device_id' => $device->device_id,
+                'device_name' => $device->device_name,
+                'platform' => $device->platform,
+                'model' => $device->device_model,
+                'os_version' => $device->os_version,
+                'last_used_at' => $device->last_used_at,
             ],
-        ]);
+        ], 'Login successful.');
     }
 
     public function me(Request $request): JsonResponse
@@ -137,10 +136,7 @@ class AuthController extends Controller
             'reportsTo',
         ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => new UserResource($user),
-        ]);
+        return $this->successResponse(new UserResource($user));
     }
 
     public function logout(Request $request): JsonResponse
@@ -152,9 +148,6 @@ class AuthController extends Controller
             $accessToken->delete();
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully.',
-        ]);
+        return $this->successResponse(null, 'Logged out successfully.');
     }
 }

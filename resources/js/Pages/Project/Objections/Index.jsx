@@ -1,6 +1,10 @@
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import {
     ShieldExclamationIcon,
@@ -37,43 +41,10 @@ import {
 } from '@heroicons/react/24/solid';
 import { Head, router, usePage } from "@inertiajs/react";
 import App from "@/Layouts/App.jsx";
-import {
-    Card,
-    CardHeader,
-    CardBody,
-    Input,
-    Button,
-    Spinner,
-    ScrollShadow,
-    Skeleton,
-    Select,
-    SelectItem,
-    ButtonGroup,
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    Chip,
-    Tooltip,
-    Pagination,
-    Dropdown,
-    DropdownTrigger,
-    DropdownMenu,
-    DropdownItem,
-    Divider,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Textarea,
-    Checkbox,
-    CheckboxGroup,
-    useDisclosure
-} from "@/compat/heroui";
-import StatsCards from "@/Components/StatsCards.jsx";
+
+import ObjectionsStatsSection from './components/ObjectionsStatsSection';
+import ObjectionsFiltersBar from './components/ObjectionsFiltersBar';
+import ObjectionAccordionItem from './components/ObjectionAccordionItem';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { getThemeRadius } from '@/Hooks/useThemeRadius.js';
 import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
@@ -81,73 +52,48 @@ import PullToRefresh from "@/Components/Common/PullToRefresh.jsx";
 import SwipeableCard from '@/Components/Common/SwipeableCard';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 import {
-    STATUS_CONFIG,
-    CATEGORY_CONFIG,
     getStatusConfig,
     getCategoryConfig,
 } from '@/Config/objectionConfig';
-
-// Status configuration (use shared config, map solidIcon to icon for local compatibility)
-const statusConfig = Object.fromEntries(
-    Object.entries(STATUS_CONFIG).map(([key, val]) => [key, {
-        color: val.color,
-        icon: val.solidIcon || val.icon,
-        label: val.label,
-    }])
-);
-
-// Category configuration (use shared config)
-const categoryConfig = Object.fromEntries(
-    Object.entries(CATEGORY_CONFIG).map(([key, val]) => [key, {
-        label: val.label,
-        color: val.color,
-    }])
-);
+import { statusConfig, categoryConfig } from './config/objectionUiConfig';
+import { useObjectionsAccess } from './hooks/useObjectionsAccess';
+import { useObjectionsListState } from './hooks/useObjectionsListState';
+import { useObjectionsActions } from './hooks/useObjectionsActions';
+import useDisclosure from '@/Hooks/useDisclosure';
 
 const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, categories, creators, statistics }) => {
-    const { auth } = usePage().props;
     const isLargeScreen = useMediaQuery('(min-width: 1025px)');
     const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
     const isMobile = useMediaQuery('(max-width: 640px)');
 
-    // Role-based access control
-    const userIsAdmin = auth.roles?.includes('Administrator') ||
-                        auth.roles?.includes('Super Administrator') ||
-                        auth.roles?.includes('Daily Work Manager') || false;
+    const { userIsAdmin, canReviewObjections } = useObjectionsAccess();
 
-    const canReviewObjections = auth.roles?.some(role =>
-        ['Super Administrator', 'Administrator', 'Project Manager', 'Consultant', 'HR Manager'].includes(role)
-    );
+    const {
+        loading,
+        setLoading,
+        tableLoading,
+        isRefreshing,
+        search,
+        currentPage,
+        setCurrentPage,
+        expandedItems,
+        objections,
+        setObjections,
+        showFilters,
+        setShowFilters,
+        filterData,
+        setFilterData,
+        cancelPendingRequest,
+        fetchData,
+        refreshData,
+        handlePullToRefresh,
+        handleSearch,
+        handleFilterChange,
+        handlePageChange,
+        toggleExpanded,
+    } = useObjectionsListState({ initialObjections, initialFilters: filters, isMobile });
 
-    // AbortController ref for cancelling in-flight requests
-    const abortControllerRef = useRef(null);
-
-    // Pull-to-refresh state for mobile
-    const [isRefreshing, setIsRefreshing] = useState(false);
-
-    // State
-    const [loading, setLoading] = useState(false);
-    const [tableLoading, setTableLoading] = useState(false);
     const [statsLoading, setStatsLoading] = useState(false);
-    const [search, setSearch] = useState(filters?.search || '');
-    const [currentPage, setCurrentPage] = useState(initialObjections?.current_page || 1);
-    const [expandedItems, setExpandedItems] = useState(new Set());
-    
-    // Local objections state for smooth updates without page reload
-    const [objections, setObjections] = useState(initialObjections);
-    
-    // Sync with props when they change (e.g., on page navigation)
-    useEffect(() => {
-        setObjections(initialObjections);
-    }, [initialObjections]);
-
-    // Filter state
-    const [showFilters, setShowFilters] = useState(false);
-    const [filterData, setFilterData] = useState({
-        status: filters?.status || 'all',
-        category: filters?.category || 'all',
-        creator: filters?.creator || '',
-    });
 
     // Create modal state
     const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
@@ -246,92 +192,43 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     // Statistics state
     const [apiStats, setApiStats] = useState(statistics || null);
 
-    // Cancel any in-flight request before starting a new one
-    const cancelPendingRequest = useCallback(() => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
-        abortControllerRef.current = new AbortController();
-        return abortControllerRef.current.signal;
-    }, []);
-
-    // Build filter params for API calls
-    const buildFilterParams = useCallback(() => {
-        const params = {};
-        if (search) params.search = search;
-        if (filterData.status && filterData.status !== 'all') params.status = filterData.status;
-        if (filterData.category && filterData.category !== 'all') params.category = filterData.category;
-        if (filterData.creator) params.creator = filterData.creator;
-        params.page = currentPage;
-        return params;
-    }, [search, filterData, currentPage]);
-
-    // Fetch data
-    const fetchData = useCallback(async (showLoader = true) => {
-        if (showLoader) setTableLoading(true);
-
-        const params = buildFilterParams();
-
-        router.get(route('objections.index'), params, {
-            preserveState: true,
-            preserveScroll: true,
-            onFinish: () => {
-                setTableLoading(false);
-                setIsRefreshing(false);
-            }
-        });
-    }, [buildFilterParams]);
-
-    // Refresh data
-    const refreshData = useCallback(() => {
-        setCurrentPage(1);
-        fetchData();
-    }, [fetchData]);
-
-    // Pull-to-refresh handler for mobile
-    const handlePullToRefresh = useCallback(async () => {
-        if (isRefreshing || !isMobile) return;
-        setIsRefreshing(true);
-        refreshData();
-        showToast.success('Data refreshed');
-    }, [isRefreshing, isMobile, refreshData]);
-
-    // Debounced search handler
-    const searchTimeoutRef = useRef(null);
-    const handleSearch = (event) => {
-        const value = event.target.value;
-        setSearch(value);
-        setCurrentPage(1);
-
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = setTimeout(() => {
-            fetchData();
-        }, 300);
-    };
-
-    // Handle filter changes
-    const handleFilterChange = (key, value) => {
-        setFilterData(prev => ({ ...prev, [key]: value }));
-        setCurrentPage(1);
-    };
-
-    // Handle page change
-    const handlePageChange = (page) => {
-        setCurrentPage(page);
-    };
-
-    // Toggle expanded state
-    const toggleExpanded = (id) => {
-        setExpandedItems(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(id)) {
-                newSet.delete(id);
-            } else {
-                newSet.add(id);
-            }
-            return newSet;
-        });
-    };
+    const {
+        handleCreateObjection,
+        handleSuggestRfis,
+        handleRfiSearch,
+        handleAttachRfis,
+        handleExportSelectedRfis,
+        handleEditObjection,
+        handleStatusChange,
+        handleDeleteObjection,
+        isMutating,
+    } = useObjectionsActions({
+        createForm,
+        selectedFiles,
+        setCreateLoading,
+        onCreateClose,
+        resetCreateForm,
+        setRfiSearchLoading,
+        setSuggestedRfis,
+        selectedObjection,
+        rfiSearchQuery,
+        selectedRfis,
+        suggestedRfis,
+        setAttachLoading,
+        onAttachClose,
+        setExportLoading,
+        editForm,
+        editObjection,
+        setEditLoading,
+        onEditClose,
+        statusAction,
+        resolutionNotes,
+        setStatusLoading,
+        onStatusClose,
+        setResolutionNotes,
+        setObjections,
+        setApiStats,
+    });
 
     // Format date
     const formatDate = (dateString) => {
@@ -353,9 +250,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         const StatusIcon = config.icon;
 
         return (
-            <Chip
+            <Badge
                 size="sm"
-                variant="flat"
+                variant="soft"
                 color={config.color}
                 startContent={<StatusIcon className="w-3 h-3" />}
                 classNames={{
@@ -364,7 +261,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 }}
             >
                 {config.label}
-            </Chip>
+            </Badge>
         );
     };
 
@@ -372,9 +269,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     const getCategoryChip = (category) => {
         const config = categoryConfig[category] || categoryConfig['other'];
         return (
-            <Chip size="sm" variant="flat" color={config.color} className="text-xs">
+            <Badge size="sm" variant="soft" color={config.color} className="text-xs">
                 {config.label}
-            </Chip>
+            </Badge>
         );
     };
 
@@ -384,112 +281,10 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         const config = workTypeConfig[type];
         if (!config) return null;
         return (
-            <Chip size="sm" variant="flat" color={config.color} className="text-xs" startContent={<span className="text-xs">{config.icon}</span>}>
+            <Badge size="sm" variant="soft" color={config.color} className="text-xs" startContent={<span className="text-xs">{config.icon}</span>}>
                 {config.label}
-            </Chip>
+            </Badge>
         );
-    };
-
-    // Create objection
-    const handleCreateObjection = async () => {
-        if (!createForm.title || !createForm.description || !createForm.reason) {
-            showToast.error('Please fill in all required fields');
-            return;
-        }
-
-        setCreateLoading(true);
-        try {
-            // Use FormData to support file uploads
-            const formData = new FormData();
-            formData.append('title', createForm.title);
-            formData.append('category', createForm.category);
-            if (createForm.type) {
-                formData.append('type', createForm.type);
-            }
-            formData.append('description', createForm.description);
-            formData.append('reason', createForm.reason);
-            formData.append('status', createForm.status);
-            
-            // Add chainage fields - use new fields if provided, otherwise fall back to legacy
-            if (createForm.specific_chainages) {
-                formData.append('specific_chainages', createForm.specific_chainages);
-            }
-            if (createForm.chainage_range_from) {
-                formData.append('chainage_range_from', createForm.chainage_range_from);
-            }
-            if (createForm.chainage_range_to) {
-                formData.append('chainage_range_to', createForm.chainage_range_to);
-            }
-            // Legacy support: if new fields not used, send legacy fields
-            if (!createForm.specific_chainages && !createForm.chainage_range_from && createForm.chainage_from) {
-                formData.append('chainage_from', createForm.chainage_from);
-            }
-            if (!createForm.specific_chainages && !createForm.chainage_range_to && createForm.chainage_to) {
-                formData.append('chainage_to', createForm.chainage_to);
-            }
-            
-            // Append files
-            selectedFiles.forEach((file) => {
-                formData.append('files[]', file);
-            });
-
-            const response = await axios.post(route('objections.store'), formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
-            showToast.success(response.data.message || 'Objection created successfully');
-            onCreateClose();
-            resetCreateForm();
-            router.reload({ only: ['objections', 'statistics'] });
-        } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to create objection');
-        } finally {
-            setCreateLoading(false);
-        }
-    };
-
-    // Suggest RFIs by chainage or search (filtered by type if provided)
-    const handleSuggestRfis = async (chainageFrom, chainageTo, searchQuery = '', objectionType = null) => {
-      
-        setRfiSearchLoading(true);
-        try {
-            const params = {};
-            if (chainageFrom) params.chainage_from = chainageFrom;
-            if (chainageTo) params.chainage_to = chainageTo;
-            if (searchQuery) params.search = searchQuery;
-            if (objectionType) params.type = objectionType;
-            
-           
-            const response = await axios.get(route('objections.suggestRfis'), { params });
-           
-            setSuggestedRfis(response.data.rfis || []);
-        } catch (error) {
-            console.error('Failed to suggest RFIs:', error);
-            setSuggestedRfis([]);
-        } finally {
-            setRfiSearchLoading(false);
-        }
-    };
-
-    // Handle RFI search
-    const handleRfiSearch = () => {
-        if (selectedObjection) {
-            const summary = selectedObjection.chainage_summary || {};
-            const specificChainages = summary.specific?.join(', ') || '';
-            const rangeFrom = summary.range?.split(' - ')[0] || selectedObjection.chainage_from;
-            const rangeTo = summary.range?.split(' - ')[1] || selectedObjection.chainage_to;
-            const objType = selectedObjection.type;
-            
-            if (rfiSearchQuery) {
-                // Search with query
-                handleSuggestRfis(null, null, rfiSearchQuery, objType);
-            } else if (specificChainages) {
-                handleSuggestRfis(specificChainages, null, '', objType);
-            } else {
-                handleSuggestRfis(rangeFrom, rangeTo, rfiSearchQuery, objType);
-            }
-        } else if (rfiSearchQuery) {
-            handleSuggestRfis(null, null, rfiSearchQuery);
-        }
     };
 
     // Open attach modal
@@ -519,79 +314,6 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         onAttachOpen();
     };
 
-    // Attach RFIs to objection
-    const handleAttachRfis = async () => {
-        if (!selectedObjection || selectedRfis.length === 0) {
-            showToast.error('Please select at least one RFI');
-            return;
-        }
-
-        setAttachLoading(true);
-        try {
-            const response = await axios.post(route('objections.attachRfis', selectedObjection.id), {
-                rfi_ids: selectedRfis.map(id => parseInt(id)),
-            });
-            showToast.success(response.data.message || 'RFIs attached successfully');
-            onAttachClose();
-            router.reload({ only: ['objections'] });
-        } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to attach RFIs');
-        } finally {
-            setAttachLoading(false);
-        }
-    };
-
-    // Export selected RFIs to Excel (or all if none selected)
-    const handleExportSelectedRfis = async () => {
-        if (suggestedRfis.length === 0) {
-            showToast.error('No RFIs to export');
-            return;
-        }
-
-        setExportLoading(true);
-        try {
-            // If no RFIs selected, export all; otherwise export only selected
-            const rfisToExport = selectedRfis.length > 0 
-                ? suggestedRfis.filter(rfi => selectedRfis.includes(String(rfi.id)))
-                : suggestedRfis;
-            
-            // Format data for export
-            const exportData = rfisToExport.map(rfi => ({
-                'RFI Number': rfi.number || '',
-                'Date': rfi.date || 'N/A',
-                'Chainage': rfi.location || 'N/A',
-                'Side': rfi.side || 'N/A',
-                'Layer/Qty': rfi.qty_layer || 'N/A',
-                'Type': rfi.type || 'N/A',
-                'Description': rfi.description || 'N/A',
-                'Status': rfi.status || 'N/A',
-                'Objection Title': selectedObjection?.title || 'N/A',
-                'Objection Chainage': `${selectedObjection?.chainage_from || ''} - ${selectedObjection?.chainage_to || ''}`,
-            }));
-
-            // Export to Excel using xlsx library
-            if (typeof window !== 'undefined') {
-                const XLSX = await import('xlsx');
-                const worksheet = XLSX.utils.json_to_sheet(exportData);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, 'RFIs');
-                
-                // Auto-size columns
-                const colWidths = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
-                worksheet['!cols'] = colWidths;
-
-                const filename = `rfis_${selectedObjection?.title?.replace(/[\/\\\s]/g, '_') || 'export'}_${new Date().toISOString().split('T')[0]}`;
-                XLSX.writeFile(workbook, `${filename}.xlsx`);
-                showToast.success(`Exported ${exportData.length} RFIs successfully`);
-            }
-        } catch (error) {
-            console.error('Export error:', error);
-            showToast.error('Failed to export RFIs');
-        } finally {
-            setExportLoading(false);
-        }
-    };
-
     // Open edit modal
     const openEditModal = (objection) => {
         setEditObjection(objection);
@@ -619,106 +341,12 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         onEditOpen();
     };
 
-    // Handle edit objection
-    const handleEditObjection = async () => {
-        if (!editForm.title || !editForm.description || !editForm.reason) {
-            showToast.error('Please fill in all required fields');
-            return;
-        }
-
-        setEditLoading(true);
-        try {
-            const response = await axios.put(route('objections.update', editObjection.id), editForm);
-            showToast.success(response.data.message || 'Objection updated successfully');
-            onEditClose();
-            router.reload({ only: ['objections', 'statistics'] });
-        } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to update objection');
-        } finally {
-            setEditLoading(false);
-        }
-    };
-
     // Open status modal
     const openStatusModal = (objection, action) => {
         setSelectedObjection(objection);
         setStatusAction(action);
         setResolutionNotes('');
         onStatusOpen();
-    };
-
-    // Handle status change
-    const handleStatusChange = async () => {
-        if (!selectedObjection || !statusAction) return;
-
-        // Validate resolution notes for resolve/reject
-        if (['resolve', 'reject'].includes(statusAction) && !resolutionNotes.trim()) {
-            showToast.error('Please provide resolution notes');
-            return;
-        }
-
-        setStatusLoading(true);
-        try {
-            let response;
-            
-            switch (statusAction) {
-                case 'submit':
-                    response = await axios.post(route('objections.submit', selectedObjection.id));
-                    break;
-                case 'review':
-                    response = await axios.post(route('objections.review', selectedObjection.id));
-                    break;
-                case 'resolve':
-                    response = await axios.post(route('objections.resolve', selectedObjection.id), {
-                        resolution_notes: resolutionNotes,
-                    });
-                    break;
-                case 'reject':
-                    response = await axios.post(route('objections.reject', selectedObjection.id), {
-                        resolution_notes: resolutionNotes,
-                    });
-                    break;
-                default:
-                    throw new Error('Invalid action');
-            }
-            
-            showToast.success(response.data.message || 'Status updated successfully');
-            
-            // Update local state with the updated objection
-            if (response.data.objection) {
-                setObjections(prev => ({
-                    ...prev,
-                    data: prev.data.map(obj => 
-                        obj.id === response.data.objection.id ? response.data.objection : obj
-                    )
-                }));
-            }
-            
-            // Update statistics locally
-            if (response.data.statistics) {
-                setApiStats(response.data.statistics);
-            }
-            
-            onStatusClose();
-            setResolutionNotes('');
-        } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to update status');
-        } finally {
-            setStatusLoading(false);
-        }
-    };
-
-    // Delete objection
-    const handleDeleteObjection = async (objection) => {
-        if (!confirm('Are you sure you want to delete this objection?')) return;
-        
-        try {
-            const response = await axios.delete(route('objections.destroy', objection.id));
-            showToast.success(response.data.message || 'Objection deleted successfully');
-            router.reload({ only: ['objections', 'statistics'] });
-        } catch (error) {
-            showToast.error(error.response?.data?.error || 'Failed to delete objection');
-        }
     };
 
     // Get status action label
@@ -753,55 +381,6 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
     useEffect(() => {
         fetchData();
     }, [filterData, currentPage]);
-
-    // Calculate statistics
-    const stats = useMemo(() => {
-        const data = apiStats || {};
-        const total = data.total || objections?.total || 0;
-        const active = data.active || 0;
-        const resolved = data.resolved || 0;
-        const pending = data.pending || 0;
-        const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
-
-        return [
-            {
-                title: 'Total Objections',
-                value: total.toLocaleString(),
-                icon: <ShieldExclamationIcon className="w-5 h-5" />,
-                color: 'text-blue-600',
-                bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-                description: `${active} active`,
-                trend: active > 0 ? 'down' : 'neutral'
-            },
-            {
-                title: 'Active Issues',
-                value: active.toLocaleString(),
-                icon: <ExclamationTriangleIcon className="w-5 h-5" />,
-                color: active > 10 ? 'text-red-600' : 'text-warning-600',
-                bgColor: active > 10 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-warning-50 dark:bg-warning-900/20',
-                description: active > 0 ? 'Require attention' : 'All clear!',
-                trend: active > 10 ? 'down' : active > 0 ? 'neutral' : 'up'
-            },
-            {
-                title: 'Pending Review',
-                value: pending.toLocaleString(),
-                icon: <ClockIcon className="w-5 h-5" />,
-                color: 'text-orange-600',
-                bgColor: 'bg-orange-50 dark:bg-orange-900/20',
-                description: pending > 0 ? 'Awaiting action' : 'All caught up!',
-                trend: pending > 5 ? 'down' : 'neutral'
-            },
-            {
-                title: 'Resolution Rate',
-                value: `${resolutionRate}%`,
-                icon: <CheckCircleIcon className="w-5 h-5" />,
-                color: resolutionRate >= 80 ? 'text-green-600' : resolutionRate >= 50 ? 'text-yellow-600' : 'text-red-600',
-                bgColor: resolutionRate >= 80 ? 'bg-green-50 dark:bg-green-900/20' : resolutionRate >= 50 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-red-50 dark:bg-red-900/20',
-                description: `${resolved} resolved`,
-                trend: resolutionRate >= 80 ? 'up' : resolutionRate >= 50 ? 'neutral' : 'down'
-            }
-        ];
-    }, [apiStats, objections]);
 
     // Action buttons configuration
     const actionButtons = [
@@ -857,10 +436,10 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                 return (
                     <Button
                         size="sm"
-                        variant="flat"
+                        variant="soft"
                         color={objection.daily_works_count > 0 ? 'primary' : 'default'}
                         startContent={<LinkIcon className="w-3 h-3" />}
-                        onPress={() => openAttachModal(objection)}
+                        onClick={() => openAttachModal(objection)}
                     >
                         {objection.daily_works_count || 0} RFI(s)
                     </Button>
@@ -896,14 +475,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             <DropdownItem
                                 key="view"
                                 startContent={<DocumentTextIcon className="w-4 h-4" />}
-                                onPress={() => openDetailsModal(objection)}
+                                onClick={() => openDetailsModal(objection)}
                             >
                                 View Details
                             </DropdownItem>
                             <DropdownItem
                                 key="attach"
                                 startContent={<LinkIcon className="w-4 h-4" />}
-                                onPress={() => openAttachModal(objection)}
+                                onClick={() => openAttachModal(objection)}
                             >
                                 Manage RFIs
                             </DropdownItem>
@@ -911,7 +490,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 <DropdownItem
                                     key="edit"
                                     startContent={<PencilIcon className="w-4 h-4" />}
-                                    onPress={() => openEditModal(objection)}
+                                    onClick={() => openEditModal(objection)}
                                 >
                                     Edit
                                 </DropdownItem>
@@ -921,7 +500,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     key="submit"
                                     startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
                                     color="primary"
-                                    onPress={() => openStatusModal(objection, 'submit')}
+                                    onClick={() => openStatusModal(objection, 'submit')}
                                 >
                                     Submit for Review
                                 </DropdownItem>
@@ -931,7 +510,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     key="review"
                                     startContent={<ClockIcon className="w-4 h-4" />}
                                     color="warning"
-                                    onPress={() => openStatusModal(objection, 'review')}
+                                    onClick={() => openStatusModal(objection, 'review')}
                                 >
                                     Start Review
                                 </DropdownItem>
@@ -941,7 +520,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     key="resolve"
                                     startContent={<CheckCircleIcon className="w-4 h-4" />}
                                     color="success"
-                                    onPress={() => openStatusModal(objection, 'resolve')}
+                                    onClick={() => openStatusModal(objection, 'resolve')}
                                 >
                                     Resolve
                                 </DropdownItem>
@@ -950,8 +529,8 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 <DropdownItem
                                     key="reject"
                                     startContent={<XCircleSolid className="w-4 h-4" />}
-                                    color="danger"
-                                    onPress={() => openStatusModal(objection, 'reject')}
+                                    color="red"
+                                    onClick={() => openStatusModal(objection, 'reject')}
                                 >
                                     Reject
                                 </DropdownItem>
@@ -960,7 +539,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 <DropdownItem
                                     key="history"
                                     startContent={<ClockIcon className="w-4 h-4" />}
-                                    onPress={() => openHistoryModal(objection)}
+                                    onClick={() => openHistoryModal(objection)}
                                 >
                                     View History
                                 </DropdownItem>
@@ -969,9 +548,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 <DropdownItem
                                     key="delete"
                                     startContent={<TrashIcon className="w-4 h-4" />}
-                                    color="danger"
+                                    color="red"
                                     className="text-danger"
-                                    onPress={() => handleDeleteObjection(objection)}
+                                    onClick={() => handleDeleteObjection(objection)}
                                 >
                                     Delete
                                 </DropdownItem>
@@ -982,230 +561,6 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
             default:
                 return '-';
         }
-    };
-
-    // Mobile accordion item
-    const ObjectionAccordionItem = ({ objection, isExpanded, onToggle }) => {
-        const statusConf = statusConfig[objection.status] || statusConfig['draft'];
-        const StatusIcon = statusConf.icon;
-
-        return (
-            <Card
-                radius={getThemeRadius()}
-                className={`bg-content1 border shadow-sm ${
-                    objection.is_active
-                        ? 'border-warning/60 bg-warning-50/30 dark:bg-warning-900/10'
-                        : 'border-divider/40'
-                }`}
-            >
-                <CardHeader
-                    className="p-3 cursor-pointer select-none"
-                    onClick={onToggle}
-                >
-                    <div className="flex items-center justify-between w-full gap-2">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <ShieldExclamationIcon className={`w-5 h-5 shrink-0 ${
-                                objection.is_active ? 'text-warning animate-pulse' : 'text-success'
-                            }`} />
-                            <div className="min-w-0 flex-1">
-                                <h4 className="font-semibold text-sm text-foreground truncate">
-                                    {objection.title}
-                                </h4>
-                                <p className="text-xs text-default-500 truncate">
-                                    {objection.chainage_from && objection.chainage_to
-                                        ? `${objection.chainage_from} - ${objection.chainage_to}`
-                                        : 'No chainage set'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                            <Chip
-                                size="sm"
-                                variant="flat"
-                                color={statusConf.color}
-                                className="h-5 text-[10px]"
-                            >
-                                {statusConf.label}
-                            </Chip>
-                            <div className={`w-5 h-5 rounded-full bg-default-100 flex items-center justify-center transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
-                                <ChevronDownIcon className="w-3 h-3 text-default-500" />
-                            </div>
-                        </div>
-                    </div>
-                </CardHeader>
-
-                <AnimatePresence>
-                    {isExpanded && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            <CardBody className="px-3 pb-3 pt-0">
-                                <Divider className="mb-3" />
-
-                                <div className="space-y-2 text-xs">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-default-400">Category:</span>
-                                        {getCategoryChip(objection.category)}
-                                    </div>
-
-                                    {objection.type && (
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-default-400">Type:</span>
-                                            {getTypeChip(objection.type)}
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-default-400">Chainage:</span>
-                                        {objection.chainage_from && objection.chainage_to ? (
-                                            <div className="flex items-center gap-1">
-                                                <MapPinIcon className="w-3 h-3 text-default-400" />
-                                                <span>{objection.chainage_from} - {objection.chainage_to}</span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-default-400">Not set</span>
-                                        )}
-                                    </div>
-
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-default-400">Affected RFIs:</span>
-                                        <Button
-                                            size="sm"
-                                            variant="flat"
-                                            color={objection.daily_works_count > 0 ? 'primary' : 'default'}
-                                            className="h-6 min-h-6 text-[10px]"
-                                            onPress={() => openAttachModal(objection)}
-                                        >
-                                            {objection.daily_works_count || 0} RFI(s)
-                                        </Button>
-                                    </div>
-
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-default-400">Created By:</span>
-                                        <div className="flex items-center gap-1.5">
-                                            <ProfileAvatar
-                                                src={objection.created_by?.profile_image_url}
-                                                name={objection.created_by?.name}
-                                                size="xs"
-                                                className="w-4 h-4"
-                                            />
-                                            <span>{objection.created_by?.name || 'Unknown'}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-default-400">Date:</span>
-                                        <span>{formatDate(objection.created_at)}</span>
-                                    </div>
-
-                                    {objection.description && (
-                                        <div className="pt-2">
-                                            <span className="text-default-400 block mb-1">Description:</span>
-                                            <p className="text-default-600 text-[11px] line-clamp-3 bg-default-100 p-2 rounded">
-                                                {objection.description}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-wrap gap-2 mt-4">
-                                    <Button
-                                        size="sm"
-                                        variant="flat"
-                                        color="primary"
-                                        startContent={<LinkIcon className="w-3 h-3" />}
-                                        onPress={() => openAttachModal(objection)}
-                                    >
-                                        Manage RFIs
-                                    </Button>
-                                    {objection.status === 'draft' && (
-                                        <>
-                                            <Button
-                                                size="sm"
-                                                variant="flat"
-                                                color="default"
-                                                startContent={<PencilIcon className="w-3 h-3" />}
-                                                onPress={() => openEditModal(objection)}
-                                            >
-                                                Edit
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="flat"
-                                                color="primary"
-                                                startContent={<DocumentArrowUpIcon className="w-3 h-3" />}
-                                                onPress={() => openStatusModal(objection, 'submit')}
-                                            >
-                                                Submit
-                                            </Button>
-                                        </>
-                                    )}
-                                    {objection.status === 'submitted' && (
-                                        <Button
-                                            size="sm"
-                                            variant="flat"
-                                            color="warning"
-                                            startContent={<ClockIcon className="w-3 h-3" />}
-                                            onPress={() => openStatusModal(objection, 'review')}
-                                        >
-                                            Review
-                                        </Button>
-                                    )}
-                                    {objection.status === 'under_review' && (
-                                        <>
-                                            <Button
-                                                size="sm"
-                                                variant="flat"
-                                                color="success"
-                                                startContent={<CheckCircleIcon className="w-3 h-3" />}
-                                                onPress={() => openStatusModal(objection, 'resolve')}
-                                            >
-                                                Resolve
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="flat"
-                                                color="danger"
-                                                startContent={<XCircleSolid className="w-3 h-3" />}
-                                                onPress={() => openStatusModal(objection, 'reject')}
-                                            >
-                                                Reject
-                                            </Button>
-                                        </>
-                                    )}
-                                    {objection.status_logs?.length > 0 && (
-                                        <Button
-                                            size="sm"
-                                            variant="flat"
-                                            color="default"
-                                            startContent={<ClockIcon className="w-3 h-3" />}
-                                            onPress={() => openHistoryModal(objection)}
-                                        >
-                                            History
-                                        </Button>
-                                    )}
-                                    {objection.status === 'draft' && (
-                                        <Button
-                                            size="sm"
-                                            variant="flat"
-                                            color="danger"
-                                            startContent={<TrashIcon className="w-3 h-3" />}
-                                            onPress={() => handleDeleteObjection(objection)}
-                                        >
-                                            Delete
-                                        </Button>
-                                    )}
-                                </div>
-                            </CardBody>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </Card>
-        );
     };
 
     // Desktop table skeleton
@@ -1230,9 +585,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         <>
             <Head title="Objections Management" />
 
-            {/* Create Objection Modal */}
-            <Modal
-                isOpen={isCreateOpen}
+            {/* Create Objection Dialog */}
+            <Dialog
+                open={isCreateOpen}
                 onClose={onCreateClose}
                 size="lg"
                 scrollBehavior="inside"
@@ -1243,14 +598,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     wrapper: "items-center",
                 }}
             >
-                <ModalContent>
-                    <ModalHeader className="flex items-center gap-2">
+                <Dialog.Content>
+                    <Dialog.Title className="flex items-center gap-2">
                         <ShieldExclamationIcon className="w-5 h-5 text-warning" />
                         Create New Objection
-                    </ModalHeader>
-                    <ModalBody>
+                    </Dialog.Title>
+                    <Box>
                         <div className="space-y-4">
-                            <Input
+                            <TextField.Root
                                 label="Title"
                                 placeholder="Enter objection title"
                                 value={createForm.title}
@@ -1297,7 +652,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     Add specific chainages (comma-separated) and/or a range
                                 </p>
                                 
-                                <Input
+                                <TextField.Root
                                     label="Specific Chainages"
                                     placeholder="e.g., K35+897, K36+987, K37+123"
                                     description="Multiple chainages separated by commas"
@@ -1306,13 +661,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 />
 
                                 <div className="grid grid-cols-2 gap-3">
-                                    <Input
+                                    <TextField.Root
                                         label="Range From"
                                         placeholder="e.g., K36+580"
                                         value={createForm.chainage_range_from}
                                         onValueChange={(value) => setCreateForm(prev => ({ ...prev, chainage_range_from: value }))}
                                     />
-                                    <Input
+                                    <TextField.Root
                                         label="Range To"
                                         placeholder="e.g., K37+540"
                                         value={createForm.chainage_range_to}
@@ -1400,8 +755,8 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                     isIconOnly
                                                     size="sm"
                                                     variant="light"
-                                                    color="danger"
-                                                    onPress={() => removeSelectedFile(index)}
+                                                    color="red"
+                                                    onClick={() => removeSelectedFile(index)}
                                                 >
                                                     <XMarkIcon className="w-4 h-4" />
                                                 </Button>
@@ -1411,25 +766,25 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 )}
                             </div>
                         </div>
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button variant="light" onPress={() => { onCreateClose(); resetCreateForm(); }}>
+                    </Box>
+                    <Flex>
+                        <Button variant="light" onClick={() => { onCreateClose(); resetCreateForm(); }}>
                             Cancel
                         </Button>
                         <Button
                             color="primary"
-                            onPress={handleCreateObjection}
-                            isLoading={createLoading}
+                            onClick={handleCreateObjection}
+                            loading={createLoading}
                         >
                             Create Objection
                         </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog>
 
-            {/* Attach RFIs Modal */}
-            <Modal
-                isOpen={isAttachOpen}
+            {/* Attach RFIs Dialog */}
+            <Dialog
+                open={isAttachOpen}
                 onClose={onAttachClose}
                 size="2xl"
                 scrollBehavior="inside"
@@ -1441,8 +796,8 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     body: "overflow-x-hidden",
                 }}
             >
-                <ModalContent>
-                    <ModalHeader className="flex items-center gap-2 flex-wrap">
+                <Dialog.Content>
+                    <Dialog.Title className="flex items-center gap-2 flex-wrap">
                         <LinkIcon className="w-5 h-5 text-primary" />
                         Manage Affected RFIs
                         {selectedObjection && (
@@ -1451,12 +806,12 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             </span>
                         )}
                         {selectedObjection?.type && (
-                            <Chip size="sm" variant="flat" color={workTypeConfig[selectedObjection.type]?.color || 'default'} className="text-xs">
+                            <Badge size="sm" variant="soft" color={workTypeConfig[selectedObjection.type]?.color || 'default'} className="text-xs">
                                 {workTypeConfig[selectedObjection.type]?.icon} {selectedObjection.type} only
-                            </Chip>
+                            </Badge>
                         )}
-                    </ModalHeader>
-                    <ModalBody>
+                    </Dialog.Title>
+                    <Box>
                         <div className="space-y-4">
                             {/* Type Filter Info */}
                             {selectedObjection?.type && (
@@ -1479,7 +834,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
 
                             {/* Manual Search */}
                             <div className="flex gap-2">
-                                <Input
+                                <TextField.Root
                                     placeholder="Search RFIs by number, location, or description..."
                                     value={rfiSearchQuery}
                                     onChange={(e) => setRfiSearchQuery(e.target.value)}
@@ -1491,9 +846,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 <Button
                                     size="sm"
                                     color="primary"
-                                    variant="flat"
-                                    isLoading={rfiSearchLoading}
-                                    onPress={handleRfiSearch}
+                                    variant="soft"
+                                    loading={rfiSearchLoading}
+                                    onClick={handleRfiSearch}
                                 >
                                     Search
                                 </Button>
@@ -1502,9 +857,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                   (selectedObjection?.chainage_from && selectedObjection?.chainage_to)) && (
                                     <Button
                                         size="sm"
-                                        variant="flat"
-                                        isLoading={rfiSearchLoading}
-                                        onPress={() => {
+                                        variant="soft"
+                                        loading={rfiSearchLoading}
+                                        onClick={() => {
                                             setRfiSearchQuery('');
                                             const summary = selectedObjection.chainage_summary || {};
                                             const specificChainages = summary.specific?.join(', ') || '';
@@ -1563,7 +918,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                         )}
                                                     </div>
                                                 </div>
-                                                <Chip size="sm" variant="flat" color="success">Attached</Chip>
+                                                <Badge size="sm" variant="soft" color="success">Attached</Badge>
                                             </div>
                                         ))}
                                     </div>
@@ -1616,14 +971,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                             <div className="flex items-center gap-2 flex-wrap">
                                                                 <span className="font-semibold text-sm text-primary">{rfi.number}</span>
                                                                 {isAlreadyAttached && (
-                                                                    <Chip size="sm" variant="flat" color="success" className="h-5 text-[10px]">
+                                                                    <Badge size="sm" variant="soft" color="success" className="h-5 text-[10px]">
                                                                         Attached
-                                                                    </Chip>
+                                                                    </Badge>
                                                                 )}
                                                                 {rfi.type && (
-                                                                    <Chip size="sm" variant="flat" color="secondary" className="h-5 text-[10px]">
+                                                                    <Badge size="sm" variant="soft" color="secondary" className="h-5 text-[10px]">
                                                                         {rfi.type}
-                                                                    </Chip>
+                                                                    </Badge>
                                                                 )}
                                                             </div>
                                                             
@@ -1674,8 +1029,8 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 )}
                             </div>
                         </div>
-                    </ModalBody>
-                    <ModalFooter>
+                    </Box>
+                    <Flex>
                         <div className="flex items-center justify-between w-full">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-default-500">
@@ -1684,12 +1039,12 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 {suggestedRfis.length > 0 && (
                                     <Tooltip content={selectedRfis.length > 0 ? `Export ${selectedRfis.length} selected RFIs` : `Export all ${suggestedRfis.length} RFIs`}>
                                         <Button
-                                            variant="flat"
+                                            variant="soft"
                                             color="success"
                                             size="sm"
                                             isIconOnly
-                                            onPress={handleExportSelectedRfis}
-                                            isLoading={exportLoading}
+                                            onClick={handleExportSelectedRfis}
+                                            loading={exportLoading}
                                         >
                                             <ArrowDownTrayIcon className="w-4 h-4" />
                                         </Button>
@@ -1697,26 +1052,26 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 )}
                             </div>
                             <div className="flex gap-2">
-                                <Button variant="light" onPress={onAttachClose}>
+                                <Button variant="light" onClick={onAttachClose}>
                                     Cancel
                                 </Button>
                                 <Button
                                     color="primary"
-                                    onPress={handleAttachRfis}
-                                    isLoading={attachLoading}
-                                    isDisabled={selectedRfis.length === 0}
+                                    onClick={handleAttachRfis}
+                                    loading={attachLoading}
+                                    disabled={selectedRfis.length === 0}
                                 >
                                     Save Attachments
                                 </Button>
                             </div>
                         </div>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog>
 
-            {/* Edit Objection Modal */}
-            <Modal
-                isOpen={isEditOpen}
+            {/* Edit Objection Dialog */}
+            <Dialog
+                open={isEditOpen}
                 onClose={onEditClose}
                 size="2xl"
                 scrollBehavior="inside"
@@ -1727,14 +1082,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     wrapper: "items-center",
                 }}
             >
-                <ModalContent>
-                    <ModalHeader className="flex items-center gap-2">
+                <Dialog.Content>
+                    <Dialog.Title className="flex items-center gap-2">
                         <PencilIcon className="w-5 h-5 text-primary" />
                         Edit Objection
-                    </ModalHeader>
-                    <ModalBody>
+                    </Dialog.Title>
+                    <Box>
                         <div className="space-y-4">
-                            <Input
+                            <TextField.Root
                                 label="Title"
                                 placeholder="Enter objection title"
                                 value={editForm.title}
@@ -1777,7 +1132,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     Add specific chainages (comma-separated) and/or a range
                                 </p>
                                 
-                                <Input
+                                <TextField.Root
                                     label="Specific Chainages"
                                     placeholder="e.g., K35+897, K36+987, K37+123"
                                     description="Multiple chainages separated by commas"
@@ -1786,13 +1141,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 />
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <Input
+                                    <TextField.Root
                                         label="Range From"
                                         placeholder="e.g., K36+580"
                                         value={editForm.chainage_range_from}
                                         onChange={(e) => setEditForm(prev => ({ ...prev, chainage_range_from: e.target.value }))}
                                     />
-                                    <Input
+                                    <TextField.Root
                                         label="Range To"
                                         placeholder="e.g., K37+540"
                                         value={editForm.chainage_range_to}
@@ -1818,25 +1173,25 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 isRequired
                             />
                         </div>
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button variant="light" onPress={onEditClose}>
+                    </Box>
+                    <Flex>
+                        <Button variant="light" onClick={onEditClose}>
                             Cancel
                         </Button>
                         <Button
                             color="primary"
-                            onPress={handleEditObjection}
-                            isLoading={editLoading}
+                            onClick={handleEditObjection}
+                            loading={editLoading}
                         >
                             Save Changes
                         </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog>
 
-            {/* Status Update Modal */}
-            <Modal
-                isOpen={isStatusOpen}
+            {/* Status Update Dialog */}
+            <Dialog
+                open={isStatusOpen}
                 onClose={onStatusClose}
                 size="lg"
                 placement="bottom-center"
@@ -1845,15 +1200,15 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     wrapper: "items-end sm:items-center",
                 }}
             >
-                <ModalContent>
-                    <ModalHeader className="flex items-center gap-2">
+                <Dialog.Content>
+                    <Dialog.Title className="flex items-center gap-2">
                         {statusAction === 'submit' && <DocumentArrowUpIcon className="w-5 h-5 text-primary" />}
                         {statusAction === 'review' && <ClockIcon className="w-5 h-5 text-warning" />}
                         {statusAction === 'resolve' && <CheckCircleIcon className="w-5 h-5 text-success" />}
                         {statusAction === 'reject' && <XCircleSolid className="w-5 h-5 text-danger" />}
                         {getStatusActionLabel(statusAction)}
-                    </ModalHeader>
-                    <ModalBody>
+                    </Dialog.Title>
+                    <Box>
                         {selectedObjection && (
                             <div className="space-y-4">
                                 <div className="p-3 bg-default-100 rounded-lg">
@@ -1890,25 +1245,25 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 )}
                             </div>
                         )}
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button variant="light" onPress={onStatusClose}>
+                    </Box>
+                    <Flex>
+                        <Button variant="light" onClick={onStatusClose}>
                             Cancel
                         </Button>
                         <Button
                             color={statusAction === 'reject' ? 'danger' : statusAction === 'resolve' ? 'success' : 'primary'}
-                            onPress={handleStatusChange}
-                            isLoading={statusLoading}
+                            onClick={handleStatusChange}
+                            loading={statusLoading}
                         >
                             {getStatusActionLabel(statusAction)}
                         </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog>
 
-            {/* Status History Modal */}
-            <Modal
-                isOpen={isHistoryOpen}
+            {/* Status History Dialog */}
+            <Dialog
+                open={isHistoryOpen}
                 onClose={onHistoryClose}
                 size="2xl"
                 scrollBehavior="inside"
@@ -1919,12 +1274,12 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     wrapper: "items-center",
                 }}
             >
-                <ModalContent>
-                    <ModalHeader className="flex items-center gap-2">
+                <Dialog.Content>
+                    <Dialog.Title className="flex items-center gap-2">
                         <ClockIcon className="w-5 h-5 text-primary" />
                         Status History
-                    </ModalHeader>
-                    <ModalBody>
+                    </Dialog.Title>
+                    <Box>
                         {historyObjection && (
                             <div className="space-y-4">
                                 {/* Current Status */}
@@ -1932,13 +1287,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     <p className="font-medium">{historyObjection.title}</p>
                                     <div className="flex items-center gap-2 mt-2">
                                         <span className="text-sm text-default-500">Current Status:</span>
-                                        <Chip
+                                        <Badge
                                             size="sm"
-                                            variant="flat"
+                                            variant="soft"
                                             color={statusConfig[historyObjection.status]?.color || 'default'}
                                         >
                                             {formatStatus(historyObjection.status)}
-                                        </Chip>
+                                        </Badge>
                                     </div>
                                 </div>
                                 
@@ -1967,21 +1322,21 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                         <div className="flex-1 pb-4">
                                                             <div className="bg-content2 rounded-lg p-3 border border-divider/40">
                                                                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                                                                    <Chip
+                                                                    <Badge
                                                                         size="sm"
-                                                                        variant="flat"
+                                                                        variant="soft"
                                                                         color={statusConfig[log.from_status]?.color || 'default'}
                                                                     >
                                                                         {formatStatus(log.from_status)}
-                                                                    </Chip>
+                                                                    </Badge>
                                                                     <span className="text-default-400">→</span>
-                                                                    <Chip
+                                                                    <Badge
                                                                         size="sm"
-                                                                        variant="flat"
+                                                                        variant="soft"
                                                                         color={toStatusConf.color || 'default'}
                                                                     >
                                                                         {formatStatus(log.to_status)}
-                                                                    </Chip>
+                                                                    </Badge>
                                                                 </div>
                                                                 
                                                                 <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-default-500">
@@ -2015,18 +1370,18 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 </div>
                             </div>
                         )}
-                    </ModalBody>
-                    <ModalFooter>
-                        <Button variant="light" onPress={onHistoryClose}>
+                    </Box>
+                    <Flex>
+                        <Button variant="light" onClick={onHistoryClose}>
                             Close
                         </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog>
 
-            {/* View Details Modal */}
-            <Modal
-                isOpen={isDetailsOpen}
+            {/* View Details Dialog */}
+            <Dialog
+                open={isDetailsOpen}
                 onClose={onDetailsClose}
                 size="4xl"
                 scrollBehavior="inside"
@@ -2038,8 +1393,8 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     body: "p-3 sm:p-6",
                 }}
             >
-                <ModalContent>
-                    <ModalHeader className="flex flex-col sm:flex-row sm:items-center gap-2 pb-2">
+                <Dialog.Content>
+                    <Dialog.Title className="flex flex-col sm:flex-row sm:items-center gap-2 pb-2">
                         <div className="flex items-center gap-2">
                             <ShieldExclamationIcon className={`w-5 h-5 ${detailsObjection?.is_active ? 'text-warning' : 'text-success'}`} />
                             <span className="font-semibold truncate">{detailsObjection?.title || 'Objection Details'}</span>
@@ -2051,8 +1406,8 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 {getTypeChip(detailsObjection.type)}
                             </div>
                         )}
-                    </ModalHeader>
-                    <ModalBody>
+                    </Dialog.Title>
+                    <Box>
                         {detailsObjection && (
                             <div className="space-y-4 sm:space-y-6">
                                 {/* Basic Info Grid - Responsive */}
@@ -2107,9 +1462,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                     <ScrollShadow className="max-h-24" hideScrollBar>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {detailsObjection.chainage_summary.specific.map((chainage, idx) => (
-                                                                <Chip key={idx} size="sm" variant="flat" color="secondary" className="text-xs">
+                                                                <Badge key={idx} size="sm" variant="soft" color="secondary" className="text-xs">
                                                                     {chainage}
-                                                                </Chip>
+                                                                </Badge>
                                                             ))}
                                                         </div>
                                                     </ScrollShadow>
@@ -2119,9 +1474,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                             {detailsObjection.chainage_summary.range && (
                                                 <div>
                                                     <p className="text-xs text-default-500 mb-1.5">Chainage Range</p>
-                                                    <Chip size="sm" variant="bordered" color="primary" startContent={<MapPinIcon className="w-3 h-3" />}>
+                                                    <Badge size="sm" variant="outline" color="primary" startContent={<MapPinIcon className="w-3 h-3" />}>
                                                         {detailsObjection.chainage_summary.range}
-                                                    </Chip>
+                                                    </Badge>
                                                 </div>
                                             )}
                                             {/* No chainage info */}
@@ -2143,9 +1498,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                         </div>
                                         <Button
                                             size="sm"
-                                            variant="flat"
+                                            variant="soft"
                                             color="primary"
-                                            onPress={() => {
+                                            onClick={() => {
                                                 onDetailsClose();
                                                 openAttachModal(detailsObjection);
                                             }}
@@ -2156,14 +1511,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     {detailsObjection.daily_works?.length > 0 ? (
                                         <div className="flex flex-wrap gap-2">
                                             {detailsObjection.daily_works.slice(0, 10).map((rfi) => (
-                                                <Chip key={rfi.id} size="sm" variant="flat" color="primary">
+                                                <Badge key={rfi.id} size="sm" variant="soft" color="primary">
                                                     {rfi.number}
-                                                </Chip>
+                                                </Badge>
                                             ))}
                                             {detailsObjection.daily_works.length > 10 && (
-                                                <Chip size="sm" variant="bordered" color="default">
+                                                <Badge size="sm" variant="outline" color="gray">
                                                     +{detailsObjection.daily_works.length - 10} more
-                                                </Chip>
+                                                </Badge>
                                             )}
                                         </div>
                                     ) : (
@@ -2289,7 +1644,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                             <Button
                                                 size="sm"
                                                 variant="light"
-                                                onPress={() => {
+                                                onClick={() => {
                                                     onDetailsClose();
                                                     openHistoryModal(detailsObjection);
                                                 }}
@@ -2300,13 +1655,13 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                         <div className="flex flex-wrap gap-2">
                                             {detailsObjection.status_logs.slice(-3).map((log, index) => (
                                                 <div key={log.id || index} className="flex items-center gap-1 text-xs">
-                                                    <Chip size="sm" variant="flat" color={statusConfig[log.from_status]?.color || 'default'}>
+                                                    <Badge size="sm" variant="soft" color={statusConfig[log.from_status]?.color || 'default'}>
                                                         {formatStatus(log.from_status)}
-                                                    </Chip>
+                                                    </Badge>
                                                     <span className="text-default-400">→</span>
-                                                    <Chip size="sm" variant="flat" color={statusConfig[log.to_status]?.color || 'default'}>
+                                                    <Badge size="sm" variant="soft" color={statusConfig[log.to_status]?.color || 'default'}>
                                                         {formatStatus(log.to_status)}
-                                                    </Chip>
+                                                    </Badge>
                                                 </div>
                                             ))}
                                         </div>
@@ -2314,17 +1669,17 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 )}
                             </div>
                         )}
-                    </ModalBody>
-                    <ModalFooter className="flex-col sm:flex-row gap-2">
-                        <Button variant="light" onPress={onDetailsClose} className="w-full sm:w-auto">
+                    </Box>
+                    <Flex className="flex-col sm:flex-row gap-2">
+                        <Button variant="light" onClick={onDetailsClose} className="w-full sm:w-auto">
                             Close
                         </Button>
                         {detailsObjection?.status === 'draft' && (
                             <Button
                                 color="primary"
-                                variant="flat"
+                                variant="soft"
                                 startContent={<PencilIcon className="w-4 h-4" />}
-                                onPress={() => {
+                                onClick={() => {
                                     onDetailsClose();
                                     openEditModal(detailsObjection);
                                 }}
@@ -2337,7 +1692,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             <Button
                                 color="primary"
                                 startContent={<DocumentArrowUpIcon className="w-4 h-4" />}
-                                onPress={() => {
+                                onClick={() => {
                                     onDetailsClose();
                                     openStatusModal(detailsObjection, 'submit');
                                 }}
@@ -2346,12 +1701,12 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                 Submit for Review
                             </Button>
                         )}
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog>
 
             <div className="flex justify-center p-4">
-                <motion.div
+                <div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
@@ -2443,7 +1798,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                         color={button.color || "primary"}
                                                         startContent={!isMobile && button.icon}
                                                         isIconOnly={isMobile}
-                                                        onPress={button.onPress}
+                                                        onClick={button.onPress}
                                                         className={`${button.className || ''} font-medium ${isMobile ? 'min-w-9 h-9' : ''}`}
                                                         aria-label={button.label}
                                                         style={{
@@ -2463,151 +1818,29 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
 
                         <CardBody className="pt-6">
                             {/* Quick Stats */}
-                            <div className="relative">
-                                <StatsCards
-                                    stats={stats}
-                                    onRefresh={refreshData}
-                                    isLoading={statsLoading}
-                                />
-                            </div>
+                            <ObjectionsStatsSection
+                                apiStats={apiStats}
+                                objections={objections}
+                                statsLoading={statsLoading}
+                                onRefresh={refreshData}
+                            />
 
-                            {/* Search and Filters Section */}
-                            <div className="mb-4 space-y-4">
-                                <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-                                    {/* Filter Toggle Button */}
-                                    <Button
-                                        size="sm"
-                                        variant={showFilters ? 'solid' : 'bordered'}
-                                        color={showFilters ? 'primary' : 'default'}
-                                        onPress={() => setShowFilters(!showFilters)}
-                                        radius={getThemeRadius()}
-                                        className={`shrink-0 min-h-10 ${showFilters ? '' : 'border-divider/50'}`}
-                                        startContent={<AdjustmentsHorizontalIcon className="w-4 h-4" />}
-                                        style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                    >
-                                        {isMobile ? '' : 'Filters'}
-                                    </Button>
-
-                                    {/* Search Field */}
-                                    <div className="flex-1 min-w-0">
-                                        <Input
-                                            type="text"
-                                            placeholder="Search by title, description, or chainage..."
-                                            value={search}
-                                            onChange={handleSearch}
-                                            variant="bordered"
-                                            size="sm"
-                                            radius={getThemeRadius()}
-                                            startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400 shrink-0" />}
-                                            classNames={{
-                                                input: "text-foreground text-sm",
-                                                inputWrapper: "min-h-10 bg-content2/50 border-divider/50 hover:border-divider",
-                                            }}
-                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Advanced Filters Panel */}
-                                <AnimatePresence>
-                                    {showFilters && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="overflow-hidden"
-                                        >
-                                            <div
-                                                className="p-3 rounded-lg border"
-                                                style={{
-                                                    background: 'var(--theme-content2, rgba(244, 244, 245, 0.8))',
-                                                    borderColor: 'var(--theme-divider, rgba(228, 228, 231, 0.5))',
-                                                }}
-                                            >
-                                                <div className="flex flex-wrap gap-3 items-end">
-                                                    {/* Status Filter */}
-                                                    <div className="w-full sm:w-auto sm:min-w-[160px]">
-                                                        <Select
-                                                            label="Status"
-                                                            placeholder="All"
-                                                            selectedKeys={filterData.status ? [filterData.status] : ["all"]}
-                                                            onSelectionChange={(keys) => {
-                                                                const value = Array.from(keys)[0] || 'all';
-                                                                handleFilterChange('status', value);
-                                                            }}
-                                                            variant="bordered"
-                                                            size="sm"
-                                                            radius={getThemeRadius()}
-                                                            classNames={{
-                                                                trigger: "min-h-10",
-                                                                value: "text-foreground text-sm",
-                                                            }}
-                                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                        >
-                                                            <SelectItem key="all" value="all">All Statuses</SelectItem>
-                                                            {Object.entries(statuses || statusConfig).map(([key, value]) => (
-                                                                <SelectItem key={key} value={key}>
-                                                                    {typeof value === 'string' ? value : value.label}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </Select>
-                                                    </div>
-
-                                                    {/* Category Filter */}
-                                                    <div className="w-full sm:w-auto sm:min-w-[160px]">
-                                                        <Select
-                                                            label="Category"
-                                                            placeholder="All"
-                                                            selectedKeys={filterData.category ? [filterData.category] : ["all"]}
-                                                            onSelectionChange={(keys) => {
-                                                                const value = Array.from(keys)[0] || 'all';
-                                                                handleFilterChange('category', value);
-                                                            }}
-                                                            variant="bordered"
-                                                            size="sm"
-                                                            radius={getThemeRadius()}
-                                                            classNames={{
-                                                                trigger: "min-h-10",
-                                                                value: "text-foreground text-sm",
-                                                            }}
-                                                            style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                        >
-                                                            <SelectItem key="all" value="all">All Categories</SelectItem>
-                                                            {Object.entries(categories || categoryConfig).map(([key, value]) => (
-                                                                <SelectItem key={key} value={key}>
-                                                                    {typeof value === 'string' ? value : value.label}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </Select>
-                                                    </div>
-
-                                                    {/* Clear Filters */}
-                                                    <Button
-                                                        size="sm"
-                                                        variant="flat"
-                                                        color="danger"
-                                                        radius={getThemeRadius()}
-                                                        className="min-h-10"
-                                                        onPress={() => {
-                                                            setFilterData({
-                                                                status: 'all',
-                                                                category: 'all',
-                                                                creator: '',
-                                                            });
-                                                            setSearch('');
-                                                            setCurrentPage(1);
-                                                        }}
-                                                        style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                                                    >
-                                                        Clear
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
+                            <ObjectionsFiltersBar
+                                isMobile={isMobile}
+                                showFilters={showFilters}
+                                onToggleFilters={() => setShowFilters(!showFilters)}
+                                search={search}
+                                onSearchChange={handleSearch}
+                                filterData={filterData}
+                                onFilterChange={handleFilterChange}
+                                statuses={statuses}
+                                categories={categories}
+                                onClearFilters={() => {
+                                    setFilterData({ status: 'all', category: 'all', creator: '' });
+                                    setSearch('');
+                                    setCurrentPage(1);
+                                }}
+                            />
 
                             {/* Objections Table/List */}
                             <Card
@@ -2641,6 +1874,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                                                     objection={objection}
                                                                     isExpanded={expandedItems.has(objection.id)}
                                                                     onToggle={() => toggleExpanded(objection.id)}
+                                                                    getCategoryChip={getCategoryChip}
+                                                                    getTypeChip={getTypeChip}
+                                                                    formatDate={formatDate}
+                                                                    openAttachModal={openAttachModal}
+                                                                    openEditModal={openEditModal}
+                                                                    openStatusModal={openStatusModal}
+                                                                    openHistoryModal={openHistoryModal}
+                                                                    handleDeleteObjection={handleDeleteObjection}
                                                                 />
                                                             </SwipeableCard>
                                                         ))
@@ -2711,7 +1952,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             </Card>
                         </CardBody>
                     </Card>
-                </motion.div>
+                </div>
             </div>
         </>
     );

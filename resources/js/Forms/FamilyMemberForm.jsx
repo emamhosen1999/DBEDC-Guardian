@@ -1,14 +1,10 @@
-import React, {useEffect, useState} from "react";
 import {
-    Button,
-    Input,
-    Spinner,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-} from "@/compat/heroui";
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
+import React, {useEffect, useState} from "react";
 import { X, Users } from "lucide-react";
 import { showToast } from "@/utils/toastUtils";
 
@@ -167,8 +163,8 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
     };
 
     return (
-        <Modal
-            isOpen={open}
+        <Dialog
+            open={open}
             onOpenChange={processing ? undefined : closeModal}
             size="2xl"
             radius={getThemeRadius()}
@@ -181,8 +177,8 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                 fontFamily: `var(--fontFamily, "Inter")`,
             }}
         >
-            <ModalContent>
-                <ModalHeader className="flex gap-3 items-center" style={{
+            <Dialog.Content>
+                <Dialog.Title className="flex gap-3 items-center" style={{
                     fontFamily: `var(--fontFamily, "Inter")`,
                     borderBottom: '1px solid var(--theme-divider)'
                 }}>
@@ -197,16 +193,16 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                     }}>
                         Family Member
                     </span>
-                </ModalHeader>
+                </Dialog.Title>
             <form onSubmit={handleSubmit}>
-                <ModalBody className="py-4 px-4 sm:py-6 sm:px-6" style={{
+                <Box className="py-4 px-4 sm:py-6 sm:px-6" style={{
                     fontFamily: `var(--fontFamily, "Inter")`,
                 }}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="col-span-1">
-                            <Input
+                            <TextField.Root
                                 label="Name"
-                                variant="bordered"
+                                variant="outline"
                                 value={changedUserData.family_member_name || initialUserData.family_member_name || ""}
                                 onChange={(e) => handleChange('family_member_name', e.target.value)}
                                 isInvalid={Boolean(errors.family_member_name)}
@@ -223,9 +219,9 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                             />
                         </div>
                         <div className="col-span-1">
-                            <Input
+                            <TextField.Root
                                 label="Relationship"
-                                variant="bordered"
+                                variant="outline"
                                 value={changedUserData.family_member_relationship || initialUserData.family_member_relationship || ""}
                                 onChange={(e) => handleChange('family_member_relationship', e.target.value)}
                                 isInvalid={Boolean(errors.family_member_relationship)}
@@ -242,9 +238,9 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                             />
                         </div>
                         <div className="col-span-1">
-                            <Input
+                            <TextField.Root
                                 label="Date of Birth"
-                                variant="bordered"
+                                variant="outline"
                                 type="date"
                                 value={changedUserData.family_member_dob || initialUserData.family_member_dob || ""}
                                 onChange={(e) => handleChange('family_member_dob', e.target.value)}
@@ -262,9 +258,9 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                             />
                         </div>
                         <div className="col-span-1">
-                            <Input
+                            <TextField.Root
                                 label="Phone"
-                                variant="bordered"
+                                variant="outline"
                                 value={changedUserData.family_member_phone || initialUserData.family_member_phone || ""}
                                 onChange={(e) => handleChange('family_member_phone', e.target.value)}
                                 isInvalid={Boolean(errors.family_member_phone)}
@@ -281,14 +277,14 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                             />
                         </div>
                     </div>
-                </ModalBody>
-                <ModalFooter style={{
+                </Box>
+                <Flex style={{
                     borderTop: '1px solid var(--theme-divider)',
                     fontFamily: `var(--fontFamily, "Inter")`,
                 }}>
                     <Button
-                        onPress={closeModal}
-                        isDisabled={processing}
+                        onClick={closeModal}
+                        disabled={processing}
                         variant="light"
                         radius={getThemeRadius()}
                         style={{
@@ -298,11 +294,11 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                         Cancel
                     </Button>
                     <Button
-                        isDisabled={!dataChanged}
-                        variant="bordered"
+                        disabled={!dataChanged}
+                        variant="outline"
                         color="primary"
                         type="submit"
-                        isLoading={processing}
+                        loading={processing}
                         radius={getThemeRadius()}
                         style={{
                             fontFamily: `var(--fontFamily, "Inter")`,
@@ -310,10 +306,10 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                     >
                         Submit
                     </Button>
-                </ModalFooter>
+                </Flex>
             </form>
-            </ModalContent>
-        </Modal>
+            </Dialog.Content>
+        </Dialog>
     );
 };
 

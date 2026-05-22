@@ -1,5 +1,11 @@
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { motion } from 'framer-motion';
+
 import { 
     MapPinIcon, 
     PlusIcon,
@@ -13,15 +19,7 @@ import {
 import { Head } from "@inertiajs/react";
 import App from "@/Layouts/App.jsx";
 import WorkLocationsTable from '@/Tables/WorkLocationsTable.jsx';
-import { 
-    Card, 
-    CardHeader, 
-    CardBody, 
-    Input, 
-    Button,
-    Spinner,
-    ScrollShadow
-} from "@/compat/heroui";
+
 import StatsCards from "@/Components/StatsCards.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import WorkLocationForm from "@/Forms/WorkLocationForm.jsx";
@@ -211,7 +209,7 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
             )}
 
             <div className="flex justify-center p-4">
-                <motion.div
+                <div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
@@ -302,7 +300,7 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
                                                         variant={button.variant || "flat"}
                                                         color={button.color || "primary"}
                                                         startContent={button.icon}
-                                                        onPress={button.onPress}
+                                                        onClick={button.onPress}
                                                         className={`${button.className || ''} font-medium`}
                                                         style={{
                                                             fontFamily: `var(--fontFamily, "Inter")`,
@@ -326,12 +324,12 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
                             {/* Search Section */}
                             <div className="mb-6">
                                 <div className="w-full sm:w-auto sm:min-w-[300px]">
-                                    <Input
+                                    <TextField.Root
                                         type="text"
                                         placeholder="Search by location, chainage, or incharge..."
                                         value={search}
                                         onChange={(e) => handleSearch(e)}
-                                        variant="bordered"
+                                        variant="outline"
                                         size={isMobile ? "sm" : "md"}
                                         radius={getThemeRadius()}
                                         startContent={
@@ -378,7 +376,7 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
                             </Card>
                         </CardBody>
                     </Card>
-                </motion.div>
+                </div>
             </div>
         </>
     );

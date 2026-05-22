@@ -32,7 +32,7 @@ Route::post('/biometric/heartbeat', [BiometricWebhookController::class, 'heartbe
 // via bootstrap/app.php → then callback). The MB460 hardcodes /iclock/cdata.
 
 // Device command management (requires authentication)
-Route::middleware(['web', 'auth'])->prefix('biometric-devices')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:api'])->prefix('biometric-devices')->group(function () {
     Route::post('/{deviceId}/commands', [BiometricWebhookController::class, 'queueCommand'])
         ->name('api.biometric-devices.commands.queue');
     Route::get('/{deviceId}/commands', [BiometricWebhookController::class, 'getCommands'])
@@ -83,7 +83,7 @@ Route::post('/log-error', function (Request $request) {
 
         return response()->json(['success' => false], 500);
     }
-})->middleware(['web']);
+})->middleware(['web', 'auth', 'throttle:60,1']);
 
 // Performance logging endpoint
 
@@ -114,16 +114,16 @@ Route::post('/log-performance', function (Request $request) {
 
         return response()->json(['success' => false], 500);
     }
-})->middleware(['web']);
+})->middleware(['web', 'auth', 'throttle:60,1']);
 
 // System monitoring API routes
-Route::middleware(['web', 'auth'])->group(function () {
+Route::middleware(['web', 'auth', 'throttle:api'])->group(function () {
     Route::get('/system-monitoring/metrics', [SystemMonitoringController::class, 'getMetrics'])->name('api.system-monitoring.metrics');
     Route::get('/system-monitoring/overview', [SystemMonitoringController::class, 'getSystemOverview'])->name('api.system-monitoring.overview');
 });
 
 // Locale API routes
-Route::prefix('locale')->group(function () {
+Route::prefix('locale')->middleware('throttle:api')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\LocaleController::class, 'index'])->name('api.locale.index');
     Route::post('/', [\App\Http\Controllers\Api\LocaleController::class, 'update'])->name('api.locale.update');
     Route::get('/translations/{namespace?}', [\App\Http\Controllers\Api\LocaleController::class, 'translations'])->name('api.locale.translations');
@@ -132,7 +132,7 @@ Route::prefix('locale')->group(function () {
 // ============================================================================
 // RBAC API Routes - Role and Permission Management
 // ============================================================================
-Route::middleware(['web', 'auth'])->prefix('roles')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:api'])->prefix('roles')->group(function () {
     // Role CRUD operations
     Route::get('/', [\App\Http\Controllers\RoleController::class, 'apiIndex'])->name('api.roles.index');
     Route::post('/', [\App\Http\Controllers\RoleController::class, 'storeRole'])->name('api.roles.store');
@@ -145,7 +145,7 @@ Route::middleware(['web', 'auth'])->prefix('roles')->group(function () {
     Route::post('/{id}/permissions/sync', [\App\Http\Controllers\RoleController::class, 'syncRolePermissions'])->name('api.roles.permissions.sync');
 });
 
-Route::middleware(['web', 'auth'])->prefix('permissions')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:api'])->prefix('permissions')->group(function () {
     // Permission CRUD operations
     Route::get('/', [\App\Http\Controllers\PermissionController::class, 'index'])->name('api.permissions.index');
     Route::post('/', [\App\Http\Controllers\PermissionController::class, 'store'])->name('api.permissions.store');
@@ -157,7 +157,7 @@ Route::middleware(['web', 'auth'])->prefix('permissions')->group(function () {
     Route::get('/grouped/modules', [\App\Http\Controllers\PermissionController::class, 'groupedByModule'])->name('api.permissions.grouped');
 });
 
-Route::middleware(['web', 'auth'])->prefix('users')->group(function () {
+Route::middleware(['web', 'auth', 'throttle:api'])->prefix('users')->group(function () {
     // User-Role assignment
     Route::get('/{id}/roles', [\App\Http\Controllers\UserController::class, 'getUserRoles'])->name('api.users.roles.index');
     Route::post('/{id}/roles', [\App\Http\Controllers\UserController::class, 'updateUserRole'])->name('api.users.roles.sync');
@@ -172,11 +172,11 @@ Route::middleware(['web', 'auth'])->prefix('users')->group(function () {
 // ============================================================================
 // Mobile API v1 Routes
 // ============================================================================
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::post('/auth/login', [MobileAuthController::class, 'login'])->name('api.v1.auth.login');
 });
 
-Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\ApiDeviceAuthMiddleware::class])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
     Route::get('/auth/me', [MobileAuthController::class, 'me'])->name('api.v1.auth.me');
     Route::post('/auth/logout', [MobileAuthController::class, 'logout'])->name('api.v1.auth.logout');
     Route::get('/profile', [MobileProfileController::class, 'show'])->name('api.v1.profile.show');
@@ -199,8 +199,8 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\ApiDeviceA
     Route::get('/leaves/summary', [MobileLeaveController::class, 'summary'])->name('api.v1.leaves.summary');
     Route::get('/leaves/analytics', [MobileLeaveController::class, 'analytics'])->name('api.v1.leaves.analytics');
     Route::get('/leaves/calendar', [MobileLeaveController::class, 'calendar'])->name('api.v1.leaves.calendar');
-    Route::get('/leaves/{leaveId}', [MobileLeaveController::class, 'show'])->whereNumber('leaveId')->name('api.v1.leaves.show');
     Route::get('/leaves/pending-approvals', [MobileLeaveController::class, 'pendingApprovals'])->name('api.v1.leaves.pending-approvals');
+    Route::get('/leaves/{leaveId}', [MobileLeaveController::class, 'show'])->whereNumber('leaveId')->name('api.v1.leaves.show');
     Route::get('/manager/dashboard-summary', [MobileManagerDashboardController::class, 'summary'])->name('api.v1.manager.dashboard.summary');
     Route::post('/leaves', [MobileLeaveController::class, 'store'])->name('api.v1.leaves.store');
     Route::put('/leaves/{leaveId}', [MobileLeaveController::class, 'update'])->name('api.v1.leaves.update');

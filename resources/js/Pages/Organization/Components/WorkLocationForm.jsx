@@ -4,12 +4,16 @@ import {
     Select, Box, Spinner 
 } from '@radix-ui/themes';
 import { SewingPinIcon } from '@radix-ui/react-icons';
-import axios from 'axios';
+import * as useWorkLocationsQuery from '@/api/queries/useWorkLocationsQuery';
 import { showToast } from '@/utils/toastUtils';
 
 const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, users = [] }) => {
-    const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+
+    // React Query mutations
+    const createWorkLocation = useWorkLocationsQuery.useCreateWorkLocation();
+    const updateWorkLocation = useWorkLocationsQuery.useUpdateWorkLocation();
+    const isMutating = createWorkLocation.isPending || updateWorkLocation.isPending;
 
     const initialFormState = {
         location: '',
@@ -38,7 +42,6 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setErrors({});
 
         const payload = { ...formData };
@@ -46,10 +49,10 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
         try {
             if (modalType === 'update') {
-                await axios.put(`/work-locations/${currentRow.id}`, payload);
+                await updateWorkLocation.mutateAsync({ id: currentRow.id, data: payload });
                 showToast.success('Location updated successfully');
             } else {
-                await axios.post('/work-locations', payload);
+                await createWorkLocation.mutateAsync(payload);
                 showToast.success('Location created successfully');
             }
             onSuccess();
@@ -60,13 +63,11 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
             } else {
                 showToast.error(error.response?.data?.message || 'An error occurred');
             }
-        } finally {
-            setLoading(false);
         }
     };
 
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v && !loading) closeModal(); }}>
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !isMutating) closeModal(); }}>
             <Dialog.Content style={{ maxWidth: 500 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
@@ -82,7 +83,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                             <TextField.Root 
                                 value={formData.location} 
                                 onChange={e => handleChange('location', e.target.value)} 
-                                disabled={loading} 
+                                disabled={isMutating} 
                                 placeholder="e.g. Site Alpha" 
                             />
                             {errors.location && <Text size="1" color="red">{errors.location[0]}</Text>}
@@ -94,7 +95,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                                 <TextField.Root 
                                     value={formData.start_chainage} 
                                     onChange={e => handleChange('start_chainage', e.target.value)} 
-                                    disabled={loading} 
+                                    disabled={isMutating} 
                                     placeholder="e.g. CH 10+000" 
                                 />
                                 {errors.start_chainage && <Text size="1" color="red">{errors.start_chainage[0]}</Text>}
@@ -104,7 +105,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                                 <TextField.Root 
                                     value={formData.end_chainage} 
                                     onChange={e => handleChange('end_chainage', e.target.value)} 
-                                    disabled={loading} 
+                                    disabled={isMutating} 
                                     placeholder="e.g. CH 15+500" 
                                 />
                                 {errors.end_chainage && <Text size="1" color="red">{errors.end_chainage[0]}</Text>}
@@ -113,7 +114,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">In-Charge (Optional)</Text>
-                            <Select.Root value={formData.incharge} onValueChange={v => handleChange('incharge', v)} disabled={loading}>
+                            <Select.Root value={formData.incharge} onValueChange={v => handleChange('incharge', v)} disabled={isMutating}>
                                 <Select.Trigger style={{ width: '100%' }} />
                                 <Select.Content>
                                     <Select.Item value="none">Unassigned</Select.Item>
@@ -127,9 +128,9 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                     </Grid>
 
                     <Flex justify="end" gap="3" mt="5">
-                        <Button variant="soft" color="gray" type="button" onClick={closeModal} disabled={loading}>Cancel</Button>
-                        <Button type="submit" color="indigo" disabled={loading}>
-                            {loading ? <Spinner size="1" /> : (modalType === 'update' ? 'Update Location' : 'Add Location')}
+                        <Button variant="soft" color="gray" type="button" onClick={closeModal} disabled={isMutating}>Cancel</Button>
+                        <Button type="submit" color="indigo" disabled={isMutating}>
+                            {isMutating ? <Spinner size="1" /> : (modalType === 'update' ? 'Update Location' : 'Add Location')}
                         </Button>
                     </Flex>
                 </form>

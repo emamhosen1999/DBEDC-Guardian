@@ -1,5 +1,4 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 /**
@@ -27,49 +26,48 @@ const PullToRefresh = ({
     const currentY = useRef(0);
     const isAtTop = useRef(true);
 
-    const y = useMotionValue(0);
-    const rotate = useTransform(y, [0, threshold], [0, 360]);
-    const opacity = useTransform(y, [0, threshold / 2, threshold], [0, 0.5, 1]);
-    const scale = useTransform(y, [0, threshold], [0.5, 1]);
+    // Calculate rotation, opacity, and scale based on pull distance
+    const rotate = Math.min(360, (pullDistance / threshold) * 360);
+    const opacity = Math.min(1, Math.max(0, (pullDistance - threshold / 2) / (threshold / 2)));
+    const scale = Math.min(1, Math.max(0.5, pullDistance / threshold));
 
     const handleTouchStart = useCallback((e) => {
         if (disabled || isRefreshing) return;
-        
+
         // Check if we're at the top of scroll
         const container = containerRef.current;
         if (container && container.scrollTop > 0) {
             isAtTop.current = false;
             return;
         }
-        
+
         isAtTop.current = true;
         startY.current = e.touches[0].clientY;
     }, [disabled, isRefreshing]);
 
     const handleTouchMove = useCallback((e) => {
         if (disabled || isRefreshing || !isAtTop.current) return;
-        
+
         currentY.current = e.touches[0].clientY;
         const diff = currentY.current - startY.current;
-        
+
         // Only allow pulling down
         if (diff > 0) {
             // Apply resistance to the pull
             const resistance = 0.4;
             const newPullDistance = Math.min(diff * resistance, threshold * 1.5);
             setPullDistance(newPullDistance);
-            y.set(newPullDistance);
-            
+
             // Prevent default scroll behavior when pulling
             if (newPullDistance > 10) {
                 e.preventDefault();
             }
         }
-    }, [disabled, isRefreshing, threshold, y]);
+    }, [disabled, isRefreshing, threshold]);
 
     const handleTouchEnd = useCallback(async () => {
         if (disabled || isRefreshing || !isAtTop.current) return;
-        
+
         if (pullDistance >= threshold) {
             // Trigger refresh
             setIsRefreshing(true);
@@ -79,11 +77,10 @@ const PullToRefresh = ({
                 setIsRefreshing(false);
             }
         }
-        
+
         // Reset pull distance
         setPullDistance(0);
-        y.set(0);
-    }, [disabled, isRefreshing, pullDistance, threshold, onRefresh, y]);
+    }, [disabled, isRefreshing, pullDistance, threshold, onRefresh]);
 
     return (
         <div 
@@ -95,62 +92,58 @@ const PullToRefresh = ({
             style={{ touchAction: pullDistance > 10 ? 'none' : 'auto' }}
         >
             {/* Pull indicator */}
-            <AnimatePresence>
-                {(pullDistance > 0 || isRefreshing) && (
-                    <motion.div
-                        className="absolute left-0 right-0 flex items-center justify-center z-50"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+            {(pullDistance > 0 || isRefreshing) && (
+                <div
+                    className="absolute left-0 right-0 flex items-center justify-center z-50"
+                    style={{
+                        top: Math.min(pullDistance, threshold) - 40,
+                        height: 40,
+                    }}
+                >
+                    <div
+                        className={`
+                            w-10 h-10 rounded-full flex items-center justify-center
+                            ${isRefreshing
+                                ? 'bg-primary/20 border-2 border-primary'
+                                : pullDistance >= threshold
+                                    ? 'bg-success/20 border-2 border-success'
+                                    : 'bg-default-100 border-2 border-default-300'
+                            }
+                        `}
                         style={{
-                            top: Math.min(pullDistance, threshold) - 40,
-                            height: 40,
+                            transform: `scale(${isRefreshing ? 1 : scale})`,
+                            opacity: isRefreshing ? 1 : opacity
                         }}
                     >
-                        <motion.div
-                            className={`
-                                w-10 h-10 rounded-full flex items-center justify-center
-                                ${isRefreshing 
-                                    ? 'bg-primary/20 border-2 border-primary' 
-                                    : pullDistance >= threshold 
-                                        ? 'bg-success/20 border-2 border-success' 
-                                        : 'bg-default-100 border-2 border-default-300'
-                                }
-                            `}
-                            style={{ 
-                                scale: isRefreshing ? 1 : scale,
-                                opacity: isRefreshing ? 1 : opacity 
+                        <div
+                            style={{
+                                transform: `rotate(${isRefreshing ? 0 : rotate}deg)`,
+                                animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
                             }}
                         >
-                            <motion.div
-                                animate={isRefreshing ? { rotate: 360 } : {}}
-                                transition={isRefreshing ? { repeat: Infinity, duration: 1, ease: 'linear' } : {}}
-                                style={{ rotate: isRefreshing ? undefined : rotate }}
-                            >
-                                <ArrowPathIcon 
-                                    className={`w-5 h-5 ${
-                                        isRefreshing 
-                                            ? 'text-primary' 
-                                            : pullDistance >= threshold 
-                                                ? 'text-success' 
-                                                : 'text-default-500'
-                                    }`} 
-                                />
-                            </motion.div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                            <ArrowPathIcon
+                                className={`w-5 h-5 ${
+                                    isRefreshing
+                                        ? 'text-primary'
+                                        : pullDistance >= threshold
+                                            ? 'text-success'
+                                            : 'text-default-500'
+                                }`}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Content */}
-            <motion.div
-                style={{ 
-                    y: isRefreshing ? threshold / 2 : y,
+            <div
+                style={{
+                    transform: `translateY(${isRefreshing ? threshold / 2 : 0}px)`,
                     transition: isRefreshing ? 'transform 0.2s ease-out' : undefined
                 }}
             >
                 {children}
-            </motion.div>
+            </div>
         </div>
     );
 };

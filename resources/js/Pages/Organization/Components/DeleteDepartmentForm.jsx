@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { Dialog, Button, Flex, Text, Callout, Spinner } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, TrashIcon } from '@radix-ui/react-icons';
-import axios from 'axios';
+import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
 import { showToast } from '@/utils/toastUtils';
 
 const DeleteDepartmentForm = ({ open, onClose, onSuccess, department }) => {
-    const [loading, setLoading] = useState(false);
+    const deleteDepartment = useDepartmentsQuery.useDeleteDepartment();
+    const isMutating = deleteDepartment.isPending;
 
     const handleDelete = async () => {
         if (!department) return;
-        setLoading(true);
 
         try {
-            await axios.delete(`/departments/${department.id}`);
+            await deleteDepartment.mutateAsync(department.id);
             showToast.success('Department deleted successfully');
             if (onSuccess) onSuccess();
             onClose();
@@ -22,8 +22,6 @@ const DeleteDepartmentForm = ({ open, onClose, onSuccess, department }) => {
             } else {
                 showToast.error('An error occurred while deleting the department');
             }
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -32,7 +30,7 @@ const DeleteDepartmentForm = ({ open, onClose, onSuccess, department }) => {
     const hasEmployees = department.employee_count > 0;
 
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v && !loading) onClose(); }}>
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !isMutating) onClose(); }}>
             <Dialog.Content style={{ maxWidth: 450 }}>
                 <Dialog.Title>Delete Department</Dialog.Title>
 
@@ -61,11 +59,11 @@ const DeleteDepartmentForm = ({ open, onClose, onSuccess, department }) => {
                 </Flex>
 
                 <Flex justify="end" gap="3">
-                    <Button variant="soft" color="gray" onClick={onClose} disabled={loading}>
+                    <Button variant="soft" color="gray" onClick={onClose} disabled={isMutating}>
                         Cancel
                     </Button>
-                    <Button color="red" onClick={handleDelete} disabled={loading || hasEmployees}>
-                        {loading ? <Spinner size="1" /> : <><TrashIcon /> Delete Department</>}
+                    <Button color="red" onClick={handleDelete} disabled={isMutating || hasEmployees}>
+                        {isMutating ? <Spinner size="1" /> : <><TrashIcon /> Delete Department</>}
                     </Button>
                 </Flex>
             </Dialog.Content>

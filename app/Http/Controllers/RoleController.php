@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Responses\ApiResponse;
+use App\Http\Responses\HandlesApiExceptions;
 use App\Models\User;
 use App\Services\Role\RolePermissionService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -28,6 +30,9 @@ use Spatie\Permission\Models\Role; // added
  */
 class RoleController extends BaseController
 {
+    use ApiResponse;
+    use HandlesApiExceptions;
+
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
     private RolePermissionService $rolePermissionService;
@@ -286,18 +291,14 @@ class RoleController extends BaseController
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'errors' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         DB::beginTransaction();
 
         try {            // Only Super Administrator can create roles for security
             if (! Auth::user()->hasRole('Super Administrator')) {
-                return response()->json([
-                    'error' => 'Insufficient permissions to create roles',
-                ], 403);
+                return $this->forbiddenResponse('Insufficient permissions to create roles');
             }
 
             // Create the role using Spatie's Role::create method
@@ -330,19 +331,21 @@ class RoleController extends BaseController
             // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-            return response()->json([
-                'message' => 'Role created successfully',
-                'role' => $role->fresh('permissions'),
-            ]);
+            return $this->successResponse(
+                ['role' => $role->fresh('permissions')],
+                'Role created successfully',
+                201
+            );
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Role creation failed: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to create role',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to create role.'),
+                'ROLE_CREATE_FAILED',
+                500
+            );
         }
     }
 
@@ -359,9 +362,7 @@ class RoleController extends BaseController
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'errors' => $validator->errors(),
-            ], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         DB::beginTransaction();
@@ -370,14 +371,11 @@ class RoleController extends BaseController
             $role = Role::findById($id);
 
             if (! $role) {
-                return response()->json(['error' => 'Role not found'], 404);
+                return $this->notFoundResponse('Role not found');
             }
 
-            // Check if user can manage this role
             if (! $this->canManageRole(Auth::user(), $role)) {
-                return response()->json([
-                    'error' => 'Insufficient authority to manage this role',
-                ], 403);
+                return $this->forbiddenResponse('Insufficient authority to manage this role');
             }
 
             // Store original state for audit
@@ -415,19 +413,20 @@ class RoleController extends BaseController
             // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-            return response()->json([
-                'message' => 'Role updated successfully',
-                'role' => $role->fresh('permissions'),
-            ]);
+            return $this->successResponse(
+                ['role' => $role->fresh('permissions')],
+                'Role updated successfully'
+            );
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Role update failed: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to update role',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to update role.'),
+                'ROLE_UPDATE_FAILED',
+                500
+            );
         }
     }
 
@@ -442,30 +441,25 @@ class RoleController extends BaseController
             $role = Role::findById($id);
 
             if (! $role) {
-                return response()->json(['error' => 'Role not found'], 404);
+                return $this->notFoundResponse('Role not found');
             }
 
-            // Check if user can manage this role
             if (! $this->canManageRole(Auth::user(), $role)) {
-                return response()->json([
-                    'error' => 'Insufficient authority to delete this role',
-                ], 403);
+                return $this->forbiddenResponse('Insufficient authority to delete this role');
             }
 
-            // Check if role is system role (prevent deletion of critical roles)
             $systemRoles = ['Super Administrator', 'Administrator'];
             if (in_array($role->name, $systemRoles)) {
-                return response()->json([
-                    'error' => 'Cannot delete system role',
-                ], 403);
+                return $this->forbiddenResponse('Cannot delete system role');
             }
 
-            // Check if role is assigned to users using Spatie relationship
             $usersCount = $role->users()->count();
             if ($usersCount > 0) {
-                return response()->json([
-                    'error' => "Cannot delete role. It is assigned to {$usersCount} user(s).",
-                ], 409);
+                return $this->errorResponse(
+                    "Cannot delete role. It is assigned to {$usersCount} user(s).",
+                    'ROLE_IN_USE',
+                    409
+                );
             }
 
             // Log role deletion before deleting
@@ -484,18 +478,17 @@ class RoleController extends BaseController
             // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-            return response()->json([
-                'message' => 'Role deleted successfully',
-            ]);
+            return $this->successResponse(null, 'Role deleted successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Role deletion failed: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to delete role',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to delete role.'),
+                'ROLE_DELETE_FAILED',
+                500
+            );
         }
     }
 
@@ -1262,17 +1255,18 @@ class RoleController extends BaseController
                 })
                 ->get();
 
-            return response()->json([
+            return $this->successResponse([
                 'roles' => $roles,
                 'total' => $roles->count(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to list roles via API: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to retrieve roles',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to retrieve roles.'),
+                'ROLES_LIST_FAILED',
+                500
+            );
         }
     }
 
@@ -1282,24 +1276,25 @@ class RoleController extends BaseController
     public function apiShow($id)
     {
         try {
-            $role = Role::with(['permissions', 'users'])->findById($id);
+            $role = Role::with(['permissions'])->findById($id);
 
             if (! $role) {
-                return response()->json(['error' => 'Role not found'], 404);
+                return $this->notFoundResponse('Role not found');
             }
 
-            return response()->json([
+            return $this->successResponse([
                 'role' => $role,
                 'permissions' => $role->permissions->pluck('name'),
-                'users_count' => $role->users->count(),
+                'users_count' => $role->users()->count(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to show role via API: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to retrieve role',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to retrieve role.'),
+                'ROLE_SHOW_FAILED',
+                500
+            );
         }
     }
 
@@ -1314,7 +1309,7 @@ class RoleController extends BaseController
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         DB::beginTransaction();
@@ -1323,13 +1318,11 @@ class RoleController extends BaseController
             $role = Role::findById($id);
 
             if (! $role) {
-                return response()->json(['error' => 'Role not found'], 404);
+                return $this->notFoundResponse('Role not found');
             }
 
             if (! $this->canManageRole(Auth::user(), $role)) {
-                return response()->json([
-                    'error' => 'Insufficient authority to manage this role',
-                ], 403);
+                return $this->forbiddenResponse('Insufficient authority to manage this role');
             }
 
             // Store original permissions for audit
@@ -1352,18 +1345,19 @@ class RoleController extends BaseController
             // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-            return response()->json([
-                'message' => 'Role permissions synced successfully',
-                'role' => $role->fresh('permissions'),
-            ]);
+            return $this->successResponse(
+                ['role' => $role->fresh('permissions')],
+                'Role permissions synced successfully'
+            );
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Failed to sync role permissions: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to sync role permissions',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to sync role permissions.'),
+                'ROLE_PERMISSIONS_SYNC_FAILED',
+                500
+            );
         }
     }
 
@@ -1399,19 +1393,15 @@ class RoleController extends BaseController
 
         $role = \Spatie\Permission\Models\Role::findById($roleId);
         if (! $role) {
-            return response()->json(['error' => 'Role not found'], 404);
+            return $this->notFoundResponse('Role not found');
         }
         if (! $this->canManageRole(Auth::user(), $role)) {
-            return response()->json(['error' => 'Forbidden'], 403);
+            return $this->forbiddenResponse('Forbidden');
         }
 
-        // Simple optimistic concurrency: compare provided version with current snapshot
         $currentHash = $this->rolePermissionService->snapshotHash();
         if (! empty($data['version']) && $data['version'] !== $currentHash) {
-            return response()->json([
-                'error' => 'Version conflict',
-                'current' => $currentHash,
-            ], 409);
+            return $this->errorResponse('Version conflict', 'VERSION_CONFLICT', 409, ['current' => $currentHash]);
         }
 
         $added = $data['add'] ?? [];
@@ -1430,19 +1420,22 @@ class RoleController extends BaseController
             DB::rollBack();
             Log::error('Batch permission update failed', ['error' => $e->getMessage()]);
 
-            return response()->json(['error' => 'Update failed'], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Update failed.'),
+                'ROLE_PERMISSIONS_BATCH_FAILED',
+                500
+            );
         }
 
         $fresh = $role->load('permissions');
 
-        return response()->json([
-            'message' => 'Permissions updated',
+        return $this->successResponse([
             'role' => [
                 'id' => $fresh->id,
                 'name' => $fresh->name,
                 'permissions' => $fresh->permissions->pluck('name'),
             ],
             'hash' => $this->rolePermissionService->snapshotHash(),
-        ]);
+        ], 'Permissions updated');
     }
 }

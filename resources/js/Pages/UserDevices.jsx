@@ -1,27 +1,11 @@
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, { useMemo, useState } from 'react';
 import { Head, Link } from "@inertiajs/react";
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Table,
-  TableBody,
-  TableCell,
-  TableColumn,
-  TableHeader,
-  TableRow,
-  Textarea,
-  Tooltip,
-  useDisclosure,
-} from "@/compat/heroui";
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
@@ -44,6 +28,8 @@ import axios from 'axios';
 import { format, formatDistanceToNow } from 'date-fns';
 import App from "@/Layouts/App.jsx";
 import { showToast } from '@/utils/toastUtils';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import * as useUserDevicesQuery from '@/api/queries/useUserDevicesQuery';
 
 const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
   const [userState, setUserState] = useState({
@@ -71,6 +57,12 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
   const resetModal = useDisclosure();
   const detailsModal = useDisclosure();
   const deactivateModal = useDisclosure();
+
+  // React Query hooks
+  const { data: devicesData, isLoading: devicesLoading, refetch } = useUserDevicesQuery.useUserDevicesList(userState.id);
+  const toggleSingleDeviceLogin = useUserDevicesQuery.useToggleSingleDeviceLogin();
+  const resetDevices = useUserDevicesQuery.useResetDevices();
+  const deactivateDevice = useUserDevicesQuery.useDeactivateDevice();
 
   const parseDateValue = (value) => {
     if (!value) {
@@ -251,16 +243,8 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
     setProcessing((previous) => ({ ...previous, refresh: true }));
 
     try {
-      const response = await axios.get(route('admin.users.devices', { userId: userState.id }), {
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-
-      if (response.data?.success) {
-        setDeviceItems(Array.isArray(response.data.devices) ? response.data.devices : []);
-        applyUserState(response.data.user_state);
-      }
+      await refetch();
+      showToast.success('Devices refreshed successfully');
     } catch (error) {
       showToast.error(error.response?.data?.message || 'Failed to refresh device history');
     } finally {
@@ -272,19 +256,19 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
     setProcessing((previous) => ({ ...previous, toggle: true }));
 
     try {
-      const response = await axios.post(route('admin.users.devices.toggle', { userId: userState.id }));
+      const result = await toggleSingleDeviceLogin.mutateAsync(userState.id);
+      
+      if (result?.success) {
+        applyUserState(result.user_state);
 
-      if (response.data?.success) {
-        applyUserState(response.data.user_state);
-
-        if (response.data.user_state === undefined) {
+        if (result.user_state === undefined) {
           setUserState((previous) => ({
             ...previous,
-            single_device_login_enabled: Boolean(response.data.single_device_login_enabled),
+            single_device_login_enabled: Boolean(result.single_device_login_enabled),
           }));
         }
 
-        showToast.success(response.data.message || 'Device lock setting updated');
+        showToast.success(result.message || 'Device lock setting updated');
       }
     } catch (error) {
       showToast.error(error.response?.data?.message || 'Failed to update device lock setting');
@@ -299,14 +283,12 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
     const reason = resetReason.trim();
 
     try {
-      const response = await axios.post(route('admin.users.devices.reset', { userId: userState.id }), {
-        reason: reason === '' ? null : reason,
-      });
+      const result = await resetDevices.mutateAsync({ userId: userState.id, reason });
 
-      if (response.data?.success) {
-        applyUserState(response.data.user_state);
+      if (result?.success) {
+        applyUserState(result.user_state);
 
-        if (response.data.user_state === undefined) {
+        if (result.user_state === undefined) {
           setUserState((previous) => ({
             ...previous,
             device_reset_at: new Date().toISOString(),
@@ -316,7 +298,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
 
         setResetReason('');
         resetModal.onClose();
-        showToast.success(response.data.message || 'Devices reset successfully');
+        showToast.success(result.message || 'Devices reset successfully');
         await refreshDevices();
       }
     } catch (error) {
@@ -339,16 +321,15 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
     setProcessing((previous) => ({ ...previous, deactivateId: deviceToDeactivate.id }));
 
     try {
-      const response = await axios.delete(route('admin.users.devices.deactivate', {
-        userId: userState.id,
-        deviceId: deviceToDeactivate.id,
-      }));
+      const result = await deactivateDevice.mutateAsync({ 
+        userId: userState.id, 
+        deviceId: deviceToDeactivate.id 
+      });
 
-      if (response.data?.success) {
-        applyUserState(response.data.user_state);
-        showToast.success(response.data.message || 'Device deactivated successfully');
-        deactivateModal.onClose();
+      if (result?.success) {
         setDeviceToDeactivate(null);
+        deactivateModal.onClose();
+        showToast.success(result.message || 'Device deactivated successfully');
         await refreshDevices();
       }
     } catch (error) {
@@ -366,6 +347,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
   return (
     <App>
       <Head title={`Device Management - ${userState.name}`} />
+      <ErrorBoundary>
 
       <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -388,9 +370,9 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Chip
+            <Badge
               color={userState.single_device_login_enabled ? 'warning' : 'default'}
-              variant="flat"
+              variant="soft"
               startContent={
                 userState.single_device_login_enabled
                   ? <LockClosedIcon className="h-4 w-4" />
@@ -398,14 +380,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               }
             >
               {userState.single_device_login_enabled ? 'Single Device Lock: ON' : 'Single Device Lock: OFF'}
-            </Chip>
+            </Badge>
 
             <Button
-              variant="flat"
+              variant="soft"
               color="primary"
-              isLoading={processing.refresh}
+              loading={processing.refresh}
               startContent={!processing.refresh ? <ArrowPathIcon className="w-4 h-4" /> : null}
-              onPress={refreshDevices}
+              onClick={refreshDevices}
             >
               Refresh
             </Button>
@@ -422,9 +404,9 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             <div className="flex items-center gap-2">
               <Button
                 color={userState.single_device_login_enabled ? 'default' : 'warning'}
-                variant="flat"
-                isLoading={processing.toggle}
-                onPress={handleToggleSingleDeviceLogin}
+                variant="soft"
+                loading={processing.toggle}
+                onClick={handleToggleSingleDeviceLogin}
                 startContent={!processing.toggle
                   ? (userState.single_device_login_enabled
                     ? <LockOpenIcon className="w-4 h-4" />
@@ -435,10 +417,10 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               </Button>
 
               <Button
-                color="danger"
-                variant="flat"
-                isDisabled={summary.total === 0}
-                onPress={resetModal.onOpen}
+                color="red"
+                variant="soft"
+                disabled={summary.total === 0}
+                onClick={resetModal.onOpen}
                 startContent={<ArrowPathIcon className="w-4 h-4" />}
               >
                 Reset Devices
@@ -501,7 +483,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             </div>
 
             <div className="flex w-full flex-col gap-2 lg:w-auto lg:flex-row lg:items-center">
-              <Input
+              <TextField.Root
                 value={searchTerm}
                 onValueChange={setSearchTerm}
                 placeholder="Search by name, platform, model, IP..."
@@ -511,37 +493,37 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               />
 
               <div className="flex items-center gap-2">
-                <Chip
+                <Badge
                   variant={statusFilter === 'all' ? 'solid' : 'flat'}
                   color={statusFilter === 'all' ? 'primary' : 'default'}
                   className="cursor-pointer"
                   onClick={() => setStatusFilter('all')}
                 >
                   All
-                </Chip>
-                <Chip
+                </Badge>
+                <Badge
                   variant={statusFilter === 'active' ? 'solid' : 'flat'}
                   color={statusFilter === 'active' ? 'success' : 'default'}
                   className="cursor-pointer"
                   onClick={() => setStatusFilter('active')}
                 >
                   Active
-                </Chip>
-                <Chip
+                </Badge>
+                <Badge
                   variant={statusFilter === 'inactive' ? 'solid' : 'flat'}
                   color={statusFilter === 'inactive' ? 'danger' : 'default'}
                   className="cursor-pointer"
                   onClick={() => setStatusFilter('inactive')}
                 >
                   Inactive
-                </Chip>
+                </Badge>
               </div>
             </div>
           </CardHeader>
 
           <CardBody className="pt-0">
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <Chip
+              <Badge
                 startContent={<FunnelIcon className="h-3.5 w-3.5" />}
                 variant={typeFilter === 'all' ? 'solid' : 'flat'}
                 color={typeFilter === 'all' ? 'primary' : 'default'}
@@ -549,58 +531,58 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                 onClick={() => setTypeFilter('all')}
               >
                 All Types
-              </Chip>
-              <Chip
+              </Badge>
+              <Badge
                 variant={typeFilter === 'mobile' ? 'solid' : 'flat'}
                 color={typeFilter === 'mobile' ? 'primary' : 'default'}
                 className="cursor-pointer"
                 onClick={() => setTypeFilter('mobile')}
               >
                 Mobile
-              </Chip>
-              <Chip
+              </Badge>
+              <Badge
                 variant={typeFilter === 'tablet' ? 'solid' : 'flat'}
                 color={typeFilter === 'tablet' ? 'secondary' : 'default'}
                 className="cursor-pointer"
                 onClick={() => setTypeFilter('tablet')}
               >
                 Tablet
-              </Chip>
-              <Chip
+              </Badge>
+              <Badge
                 variant={typeFilter === 'desktop' ? 'solid' : 'flat'}
                 color={typeFilter === 'desktop' ? 'default' : 'default'}
                 className="cursor-pointer"
                 onClick={() => setTypeFilter('desktop')}
               >
                 Desktop
-              </Chip>
+              </Badge>
 
               <div className="mx-1 h-5 w-px bg-default-200" />
 
-              <Chip
+              <Badge
                 variant={sortBy === 'recent' ? 'solid' : 'flat'}
                 color={sortBy === 'recent' ? 'primary' : 'default'}
                 className="cursor-pointer"
                 onClick={() => setSortBy('recent')}
               >
                 Most Recent
-              </Chip>
-              <Chip
+              </Badge>
+              <Badge
                 variant={sortBy === 'oldest' ? 'solid' : 'flat'}
                 color={sortBy === 'oldest' ? 'primary' : 'default'}
                 className="cursor-pointer"
                 onClick={() => setSortBy('oldest')}
               >
                 Oldest
-              </Chip>
-              <Chip
+              </Badge>
+              <Badge
                 variant={sortBy === 'name' ? 'solid' : 'flat'}
                 color={sortBy === 'name' ? 'primary' : 'default'}
                 className="cursor-pointer"
                 onClick={() => setSortBy('name')}
               >
                 Name
-              </Chip>
+              </Badge>
             </div>
 
             {filteredDevices.length === 0 ? (
@@ -679,24 +661,24 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                             <TableCell>
                               <div className="space-y-2">
                                 <div className="flex flex-wrap gap-2">
-                                  <Chip
+                                  <Badge
                                     size="sm"
-                                    variant="flat"
+                                    variant="soft"
                                     color={device.is_active ? 'success' : 'default'}
                                     startContent={device.is_active ? <CheckCircleIcon className="h-3 w-3" /> : <XCircleIcon className="h-3 w-3" />}
                                   >
                                     {device.is_active ? 'Active' : 'Inactive'}
-                                  </Chip>
+                                  </Badge>
 
                                   {device.is_trusted && (
-                                    <Chip
+                                    <Badge
                                       size="sm"
-                                      variant="flat"
+                                      variant="soft"
                                       color="primary"
                                       startContent={<ShieldCheckIcon className="h-3 w-3" />}
                                     >
                                       Trusted
-                                    </Chip>
+                                    </Badge>
                                   )}
                                 </div>
 
@@ -714,22 +696,22 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                               <div className="flex flex-wrap gap-2">
                                 <Button
                                   size="sm"
-                                  variant="flat"
+                                  variant="soft"
                                   color="primary"
                                   startContent={<EyeIcon className="h-4 w-4" />}
-                                  onPress={() => openDetailsModal(device)}
+                                  onClick={() => openDetailsModal(device)}
                                 >
                                   Details
                                 </Button>
 
                                 <Button
                                   size="sm"
-                                  variant="flat"
-                                  color="danger"
-                                  isDisabled={!device.is_active || processing.deactivateId === device.id}
-                                  isLoading={processing.deactivateId === device.id}
+                                  variant="soft"
+                                  color="red"
+                                  disabled={!device.is_active || processing.deactivateId === device.id}
+                                  loading={processing.deactivateId === device.id}
                                   startContent={processing.deactivateId !== device.id ? <TrashIcon className="h-4 w-4" /> : null}
-                                  onPress={() => openDeactivateDialog(device)}
+                                  onClick={() => openDeactivateDialog(device)}
                                 >
                                   Deactivate
                                 </Button>
@@ -758,13 +740,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                               </div>
                             </div>
 
-                            <Chip
+                            <Badge
                               size="sm"
                               color={device.is_active ? 'success' : 'default'}
-                              variant="flat"
+                              variant="soft"
                             >
                               {device.is_active ? 'Active' : 'Inactive'}
-                            </Chip>
+                            </Badge>
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 text-xs">
@@ -778,22 +760,22 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                           <div className="flex gap-2">
                             <Button
                               size="sm"
-                              variant="flat"
+                              variant="soft"
                               color="primary"
                               className="flex-1"
                               startContent={<EyeIcon className="h-4 w-4" />}
-                              onPress={() => openDetailsModal(device)}
+                              onClick={() => openDetailsModal(device)}
                             >
                               Details
                             </Button>
                             <Button
                               size="sm"
-                              variant="flat"
-                              color="danger"
+                              variant="soft"
+                              color="red"
                               className="flex-1"
-                              isDisabled={!device.is_active || processing.deactivateId === device.id}
-                              isLoading={processing.deactivateId === device.id}
-                              onPress={() => openDeactivateDialog(device)}
+                              disabled={!device.is_active || processing.deactivateId === device.id}
+                              loading={processing.deactivateId === device.id}
+                              onClick={() => openDeactivateDialog(device)}
                             >
                               Deactivate
                             </Button>
@@ -809,13 +791,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
         </Card>
       </div>
 
-      <Modal isOpen={resetModal.isOpen} onClose={resetModal.onClose} size="lg">
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
+      <Dialog open={resetModal.isOpen} onClose={resetModal.onClose} size="lg">
+        <Dialog.Content>
+          <Dialog.Title className="flex items-center gap-2">
             <ExclamationTriangleIcon className="h-5 w-5 text-danger" />
             Reset All User Devices
-          </ModalHeader>
-          <ModalBody>
+          </Dialog.Title>
+          <Box>
             <p className="text-sm text-default-600">
               This will deactivate all devices for this user. On next login, a new device can be registered.
             </p>
@@ -825,33 +807,33 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               value={resetReason}
               onValueChange={setResetReason}
               maxLength={255}
-              variant="bordered"
+              variant="outline"
               minRows={3}
             />
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="bordered" onPress={resetModal.onClose} isDisabled={processing.reset}>
+          </Box>
+          <Flex>
+            <Button variant="outline" onClick={resetModal.onClose} disabled={processing.reset}>
               Cancel
             </Button>
             <Button
-              color="danger"
-              onPress={handleResetDevices}
-              isLoading={processing.reset}
+              color="red"
+              onClick={handleResetDevices}
+              loading={processing.reset}
               startContent={!processing.reset ? <ArrowPathIcon className="h-4 w-4" /> : null}
             >
               Confirm Reset
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </Flex>
+        </Dialog.Content>
+      </Dialog>
 
-      <Modal isOpen={deactivateModal.isOpen} onClose={deactivateModal.onClose} size="md">
-        <ModalContent>
-          <ModalHeader className="flex items-center gap-2">
+      <Dialog open={deactivateModal.isOpen} onClose={deactivateModal.onClose} size="md">
+        <Dialog.Content>
+          <Dialog.Title className="flex items-center gap-2">
             <TrashIcon className="h-5 w-5 text-danger" />
             Deactivate Device
-          </ModalHeader>
-          <ModalBody>
+          </Dialog.Title>
+          <Box>
             <p className="text-sm text-default-600">
               Are you sure you want to deactivate
               {' '}
@@ -861,31 +843,31 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             <p className="text-xs text-default-500">
               Device ID: {getSafeText(deviceToDeactivate?.device_id)}
             </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="bordered" onPress={deactivateModal.onClose} isDisabled={processing.deactivateId !== null}>
+          </Box>
+          <Flex>
+            <Button variant="outline" onClick={deactivateModal.onClose} disabled={processing.deactivateId !== null}>
               Cancel
             </Button>
             <Button
-              color="danger"
-              onPress={handleDeactivateDevice}
-              isLoading={processing.deactivateId !== null}
+              color="red"
+              onClick={handleDeactivateDevice}
+              loading={processing.deactivateId !== null}
             >
               Deactivate
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </Flex>
+        </Dialog.Content>
+      </Dialog>
 
-      <Modal
-        isOpen={detailsModal.isOpen}
+      <Dialog
+        open={detailsModal.isOpen}
         onClose={detailsModal.onClose}
         size="2xl"
         scrollBehavior="inside"
       >
-        <ModalContent>
-          <ModalHeader>Device Details</ModalHeader>
-          <ModalBody>
+        <Dialog.Content>
+          <Dialog.Title>Device Details</Dialog.Title>
+          <Box>
             {selectedDevice && (
               <div className="space-y-4 text-sm">
                 <div className="flex items-center gap-3">
@@ -958,14 +940,15 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                 })()}
               </div>
             )}
-          </ModalBody>
-          <ModalFooter>
-            <Button color="primary" variant="flat" onPress={detailsModal.onClose}>
+          </Box>
+          <Flex>
+            <Button color="primary" variant="soft" onClick={detailsModal.onClose}>
               Close
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </Flex>
+        </Dialog.Content>
+      </Dialog>
+      </ErrorBoundary>
     </App>
   );
 };

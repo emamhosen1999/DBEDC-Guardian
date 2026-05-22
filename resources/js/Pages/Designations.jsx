@@ -16,13 +16,13 @@ import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import DesignationTable from '@/Tables/DesignationTable.jsx';
 import DesignationForm from '@/Forms/DesignationForm.jsx';
 import DeleteDesignationForm from '@/Forms/DeleteDesignationForm.jsx';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
 
 const Designations = ({ title, initialDesignations, departments, allDesignations, stats: initialStats, filters: initialFilters }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 767px)');
 
-    const [designationsData, setDesignationsData] = useState(initialDesignations || { data: [], total: 0 });
-    const [loading, setLoading] = useState(false);
     const [modalState, setModalState] = useState({ type: null, designation: null });
 
     const defaultDepartment = useMemo(() => {
@@ -48,49 +48,25 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
         perPage: initialDesignations?.per_page || 10
     });
 
-    const [stats, setStats] = useState(initialStats || {
-        total: 0, active: 0, inactive: 0, parent_designations: 0
+    // React Query hooks
+    const { data: designationsData, isLoading: loading, refetch } = useDesignationsQuery.useDesignationsList({
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
+        search: filters.search,
+        status: filters.status,
+        department: filters.department !== 'all' ? filters.department : undefined
     });
+
+    const { data: stats } = useDesignationsQuery.useDesignationStats();
 
     const canCreateDesignation = auth.permissions?.includes('designations.create') || false;
     const canEditDesignation = auth.permissions?.includes('designations.update') || false;
     const canDeleteDesignation = auth.permissions?.includes('designations.delete') || false;
 
-    const fetchDesignations = useCallback(async () => {
-        setLoading(true);
-        try {
-            const response = await axios.get(route('designations.json'), {
-                params: {
-                    page: pagination.currentPage,
-                    per_page: pagination.perPage,
-                    search: filters.search,
-                    status: filters.status,
-                    department: filters.department !== 'all' ? filters.department : undefined
-                }
-            });
-            setDesignationsData(response.data.designations || response.data);
-        } catch (error) {
-            showToast.error('Failed to load designations data');
-        } finally {
-            setLoading(false);
-        }
-    }, [pagination, filters]);
-
-    const fetchDesignationStats = useCallback(async () => {
-        try {
-            const response = await axios.get(route('designations.stats'));
-            if (response.status === 200) {
-                setStats(response.data.stats);
-            }
-        } catch (error) {
-            console.error('Error fetching stats:', error);
-        }
-    }, []);
-
+    // Auto-refetch when filters or pagination changes
     useEffect(() => {
-        fetchDesignations();
-        fetchDesignationStats();
-    }, [fetchDesignations, fetchDesignationStats]);
+        refetch();
+    }, [pagination.currentPage, pagination.perPage, filters.search, filters.status, filters.department, refetch]);
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
@@ -109,17 +85,8 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
     const openModal = (type, designation = null) => setModalState({ type, designation });
     const closeModal = () => setModalState({ type: null, designation: null });
 
-    const handleSuccess = (updatedDesignation = null, action = null) => {
-        if (action === 'add' && updatedDesignation) {
-            setDesignationsData(prev => ({ ...prev, data: [updatedDesignation, ...prev.data], total: (prev.total || 0) + 1 }));
-        } else if (action === 'edit' && updatedDesignation) {
-            setDesignationsData(prev => ({ ...prev, data: prev.data.map(d => d.id === updatedDesignation.id ? updatedDesignation : d) }));
-        } else if (action === 'delete' && updatedDesignation) {
-            setDesignationsData(prev => ({ ...prev, data: prev.data.filter(d => d.id !== updatedDesignation.id), total: (prev.total || 1) - 1 }));
-        } else {
-            fetchDesignations();
-            fetchDesignationStats();
-        }
+    const handleSuccess = () => {
+        refetch();
     };
 
     // Radix Stats Cards Configuration
@@ -223,15 +190,17 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                                     <Text color="gray">Loading designations...</Text>
                                 </Flex>
                             ) : (
-                                <DesignationTable
-                                    designations={designationsData}
-                                    loading={loading}
-                                    onEdit={canEditDesignation ? (d) => openModal('edit_designation', d) : undefined}
-                                    onDelete={canDeleteDesignation ? (d) => openModal('delete_designation', d) : undefined}
-                                    pagination={pagination}
-                                    onPageChange={handlePageChange}
-                                    onRowsPerPageChange={handleRowsPerPageChange}
-                                />
+                                <ErrorBoundary>
+                                    <DesignationTable
+                                        designations={designationsData}
+                                        loading={loading}
+                                        onEdit={canEditDesignation ? (d) => openModal('edit_designation', d) : undefined}
+                                        onDelete={canDeleteDesignation ? (d) => openModal('delete_designation', d) : undefined}
+                                        pagination={pagination}
+                                        onPageChange={handlePageChange}
+                                        onRowsPerPageChange={handleRowsPerPageChange}
+                                    />
+                                </ErrorBoundary>
                             )}
                         </Box>
 

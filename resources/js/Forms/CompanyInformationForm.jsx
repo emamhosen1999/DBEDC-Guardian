@@ -1,364 +1,172 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    Box,
     Button,
-    Input,
-    Textarea,
-    Select,
-    SelectItem,
     Card,
-    CardBody,
-    CardHeader,
-    CardFooter,
-} from '@/compat/heroui';
-import { motion } from 'framer-motion';
-import GlassCard from '@/Components/GlassCard'; // Assuming GlassCard is a custom component
-import { showToast } from "@/utils/toastUtils";
+    Flex,
+    Grid,
+    Heading,
+    Select,
+    Separator,
+    Text,
+    TextField,
+} from '@radix-ui/themes';
+import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
+import { getCountries } from '@/Props/countries.jsx';
 
-import {getCountries} from '@/Props/countries.jsx'
-const CompanyInformationForm = ({settings, setSettings}) => {
+const fieldKeys = [
+    'companyName', 'contactPerson', 'address', 'country', 'city', 'state',
+    'postalCode', 'email', 'phoneNumber', 'mobileNumber', 'fax', 'websiteUrl',
+];
 
-    const [countries, setCountries] = useState(getCountries());
-    const [selectedCountry, setSelectedCountry] = useState(settings.country);
-
+const CompanyInformationForm = ({ settings, setSettings }) => {
+    const countries = getCountries();
+    const [selectedCountry, setSelectedCountry] = useState(settings?.country ?? '');
     const [states, setStates] = useState([]);
-
-
-    const [formData, setFormData] = useState({
-        companyName: settings.companyName || '',
-        contactPerson: settings.contactPerson || '',
-        address: settings.address || '',
-        country: settings.country || '',
-        city: settings.city || '',
-        state: settings.state || '',
-        postalCode: settings.postalCode || '',
-        email: settings.email || '',
-        phoneNumber: settings.phoneNumber || '',
-        mobileNumber: settings.mobileNumber || '',
-        fax: settings.fax || '',
-        websiteUrl: settings.websiteUrl || '',
-    });
-
-
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
 
-    const handleChange = (key, value) => {
-        setFormData(prevData => ({ ...prevData, [key]: value }));
+    const [formData, setFormData] = useState(() =>
+        fieldKeys.reduce((acc, key) => {
+            acc[key] = settings?.[key] ?? '';
+            return acc;
+        }, {})
+    );
 
-        if (key === 'country')
-            setSelectedCountry(value);
+    const handleChange = (key, value) => {
+        setFormData((prev) => ({ ...prev, [key]: value }));
+        if (key === 'country') setSelectedCountry(value);
     };
 
     useEffect(() => {
-        const country = countries.find(c => c.name === selectedCountry);
-        if (country && country.states) {
-            setStates(country.states);
-        } else {
-            setStates([]);
-        }
-    }, [selectedCountry]);
+        const country = countries.find((c) => c.name === selectedCountry);
+        setStates(country?.states ?? []);
+    }, [selectedCountry, countries]);
 
+    const err = (key) => errors[key]?.[0] ?? errors[key];
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-
+        setLoading(true);
+        setErrors({});
         try {
-            // Assuming the route for updating company settings is 'company-settings.update'
-            const response = await axios.put(route('update-company-settings'), {
-                // Include all the necessary form data for updating settings
-                companyName: formData.companyName || '',
-                contactPerson: formData.contactPerson || '',
-                address: formData.address || '',
-                country: formData.country || '',
-                city: formData.city || '',
-                state: formData.state || '',
-                postalCode: formData.postalCode || '',
-                email: formData.email || '',
-                phoneNumber: formData.phoneNumber || '',
-                mobileNumber: formData.mobileNumber || '',
-                fax: formData.fax || '',
-                websiteUrl: formData.websiteUrl || '',
-            });
-
+            const response = await axios.put(route('update-company-settings'), formData);
             if (response.status === 200) {
                 setSettings(response.data.companySettings);
-                setErrors({});
-                showToast.success(response.data.messages?.length > 0 ? response.data.messages.join(' ') : 'Company settings updated successfully', {
-                    icon: '🟢',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary,
-                    }
-                });
+                showToast.success(
+                    response.data.message
+                    || 'Company settings updated successfully'
+                );
             }
         } catch (error) {
-
-            if (error.response) {
-                if (error.response.status === 422) {
-                    setErrors(error.response.data.errors || {});
-                    showToast.error(error.response.data.error || 'Failed to update company settings.', {
-                        icon: '🔴',
-                        style: {
-                            backdropFilter: 'blur(16px) saturate(200%)',
-                            background: theme.glassCard.background,
-                            border: theme.glassCard.border,
-                            color: theme.palette.text.primary,
-                        }
-                    });
-                } else {
-                    showToast.error('An unexpected error occurred. Please try again later.', {
-                        icon: '🔴',
-                        style: {
-                            backdropFilter: 'blur(16px) saturate(200%)',
-                            background: theme.glassCard.background,
-                            border: theme.glassCard.border,
-                            color: theme.palette.text.primary,
-                        }
-                    });
-                }
-                console.error(error.response.data);
+            if (error.response?.status === 422) {
+                setErrors(error.response.data.errors || {});
+                showToast.error(error.response.data.error || 'Validation failed.');
             } else if (error.request) {
-                showToast.error('No response received from the server. Please check your internet connection.', {
-                    icon: '🔴',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary,
-                    }
-                });
-                console.error(error.request);
+                showToast.error('No response from server. Check your connection.');
             } else {
-                showToast.error('An error occurred while setting up the request.', {
-                    icon: '🔴',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary,
-                    }
-                });
-                console.error('Error', error.message);
+                showToast.error('An error occurred while saving.');
             }
+        } finally {
+            setLoading(false);
         }
     };
 
+    const textField = (label, key, type = 'text') => (
+        <Box>
+            <Text as="label" size="2" weight="medium" mb="1" style={{ display: 'block' }}>
+                {label}
+            </Text>
+            <TextField.Root
+                type={type}
+                value={formData[key]}
+                onChange={(e) => handleChange(key, e.target.value)}
+                color={err(key) ? 'red' : undefined}
+            />
+            {err(key) && (
+                <Text size="1" color="red" mt="1">{err(key)}</Text>
+            )}
+        </Box>
+    );
 
     return (
-        <Grow in>
-            <GlassCard>
-                <CardHeader title="Company Information" />
-                <form onSubmit={handleSubmit}>
-                    <CardContent>
-                        <Typography variant="h6" gutterBottom>Company Details</Typography>
-                        <Grid container spacing={3}>
-                            <Grid item xs={12} sm={6}>
-                                <TextField
-                                    label="Company Name"
-                                    value={formData.companyName}
-                                    onChange={(e) => handleChange('companyName', e.target.value)}
-                                    fullWidth
-                                    error={Boolean(errors.companyName)}
-                                    helperText={errors.companyName}
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                                <TextField
-                                    label="Contact Person"
-                                    value={formData.contactPerson}
-                                    error={Boolean(errors.contactPerson)}
-                                    helperText={errors.contactPerson}
-                                    onChange={(e) => handleChange('contactPerson', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <TextField
-                                    label="Address"
-                                    value={formData.address}
-                                    error={Boolean(errors.address)}
-                                    helperText={errors.address}
-                                    onChange={(e) => handleChange('address', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <FormControl fullWidth>
-                                    <InputLabel id="country">Country</InputLabel>
-                                    <Select
-                                        variant="outlined"
-                                        labelId="country"
-                                        label="Country"
-                                        value={formData.country}
-                                        error={Boolean(errors.country)}
-                                        onChange={(e) => handleChange('country', e.target.value)}
-                                        fullWidth
-                                        MenuProps={{
-                                            PaperProps: {
-                                                sx: {
-                                                    backdropFilter: 'blur(16px) saturate(200%)',
-                                                    background: theme.glassCard.background,
-                                                    border: theme.glassCard.border,
-                                                    borderRadius: 2,
-                                                    boxShadow:
-                                                        'rgb(255, 255, 255) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px',
-                                                },
-                                            },
-                                        }}
-                                    >
-                                        {countries.map(option => (
-                                        <MenuItem
-                                            value={option.name}
-                                            key={option.name}
-                                            sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                '&:hover': {
-                                                    backgroundColor: theme.palette.action.hover
-                                                }
-                                            }}
-                                        >
-                                            <Box sx={{display: 'flex'}}>
-                                                <img style={{marginRight: "8px"}} alt={option.code2} src={`https://flagsapi.com/${option.code2}/shiny/24.png`}/>
-                                                {option.name}
-                                            </Box>
-                                        </MenuItem>
-                                        ))}
-                                    </Select>
-                                    <FormHelperText>{errors.country}</FormHelperText>
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <FormControl fullWidth>
-                                    <InputLabel id="state">State/Province</InputLabel>
-                                    <Select
-                                        labelId="state"
-                                        label="State/Province"
-                                        disabled={!states}
-                                        variant='outlined'
-                                        value={formData.state}
-                                        error={Boolean(errors.state)}
-                                        onChange={(e) => handleChange('state', e.target.value)}
-                                        fullWidth
-                                        MenuProps={{
-                                            PaperProps: {
-                                                sx: {
-                                                    backdropFilter: 'blur(16px) saturate(200%)',
-                                                    background: theme.glassCard.background,
-                                                    border: theme.glassCard.border,
-                                                    borderRadius: 2,
-                                                    boxShadow:
-                                                        'rgb(255, 255, 255) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px',
-                                                },
-                                            },
-                                        }}
-                                    >
-                                        {states.map(state => (
-                                            <MenuItem key={state.name} value={state.name}>
-                                                {state.name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                    <FormHelperText>{errors.state}</FormHelperText>
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <TextField
-                                    label="City"
-                                    value={formData.city}
-                                    error={Boolean(errors.city)}
-                                    helperText={errors.city}
-                                    onChange={(e) => handleChange('city', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6} lg={3}>
-                                <TextField
-                                    label="Postal Code"
-                                    value={formData.postalCode}
-                                    error={Boolean(errors.postalCode)}
-                                    helperText={errors.postalCode}
-                                    onChange={(e) => handleChange('postalCode', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                        </Grid>
+        <Card size="3" style={{ width: '100%', maxWidth: 960 }}>
+            <form onSubmit={handleSubmit}>
+                <Box p="4">
+                    <Heading size="4" mb="4">Company information</Heading>
 
-                        <Typography variant="h6" gutterBottom sx={{ marginTop: 2 }}>Contact Details</Typography>
-                        <Grid container spacing={3}>
-                            <Grid item xs={12} sm={6}>
-                                <TextField
-                                    label="Email"
-                                    value={formData.email}
-                                    error={Boolean(errors.email)}
-                                    helperText={errors.email}
-                                    onChange={(e) => handleChange('email', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                                <TextField
-                                    label="Phone Number"
-                                    value={formData.phoneNumber}
-                                    error={Boolean(errors.phoneNumber)}
-                                    helperText={errors.phoneNumber}
-                                    onChange={(e) => handleChange('phoneNumber', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                                <TextField
-                                    label="Mobile Number"
-                                    value={formData.mobileNumber}
-                                    error={Boolean(errors.mobileNumber)}
-                                    helperText={errors.mobileNumber}
-                                    onChange={(e) => handleChange('mobileNumber', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                                <TextField
-                                    label="Fax"
-                                    value={formData.fax}
-                                    error={Boolean(errors.fax)}
-                                    helperText={errors.fax}
-                                    onChange={(e) => handleChange('fax', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                            <Grid item xs={12}>
-                                <TextField
-                                    label="Website URL"
-                                    value={formData.websiteUrl}
-                                    error={Boolean(errors.websiteUrl)}
-                                    helperText={errors.websiteUrl}
-                                    onChange={(e) => handleChange('websiteUrl', e.target.value)}
-                                    fullWidth
-                                />
-                            </Grid>
-                        </Grid>
-                    </CardContent>
+                    <Heading size="3" mb="3" color="gray">Company details</Heading>
+                    <Grid columns={{ initial: '1', sm: '2' }} gap="4" mb="4">
+                        {textField('Company name', 'companyName')}
+                        {textField('Contact person', 'contactPerson')}
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            {textField('Address', 'address')}
+                        </Box>
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" style={{ display: 'block' }}>
+                                Country
+                            </Text>
+                            <Select.Root
+                                value={formData.country || undefined}
+                                onValueChange={(v) => handleChange('country', v)}
+                            >
+                                <Select.Trigger placeholder="Select country" style={{ width: '100%' }} />
+                                <Select.Content>
+                                    {countries.map((option) => (
+                                        <Select.Item key={option.name} value={option.name}>
+                                            {option.name}
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                            {err('country') && <Text size="1" color="red" mt="1">{err('country')}</Text>}
+                        </Box>
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" style={{ display: 'block' }}>
+                                State / province
+                            </Text>
+                            <Select.Root
+                                value={formData.state || undefined}
+                                onValueChange={(v) => handleChange('state', v)}
+                                disabled={states.length === 0}
+                            >
+                                <Select.Trigger placeholder="Select state" style={{ width: '100%' }} />
+                                <Select.Content>
+                                    {states.map((state) => (
+                                        <Select.Item key={state.name} value={state.name}>
+                                            {state.name}
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                            {err('state') && <Text size="1" color="red" mt="1">{err('state')}</Text>}
+                        </Box>
+                        {textField('City', 'city')}
+                        {textField('Postal code', 'postalCode')}
+                    </Grid>
 
-                    <CardActions sx={{ justifyContent: 'center' }}>
-                        <LoadingButton
-                            loading={loading}
-                            sx={{
-                                borderRadius: '50px',
-                                padding: '6px 16px',
-                            }}
-                            variant="outlined"
-                            color="primary"
-                            type="submit"
-                        >
-                            Save
-                        </LoadingButton>
-                    </CardActions>
-                </form>
-            </GlassCard>
-        </Grow>
+                    <Separator size="4" mb="4" />
 
+                    <Heading size="3" mb="3" color="gray">Contact details</Heading>
+                    <Grid columns={{ initial: '1', sm: '2' }} gap="4">
+                        {textField('Email', 'email', 'email')}
+                        {textField('Phone', 'phoneNumber', 'tel')}
+                        {textField('Mobile', 'mobileNumber', 'tel')}
+                        {textField('Fax', 'fax', 'tel')}
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            {textField('Website URL', 'websiteUrl', 'url')}
+                        </Box>
+                    </Grid>
+                </Box>
+
+                <Flex justify="center" p="4" pt="0">
+                    <Button type="submit" size="3" loading={loading}>
+                        Save
+                    </Button>
+                </Flex>
+            </form>
+        </Card>
     );
 };
 

@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef } from "react";
 import { Link } from '@inertiajs/react';
 import { showToast } from "@/utils/toastUtils";
-import axios from 'axios';
 import {
     Box, Flex, Text, Button, DropdownMenu, Badge,
     IconButton, Select, Spinner, Table
@@ -11,6 +10,7 @@ import {
     EnvelopeClosedIcon, HomeIcon, MobileIcon,
     Pencil1Icon, PersonIcon, TrashIcon
 } from '@radix-ui/react-icons';
+import * as useEmployeesQuery from '@/api/queries/useEmployeesQuery';
 
 // Assumes these are moved to Pages/Organization/Components/
 import TablePagination from '../../../Components/TablePagination.jsx';
@@ -44,9 +44,17 @@ const EmployeeTable = ({
 }) => {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState(null);
-    const [deleteLoading, setDeleteLoading] = useState(false);
     const [profilePictureModal, setProfilePictureModal] = useState({ isOpen: false, employee: null });
     const reportToDebounceRef = useRef({});
+
+    // React Query mutations
+    const updateDepartment = useEmployeesQuery.useUpdateDepartment();
+    const updateDesignation = useEmployeesQuery.useUpdateDesignation();
+    const updateAttendanceType = useEmployeesQuery.useUpdateAttendanceType();
+    const updateBiometricDevice = useEmployeesQuery.useUpdateBiometricDevice();
+    const updateReportTo = useEmployeesQuery.useUpdateReportTo();
+    const deleteEmployee = useEmployeesQuery.useDeleteEmployee();
+    const isMutating = updateDepartment.isPending || updateDesignation.isPending || updateAttendanceType.isPending || updateBiometricDevice.isPending || updateReportTo.isPending || deleteEmployee.isPending;
 
     const groupedAttendanceTypes = useMemo(() => {
         if (!attendanceTypes) return [];
@@ -63,7 +71,7 @@ const EmployeeTable = ({
     /* ── handlers ── */
     const handleDepartmentChange = async (userId, departmentId) => {
         try {
-            await axios.put(route('users.update-department', { id: userId }), { department: departmentId });
+            await updateDepartment.mutateAsync({ id: userId, department: departmentId });
             const dept = departments.find(d => d.id === parseInt(departmentId)) || null;
             updateEmployeeOptimized?.(userId, { department_id: departmentId, department_name: dept?.name || null, designation_id: null, designation_name: null });
             showToast.success('Department updated');
@@ -72,7 +80,7 @@ const EmployeeTable = ({
 
     const handleDesignationChange = async (userId, designationId) => {
         try {
-            await axios.post(route('users.updateDesignation', { id: userId }), { designation_id: designationId });
+            await updateDesignation.mutateAsync({ id: userId, designation_id: designationId });
             const desig = designations.find(d => d.id === parseInt(designationId)) || null;
             updateEmployeeOptimized?.(userId, { designation_id: designationId, designation_name: desig?.title || null });
             showToast.success('Designation updated');
@@ -81,7 +89,7 @@ const EmployeeTable = ({
 
     const handleAttendanceTypeChange = async (userId, attendanceTypeId) => {
         try {
-            await axios.post(route('users.updateAttendanceType', { id: userId }), { attendance_type_id: attendanceTypeId });
+            await updateAttendanceType.mutateAsync({ id: userId, attendance_type_id: attendanceTypeId });
             const type = attendanceTypes.find(t => t.id === parseInt(attendanceTypeId)) || null;
             const devices = (type?.biometric_devices ?? []).map(d => ({ id: d.id, name: d.name, serial_number: d.serial_number, location: d.location }));
             updateEmployeeOptimized?.(userId, { attendance_type_id: attendanceTypeId, attendance_type_name: type?.name || null, attendance_type_devices: devices, biometric_device_id: null });
@@ -91,7 +99,7 @@ const EmployeeTable = ({
 
     const handleBiometricDeviceChange = async (userId, deviceId) => {
         try {
-            const { data } = await axios.post(route('users.updateBiometricDevice', { id: userId }), { biometric_device_id: deviceId || null });
+            const { data } = await updateBiometricDevice.mutateAsync({ id: userId, biometric_device_id: deviceId || null });
             updateEmployeeOptimized?.(userId, { biometric_device_id: data.biometric_device_id ?? null, biometric_device_name: data.biometric_device_name ?? null });
             showToast.success(data.message || 'Device assigned');
         } catch (e) { showToast.error(e.response?.data?.message || 'Failed to assign device'); }
@@ -101,7 +109,7 @@ const EmployeeTable = ({
         if (reportToDebounceRef.current[userId]) clearTimeout(reportToDebounceRef.current[userId]);
         reportToDebounceRef.current[userId] = setTimeout(async () => {
             try {
-                const { data } = await axios.post(route('users.updateReportTo', { id: userId }), { report_to: reportToId || null });
+                const { data } = await updateReportTo.mutateAsync({ id: userId, report_to: reportToId || null });
                 updateEmployeeOptimized?.(userId, { report_to: reportToId || null, reports_to: data.user?.reports_to || null });
                 showToast.success('Manager assigned');
             } catch { showToast.error('Failed to update manager'); }
@@ -127,14 +135,14 @@ const EmployeeTable = ({
     const handleDeleteClick = (user) => { setEmployeeToDelete(user); setDeleteModalOpen(true); };
     const handleDeleteConfirm = async () => {
         if (!employeeToDelete) return;
-        setDeleteLoading(true);
+        
         try {
-            await axios.delete(route('user.delete', { id: employeeToDelete.id }));
+            await deleteEmployee.mutateAsync(employeeToDelete.id);
             deleteEmployeeOptimized?.(employeeToDelete.id);
             setDeleteModalOpen(false); setEmployeeToDelete(null);
             showToast.success('Employee deleted');
         } catch (err) { showToast.error(err.response?.data?.error || 'Failed to delete employee'); }
-        finally { setDeleteLoading(false); }
+        finally {  }
     };
 
     const startRow = ((pagination.currentPage - 1) * pagination.perPage) + 1;

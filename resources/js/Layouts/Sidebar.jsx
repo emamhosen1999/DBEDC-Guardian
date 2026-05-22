@@ -21,6 +21,7 @@ import {
   GearIcon,
 } from '@radix-ui/react-icons';
 import logo from '../../../public/assets/images/logo.png';
+import { isNavRouteActive } from '@/utils/navRoute.js';
 
 const highlightSearchMatch = (text, searchTerm) => {
   if (!searchTerm || !searchTerm.trim()) return text;
@@ -67,9 +68,9 @@ const ActiveBar = () => (
 );
 
 const NavItem = React.memo(({ page, level, activePage, openSubMenus, onToggle, onNavigate, searchTerm, collapsed, onExpandSidebar }) => {
-  const isActive = !!(page.route && activePage === '/' + page.route);
+  const isActive = !!(page.route && isNavRouteActive(activePage, page.route));
   const hasActiveChild = !!(page.subMenu?.some(s =>
-    s.route ? '/' + s.route === activePage : s.subMenu?.some(n => '/' + n.route === activePage)
+    s.route ? isNavRouteActive(activePage, s.route) : s.subMenu?.some(n => isNavRouteActive(activePage, n.route))
   ));
   const isExpanded = openSubMenus.has(page.name);
   const indent = level * 14;

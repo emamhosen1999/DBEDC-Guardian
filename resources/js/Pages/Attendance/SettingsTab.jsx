@@ -12,7 +12,7 @@ import {
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
-import axios from 'axios';
+import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 
 /* ── map imports (Leaflet — untouched) ───────────────────── */
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -114,7 +114,7 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
     const [tolerance,  setTolerance]  = useState(primaryRoute?.tolerance || 150);
     const [waypoints,  setWaypoints]  = useState(primaryRoute?.waypoints || []);
     const [picking,    setPicking]    = useState(false);
-    const [saving,     setSaving]     = useState(false);
+    const [isMutating,     setisMutating]     = useState(false);
     const mapCenter = waypoints[0]?.lat
         ? [parseFloat(waypoints[0].lat), parseFloat(waypoints[0].lng)]
         : [23.8103, 90.4125];
@@ -127,7 +127,7 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
         if (waypoints.filter(w => w.lat && w.lng).length < 2) {
             showToast.error('At least 2 valid waypoints required.'); return;
         }
-        setSaving(true);
+        setisMutating(true);
         try {
             const cfg = type?.config || {};
             const existingRoutes = Array.isArray(cfg.routes) ? cfg.routes : [];
@@ -142,12 +142,12 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
             const remaining = existingRoutes.filter(r => r?.id !== primaryRoute?.id);
             const { waypoints: _w, tolerance: _t, ...rest } = cfg;
             const newConfig = { ...rest, routes: [updated, ...remaining] };
-            const { data } = await axios.put(`/settings/attendance-type/${type.id}`, { config: newConfig });
+            const data = await updateAttendanceType.mutateAsync({ id: type.id, config: newConfig });
             onSave(data.attendanceType);
             showToast.success('Waypoints saved.');
             onClose();
         } catch { showToast.error('Failed to save waypoints.'); }
-        finally { setSaving(false); }
+        finally { setisMutating(false); }
     };
 
     return (
@@ -157,8 +157,8 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
             footer={
                 <>
                     <Button variant="soft" color="gray" onClick={onClose}>Cancel</Button>
-                    <Button color="blue" onClick={handleSave} disabled={saving}>
-                        {saving ? <Spinner size="1" /> : null}
+                    <Button color="blue" onClick={handleSave} disabled={isMutating}>
+                        {isMutating ? <Spinner size="1" /> : null}
                         Save Waypoints ({waypoints.length})
                     </Button>
                 </>
@@ -252,7 +252,7 @@ const PolygonModal = ({ open, onClose, type, onSave }) => {
     const primaryPoly = getPrimaryPolygon(type?.config || {});
     const [points,  setPoints]  = useState(primaryPoly?.points || []);
     const [picking, setPicking] = useState(false);
-    const [saving,  setSaving]  = useState(false);
+    const [isMutating,  setisMutating]  = useState(false);
     const mapCenter = points[0]?.lat
         ? [parseFloat(points[0].lat), parseFloat(points[0].lng)]
         : [23.8103, 90.4125];
@@ -265,7 +265,7 @@ const PolygonModal = ({ open, onClose, type, onSave }) => {
 
     const handleSave = async () => {
         if (valid.length < 3) { showToast.error('Minimum 3 valid points required.'); return; }
-        setSaving(true);
+        setisMutating(true);
         try {
             const cfg  = type?.config || {};
             const polys = Array.isArray(cfg.polygons) ? cfg.polygons : [];
@@ -279,12 +279,12 @@ const PolygonModal = ({ open, onClose, type, onSave }) => {
             const remaining = polys.filter(p => p?.id !== primaryPoly?.id);
             const { polygon: _p, ...rest } = cfg;
             const newConfig = { ...rest, polygons: [updated, ...remaining] };
-            const { data } = await axios.put(`/settings/attendance-type/${type.id}`, { config: newConfig });
+            const data = await updateAttendanceType.mutateAsync({ id: type.id, config: newConfig });
             onSave(data.attendanceType);
             showToast.success('Polygon saved.');
             onClose();
         } catch { showToast.error('Failed to save polygon.'); }
-        finally { setSaving(false); }
+        finally { setisMutating(false); }
     };
 
     return (
@@ -296,9 +296,9 @@ const PolygonModal = ({ open, onClose, type, onSave }) => {
                     <Button variant="soft" color="gray" onClick={onClose}>Cancel</Button>
                     <Button
                         color="amber" onClick={handleSave}
-                        disabled={saving || valid.length < 3}
+                        disabled={isMutating || valid.length < 3}
                     >
-                        {saving ? <Spinner size="1" /> : null}
+                        {isMutating ? <Spinner size="1" /> : null}
                         Save Polygon ({valid.length}/3+ pts)
                     </Button>
                 </>
@@ -377,9 +377,12 @@ const PolygonModal = ({ open, onClose, type, onSave }) => {
    TYPE EDIT MODAL
    ═══════════════════════════════════════════════════════════ */
 const TypeModal = ({ open, onClose, editingType, onSave }) => {
+    const updateAttendanceType = useAttendanceQuery.useUpdateAttendanceType();
+    const createAttendanceType = useAttendanceQuery.useCreateAttendanceType();
+    
     const [form,    setForm]    = useState({ name: '', description: '', is_active: true });
     const [config,  setConfig]  = useState({});
-    const [saving,  setSaving]  = useState(false);
+    const [isMutating,  setisMutating]  = useState(false);
 
     useEffect(() => {
         if (editingType) {
@@ -401,7 +404,7 @@ const TypeModal = ({ open, onClose, editingType, onSave }) => {
     const getPrimaryIpLoc   = cfg => { const r = Array.isArray(cfg?.ip_locations) ? cfg.ip_locations : []; return r.find(x => x?.is_active !== false) || r[0] || null; };
 
     const handleSave = async () => {
-        setSaving(true);
+        setisMutating(true);
         try {
             let finalConfig = { ...config };
 
@@ -418,16 +421,16 @@ const TypeModal = ({ open, onClose, editingType, onSave }) => {
             const payload = { name: form.name, description: form.description, is_active: form.is_active, config: finalConfig };
             let res;
             if (editingType?.id) {
-                res = await axios.put(`/settings/attendance-type/${editingType.id}`, payload);
+                res = await updateAttendanceType.mutateAsync({ id: editingType.id, config: payload });
             } else {
-                res = await axios.post('/settings/attendance-type', { ...payload, slug: editingType?.slug });
+                res = await createAttendanceType.mutateAsync({ ...payload, slug: editingType?.slug });
             }
-            onSave(res.data.attendanceType, !editingType?.id);
+            onSave(res.attendanceType, !editingType?.id);
             showToast.success(editingType?.id ? 'Type updated.' : 'Type created.');
             onClose();
         } catch (e) {
             showToast.error(e.response?.data?.message || 'Failed to save.');
-        } finally { setSaving(false); }
+        } finally { setisMutating(false); }
     };
 
     const primaryIp    = getPrimaryIpLoc(config);
@@ -440,8 +443,8 @@ const TypeModal = ({ open, onClose, editingType, onSave }) => {
             footer={
                 <>
                     <Button variant="soft" color="gray" onClick={onClose}>Cancel</Button>
-                    <Button color="accent" onClick={handleSave} disabled={saving}>
-                        {saving ? <Spinner size="1" /> : null}
+                    <Button color="accent" onClick={handleSave} disabled={isMutating}>
+                        {isMutating ? <Spinner size="1" /> : null}
                         {editingType?.id ? 'Update' : 'Create'}
                     </Button>
                 </>
@@ -569,8 +572,14 @@ const SettingsTab = () => {
 
     const [settings,   setSettings]   = useState(initSettings || {});
     const [types,      setTypes]      = useState(initTypes    || []);
-    const [savingGeneral, setSavingGeneral] = useState(false);
     const [search,     setSearch]     = useState('');
+
+    // React Query mutations
+    const updateAttendanceType = useAttendanceQuery.useUpdateAttendanceType();
+    const createAttendanceType = useAttendanceQuery.useCreateAttendanceType();
+    const deleteAttendanceType = useAttendanceQuery.useDeleteAttendanceType();
+    const updateAttendanceSettings = useAttendanceQuery.useUpdateAttendanceSettings();
+    const isMutating = updateAttendanceType.isPending || createAttendanceType.isPending || deleteAttendanceType.isPending || updateAttendanceSettings.isPending;
 
     /* accordion open state — all open by default */
     const [openSections, setOpenSections] = useState(Object.keys(CATEGORY_META));
@@ -609,7 +618,7 @@ const SettingsTab = () => {
     /* save general settings */
     const handleGeneralSave = async e => {
         e.preventDefault();
-        setSavingGeneral(true);
+        setisMutating(true);
         try {
             const fd = new FormData(e.target);
             const data = Object.fromEntries(fd.entries());
@@ -622,12 +631,12 @@ const SettingsTab = () => {
                 early_leave_before:  parseInt(data.early_leave_before)  || 0,
                 overtime_after:      parseInt(data.overtime_after)       || 0,
             };
-            const res = await axios.post(route('attendance-settings.update'), payload);
-            setSettings(res.data.attendanceSettings);
-            showToast.success(res.data.message || 'Settings saved.');
+            const res = await updateAttendanceSettings.mutateAsync(payload);
+            setSettings(res.attendanceSettings);
+            showToast.success(res.message || 'Settings saved.');
         } catch (e) {
             showToast.error(e.response?.data?.message || 'Failed to save settings.');
-        } finally { setSavingGeneral(false); }
+        } finally { setisMutating(false); }
     };
 
     /* type CRUD callbacks */
@@ -637,7 +646,7 @@ const SettingsTab = () => {
     const handleTypeDelete = async t => {
         if (!confirm(`Delete "${t.name}"? This cannot be undone.`)) return;
         try {
-            await axios.delete(`/settings/attendance-type/${t.id}`);
+            await deleteAttendanceType.mutateAsync(t.id);
             setTypes(p => p.filter(x => x.id !== t.id));
             showToast.success('Type deleted.');
         } catch (e) {
@@ -745,8 +754,8 @@ const SettingsTab = () => {
 
                         {/* save button */}
                         <Flex justify="end">
-                            <Button type="submit" size="2" variant="solid" color="accent" disabled={savingGeneral}>
-                                {savingGeneral ? <Spinner size="1" /> : null}
+                            <Button type="submit" size="2" variant="solid" color="accent" disabled={isMutating}>
+                                {isMutating ? <Spinner size="1" /> : null}
                                 Save Settings
                             </Button>
                         </Flex>
@@ -979,3 +988,18 @@ const SettingsTab = () => {
 };
 
 export default SettingsTab;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

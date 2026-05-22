@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Responses\ApiResponse;
+use App\Http\Responses\HandlesApiExceptions;
 use App\Services\Role\RolePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +19,9 @@ use Spatie\Permission\Models\Permission;
  */
 class PermissionController extends Controller
 {
+    use ApiResponse;
+    use HandlesApiExceptions;
+
     private RolePermissionService $rolePermissionService;
 
     public function __construct(RolePermissionService $rolePermissionService)
@@ -32,18 +37,16 @@ class PermissionController extends Controller
     {
         try {
             if (! Auth::user()->can('permissions.view')) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                return $this->forbiddenResponse('Unauthorized');
             }
 
             $query = Permission::query();
 
-            // Optional search filter
             if ($request->has('search')) {
                 $search = $request->input('search');
                 $query->where('name', 'like', "%{$search}%");
             }
 
-            // Optional module filter
             if ($request->has('module')) {
                 $module = $request->input('module');
                 $query->where('name', 'like', "{$module}.%");
@@ -51,17 +54,18 @@ class PermissionController extends Controller
 
             $permissions = $query->orderBy('name')->get();
 
-            return response()->json([
+            return $this->successResponse([
                 'permissions' => $permissions,
                 'total' => $permissions->count(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to list permissions: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to retrieve permissions',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to retrieve permissions.'),
+                'PERMISSIONS_LIST_FAILED',
+                500
+            );
         }
     }
 
@@ -72,22 +76,21 @@ class PermissionController extends Controller
     {
         try {
             if (! Auth::user()->can('permissions.view')) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                return $this->forbiddenResponse('Unauthorized');
             }
 
-            $permissionsGrouped = $this->rolePermissionService->getPermissionsGroupedByModule();
-
-            return response()->json([
-                'permissionsGrouped' => $permissionsGrouped,
+            return $this->successResponse([
+                'permissionsGrouped' => $this->rolePermissionService->getPermissionsGroupedByModule(),
                 'enterprise_modules' => $this->rolePermissionService->getEnterpriseModules(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to get grouped permissions: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to retrieve grouped permissions',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to retrieve grouped permissions.'),
+                'PERMISSIONS_GROUPED_FAILED',
+                500
+            );
         }
     }
 
@@ -102,12 +105,12 @@ class PermissionController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         try {
             if (! Auth::user()->can('permissions.create')) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                return $this->forbiddenResponse('Unauthorized');
             }
 
             $permission = Permission::create([
@@ -115,7 +118,6 @@ class PermissionController extends Controller
                 'guard_name' => $request->guard_name ?? 'web',
             ]);
 
-            // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::info('Permission created', [
@@ -124,17 +126,19 @@ class PermissionController extends Controller
                 'created_by' => Auth::id(),
             ]);
 
-            return response()->json([
-                'message' => 'Permission created successfully',
-                'permission' => $permission,
-            ], 201);
+            return $this->successResponse(
+                ['permission' => $permission],
+                'Permission created successfully',
+                201
+            );
         } catch (\Exception $e) {
             Log::error('Failed to create permission: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to create permission',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to create permission.'),
+                'PERMISSION_CREATE_FAILED',
+                500
+            );
         }
     }
 
@@ -145,26 +149,27 @@ class PermissionController extends Controller
     {
         try {
             if (! Auth::user()->can('permissions.view')) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                return $this->forbiddenResponse('Unauthorized');
             }
 
             $permission = Permission::with('roles')->findById($id);
 
             if (! $permission) {
-                return response()->json(['error' => 'Permission not found'], 404);
+                return $this->notFoundResponse('Permission not found');
             }
 
-            return response()->json([
+            return $this->successResponse([
                 'permission' => $permission,
                 'roles' => $permission->roles->pluck('name'),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to show permission: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to retrieve permission',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to retrieve permission.'),
+                'PERMISSION_SHOW_FAILED',
+                500
+            );
         }
     }
 
@@ -178,25 +183,24 @@ class PermissionController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         try {
             if (! Auth::user()->can('permissions.update')) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                return $this->forbiddenResponse('Unauthorized');
             }
 
             $permission = Permission::findById($id);
 
             if (! $permission) {
-                return response()->json(['error' => 'Permission not found'], 404);
+                return $this->notFoundResponse('Permission not found');
             }
 
             $oldName = $permission->name;
             $permission->name = $request->name;
             $permission->save();
 
-            // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::info('Permission updated', [
@@ -206,17 +210,18 @@ class PermissionController extends Controller
                 'updated_by' => Auth::id(),
             ]);
 
-            return response()->json([
-                'message' => 'Permission updated successfully',
-                'permission' => $permission,
-            ]);
+            return $this->successResponse(
+                ['permission' => $permission],
+                'Permission updated successfully'
+            );
         } catch (\Exception $e) {
             Log::error('Failed to update permission: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to update permission',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to update permission.'),
+                'PERMISSION_UPDATE_FAILED',
+                500
+            );
         }
     }
 
@@ -227,27 +232,27 @@ class PermissionController extends Controller
     {
         try {
             if (! Auth::user()->can('permissions.delete')) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                return $this->forbiddenResponse('Unauthorized');
             }
 
             $permission = Permission::findById($id);
 
             if (! $permission) {
-                return response()->json(['error' => 'Permission not found'], 404);
+                return $this->notFoundResponse('Permission not found');
             }
 
-            // Check if permission is assigned to any roles
             $rolesCount = $permission->roles()->count();
             if ($rolesCount > 0) {
-                return response()->json([
-                    'error' => "Cannot delete permission. It is assigned to {$rolesCount} role(s).",
-                ], 409);
+                return $this->errorResponse(
+                    "Cannot delete permission. It is assigned to {$rolesCount} role(s).",
+                    'PERMISSION_IN_USE',
+                    409
+                );
             }
 
             $permissionName = $permission->name;
             $permission->delete();
 
-            // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::warning('Permission deleted', [
@@ -255,16 +260,15 @@ class PermissionController extends Controller
                 'deleted_by' => Auth::id(),
             ]);
 
-            return response()->json([
-                'message' => 'Permission deleted successfully',
-            ]);
+            return $this->successResponse(null, 'Permission deleted successfully');
         } catch (\Exception $e) {
             Log::error('Failed to delete permission: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to delete permission',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to delete permission.'),
+                'PERMISSION_DELETE_FAILED',
+                500
+            );
         }
     }
 
@@ -279,24 +283,22 @@ class PermissionController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return $this->validationErrorResponse($validator->errors()->toArray());
         }
 
         try {
             if (! Auth::user()->can('permissions.update')) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                return $this->forbiddenResponse('Unauthorized');
             }
 
             $permission = Permission::findById($id);
 
             if (! $permission) {
-                return response()->json(['error' => 'Permission not found'], 404);
+                return $this->notFoundResponse('Permission not found');
             }
 
-            // Sync roles using Spatie's method
             $permission->syncRoles($request->roles);
 
-            // Clear Spatie Permission cache
             app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::info('Permission roles synced', [
@@ -306,17 +308,18 @@ class PermissionController extends Controller
                 'synced_by' => Auth::id(),
             ]);
 
-            return response()->json([
-                'message' => 'Permission roles synced successfully',
-                'permission' => $permission->fresh('roles'),
-            ]);
+            return $this->successResponse(
+                ['permission' => $permission->fresh('roles')],
+                'Permission roles synced successfully'
+            );
         } catch (\Exception $e) {
             Log::error('Failed to sync permission roles: '.$e->getMessage());
 
-            return response()->json([
-                'error' => 'Failed to sync permission roles',
-                'message' => $e->getMessage(),
-            ], 500);
+            return $this->errorResponse(
+                $this->safeExceptionMessage($e, 'Failed to sync permission roles.'),
+                'PERMISSION_ROLES_SYNC_FAILED',
+                500
+            );
         }
     }
 }

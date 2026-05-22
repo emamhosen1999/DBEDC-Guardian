@@ -1,19 +1,9 @@
 import {
-    Button,
-    Input,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Select,
-    SelectItem,
-    Spinner,
-    Card,
-    CardBody,
-    CardHeader,
-    Divider
-} from "@/compat/heroui";
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, {useEffect, useState} from "react";
 import { X, Camera } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";
@@ -348,8 +338,8 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
 
 
     return (
-        <Modal 
-            isOpen={open} 
+        <Dialog 
+            open={open} 
             onOpenChange={closeModal}
             size="5xl"
             scrollBehavior="inside"
@@ -363,7 +353,7 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                 footer: "p-0"
             }}
         >
-            <ModalContent
+            <Dialog.Content
                 style={{
                     background: `linear-gradient(135deg, 
                         var(--theme-content1, #FAFAFA) 20%, 
@@ -376,7 +366,7 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                     transform: `scale(var(--scale, 1))`,
                 }}
             >
-                <ModalHeader className="p-0">
+                <Dialog.Title className="p-0">
                     <div 
                         className="flex items-center justify-between p-6 border-b w-full"
                         style={{
@@ -396,7 +386,7 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                         <Button
                             isIconOnly
                             variant="light"
-                            onPress={closeModal}
+                            onClick={closeModal}
                             style={{
                                 color: 'var(--theme-foreground-600, #71717A)',
                                 borderRadius: 'var(--borderRadius, 12px)'
@@ -405,9 +395,9 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                             <X size={20} />
                         </Button>
                     </div>
-                </ModalHeader>
+                </Dialog.Title>
                 
-                <ModalBody className="p-0">
+                <Box className="p-0">
                     <form onSubmit={handleSubmit}>
                         <div className="p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -458,13 +448,13 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
 
                                 </div>
                                 <div>
-                                    <Input
+                                    <TextField.Root
                                         label="Name"
                                         value={changedUserData.name || initialUserData.name || ''}
                                         onChange={(e) => handleChange('name', e.target.value)}
                                         isInvalid={Boolean(errors.name)}
                                         errorMessage={errors.name}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -478,7 +468,7 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                         onSelectionChange={(keys) => handleChange('gender', Array.from(keys)[0])}
                                         isInvalid={Boolean(errors.gender)}
                                         errorMessage={errors.gender}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -489,14 +479,14 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                     </Select>
                                 </div>
                                 <div>
-                                    <Input
+                                    <TextField.Root
                                         label="Birth Date"
                                         type="date"
                                         value={changedUserData.birthday || initialUserData.birthday || ''}
                                         onChange={(e) => handleChange('birthday', e.target.value)}
                                         isInvalid={Boolean(errors.birthday)}
                                         errorMessage={errors.birthday}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -504,14 +494,14 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                     />
                                 </div>
                                 <div>
-                                    <Input
+                                    <TextField.Root
                                         label="Joining Date"
                                         type="date"
                                         value={changedUserData.date_of_joining || initialUserData.date_of_joining || ''}
                                         onChange={(e) => handleChange('date_of_joining', e.target.value)}
                                         isInvalid={Boolean(errors.date_of_joining)}
                                         errorMessage={errors.date_of_joining}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -520,13 +510,13 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                 </div>
 
                                 <div className="col-span-full">
-                                    <Input
+                                    <TextField.Root
                                         label="Address"
                                         value={changedUserData.address || initialUserData.address}
                                         onChange={(e) => handleChange('address', e.target.value)}
                                         isInvalid={Boolean(errors.address)}
                                         errorMessage={errors.address}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -534,13 +524,13 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                     />
                                 </div>
                                 <div>
-                                    <Input
+                                    <TextField.Root
                                         label="Employee ID"
                                         value={changedUserData.employee_id || initialUserData.employee_id || ''}
                                         onChange={(e) => handleChange('employee_id', e.target.value)}
                                         isInvalid={Boolean(errors.employee_id)}
                                         errorMessage={errors.employee_id}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -548,13 +538,13 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                     />
                                 </div>
                                 <div>
-                                    <Input
+                                    <TextField.Root
                                         label="Phone Number"
                                         value={changedUserData.phone || initialUserData.phone}
                                         onChange={(e) => handleChange('phone', e.target.value)}
                                         isInvalid={Boolean(errors.phone)}
                                         errorMessage={errors.phone}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -562,13 +552,13 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                     />
                                 </div>
                                 <div>
-                                    <Input
+                                    <TextField.Root
                                         label="Email Address"
                                         value={changedUserData.email || initialUserData.email}
                                         onChange={(e) => handleChange('email', e.target.value)}
                                         isInvalid={Boolean(errors.email)}
                                         errorMessage={errors.email}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -582,7 +572,7 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                         onSelectionChange={(keys) => handleChange('department', Array.from(keys)[0])}
                                         isInvalid={Boolean(errors.department)}
                                         errorMessage={errors.department}
-                                        variant="bordered"
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -602,8 +592,8 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                         onSelectionChange={(keys) => handleChange('designation', Array.from(keys)[0])}
                                         isInvalid={Boolean(errors.designation)}
                                         errorMessage={errors.designation}
-                                        isDisabled={!(changedUserData.department || initialUserData.department)}
-                                        variant="bordered"
+                                        disabled={!(changedUserData.department || initialUserData.department)}
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -623,8 +613,8 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                         onSelectionChange={(keys) => handleChange('report_to', Array.from(keys)[0])}
                                         isInvalid={Boolean(errors.report_to)}
                                         errorMessage={errors.report_to}
-                                        isDisabled={user.report_to === 'na'}
-                                        variant="bordered"
+                                        disabled={user.report_to === 'na'}
+                                        variant="outline"
                                         style={{
                                             borderRadius: 'var(--borderRadius, 12px)',
                                             fontFamily: 'var(--fontFamily, "Inter")'
@@ -641,7 +631,7 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                             </div>
                         </div>
                         
-                        <ModalFooter className="p-0">
+                        <Flex className="p-0">
                             <div 
                                 className="flex items-center justify-center p-6 border-t w-full"
                                 style={{
@@ -649,12 +639,12 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                 }}
                             >
                                 <Button
-                                    isDisabled={!dataChanged}
+                                    disabled={!dataChanged}
                                     className="rounded-full px-6"
-                                    variant="bordered"
+                                    variant="outline"
                                     color="primary"
                                     type="submit"
-                                    isLoading={processing}
+                                    loading={processing}
                                     style={{
                                         borderColor: 'var(--theme-primary, #006FEE)',
                                         color: 'var(--theme-primary, #006FEE)',
@@ -665,11 +655,11 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                     Submit
                                 </Button>
                             </div>
-                        </ModalFooter>
+                        </Flex>
                     </form>
-                </ModalBody>
-            </ModalContent>
-        </Modal>
+                </Box>
+            </Dialog.Content>
+        </Dialog>
     );
 };
 

@@ -4,7 +4,7 @@ import { heroUIThemes, applyThemeToDocument, generateHeroUIConfig } from '../the
 const ThemeContext = createContext();
 
 const THEME_DEFAULTS = {
-  themeSettings: { mode: 'light', activeTheme: 'heroui', customColors: {}, layout: {}, background: {} },
+  themeSettings: { mode: 'light', activeTheme: 'radix', customColors: {}, layout: {}, background: {} },
   setThemeSettings: () => {},
   applyTheme: () => {},
   toggleDarkMode: () => {},
@@ -21,7 +21,7 @@ export const ThemeProvider = ({ children }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [themeSettings, setThemeSettings] = useState({
     mode: 'light', // 'light' or 'dark'
-    activeTheme: 'heroui', // Current prebuilt theme
+    activeTheme: 'radix',
     customColors: {
       primary: '#006FEE',
       secondary: '#17C964',
@@ -51,7 +51,7 @@ export const ThemeProvider = ({ children }) => {
 
   // Load theme from localStorage on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('heroui-theme-settings');
+    const savedTheme = localStorage.getItem('radix-theme-settings') || localStorage.getItem('heroui-theme-settings');
     if (savedTheme) {
       try {
         const parsedTheme = JSON.parse(savedTheme);
@@ -59,6 +59,7 @@ export const ThemeProvider = ({ children }) => {
       } catch (error) {
         console.warn('Failed to parse saved theme:', error);
         localStorage.removeItem('heroui-theme-settings');
+        localStorage.removeItem('radix-theme-settings');
       }
     }
     setIsInitialized(true);
@@ -79,7 +80,7 @@ export const ThemeProvider = ({ children }) => {
 
     // Save to localStorage
     try {
-      localStorage.setItem('heroui-theme-settings', JSON.stringify(themeSettings));
+      localStorage.setItem('radix-theme-settings', JSON.stringify(themeSettings));
     } catch (error) {
       console.error('Failed to save theme to localStorage:', error);
     }
@@ -129,7 +130,7 @@ export const ThemeProvider = ({ children }) => {
   const resetTheme = () => {
     setThemeSettings({
       mode: 'light',
-      activeTheme: 'heroui',
+      activeTheme: 'radix',
       customColors: {
         primary: '#006FEE',
         secondary: '#17C964',
@@ -169,7 +170,7 @@ export const ThemeProvider = ({ children }) => {
       heroUIThemes[key]?.colors?.warning?.DEFAULT || heroUIThemes[key]?.colors?.warning || '#F5A524',
       heroUIThemes[key]?.colors?.danger?.DEFAULT || heroUIThemes[key]?.colors?.danger || '#F31260'
     ],
-    isDefault: key === 'heroui'
+    isDefault: key === 'radix'
   }));
 
   // Generate the actual HeroUI theme object

@@ -6,11 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SyncBootstrapRequest;
 use App\Http\Requests\Api\V1\SyncPullRequest;
 use App\Http\Requests\Api\V1\SyncPushRequest;
+use App\Http\Responses\ApiResponse;
 use App\Models\DailyWork;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\LeaveSetting;
 use App\Models\RfiObjection;
 use App\Models\User;
+use App\Repositories\AttendanceRepository;
+use App\Repositories\DailyWorkRepository;
+use App\Repositories\LeaveRepository;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceValidatorFactory;
 use Carbon\Carbon;
@@ -22,6 +26,22 @@ use Illuminate\Support\Facades\Validator;
 
 class SyncController extends Controller
 {
+    use ApiResponse;
+
+    protected AttendanceRepository $attendanceRepository;
+    protected DailyWorkRepository $dailyWorkRepository;
+    protected LeaveRepository $leaveRepository;
+
+    public function __construct(
+        AttendanceRepository $attendanceRepository,
+        DailyWorkRepository $dailyWorkRepository,
+        LeaveRepository $leaveRepository
+    ) {
+        $this->attendanceRepository = $attendanceRepository;
+        $this->dailyWorkRepository = $dailyWorkRepository;
+        $this->leaveRepository = $leaveRepository;
+    }
+
     public function bootstrap(SyncBootstrapRequest $request): JsonResponse
     {
         $user = $request->user();

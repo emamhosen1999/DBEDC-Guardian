@@ -4,12 +4,16 @@ import {
     Select, Switch, Box, Spinner 
 } from '@radix-ui/themes';
 import { PersonIcon } from '@radix-ui/react-icons';
-import axios from 'axios';
+import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
 import { showToast } from '@/utils/toastUtils';
 
 const DesignationForm = ({ open, onClose, onSuccess, designation = null, departments = [], designations = [] }) => {
-    const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+
+    // React Query mutations
+    const createDesignation = useDesignationsQuery.useCreateDesignation();
+    const updateDesignation = useDesignationsQuery.useUpdateDesignation();
+    const isMutating = createDesignation.isPending || updateDesignation.isPending;
 
     const initialFormState = {
         title: '',
@@ -46,7 +50,6 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setErrors({});
 
         const payload = { ...formData };
@@ -56,10 +59,10 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
         try {
             let response;
             if (designation) {
-                response = await axios.put(`/designations/${designation.id}`, payload);
+                response = await updateDesignation.mutateAsync({ id: designation.id, data: payload });
                 showToast.success('Designation updated successfully');
             } else {
-                response = await axios.post('/designations', payload);
+                response = await createDesignation.mutateAsync(payload);
                 showToast.success('Designation created successfully');
             }
             onSuccess(response.data.designation);
@@ -71,13 +74,11 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
             } else {
                 showToast.error('An error occurred');
             }
-        } finally {
-            setLoading(false);
         }
     };
 
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v && !loading) onClose(); }}>
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !isMutating) onClose(); }}>
             <Dialog.Content style={{ maxWidth: 500 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
@@ -93,7 +94,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
                             <TextField.Root 
                                 value={formData.title} 
                                 onChange={e => handleChange('title', e.target.value)} 
-                                disabled={loading} 
+                                disabled={isMutating} 
                                 placeholder="e.g. Senior Developer" 
                             />
                             {errors.title && <Text size="1" color="red">{errors.title[0]}</Text>}
@@ -101,7 +102,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">Department</Text>
-                            <Select.Root value={formData.department_id} onValueChange={v => handleChange('department_id', v)} disabled={loading}>
+                            <Select.Root value={formData.department_id} onValueChange={v => handleChange('department_id', v)} disabled={isMutating}>
                                 <Select.Trigger style={{ width: '100%' }} />
                                 <Select.Content>
                                     <Select.Item value="none">Select Department...</Select.Item>
@@ -120,14 +121,14 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
                                 min="1" max="10" 
                                 value={formData.hierarchy_level} 
                                 onChange={e => handleChange('hierarchy_level', parseInt(e.target.value) || 1)} 
-                                disabled={loading} 
+                                disabled={isMutating} 
                             />
                         </Box>
 
                         {availableParents.length > 0 && (
                             <Box>
                                 <Text size="2" weight="medium" mb="1" as="div">Reports To (Parent Designation)</Text>
-                                <Select.Root value={formData.parent_id} onValueChange={v => handleChange('parent_id', v)} disabled={loading}>
+                                <Select.Root value={formData.parent_id} onValueChange={v => handleChange('parent_id', v)} disabled={isMutating}>
                                     <Select.Trigger style={{ width: '100%' }} />
                                     <Select.Content>
                                         <Select.Item value="none">None (Top Level)</Select.Item>
@@ -145,15 +146,15 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
                                     <Text size="2" weight="bold" display="block">Active Status</Text>
                                     <Text size="1" color="gray">Active designations can be assigned to employees</Text>
                                 </Box>
-                                <Switch checked={formData.is_active} onCheckedChange={checked => handleChange('is_active', checked)} color="green" disabled={loading} />
+                                <Switch checked={formData.is_active} onCheckedChange={checked => handleChange('is_active', checked)} color="green" disabled={isMutating} />
                             </Flex>
                         </Box>
                     </Grid>
 
                     <Flex justify="end" gap="3" mt="5">
-                        <Button variant="soft" color="gray" type="button" onClick={onClose} disabled={loading}>Cancel</Button>
-                        <Button type="submit" color="indigo" disabled={loading}>
-                            {loading ? <Spinner size="1" /> : (designation ? 'Update Designation' : 'Create Designation')}
+                        <Button variant="soft" color="gray" type="button" onClick={onClose} disabled={isMutating}>Cancel</Button>
+                        <Button type="submit" color="indigo" disabled={isMutating}>
+                            {isMutating ? <Spinner size="1" /> : (designation ? 'Update Designation' : 'Create Designation')}
                         </Button>
                     </Flex>
                 </form>

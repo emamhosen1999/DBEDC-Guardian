@@ -19,6 +19,7 @@ import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import UsersPanel from '@/Components/AdminUnified/UsersPanel.jsx';
 import RolesPanel from '@/Components/AdminUnified/RolesPanel.jsx';
 import BiometricPanel from '@/Components/AdminUnified/BiometricPanel.jsx';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 /* ── page shell ────────────────────────────────────────────────────────────── */
 
@@ -128,46 +129,52 @@ const AdminUnified = ({
 
                             {/* ── Users ── */}
                             <Tabs.Content value="users">
-                                <UsersPanel
-                                    roles={roles}
-                                    departments={departments}
-                                    designations={designations}
-                                    allUsers={employees}
-                                    isMobile={isMobile}
-                                    tick={0}
-                                    onCountChange={n => setQuickStats(p => ({ ...p, totalUsers: n }))}
-                                    onSetHeaderActions={setHeaderActions}
-                                    isActive={activeTab === 'users'}
-                                />
+                                <ErrorBoundary>
+                                    <UsersPanel
+                                        roles={roles}
+                                        departments={departments}
+                                        designations={designations}
+                                        allUsers={employees}
+                                        isMobile={isMobile}
+                                        tick={0}
+                                        onCountChange={n => setQuickStats(p => ({ ...p, totalUsers: n }))}
+                                        onSetHeaderActions={setHeaderActions}
+                                        isActive={activeTab === 'users'}
+                                    />
+                                </ErrorBoundary>
                             </Tabs.Content>
 
                             {/* ── Roles & Permissions ── */}
                             <Tabs.Content value="roles">
-                                <RolesPanel
-                                    roles={roles}
-                                    permissions={permissions}
-                                    roleHasPermissions={role_has_permissions}
-                                    permissionsGrouped={permissionsGrouped}
-                                    canManageSuperAdmin={can_manage_super_admin}
-                                    isMobile={isMobile}
-                                    tick={0}
-                                    onCountChange={n => setQuickStats(p => ({ ...p, totalRoles: n }))}
-                                    onSetHeaderActions={setHeaderActions}
-                                    isActive={activeTab === 'roles'}
-                                />
+                                <ErrorBoundary>
+                                    <RolesPanel
+                                        roles={roles}
+                                        permissions={permissions}
+                                        roleHasPermissions={role_has_permissions}
+                                        permissionsGrouped={permissionsGrouped}
+                                        canManageSuperAdmin={can_manage_super_admin}
+                                        isMobile={isMobile}
+                                        tick={0}
+                                        onCountChange={n => setQuickStats(p => ({ ...p, totalRoles: n }))}
+                                        onSetHeaderActions={setHeaderActions}
+                                        isActive={activeTab === 'roles'}
+                                    />
+                                </ErrorBoundary>
                             </Tabs.Content>
 
                             {/* ── Biometric Devices ── */}
                             <Tabs.Content value="biometric">
-                                <BiometricPanel
-                                    initialDevices={initialDevices}
-                                    employees={employees}
-                                    isMobile={isMobile}
+                                <ErrorBoundary>
+                                    <BiometricPanel
+                                        initialDevices={initialDevices}
+                                        employees={employees}
+                                        isMobile={isMobile}
                                     tick={0}
                                     onCountChange={n => setQuickStats(p => ({ ...p, totalDevices: n }))}
                                     onSetHeaderActions={setHeaderActions}
                                     isActive={activeTab === 'biometric'}
                                 />
+                                </ErrorBoundary>
                             </Tabs.Content>
                         </Tabs.Root>
                     </Card>

@@ -20,6 +20,7 @@ import AdminLeavesPanel    from '@/Components/LeaveUnified/AdminLeavesPanel.jsx'
 import SummaryPanel        from '@/Components/LeaveUnified/SummaryPanel.jsx';
 import AnalyticsPanel      from '@/Components/LeaveUnified/AnalyticsPanel.jsx';
 import LeaveSettingsPanel  from '@/Components/LeaveUnified/LeaveSettingsPanel.jsx';
+import ErrorBoundary       from '@/Components/ErrorBoundary/ErrorBoundary';
 
 const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
     const { auth }  = usePage().props;
@@ -138,45 +139,53 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                             {/* ── Tab Contents ── */}
                             {isAdmin && (
                                 <Tabs.Content value="all">
-                                    <AdminLeavesPanel
-                                        allUsers={allUsers}
-                                        isMobile={isMobile}
-                                        isActive={activeTab === 'all'}
-                                        onCountChange={handleAllCount}
-                                        onSetHeaderActions={setHeaderActions}
-                                    />
+                                    <ErrorBoundary>
+                                        <AdminLeavesPanel
+                                            allUsers={allUsers}
+                                            isMobile={isMobile}
+                                            isActive={activeTab === 'all'}
+                                            onCountChange={handleAllCount}
+                                            onSetHeaderActions={setHeaderActions}
+                                        />
+                                    </ErrorBoundary>
                                 </Tabs.Content>
                             )}
 
                             {isAdmin && (
                                 <Tabs.Content value="summary">
-                                    <SummaryPanel
-                                        summaryData={summaryData}
-                                        isMobile={isMobile}
-                                        isActive={activeTab === 'summary'}
-                                        onSetHeaderActions={setHeaderActions}
-                                    />
+                                    <ErrorBoundary>
+                                        <SummaryPanel
+                                            summaryData={summaryData}
+                                            isMobile={isMobile}
+                                            isActive={activeTab === 'summary'}
+                                            onSetHeaderActions={setHeaderActions}
+                                        />
+                                    </ErrorBoundary>
                                 </Tabs.Content>
                             )}
 
                             {isAdmin && (
                                 <Tabs.Content value="analytics">
-                                    <AnalyticsPanel
-                                        isMobile={isMobile}
-                                        isActive={activeTab === 'analytics'}
-                                        onSetHeaderActions={setHeaderActions}
-                                    />
+                                    <ErrorBoundary>
+                                        <AnalyticsPanel
+                                            isMobile={isMobile}
+                                            isActive={activeTab === 'analytics'}
+                                            onSetHeaderActions={setHeaderActions}
+                                        />
+                                    </ErrorBoundary>
                                 </Tabs.Content>
                             )}
 
                             {canSettings && (
                                 <Tabs.Content value="settings">
-                                    <LeaveSettingsPanel
-                                        leaveTypes={leaveTypes || []}
-                                        isMobile={isMobile}
-                                        isActive={activeTab === 'settings'}
-                                        onSetHeaderActions={setHeaderActions}
-                                    />
+                                    <ErrorBoundary>
+                                        <LeaveSettingsPanel
+                                            leaveTypes={leaveTypes || []}
+                                            isMobile={isMobile}
+                                            isActive={activeTab === 'settings'}
+                                            onSetHeaderActions={setHeaderActions}
+                                        />
+                                    </ErrorBoundary>
                                 </Tabs.Content>
                             )}
 

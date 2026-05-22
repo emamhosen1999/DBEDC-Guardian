@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import DailyTimesheetTab  from './DailyTimesheetTab';
 import MonthlyCalendarTab from './MonthlyCalendarTab';
 import SettingsTab        from './SettingsTab';
+import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 
 /* ── optional: mark-as-present modals (keep your existing) ── */
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
@@ -156,21 +157,25 @@ const AttendancePage = ({ title }) => {
                             {/* ── Daily Timesheet Tab ───────────────────── */}
                             <Tabs.Content value="timesheet">
                                 <Box mt="4">
-                                    <DailyTimesheetTab
-                                        selectedDate={selectedDate}
-                                        onDateChange={handleDateChange}
-                                        isActive={activeTab === 'timesheet'}
-                                    />
+                                    <ErrorBoundary>
+                                        <DailyTimesheetTab
+                                            selectedDate={selectedDate}
+                                            onDateChange={handleDateChange}
+                                            isActive={activeTab === 'timesheet'}
+                                        />
+                                    </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
 
                             {/* ── Monthly Calendar Tab ──────────────────── */}
                             <Tabs.Content value="monthly">
                                 <Box mt="4">
-                                    <MonthlyCalendarTab
-                                        selectedMonth={selectedMonth}
-                                        onMonthChange={handleMonthChange}
-                                    />
+                                    <ErrorBoundary>
+                                        <MonthlyCalendarTab
+                                            selectedMonth={selectedMonth}
+                                            onMonthChange={handleMonthChange}
+                                        />
+                                    </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
 

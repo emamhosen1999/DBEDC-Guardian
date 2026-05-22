@@ -1,34 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box,
-    CircularProgress,
-    DialogContent,
-    DialogActions,
-    DialogTitle,
-    FormControl,
-    FormHelperText,
+    Text,
     Grid,
     IconButton,
-    InputLabel,
-    MenuItem,
-    Select,
     TextField,
-    Typography,
-    FormControlLabel,
-    Switch,
-    Chip,
+    Select,
     Button,
-    InputAdornment
-} from "@mui/material";
-import ClearIcon from '@mui/icons-material/Clear';
-import AddIcon from '@mui/icons-material/Add';
-import LoadingButton from "@mui/lab/LoadingButton";
-
-import { showToast } from "@/utils/toastUtils";
-import GlassDialog from "@/Components/GlassDialog.jsx";
-import { usePage, router } from "@inertiajs/react";
+    Flex,
+    Badge,
+    Switch,
+    Spinner,
+    ScrollArea,
+    TextArea,
+} from '@radix-ui/themes';
+import { XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { showToast } from '@/utils/toastUtils';
+import GlassDialog from '@/Components/GlassDialog.jsx';
 import axios from 'axios';
 import dayjs from 'dayjs';
+
+const toastStyle = {
+    backdropFilter: 'blur(16px) saturate(200%)',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+};
+
+const fieldError = (errors, key) => {
+    const e = errors[key];
+    if (!e) return null;
+    return Array.isArray(e) ? e[0] : e;
+};
+
+const RemovableBadges = ({ items, onRemove, color = 'blue' }) => (
+    <Flex wrap="wrap" gap="2">
+        {items.map((item, index) => (
+            <Badge key={index} variant="soft" color={color}>
+                {typeof item === 'object' ? `${item.key}: ${item.value}` : item}
+                <IconButton
+                    size="1"
+                    variant="ghost"
+                    color="gray"
+                    type="button"
+                    onClick={() => onRemove(item)}
+                    style={{ marginLeft: 4 }}
+                >
+                    <XMarkIcon className="w-3 h-3" />
+                </IconButton>
+            </Badge>
+        ))}
+    </Flex>
+);
 
 const AddEditJobForm = ({
     open,
@@ -41,15 +63,10 @@ const AddEditJobForm = ({
     updateJobOptimized,
     fetchJobStats
 }) => {
-    const { auth } = usePage().props;
-
     const isEditing = !!job;
-
-    // State management like LeaveForm
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
 
-    // Form data state
     const [formData, setFormData] = useState({
         title: job?.title || '',
         department_id: job?.department_id || '',
@@ -75,12 +92,10 @@ const AddEditJobForm = ({
         custom_fields: job?.custom_fields || []
     });
 
-    // Initialize state variables
-    const [departments, setDepartments] = useState(propDepartments);
+    const [departments] = useState(propDepartments);
     const [managers, setManagers] = useState(propManagers);
     const [loadingManagers, setLoadingManagers] = useState(false);
 
-    // Array item management - separate states for each type
     const [newResponsibility, setNewResponsibility] = useState('');
     const [newRequirement, setNewRequirement] = useState('');
     const [newQualification, setNewQualification] = useState('');
@@ -88,10 +103,8 @@ const AddEditJobForm = ({
     const [newSkill, setNewSkill] = useState('');
     const [newCustomField, setNewCustomField] = useState({ key: '', value: '' });
 
-    // Fetch all managers when form opens
     useEffect(() => {
         if (open && managers && managers.length === 0) {
-            // Only fetch managers if they're not already provided
             setLoadingManagers(true);
             axios.get(route('hr.managers.list'))
                 .then(response => {
@@ -101,35 +114,34 @@ const AddEditJobForm = ({
                 })
                 .catch(error => {
                     console.error('Error fetching managers:', error);
+                    showToast.error('Failed to load managers list');
                 })
                 .finally(() => {
                     setLoadingManagers(false);
                 });
         } else if (open && managers && managers.length > 0) {
-            // Use the managers passed in from props
             setManagers(managers);
             setLoadingManagers(false);
         }
     }, [open, managers]);
 
-    // Format date helper
     const formatDate = (dateString) => {
         if (!dateString) return '';
-        
+
         if (typeof dateString === 'string' && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
             return dateString;
         }
-        
+
         if (typeof dateString === 'string' && dateString.includes('T')) {
             return dateString.split('T')[0];
         }
-        
+
         try {
             const date = new Date(dateString);
             if (isNaN(date.getTime())) {
                 return '';
             }
-            
+
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
@@ -140,7 +152,6 @@ const AddEditJobForm = ({
         }
     };
 
-    // Load form data if editing
     useEffect(() => {
         if (open && isEditing && job) {
             setFormData({
@@ -172,13 +183,11 @@ const AddEditJobForm = ({
             setErrors({});
         }
     }, [open, isEditing, job]);
-            
 
-    // Form handlers
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         const fieldValue = type === 'checkbox' ? checked : value;
-        
+
         setFormData(prev => ({
             ...prev,
             [name]: fieldValue
@@ -192,98 +201,84 @@ const AddEditJobForm = ({
         }));
     };
 
-    // Array item handlers - separate for each type
     const handleAddResponsibility = () => {
         if (!newResponsibility.trim()) return;
-        
         setFormData(prev => ({
             ...prev,
             responsibilities: [...prev.responsibilities, newResponsibility.trim()]
         }));
-        
         setNewResponsibility('');
     };
 
     const handleAddRequirement = () => {
         if (!newRequirement.trim()) return;
-        
         setFormData(prev => ({
             ...prev,
             requirements: [...prev.requirements, newRequirement.trim()]
         }));
-        
         setNewRequirement('');
     };
 
     const handleAddQualification = () => {
         if (!newQualification.trim()) return;
-        
         setFormData(prev => ({
             ...prev,
             qualifications: [...prev.qualifications, newQualification.trim()]
         }));
-        
         setNewQualification('');
     };
 
     const handleAddBenefit = () => {
         if (!newBenefit.trim()) return;
-        
         setFormData(prev => ({
             ...prev,
             benefits: [...prev.benefits, newBenefit.trim()]
         }));
-        
         setNewBenefit('');
     };
 
     const handleAddSkill = () => {
         if (!newSkill.trim()) return;
-        
         setFormData(prev => ({
             ...prev,
             skills_required: [...prev.skills_required, newSkill.trim()]
         }));
-        
         setNewSkill('');
     };
 
     const handleAddCustomField = () => {
         if (!newCustomField.key.trim() || !newCustomField.value.trim()) return;
-        
         setFormData(prev => ({
             ...prev,
             custom_fields: [
-                ...prev.custom_fields, 
-                { 
-                    key: newCustomField.key.trim(), 
+                ...prev.custom_fields,
+                {
+                    key: newCustomField.key.trim(),
                     value: newCustomField.value.trim(),
-                    id: Date.now() // Simple ID for tracking
+                    id: Date.now()
                 }
             ]
         }));
-        
         setNewCustomField({ key: '', value: '' });
     };
-    
+
     const handleDeleteItem = (item, type) => {
         setFormData(prev => ({
             ...prev,
-            [type]: type === 'custom_fields' 
+            [type]: type === 'custom_fields'
                 ? prev[type].filter(field => field.id !== item.id)
                 : prev[type].filter(i => i !== item)
         }));
     };
 
-    // Submit handler - Updated to use AJAX like LeaveForm
     const handleSubmit = async (event) => {
         event.preventDefault();
         setProcessing(true);
 
         const promise = new Promise(async (resolve, reject) => {
             try {
-                const apiRoute = isEditing 
-                    ? route('hr.recruitment.update.ajax', job.id) 
+                const apiRoute = isEditing
+                    ? route('hr.recruitment.update.ajax', job.id)
                     : route('hr.recruitment.store.ajax');
 
                 const requestData = {
@@ -294,7 +289,6 @@ const AddEditJobForm = ({
                 const response = await axios.post(apiRoute, requestData);
 
                 if (response.status === 200) {
-                    // Use optimized data manipulation like LeaveForm
                     if (isEditing && updateJobOptimized && response.data.job) {
                         updateJobOptimized(response.data.job);
                         fetchJobStats && fetchJobStats();
@@ -302,7 +296,7 @@ const AddEditJobForm = ({
                         addJobOptimized(response.data.job);
                         fetchJobStats && fetchJobStats();
                     }
-                    
+
                     onClose();
                     resolve([response.data.message || (isEditing ? 'Job updated successfully!' : 'Job created successfully!')]);
                 }
@@ -327,63 +321,42 @@ const AddEditJobForm = ({
             }
         });
 
-        showToast.promise(
-            promise,
-            {
-                pending: {
-                    render() {
-                        return (
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <CircularProgress />
-                                <span style={{ marginLeft: '8px' }}>
-                                    {isEditing ? 'Updating job...' : 'Creating job...'}
-                                </span>
-                            </div>
-                        );
-                    },
-                    icon: false,
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard?.background || 'rgba(255, 255, 255, 0.1)',
-                        border: theme.glassCard?.border || '1px solid rgba(255, 255, 255, 0.2)',
-                        color: theme.palette.text.primary,
-                    },
+        showToast.promise(promise, {
+            pending: {
+                render() {
+                    return (
+                        <Flex align="center" gap="2">
+                            <Spinner />
+                            <span>{isEditing ? 'Updating job...' : 'Creating job...'}</span>
+                        </Flex>
+                    );
                 },
-                success: {
-                    render({ data }) {
-                        return (
-                            <>
-                                {data.map((message, index) => (
-                                    <div key={index}>{message}</div>
-                                ))}
-                            </>
-                        );
-                    },
-                    icon: '🟢',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard?.background || 'rgba(255, 255, 255, 0.1)',
-                        border: theme.glassCard?.border || '1px solid rgba(255, 255, 255, 0.2)',
-                        color: theme.palette.text.primary,
-                    },
+                icon: false,
+                style: toastStyle,
+            },
+            success: {
+                render({ data }) {
+                    return (
+                        <>
+                            {data.map((message, index) => (
+                                <div key={index}>{message}</div>
+                            ))}
+                        </>
+                    );
                 },
-                error: {
-                    render({ data }) {
-                        return <>{data}</>;
-                    },
-                    icon: '🔴',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard?.background || 'rgba(255, 255, 255, 0.1)',
-                        border: theme.glassCard?.border || '1px solid rgba(255, 255, 255, 0.2)',
-                        color: theme.palette.text.primary,
-                    },
+                icon: '🟢',
+                style: toastStyle,
+            },
+            error: {
+                render({ data }) {
+                    return <>{data}</>;
                 },
-            }
-        );
+                icon: '🔴',
+                style: toastStyle,
+            },
+        });
     };
-    
-    
+
     const jobTypeOptions = [
         { value: 'full_time', label: 'Full Time' },
         { value: 'part_time', label: 'Part Time' },
@@ -392,7 +365,7 @@ const AddEditJobForm = ({
         { value: 'internship', label: 'Internship' },
         { value: 'remote', label: 'Remote' }
     ];
-    
+
     const currencyOptions = [
         { value: 'USD', label: 'USD ($)' },
         { value: 'EUR', label: 'EUR (€)' },
@@ -402,7 +375,7 @@ const AddEditJobForm = ({
         { value: 'CAD', label: 'CAD ($)' },
         { value: 'AUD', label: 'AUD ($)' }
     ];
-    
+
     const statusOptions = [
         { value: 'draft', label: 'Draft' },
         { value: 'open', label: 'Open' },
@@ -410,705 +383,355 @@ const AddEditJobForm = ({
         { value: 'on_hold', label: 'On Hold' },
         { value: 'cancelled', label: 'Cancelled' }
     ];
-    
-    return (
-        <GlassDialog 
-            open={open} 
-            closeModal={onClose} 
-            fullWidth 
-            maxWidth="xl"
-            PaperProps={{
-                sx: {
-                    minHeight: '80vh',
-                    maxHeight: '90vh',
-                    display: 'flex',
-                    flexDirection: 'column'
-                }
-            }}
-        >
-            <DialogTitle sx={{ display: 'flex', alignItems: 'center', pb: 2 }}>
-                <Typography variant="h6" component="span" sx={{ flexGrow: 1 }}>
-                    {isEditing ? 'Edit Job Posting' : 'Create New Job Posting'}
-                </Typography>
-                <IconButton
-                    onClick={onClose}
-                    sx={{ 
-                        position: 'absolute', 
-                        right: 8, 
-                        top: 8,
-                        color: theme.palette.grey[500]
-                    }}
-                >
-                    <ClearIcon />
-                </IconButton>
-            </DialogTitle>
-            
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <DialogContent sx={{ 
-                    pt: 1, 
-                    flex: 1,
-                    maxHeight: 'calc(90vh - 120px)', 
-                    overflowY: 'auto',
-                    paddingBottom: '80px', // Add padding to prevent content from hiding behind footer
-                    '&::-webkit-scrollbar': {
-                        width: '8px',
-                    },
-                    '&::-webkit-scrollbar-track': {
-                        background: '#f1f1f1',
-                        borderRadius: '4px',
-                    },
-                    '&::-webkit-scrollbar-thumb': {
-                        background: theme.palette.primary.main,
-                        borderRadius: '4px',
-                    },
-                    '&::-webkit-scrollbar-thumb:hover': {
-                        background: theme.palette.primary.dark,
+
+    const currencySymbol = currencyOptions.find(c => c.value === formData.salary_currency)?.label.split(' ')[1] || '$';
+
+    const addRow = (value, setValue, onAdd, placeholder, color) => (
+        <Flex gap="2" mb="2">
+            <TextField.Root
+                style={{ flex: 1 }}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={placeholder}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        onAdd();
                     }
-                }}>
-                    <Grid container spacing={3}>
-                        {/* Basic Information */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600 }}>
-                                Basic Information
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Job Title"
-                                name="title"
-                                value={formData.title}
-                                onChange={handleChange}
-                                required
-                                error={!!errors.title}
-                                helperText={errors.title}
-                                placeholder="e.g., Senior Software Engineer"
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            {/* Designation removed because it's not in the database schema */}
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth required error={!!errors.department_id}>
-                                <InputLabel>Department</InputLabel>
-                                <Select
-                                    name="department_id"
-                                    value={formData.department_id}
-                                    onChange={(e) => handleSelectChange('department_id', e.target.value)}
-                                    label="Department"
+                }}
+            />
+            <Button type="button" onClick={onAdd} disabled={!value.trim()} color={color}>
+                <PlusIcon className="w-4 h-4" />
+                Add
+            </Button>
+        </Flex>
+    );
+
+    return (
+        <GlassDialog
+            isOpen={open}
+            onClose={onClose}
+            title={isEditing ? 'Edit Job Posting' : 'Create New Job Posting'}
+        >
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+                <ScrollArea type="auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+                    <Box p="4" pt="2">
+                        <Grid columns={{ initial: '1', md: '2' }} gap="4">
+                            <SectionTitle>Basic Information</SectionTitle>
+
+                            <Field label="Job Title" error={fieldError(errors, 'title')} span>
+                                <TextField.Root
+                                    name="title"
+                                    value={formData.title}
+                                    onChange={handleChange}
+                                    placeholder="e.g., Senior Software Engineer"
+                                />
+                            </Field>
+
+                            <Field label="Department" error={fieldError(errors, 'department_id')}>
+                                <Select.Root
+                                    value={formData.department_id ? String(formData.department_id) : undefined}
+                                    onValueChange={(v) => handleSelectChange('department_id', v)}
                                 >
-                                    {departments.map((department) => (
-                                        <MenuItem key={department.id} value={department.id}>
-                                            {department.name}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.department_id && <FormHelperText>{errors.department_id}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth required error={!!errors.type}>
-                                <InputLabel>Job Type</InputLabel>
-                                <Select
-                                    name="type"
+                                    <Select.Trigger placeholder="Select department" style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {departments.map((department) => (
+                                            <Select.Item key={department.id} value={String(department.id)}>
+                                                {department.name}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Field>
+
+                            <Field label="Job Type" error={fieldError(errors, 'type')}>
+                                <Select.Root
                                     value={formData.type}
-                                    onChange={(e) => handleSelectChange('type', e.target.value)}
-                                    label="Job Type"
+                                    onValueChange={(v) => handleSelectChange('type', v)}
                                 >
-                                    {jobTypeOptions.map((option) => (
-                                        <MenuItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.type && <FormHelperText>{errors.type}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {jobTypeOptions.map((option) => (
+                                            <Select.Item key={option.value} value={option.value}>
+                                                {option.label}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Field>
 
-                        {/* Location and Remote */}
-                        <Grid item xs={12} md={6}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', height: '56px' }}>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={formData.is_remote_allowed}
-                                            onChange={handleChange}
-                                            name="is_remote_allowed"
-                                            color="primary"
-                                        />
-                                    }
-                                    label="Remote Job"
-                                />
+                            <Box>
+                                <Flex align="center" gap="2" height="100%">
+                                    <Switch
+                                        checked={formData.is_remote_allowed}
+                                        onCheckedChange={(checked) =>
+                                            setFormData(prev => ({ ...prev, is_remote_allowed: checked }))
+                                        }
+                                    />
+                                    <Text size="2">Remote Job</Text>
+                                </Flex>
                             </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
+
+                            <Field
                                 label="Location"
-                                name="location"
-                                value={formData.location}
-                                onChange={handleChange}
-                                disabled={formData.is_remote_allowed}
-                                required={!formData.is_remote_allowed}
-                                error={!!errors.location}
-                                helperText={errors.location || (formData.is_remote_allowed ? "Not applicable for remote jobs" : "")}
-                                placeholder={formData.is_remote_allowed ? "Not applicable for remote jobs" : "e.g., New York, NY"}
-                            />
-                        </Grid>
+                                error={fieldError(errors, 'location')}
+                                hint={formData.is_remote_allowed ? 'Not applicable for remote jobs' : undefined}
+                            >
+                                <TextField.Root
+                                    name="location"
+                                    value={formData.location}
+                                    onChange={handleChange}
+                                    disabled={formData.is_remote_allowed}
+                                    placeholder={formData.is_remote_allowed ? 'Not applicable for remote jobs' : 'e.g., New York, NY'}
+                                />
+                            </Field>
 
-                        {/* Management and Positions */}
-                        <Grid item xs={12} md={6}>
-                            <FormControl fullWidth required error={!!errors.hiring_manager_id}>
-                                <InputLabel>Hiring Manager</InputLabel>
-                                <Select
-                                    name="hiring_manager_id"
-                                    value={formData.hiring_manager_id || ''}
-                                    onChange={(e) => handleSelectChange('hiring_manager_id', e.target.value)}
-                                    label="Hiring Manager"
+                            <Field label="Hiring Manager" error={fieldError(errors, 'hiring_manager_id')}>
+                                <Select.Root
+                                    value={formData.hiring_manager_id ? String(formData.hiring_manager_id) : undefined}
+                                    onValueChange={(v) => handleSelectChange('hiring_manager_id', v)}
                                     disabled={loadingManagers}
-                                    startAdornment={
-                                        loadingManagers ? (
-                                            <InputAdornment position="start">
-                                                <CircularProgress size={20} />
-                                            </InputAdornment>
-                                        ) : null
-                                    }
                                 >
-                                    <MenuItem value="">
-                                        <em>Select a Manager</em>
-                                    </MenuItem>
-                                    {managers.map((manager) => (
-                                        <MenuItem key={manager.id} value={manager.id}>
-                                            {manager.name}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.hiring_manager_id && <FormHelperText>{errors.hiring_manager_id}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Number of Positions"
-                                name="positions"
-                                type="number"
-                                value={formData.positions}
-                                onChange={handleChange}
-                                required
-                                error={!!errors.positions}
-                                helperText={errors.positions}
-                                inputProps={{ min: 1 }}
-                            />
-                        </Grid>
+                                    <Select.Trigger placeholder="Select a Manager" style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {managers.map((manager) => (
+                                            <Select.Item key={manager.id} value={String(manager.id)}>
+                                                {manager.name}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                                {loadingManagers && <Spinner size="1" mt="1" />}
+                            </Field>
 
-                        {/* Status and Dates */}
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth required error={!!errors.status}>
-                                <InputLabel>Status</InputLabel>
-                                <Select
-                                    name="status"
+                            <Field label="Number of Positions" error={fieldError(errors, 'positions')}>
+                                <TextField.Root
+                                    name="positions"
+                                    type="number"
+                                    min={1}
+                                    value={String(formData.positions)}
+                                    onChange={handleChange}
+                                />
+                            </Field>
+
+                            <Field label="Status" error={fieldError(errors, 'status')}>
+                                <Select.Root
                                     value={formData.status}
-                                    onChange={(e) => handleSelectChange('status', e.target.value)}
-                                    label="Status"
+                                    onValueChange={(v) => handleSelectChange('status', v)}
                                 >
-                                    {statusOptions.map((option) => (
-                                        <MenuItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                                {errors.status && <FormHelperText>{errors.status}</FormHelperText>}
-                            </FormControl>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                fullWidth
-                                label="Posted Date"
-                                name="posting_date"
-                                type="date"
-                                value={formData.posting_date}
-                                onChange={handleChange}
-                                required
-                                error={!!errors.posting_date}
-                                helperText={errors.posting_date}
-                                InputLabelProps={{
-                                    shrink: true,
-                                }}
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                fullWidth
-                                label="Closing Date"
-                                name="closing_date"
-                                type="date"
-                                value={formData.closing_date}
-                                onChange={handleChange}
-                                error={!!errors.closing_date}
-                                helperText={errors.closing_date}
-                                InputLabelProps={{
-                                    shrink: true,
-                                }}
-                            />
-                        </Grid>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {statusOptions.map((option) => (
+                                            <Select.Item key={option.value} value={option.value}>
+                                                {option.label}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Field>
 
-                        {/* Job Description */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Job Description
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                multiline
-                                rows={4}
-                                label="Job Description"
-                                name="description"
-                                value={formData.description}
-                                onChange={handleChange}
-                                required
-                                error={!!errors.description}
-                                helperText={errors.description}
-                                placeholder="Describe the job role, company culture, and what makes this position attractive..."
-                            />
-                        </Grid>
-
-                        {/* Responsibilities */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Key Responsibilities
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Add Responsibility"
-                                    value={newResponsibility}
-                                    onChange={(e) => setNewResponsibility(e.target.value)}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleAddResponsibility();
-                                        }
-                                    }}
-                                    size="small"
-                                    placeholder="e.g., Develop and maintain web applications"
+                            <Field label="Posted Date" error={fieldError(errors, 'posting_date')}>
+                                <TextField.Root
+                                    name="posting_date"
+                                    type="date"
+                                    value={formData.posting_date}
+                                    onChange={handleChange}
                                 />
-                                <Button
-                                    variant="contained"
-                                    onClick={handleAddResponsibility}
-                                    disabled={!newResponsibility.trim()}
-                                    startIcon={<AddIcon />}
-                                    sx={{ minWidth: 100 }}
-                                >
-                                    Add
-                                </Button>
+                            </Field>
+
+                            <Field label="Closing Date" error={fieldError(errors, 'closing_date')}>
+                                <TextField.Root
+                                    name="closing_date"
+                                    type="date"
+                                    value={formData.closing_date}
+                                    onChange={handleChange}
+                                />
+                            </Field>
+
+                            <SectionTitle>Job Description</SectionTitle>
+
+                            <Field label="Job Description" error={fieldError(errors, 'description')} span>
+                                <TextArea
+                                    name="description"
+                                    rows={4}
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    placeholder="Describe the job role, company culture, and what makes this position attractive..."
+                                />
+                            </Field>
+
+                            <SectionTitle>Key Responsibilities</SectionTitle>
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                {addRow(newResponsibility, setNewResponsibility, handleAddResponsibility, 'e.g., Develop and maintain web applications', 'blue')}
+                                <RemovableBadges items={formData.responsibilities} onRemove={(item) => handleDeleteItem(item, 'responsibilities')} color="blue" />
+                                {fieldError(errors, 'responsibilities') && <Text size="1" color="red" mt="1">{fieldError(errors, 'responsibilities')}</Text>}
                             </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {formData.responsibilities.map((item, index) => (
-                                    <Chip
-                                        key={index}
-                                        label={item}
-                                        onDelete={() => handleDeleteItem(item, 'responsibilities')}
-                                        color="primary"
-                                        variant="outlined"
+
+                            <SectionTitle>Requirements</SectionTitle>
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                {addRow(newRequirement, setNewRequirement, handleAddRequirement, 'e.g., 3+ years of experience with React', 'purple')}
+                                <RemovableBadges items={formData.requirements} onRemove={(item) => handleDeleteItem(item, 'requirements')} color="purple" />
+                                {fieldError(errors, 'requirements') && <Text size="1" color="red" mt="1">{fieldError(errors, 'requirements')}</Text>}
+                            </Box>
+
+                            <SectionTitle>Preferred Qualifications</SectionTitle>
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                {addRow(newQualification, setNewQualification, handleAddQualification, "e.g., Bachelor's degree in Computer Science", 'green')}
+                                <RemovableBadges items={formData.qualifications} onRemove={(item) => handleDeleteItem(item, 'qualifications')} color="green" />
+                            </Box>
+
+                            <SectionTitle>Required Skills</SectionTitle>
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                {addRow(newSkill, setNewSkill, handleAddSkill, 'e.g., JavaScript, React, Node.js', 'cyan')}
+                                <RemovableBadges items={formData.skills_required} onRemove={(item) => handleDeleteItem(item, 'skills_required')} color="cyan" />
+                            </Box>
+
+                            <SectionTitle>Additional Information</SectionTitle>
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                <Flex gap="2" mb="2">
+                                    <TextField.Root
+                                        style={{ flex: 1 }}
+                                        placeholder="Field name"
+                                        value={newCustomField.key}
+                                        onChange={(e) => setNewCustomField(prev => ({ ...prev, key: e.target.value }))}
                                     />
-                                ))}
-                            </Box>
-                            {errors.responsibilities && (
-                                <FormHelperText error sx={{ mt: 1 }}>{errors.responsibilities}</FormHelperText>
-                            )}
-                        </Grid>
-
-                        {/* Requirements */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Requirements
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Add Requirement"
-                                    value={newRequirement}
-                                    onChange={(e) => setNewRequirement(e.target.value)}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleAddRequirement();
-                                        }
-                                    }}
-                                    size="small"
-                                    placeholder="e.g., 3+ years of experience with React"
-                                />
-                                <Button
-                                    variant="contained"
-                                    color="secondary"
-                                    onClick={handleAddRequirement}
-                                    disabled={!newRequirement.trim()}
-                                    startIcon={<AddIcon />}
-                                    sx={{ minWidth: 100 }}
-                                >
-                                    Add
-                                </Button>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {formData.requirements.map((item, index) => (
-                                    <Chip
-                                        key={index}
-                                        label={item}
-                                        onDelete={() => handleDeleteItem(item, 'requirements')}
-                                        color="secondary"
-                                        variant="outlined"
+                                    <TextField.Root
+                                        style={{ flex: 1 }}
+                                        placeholder="Field value"
+                                        value={newCustomField.value}
+                                        onChange={(e) => setNewCustomField(prev => ({ ...prev, value: e.target.value }))}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                handleAddCustomField();
+                                            }
+                                        }}
                                     />
-                                ))}
+                                    <Button
+                                        type="button"
+                                        color="orange"
+                                        onClick={handleAddCustomField}
+                                        disabled={!newCustomField.key.trim() || !newCustomField.value.trim()}
+                                    >
+                                        <PlusIcon className="w-4 h-4" />
+                                        Add
+                                    </Button>
+                                </Flex>
+                                <RemovableBadges items={formData.custom_fields} onRemove={(item) => handleDeleteItem(item, 'custom_fields')} color="orange" />
                             </Box>
-                            {errors.requirements && (
-                                <FormHelperText error sx={{ mt: 1 }}>{errors.requirements}</FormHelperText>
-                            )}
-                        </Grid>
 
-                        {/* Qualifications */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Preferred Qualifications
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Add Qualification"
-                                    value={newQualification}
-                                    onChange={(e) => setNewQualification(e.target.value)}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleAddQualification();
-                                        }
-                                    }}
-                                    size="small"
-                                    placeholder="e.g., Bachelor's degree in Computer Science"
-                                />
-                                <Button
-                                    variant="contained"
-                                    color="success"
-                                    onClick={handleAddQualification}
-                                    disabled={!newQualification.trim()}
-                                    startIcon={<AddIcon />}
-                                    sx={{ minWidth: 100 }}
+                            <SectionTitle>Compensation</SectionTitle>
+
+                            <Field label="Minimum Salary">
+                                <TextField.Root
+                                    name="salary_min"
+                                    type="number"
+                                    value={formData.salary_min}
+                                    onChange={handleChange}
+                                    placeholder="50000"
                                 >
-                                    Add
-                                </Button>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {formData.qualifications.map((item, index) => (
-                                    <Chip
-                                        key={index}
-                                        label={item}
-                                        onDelete={() => handleDeleteItem(item, 'qualifications')}
-                                        color="success"
-                                        variant="outlined"
-                                    />
-                                ))}
-                            </Box>
-                        </Grid>
+                                    <TextField.Slot>{currencySymbol}</TextField.Slot>
+                                </TextField.Root>
+                            </Field>
 
-                        {/* Required Skills */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Required Skills
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Add Skill"
-                                    value={newSkill}
-                                    onChange={(e) => setNewSkill(e.target.value)}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleAddSkill();
-                                        }
-                                    }}
-                                    size="small"
-                                    placeholder="e.g., JavaScript, React, Node.js"
-                                />
-                                <Button
-                                    variant="contained"
-                                    color="info"
-                                    onClick={handleAddSkill}
-                                    disabled={!newSkill.trim()}
-                                    startIcon={<AddIcon />}
-                                    sx={{ minWidth: 100 }}
+                            <Field label="Maximum Salary" error={fieldError(errors, 'salary_max')}>
+                                <TextField.Root
+                                    name="salary_max"
+                                    type="number"
+                                    value={formData.salary_max}
+                                    onChange={handleChange}
+                                    placeholder="80000"
                                 >
-                                    Add
-                                </Button>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {formData.skills_required.map((skill, index) => (
-                                    <Chip
-                                        key={index}
-                                        label={skill}
-                                        onDelete={() => handleDeleteItem(skill, 'skills_required')}
-                                        color="info"
-                                        variant="outlined"
-                                    />
-                                ))}
-                            </Box>
-                        </Grid>
+                                    <TextField.Slot>{currencySymbol}</TextField.Slot>
+                                </TextField.Root>
+                            </Field>
 
-                        {/* Custom Fields */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Additional Information
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Field Name"
-                                    value={newCustomField.key}
-                                    onChange={(e) => setNewCustomField(prev => ({ ...prev, key: e.target.value }))}
-                                    size="small"
-                                    placeholder="e.g., Travel Required, Security Clearance"
-                                />
-                                <TextField
-                                    fullWidth
-                                    label="Field Value"
-                                    value={newCustomField.value}
-                                    onChange={(e) => setNewCustomField(prev => ({ ...prev, value: e.target.value }))}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleAddCustomField();
-                                        }
-                                    }}
-                                    size="small"
-                                    placeholder="e.g., 25%, Required"
-                                />
-                                <Button
-                                    variant="contained"
-                                    color="warning"
-                                    onClick={handleAddCustomField}
-                                    disabled={!newCustomField.key.trim() || !newCustomField.value.trim()}
-                                    startIcon={<AddIcon />}
-                                    sx={{ minWidth: 100 }}
-                                >
-                                    Add
-                                </Button>
-                            </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {formData.custom_fields.map((field, index) => (
-                                    <Chip
-                                        key={field.id || index}
-                                        label={`${field.key}: ${field.value}`}
-                                        onDelete={() => handleDeleteItem(field, 'custom_fields')}
-                                        color="warning"
-                                        variant="outlined"
-                                    />
-                                ))}
-                            </Box>
-                        </Grid>
-
-                        {/* Salary Information */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Compensation
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                fullWidth
-                                label="Minimum Salary"
-                                name="salary_min"
-                                type="number"
-                                value={formData.salary_min}
-                                onChange={handleChange}
-                                InputProps={{
-                                    startAdornment: <InputAdornment position="start">
-                                        {currencyOptions.find(c => c.value === formData.salary_currency)?.label.split(' ')[1] || '$'}
-                                    </InputAdornment>
-                                }}
-                                placeholder="50000"
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                fullWidth
-                                label="Maximum Salary"
-                                name="salary_max"
-                                type="number"
-                                value={formData.salary_max}
-                                onChange={handleChange}
-                                error={!!errors.salary_max}
-                                helperText={errors.salary_max}
-                                InputProps={{
-                                    startAdornment: <InputAdornment position="start">
-                                        {currencyOptions.find(c => c.value === formData.salary_currency)?.label.split(' ')[1] || '$'}
-                                    </InputAdornment>
-                                }}
-                                placeholder="80000"
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth>
-                                <InputLabel>Currency</InputLabel>
-                                <Select
-                                    name="salary_currency"
+                            <Field label="Currency">
+                                <Select.Root
                                     value={formData.salary_currency}
-                                    onChange={(e) => handleSelectChange('salary_currency', e.target.value)}
-                                    label="Currency"
+                                    onValueChange={(v) => handleSelectChange('salary_currency', v)}
                                 >
-                                    {currencyOptions.map((option) => (
-                                        <MenuItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {currencyOptions.map((option) => (
+                                            <Select.Item key={option.value} value={option.value}>
+                                                {option.label}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Field>
 
-                        {/* Benefits */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Benefits & Perks
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Add Benefit"
-                                    value={newBenefit}
-                                    onChange={(e) => setNewBenefit(e.target.value)}
-                                    onKeyPress={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleAddBenefit();
-                                        }
-                                    }}
-                                    size="small"
-                                    placeholder="e.g., Health insurance, Flexible working hours"
-                                />
-                                <Button
-                                    variant="contained"
-                                    color="warning"
-                                    onClick={handleAddBenefit}
-                                    disabled={!newBenefit.trim()}
-                                    startIcon={<AddIcon />}
-                                    sx={{ minWidth: 100 }}
-                                >
-                                    Add
-                                </Button>
+                            <SectionTitle>Benefits & Perks</SectionTitle>
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                {addRow(newBenefit, setNewBenefit, handleAddBenefit, 'e.g., Health insurance, Flexible working hours', 'amber')}
+                                <RemovableBadges items={formData.benefits} onRemove={(item) => handleDeleteItem(item, 'benefits')} color="amber" />
                             </Box>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {formData.benefits.map((item, index) => (
-                                    <Chip
-                                        key={index}
-                                        label={item}
-                                        onDelete={() => handleDeleteItem(item, 'benefits')}
-                                        color="warning"
-                                        variant="outlined"
-                                    />
-                                ))}
-                            </Box>
-                        </Grid>
 
-                        {/* Additional Settings */}
-                        <Grid item xs={12}>
-                            <Typography variant="h6" gutterBottom sx={{ color: theme.palette.primary.main, fontWeight: 600, mt: 3 }}>
-                                Additional Settings
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <FormControlLabel
-                                control={
+                            <SectionTitle>Additional Settings</SectionTitle>
+
+                            <Box>
+                                <Flex align="center" gap="2">
                                     <Switch
                                         checked={formData.salary_visible}
-                                        onChange={handleChange}
-                                        name="salary_visible"
-                                        color="primary"
+                                        onCheckedChange={(checked) =>
+                                            setFormData(prev => ({ ...prev, salary_visible: checked }))
+                                        }
                                     />
-                                }
-                                label="Display Salary Information"
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <FormControlLabel
-                                control={
+                                    <Text size="2">Display Salary Information</Text>
+                                </Flex>
+                            </Box>
+
+                            <Box>
+                                <Flex align="center" gap="2">
                                     <Switch
                                         checked={formData.is_featured}
-                                        onChange={handleChange}
-                                        name="is_featured"
-                                        color="primary"
+                                        onCheckedChange={(checked) =>
+                                            setFormData(prev => ({ ...prev, is_featured: checked }))
+                                        }
                                     />
-                                }
-                                label="Featured Job Listing"
-                            />
+                                    <Text size="2">Featured Job Listing</Text>
+                                </Flex>
+                            </Box>
                         </Grid>
-                    </Grid>
-                </DialogContent>
-                
-                <DialogActions sx={{ 
-                    padding: '16px', 
-                    justifyContent: 'center',
-                    position: 'sticky',
-                    bottom: 0,
-                    zIndex: 1,
-                    backdropFilter: 'blur(16px) saturate(200%)',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    borderTop: `1px solid rgba(255, 255, 255, 0.2)`,
-                    gap: 2
-                }}>
-                    <LoadingButton
-                        onClick={onClose}
-                        disabled={processing}
-                        variant="outlined"
-                        color="primary"
-                        sx={{ borderRadius: '50px' }}
-                    >
+                    </Box>
+                </ScrollArea>
+
+                <Flex
+                    gap="3"
+                    justify="center"
+                    p="4"
+                    style={{
+                        borderTop: '1px solid var(--gray-6)',
+                        backdropFilter: 'blur(16px) saturate(200%)',
+                    }}
+                >
+                    <Button type="button" variant="soft" color="gray" onClick={onClose} disabled={processing}>
                         Cancel
-                    </LoadingButton>
-                    <LoadingButton
-                        type="submit"
-                        variant="outlined"
-                        color="primary"
-                        loading={processing}
-                        sx={{ borderRadius: '50px' }}
-                    >
+                    </Button>
+                    <Button type="submit" disabled={processing}>
+                        {processing && <Spinner size="1" />}
                         {isEditing ? 'Update Job Posting' : 'Create Job Posting'}
-                    </LoadingButton>
-                </DialogActions>
+                    </Button>
+                </Flex>
             </form>
         </GlassDialog>
     );
 };
+
+const SectionTitle = ({ children }) => (
+    <Box style={{ gridColumn: '1 / -1' }}>
+        <Text size="4" weight="bold" color="blue" mb="1">{children}</Text>
+    </Box>
+);
+
+const Field = ({ label, error, hint, span, children }) => (
+    <Box style={span ? { gridColumn: '1 / -1' } : undefined}>
+        <Text as="label" size="2" weight="medium" mb="1" display="block">{label}</Text>
+        {children}
+        {error && <Text size="1" color="red" mt="1">{error}</Text>}
+        {hint && !error && <Text size="1" color="gray" mt="1">{hint}</Text>}
+    </Box>
+);
 
 export default AddEditJobForm;

@@ -6,17 +6,31 @@ use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\User;
+use App\Services\EmployeeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class EmployeeController extends Controller
 {
+    /**
+     * @var EmployeeService
+     */
+    protected EmployeeService $employeeService;
+
+    /**
+     * Create a new controller instance
+     *
+     * @param EmployeeService $employeeService
+     */
+    public function __construct(EmployeeService $employeeService)
+    {
+        $this->employeeService = $employeeService;
+    }
+
     /**
      * Display a listing of employees
      */
@@ -35,66 +49,29 @@ class EmployeeController extends Controller
      */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'phone' => 'nullable|string|unique:users,phone',
-            'employee_id' => 'nullable|string|unique:users,employee_id',
-            'department_id' => 'nullable|exists:departments,id',
-            'designation_id' => 'nullable|exists:designations,id',
-            'attendance_type_id' => 'nullable|exists:attendance_types,id',
-            'date_of_joining' => 'nullable|date',
-            'birthday' => 'nullable|date',
-            'gender' => 'nullable|in:male,female,other',
-            'address' => 'nullable|string',
-            'password' => 'required|string|min:8|confirmed',
-            'salary_amount' => 'nullable|numeric|min:0',
-            'active' => 'boolean',
-        ]);
+        $data = $request->all();
+        $data['employee_id'] = $data['employee_id'] ?? $this->generateEmployeeId();
+        $data['date_of_joining'] = $data['date_of_joining'] ?? now();
+        $data['user_name'] = $data['email'] ?? null;
+        $data['active'] = $data['active'] ?? true;
+        $data['roles'] = $data['roles'] ?? ['Employee'];
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        DB::beginTransaction();
         try {
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'employee_id' => $request->employee_id ?? $this->generateEmployeeId(),
-                'department_id' => $request->department_id,
-                'designation_id' => $request->designation_id,
-                'attendance_type_id' => $request->attendance_type_id,
-                'date_of_joining' => $request->date_of_joining ?? now(),
-                'birthday' => $request->birthday,
-                'gender' => $request->gender,
-                'address' => $request->address,
-                'password' => Hash::make($request->password),
-                'salary_amount' => $request->salary_amount,
-                'active' => $request->active ?? true,
-                'user_name' => $request->email, // Default username to email
-            ]);
-
-            // Assign default employee role
-            $user->assignRole('Employee');
+            $employee = $this->employeeService->createEmployee($data);
 
             // Create employee_attendance_types row if AT was set
-            if ($user->attendance_type_id) {
+            if ($employee->attendance_type_id) {
                 \App\Models\HRM\EmployeeAttendanceType::create([
-                    'user_id'            => $user->id,
-                    'attendance_type_id' => $user->attendance_type_id,
+                    'user_id' => $employee->id,
+                    'attendance_type_id' => $employee->attendance_type_id,
                 ]);
             }
 
-            DB::commit();
-
             return response()->json([
                 'message' => 'Employee created successfully',
-                'employee' => $user->load(['department', 'designation', 'attendanceType']),
+                'employee' => $employee->load(['department', 'designation', 'attendanceType']),
             ], 201);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error creating employee', [
                 'error' => $e->getMessage(),
                 'request' => $request->all(),
@@ -129,44 +106,12 @@ class EmployeeController extends Controller
                 return response()->json(['error' => 'Unauthorized to modify this employee'], 403);
             }
 
-            // Enhanced validation
-            $validated = $request->validate([
-                'name' => 'sometimes|string|max:255',
-                'email' => 'sometimes|email|unique:users,email,'.$id,
-                'department_id' => 'sometimes|nullable|exists:departments,id',
-                'designation_id' => 'sometimes|nullable|exists:designations,id',
-                'attendance_type_id' => 'sometimes|nullable|exists:attendance_types,id',
-                'active' => 'sometimes|boolean',
-                'phone' => 'sometimes|nullable|string|max:20',
-                'hire_date' => 'sometimes|nullable|date',
-                'salary' => 'sometimes|nullable|numeric|min:0',
-            ]);
-
-            // Track what was changed for audit
-            $changes = [];
-            foreach ($validated as $key => $value) {
-                if ($value != $employee->$key) {
-                    $changes[$key] = [
-                        'old' => $employee->$key,
-                        'new' => $value,
-                    ];
-                }
-            }
-
-            $employee->update($validated);
-
-            // Log the update for audit trail
-            Log::info('Employee updated', [
-                'employee_id' => $id,
-                'employee_name' => $employee->name,
-                'changes' => $changes,
-                'updated_by' => Auth::id(),
-                'timestamp' => now(),
-            ]);
+            $data = $request->all();
+            $updatedEmployee = $this->employeeService->updateEmployee($id, $data);
 
             return response()->json([
                 'message' => 'Employee updated successfully',
-                'employee' => $employee->fresh(),
+                'employee' => $updatedEmployee,
             ]);
         } catch (\Exception $e) {
             Log::error('Error updating employee', [
@@ -202,18 +147,7 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
-            // Perform soft delete
-            $employee->active = false;
-            $employee->save();
-            $employee->delete();
-
-            // Log the deletion for audit trail
-            Log::info('Employee deleted', [
-                'employee_id' => $id,
-                'employee_name' => $employee->name,
-                'deleted_by' => Auth::id(),
-                'timestamp' => now(),
-            ]);
+            $this->employeeService->deleteEmployee($id);
 
             return response()->json(['message' => 'Employee deleted successfully']);
         } catch (\Exception $e) {
@@ -361,10 +295,7 @@ class EmployeeController extends Controller
     public function restore($id)
     {
         try {
-            $employee = User::withTrashed()->findOrFail($id);
-            $employee->restore();
-            $employee->active = true;
-            $employee->save();
+            $this->employeeService->restoreEmployee($id);
 
             return response()->json(['message' => 'Employee restored successfully']);
         } catch (\Exception $e) {

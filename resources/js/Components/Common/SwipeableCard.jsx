@@ -1,10 +1,9 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
-import { 
-    PencilIcon, 
-    TrashIcon, 
+import {
+    PencilIcon,
+    TrashIcon,
     CheckCircleIcon,
-    ArrowPathIcon 
+    ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
 /**
@@ -29,15 +28,15 @@ const SwipeableCard = ({
 }) => {
     const [isRevealed, setIsRevealed] = useState(false);
     const [swipeDirection, setSwipeDirection] = useState(null); // 'left' or 'right'
+    const [swipeX, setSwipeX] = useState(0);
     const containerRef = useRef(null);
     const startX = useRef(0);
-    
-    const x = useMotionValue(0);
+
     const swipeThreshold = 80;
 
     // Action button opacity based on swipe distance
-    const leftActionsOpacity = useTransform(x, [-swipeThreshold, -40, 0], [1, 0.5, 0]);
-    const rightActionsOpacity = useTransform(x, [0, 40, swipeThreshold], [0, 0.5, 1]);
+    const leftActionsOpacity = Math.max(0, Math.min(1, (Math.abs(swipeX) - 40) / (swipeThreshold - 40)));
+    const rightActionsOpacity = Math.max(0, Math.min(1, (Math.abs(swipeX) - 40) / (swipeThreshold - 40)));
 
     const handleTouchStart = useCallback((e) => {
         if (disabled) return;
@@ -46,48 +45,46 @@ const SwipeableCard = ({
 
     const handleTouchMove = useCallback((e) => {
         if (disabled) return;
-        
+
         const currentX = e.touches[0].clientX;
         const diff = currentX - startX.current;
-        
+
         // Limit the swipe distance
         const clampedDiff = Math.max(-swipeThreshold * 1.5, Math.min(swipeThreshold * 1.5, diff));
-        x.set(clampedDiff);
-        
+        setSwipeX(clampedDiff);
+
         if (Math.abs(clampedDiff) > 20) {
             setSwipeDirection(clampedDiff < 0 ? 'left' : 'right');
         }
-    }, [disabled, x]);
+    }, [disabled]);
 
     const handleTouchEnd = useCallback(() => {
         if (disabled) return;
-        
-        const currentX = x.get();
-        
-        if (Math.abs(currentX) >= swipeThreshold) {
+
+        if (Math.abs(swipeX) >= swipeThreshold) {
             // Snap to revealed position
-            if (currentX < 0) {
-                x.set(-swipeThreshold);
+            if (swipeX < 0) {
+                setSwipeX(-swipeThreshold);
                 setIsRevealed(true);
                 setSwipeDirection('left');
             } else {
-                x.set(swipeThreshold);
+                setSwipeX(swipeThreshold);
                 setIsRevealed(true);
                 setSwipeDirection('right');
             }
         } else {
             // Snap back to closed
-            x.set(0);
+            setSwipeX(0);
             setIsRevealed(false);
             setSwipeDirection(null);
         }
-    }, [disabled, x]);
+    }, [disabled, swipeX]);
 
     const handleReset = useCallback(() => {
-        x.set(0);
+        setSwipeX(0);
         setIsRevealed(false);
         setSwipeDirection(null);
-    }, [x]);
+    }, []);
 
     const handleAction = useCallback((action) => {
         action?.();
@@ -110,70 +107,66 @@ const SwipeableCard = ({
     }, [isRevealed, handleClickOutside]);
 
     return (
-        <div 
+        <div
             ref={containerRef}
             className={`relative overflow-hidden ${className}`}
         >
             {/* Left actions (revealed on swipe right) - Edit/Status */}
-            <AnimatePresence>
-                {(swipeDirection === 'right' || x.get() > 0) && (
-                    <motion.div 
-                        className="absolute left-0 top-0 bottom-0 flex items-stretch"
-                        style={{ width: swipeThreshold, opacity: rightActionsOpacity }}
+            {(swipeDirection === 'right' || swipeX > 0) && (
+                <div
+                    className="absolute left-0 top-0 bottom-0 flex items-stretch"
+                    style={{ width: swipeThreshold, opacity: rightActionsOpacity }}
+                >
+                    <button
+                        onClick={() => handleAction(onEdit)}
+                        className="flex-1 flex flex-col items-center justify-center gap-1 bg-primary text-white active:bg-primary/80 transition-colors"
+                        aria-label="Edit"
                     >
-                        <button
-                            onClick={() => handleAction(onEdit)}
-                            className="flex-1 flex flex-col items-center justify-center gap-1 bg-primary text-white active:bg-primary/80 transition-colors"
-                            aria-label="Edit"
-                        >
-                            <PencilIcon className="w-5 h-5" />
-                            <span className="text-xs font-medium">Edit</span>
-                        </button>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        <PencilIcon className="w-5 h-5" />
+                        <span className="text-xs font-medium">Edit</span>
+                    </button>
+                </div>
+            )}
 
             {/* Right actions (revealed on swipe left) - Delete/Status */}
-            <AnimatePresence>
-                {(swipeDirection === 'left' || x.get() < 0) && (
-                    <motion.div 
-                        className="absolute right-0 top-0 bottom-0 flex items-stretch"
-                        style={{ width: swipeThreshold, opacity: leftActionsOpacity }}
-                    >
-                        {onStatusChange && (
-                            <button
-                                onClick={() => handleAction(onStatusChange)}
-                                className="flex-1 flex flex-col items-center justify-center gap-1 bg-success text-white active:bg-success/80 transition-colors"
-                                aria-label="Complete"
-                            >
-                                <CheckCircleIcon className="w-5 h-5" />
-                                <span className="text-xs font-medium">Done</span>
-                            </button>
-                        )}
-                        {onDelete && (
-                            <button
-                                onClick={() => handleAction(onDelete)}
-                                className="flex-1 flex flex-col items-center justify-center gap-1 bg-danger text-white active:bg-danger/80 transition-colors"
-                                aria-label="Delete"
-                            >
-                                <TrashIcon className="w-5 h-5" />
-                                <span className="text-xs font-medium">Delete</span>
-                            </button>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {(swipeDirection === 'left' || swipeX < 0) && (
+                <div
+                    className="absolute right-0 top-0 bottom-0 flex items-stretch"
+                    style={{ width: swipeThreshold, opacity: leftActionsOpacity }}
+                >
+                    {onStatusChange && (
+                        <button
+                            onClick={() => handleAction(onStatusChange)}
+                            className="flex-1 flex flex-col items-center justify-center gap-1 bg-success text-white active:bg-success/80 transition-colors"
+                            aria-label="Complete"
+                        >
+                            <CheckCircleIcon className="w-5 h-5" />
+                            <span className="text-xs font-medium">Done</span>
+                        </button>
+                    )}
+                    {onDelete && (
+                        <button
+                            onClick={() => handleAction(onDelete)}
+                            className="flex-1 flex flex-col items-center justify-center gap-1 bg-danger text-white active:bg-danger/80 transition-colors"
+                            aria-label="Delete"
+                        >
+                            <TrashIcon className="w-5 h-5" />
+                            <span className="text-xs font-medium">Delete</span>
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Main content */}
-            <motion.div
-                style={{ x }}
+            <div
+                style={{ transform: `translateX(${swipeX}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
                 className="relative bg-content1"
             >
                 {children}
-            </motion.div>
+            </div>
 
             {/* Swipe hint indicator */}
             {!isRevealed && !disabled && (

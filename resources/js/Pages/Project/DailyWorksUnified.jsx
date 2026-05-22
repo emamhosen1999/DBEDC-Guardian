@@ -47,7 +47,7 @@ import {
     Text,
     TextField
 } from '@radix-ui/themes';
-import axios from 'axios';
+import * as useDailyWorksQuery from '@/api/queries/useDailyWorksQuery';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import minMax from 'dayjs/plugin/minMax';

@@ -41,9 +41,85 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Handle authentication exceptions
+        // Standardize all API exception responses
+        $exceptions->render(function (\Throwable $e, $request) {
+            // Only standardize API requests
+            if (!$request->expectsJson() && !$request->is('api/*')) {
+                return null;
+            }
+
+            $statusCode = 500;
+            $errorCode = 'INTERNAL_SERVER_ERROR';
+            $message = 'An unexpected error occurred. Please try again.';
+
+            // Determine error code and message based on exception type
+            if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+                $statusCode = 401;
+                $errorCode = 'AUTHENTICATION_REQUIRED';
+                $message = 'Authentication required. Please login to continue.';
+            } elseif ($e instanceof \Illuminate\Auth\Access\AuthorizationException) {
+                $statusCode = 403;
+                $errorCode = 'FORBIDDEN';
+                $message = 'You do not have permission to perform this action.';
+            } elseif ($e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                $statusCode = 404;
+                $errorCode = 'NOT_FOUND';
+                $message = 'The requested resource was not found.';
+            } elseif ($e instanceof \Illuminate\Validation\ValidationException) {
+                $statusCode = 422;
+                $errorCode = 'VALIDATION_ERROR';
+                $message = 'The given data was invalid.';
+            } elseif ($e instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException) {
+                $statusCode = 404;
+                $errorCode = 'NOT_FOUND';
+                $message = 'The requested endpoint was not found.';
+            } elseif ($e instanceof \Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException) {
+                $statusCode = 405;
+                $errorCode = 'METHOD_NOT_ALLOWED';
+                $message = 'The request method is not allowed for this endpoint.';
+            } elseif ($e instanceof \Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException) {
+                $statusCode = 429;
+                $errorCode = 'TOO_MANY_REQUESTS';
+                $message = 'Too many requests. Please try again later.';
+            } elseif ($e instanceof \Illuminate\Session\TokenMismatchException) {
+                $statusCode = 419;
+                $errorCode = 'TOKEN_MISMATCH';
+                $message = 'Your session has expired. Please login again.';
+            }
+
+            // Build error response
+            $response = [
+                'success' => false,
+                'message' => $message,
+                'error_code' => $errorCode,
+            ];
+
+            // Add validation errors if present
+            if ($e instanceof \Illuminate\Validation\ValidationException) {
+                $response['errors'] = $e->errors();
+            }
+
+            // Add redirect for authentication errors
+            if ($e instanceof \Illuminate\Auth\AuthenticationException || $e instanceof \Illuminate\Session\TokenMismatchException) {
+                $response['redirect'] = route('login');
+            }
+
+            // Log the error with context
+            \Illuminate\Support\Facades\Log::error('API Exception', [
+                'error_code' => $errorCode,
+                'message' => $e->getMessage(),
+                'status_code' => $statusCode,
+                'user_id' => $request->user()?->id,
+                'url' => $request->fullUrl(),
+                'method' => $request->method(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ]);
+
+            return response()->json($response, $statusCode);
+        });
+
+        // Handle authentication exceptions for web requests (non-API)
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
-            // For Inertia requests (SPA/AJAX)
             if ($request->header('X-Inertia')) {
                 return response()->json([
                     'message' => 'Authentication required. Please login to continue.',
@@ -52,24 +128,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 401);
             }
 
-            // For API requests
             if ($request->expectsJson() || $request->is('api/*')) {
-                return response()->json([
-                    'message' => 'Unauthenticated.',
-                    'error' => 'authentication_required',
-                    'redirect' => route('login'),
-                ], 401);
+                return null; // Handled by the global handler above
             }
 
-            // For regular web requests
             return redirect()->guest(route('login'))
                 ->with('status', 'Please login to access this page.')
                 ->with('session_expired', true);
         });
 
-        // Handle session expired exceptions
+        // Handle session expired exceptions for web requests (non-API)
         $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
-            // For Inertia requests (SPA/AJAX)
             if ($request->header('X-Inertia')) {
                 return response()->json([
                     'message' => 'Your session has expired. Please refresh the page and login again.',
@@ -78,16 +147,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 419);
             }
 
-            // For API requests
             if ($request->expectsJson() || $request->is('api/*')) {
-                return response()->json([
-                    'message' => 'Session expired due to token mismatch.',
-                    'error' => 'token_mismatch',
-                    'redirect' => route('login'),
-                ], 419);
+                return null; // Handled by the global handler above
             }
 
-            // For regular web requests
             return redirect()->route('login')
                 ->with('status', 'Your session has expired. Please login again.')
                 ->with('session_expired', true);

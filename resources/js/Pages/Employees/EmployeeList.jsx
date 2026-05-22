@@ -34,7 +34,7 @@ import {
   Text,
   TextField
 } from '@radix-ui/themes';
-import axios from 'axios';
+import * as useEmployeesQuery from '@/api/queries/useEmployeesQuery';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 /* ─── helpers ─── */
@@ -131,12 +131,6 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isTablet = useMediaQuery('(max-width: 768px)');
 
-    /* ── server state ── */
-    const [employees, setEmployees] = useState([]);
-    const [allManagers, setAllManagers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [totalRows, setTotalRows] = useState(0);
-
     /* ── view ── */
     const [viewMode, setViewMode] = useState('table');
     const [showFilters, setShowFilters] = useState(false);
@@ -152,51 +146,35 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
     /* ── pagination ── */
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10, total: 0 });
 
-    /* ── stats ── */
-    const [stats, setStats] = useState({
+    /* ── React Query hooks ── */
+    const { data: employeesData, isLoading: loading, refetch } = useEmployeesQuery.useEmployeesList({
+        page: pagination.currentPage,
+        perPage: pagination.perPage,
+        search: filters.search,
+        department: filters.department,
+        designation: filters.designation,
+        attendanceType: filters.attendanceType,
+    });
+
+    const { data: statsData } = useEmployeesQuery.useEmployeeStats();
+
+    /* ── derived state ── */
+    const employees = employeesData?.data?.filter(e => !e.deleted_at) || [];
+    const allManagers = employeesData?.allManagers || [];
+    const totalRows = employeesData?.total || 0;
+    const stats = statsData?.stats || {
         overview: { total_employees: 0, active_employees: 0, inactive_employees: 0, total_departments: 0, total_designations: 0, total_attendance_types: 0 },
         distribution: { by_department: [], by_designation: [], by_attendance_type: [] },
         hiring_trends: { recent_hires: { last_30_days: 0, last_90_days: 0, last_year: 0 }, monthly_growth_rate: 0 },
         workforce_health: { status_ratio: { active_percentage: 0 }, retention_rate: 0, turnover_rate: 0 },
-    });
+    };
 
-    /* ── fetch ── */
-    const fetchEmployees = useCallback(async () => {
-        setLoading(true);
-        try {
-            const params = {
-                page: pagination.currentPage,
-                perPage: pagination.perPage,
-                search: filters.search,
-                department: filters.department,
-                designation: filters.designation,
-                attendanceType: filters.attendanceType,
-            };
-           
-            const { data } = await axios.get(route('employees.paginate'), { params });
-          
-            setEmployees(data.employees.data.filter(e => !e.deleted_at));
-            setTotalRows(data.employees.total);
-            setPagination(prev => ({ ...prev, total: data.employees.total }));
-            if (data.allManagers) setAllManagers(data.allManagers);
-            if (data.stats) setStats(data.stats);
-        } catch {
-            showToast.error('Failed to load employees.');
-        } finally {
-            setLoading(false);
+    /* ── update pagination when data changes ── */
+    useEffect(() => {
+        if (employeesData) {
+            setPagination(prev => ({ ...prev, total: employeesData.total }));
         }
-    }, [pagination.currentPage, pagination.perPage, filters]);
-
-    const fetchStats = useCallback(async () => {
-        try {
-           
-            const { data } = await axios.get(route('employees.stats'));
-         
-            if (data.stats) setStats(data.stats);
-        } catch { /* silent */ }
-    }, []);
-
-    useEffect(() => { fetchEmployees(); fetchStats(); }, [fetchEmployees, fetchStats]);
+    }, [employeesData]);
 
     /* ── filter helpers ── */
     const handleSearchChange = useCallback((value) => {

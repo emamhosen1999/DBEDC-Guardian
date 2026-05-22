@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Responses\ApiResponse;
 use App\Models\DailyWork;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\Leave;
 use App\Models\RfiObjection;
 use App\Models\User;
+use App\Repositories\AttendanceRepository;
+use App\Repositories\DailyWorkRepository;
+use App\Repositories\LeaveRepository;
 use App\Services\Leave\LeaveApprovalService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +21,22 @@ use Illuminate\Support\Facades\Schema;
 
 class ManagerDashboardController extends Controller
 {
+    use ApiResponse;
+
+    protected AttendanceRepository $attendanceRepository;
+    protected DailyWorkRepository $dailyWorkRepository;
+    protected LeaveRepository $leaveRepository;
+
+    public function __construct(
+        AttendanceRepository $attendanceRepository,
+        DailyWorkRepository $dailyWorkRepository,
+        LeaveRepository $leaveRepository
+    ) {
+        $this->attendanceRepository = $attendanceRepository;
+        $this->dailyWorkRepository = $dailyWorkRepository;
+        $this->leaveRepository = $leaveRepository;
+    }
+
     public function summary(Request $request, LeaveApprovalService $approvalService): JsonResponse
     {
         $user = $request->user();

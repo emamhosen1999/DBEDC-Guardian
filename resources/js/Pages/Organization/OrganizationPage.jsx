@@ -15,6 +15,7 @@ import EmployeesTab from './Tabs/EmployeesTab';
 import DepartmentsTab from './Tabs/DepartmentsTab';
 import DesignationsTab from './Tabs/DesignationsTab';
 import WorkLocationsTab from './Tabs/WorkLocationsTab';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 const OrganizationPage = ({ title }) => {
     const { auth } = usePage().props;
@@ -97,28 +98,36 @@ const OrganizationPage = ({ title }) => {
                             {/* ── Employees Tab ─────────────────────────── */}
                             <Tabs.Content value="employees">
                                 <Box mt="4">
-                                    <EmployeesTab isActive={activeTab === 'employees'} />
+                                    <ErrorBoundary>
+                                        <EmployeesTab isActive={activeTab === 'employees'} />
+                                    </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
 
                             {/* ── Departments Tab ───────────────────────── */}
                             <Tabs.Content value="departments">
                                 <Box mt="4">
-                                    <DepartmentsTab isActive={activeTab === 'departments'} />
+                                    <ErrorBoundary>
+                                        <DepartmentsTab isActive={activeTab === 'departments'} />
+                                    </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
 
                             {/* ── Designations Tab ──────────────────────── */}
                             <Tabs.Content value="designations">
                                 <Box mt="4">
-                                    <DesignationsTab isActive={activeTab === 'designations'} />
+                                    <ErrorBoundary>
+                                        <DesignationsTab isActive={activeTab === 'designations'} />
+                                    </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
 
                             {/* ── Work Locations Tab ────────────────────── */}
                             <Tabs.Content value="work_locations">
                                 <Box mt="4">
-                                    <WorkLocationsTab isActive={activeTab === 'work_locations'} />
+                                    <ErrorBoundary>
+                                        <WorkLocationsTab isActive={activeTab === 'work_locations'} />
+                                    </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
                         </Tabs.Root>

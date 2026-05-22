@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Responses\HandlesApiExceptions;
 use App\Exports\AttendanceAdminExport;
 use App\Exports\AttendanceExport;
 use App\Models\HRM\Attendance;
@@ -21,6 +22,7 @@ use Throwable;
 
 class AttendanceController extends Controller
 {
+    use HandlesApiExceptions;
 
     public function indexUnified(): \Inertia\Response
     {
@@ -290,7 +292,7 @@ class AttendanceController extends Controller
             return response()->json(['message' => 'Attendance updated successfully']);
         } catch (\Exception $e) {
             // Handle exceptions
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => $this->safeExceptionMessage($e, 'Failed to update attendance.')], 500);
         }
     }
 
@@ -453,7 +455,6 @@ class AttendanceController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Unable to fetch user locations.',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -936,7 +937,7 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while retrieving present users data.',
-                'details' => $exception->getMessage(),
+                'details' => $this->safeExceptionMessage($exception),
             ], 500);
         }
     }
@@ -998,7 +999,7 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while retrieving absent users data.',
-                'details' => $exception->getMessage(),
+                'details' => $this->safeExceptionMessage($exception),
             ], 500);
         }
     }
@@ -1622,7 +1623,8 @@ class AttendanceController extends Controller
             return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\AttendanceExport($date), 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.xlsx');
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Excel export failed: '.$e->getMessage(),
+                'error' => 'Excel export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
             ], 500);
         }
     }
@@ -1641,7 +1643,8 @@ class AttendanceController extends Controller
             return $pdf->download('Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.pdf');
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'PDF export failed: '.$e->getMessage(),
+                'error' => 'PDF export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
             ], 500);
         }
     }
@@ -1654,7 +1657,8 @@ class AttendanceController extends Controller
             return (new AttendanceAdminExport)->export($month);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Excel export failed: '.$e->getMessage(),
+                'error' => 'Excel export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
             ], 500);
         }
     }
@@ -1689,7 +1693,8 @@ class AttendanceController extends Controller
             return $pdf->download('DBEDC_Attendance_'.$monthName.'.pdf');
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'PDF export failed: '.$e->getMessage(),
+                'error' => 'PDF export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
             ], 500);
         }
     }
