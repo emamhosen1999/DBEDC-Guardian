@@ -38,6 +38,7 @@ const AbsentSidebar = ({
     markingId = null,
     selectedDate,
     canManage = false,
+    isWeekend = false,
 }) => {
     return (
         <Flex
@@ -86,10 +87,24 @@ const AbsentSidebar = ({
                         </Flex>
                     ) : absentUsers.length === 0 ? (
                         <Flex direction="column" align="center" justify="center" py="8" gap="2">
-                            <CheckCircledIcon style={{ color: 'var(--green-9)', width: 28, height: 28 }} />
-                            <Text size="2" color="gray" align="center">
-                                All employees accounted for
-                            </Text>
+                            {isWeekend ? (
+                                <>
+                                    <CalendarIcon style={{ color: 'var(--amber-9)', width: 28, height: 28 }} />
+                                    <Text size="2" color="gray" align="center">
+                                        Weekend
+                                    </Text>
+                                    <Text size="1" color="gray" align="center">
+                                        No attendance tracking on weekends
+                                    </Text>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircledIcon style={{ color: 'var(--green-9)', width: 28, height: 28 }} />
+                                    <Text size="2" color="gray" align="center">
+                                        All employees accounted for
+                                    </Text>
+                                </>
+                            )}
                         </Flex>
                     ) : (
                         <Flex direction="column" gap="1">

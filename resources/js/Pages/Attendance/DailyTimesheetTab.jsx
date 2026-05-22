@@ -247,7 +247,6 @@ const DailyTimesheetTab = ({
 
     /* state */
     const [updateMap,    setUpdateMap]    = useState(false);
-    const [leaves,       setLeaves]       = useState([]);
     const [downloading,  setDownloading]  = useState('');
     const [lastChecked,  setLastChecked]  = useState(null);
     const prevUpdateRef = useRef(null);
@@ -288,6 +287,8 @@ const DailyTimesheetTab = ({
     const lastPage = dailyTimesheetData?.last_page || 1;
     const presentUsers = presentUsersData?.attendances || [];
     const absentUsers = absentUsersData?.absent_users || [];
+    const leaves = absentUsersData?.leaves || [];
+    const isWeekend = absentUsersData?.is_weekend || false;
     const isLoaded = !isLoadingTimesheet && !isLoadingPresent && !isLoadingAbsent;
     const error = null; // React Query handles errors automatically
 
@@ -551,7 +552,7 @@ const DailyTimesheetTab = ({
                     <Flex align="center" gap="1">
                         <PersonIcon style={{ color: 'var(--accent-9)', width: 14 }} />
                         <Text size="2" color="gray">
-                            Total: {isLoaded ? totalRows + (absentUsers?.length || 0) : '…'}
+                            Total: {isLoaded ? (isWeekend ? totalRows : totalRows + (absentUsers?.length || 0)) : '…'}
                         </Text>
                     </Flex>
                 )}
@@ -645,6 +646,7 @@ const DailyTimesheetTab = ({
                                 markingId={markingId}
                                 selectedDate={selectedDate}
                                 canManage={canManage}
+                                isWeekend={isWeekend}
                             />
                         </Box>
                     )}
