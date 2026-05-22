@@ -32,10 +32,10 @@ export const useAttendanceHistory = (params = {}) => {
  */
 export const useMonthlySummary = (params = {}) => {
   const { currentMonth, currentYear, scope = 'self' } = params;
-  
+
   return useQuery({
     queryKey: ['attendance', 'monthly-summary', { currentMonth, currentYear, scope }],
-    queryFn: () => requestJson('get', '/api/v1/attendance/monthly-summary', {
+    queryFn: () => requestJson('get', '/attendance/monthly-stats', {
       params: { currentMonth, currentYear, scope }
     }),
     staleTime: 10 * 60 * 1000, // 10 minutes - summary doesn't change often
