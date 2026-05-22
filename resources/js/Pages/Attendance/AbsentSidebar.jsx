@@ -93,7 +93,7 @@ const AbsentSidebar = ({
                         </Flex>
                     ) : (
                         <Flex direction="column" gap="1">
-                            {absentUsers.map((user) => {
+                            {Array.isArray(absentUsers) && absentUsers.map((user) => {
                                 const leave = getUserLeave?.(user.id || user.user_id);
                                 return (
                                     <Box
