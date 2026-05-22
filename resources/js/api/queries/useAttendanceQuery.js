@@ -95,8 +95,8 @@ export const useDailyTimesheet = (params = {}) => {
 
   return useQuery({
     queryKey: ['attendance', 'daily-timesheet', { date, page, perPage }],
-    queryFn: () => requestJson('get', '/attendances-admin-paginate', {
-      params: { date, page, per_page: perPage }
+    queryFn: () => requestJson('get', '/attendance/daily-timesheet', {
+      params: { date, page, perPage }
     }),
     enabled: !!date,
     staleTime: 3 * 60 * 1000, // 3 minutes - timesheet changes during the day

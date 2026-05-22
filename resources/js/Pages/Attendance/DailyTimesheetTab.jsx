@@ -283,9 +283,9 @@ const DailyTimesheetTab = ({
     const isMutating = updateTimeCorrection.isPending || markAsPresent.isPending || deleteAttendanceCorrection.isPending || exportDailyTimesheet.isPending;
 
     // Derived state from React Query data
-    const attendances = dailyTimesheetData?.data || [];
-    const totalRows = dailyTimesheetData?.pagination?.total || 0;
-    const lastPage = dailyTimesheetData?.pagination?.last_page || 1;
+    const attendances = dailyTimesheetData?.attendances || [];
+    const totalRows = dailyTimesheetData?.total || 0;
+    const lastPage = dailyTimesheetData?.last_page || 1;
     const presentUsers = presentUsersData || [];
     const absentUsers = absentUsersData || [];
     const isLoaded = !isLoadingTimesheet && !isLoadingPresent && !isLoadingAbsent;
