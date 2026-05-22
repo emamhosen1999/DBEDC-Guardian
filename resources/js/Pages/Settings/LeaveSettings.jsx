@@ -1,34 +1,19 @@
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from "@inertiajs/react";
 import App from "@/Layouts/App";
 import { motion } from "framer-motion";
 import { showToast } from '@/utils/toastUtils';
-import axios from 'axios';
-import {
-    Card,
-    CardHeader,
-    CardBody,
-    Button,
-    Input,
-    Switch,
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    Chip,
-    Tooltip,
-    ScrollShadow,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    useDisclosure,
-    Spinner,
-} from "@/compat/heroui";
+import * as useLeavesQuery from '@/api/queries/useLeavesQuery';
+import QueryState from '@/Components/Common/QueryState';
+import useDisclosure from '@/Hooks/useDisclosure';
+
 import {
     PlusIcon,
     ClockIcon,
@@ -56,12 +41,18 @@ const LeaveSettings = () => {
     const isTablet  = useMediaQuery('(max-width: 767px)');
 
     // State management
-    const [leaveTypes, setLeaveTypes] = useState(initialLeaveTypes || []);
-    const [loading, setLoading] = useState(false);
-    const [deleteLoading, setDeleteLoading] = useState(null);
+    const { data: leaveTypes = initialLeaveTypes || [], isLoading, isError, error, refetch } = useLeavesQuery.useLeaveTypes();
+    
+    
     const [isEditing, setIsEditing] = useState(false);
     const [searchValue, setSearchValue] = useState('');
     const [deleteCandidate, setDeleteCandidate] = useState(null);
+
+    // React Query hooks
+    const createLeaveTypeMutation = useLeavesQuery.useCreateLeaveType();
+    const updateLeaveTypeMutation = useLeavesQuery.useUpdateLeaveType();
+    const deleteLeaveTypeMutation = useLeavesQuery.useDeleteLeaveType();
+    const isMutating = createLeaveTypeMutation.isPending || updateLeaveTypeMutation.isPending || deleteLeaveTypeMutation.isPending;
 
     // Delete modal
     const {
@@ -145,13 +136,13 @@ const LeaveSettings = () => {
             return;
         }
 
-        setLoading(true);
+        
         const promise = new Promise(async (resolve, reject) => {
             try {
-                const response = await axios.post('/add-leave-type', newLeaveType);
+                const response = await createLeaveTypeMutation.mutateAsync(newLeaveType);
 
                 if (response.status === 201) {
-                    setLeaveTypes(prev => [...prev, { ...newLeaveType, id: response.data.id }]);
+                    refetch()
                     resetForm();
                     resolve(['Leave type added successfully.']);
                 } else {
@@ -161,7 +152,7 @@ const LeaveSettings = () => {
                 console.error(error);
                 reject([error.response?.data?.message || 'Failed to add leave type. Please try again.']);
             } finally {
-                setLoading(false);
+                
             }
         });
 
@@ -194,16 +185,16 @@ const LeaveSettings = () => {
             return;
         }
 
-        setLoading(true);
+        
         const promise = new Promise(async (resolve, reject) => {
             try {
-                const response = await axios.put(`/update-leave-type/${newLeaveType.id}`, newLeaveType);
+                const response = await updateLeaveTypeMutation.mutateAsync({ id: newLeaveType.id, data: newLeaveType });
 
                 if (response.status === 200) {
                     const updatedLeaveTypes = leaveTypes.map((lt) =>
                         lt.id === newLeaveType.id ? { ...newLeaveType } : lt
                     );
-                    setLeaveTypes(updatedLeaveTypes);
+                    refetch()
                     resetForm();
                     resolve(['Leave type updated successfully.']);
                 } else {
@@ -213,7 +204,7 @@ const LeaveSettings = () => {
                 console.error(error);
                 reject([error.response?.data?.message || 'Failed to update leave type. Please try again.']);
             } finally {
-                setLoading(false);
+                
             }
         });
 
@@ -234,13 +225,13 @@ const LeaveSettings = () => {
     const deleteLeaveType = async () => {
         if (!deleteCandidate) return;
 
-        setDeleteLoading(deleteCandidate.id);
+        
         const promise = new Promise(async (resolve, reject) => {
             try {
-                const response = await axios.delete(`/delete-leave-type/${deleteCandidate.id}`);
+                const response = await deleteLeaveTypeMutation.mutateAsync(deleteCandidate.id);
 
                 if (response.status === 200) {
-                    setLeaveTypes(prev => prev.filter((lt) => lt.id !== deleteCandidate.id));
+                    refetch()
                     onDeleteModalClose();
                     setDeleteCandidate(null);
                     resolve([response.data.message || 'Leave type deleted successfully.']);
@@ -251,7 +242,7 @@ const LeaveSettings = () => {
                 console.error(error);
                 reject([error.response?.data?.message || 'Failed to delete leave type. Please try again.']);
             } finally {
-                setDeleteLoading(null);
+                
             }
         });
 
@@ -353,20 +344,20 @@ const LeaveSettings = () => {
                                             
                                             {/* Action Buttons */}
                                             <div className="flex gap-2 flex-wrap">
-                                                <Chip
+                                                <Badge
                                                     startContent={<UserGroupIcon className="w-4 h-4" />}
-                                                    variant="flat"
+                                                    variant="soft"
                                                     color="primary"
                                                     size="sm"
                                                     className="font-medium"
                                                 >
                                                     {leaveTypes.length} Leave Types
-                                                </Chip>
+                                                </Badge>
                                                 <Button
-                                                    color="default"
-                                                    variant="bordered"
+                                                    color="gray"
+                                                    variant="outline"
                                                     startContent={<ArrowPathIcon className="w-4 h-4" />}
-                                                    onPress={() => window.location.reload()}
+                                                    onClick={() => window.location.reload()}
                                                     size={isMobile ? "sm" : "md"}
                                                     className="font-semibold"
                                                     style={{
@@ -427,13 +418,13 @@ const LeaveSettings = () => {
                                         {/* Form Grid */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {/* Leave Type */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Leave Type"
                                                 placeholder="e.g., Annual Leave, Sick Leave"
                                                 name="type"
                                                 value={newLeaveType.type}
                                                 onChange={handleInputChange}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size={isMobile ? "sm" : "md"}
                                                 radius={getThemeRadius()}
                                                 isRequired
@@ -448,7 +439,7 @@ const LeaveSettings = () => {
                                             />
 
                                             {/* Number of Days */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Number of Days"
                                                 placeholder="e.g., 21"
                                                 name="days"
@@ -456,7 +447,7 @@ const LeaveSettings = () => {
                                                 min="0"
                                                 value={newLeaveType.days}
                                                 onChange={handleInputChange}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size={isMobile ? "sm" : "md"}
                                                 radius={getThemeRadius()}
                                                 isRequired
@@ -471,13 +462,13 @@ const LeaveSettings = () => {
                                             />
 
                                             {/* Eligibility Criteria */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Eligibility Criteria"
                                                 placeholder="e.g., After 1 year of service"
                                                 name="eligibility"
                                                 value={newLeaveType.eligibility}
                                                 onChange={handleInputChange}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size={isMobile ? "sm" : "md"}
                                                 radius={getThemeRadius()}
                                                 startContent={<UserGroupIcon className="w-4 h-4 text-default-400" />}
@@ -642,19 +633,19 @@ const LeaveSettings = () => {
                                                         color="success"
                                                         size="sm"
                                                         aria-label="Toggle auto approval"
-                                                        isDisabled={!newLeaveType.requires_approval}
+                                                        disabled={!newLeaveType.requires_approval}
                                                     />
                                                 </div>
                                             </div>
 
                                             {/* Special Conditions */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Special Conditions"
                                                 placeholder="e.g., Medical certificate required"
                                                 name="special_conditions"
                                                 value={newLeaveType.special_conditions}
                                                 onChange={handleInputChange}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size={isMobile ? "sm" : "md"}
                                                 radius={getThemeRadius()}
                                                 startContent={<InformationCircleIcon className="w-4 h-4 text-default-400" />}
@@ -672,9 +663,9 @@ const LeaveSettings = () => {
                                         <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
                                             {isEditing && (
                                                 <Button
-                                                    variant="flat"
-                                                    color="default"
-                                                    onPress={resetForm}
+                                                    variant="soft"
+                                                    color="gray"
+                                                    onClick={resetForm}
                                                     startContent={<XCircleIcon className="w-4 h-4" />}
                                                     size={isMobile ? "sm" : "md"}
                                                     radius={getThemeRadius()}
@@ -690,10 +681,10 @@ const LeaveSettings = () => {
                                             <Button
                                                 color={isEditing ? "warning" : "primary"}
                                                 variant="shadow"
-                                                onPress={isEditing ? updateLeaveType : addLeaveType}
+                                                onClick={isEditing ? updateLeaveType : addLeaveType}
                                                 startContent={isEditing ? <PencilIcon className="w-4 h-4" /> : <PlusIcon className="w-4 h-4" />}
-                                                isLoading={loading}
-                                                isDisabled={!isFormValid}
+                                                loading={isMutating}
+                                                disabled={!isFormValid}
                                                 size={isMobile ? "sm" : "md"}
                                                 radius={getThemeRadius()}
                                                 className="font-semibold"
@@ -793,12 +784,12 @@ const LeaveSettings = () => {
                                             
                                             {/* Search */}
                                             <div className="flex-1 max-w-md">
-                                                <Input
+                                                <TextField.Root
                                                     placeholder="Search leave types..."
                                                     value={searchValue}
                                                     onChange={(e) => setSearchValue(e.target.value)}
                                                     startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
-                                                    variant="bordered"
+                                                    variant="outline"
                                                     size="sm"
                                                     radius={getThemeRadius()}
                                                     className="w-full"
@@ -816,6 +807,15 @@ const LeaveSettings = () => {
                                 </CardHeader>
 
                                 <CardBody className="p-6">
+                                    <QueryState
+                                        isLoading={isLoading && leaveTypes.length === 0}
+                                        isError={isError}
+                                        error={error}
+                                        isEmpty={!isLoading && !isError && filteredLeaveTypes.length === 0}
+                                        emptyMessage="No leave types configured yet."
+                                        onRetry={() => refetch()}
+                                        minHeight={200}
+                                    >
                                     <div className="overflow-hidden">
                                         <ScrollShadow className="max-h-[600px]">
                                             <Table 
@@ -905,9 +905,9 @@ const LeaveSettings = () => {
                                                             </TableCell>
                                                             <TableCell>
                                                                 <div className="flex justify-center">
-                                                                    <Chip
+                                                                    <Badge
                                                                         color="primary"
-                                                                        variant="flat"
+                                                                        variant="soft"
                                                                         size="sm"
                                                                         radius={getThemeRadius()}
                                                                         className="font-semibold"
@@ -916,7 +916,7 @@ const LeaveSettings = () => {
                                                                         }}
                                                                     >
                                                                         {leave.days} days
-                                                                    </Chip>
+                                                                    </Badge>
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell>
@@ -932,10 +932,10 @@ const LeaveSettings = () => {
                                                             <TableCell>
                                                                 <div className="flex justify-center gap-2 flex-wrap">
                                                                     <Tooltip content="Carry Forward Policy">
-                                                                        <Chip
+                                                                        <Badge
                                                                             startContent={leave.carry_forward ? <CheckCircleSolid className="w-3 h-3" /> : <XCircleSolid className="w-3 h-3" />}
                                                                             color={leave.carry_forward ? 'success' : 'danger'}
-                                                                            variant="flat"
+                                                                            variant="soft"
                                                                             size="sm"
                                                                             radius={getThemeRadius()}
                                                                             className="text-xs font-medium"
@@ -944,13 +944,13 @@ const LeaveSettings = () => {
                                                                             }}
                                                                         >
                                                                             Carry Forward
-                                                                        </Chip>
+                                                                        </Badge>
                                                                     </Tooltip>
                                                                     <Tooltip content="Earned Leave Policy">
-                                                                        <Chip
+                                                                        <Badge
                                                                             startContent={leave.earned_leave ? <CheckCircleSolid className="w-3 h-3" /> : <XCircleSolid className="w-3 h-3" />}
                                                                             color={leave.earned_leave ? 'success' : 'warning'}
-                                                                            variant="flat"
+                                                                            variant="soft"
                                                                             size="sm"
                                                                             radius={getThemeRadius()}
                                                                             className="text-xs font-medium"
@@ -959,13 +959,13 @@ const LeaveSettings = () => {
                                                                             }}
                                                                         >
                                                                             Earned Leave
-                                                                        </Chip>
+                                                                        </Badge>
                                                                     </Tooltip>
                                                                     <Tooltip content="Requires Approval">
-                                                                        <Chip
+                                                                        <Badge
                                                                             startContent={(leave.requires_approval ?? true) ? <CheckCircleSolid className="w-3 h-3" /> : <XCircleSolid className="w-3 h-3" />}
                                                                             color={(leave.requires_approval ?? true) ? 'primary' : 'default'}
-                                                                            variant="flat"
+                                                                            variant="soft"
                                                                             size="sm"
                                                                             radius={getThemeRadius()}
                                                                             className="text-xs font-medium"
@@ -974,14 +974,14 @@ const LeaveSettings = () => {
                                                                             }}
                                                                         >
                                                                             Approval
-                                                                        </Chip>
+                                                                        </Badge>
                                                                     </Tooltip>
                                                                     {leave.auto_approve && (
                                                                         <Tooltip content="Auto Approve Enabled">
-                                                                            <Chip
+                                                                            <Badge
                                                                                 startContent={<CheckCircleSolid className="w-3 h-3" />}
                                                                                 color="success"
-                                                                                variant="flat"
+                                                                                variant="soft"
                                                                                 size="sm"
                                                                                 radius={getThemeRadius()}
                                                                                 className="text-xs font-medium"
@@ -990,7 +990,7 @@ const LeaveSettings = () => {
                                                                                 }}
                                                                             >
                                                                                 Auto
-                                                                            </Chip>
+                                                                            </Badge>
                                                                         </Tooltip>
                                                                     )}
                                                                 </div>
@@ -1024,10 +1024,10 @@ const LeaveSettings = () => {
                                                                     <Tooltip content="Edit leave type">
                                                                         <Button
                                                                             isIconOnly
-                                                                            variant="flat"
+                                                                            variant="soft"
                                                                             color="primary"
                                                                             size="sm"
-                                                                            onPress={() => editLeaveType(leave.id)}
+                                                                            onClick={() => editLeaveType(leave.id)}
                                                                             aria-label={`Edit ${leave.type}`}
                                                                             radius={getThemeRadius()}
                                                                             style={{
@@ -1037,14 +1037,14 @@ const LeaveSettings = () => {
                                                                             <PencilIcon className="w-4 h-4" />
                                                                         </Button>
                                                                     </Tooltip>
-                                                                    <Tooltip content="Delete leave type" color="danger">
+                                                                    <Tooltip content="Delete leave type" color="red">
                                                                         <Button
                                                                             isIconOnly
-                                                                            variant="flat"
-                                                                            color="danger"
+                                                                            variant="soft"
+                                                                            color="red"
                                                                             size="sm"
-                                                                            onPress={() => prepareDelete(leave)}
-                                                                            isLoading={deleteLoading === leave.id}
+                                                                            onClick={() => prepareDelete(leave)}
+                                                                            loading={isMutating}
                                                                             aria-label={`Delete ${leave.type}`}
                                                                             radius={getThemeRadius()}
                                                                             style={{
@@ -1062,6 +1062,7 @@ const LeaveSettings = () => {
                                             </Table>
                                         </ScrollShadow>
                                     </div>
+                                    </QueryState>
                                 </CardBody>
                             </Card>
                         </motion.div>
@@ -1069,9 +1070,9 @@ const LeaveSettings = () => {
                 </div>
             </div>
 
-            {/* Delete Confirmation Modal */}
-            <Modal 
-                isOpen={isDeleteModalOpen} 
+            {/* Delete Confirmation Dialog */}
+            <Dialog 
+                open={isDeleteModalOpen} 
                 onClose={onDeleteModalClose}
                 size="md"
                 backdrop="blur"
@@ -1085,8 +1086,8 @@ const LeaveSettings = () => {
                     fontFamily: `var(--fontFamily, "Inter")`,
                 }}
             >
-                <ModalContent>
-                    <ModalHeader className="flex flex-col gap-1">
+                <Dialog.Content>
+                    <Dialog.Title className="flex flex-col gap-1">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-danger-100 dark:bg-danger-900/30 rounded-lg">
                                 <TrashIcon className="w-5 h-5 text-danger-600 dark:text-danger-400" />
@@ -1100,8 +1101,8 @@ const LeaveSettings = () => {
                                 </p>
                             </div>
                         </div>
-                    </ModalHeader>
-                    <ModalBody>
+                    </Dialog.Title>
+                    <Box>
                         <p className="text-foreground">
                             Are you sure you want to delete the leave type 
                             <span className="font-semibold text-danger-600 mx-1">
@@ -1109,12 +1110,12 @@ const LeaveSettings = () => {
                             </span>
                             ? This will permanently remove this leave type and all associated policies.
                         </p>
-                    </ModalBody>
-                    <ModalFooter>
+                    </Box>
+                    <Flex>
                         <Button 
-                            variant="flat" 
-                            onPress={onDeleteModalClose}
-                            isDisabled={deleteLoading === deleteCandidate?.id}
+                            variant="soft" 
+                            onClick={onDeleteModalClose}
+                            disabled={isMutating}
                             radius={getThemeRadius()}
                             style={{
                                 fontFamily: `var(--fontFamily, "Inter")`,
@@ -1123,10 +1124,10 @@ const LeaveSettings = () => {
                             Cancel
                         </Button>
                         <Button 
-                            color="danger" 
-                            onPress={deleteLeaveType}
-                            isLoading={deleteLoading === deleteCandidate?.id}
-                            startContent={deleteLoading !== deleteCandidate?.id ? <TrashIcon className="w-4 h-4" /> : null}
+                            color="red" 
+                            onClick={deleteLeaveType}
+                            loading={isMutating}
+                            startContent={isMutating ? null : <TrashIcon className="w-4 h-4" />}
                             radius={getThemeRadius()}
                             style={{
                                 fontFamily: `var(--fontFamily, "Inter")`,
@@ -1134,9 +1135,9 @@ const LeaveSettings = () => {
                         >
                             Delete Leave Type
                         </Button>
-                    </ModalFooter>
-                </ModalContent>
-            </Modal>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog>
         </>
     );
 };

@@ -1,23 +1,11 @@
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePage } from '@inertiajs/react';
-import {
-    Button,
-    Input,
-    Textarea,
-    Select,
-    SelectItem,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Divider,
-    User,
-    Tabs,
-    Tab,
-    Card,
-    CardBody
-} from "@/compat/heroui";
 import {
     UserPlusIcon,
     ClockIcon,
@@ -194,8 +182,8 @@ const MarkAsPresentForm = ({
     const selectedUser = currentUser || availableUsers.find(user => user.id == formData.user_id);
 
     return (
-        <Modal 
-            isOpen={open} 
+        <Dialog 
+            open={open} 
             onClose={closeModal}
             size="2xl"
             radius={getThemeRadius()}
@@ -215,10 +203,10 @@ const MarkAsPresentForm = ({
                 transform: `scale(var(--scale, 1))`,
             }}
         >
-            <ModalContent>
+            <Dialog.Content>
                 {(onClose) => (
                     <>
-                        <ModalHeader className="flex flex-col gap-1" style={{
+                        <Dialog.Title className="flex flex-col gap-1" style={{
                             borderColor: `var(--theme-divider, #E4E4E7)`,
                             fontFamily: `var(--fontFamily, "Inter")`,
                         }}>
@@ -230,10 +218,10 @@ const MarkAsPresentForm = ({
                                     Mark Employee as Present
                                 </span>
                             </div>
-                        </ModalHeader>
+                        </Dialog.Title>
                         
                         <form onSubmit={handleSubmit}>
-                            <ModalBody className="py-4 px-4 sm:py-6 sm:px-6" style={{
+                            <Box className="py-4 px-4 sm:py-6 sm:px-6" style={{
                                 fontFamily: `var(--fontFamily, "Inter")`,
                             }}>
                                 <div className="space-y-6">
@@ -280,7 +268,7 @@ const MarkAsPresentForm = ({
                                                     }}
                                                     isInvalid={Boolean(errors.user_id)}
                                                     errorMessage={errors.user_id}
-                                                    variant="bordered"
+                                                    variant="outline"
                                                     size="sm"
                                                     radius={getThemeRadius()}
                                                     classNames={{
@@ -324,14 +312,14 @@ const MarkAsPresentForm = ({
                                             )}
 
                                             {/* Date Display */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Date"
                                                 type="date"
                                                 value={formData.date}
                                                 onValueChange={(value) => handleFieldChange('date', value)}
                                                 isInvalid={Boolean(errors.date)}
                                                 errorMessage={errors.date}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 startContent={<CalendarDaysIcon className="w-4 h-4 text-default-400" />}
@@ -346,7 +334,7 @@ const MarkAsPresentForm = ({
                                         </div>
                                     </div>
 
-                                    <Divider style={{ background: `var(--theme-divider)` }} />
+                                    <Separator style={{ background: `var(--theme-divider)` }} />
 
                                     {/* Time Section */}
                                     <div className="space-y-4">
@@ -366,14 +354,14 @@ const MarkAsPresentForm = ({
                                         
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {/* Punch In Time */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Punch In Time"
                                                 type="time"
                                                 value={formData.punch_in_time}
                                                 onValueChange={(value) => handleFieldChange('punch_in_time', value)}
                                                 isInvalid={Boolean(errors.punch_in_time)}
                                                 errorMessage={errors.punch_in_time}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 startContent={<ClockIcon className="w-4 h-4 text-default-400" />}
@@ -387,14 +375,14 @@ const MarkAsPresentForm = ({
                                             />
 
                                             {/* Punch Out Time */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Punch Out Time (Optional)"
                                                 type="time"
                                                 value={formData.punch_out_time}
                                                 onValueChange={(value) => handleFieldChange('punch_out_time', value)}
                                                 isInvalid={Boolean(errors.punch_out_time)}
                                                 errorMessage={errors.punch_out_time}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 startContent={<ClockIcon className="w-4 h-4 text-default-400" />}
@@ -410,7 +398,7 @@ const MarkAsPresentForm = ({
                                         </div>
                                     </div>
 
-                                    <Divider style={{ background: `var(--theme-divider)` }} />
+                                    <Separator style={{ background: `var(--theme-divider)` }} />
 
                                     {/* Additional Information Section with Location & Security */}
                                     <div className="space-y-4">
@@ -458,19 +446,19 @@ const MarkAsPresentForm = ({
                                         </div>
                                     )}
                                 </div>
-                            </ModalBody>
+                            </Box>
                             
-                            <ModalFooter className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
+                            <Flex className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
                                 borderColor: `var(--theme-divider, #E4E4E7)`,
                                 fontFamily: `var(--fontFamily, "Inter")`,
                             }}>
                                 <Button
-                                    color="default"
-                                    variant="bordered"
-                                    onPress={onClose}
+                                    color="gray"
+                                    variant="outline"
+                                    onClick={onClose}
                                     radius={getThemeRadius()}
                                     size="sm"
-                                    isDisabled={processing}
+                                    disabled={processing}
                                     style={{
                                         borderRadius: `var(--borderRadius, 8px)`,
                                         fontFamily: `var(--fontFamily, "Inter")`,
@@ -482,8 +470,8 @@ const MarkAsPresentForm = ({
                                     type="submit"
                                     color="primary"
                                     variant="solid"
-                                    isLoading={processing}
-                                    isDisabled={processing || !formData.user_id}
+                                    loading={processing}
+                                    disabled={processing || !formData.user_id}
                                     radius={getThemeRadius()}
                                     size="sm"
                                     style={{
@@ -493,12 +481,12 @@ const MarkAsPresentForm = ({
                                 >
                                     {processing ? 'Marking Present...' : 'Mark as Present'}
                                 </Button>
-                            </ModalFooter>
+                            </Flex>
                         </form>
                     </>
                 )}
-            </ModalContent>
-        </Modal>
+            </Dialog.Content>
+        </Dialog>
     );
 };
 

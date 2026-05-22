@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Responses\HandlesApiExceptions;
 use App\Http\Resources\LeaveResource;
 use App\Http\Resources\LeaveResourceCollection;
 use App\Models\HRM\Department;
@@ -24,6 +25,8 @@ use Inertia\Inertia;
 
 class LeaveController extends Controller
 {
+    use HandlesApiExceptions;
+
     protected LeaveValidationService $validationService;
 
     protected LeaveOverlapService $overlapService;
@@ -100,7 +103,7 @@ class LeaveController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'An error occurred while retrieving leave data.',
-                'details' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'details' => $this->safeExceptionMessage($e, 'Internal server error'),
             ], 500);
         }
     }
@@ -118,7 +121,7 @@ class LeaveController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while retrieving leave data.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -181,7 +184,7 @@ class LeaveController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'An error occurred while submitting the leave data.',
-                'details' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'details' => $this->safeExceptionMessage($e, 'Internal server error'),
             ], 500);
         }
     }
@@ -218,7 +221,7 @@ class LeaveController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while updating the leave.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -254,7 +257,7 @@ class LeaveController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while deleting the leave.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -318,7 +321,7 @@ class LeaveController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while approving leaves.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -351,7 +354,7 @@ class LeaveController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while rejecting leaves.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -373,7 +376,8 @@ class LeaveController extends Controller
             );
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Excel export failed: '.$e->getMessage(),
+                'error' => 'Excel export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
             ], 500);
         }
     }
@@ -401,7 +405,8 @@ class LeaveController extends Controller
             return $pdf->download('Leave_Summary_'.($filters['year'] ?? now()->year).'.pdf');
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'PDF export failed: '.$e->getMessage(),
+                'error' => 'PDF export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
             ], 500);
         }
     }

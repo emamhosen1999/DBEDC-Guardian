@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Responses\HandlesApiExceptions;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Requests\UpdateUserRoleRequest;
@@ -23,6 +24,8 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    use HandlesApiExceptions;
+
     public function index1(): \Inertia\Response
     {
 
@@ -123,7 +126,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to create user.',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -177,7 +180,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to update user.',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -198,7 +201,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to update user role.',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -226,7 +229,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to update report to.',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -249,7 +252,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to delete user.',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -303,7 +306,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to bulk assign role.',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -335,7 +338,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to bulk delete users.',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -395,7 +398,7 @@ class UserController extends Controller
             return response()->json([
                 'success' => false,
                 'messages' => ['Failed to update attendance type.'],
-                'errors' => [$e->getMessage()],
+                'errors' => [$this->safeExceptionMessage($e)],
             ], 500);
         }
     }
@@ -509,7 +512,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while retrieving user data.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -649,7 +652,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while retrieving user statistics.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -771,7 +774,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while retrieving employee data.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -901,7 +904,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'An error occurred while retrieving employee statistics.',
-                'details' => $e->getMessage(),
+                'details' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -930,7 +933,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to retrieve user roles',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -976,7 +979,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to retrieve user permissions',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -1020,7 +1023,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to sync user roles',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -1065,7 +1068,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to sync user permissions',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -1111,7 +1114,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to grant permission',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }
@@ -1157,7 +1160,7 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to revoke permission',
-                'message' => $e->getMessage(),
+                'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
     }

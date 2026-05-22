@@ -1,17 +1,11 @@
-import React, { useState, useEffect } from 'react';
 import {
-    Button,
-    Input,
-    Textarea,
-    Select,
-    SelectItem,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Chip
-} from "@/compat/heroui";
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
+import React, { useState, useEffect } from 'react';
+
 import { CalendarIcon, UserIcon, ClockIcon, MapPinIcon, UsersIcon } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";
 import { usePage } from "@inertiajs/react";
@@ -233,8 +227,8 @@ const TrainingForm = ({
     ) || [];
 
     return (
-        <Modal 
-            isOpen={open} 
+        <Dialog 
+            open={open} 
             onClose={onClose}
             size="4xl"
             radius={getThemeRadius()}
@@ -250,9 +244,9 @@ const TrainingForm = ({
                 fontFamily: `var(--fontFamily, "Inter")`,
             }}
         >
-            <ModalContent>
+            <Dialog.Content>
                 <form onSubmit={handleSubmit}>
-                    <ModalHeader className="flex flex-col gap-1" style={{
+                    <Dialog.Title className="flex flex-col gap-1" style={{
                         borderColor: `var(--theme-divider, #E4E4E7)`,
                         fontFamily: `var(--fontFamily, "Inter")`,
                     }}>
@@ -262,22 +256,22 @@ const TrainingForm = ({
                         <p className="text-sm text-default-500">
                             {isEditMode ? 'Update training details and participants' : 'Create a new training program for employees'}
                         </p>
-                    </ModalHeader>
+                    </Dialog.Title>
                     
-                    <ModalBody style={{
+                    <Box style={{
                         fontFamily: `var(--fontFamily, "Inter")`,
                     }}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Title */}
                             <div className="md:col-span-2">
-                                <Input
+                                <TextField.Root
                                     label="Training Title"
                                     placeholder="Enter training program title"
                                     value={formData.title}
                                     onValueChange={(value) => handleChange('title', value)}
                                     isInvalid={Boolean(errors.title)}
                                     errorMessage={errors.title}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     isRequired
@@ -300,7 +294,7 @@ const TrainingForm = ({
                                     }}
                                     isInvalid={Boolean(errors.category_id)}
                                     errorMessage={errors.category_id}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     isRequired
@@ -325,7 +319,7 @@ const TrainingForm = ({
                                     }}
                                     isInvalid={Boolean(errors.trainer_id)}
                                     errorMessage={errors.trainer_id}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     startContent={<UserIcon size={16} className="text-default-400" />}
@@ -340,14 +334,14 @@ const TrainingForm = ({
 
                             {/* Start Date */}
                             <div>
-                                <Input
+                                <TextField.Root
                                     label="Start Date & Time"
                                     type="datetime-local"
                                     value={formData.start_date}
                                     onValueChange={(value) => handleChange('start_date', value)}
                                     isInvalid={Boolean(errors.start_date)}
                                     errorMessage={errors.start_date}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     startContent={<CalendarIcon size={16} className="text-default-400" />}
@@ -357,14 +351,14 @@ const TrainingForm = ({
 
                             {/* End Date */}
                             <div>
-                                <Input
+                                <TextField.Root
                                     label="End Date & Time"
                                     type="datetime-local"
                                     value={formData.end_date}
                                     onValueChange={(value) => handleChange('end_date', value)}
                                     isInvalid={Boolean(errors.end_date)}
                                     errorMessage={errors.end_date}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     startContent={<CalendarIcon size={16} className="text-default-400" />}
@@ -373,14 +367,14 @@ const TrainingForm = ({
 
                             {/* Location */}
                             <div>
-                                <Input
+                                <TextField.Root
                                     label="Location"
                                     placeholder="Enter training location"
                                     value={formData.location}
                                     onValueChange={(value) => handleChange('location', value)}
                                     isInvalid={Boolean(errors.location)}
                                     errorMessage={errors.location}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     startContent={<MapPinIcon size={16} className="text-default-400" />}
@@ -389,7 +383,7 @@ const TrainingForm = ({
 
                             {/* Max Participants */}
                             <div>
-                                <Input
+                                <TextField.Root
                                     label="Max Participants"
                                     type="number"
                                     placeholder="Maximum number of participants"
@@ -397,7 +391,7 @@ const TrainingForm = ({
                                     onValueChange={(value) => handleChange('max_participants', value)}
                                     isInvalid={Boolean(errors.max_participants)}
                                     errorMessage={errors.max_participants}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     startContent={<UsersIcon size={16} className="text-default-400" />}
@@ -416,7 +410,7 @@ const TrainingForm = ({
                                     }}
                                     isInvalid={Boolean(errors.status)}
                                     errorMessage={errors.status}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                 >
@@ -436,7 +430,7 @@ const TrainingForm = ({
                                     onValueChange={(value) => handleChange('description', value)}
                                     isInvalid={Boolean(errors.description)}
                                     errorMessage={errors.description}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     minRows={3}
@@ -453,7 +447,7 @@ const TrainingForm = ({
                                     onValueChange={(value) => handleChange('notes', value)}
                                     isInvalid={Boolean(errors.notes)}
                                     errorMessage={errors.notes}
-                                    variant="bordered"
+                                    variant="outline"
                                     size="sm"
                                     radius={getThemeRadius()}
                                     minRows={2}
@@ -475,7 +469,7 @@ const TrainingForm = ({
                                                 const key = Array.from(keys)[0];
                                                 setSelectedEmployee(key || '');
                                             }}
-                                            variant="bordered"
+                                            variant="outline"
                                             size="sm"
                                             radius={getThemeRadius()}
                                             className="flex-1"
@@ -488,11 +482,11 @@ const TrainingForm = ({
                                         </Select>
                                         <Button
                                             color="primary"
-                                            variant="flat"
+                                            variant="soft"
                                             size="sm"
                                             radius={getThemeRadius()}
-                                            isDisabled={!selectedEmployee}
-                                            onPress={addParticipant}
+                                            disabled={!selectedEmployee}
+                                            onClick={addParticipant}
                                         >
                                             Add
                                         </Button>
@@ -507,15 +501,15 @@ const TrainingForm = ({
                                                 {formData.participants.map(participantId => {
                                                     const employee = employees?.find(emp => emp.id == participantId);
                                                     return (
-                                                        <Chip
+                                                        <Badge
                                                             key={participantId}
                                                             color="primary"
-                                                            variant="flat"
+                                                            variant="soft"
                                                             size="sm"
                                                             onClose={() => removeParticipant(participantId)}
                                                         >
                                                             {employee?.first_name} {employee?.last_name}
-                                                        </Chip>
+                                                        </Badge>
                                                     );
                                                 })}
                                             </div>
@@ -524,19 +518,19 @@ const TrainingForm = ({
                                 </div>
                             </div>
                         </div>
-                    </ModalBody>
+                    </Box>
                     
-                    <ModalFooter style={{
+                    <Flex style={{
                         borderColor: `var(--theme-divider, #E4E4E7)`,
                         fontFamily: `var(--fontFamily, "Inter")`,
                     }}>
                         <Button
-                            color="default"
-                            variant="bordered"
-                            onPress={onClose}
+                            color="gray"
+                            variant="outline"
+                            onClick={onClose}
                             radius={getThemeRadius()}
                             size="sm"
-                            isDisabled={processing}
+                            disabled={processing}
                         >
                             Cancel
                         </Button>
@@ -544,8 +538,8 @@ const TrainingForm = ({
                             type="submit"
                             color="primary"
                             variant="solid"
-                            isLoading={processing}
-                            isDisabled={processing}
+                            loading={processing}
+                            disabled={processing}
                             radius={getThemeRadius()}
                             size="sm"
                         >
@@ -554,10 +548,10 @@ const TrainingForm = ({
                                 : (isEditMode ? 'Update Training' : 'Create Training')
                             }
                         </Button>
-                    </ModalFooter>
+                    </Flex>
                 </form>
-            </ModalContent>
-        </Modal>
+            </Dialog.Content>
+        </Dialog>
     );
 };
 

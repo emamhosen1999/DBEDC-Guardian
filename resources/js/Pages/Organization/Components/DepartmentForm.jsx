@@ -4,12 +4,16 @@ import {
     Select, Switch, Box, Spinner 
 } from '@radix-ui/themes';
 import { HomeIcon, PersonIcon } from '@radix-ui/react-icons';
-import axios from 'axios';
+import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
 import { showToast } from '@/utils/toastUtils';
 
 const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers = [], parentDepartments = [], readOnly = false }) => {
-    const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+
+    // React Query mutations
+    const createDepartment = useDepartmentsQuery.useCreateDepartment();
+    const updateDepartment = useDepartmentsQuery.useUpdateDepartment();
+    const isMutating = createDepartment.isPending || updateDepartment.isPending;
 
     const initialFormState = {
         name: '',
@@ -48,7 +52,6 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
         e.preventDefault();
         if (readOnly) return onClose();
         
-        setLoading(true);
         setErrors({});
 
         const payload = { ...formData };
@@ -57,10 +60,10 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
 
         try {
             if (department) {
-                await axios.put(`/departments/${department.id}`, payload);
+                await updateDepartment.mutateAsync({ id: department.id, data: payload });
                 showToast.success('Department updated successfully');
             } else {
-                await axios.post('/departments', payload);
+                await createDepartment.mutateAsync(payload);
                 showToast.success('Department created successfully');
             }
             onSuccess();
@@ -72,13 +75,11 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
             } else {
                 showToast.error(error.response?.data?.message || 'An error occurred');
             }
-        } finally {
-            setLoading(false);
         }
     };
 
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v && !loading) onClose(); }}>
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !isMutating) onClose(); }}>
             <Dialog.Content style={{ maxWidth: 600 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
@@ -94,7 +95,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                             <TextField.Root 
                                 value={formData.name} 
                                 onChange={e => handleChange('name', e.target.value)} 
-                                disabled={readOnly || loading} 
+                                disabled={readOnly || isMutating} 
                                 placeholder="e.g. Human Resources" 
                             />
                             {errors.name && <Text size="1" color="red">{errors.name[0]}</Text>}
@@ -105,7 +106,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                             <TextField.Root 
                                 value={formData.code} 
                                 onChange={e => handleChange('code', e.target.value)} 
-                                disabled={readOnly || loading} 
+                                disabled={readOnly || isMutating} 
                                 placeholder="e.g. HR-01" 
                             />
                             {errors.code && <Text size="1" color="red">{errors.code[0]}</Text>}
@@ -113,7 +114,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">Parent Department</Text>
-                            <Select.Root value={formData.parent_id} onValueChange={v => handleChange('parent_id', v)} disabled={readOnly || loading}>
+                            <Select.Root value={formData.parent_id} onValueChange={v => handleChange('parent_id', v)} disabled={readOnly || isMutating}>
                                 <Select.Trigger style={{ width: '100%' }} />
                                 <Select.Content>
                                     <Select.Item value="none">None (Top Level)</Select.Item>
@@ -127,7 +128,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">Department Manager</Text>
-                            <Select.Root value={formData.manager_id} onValueChange={v => handleChange('manager_id', v)} disabled={readOnly || loading}>
+                            <Select.Root value={formData.manager_id} onValueChange={v => handleChange('manager_id', v)} disabled={readOnly || isMutating}>
                                 <Select.Trigger style={{ width: '100%' }} />
                                 <Select.Content>
                                     <Select.Item value="none">Unassigned</Select.Item>
@@ -143,7 +144,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                             <TextField.Root 
                                 value={formData.location} 
                                 onChange={e => handleChange('location', e.target.value)} 
-                                disabled={readOnly || loading} 
+                                disabled={readOnly || isMutating} 
                                 placeholder="e.g. Building A, Floor 3" 
                             />
                         </Box>
@@ -154,7 +155,7 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                                 type="date"
                                 value={formData.established_date} 
                                 onChange={e => handleChange('established_date', e.target.value)} 
-                                disabled={readOnly || loading} 
+                                disabled={readOnly || isMutating} 
                             />
                         </Box>
 
@@ -164,18 +165,18 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
                                     <Text size="2" weight="bold" display="block">Active Status</Text>
                                     <Text size="1" color="gray">Active departments appear in selections and reports</Text>
                                 </Box>
-                                <Switch checked={formData.is_active} onCheckedChange={checked => handleChange('is_active', checked)} color="green" disabled={readOnly || loading} />
+                                <Switch checked={formData.is_active} onCheckedChange={checked => handleChange('is_active', checked)} color="green" disabled={readOnly || isMutating} />
                             </Flex>
                         </Box>
                     </Grid>
 
                     <Flex justify="end" gap="3" mt="5">
-                        <Button variant="soft" color="gray" type="button" onClick={onClose} disabled={loading}>
+                        <Button variant="soft" color="gray" type="button" onClick={onClose} disabled={isMutating}>
                             {readOnly ? 'Close' : 'Cancel'}
                         </Button>
                         {!readOnly && (
-                            <Button type="submit" color="indigo" disabled={loading}>
-                                {loading ? <Spinner size="1" /> : (department ? 'Update Department' : 'Create Department')}
+                            <Button type="submit" color="indigo" disabled={isMutating}>
+                                {isMutating ? <Spinner size="1" /> : (department ? 'Update Department' : 'Create Department')}
                             </Button>
                         )}
                     </Flex>

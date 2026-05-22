@@ -2,7 +2,6 @@ import React from 'react';
 import { Flex, Text } from '@radix-ui/themes';
 import { HomeIcon } from '@radix-ui/react-icons';
 import { Link, usePage } from '@inertiajs/react';
-import { motion } from 'framer-motion';
 import { getPages } from '@/Props/pages.jsx';
 
 const Breadcrumb = () => {
@@ -161,10 +160,7 @@ const Breadcrumb = () => {
     const breadcrumbs = generateBreadcrumbs();
 
     return (
-        <motion.nav
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
+        <nav
             aria-label="Breadcrumb"
             style={{ padding: '6px 16px' }}
         >
@@ -195,7 +191,7 @@ const Breadcrumb = () => {
                     </React.Fragment>
                 ))}
             </Flex>
-        </motion.nav>
+        </nav>
     );
 };
 

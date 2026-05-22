@@ -11,7 +11,9 @@ import {
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
+import { useAttendanceStore } from '@/store/attendanceStore';
+import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 
 /* ── status map ───────────────────────────────────────────── */
 const STATUS_MAP = {
@@ -391,13 +393,14 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
     const canViewAll  = auth.permissions?.includes('attendance.view') || false;
     const isAdminView = canViewAll && url !== '/attendance-employee';
 
-    const [rows,       setRows]       = useState([]);
-    const [leaveTypes, setLeaveTypes] = useState([]);
-    const [leaveCounts,setLeaveCounts]= useState({});
-    const [settings,   setSettings]   = useState(null);
-    const [loading,    setLoading]    = useState(false);
-    const [employee,   setEmployee]   = useState('');
-    const [downloading,setDownloading]= useState('');
+    // Zustand store for shared state
+    const { employeeQuery, setEmployeeQuery } = useAttendanceStore();
+
+    const [downloading, setDownloading] = useState('');
+
+    // React Query mutation
+    const exportMonthlyCalendar = useAttendanceQuery.useExportMonthlyCalendar();
+    const isMutating = exportMonthlyCalendar.isPending;
 
     /* responsive detection */
     const isMobile = useMediaQuery('(max-width: 767px)');
@@ -407,65 +410,34 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
     const monthNum = dayjs(selectedMonth + '-01').month() + 1;
     const daysInMonth = dayjs(selectedMonth + '-01').daysInMonth();
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    // React Query hooks
+    const { data: monthlySummaryData, isLoading, refetch } = useAttendanceQuery.useMonthlySummary({
+        month: monthNum,
+        year: yearNum,
+    });
+
+    // Derived state from React Query data
+    const rows = monthlySummaryData?.data || [];
+    const leaveTypes = monthlySummaryData?.leaveTypes || [];
+    const leaveCounts = monthlySummaryData?.leaveCounts || {};
+    const settings = monthlySummaryData?.settings || null;
     const weekendDays = settings?.weekend_days || [];
-
-    /* fetch */
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [monthNum2, yearNum2] = [
-                dayjs(selectedMonth + '-01').format('MM'),
-                dayjs(selectedMonth + '-01').year(),
-            ];
-            const [attRes, settingsRes] = await Promise.all([
-                isAdminView
-                    ? axios.get(route('attendancesAdmin.paginate'), {
-                        params: {
-                            page: 1, perPage: 200,
-                            employee,
-                            currentYear:  yearNum2,
-                            currentMonth: monthNum2,
-                        },
-                    })
-                    : axios.get(route('getCurrentUserAttendanceForDate'), {
-                        params: { currentMonth: monthNum2, currentYear: yearNum2 },
-                    }),
-                axios.get('/settings/attendance', {
-                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                }),
-            ]);
-            setRows(attRes.data.data          || []);
-            setLeaveTypes(attRes.data.leaveTypes || []);
-            setLeaveCounts(attRes.data.leaveCounts || {});
-            if (settingsRes.data?.attendanceSettings) {
-                setSettings(settingsRes.data.attendanceSettings);
-            }
-        } catch (e) {
-            console.error('Monthly calendar fetch error:', e);
-        } finally {
-            setLoading(false);
-        }
-    }, [selectedMonth, employee]);
-
-    useEffect(() => { fetchData(); }, [fetchData]);
 
     /* export */
     const exportFile = useCallback(async (type) => {
         setDownloading(type);
         try {
-            const ep   = type === 'excel' ? route('attendance.exportAdminExcel') : route('attendance.exportAdminPdf');
             const mime = type === 'pdf'   ? 'application/pdf'                    : undefined;
             const ext  = type === 'excel' ? 'xlsx'                               : 'pdf';
-            const { data } = await axios.get(ep, {
-                params: { month: selectedMonth }, responseType: 'blob',
-            });
+            const { data } = await exportMonthlyCalendar.mutateAsync({ month: selectedMonth, type });
             const url = window.URL.createObjectURL(new Blob([data], mime ? { type: mime } : undefined));
             const a = document.createElement('a');
             a.href = url;
             a.download = `Admin_Attendance_${selectedMonth}.${ext}`;
             document.body.appendChild(a); a.click(); a.remove();
             window.URL.revokeObjectURL(url);
-        } catch { alert(`Failed to export ${type}.`); }
+        } catch { showToast.error(`Failed to export ${type}.`); }
         finally { setDownloading(''); }
     }, [selectedMonth]);
 
@@ -506,8 +478,8 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
                         <TextField.Root
                             size="2"
                             placeholder="Search employee…"
-                            value={employee}
-                            onChange={e => setEmployee(e.target.value)}
+                            value={employeeQuery}
+                            onChange={e => setEmployeeQuery(e.target.value)}
                             style={{ width: 200 }}
                         >
                             <TextField.Slot>
@@ -520,7 +492,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
                 {/* right: refresh + export (admin only) */}
                 <Flex gap="2" align="center" wrap="wrap">
                     <Tooltip content="Refresh">
-                        <Button size="2" variant="soft" color="gray" onClick={fetchData}>
+                        <Button size="2" variant="soft" color="gray" onClick={() => refetch()}>
                             <ReloadIcon />
                         </Button>
                     </Tooltip>
@@ -528,7 +500,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
                         <>
                             <Button
                                 size="2" variant="soft" color="green"
-                                disabled={loading || downloading !== ''}
+                                disabled={isLoading || downloading !== ''}
                                 onClick={() => exportFile('excel')}
                             >
                                 <DownloadIcon />
@@ -536,7 +508,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
                             </Button>
                             <Button
                                 size="2" variant="soft" color="red"
-                                disabled={loading || downloading !== ''}
+                                disabled={isLoading || downloading !== ''}
                                 onClick={() => exportFile('pdf')}
                             >
                                 <DownloadIcon />
@@ -563,15 +535,15 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
 
             {/* Table / Cards */}
             {isMobile
-                ? <MobileMonthCalendar
+                ? <MobileMonthTable
                     rows={rows} days={days} month={monthNum} year={yearNum}
                     leaveTypes={leaveTypes} leaveCounts={leaveCounts}
-                    weekendDays={weekendDays} loading={loading}
+                    weekendDays={weekendDays} loading={isLoading}
                   />
                 : <DesktopMonthTable
                     rows={rows} days={days} month={monthNum} year={yearNum}
                     leaveTypes={leaveTypes} leaveCounts={leaveCounts}
-                    weekendDays={weekendDays} loading={loading}
+                    weekendDays={weekendDays} loading={isLoading}
                   />
             }
         </Box>
@@ -579,3 +551,4 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
 };
 
 export default MonthlyCalendarTab;
+

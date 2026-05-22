@@ -11,6 +11,7 @@ import {
     LayersIcon, CheckCircledIcon, CrossCircledIcon, 
     PersonIcon, MagnifyingGlassIcon, PlusIcon, Cross2Icon
 } from '@radix-ui/react-icons';
+import * as useDesignationsQuery from '@/api/queries/useDesignationsQuery';
 
 // Placeholder imports for next steps
 import DesignationTable from '../Tables/DesignationTable.jsx';
@@ -28,8 +29,6 @@ const DesignationsTab = ({ isActive }) => {
     const { auth, initialDesignations, departments, allDesignations, designationStats: initialStats } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 767px)');
 
-    const [designationsData, setDesignationsData] = useState(initialDesignations || { data: [], total: 0 });
-    const [loading, setLoading] = useState(false);
     const [modalState, setModalState] = useState({ type: null, designation: null });
 
     const defaultDepartment = useMemo(() => {
@@ -46,39 +45,28 @@ const DesignationsTab = ({ isActive }) => {
 
     const [filters, setFilters] = useState({ search: '', status: 'all', department: defaultDepartment });
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10 });
-    const [stats, setStats] = useState(initialStats || { total: 0, active: 0, inactive: 0, parent_designations: 0 });
 
     const canCreate = auth.permissions?.includes('designations.create') || false;
     const canEdit = auth.permissions?.includes('designations.update') || false;
     const canDelete = auth.permissions?.includes('designations.delete') || false;
 
-    const fetchDesignations = useCallback(async () => {
-        if (!isActive) return;
-        setLoading(true);
-        try {
-            const response = await axios.get(route('designations.json'), {
-                params: {
-                    page: pagination.currentPage,
-                    per_page: pagination.perPage,
-                    search: filters.search,
-                    status: filters.status,
-                    department: filters.department !== 'all' ? filters.department : undefined
-                }
-            });
-            setDesignationsData(response.data.designations || response.data);
-        } catch (error) { showToast.error('Failed to load designations data'); } 
-        finally { setLoading(false); }
-    }, [pagination.currentPage, pagination.perPage, filters, isActive]);
+    // React Query hooks
+    const { data: designationsData, isLoading: loading, refetch } = useDesignationsQuery.useDesignationsList({
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
+        search: filters.search,
+        status: filters.status,
+        department: filters.department !== 'all' ? filters.department : undefined
+    });
 
-    const fetchDesignationStats = useCallback(async () => {
-        if (!isActive) return;
-        try {
-            const response = await axios.get(route('designations.stats'));
-            if (response.status === 200) setStats(response.data.stats);
-        } catch { /* silent */ }
-    }, [isActive]);
+    const { data: stats } = useDesignationsQuery.useDesignationStats();
 
-    useEffect(() => { fetchDesignations(); fetchDesignationStats(); }, [fetchDesignations, fetchDesignationStats]);
+    // Auto-refetch when filters or pagination changes
+    useEffect(() => {
+        if (isActive) {
+            refetch();
+        }
+    }, [pagination.currentPage, pagination.perPage, filters.search, filters.status, filters.department, isActive, refetch]);
 
     const handleFilterChange = (key, value) => { setFilters(prev => ({ ...prev, [key]: value })); setPagination(prev => ({ ...prev, currentPage: 1 })); };
     const clearFilters = () => { setFilters({ search: '', status: 'all', department: 'all' }); setPagination(p => ({ ...p, currentPage: 1 })); };
@@ -86,17 +74,8 @@ const DesignationsTab = ({ isActive }) => {
     const openModal = (type, designation = null) => setModalState({ type, designation });
     const closeModal = () => setModalState({ type: null, designation: null });
 
-    const handleSuccess = (updatedDesignation = null, action = null) => {
-        if (action === 'add' && updatedDesignation) {
-            setDesignationsData(prev => ({ ...prev, data: [updatedDesignation, ...prev.data], total: (prev.total || 0) + 1 }));
-        } else if (action === 'edit' && updatedDesignation) {
-            setDesignationsData(prev => ({ ...prev, data: prev.data.map(d => d.id === updatedDesignation.id ? updatedDesignation : d) }));
-        } else if (action === 'delete' && updatedDesignation) {
-            setDesignationsData(prev => ({ ...prev, data: prev.data.filter(d => d.id !== updatedDesignation.id), total: (prev.total || 1) - 1 }));
-        } else {
-            fetchDesignations();
-            fetchDesignationStats();
-        }
+    const handleSuccess = () => {
+        refetch();
     };
 
     return (

@@ -29,11 +29,9 @@ class LogRequestMiddleware
         }
 
         try {
-            // Limit response body size to avoid storing huge responses
-            $responseBody = $response->getContent();
-            if (strlen($responseBody) > 10000) {
-                $responseBody = substr($responseBody, 0, 10000) . '... [truncated]';
-            }
+            $responseBody = $this->shouldOmitResponseBody($request)
+                ? null
+                : $this->truncateResponseBody($response->getContent());
 
             RequestLog::create([
                 'ip_address' => $request->ip(),
@@ -89,6 +87,42 @@ class LogRequestMiddleware
         }
 
         return false;
+    }
+
+    private function shouldOmitResponseBody(Request $request): bool
+    {
+        $path = $request->path();
+
+        $omitPatterns = [
+            'api/',
+            'login',
+            'logout',
+            'password',
+            'sanctum',
+            'profile',
+            'auth/',
+        ];
+
+        foreach ($omitPatterns as $pattern) {
+            if (str_contains($path, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function truncateResponseBody(?string $responseBody): ?string
+    {
+        if ($responseBody === null || $responseBody === '') {
+            return null;
+        }
+
+        if (strlen($responseBody) > 10000) {
+            return substr($responseBody, 0, 10000).'... [truncated]';
+        }
+
+        return $responseBody;
     }
 
     /**

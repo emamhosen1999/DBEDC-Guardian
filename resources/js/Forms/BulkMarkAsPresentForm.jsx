@@ -1,21 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Button,
-    Input,
-    Textarea,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    Divider,
-    Chip,
-    Checkbox,
-    ScrollShadow,
-    User,
-    Card,
-    CardBody
-} from "@/compat/heroui";
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     UserGroupIcon,
     ClockIcon,
@@ -190,8 +179,8 @@ const BulkMarkAsPresentForm = ({
     );
 
     return (
-        <Modal 
-            isOpen={open} 
+        <Dialog 
+            open={open} 
             onClose={closeModal}
             size="4xl"
             radius={getThemeRadius()}
@@ -211,10 +200,10 @@ const BulkMarkAsPresentForm = ({
                 transform: `scale(var(--scale, 1))`,
             }}
         >
-            <ModalContent>
+            <Dialog.Content>
                 {(onClose) => (
                     <>
-                        <ModalHeader className="flex flex-col gap-1" style={{
+                        <Dialog.Title className="flex flex-col gap-1" style={{
                             borderColor: `var(--theme-divider, #E4E4E7)`,
                             fontFamily: `var(--fontFamily, "Inter")`,
                         }}>
@@ -227,8 +216,8 @@ const BulkMarkAsPresentForm = ({
                                         Bulk Mark as Present
                                     </span>
                                 </div>
-                                <Chip 
-                                    variant="bordered"
+                                <Badge 
+                                    variant="outline"
                                     size="sm"
                                     style={{
                                         borderColor: `var(--theme-primary)`,
@@ -236,12 +225,12 @@ const BulkMarkAsPresentForm = ({
                                     }}
                                 >
                                     {formData.user_ids.length} selected
-                                </Chip>
+                                </Badge>
                             </div>
-                        </ModalHeader>
+                        </Dialog.Title>
                         
                         <form onSubmit={handleSubmit}>
-                            <ModalBody className="py-4 px-4 sm:py-6 sm:px-6" style={{
+                            <Box className="py-4 px-4 sm:py-6 sm:px-6" style={{
                                 fontFamily: `var(--fontFamily, "Inter")`,
                             }}>
                                 <div className="space-y-6">
@@ -263,14 +252,14 @@ const BulkMarkAsPresentForm = ({
                                         
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             {/* Date */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Date"
                                                 type="date"
                                                 value={formData.date}
                                                 onValueChange={(value) => handleFieldChange('date', value)}
                                                 isInvalid={Boolean(errors.date)}
                                                 errorMessage={errors.date}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 startContent={<CalendarDaysIcon className="w-4 h-4 text-default-400" />}
@@ -284,14 +273,14 @@ const BulkMarkAsPresentForm = ({
                                             />
 
                                             {/* Punch In Time */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Punch In Time"
                                                 type="time"
                                                 value={formData.punch_in_time}
                                                 onValueChange={(value) => handleFieldChange('punch_in_time', value)}
                                                 isInvalid={Boolean(errors.punch_in_time)}
                                                 errorMessage={errors.punch_in_time}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 startContent={<ClockIcon className="w-4 h-4 text-default-400" />}
@@ -305,14 +294,14 @@ const BulkMarkAsPresentForm = ({
                                             />
 
                                             {/* Punch Out Time */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Punch Out Time (Optional)"
                                                 type="time"
                                                 value={formData.punch_out_time}
                                                 onValueChange={(value) => handleFieldChange('punch_out_time', value)}
                                                 isInvalid={Boolean(errors.punch_out_time)}
                                                 errorMessage={errors.punch_out_time}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 startContent={<ClockIcon className="w-4 h-4 text-default-400" />}
@@ -328,7 +317,7 @@ const BulkMarkAsPresentForm = ({
                                         </div>
                                     </div>
 
-                                    <Divider style={{ background: `var(--theme-divider)` }} />
+                                    <Separator style={{ background: `var(--theme-divider)` }} />
 
                                     {/* Employee Selection Section */}
                                     <div className="space-y-4">
@@ -390,7 +379,7 @@ const BulkMarkAsPresentForm = ({
                                         )}
                                     </div>
 
-                                    <Divider style={{ background: `var(--theme-divider)` }} />
+                                    <Separator style={{ background: `var(--theme-divider)` }} />
 
                                     {/* Additional Information Section */}
                                     <div className="space-y-4">
@@ -403,13 +392,13 @@ const BulkMarkAsPresentForm = ({
                                         
                                         <div className="grid grid-cols-1 gap-4">
                                             {/* Location */}
-                                            <Input
+                                            <TextField.Root
                                                 label="Location"
                                                 value={formData.location}
                                                 onValueChange={(value) => handleFieldChange('location', value)}
                                                 isInvalid={Boolean(errors.location)}
                                                 errorMessage={errors.location}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 startContent={<MapPinIcon className="w-4 h-4 text-default-400" />}
@@ -430,7 +419,7 @@ const BulkMarkAsPresentForm = ({
                                                 onValueChange={(value) => handleFieldChange('reason', value)}
                                                 isInvalid={Boolean(errors.reason)}
                                                 errorMessage={errors.reason}
-                                                variant="bordered"
+                                                variant="outline"
                                                 size="sm"
                                                 radius={getThemeRadius()}
                                                 minRows={3}
@@ -468,23 +457,23 @@ const BulkMarkAsPresentForm = ({
                                                     </p>
                                                     <div className="flex flex-wrap gap-1">
                                                         {selectedUserDetails.slice(0, 10).map((user) => (
-                                                            <Chip 
+                                                            <Badge 
                                                                 key={user.id}
                                                                 size="sm"
-                                                                variant="flat"
+                                                                variant="soft"
                                                                 color="primary"
                                                             >
                                                                 {user.name}
-                                                            </Chip>
+                                                            </Badge>
                                                         ))}
                                                         {selectedUserDetails.length > 10 && (
-                                                            <Chip 
+                                                            <Badge 
                                                                 size="sm"
-                                                                variant="flat"
-                                                                color="default"
+                                                                variant="soft"
+                                                                color="gray"
                                                             >
                                                                 +{selectedUserDetails.length - 10} more
-                                                            </Chip>
+                                                            </Badge>
                                                         )}
                                                     </div>
                                                 </div>
@@ -492,19 +481,19 @@ const BulkMarkAsPresentForm = ({
                                         </div>
                                     )}
                                 </div>
-                            </ModalBody>
+                            </Box>
                             
-                            <ModalFooter className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
+                            <Flex className="flex flex-col sm:flex-row justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4" style={{
                                 borderColor: `var(--theme-divider, #E4E4E7)`,
                                 fontFamily: `var(--fontFamily, "Inter")`,
                             }}>
                                 <Button
-                                    color="default"
-                                    variant="bordered"
-                                    onPress={onClose}
+                                    color="gray"
+                                    variant="outline"
+                                    onClick={onClose}
                                     radius={getThemeRadius()}
                                     size="sm"
-                                    isDisabled={processing}
+                                    disabled={processing}
                                     style={{
                                         borderRadius: `var(--borderRadius, 8px)`,
                                         fontFamily: `var(--fontFamily, "Inter")`,
@@ -516,8 +505,8 @@ const BulkMarkAsPresentForm = ({
                                     type="submit"
                                     color="primary"
                                     variant="solid"
-                                    isLoading={processing}
-                                    isDisabled={processing || formData.user_ids.length === 0}
+                                    loading={processing}
+                                    disabled={processing || formData.user_ids.length === 0}
                                     radius={getThemeRadius()}
                                     size="sm"
                                     style={{
@@ -527,12 +516,12 @@ const BulkMarkAsPresentForm = ({
                                 >
                                     {processing ? 'Processing...' : `Mark ${formData.user_ids.length} Employee${formData.user_ids.length !== 1 ? 's' : ''} as Present`}
                                 </Button>
-                            </ModalFooter>
+                            </Flex>
                         </form>
                     </>
                 )}
-            </ModalContent>
-        </Modal>
+            </Dialog.Content>
+        </Dialog>
     );
 };
 

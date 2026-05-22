@@ -12,6 +12,8 @@ import {
     MagnifyingGlassIcon, PlusIcon, Cross2Icon, MixerHorizontalIcon,
     TableIcon, StackIcon, Pencil1Icon, SewingPinIcon
 } from '@radix-ui/react-icons';
+import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
+import QueryState from '@/Components/Common/QueryState';
 
 // Placeholder imports for next steps
 import DepartmentTable from '../Tables/DepartmentTable.jsx';
@@ -77,9 +79,6 @@ const DepartmentsTab = ({ isActive }) => {
     const isMobile = useMediaQuery('(max-width: 639px)');
     const isTablet = useMediaQuery('(max-width: 767px)');
 
-    const [departmentsData, setDepartmentsData] = useState(initialDepartments || { data: [], total: 0 });
-    const [loading, setLoading] = useState(false);
-    const [stats, setStats] = useState(initialStats || { total: 0, active: 0, inactive: 0, parent_departments: 0 });
     const [modalState, setModalState] = useState({ type: null, department: null });
 
     const [viewMode, setViewMode] = useState('table');
@@ -91,27 +90,23 @@ const DepartmentsTab = ({ isActive }) => {
     const canEdit = auth.permissions?.includes('departments.update') || false;
     const canDelete = auth.permissions?.includes('departments.delete') || false;
 
-    const fetchDepartments = useCallback(async () => {
-        if (!isActive) return;
-        setLoading(true);
-        try {
-            const { data } = await axios.get(route('api.departments'), {
-                params: { page: pagination.currentPage, per_page: pagination.perPage, search: filters.search, status: filters.status, parent_department: filters.parentDepartment }
-            });
-            setDepartmentsData(data.departments);
-        } catch { showToast.error('Failed to load departments data'); }
-        finally { setLoading(false); }
-    }, [pagination.currentPage, pagination.perPage, filters, isActive]);
+    // React Query hooks
+    const { data: departmentsData, isLoading: loading, isError, error, refetch } = useDepartmentsQuery.useDepartmentsList({
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
+        search: filters.search,
+        status: filters.status,
+        parent_department: filters.parentDepartment
+    });
 
-    const fetchDepartmentStats = useCallback(async () => {
-        if (!isActive) return;
-        try {
-            const { data } = await axios.get(route('departments.stats'));
-            setStats(data.stats);
-        } catch { /* silent */ }
-    }, [isActive]);
+    const { data: stats } = useDepartmentsQuery.useDepartmentStats();
 
-    useEffect(() => { fetchDepartments(); fetchDepartmentStats(); }, [fetchDepartments, fetchDepartmentStats]);
+    // Auto-refetch when filters or pagination changes
+    useEffect(() => {
+        if (isActive) {
+            refetch();
+        }
+    }, [pagination.currentPage, pagination.perPage, filters.search, filters.status, filters.parentDepartment, isActive, refetch]);
 
     const handleFilterChange = (key, value) => { setFilters(p => ({ ...p, [key]: value })); setPagination(p => ({ ...p, currentPage: 1 })); };
     const clearFilters = () => { setFilters({ search: '', status: 'all', parentDepartment: 'all' }); setPagination(p => ({ ...p, currentPage: 1 })); };
@@ -121,18 +116,20 @@ const DepartmentsTab = ({ isActive }) => {
     const closeModal = () => setModalState({ type: null, department: null });
 
     const handleSuccess = () => {
-        fetchDepartments();
-        fetchDepartmentStats();
+        refetch();
     };
+
+    const departmentRows = departmentsData?.data ?? [];
+    const isEmpty = !loading && !isError && departmentRows.length === 0;
 
     return (
         <Box>
             {/* Quick Stats */}
             <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total" value={stats.total} color="blue" />
-                <StatPill label="Active" value={stats.active} color="green" />
-                <StatPill label="Inactive" value={stats.inactive} color="red" />
-                <StatPill label="Top-Level" value={stats.parent_departments} color="indigo" />
+                <StatPill label="Total" value={stats?.total ?? 0} color="blue" />
+                <StatPill label="Active" value={stats?.active ?? 0} color="green" />
+                <StatPill label="Inactive" value={stats?.inactive ?? 0} color="red" />
+                <StatPill label="Top-Level" value={stats?.parent_departments ?? 0} color="indigo" />
             </Flex>
 
             {/* Toolbar */}
@@ -198,31 +195,36 @@ const DepartmentsTab = ({ isActive }) => {
             )}
 
             {/* Content Area */}
-            {loading && departmentsData.data?.length === 0 ? (
-                <Flex direction="column" align="center" justify="center" py="9" gap="3">
-                    <Spinner size="3" />
-                    <Text color="gray" size="2">Loading departments…</Text>
-                </Flex>
-            ) : viewMode === 'grid' ? (
-                <Grid columns={{ initial: '1', sm: '2', lg: '3', xl: '4' }} gap="4" mb="4">
-                    {departmentsData.data?.map(dept => (
-                        <DepartmentCard key={dept.id} department={dept} onEdit={(d) => openModal('edit_department', d)} onView={(d) => openModal('view_department', d)} />
-                    ))}
-                </Grid>
-            ) : (
-                <DepartmentTable
-                    departments={departmentsData}
-                    loading={loading}
-                    onEdit={canEdit ? (d) => openModal('edit_department', d) : undefined}
-                    onDelete={canDelete ? (d) => openModal('delete_department', d) : undefined}
-                    onView={(d) => openModal('view_department', d)}
-                    isMobile={isMobile}
-                    isTablet={isTablet}
-                    pagination={pagination}
-                    onPageChange={(page) => setPagination(p => ({ ...p, currentPage: page }))}
-                    onRowsPerPageChange={(perPage) => setPagination(p => ({ ...p, perPage, currentPage: 1 }))}
-                />
-            )}
+            <QueryState
+                isLoading={loading}
+                isError={isError}
+                error={error}
+                isEmpty={isEmpty}
+                emptyMessage="No departments match your filters."
+                onRetry={() => refetch()}
+                minHeight={200}
+            >
+                {viewMode === 'grid' ? (
+                    <Grid columns={{ initial: '1', sm: '2', lg: '3', xl: '4' }} gap="4" mb="4">
+                        {departmentRows.map(dept => (
+                            <DepartmentCard key={dept.id} department={dept} onEdit={(d) => openModal('edit_department', d)} onView={(d) => openModal('view_department', d)} />
+                        ))}
+                    </Grid>
+                ) : (
+                    <DepartmentTable
+                        departments={departmentsData}
+                        loading={loading}
+                        onEdit={canEdit ? (d) => openModal('edit_department', d) : undefined}
+                        onDelete={canDelete ? (d) => openModal('delete_department', d) : undefined}
+                        onView={(d) => openModal('view_department', d)}
+                        isMobile={isMobile}
+                        isTablet={isTablet}
+                        pagination={pagination}
+                        onPageChange={(page) => setPagination(p => ({ ...p, currentPage: page }))}
+                        onRowsPerPageChange={(perPage) => setPagination(p => ({ ...p, perPage, currentPage: 1 }))}
+                    />
+                )}
+            </QueryState>
 
             {/* Modals placeholders */}
             {(modalState.type === 'add_department' || modalState.type === 'edit_department' || modalState.type === 'view_department') && (

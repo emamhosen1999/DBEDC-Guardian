@@ -3,15 +3,25 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Responses\HandlesApiExceptions;
 use App\Models\HRM\LeaveSetting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class LeaveSettingController extends Controller
 {
-    public function index(): \Inertia\Response
+    use HandlesApiExceptions;
+
+    public function index(Request $request): \Inertia\Response|\Illuminate\Http\JsonResponse
     {
-        $leaveSettings = LeaveSetting::all();
+        $leaveSettings = LeaveSetting::orderBy('type')->get();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'data' => $leaveSettings,
+            ]);
+        }
 
         return Inertia::render('Settings/LeaveSettings', [
             'title' => 'Leave Settings',
@@ -50,8 +60,8 @@ class LeaveSettingController extends Controller
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Failed to add leave type. Please try again.',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -87,9 +97,12 @@ class LeaveSettingController extends Controller
                 'message' => 'Leave type updated successfully.',
             ], 200);
         } catch (\Exception $e) {
+            report($e);
+
             return response()->json([
+                'success' => false,
                 'message' => 'Failed to update leave type. Please try again.',
-                'error' => $e->getMessage(),
+                'error_code' => 'LEAVE_TYPE_UPDATE_FAILED',
             ], 500);
         }
     }

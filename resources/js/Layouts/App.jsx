@@ -5,7 +5,8 @@ import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 import { Box, Flex, IconButton, Tooltip } from '@radix-ui/themes';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { MixerHorizontalIcon,  } from '@radix-ui/react-icons';
-import {Toaster} from 'react-hot-toast';
+import RadixToaster from '@/Components/RadixToaster';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 import { getPages } from '@/Props/pages.jsx';
 import Header from '@/Layouts/Header.jsx';
@@ -117,33 +118,11 @@ const App = React.memo(({ children }) => {
                   version={currentVersion}
                 />
 
-              <Toaster
-                richColors
-                closeButton
+              <RadixToaster
                 position="top-right"
                 duration={4000}
-                theme={settings.appearance}
-                style={{
-                  '--border-radius': 'var(--radius-3)',
-                  '--normal-bg':      'var(--color-panel-solid)',
-                  '--normal-border':  'var(--gray-a5)',
-                  '--normal-text':    'var(--gray-12)',
-                  '--success-bg':     'var(--green-a3)',
-                  '--success-border': 'var(--green-a6)',
-                  '--success-text':   'var(--green-11)',
-                  '--error-bg':       'var(--red-a3)',
-                  '--error-border':   'var(--red-a6)',
-                  '--error-text':     'var(--red-11)',
-                  '--warning-bg':     'var(--amber-a3)',
-                  '--warning-border': 'var(--amber-a6)',
-                  '--warning-text':   'var(--amber-11)',
-                  '--info-bg':        'var(--accent-a3)',
-                  '--info-border':    'var(--accent-a6)',
-                  '--info-text':      'var(--accent-11)',
-                }}
-                toastOptions={{
-                  style: { fontFamily: 'inherit' },
-                }}
+                richColors
+                closeButton
               />
 
               {/* Mobile sidebar overlay — CSS opacity transition */}
@@ -214,9 +193,11 @@ const App = React.memo(({ children }) => {
                   role="main"
                   aria-label="Main content"
                 >
-                  <PageContent url={url}>
-                    {children}
-                  </PageContent>
+                  <ErrorBoundary>
+                    <PageContent url={url}>
+                      {children}
+                    </PageContent>
+                  </ErrorBoundary>
                 </Box>
 
                 {/* Mobile bottom nav */}

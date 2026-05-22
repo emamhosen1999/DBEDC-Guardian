@@ -1,104 +1,45 @@
-import { Button, Spinner } from "@/compat/heroui";
-import GlassDialog from "@/Components/GlassDialog.jsx";
-import React from "react";
-import { showToast } from "@/utils/toastUtils";
+import React, { useState } from 'react';
+import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
+import DeleteConfirmDialog from '@/Components/Common/DeleteConfirmDialog.jsx';
 
+const DeletePicnicParticipantForm = ({ open, handleClose, leaveIdToDelete, setLeavesData }) => {
+    const [deleting, setDeleting] = useState(false);
 
+    const handleDelete = async () => {
+        if (!leaveIdToDelete) {
+            showToast.error('Invalid participant ID provided');
+            return;
+        }
 
-const DeleteLeaveForm = ({ open, handleClose, leaveIdToDelete, setLeavesData }) => {
+        setDeleting(true);
+        try {
+            const response = await axios.delete(route('leave-delete', { id: leaveIdToDelete, route: route().current() }));
 
-    const handleDelete = () => {
-        const promise = new Promise(async (resolve, reject) => {
-            try {
-                const response = await axios.delete(route('leave-delete', { id: leaveIdToDelete, route: route().current() }));
-
-                if (response.status === 200) {
-                    // Assuming dailyWorkData contains the updated list of daily works after deletion
-                    setLeavesData(response.data.leavesData);
-                    resolve('Leave application deleted successfully');
-                }
-            } catch (error) {
-                console.error('Error deleting task:', error);
-                reject(error.response.data.error || 'Failed to delete leave application');
-            } finally {
-                handleClose();
+            if (response.status === 200) {
+                setLeavesData(response.data.leavesData);
+                showToast.success('Leave application deleted successfully');
             }
-        });
-
-        showToast.promise(
-            promise,
-            {
-                pending: {
-                    render() {
-                        return (
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                <CircularProgress />
-                                <span style={{ marginLeft: '8px' }}>Deleting leave application...</span>
-                            </div>
-                        );
-                    },
-                    icon: false,
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary,
-                    },
-                },
-                success: {
-                    render({ data }) {
-                        return <>{data}</>;
-                    },
-                    icon: '🟢',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary,
-                    },
-                },
-                error: {
-                    render({ data }) {
-                        return <>{data}</>;
-                    },
-                    icon: '🔴',
-                    style: {
-                        backdropFilter: 'blur(16px) saturate(200%)',
-                        background: theme.glassCard.background,
-                        border: theme.glassCard.border,
-                        color: theme.palette.text.primary,
-                    },
-                },
-            }
-        );
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            showToast.error(error.response?.data?.error || 'Failed to delete leave application');
+        } finally {
+            setDeleting(false);
+            handleClose();
+        }
     };
-    return(
-        <GlassDialog
+
+    return (
+        <DeleteConfirmDialog
             open={open}
             onClose={handleClose}
-            aria-labelledby="alert-dialog-title"
-            aria-describedby="alert-dialog-description"
-        >
-            <DialogTitle id="alert-dialog-title">
-                {"Confirm Deletion"}
-            </DialogTitle>
-            <DialogContent>
-                <DialogContentText id="alert-dialog-description">
-                    Are you sure you want to delete this leave? This action cannot be undone.
-                </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={handleClose} color="primary">
-                    Cancel
-                </Button>
-                <Button onClick={handleDelete} color="error" autoFocus>
-                    Delete
-                </Button>
-            </DialogActions>
-        </GlassDialog>
-
+            onConfirm={handleDelete}
+            title="Confirm deletion"
+            description="Are you sure you want to delete this leave? This action cannot be undone."
+            confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+            loading={deleting}
+        />
     );
-}
+};
 
-
-export default DeleteLeaveForm;
+export default DeletePicnicParticipantForm;

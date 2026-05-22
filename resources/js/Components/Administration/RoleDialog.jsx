@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
     Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     TextField,
     Button,
-    CircularProgress,
+    Flex,
+    Text,
     IconButton,
-    Typography,
-    Box
-} from '@mui/material';
+    Spinner,
+    TextArea,
+} from '@radix-ui/themes';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+
+const fieldError = (errors, field) => {
+    const e = errors[field];
+    if (!e) return null;
+    return Array.isArray(e) ? e[0] : e;
+};
 
 const RoleDialog = ({ open, onClose, onSave, role, title, isEdit }) => {
     const [formData, setFormData] = useState({
@@ -66,85 +70,64 @@ const RoleDialog = ({ open, onClose, onSave, role, title, isEdit }) => {
     };
 
     return (
-        <Dialog 
-            open={open} 
-            onClose={onClose} 
-            maxWidth="sm" 
-            fullWidth
-            PaperProps={{
-                sx: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)'
-                }
-            }}
-        >
-            <DialogTitle>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6" component="div">
-                        {title}
-                    </Typography>
-                    <IconButton onClick={onClose} size="small">
-                        <XMarkIcon className="w-5 h-5" />
-                    </IconButton>
-                </Box>
-            </DialogTitle>
+        <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+            <Dialog.Content style={{ maxWidth: 480 }}>
+                <Flex justify="between" align="center" mb="3">
+                    <Dialog.Title>{title}</Dialog.Title>
+                    <Dialog.Close>
+                        <IconButton variant="ghost" color="gray" aria-label="Close">
+                            <XMarkIcon className="w-5 h-5" />
+                        </IconButton>
+                    </Dialog.Close>
+                </Flex>
 
-            <form onSubmit={handleSubmit}>
-                <DialogContent>
-                    <Box display="flex" flexDirection="column" gap={3}>
-                        <TextField
-                            label="Role Name"
-                            value={formData.name}
-                            onChange={handleChange('name')}
-                            error={!!errors.name}
-                            helperText={errors.name?.[0]}
-                            disabled={processing}
-                            required
-                            fullWidth
-                            autoFocus
-                        />
-                        
-                        <TextField
-                            label="Description"
-                            value={formData.description}
-                            onChange={handleChange('description')}
-                            error={!!errors.description}
-                            helperText={errors.description?.[0]}
-                            disabled={processing}
-                            multiline
-                            rows={3}
-                            fullWidth
-                        />
-                    </Box>
-                </DialogContent>
+                <form onSubmit={handleSubmit}>
+                    <Flex direction="column" gap="4">
+                        <BoxField label="Role Name" required error={fieldError(errors, 'name')}>
+                            <TextField.Root
+                                value={formData.name}
+                                onChange={handleChange('name')}
+                                disabled={processing}
+                                autoFocus
+                            />
+                        </BoxField>
 
-                <DialogActions sx={{ p: 3, pt: 1 }}>
-                    <Button 
-                        onClick={onClose} 
-                        disabled={processing}
-                        variant="outlined"
-                    >
-                        Cancel
-                    </Button>
-                    <Button 
-                        type="submit" 
-                        disabled={processing || !formData.name.trim()}
-                        variant="contained"
-                        startIcon={processing && <CircularProgress size={20} />}
-                        sx={{
-                            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                            '&:hover': {
-                                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                            }
-                        }}
-                    >
-                        {processing ? 'Saving...' : (isEdit ? 'Update' : 'Create')}
-                    </Button>
-                </DialogActions>
-            </form>
-        </Dialog>
+                        <BoxField label="Description" error={fieldError(errors, 'description')}>
+                            <TextArea
+                                value={formData.description}
+                                onChange={handleChange('description')}
+                                disabled={processing}
+                                rows={3}
+                            />
+                        </BoxField>
+                    </Flex>
+
+                    <Flex gap="3" justify="end" mt="5">
+                        <Button type="button" variant="soft" color="gray" onClick={onClose} disabled={processing}>
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={processing || !formData.name.trim()}
+                        >
+                            {processing && <Spinner size="1" />}
+                            {processing ? 'Saving...' : (isEdit ? 'Update' : 'Create')}
+                        </Button>
+                    </Flex>
+                </form>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
+
+const BoxField = ({ label, required, error, children }) => (
+    <Flex direction="column" gap="1">
+        <Text as="label" size="2" weight="medium">
+            {label}{required && <Text color="red"> *</Text>}
+        </Text>
+        {children}
+        {error && <Text size="1" color="red">{error}</Text>}
+    </Flex>
+);
 
 export default RoleDialog;

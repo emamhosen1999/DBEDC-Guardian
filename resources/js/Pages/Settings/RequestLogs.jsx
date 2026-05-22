@@ -4,7 +4,8 @@ import { route } from 'ziggy-js';
 import App from '@/Layouts/App';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import axios from 'axios';
+
+import * as useRequestLogsQuery from '@/api/queries/useRequestLogsQuery';
 import TablePagination from '@/Components/TablePagination.jsx';
 import {
     Box,
@@ -33,13 +34,12 @@ import {
     EyeOpenIcon,
     ActivityLogIcon,
 } from '@radix-ui/react-icons';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 const RequestLogs = ({ title }) => {
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isTablet = useMediaQuery('(max-width: 1024px)');
 
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [selectedLogs, setSelectedLogs] = useState(new Set());
     const [showDetails, setShowDetails] = useState(null);
     const [confirmClearAll, setConfirmClearAll] = useState(false);
@@ -60,43 +60,47 @@ const RequestLogs = ({ title }) => {
         total: 0,
     });
 
-    const loadLogs = useCallback(async (page = 1) => {
-        setLoading(true);
-        try {
-            const { data } = await axios.get(route('request-logs.list'), {
-                params: {
-                    page,
-                    per_page: pagination.per_page,
-                    ...filters,
-                },
-            });
-            setLogs(data.data);
-            setPagination({
-                current_page: data.current_page,
-                per_page: data.per_page,
-                total: data.total,
-            });
-        } catch {
-            showToast.error('Failed to load logs.');
-        } finally {
-            setLoading(false);
-        }
-    }, [filters, pagination.per_page]);
+    // React Query hook
+    const { data: logsData, isLoading: loading, refetch } = useRequestLogsQuery.useRequestLogsList({
+        page: pagination.current_page,
+        per_page: pagination.per_page,
+        ...filters,
+    });
+
+    const deleteLogMutation = useRequestLogsQuery.useDeleteLog();
+    const bulkDeleteLogs = useRequestLogsQuery.useBulkDeleteLogs();
+    const clearAllLogsMutation = useRequestLogsQuery.useClearAllLogs();
+    const exportLogsMutation = useRequestLogsQuery.useExportLogs();
+    const isMutating = deleteLogMutation.isPending || bulkDeleteLogs.isPending || clearAllLogsMutation.isPending || exportLogsMutation.isPending;
+
+    const logs = logsData?.data || [];
+    const paginationData = logsData || { current_page: 1, per_page: 50, total: 0 };
+
+    // Update pagination when data changes
+    useEffect(() => {
+        setPagination({
+            current_page: paginationData.current_page,
+            per_page: paginationData.per_page,
+            total: paginationData.total,
+        });
+    }, [paginationData]);
 
     const handleRowsPerPageChange = (newPerPage) => {
-        setPagination(prev => ({ ...prev, per_page: newPerPage }));
-        loadLogs(1);
+        setPagination(prev => ({ ...prev, per_page: newPerPage, current_page: 1 }));
     };
 
     useEffect(() => {
-        loadLogs(1);
+        refetch();
     }, []);
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
     };
 
-    const applyFilters = () => loadLogs(1);
+    const applyFilters = () => {
+        setPagination(prev => ({ ...prev, current_page: 1 }));
+        refetch();
+    };
 
     const resetFilters = () => {
         setFilters({
@@ -108,7 +112,7 @@ const RequestLogs = ({ title }) => {
             start_date: '',
             end_date: '',
         });
-        loadLogs(1);
+        refetch();
     };
 
     const toggleLogSelection = (id) => {
@@ -129,12 +133,12 @@ const RequestLogs = ({ title }) => {
         }
     };
 
-    const deleteLog = async (id) => {
+    const handleDeleteLog = async (id) => {
         if (!confirm('Delete this log?')) return;
         try {
-            await axios.delete(route('request-logs.destroy', id));
+            await deleteLogMutation.mutateAsync(id);
             showToast.success('Log deleted.');
-            loadLogs(pagination.current_page);
+            refetch();
         } catch {
             showToast.error('Failed to delete log.');
         }
@@ -144,29 +148,29 @@ const RequestLogs = ({ title }) => {
         if (selectedLogs.size === 0) return;
         if (!confirm(`Delete ${selectedLogs.size} selected logs?`)) return;
         try {
-            await axios.post(route('request-logs.bulk-delete'), { ids: Array.from(selectedLogs) });
+            await bulkDeleteLogs.mutateAsync(Array.from(selectedLogs));
             showToast.success('Logs deleted.');
             setSelectedLogs(new Set());
-            loadLogs(pagination.current_page);
+            refetch();
         } catch {
             showToast.error('Failed to delete logs.');
         }
     };
 
-    const clearAllLogs = async () => {
+    const handleClearAllLogs = async () => {
         try {
-            await axios.post(route('request-logs.clear-all'), { confirm: 'DELETE_ALL' });
+            await clearAllLogsMutation.mutateAsync();
             showToast.success('All logs cleared.');
             setConfirmClearAll(false);
-            loadLogs(1);
+            refetch();
         } catch {
             showToast.error('Failed to clear logs.');
         }
     };
 
-    const exportLogs = async () => {
+    const handleExportLogs = async () => {
         try {
-            const { data } = await axios.get(route('request-logs.export'), {
+            const data = await exportLogsMutation.mutateAsync({
                 params: filters,
                 responseType: 'blob',
             });
@@ -185,7 +189,7 @@ const RequestLogs = ({ title }) => {
 
     const viewDetails = async (id) => {
         try {
-            const { data } = await axios.get(route('request-logs.show', id));
+            const { data } = await useRequestLogsQuery.useLogDetails(id);
             setShowDetails(data);
         } catch {
             showToast.error('Failed to load log details.');
@@ -219,6 +223,7 @@ const RequestLogs = ({ title }) => {
         <>
             <Head title={title} />
             <App>
+                <ErrorBoundary>
                 <Flex justify="center" p="4">
                     <Box style={{ width: '100%', maxWidth: 2000 }}>
                         <Card>
@@ -267,7 +272,7 @@ const RequestLogs = ({ title }) => {
 
                                     {/* Actions */}
                                     <Flex align="center" gap="3" wrap="wrap">
-                                        <Button size={{ initial: '1', md: '2' }} variant="soft" color="green" onClick={exportLogs}>
+                                        <Button size={{ initial: '1', md: '2' }} variant="soft" color="green" onClick={handleExportLogs}>
                                             <DownloadIcon width={16} height={16} />
                                             {!isMobile && 'Export'}
                                         </Button>
@@ -275,7 +280,7 @@ const RequestLogs = ({ title }) => {
                                             size={{ initial: '1', md: '2' }}
                                             variant="soft"
                                             color="blue"
-                                            onClick={() => loadLogs(pagination.current_page)}
+                                            onClick={() => refetch()}
                                             disabled={loading}
                                         >
                                             <ReloadIcon
@@ -556,7 +561,7 @@ const RequestLogs = ({ title }) => {
                                                                     size="1"
                                                                     variant="ghost"
                                                                     color="red"
-                                                                    onClick={() => deleteLog(log.id)}
+                                                                    onClick={() => handleDeleteLog(log.id)}
                                                                 >
                                                                     <TrashIcon width={14} height={14} />
                                                                 </IconButton>
@@ -589,7 +594,7 @@ const RequestLogs = ({ title }) => {
                                             perPage: pagination.per_page,
                                             total: pagination.total
                                         }}
-                                        onPageChange={(page) => loadLogs(page)}
+                                        onPageChange={(page) => { setPagination(prev => ({ ...prev, current_page: page })); refetch(); }}
                                         onRowsPerPageChange={handleRowsPerPageChange}
                                         loading={loading}
                                     />
@@ -776,7 +781,7 @@ const RequestLogs = ({ title }) => {
                             <Dialog.Close>
                                 <Button variant="soft" color="gray">Cancel</Button>
                             </Dialog.Close>
-                            <Button color="red" variant="solid" onClick={clearAllLogs}>
+                            <Button color="red" variant="solid" onClick={handleClearAllLogs}>
                                 <TrashIcon width={14} height={14} />
                                 Delete All Logs
                             </Button>
@@ -790,6 +795,7 @@ const RequestLogs = ({ title }) => {
                         to { transform: rotate(360deg); }
                     }
                 `}</style>
+                </ErrorBoundary>
             </App>
         </>
     );

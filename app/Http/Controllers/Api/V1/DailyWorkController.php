@@ -14,9 +14,12 @@ use App\Http\Requests\Api\V1\UpdateDailyWorkAssignedRequest;
 use App\Http\Requests\Api\V1\UpdateDailyWorkInchargeRequest;
 use App\Http\Requests\Api\V1\UpdateDailyWorkStatusRequest;
 use App\Http\Requests\Api\V1\UploadDailyWorkObjectionFilesRequest;
+use App\Http\Responses\ApiResponse;
 use App\Models\DailyWork;
 use App\Models\RfiObjection;
 use App\Models\User;
+use App\Repositories\DailyWorkRepository;
+use App\Services\DailyWork\DailyWorkQueryService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +29,11 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DailyWorkController extends Controller
 {
+    use ApiResponse;
+
+    protected DailyWorkRepository $dailyWorkRepository;
+    protected DailyWorkQueryService $dailyWorkQueryService;
+
     /**
      * @var array<int, array<int, array{id:int,name:string}>>
      */
@@ -35,6 +43,14 @@ class DailyWorkController extends Controller
      * @var array<int, array{id:int,name:string}>|null
      */
     private ?array $inchargeCandidatesCache = null;
+
+    public function __construct(
+        DailyWorkRepository $dailyWorkRepository,
+        DailyWorkQueryService $dailyWorkQueryService
+    ) {
+        $this->dailyWorkRepository = $dailyWorkRepository;
+        $this->dailyWorkQueryService = $dailyWorkQueryService;
+    }
 
     public function index(ListDailyWorksRequest $request): JsonResponse
     {

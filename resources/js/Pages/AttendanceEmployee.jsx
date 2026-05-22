@@ -1,14 +1,14 @@
-import React, { useState, useCallback } from 'react';
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from '@inertiajs/react';
-import { motion } from 'framer-motion';
 import axios from 'axios';
-import { 
-  Card, 
-  CardBody, 
-  CardHeader,
-  Input,
-} from "@/compat/heroui";
+
 import App from "@/Layouts/App.jsx";
 import StatsCards from '@/Components/StatsCards.jsx';
 import AttendanceEmployeeTable from "@/Tables/AttendanceEmployeeTable.jsx";
@@ -22,6 +22,9 @@ import {
   PresentationChartLineIcon,
   UserIcon
 } from '@heroicons/react/24/outline';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import { useAttendanceStore } from '@/store/attendanceStore';
+import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 
 const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, absentDays, lateArrivals }) => {
     const { auth } = usePage().props;
@@ -49,11 +52,21 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         currentMonth: new Date().toISOString().slice(0, 7), // YYYY-MM format
     });
 
-    const [stats, setStats] = useState({
+    // React Query hook for monthly stats
+    const yearNum = new Date(filterData.currentMonth).getFullYear();
+    const monthNum = String(new Date(filterData.currentMonth).getMonth() + 1).padStart(2, '0');
+    
+    const { data: monthlyStatsData, isLoading, refetch } = useAttendanceQuery.useMonthlySummary({
+        month: parseInt(monthNum),
+        year: yearNum,
+    });
+
+    // Derived state from React Query data
+    const stats = monthlyStatsData || {
         meta: { month: '', workingDays: 0, holidays: 0, weekends: 0 },
         attendance: { present: 0, absent: 0, leaves: 0, lateArrivals: 0, percentage: 0 },
         hours: { totalWork: 0, averageDaily: 0, overtime: 0 }
-    });
+    };
 
     const handleDateChange = (event) => {
         const newDate = event.target.value;
@@ -70,33 +83,10 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         }));
     }, []);
 
-    
-
-    
-
-    // ... date change handlers ...
-
-    // 2. UPDATED FETCH FUNCTION
-    const fetchMonthlyStats = useCallback(async () => {
-        try {
-            const response = await axios.get(route('attendance.myMonthlyStats'), {
-                params: {
-                    currentYear: new Date(filterData.currentMonth).getFullYear(),
-                    currentMonth: String(new Date(filterData.currentMonth).getMonth() + 1).padStart(2, '0'),
-                }
-            });
-
-            if (response.data.success) {
-                setStats(response.data.data); // Set the structured data directly
-            }
-        } catch (error) {
-            console.error('Failed to fetch stats:', error);
-        }
-    }, [filterData.currentMonth]);
-
+    // Auto-refetch when month changes
     useEffect(() => {
-        fetchMonthlyStats();
-    }, [fetchMonthlyStats]); 
+        refetch();
+    }, [filterData.currentMonth, refetch]); 
 
     // const allStatsData = [
     //     { title: "Working Days", value: attendanceStats.totalWorkingDays, icon: <CalendarDaysIcon />, color: "text-primary", iconBg: "bg-primary/20", description: `Total for ${attendanceStats.month || 'this month'}` },
@@ -184,7 +174,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
             <div className="flex flex-col w-full h-full p-4" role="main" aria-label="My Attendance Management">
                 <div className="space-y-4">
                     <div className="w-full">
-                        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
+                        <div>
                             <Card 
                                 className="transition-all duration-200"
                                 style={{
@@ -231,17 +221,19 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                 </CardHeader>
 
                                 <CardBody className="p-6">
-                                    <StatsCards stats={allStatsData} className="mb-6" />
+                                    <ErrorBoundary>
+                                        <StatsCards stats={allStatsData} className="mb-6" />
+                                    </ErrorBoundary>
                                     
                                     <div className="mb-6">
                                         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
                                             <div className="w-full sm:w-auto sm:min-w-[200px]">
-                                                <Input
+                                                <TextField.Root
                                                     label="Month/Year"
                                                     type="month"
                                                     value={filterData.currentMonth}
                                                     onChange={(e) => handleFilterChange('currentMonth', e.target.value)}
-                                                    variant="bordered"
+                                                    variant="outline"
                                                     size="sm"
                                                     radius={getThemeRadius()}
                                                     startContent={<CalendarDaysIcon className="w-4 h-4 text-default-400" />}
@@ -280,19 +272,21 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                         </CardHeader>
                                         <CardBody>
                                             <div className="max-h-[84vh] overflow-y-auto">
-                                                <AttendanceEmployeeTable 
-                                                    selectedDate={selectedDate} 
-                                                    handleDateChange={handleDateChange}
-                                                    updateTimeSheet={updateTimeSheet}
-                                                    externalFilterData={filterData}
-                                                    // REMOVED KEY PROP to allow internal useEffects to work
-                                                />
+                                                <ErrorBoundary>
+                                                    <AttendanceEmployeeTable
+                                                        selectedDate={selectedDate}
+                                                        handleDateChange={handleDateChange}
+                                                        updateTimeSheet={updateTimeSheet}
+                                                        externalFilterData={filterData}
+                                                        // REMOVED KEY PROP to allow internal useEffects to work
+                                                    />
+                                                </ErrorBoundary>
                                             </div>
                                         </CardBody>
                                     </Card>
                                 </CardBody>
                             </Card>
-                        </motion.div>
+                        </div>
                     </div>
                 </div>
             </div>

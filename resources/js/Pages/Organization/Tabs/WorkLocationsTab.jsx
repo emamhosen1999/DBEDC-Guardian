@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePage } from "@inertiajs/react";
 import axios from "axios";
 import { showToast } from "@/utils/toastUtils";
@@ -11,6 +11,7 @@ import {
     SewingPinIcon, PlusIcon, MagnifyingGlassIcon, 
     Cross2Icon, ReloadIcon, MixIcon
 } from '@radix-ui/react-icons';
+import * as useWorkLocationsQuery from '@/api/queries/useWorkLocationsQuery';
 
 import WorkLocationsTable from '../Tables/WorkLocationsTable.jsx';
 // Placeholders for your modal components
@@ -28,10 +29,6 @@ const WorkLocationsTab = ({ isActive }) => {
     const { auth, users } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 767px)');
 
-    const [allData, setAllData] = useState([]);
-    const [filteredData, setFilteredData] = useState([]);
-    const [loading, setLoading] = useState(false);
-    
     // Modal states
     const [modalType, setModalType] = useState(null); // 'add', 'update', 'delete', null
     const [currentRow, setCurrentRow] = useState(null);
@@ -39,23 +36,15 @@ const WorkLocationsTab = ({ isActive }) => {
 
     const canCreate = auth.permissions?.includes('work_locations.create') || false;
 
-    const fetchData = useCallback(async () => {
-        if (!isActive) return;
-        setLoading(true);
-        try {
-            const response = await axios.get(route('allWorkLocations'));
-            setAllData(response.data.work_locations);
-            setFilteredData(response.data.work_locations);
-        } catch (error) {
-            showToast.error("Failed to load work locations");
-        } finally {
-            setLoading(false);
-        }
-    }, [isActive]);
+    // React Query hooks
+    const { data: allData, isLoading: loading, refetch } = useWorkLocationsQuery.useWorkLocationsList();
 
+    // Auto-refetch when tab becomes active
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (isActive) {
+            refetch();
+        }
+    }, [isActive, refetch]);
 
     // Client-side filtering
     useEffect(() => {

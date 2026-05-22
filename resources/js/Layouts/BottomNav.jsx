@@ -14,7 +14,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
-    if (url.includes('/attendance-employee')) setActiveTab('attendance');
+    if (url.includes('/attendance-employee') || url.includes('/attendance')) setActiveTab('attendance');
     else if (url.includes('/leaves-employee')) setActiveTab('leaves');
     else if (url.includes('/dashboard')) setActiveTab('dashboard');
     else if (url.includes('/profile/')) setActiveTab('profile');
@@ -23,7 +23,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: HomeIcon, href: '/dashboard' },
-    { id: 'attendance', label: 'Attendance', icon: ClockIcon, href: '/attendance-employee' },
+    { id: 'attendance', label: 'Attendance', icon: ClockIcon, href: '/attendance' },
     { id: 'leaves', label: 'Leaves', icon: FileTextIcon, href: '/leaves-employee' },
     { id: 'profile', label: 'Profile', icon: PersonIcon, href: `/profile/${auth?.user?.id}` },
     { id: 'theme', label: 'Theme', icon: GearIcon, action: 'theme' },

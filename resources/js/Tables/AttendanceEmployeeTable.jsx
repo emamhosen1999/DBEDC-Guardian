@@ -1,81 +1,57 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
     Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    User,
-    ScrollShadow,
-    Pagination,
-    Skeleton,
+    ScrollArea,
     Card,
-    Divider,
-    Link,
-    Input
-} from "@/compat/heroui";
-import { usePage } from "@inertiajs/react";
-import dayjs from "dayjs";
+    Flex,
+    Text,
+    Box,
+    Spinner,
+} from '@radix-ui/themes';
+import { usePage } from '@inertiajs/react';
+import dayjs from 'dayjs';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { 
-    MagnifyingGlassIcon,
+import {
     CalendarDaysIcon,
     ClockIcon,
     ExclamationTriangleIcon,
-    CheckCircleIcon,
-    PhoneIcon,
 } from '@heroicons/react/24/outline';
 import axios from 'axios';
+import TablePagination from '@/Components/TablePagination.jsx';
 
-const AttendanceEmployeeTable = ({ handleDateChange, selectedDate, updateTimeSheet, externalFilterData, externalEmployee }) => {
-    const { url } = usePage();
-    
-    const isLargeScreen = useMediaQuery('(min-width: 1025px)');
-    const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
+const AttendanceEmployeeTable = ({
+    handleDateChange,
+    selectedDate,
+    updateTimeSheet,
+    externalFilterData,
+    externalEmployee,
+}) => {
+    usePage();
+
+    const isMobile = useMediaQuery('(max-width: 640px)');
 
     const [attendances, setAttendances] = useState([]);
     const [error, setError] = useState('');
     const [totalRows, setTotalRows] = useState(0);
-    const [lastPage, setLastPage] = useState(0);
     const [perPage, setPerPage] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
     const [employee, setEmployee] = useState(externalEmployee || '');
     const [isLoaded, setIsLoaded] = useState(false);
-    
-    // Consolidate filter data from props
-    const filterData = useMemo(() => externalFilterData || { 
-        currentMonth: dayjs().format('YYYY-MM') 
-    }, [externalFilterData]);
 
-    // Helper function to convert theme borderRadius to HeroUI radius values
-    const getThemeRadius = () => {
-        if (typeof window === 'undefined') return 'lg';
-        
-        const rootStyles = getComputedStyle(document.documentElement);
-        const borderRadius = rootStyles.getPropertyValue('--borderRadius')?.trim() || '12px';
-        
-        const radiusValue = parseInt(borderRadius);
-        if (radiusValue === 0) return 'none';
-        if (radiusValue <= 4) return 'sm';
-        if (radiusValue <= 8) return 'md';
-        if (radiusValue <= 16) return 'lg';
-        return 'full';
-    };
+    const filterData = useMemo(
+        () => externalFilterData || { currentMonth: dayjs().format('YYYY-MM') },
+        [externalFilterData],
+    );
 
-    // Helper function to safely format time
     const formatTime = useCallback((timeString, date) => {
         if (!timeString) return null;
-        
-        // Use dayjs for robust parsing and formatting
+
         const dateStr = dayjs(date).format('YYYY-MM-DD');
         let dt;
 
-        // Try to parse just the time by appending to date
         if (timeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) {
             dt = dayjs(`${dateStr}T${timeString}`);
         } else {
-            // Try parsing as full ISO string
             dt = dayjs(timeString);
         }
 
@@ -85,61 +61,65 @@ const AttendanceEmployeeTable = ({ handleDateChange, selectedDate, updateTimeShe
         return 'Invalid Time';
     }, []);
 
-    // Fetch attendance data for present users
-    const getAttendances = useCallback(async (isRefresh = false) => {
-        // If no date selected, don't fetch
-        if (!selectedDate) {
-            setIsLoaded(true);
-            setError('No date selected');
-            return;
-        }
-        
-        setIsLoaded(false);
-        setError('');
-        
-        const attendanceRoute = route('getCurrentUserAttendanceForDate');
-        
-        try {
-            const response = await axios.get(attendanceRoute, {
-                params: {
-                    page: currentPage,
-                    perPage,
-                    employee,
-                    date: dayjs(selectedDate).format('YYYY-MM-DD'),
-                    currentYear: filterData?.currentMonth ? dayjs(filterData.currentMonth).year() : '',
-                    currentMonth: filterData?.currentMonth ? dayjs(filterData.currentMonth).format('MM') : '',
-                    _t: isRefresh ? Date.now() : undefined
-                }
-            });
-        
-            if (response.status === 200) {
-                setAttendances(response.data.attendances || []);
-                setTotalRows(response.data.total || 0);
-                setLastPage(response.data.last_page || 1);
-                // Only update current page if returned from backend
-                if (response.data.current_page) {
-                    setCurrentPage(response.data.current_page);
-                }
-                setError('');
-            } else {
-                setError(`Unexpected response: ${response.status}`);
+    const getAttendances = useCallback(
+        async (isRefresh = false) => {
+            if (!selectedDate) {
+                setIsLoaded(true);
+                setError('No date selected');
+                return;
             }
-        } catch (error) {
-            console.error('Error fetching attendance data:', error);
-            setError(error.response?.data?.message || 'An error occurred while retrieving attendance data.');
-            setAttendances([]);
-            setTotalRows(0);
-        } finally {
-            setIsLoaded(true);
-        }
-    }, [selectedDate, currentPage, perPage, employee, filterData]);
 
-    // Effect to trigger data fetch when dependencies change
+            setIsLoaded(false);
+            setError('');
+
+            const attendanceRoute = route('getCurrentUserAttendanceForDate');
+
+            try {
+                const response = await axios.get(attendanceRoute, {
+                    params: {
+                        page: currentPage,
+                        perPage,
+                        employee,
+                        date: dayjs(selectedDate).format('YYYY-MM-DD'),
+                        currentYear: filterData?.currentMonth
+                            ? dayjs(filterData.currentMonth).year()
+                            : '',
+                        currentMonth: filterData?.currentMonth
+                            ? dayjs(filterData.currentMonth).format('MM')
+                            : '',
+                        _t: isRefresh ? Date.now() : undefined,
+                    },
+                });
+
+                if (response.status === 200) {
+                    setAttendances(response.data.attendances || []);
+                    setTotalRows(response.data.total || 0);
+                    if (response.data.current_page) {
+                        setCurrentPage(response.data.current_page);
+                    }
+                    setError('');
+                } else {
+                    setError(`Unexpected response: ${response.status}`);
+                }
+            } catch (err) {
+                console.error('Error fetching attendance data:', err);
+                setError(
+                    err.response?.data?.message ||
+                        'An error occurred while retrieving attendance data.',
+                );
+                setAttendances([]);
+                setTotalRows(0);
+            } finally {
+                setIsLoaded(true);
+            }
+        },
+        [selectedDate, currentPage, perPage, employee, filterData],
+    );
+
     useEffect(() => {
         getAttendances();
-    }, [getAttendances, updateTimeSheet]); 
+    }, [getAttendances, updateTimeSheet]);
 
-    // Reset to page 1 when date or month filters change
     useEffect(() => {
         setCurrentPage(1);
     }, [selectedDate, filterData.currentMonth]);
@@ -148,248 +128,249 @@ const AttendanceEmployeeTable = ({ handleDateChange, selectedDate, updateTimeShe
         setCurrentPage(page);
     };
 
-    // Column definitions
     const columns = [
-        { name: "Date", uid: "date", icon: CalendarDaysIcon, ariaLabel: "Attendance date" },
-        { name: "Clock In", uid: "clockin_time", icon: ClockIcon, ariaLabel: "All clock in times" },
-        { name: "Clock Out", uid: "clockout_time", icon: ClockIcon, ariaLabel: "All clock out times" },
-        { name: "Work Hours", uid: "production_time", icon: ClockIcon, ariaLabel: "Total working hours" },
-        { name: "Punches", uid: "punch_details", icon: ClockIcon, ariaLabel: "Number of time punches recorded" }
+        { name: 'Date', uid: 'date', icon: CalendarDaysIcon },
+        { name: 'Clock In', uid: 'clockin_time', icon: ClockIcon },
+        { name: 'Clock Out', uid: 'clockout_time', icon: ClockIcon },
+        { name: 'Work Hours', uid: 'production_time', icon: ClockIcon },
+        { name: 'Punches', uid: 'punch_details', icon: ClockIcon },
     ];
 
-    const renderCell = useCallback((attendance, columnKey) => {
-        const cellBaseClasses = "text-xs sm:text-sm md:text-base whitespace-nowrap";
-        const isCurrentDate = dayjs(attendance.date).isSame(dayjs(), 'day');
-        
-        switch (columnKey) {
-            case "date":
-                return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <CalendarDaysIcon className="w-4 h-4 text-primary shrink-0" />
-                            <div className="flex flex-col">
-                                <span>{dayjs(attendance.date).format('MMM D, YYYY')}</span>
-                            </div>
-                        </div>
-                    </TableCell>
-                );
-            case "clockin_time":
-                return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ClockIcon className="w-4 h-4 text-success" />
-                            <div className="flex flex-col">
-                                {attendance.punches && attendance.punches.length > 0 ? (
+    const renderCell = useCallback(
+        (attendance, columnKey) => {
+            const isCurrentDate = dayjs(attendance.date).isSame(dayjs(), 'day');
+
+            switch (columnKey) {
+                case 'date':
+                    return (
+                        <Flex align="center" gap="2">
+                            <CalendarDaysIcon className="w-4 h-4 shrink-0" style={{ color: 'var(--accent-9)' }} />
+                            <Text size="2">{dayjs(attendance.date).format('MMM D, YYYY')}</Text>
+                        </Flex>
+                    );
+                case 'clockin_time':
+                    return (
+                        <Flex align="center" gap="2">
+                            <ClockIcon className="w-4 h-4 shrink-0" style={{ color: 'var(--green-9)' }} />
+                            <Flex direction="column" gap="1">
+                                {attendance.punches?.filter((p) => p.punch_in).length > 0 ? (
                                     attendance.punches
-                                        .filter(punch => punch.punch_in)
+                                        .filter((p) => p.punch_in)
                                         .map((punch, index) => (
-                                            <span key={index} className="block text-xs">
-                                                <span className="text-default-400 mr-1">{index + 1}.</span>
+                                            <Text key={index} size="1">
+                                                <Text size="1" color="gray" as="span">
+                                                    {index + 1}.{' '}
+                                                </Text>
                                                 {formatTime(punch.punch_in, attendance.date) || 'Invalid time'}
-                                            </span>
+                                            </Text>
                                         ))
                                 ) : (
-                                    <span>Not clocked in</span>
+                                    <Text size="2">Not clocked in</Text>
                                 )}
-                            </div>
-                        </div>
-                    </TableCell>
-                );            
-            case "clockout_time":
-                return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ClockIcon className="w-4 h-4 text-danger" />
-                            <div className="flex flex-col">
-                                {attendance.punches && attendance.punches.length > 0 ? (
+                            </Flex>
+                        </Flex>
+                    );
+                case 'clockout_time':
+                    return (
+                        <Flex align="center" gap="2">
+                            <ClockIcon className="w-4 h-4 shrink-0" style={{ color: 'var(--red-9)' }} />
+                            <Flex direction="column" gap="1">
+                                {attendance.punches?.length > 0 ? (
                                     attendance.punches.map((punch, index) => (
-                                        <span key={index} className="block text-xs">
-                                            <span className="text-default-400 mr-1">{index + 1}.</span>
-                                            {punch.punch_out ? formatTime(punch.punch_out, attendance.date) || 'Invalid time' : 'No punch out'}
-                                        </span>
+                                        <Text key={index} size="1">
+                                            <Text size="1" color="gray" as="span">
+                                                {index + 1}.{' '}
+                                            </Text>
+                                            {punch.punch_out
+                                                ? formatTime(punch.punch_out, attendance.date) || 'Invalid time'
+                                                : 'No punch out'}
+                                        </Text>
                                     ))
                                 ) : attendance.punchin_time ? (
-                                    <span>{isCurrentDate ? 'Currently working' : 'Missing punch-out'}</span>
+                                    <Text size="2">
+                                        {isCurrentDate ? 'Currently working' : 'Missing punch-out'}
+                                    </Text>
                                 ) : (
-                                    <span>Not started</span>
+                                    <Text size="2">Not started</Text>
                                 )}
-                            </div>
-                        </div>
-                    </TableCell>
-                );
-            case "production_time":
-                const hasWorkTime = attendance.total_work_minutes > 0;
-                const hasIncompletePunch = attendance.has_incomplete_punch;
-                const isCurrentlyWorking = attendance.punchin_time && !attendance.punchout_time && isCurrentDate;
-                
-                if (hasWorkTime) {
-                    const hours = Math.floor(attendance.total_work_minutes / 60);
-                    const minutes = Math.floor(attendance.total_work_minutes % 60);
-                    
-                    return (
-                        <TableCell className={`${cellBaseClasses}`}>
-                            <div className="flex items-center gap-2">
-                                <ClockIcon className={`w-4 h-4 ${hasIncompletePunch ? 'text-warning' : 'text-primary'}`} />
-                                <div className="flex flex-col">
-                                    <span className="font-medium">{`${hours}h ${minutes}m`}</span>
-                                    <span className="text-xs text-default-500">
-                                        {hasIncompletePunch ? 'Partial data - in progress' : 'Total worked time'}
-                                    </span>
-                                </div>
-                            </div>
-                        </TableCell>
+                            </Flex>
+                        </Flex>
                     );
-                } else if (isCurrentlyWorking) {
+                case 'production_time': {
+                    const hasWorkTime = attendance.total_work_minutes > 0;
+                    const hasIncompletePunch = attendance.has_incomplete_punch;
+                    const isCurrentlyWorking =
+                        attendance.punchin_time && !attendance.punchout_time && isCurrentDate;
+
+                    if (hasWorkTime) {
+                        const hours = Math.floor(attendance.total_work_minutes / 60);
+                        const minutes = Math.floor(attendance.total_work_minutes % 60);
+                        return (
+                            <Flex align="center" gap="2">
+                                <ClockIcon
+                                    className="w-4 h-4"
+                                    style={{
+                                        color: hasIncompletePunch ? 'var(--amber-9)' : 'var(--accent-9)',
+                                    }}
+                                />
+                                <Box>
+                                    <Text size="2" weight="medium">{`${hours}h ${minutes}m`}</Text>
+                                    <Text size="1" color="gray">
+                                        {hasIncompletePunch
+                                            ? 'Partial data - in progress'
+                                            : 'Total worked time'}
+                                    </Text>
+                                </Box>
+                            </Flex>
+                        );
+                    }
+                    if (isCurrentlyWorking) {
+                        return (
+                            <Flex align="center" gap="2">
+                                <ClockIcon className="w-4 h-4" style={{ color: 'var(--amber-9)' }} />
+                                <Box>
+                                    <Text size="2" color="amber">In Progress</Text>
+                                    <Text size="1" color="gray">Currently working</Text>
+                                </Box>
+                            </Flex>
+                        );
+                    }
+                    if (attendance.punchin_time && !attendance.punchout_time && !isCurrentDate) {
+                        return (
+                            <Flex align="center" gap="2">
+                                <ExclamationTriangleIcon className="w-4 h-4" style={{ color: 'var(--red-9)' }} />
+                                <Box>
+                                    <Text size="2" color="red">Incomplete punch</Text>
+                                    <Text size="1" color="gray">Missing punch out</Text>
+                                </Box>
+                            </Flex>
+                        );
+                    }
                     return (
-                        <TableCell className={`${cellBaseClasses}`}>
-                            <div className="flex items-center gap-2">
-                                <ClockIcon className="w-4 h-4 text-warning" />
-                                <div className="flex flex-col">
-                                    <span className="text-warning">In Progress</span>
-                                    <span className="text-xs text-default-500">Currently working</span>
-                                </div>
-                            </div>
-                        </TableCell>
-                    );
-                } else if (attendance.punchin_time && !attendance.punchout_time && !isCurrentDate) {
-                    return (
-                        <TableCell className={`${cellBaseClasses}`}>
-                            <div className="flex items-center gap-2">
-                                <ExclamationTriangleIcon className="w-4 h-4 text-danger" />
-                                <div className="flex flex-col">
-                                    <span className="text-danger">Incomplete punch</span>
-                                    <span className="text-xs text-default-500">Missing punch out</span>
-                                </div>
-                            </div>
-                        </TableCell>
+                        <Flex align="center" gap="2">
+                            <ExclamationTriangleIcon className="w-4 h-4" style={{ color: 'var(--amber-9)' }} />
+                            <Box>
+                                <Text size="2" color="amber">No work time</Text>
+                                <Text size="1" color="gray">No attendance</Text>
+                            </Box>
+                        </Flex>
                     );
                 }
-                return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ExclamationTriangleIcon className="w-4 h-4 text-warning" />
-                            <div className="flex flex-col">
-                                <span className="text-warning">No work time</span>
-                                <span className="text-xs text-default-500">No attendance</span>
-                            </div>
-                        </div>
-                    </TableCell>
-                );
-            case "punch_details":
-                return (
-                    <TableCell className={`${cellBaseClasses}`}>
-                        <div className="flex items-center gap-2">
-                            <ClockIcon className="w-4 h-4 text-default-400" />
-                            <div className="flex flex-col">
-                                <span className="text-xs font-medium">
-                                    {attendance.punch_count || 0} punch{(attendance.punch_count || 0) !== 1 ? 'es' : ''}
-                                </span>
+                case 'punch_details':
+                    return (
+                        <Flex align="center" gap="2">
+                            <ClockIcon className="w-4 h-4" style={{ color: 'var(--gray-9)' }} />
+                            <Box>
+                                <Text size="1" weight="medium">
+                                    {attendance.punch_count || 0} punch
+                                    {(attendance.punch_count || 0) !== 1 ? 'es' : ''}
+                                </Text>
                                 {attendance.complete_punches !== attendance.punch_count && (
-                                    <span className="text-xs text-warning">{attendance.complete_punches} complete</span>
+                                    <Text size="1" color="amber">
+                                        {attendance.complete_punches} complete
+                                    </Text>
                                 )}
-                                {attendance.complete_punches === attendance.punch_count && attendance.punch_count > 0 && (
-                                    <span className="text-xs text-success">All complete</span>
-                                )}
-                            </div>
-                        </div>
-                    </TableCell>
-                );
-            default:
-                return <TableCell className={`${cellBaseClasses}`}>N/A</TableCell>;
-        }
-    }, [formatTime]);
+                                {attendance.complete_punches === attendance.punch_count &&
+                                    attendance.punch_count > 0 && (
+                                        <Text size="1" color="green">
+                                            All complete
+                                        </Text>
+                                    )}
+                            </Box>
+                        </Flex>
+                    );
+                default:
+                    return <Text size="2">N/A</Text>;
+            }
+        },
+        [formatTime],
+    );
+
+    const emptyState = (
+        <Flex direction="column" align="center" justify="center" py="8" gap="2">
+            <ClockIcon className="w-12 h-12" style={{ color: 'var(--gray-8)' }} />
+            <Text size="3" weight="medium">No Attendance Records</Text>
+            <Text size="2" color="gray">No attendance records found for the selected date</Text>
+        </Flex>
+    );
 
     return (
-        <div role="region" aria-label="Attendance data table" className="w-full">
+        <Box role="region" aria-label="Attendance data table" className="w-full">
             {error ? (
-                <Card 
-                    className="p-4 transition-all duration-200"
+                <Card
                     style={{
-                        background: `color-mix(in srgb, var(--theme-danger, #F31260) 10%, transparent)`,
-                        borderColor: `color-mix(in srgb, var(--theme-danger, #F31260) 25%, transparent)`,
-                        borderWidth: `var(--borderWidth, 2px)`,
-                        borderRadius: `var(--borderRadius, 12px)`,
-                        fontFamily: `var(--fontFamily, "Inter")`,
+                        padding: 16,
+                        background: 'color-mix(in srgb, var(--red-9) 10%, transparent)',
+                        border: '1px solid color-mix(in srgb, var(--red-9) 25%, transparent)',
                     }}
                 >
-                    <div className="flex items-center gap-3">
-                        <ExclamationTriangleIcon className="w-5 h-5" style={{ color: 'var(--theme-danger)' }} />
-                        <p className="text-sm" style={{ color: 'var(--theme-danger)' }}>{error}</p>
-                    </div>
+                    <Flex align="center" gap="3">
+                        <ExclamationTriangleIcon className="w-5 h-5" style={{ color: 'var(--red-9)' }} />
+                        <Text size="2" color="red">{error}</Text>
+                    </Flex>
                 </Card>
             ) : (
                 <>
-                    <ScrollShadow orientation="horizontal" className="overflow-y-hidden">
-                        <Skeleton className="rounded-lg" isLoaded={isLoaded}>
-                            <Table
-                                selectionMode="none"
-                                isCompact
-                                removeWrapper
-                                aria-label="Employee attendance timesheet table"
-                                isHeaderSticky
-                                radius={getThemeRadius()}
-                                classNames={{
-                                    base: "max-h-[520px] overflow-auto",
-                                    table: "min-h-[200px] w-full",
-                                    thead: "z-10",
-                                    tbody: "overflow-y-auto",
-                                    th: "bg-default-100 text-default-700 font-semibold",
-                                    td: "text-default-600",
-                                }}
-                                style={{
-                                    borderRadius: `var(--borderRadius, 12px)`,
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
+                    <ScrollArea
+                        type="auto"
+                        scrollbars={isMobile ? 'horizontal' : 'vertical'}
+                        style={{ maxHeight: '70vh' }}
+                    >
+                        {!isLoaded ? (
+                            <Flex justify="center" py="8">
+                                <Spinner size="3" />
+                            </Flex>
+                        ) : (
+                            <Table.Root
+                                variant="surface"
+                                size="1"
+                                style={{ minWidth: isMobile ? 720 : '100%' }}
                             >
-                                <TableHeader columns={columns}>
-                                    {(column) => (
-                                        <TableColumn key={column.uid} align="start" aria-label={column.ariaLabel || column.name}>
-                                            <div className="flex items-center gap-2">
-                                                {column.icon && <column.icon className="w-4 h-4" />}
-                                                <span className="text-sm font-medium">{column.name}</span>
-                                            </div>
-                                        </TableColumn>
+                                <Table.Header>
+                                    <Table.Row>
+                                        {columns.map((column) => (
+                                            <Table.ColumnHeaderCell key={column.uid}>
+                                                <Flex align="center" gap="2">
+                                                    {column.icon && <column.icon className="w-4 h-4" />}
+                                                    <Text size="2" weight="medium">
+                                                        {column.name}
+                                                    </Text>
+                                                </Flex>
+                                            </Table.ColumnHeaderCell>
+                                        ))}
+                                    </Table.Row>
+                                </Table.Header>
+                                <Table.Body>
+                                    {attendances.length === 0 ? (
+                                        <Table.Row>
+                                            <Table.Cell colSpan={columns.length}>
+                                                {emptyState}
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    ) : (
+                                        attendances.map((attendance) => (
+                                            <Table.Row key={attendance.id || attendance.user_id}>
+                                                {columns.map((col) => (
+                                                    <Table.Cell key={col.uid}>
+                                                        {renderCell(attendance, col.uid)}
+                                                    </Table.Cell>
+                                                ))}
+                                            </Table.Row>
+                                        ))
                                     )}
-                                </TableHeader>
-                                <TableBody 
-                                    items={attendances}
-                                    emptyContent={
-                                        <div className="flex flex-col items-center justify-center py-12">
-                                            <ClockIcon className="w-16 h-16 text-default-300 mb-4" />
-                                            <h6 className="text-lg font-semibold mb-2">No Attendance Records</h6>
-                                            <p className="text-default-500">No attendance records found for the selected date</p>
-                                        </div>
-                                    }
-                                >
-                                    {(attendance) => (
-                                        <TableRow key={attendance.id || attendance.user_id}>
-                                            {(columnKey) => renderCell(attendance, columnKey)}
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </Skeleton>
-                    </ScrollShadow>
+                                </Table.Body>
+                            </Table.Root>
+                        )}
+                    </ScrollArea>
                     {totalRows > perPage && (
-                        <div className="flex justify-center items-center py-4">
-                            <Pagination
-                                isCompact
-                                showControls
-                                showShadow
-                                color="primary"
-                                variant="bordered"
-                                radius={getThemeRadius()}
-                                page={currentPage}
-                                total={lastPage}
-                                onChange={handlePageChange}
-                                aria-label="Timesheet pagination"
-                                style={{ fontFamily: `var(--fontFamily, "Inter")` }}
-                            />
-                        </div>
+                        <TablePagination
+                            pagination={{ currentPage, perPage, total: totalRows }}
+                            onPageChange={handlePageChange}
+                        />
                     )}
                 </>
             )}
-        </div>
+        </Box>
     );
 };
 

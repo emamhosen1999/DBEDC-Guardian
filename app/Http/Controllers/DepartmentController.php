@@ -241,12 +241,9 @@ class DepartmentController extends Controller
             ]);
 
             return response()->json([
-                'errors' => [
-                    'An unexpected error occurred.',
-                    'Message' => $e->getMessage(),
-                    'File' => $e->getFile(),
-                    'Line' => $e->getLine(),
-                ],
+                'success' => false,
+                'message' => 'An unexpected error occurred.',
+                'error_code' => 'DEPARTMENT_UPDATE_FAILED',
             ], 500);
         }
     }

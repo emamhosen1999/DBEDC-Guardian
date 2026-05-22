@@ -29,7 +29,6 @@ export const getPages = (roles, permissions, auth = null) => {
   
   // 1. Define the condition
   const isOnlyEmployee = roles?.length === 1 && roles[0] === 'Employee';
-  console.log(roles, isOnlyEmployee ? 'Only Employee' : "Not only Employee");
 
   // 2. Define the shared items list (so we don't write it twice)
   const workspaceItems = [
@@ -76,8 +75,12 @@ export const getPages = (roles, permissions, auth = null) => {
         permissions.includes('hr.skills.view') || 
         permissions.includes('hr.benefits.view') || 
         permissions.includes('hr.safety.view') || 
-        permissions.includes('hr.analytics.view') || 
-        permissions.includes('hr.documents.view')) ? [{
+        permissions.includes('hr.analytics.view') ||
+        permissions.includes('departments.view') ||
+        permissions.includes('designations.view') ||
+        permissions.includes('attendance.view') ||
+        permissions.includes('holidays.view') ||
+        permissions.includes('leaves.view')) ? [{
       name: 'Workforce',
       icon: <UserGroupIcon className="" />,
       priority: 3,
@@ -106,32 +109,11 @@ export const getPages = (roles, permissions, auth = null) => {
           ]
         }] : []),
         
-        // Document Management
-        ...(permissions.includes('hr.documents.view') ? [{
-          name: 'Documents',
-          icon: <DocumentDuplicateIcon  />,
-          category: 'documents',
-          subMenu: [
-            { name: 'Files', icon: <DocumentDuplicateIcon  />, route: 'hr.documents.index' },
-            { name: 'Categories', icon: <FolderIcon  />, route: 'hr.documents.categories.index' },
-          ]
-        }] : []),
+        /* HR Documents — enable when Inertia pages + HrDocumentController exist */
       ]
     }] : []),
 
-    // 7. Quality Management
-    ...(permissions.includes('quality.view') ? [{
-      name: 'Quality',
-      icon: <BeakerIcon className="" />,
-      priority: 7,
-      module: 'quality',
-      subMenu: [
-        ...(permissions.includes('quality.inspections.view') ? [{ name: 'Inspections', icon: <ClipboardDocumentCheckIcon  />, route: 'quality.inspections.index' }] : []),
-        ...(permissions.includes('quality.ncr.view') ? [{ name: 'NCRs', icon: <DocumentTextIcon  />, route: 'quality.ncrs.index' }] : []),
-        ...(permissions.includes('quality.calibrations.view') ? [{ name: 'Calibrations', icon: <ScaleIcon  />, route: 'quality.calibrations.index' }] : []),
-        ...(permissions.includes('quality.dashboard.view') ? [{ name: 'Analytics', icon: <ChartBarSquareIcon  />, route: 'quality.dashboard' }] : []),
-      ]
-    }] : []),
+    /* Quality module — enable when resources/js/Pages/Quality/* exist */
 
     // 8. Admin & Settings (System Administration)
     ...((permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') || permissions.includes('company.settings') || permissions.includes('attendance.settings') || permissions.includes('leave-settings.view')) ? [{

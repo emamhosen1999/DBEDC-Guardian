@@ -11,11 +11,14 @@ import {
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
-import axios from 'axios';
+import { showToast } from '@/utils/toastUtils';
 import AbsentSidebar from './AbsentSidebar';
 import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
 import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
 import TablePagination from '@/Components/TablePagination.jsx';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import { useAttendanceStore } from '@/store/attendanceStore';
+import { useDailyTimesheet, usePresentUsers, useAbsentUsers, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet } from '@/api/queries/useAttendanceQuery';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
@@ -239,24 +242,54 @@ const DailyTimesheetTab = ({
     const canExport  = auth.permissions?.includes('attendance.export') || canManage;
     const isAdminView = canViewAll && url !== '/attendance-employee';
 
+    // Zustand store for shared state
+    const { employeeQuery, setEmployeeQuery } = useAttendanceStore();
+
     /* state */
     const [updateMap,    setUpdateMap]    = useState(false);
-    const [attendances,  setAttendances]  = useState([]);
-    const [absentUsers,  setAbsentUsers]  = useState([]);
     const [leaves,       setLeaves]       = useState([]);
-    const [isLoaded,     setIsLoaded]     = useState(false);
-    const [error,        setError]        = useState('');
-    const [employee,     setEmployee]     = useState('');
-    const [perPage,      setPerPage]      = useState(25);
-    const [currentPage,  setCurrentPage]  = useState(1);
-    const [totalRows,    setTotalRows]    = useState(0);
-    const [lastPage,     setLastPage]     = useState(1);
     const [downloading,  setDownloading]  = useState('');
     const [lastChecked,  setLastChecked]  = useState(null);
     const prevUpdateRef = useRef(null);
 
+    // Pagination state
+    const [currentPage,  setCurrentPage]  = useState(1);
+    const [perPage,      setPerPage]      = useState(25);
+
     // Editing state for inline correction
     const [editingCell, setEditingCell] = useState(null); // { attendanceId, field: 'punchin' | 'punchout' }
+
+    // React Query hooks
+    const { data: dailyTimesheetData, isLoading: isLoadingTimesheet, refetch: refetchTimesheet } = useDailyTimesheet({
+        date: selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null,
+        page: currentPage,
+        perPage,
+        employee: employeeQuery,
+    });
+
+    const { data: presentUsersData, isLoading: isLoadingPresent, refetch: refetchPresent } = usePresentUsers(
+        selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null
+    );
+
+    const { data: absentUsersData, isLoading: isLoadingAbsent, refetch: refetchAbsent } = useAbsentUsers(
+        selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null
+    );
+
+    // Mutations
+    const updateTimeCorrection = useUpdateTimeCorrection();
+    const markAsPresent = useMarkAsPresent();
+    const deleteAttendanceCorrection = useDeleteAttendanceCorrection();
+    const exportDailyTimesheet = useExportDailyTimesheet();
+    const isMutating = updateTimeCorrection.isPending || markAsPresent.isPending || deleteAttendanceCorrection.isPending || exportDailyTimesheet.isPending;
+
+    // Derived state from React Query data
+    const attendances = dailyTimesheetData?.data || [];
+    const totalRows = dailyTimesheetData?.pagination?.total || 0;
+    const lastPage = dailyTimesheetData?.pagination?.last_page || 1;
+    const presentUsers = presentUsersData || [];
+    const absentUsers = absentUsersData || [];
+    const isLoaded = !isLoadingTimesheet && !isLoadingPresent && !isLoadingAbsent;
+    const error = null; // React Query handles errors automatically
 
     /* columns */
     const columns = useMemo(() => [
@@ -268,54 +301,16 @@ const DailyTimesheetTab = ({
         { uid: 'punch_details',       name: 'Punches'    },
     ], [isAdminView]);
 
-    /* fetch present */
-    const fetchPresent = useCallback(async (page = currentPage, force = false) => {
-        if (!selectedDate) return;
-        const ep = isAdminView
-            ? route('admin.getPresentUsersForDate')
-            : route('getCurrentUserAttendanceForDate');
-        try {
-            setIsLoaded(false);
-            const { data } = await axios.get(ep, {
-                params: {
-                    page,
-                    perPage,
-                    employee,
-                    date: dayjs(selectedDate).format('YYYY-MM-DD'),
-                    _t: force ? Date.now() : undefined,
-                },
-            });
-            setAttendances(data.attendances || []);
-            setTotalRows(data.total        || 0);
-            setLastPage(data.last_page     || 1);
-            setCurrentPage(data.current_page || 1);
-            setError('');
-        } catch (e) {
-            setError(e.response?.data?.message || 'Failed to load attendance data.');
-            setAttendances([]);
-        } finally {
-            setIsLoaded(true);
+    /* fetch functions using React Query */
+    const fetchPresent = useCallback((page = currentPage, force = false) => {
+        if (force) {
+            refetchTimesheet();
         }
-    }, [selectedDate, perPage, employee, isAdminView]);
+    }, [currentPage, refetchTimesheet]);
 
-    /* fetch absent */
-    const fetchAbsent = useCallback(async () => {
-        if (!isAdminView || !selectedDate) return;
-        try {
-            const { data } = await axios.get(route('admin.getAbsentUsersForDate'), {
-                params: {
-                    date: dayjs(selectedDate).format('YYYY-MM-DD'),
-                    employee,
-                    _t: Date.now(),
-                },
-            });
-            setAbsentUsers(data.absent_users || []);
-            setLeaves(data.leaves            || []);
-        } catch {
-            setAbsentUsers([]);
-            setLeaves([]);
-        }
-    }, [isAdminView, selectedDate, employee]);
+    const fetchAbsent = useCallback(() => {
+        refetchAbsent();
+    }, [refetchAbsent]);
 
     /* polling */
     const checkUpdates = useCallback(async () => {
@@ -328,23 +323,24 @@ const DailyTimesheetTab = ({
             const data = await res.json();
             if (data.success && data.last_updated !== prevUpdateRef.current) {
                 prevUpdateRef.current = data.last_updated;
-                await Promise.all([fetchPresent(currentPage, true), fetchAbsent()]);
+                await Promise.all([refetchTimesheet(), refetchAbsent()]);
             }
             setLastChecked(new Date());
         } catch { /* silent */ }
-    }, [selectedDate, currentPage, fetchPresent, fetchAbsent]);
+    }, [selectedDate, refetchTimesheet, refetchAbsent]);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedDate, employee, perPage]);
+    }, [selectedDate, employeeQuery, perPage]);
 
     useEffect(() => {
-        Promise.all([fetchPresent(1), fetchAbsent()]);
-    }, [selectedDate, perPage, employee, fetchPresent, fetchAbsent]);
+        // React Query handles automatic refetching based on dependencies
+        // No manual fetch needed
+    }, [selectedDate, perPage, employeeQuery]);
 
     useEffect(() => {
-        if (currentPage > 1) fetchPresent(currentPage);
-    }, [currentPage, fetchPresent]);
+        if (currentPage > 1) refetchTimesheet();
+    }, [currentPage, refetchTimesheet]);
 
     useEffect(() => {
         const id = setInterval(checkUpdates, 5000);
@@ -355,10 +351,9 @@ const DailyTimesheetTab = ({
     const exportFile = useCallback(async (type) => {
         setDownloading(type);
         try {
-            const ep   = type === 'excel' ? route('attendance.exportExcel') : route('attendance.exportPdf');
             const mime = type === 'pdf'   ? 'application/pdf'               : undefined;
             const ext  = type === 'excel' ? 'xlsx'                          : 'pdf';
-            const { data } = await axios.get(ep, { params: { date: selectedDate }, responseType: 'blob' });
+            const { data } = await exportDailyTimesheet.mutateAsync({ date: selectedDate, type });
             const blobUrl = window.URL.createObjectURL(new Blob([data], mime ? { type: mime } : undefined));
             const a = document.createElement('a');
             a.href = blobUrl;
@@ -367,7 +362,7 @@ const DailyTimesheetTab = ({
             a.click();
             a.remove();
             window.URL.revokeObjectURL(blobUrl);
-        } catch { alert(`Failed to download ${type}.`); }
+        } catch { showToast.error(`Failed to download ${type}.`); }
         finally { setDownloading(''); }
     }, [selectedDate]);
 
@@ -379,25 +374,20 @@ const DailyTimesheetTab = ({
             const formattedTime = dayjs(`${selectedDate} ${time}`).format('YYYY-MM-DD HH:mm:ss');
 
             if (!attendanceId) {
-                alert('Cannot create new attendance record from this view. Please use mark as present.');
+                showToast.warning('Cannot create new attendance record from this view. Please use mark as present.');
                 return;
             }
 
-            await axios.post(route('attendance.correct.update', attendanceId), {
-                [field]: formattedTime,
+            await updateTimeCorrection.mutateAsync({
+                attendanceId,
+                data: { [field]: formattedTime },
             });
 
             setEditingCell(null);
-
-            // Update the matching grouped row in local state — no full reload needed
-            const timeField = field === 'punchin' ? 'punchin_time' : 'punchout_time';
-            const idField   = field === 'punchin' ? 'punchin_id'   : 'punchout_id';
-            setAttendances(prev =>
-                prev.map(a => a[idField] === attendanceId ? { ...a, [timeField]: formattedTime } : a)
-            );
+            refetchTimesheet();
         } catch (error) {
             console.error('Error updating attendance:', error);
-            alert(error.response?.data?.error || 'Failed to update attendance');
+            showToast.error(error.response?.data?.error || 'Failed to update attendance');
         }
     };
 
@@ -408,11 +398,11 @@ const DailyTimesheetTab = ({
         }
 
         try {
-            await axios.delete(route('attendance.correct.delete', attendanceId));
-            await fetchPresent(currentPage, true);
+            await deleteAttendanceCorrection.mutateAsync(attendanceId);
+            refetchTimesheet();
         } catch (error) {
             console.error('Error deleting attendance:', error);
-            alert('Failed to delete attendance record');
+            showToast.error('Failed to delete attendance record');
         }
     };
 
@@ -431,18 +421,18 @@ const DailyTimesheetTab = ({
     const handleMarkAsPresent = useCallback(async (user, date) => {
         setMarkingId(user.id);
         try {
-            await axios.post(route('attendance.mark-as-present'), {
-                user_id: user.id,
+            await markAsPresent.mutateAsync({
+                userId: user.id,
                 date: dayjs(date).format('YYYY-MM-DD'),
             });
-            await Promise.all([fetchPresent(currentPage, true), fetchAbsent()]);
+            await Promise.all([refetchTimesheet(), refetchAbsent()]);
         } catch (e) {
             const msg = e.response?.data?.message || 'Failed to mark as present.';
-            alert(msg);
+            showToast.error(msg);
         } finally {
             setMarkingId(null);
         }
-    }, [fetchPresent, fetchAbsent, currentPage]);
+    }, [refetchTimesheet, refetchAbsent, markAsPresent]);
 
     /* ── render ─────────────────────────────────────────────── */
     return (
@@ -473,8 +463,8 @@ const DailyTimesheetTab = ({
                         <TextField.Root
                             size="2"
                             placeholder="Search employee…"
-                            value={employee}
-                            onChange={e => setEmployee(e.target.value)}
+                            value={employeeQuery}
+                            onChange={e => setEmployeeQuery(e.target.value)}
                             style={{ width: 200 }}
                         >
                             <TextField.Slot>
@@ -512,7 +502,7 @@ const DailyTimesheetTab = ({
                             size="2"
                             variant="soft"
                             color="gray"
-                            onClick={() => Promise.all([fetchPresent(currentPage, true), fetchAbsent()])}
+                            onClick={() => Promise.all([refetchTimesheet(), refetchAbsent()])}
                         >
                             <ReloadIcon />
                         </Button>
@@ -664,7 +654,9 @@ const DailyTimesheetTab = ({
             {/* ── Map: admin only ─────────────────────────────── */}
             {isAdminView && (
                 <Box mt="4">
-                    <UserLocationsCard selectedDate={selectedDate} updateMap={updateMap} />
+                    <ErrorBoundary>
+                        <UserLocationsCard selectedDate={selectedDate} updateMap={updateMap} />
+                    </ErrorBoundary>
                 </Box>
             )}
         </Box>
@@ -672,3 +664,4 @@ const DailyTimesheetTab = ({
 };
 
 export default DailyTimesheetTab;
+

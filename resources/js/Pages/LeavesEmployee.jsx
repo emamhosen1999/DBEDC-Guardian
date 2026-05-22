@@ -18,7 +18,8 @@ import DeleteLeaveForm from '@/Forms/DeleteLeaveForm.jsx';
 import BulkLeaveModal from '@/Components/BulkLeave/BulkLeaveModal.jsx';
 import BulkDeleteModal from '@/Components/BulkDelete/BulkDeleteModal.jsx';
 import { showToast } from '@/utils/toastUtils';
-import axios from 'axios';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import * as useLeavesQuery from '@/api/queries/useLeavesQuery';
 
 const LeavesEmployee = ({ title, allUsers }) => {
   const { auth } = usePage().props;
@@ -28,8 +29,6 @@ const LeavesEmployee = ({ title, allUsers }) => {
     const [totalRows, setTotalRows] = useState(0);
       const [lastPage, setLastPage] = useState(0);
   // State management
-  const [loading, setLoading] = useState(false);
-  const [leaves, setLeaves] = useState([]);
   const [leavesData, setLeavesData] = useState({ 
     leaveTypes: [], 
     leaveCountsByUser: {} 
@@ -38,117 +37,55 @@ const LeavesEmployee = ({ title, allUsers }) => {
   const [tableLoading, setTableLoading] = useState(false);
 
   const [error, setError] = useState('');
-  const [pagination, setPagination] = useState({ 
-    page: 1, 
-    perPage: 30, 
-    total: 0, 
-    lastPage: 0 
-  });
   const [filters, setFilters] = useState({ 
     employee: '', 
     selectedMonth: dayjs().format('YYYY-MM'),
     year: new Date().getFullYear() 
   });
 
+  // React Query hooks
+  const { data: leavesResponse, isLoading, refetch } = useLeavesQuery.useLeaves({
+    page: 1,
+    perPage: 30,
+    year: filters.year,
+    user_id: auth.user.id
+  });
+
+  const { data: statsData, refetch: refetchStats } = useLeavesQuery.useLeavesStats({
+    year: filters.year
+  });
+
+  // Derived state from React Query data
+  const leaves = leavesResponse?.data || [];
+  const pagination = useMemo(() => ({
+    page: leavesResponse?.current_page || 1,
+    perPage: leavesResponse?.per_page || 30,
+    total: leavesResponse?.total || 0,
+    lastPage: leavesResponse?.last_page || 1
+  }), [leavesResponse]);
+
   // Function to update pagination metadata
   const updatePaginationMetadata = useCallback((metadata) => {
     if (metadata) {
       setTotalRows(metadata.total || 0);
       setLastPage(metadata.last_page || 1);
-      setPagination(prev => ({
-        ...prev,
-        total: metadata.total || 0,
-        lastPage: metadata.last_page || 1
-      }));
     }
   }, []);
-   // Fetch leaves data with error handling
-  const fetchLeaves = useCallback(async () => {
- setTableLoading(true); // Use tableLoading for table refresh
-    try {
-      const { page, perPage } = pagination;
-      const { year } = filters;
-      
-      
-      const response = await axios.get(route('leaves.paginate'), {
-        params: { 
-          page, 
-          perPage, 
-          year,
-          user_id: auth.user.id // Explicitly pass the current user ID
-        },
-        timeout: 10000, // 10 second timeout
-      });
 
-      if (response.status === 200) {
-        const { leaves, leavesData } = response.data;
+  // Auto-refetch when filters change
+  useEffect(() => {
+    refetch();
+  }, [filters.year, refetch]);
 
-        if (leaves.data && Array.isArray(leaves.data)) {
-                setLeaves(leaves.data);
-                // Update pagination metadata
-                updatePaginationMetadata({
-                  total: leaves.total || leaves.data.length,
-                  last_page: leaves.last_page || 1,
-                  current_page: leaves.current_page || 1,
-                  per_page: leaves.per_page || pagination.perPage
-                });
-            } else if (Array.isArray(leaves)) {
-                // Handle direct array response
-                setLeaves(leaves);
-                updatePaginationMetadata({
-                  total: leaves.length,
-                  last_page: 1,
-                  current_page: 1,
-                  per_page: pagination.perPage
-                });
-            } else {
-                console.error('Unexpected leaves data format:', leaves);
-                setLeaves([]);
-                updatePaginationMetadata({
-                  total: 0,
-                  last_page: 1,
-                  current_page: 1,
-                  per_page: pagination.perPage
-                });
-            }
-            
-            setLeavesData(leavesData);
-            setError('');
-      }
-    } catch (error) {
-      console.error('Error fetching leaves:', error);
-      if (error.response?.status === 404) {
-        const { leavesData } = error.response.data;
-        setLeavesData(leavesData);
-        setError(error.response?.data?.message || 'No leaves found for the selected criteria.');
-      } else {
-        setError('Error retrieving leaves data. Please try again.');
-        
-        // Use toast promise pattern for safety
-        const promise = Promise.reject('Failed to load leave data. Please try again.');
-        showToast.promise(
-          promise,
-          {
-            error: {
-              render() {
-                return <div>Failed to load leave data. Please try again.</div>;
-              },
-              icon: '❌'
-            }
-          }
-        );
-      }
-      setLeaves([]);
-      updatePaginationMetadata({
-        total: 0,
-        last_page: 1,
-        current_page: 1,
-        per_page: pagination.perPage
-      });
-    } finally {
- setTableLoading(false); // Reset tableLoading
-    }
-  }, [pagination.page, pagination.perPage, filters, auth.user.id, updatePaginationMetadata]);
+  // Update pagination metadata when data changes
+  useEffect(() => {
+    updatePaginationMetadata({
+      total: pagination.total,
+      last_page: pagination.lastPage,
+      current_page: pagination.page,
+      per_page: pagination.perPage
+    });
+  }, [pagination, updatePaginationMetadata]);
 
   // Function to fetch additional items if needed after operations
   const fetchAdditionalItemsIfNeeded = useCallback((currentItems, totalItems, operation) => {
@@ -162,8 +99,8 @@ const LeavesEmployee = ({ title, allUsers }) => {
     
     // If we're on the last page and have fewer items than perPage after an operation,
     // fetch new data to fill the gap
-    fetchLeaves();
-  }, [pagination, lastPage, fetchLeaves]);
+    refetch();
+  }, [pagination, lastPage, refetch]);
 
   
  // Memoized year options
@@ -239,40 +176,21 @@ const LeavesEmployee = ({ title, allUsers }) => {
   const handleBulkDelete = useCallback((selectedLeaves) => {
     setSelectedLeavesForBulkDelete(selectedLeaves);
     openModal('bulk_delete');
-  }, [openModal]);
+    refetch();
+  }, [openModal, refetch]);
 
- 
-
-  // Fetch leave statistics
-  const fetchLeavesStats = useCallback(async () => {
-    try {
-      const response = await axios.get(route('leaves.stats'), {
-        params: {
-          year: filters.year,
-        },
-      });
-
-      if (response.status === 200) {
-        // Update the leave counts data to reflect the changes
-        const { stats, leaveCounts } = response.data;
-        
-        if (leaveCounts) {
-          // Update the leave counts in the leavesData
-          setLeavesData(prevData => ({
-            ...prevData,
-            leaveCountsByUser: {
-              ...prevData.leaveCountsByUser,
-              [auth.user.id]: leaveCounts
-            }
-          }));
+  // Update leave counts when stats data changes
+  useEffect(() => {
+    if (statsData?.leaveCounts) {
+      setLeavesData(prevData => ({
+        ...prevData,
+        leaveCountsByUser: {
+          ...prevData.leaveCountsByUser,
+          [auth.user.id]: statsData.leaveCounts
         }
-      }
-    } catch (error) {
-      console.error('Error fetching leaves stats:', error.response);
-      // We don't want to disrupt the user experience if stats fail to load
-      // so we just log the error and don't show an error message
+      }));
     }
-  }, [filters.year, auth.user.id]);
+  }, [statsData, auth.user.id]);
 
   // Handle pagination changes
   const handlePageChange = useCallback((newPage) => {
@@ -286,15 +204,10 @@ const LeavesEmployee = ({ title, allUsers }) => {
     setPagination(prev => ({ ...prev, perPage: newPerPage, page: 1 }));
   }, []);
 
-  // Effect for data fetching
-  useEffect(() => {
-    fetchLeaves();
-  }, [fetchLeaves]);
-  
   // Separate effect for fetching leave stats to avoid unnecessary refetches
   useEffect(() => {
-    fetchLeavesStats();
-  }, [fetchLeavesStats]);
+    refetchStats();
+  }, [refetchStats]);
   // Extract user-specific leave counts and calculate stats
   const userLeaveCounts = useMemo(() => {
     return leavesData.leaveCountsByUser[auth.user.id] || [];
@@ -359,10 +272,10 @@ const LeavesEmployee = ({ title, allUsers }) => {
 
     setTableLoading(false);
     if (pagination.page !== 1) {
-      fetchLeaves();
+      refetch();
     }
-    fetchLeavesStats();
-  }, [leaveMatchesFilters, sortLeavesByFromDate, pagination, totalRows, updatePaginationMetadata, fetchLeaves, fetchLeavesStats]);
+    refetchStats();
+  }, [leaveMatchesFilters, sortLeavesByFromDate, pagination, totalRows, updatePaginationMetadata, refetch, refetchStats]);
 
   // Optimistic UI for bulk add - optimized to handle only created leaves
   const addBulkLeavesOptimized = useCallback((responseData) => {
@@ -381,7 +294,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
     const createdLeaves = responseData.created_leaves || [];
     if (createdLeaves.length === 0) {
       // Just refresh stats if no leaves were created
-      fetchLeavesStats();
+      refetchStats();
       return;
     }
     
@@ -390,7 +303,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
     
     if (filteredNewLeaves.length === 0) {
       // Even if no leaves match filters, update stats
-      fetchLeavesStats();
+      refetchStats();
       return;
     }
 
@@ -415,12 +328,12 @@ const LeavesEmployee = ({ title, allUsers }) => {
     
     // If not on first page, might need to refresh to see all new data
     if (pagination.page !== 1) {
-      fetchLeaves();
+      refetch();
     }
     
     // Refresh leave stats to update balance cards
-    fetchLeavesStats();
-  }, [leaveMatchesFilters, sortLeavesByFromDate, pagination, totalRows, updatePaginationMetadata, fetchLeaves, fetchLeavesStats]);
+    refetchStats();
+  }, [leaveMatchesFilters, sortLeavesByFromDate, pagination, totalRows, updatePaginationMetadata, refetch, refetchStats]);
 
   const updateLeaveOptimized = useCallback((updatedLeave) => {
     const leaveExistsInCurrentPage = leaves.some(leave => leave.id === updatedLeave.id);
@@ -480,10 +393,10 @@ const LeavesEmployee = ({ title, allUsers }) => {
     
     setTableLoading(false);
     if (pagination.page !== 1) {
-      fetchLeaves();
+      refetch();
     }
-    fetchLeavesStats();
-  }, [leaveMatchesFilters, sortLeavesByFromDate, leaves, pagination, fetchLeaves, fetchLeavesStats]);
+    refetchStats();
+  }, [leaveMatchesFilters, sortLeavesByFromDate, leaves, pagination, refetch, refetchStats]);
 
   const deleteLeaveOptimized = useCallback((leaveId) => {
     setLeaves(prevLeaves => {
@@ -502,8 +415,8 @@ const LeavesEmployee = ({ title, allUsers }) => {
       per_page: pagination.perPage
     });
     // Only fetch leave stats to update the balance cards
-    fetchLeavesStats();
-  }, [fetchLeavesStats, totalRows, pagination, updatePaginationMetadata, fetchAdditionalItemsIfNeeded]);
+    refetchStats();
+  }, [refetchStats, totalRows, pagination, updatePaginationMetadata, fetchAdditionalItemsIfNeeded]);
 
   // Optimistic UI for bulk deletion
   const deleteBulkLeavesOptimized = useCallback((responseData) => {
@@ -524,7 +437,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
     
     if (deletedLeaveIds.length === 0) {
       // Just refresh stats if no leaves were deleted
-      fetchLeavesStats();
+      refetchStats();
       return;
     }
 
@@ -551,8 +464,8 @@ const LeavesEmployee = ({ title, allUsers }) => {
     fetchAdditionalItemsIfNeeded(leaves.filter(leave => !deletedLeaveIds.includes(leave.id)), newTotal, 'delete');
     
     // Refresh leave stats to update balance cards
-    fetchLeavesStats();
-  }, [updatePaginationMetadata, pagination, totalRows, leaves, fetchAdditionalItemsIfNeeded, fetchLeavesStats]);
+    refetchStats();
+  }, [updatePaginationMetadata, pagination, totalRows, leaves, fetchAdditionalItemsIfNeeded, refetchStats]);
 
   // Action buttons for the header
   const actionButtons = [
@@ -577,7 +490,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
     {
       label: "Refresh",
       icon: <ArrowPathIcon className="w-4 h-4" />,
-      onPress: fetchLeaves,
+      onPress: refetch,
       className: "bg-linear-to-r from-[rgba(var(--theme-success-rgb),0.8)] to-[rgba(var(--theme-success-rgb),1)] text-white font-medium hover:opacity-90"
     }
   ];
@@ -649,7 +562,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
           selectedMonth={filters.selectedMonth}
           addLeaveOptimized={addLeaveOptimized}
           updatePaginationMetadata={updatePaginationMetadata}
-          fetchLeavesStats={fetchLeavesStats}
+          refetchStats={refetchStats}
         />
       )}
       {modalStates.edit_leave && (
@@ -667,7 +580,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
           selectedMonth={filters.selectedMonth}
           updateLeaveOptimized={updateLeaveOptimized}
           updatePaginationMetadata={updatePaginationMetadata}
-          fetchLeavesStats={fetchLeavesStats}
+          refetchStats={refetchStats}
         />
       )}
       {modalStates.delete_leave && (
@@ -680,7 +593,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
           setLastPage={setLastPage}
           deleteLeaveOptimized={deleteLeaveOptimized}
           updatePaginationMetadata={updatePaginationMetadata}
-          fetchLeavesStats={fetchLeavesStats}
+          refetchStats={refetchStats}
         />
       )}
       {modalStates.bulk_leave && (
@@ -750,8 +663,8 @@ const LeavesEmployee = ({ title, allUsers }) => {
               </select>
             </Box>
             <Box style={{ alignSelf: 'flex-end' }}>
-              <Button variant="soft" color="gray" onClick={fetchLeaves} disabled={tableLoading} size="2" style={{ cursor: 'pointer' }}>
-                {tableLoading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+              <Button variant="soft" color="gray" onClick={refetch} disabled={isLoading} size="2" style={{ cursor: 'pointer' }}>
+                {isLoading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
               </Button>
             </Box>
           </Flex>
@@ -782,28 +695,30 @@ const LeavesEmployee = ({ title, allUsers }) => {
                 <Callout.Text>{error}</Callout.Text>
               </Callout.Root>
             ) : leaves.length > 0 ? (
-              <LeaveEmployeeTable
-                ref={leaveTableRef}
-                leaves={leaves}
-                allUsers={allUsers || []}
-                handleClickOpen={handleClickOpen}
-                setCurrentLeave={handleSetCurrentLeave}
-                openModal={openModal}
-                setLeaves={setLeaves}
-                setCurrentPage={handlePageChange}
-                currentPage={pagination.page}
-                totalRows={totalRows}
-                lastPage={lastPage}
-                perPage={pagination.perPage}
-                onRowsPerPageChange={handleRowsPerPageChange}
-                selectedMonth={filters.selectedMonth}
-                employee={''}
-                isAdminView={false}
-                fetchLeavesStats={fetchLeavesStats}
-                updatePaginationMetadata={updatePaginationMetadata}
-                onBulkDelete={handleBulkDelete}
-                canDeleteLeaves={true}
-              />
+              <ErrorBoundary>
+                <LeaveEmployeeTable
+                  ref={leaveTableRef}
+                  leaves={leaves}
+                  allUsers={allUsers || []}
+                  handleClickOpen={handleClickOpen}
+                  setCurrentLeave={handleSetCurrentLeave}
+                  openModal={openModal}
+                  setLeaves={setLeaves}
+                  setCurrentPage={handlePageChange}
+                  currentPage={pagination.page}
+                  totalRows={totalRows}
+                  lastPage={lastPage}
+                  perPage={pagination.perPage}
+                  onRowsPerPageChange={handleRowsPerPageChange}
+                  selectedMonth={filters.selectedMonth}
+                  employee={''}
+                  isAdminView={false}
+                  refetchStats={refetchStats}
+                  updatePaginationMetadata={updatePaginationMetadata}
+                  onBulkDelete={handleBulkDelete}
+                  canDeleteLeaves={true}
+                />
+              </ErrorBoundary>
             ) : (
               <Flex direction="column" align="center" py="8" gap="2">
                 <CalendarIcon style={{ width: 40, height: 40, color: 'var(--gray-9)' }} />

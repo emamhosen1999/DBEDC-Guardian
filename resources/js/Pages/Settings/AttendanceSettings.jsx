@@ -1,3 +1,9 @@
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from "@inertiajs/react";
@@ -5,43 +11,12 @@ import App from "@/Layouts/App";
 import { motion } from "framer-motion";
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
+import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine';
-import {
-    Card,
-    CardHeader,
-    CardBody,
-    Button,
-    Input,
-    Switch,
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
-    Chip,
-    Tooltip,
-    ScrollShadow,
-    Modal,
-    ModalContent,
-    ModalHeader,
-    ModalBody,
-    ModalFooter,
-    useDisclosure,
-    Spinner,
-    Select,
-    SelectItem,
-    Checkbox,
-    CheckboxGroup,
-    Textarea,
-    Tabs,
-    Tab,
-    Accordion,
-    AccordionItem,
-} from "@/compat/heroui";
+
 import {
     ClockIcon,
     CalendarDaysIcon,
@@ -196,7 +171,7 @@ const WaypointRoute = ({ waypoints }) => {
                 setTimeout(() => {
                     // Calculate bounds from waypoints since getBounds() doesn't exist
                     const bounds = L.latLngBounds(routeWaypoints);
-                    map.fitBounds(bounds, { 
+                    map.fitBounds(bounds, {
                         padding: [40, 40],
                         maxZoom: 15
                     });
@@ -318,13 +293,17 @@ const AttendanceSettings = () => {
     // State management
     const [settings, setSettings] = useState(initialSettings || {});
     const [types, setTypes] = useState(initialTypes || []);
-    const [loading, setLoading] = useState(false);
-    const [typeLoading, setTypeLoading] = useState(false);
+    const [isMutating, setisMutating] = useState(false);
+    const [typeisMutating, setTypeisMutating] = useState(false);
     const [editingType, setEditingType] = useState(null);
     const [searchValue, setSearchValue] = useState('');
     const [selectedTab, setSelectedTab] = useState('general');
 
-    // Modal management
+    const updateAttendanceTypeMutation = useAttendanceQuery.useUpdateAttendanceType();
+    const createAttendanceTypeMutation = useAttendanceQuery.useCreateAttendanceType();
+    const deleteAttendanceTypeMutation = useAttendanceQuery.useDeleteAttendanceType();
+
+    // Dialog management
     const {
         isOpen: isTypeModalOpen,
         onOpen: onTypeModalOpen,
@@ -452,9 +431,9 @@ const AttendanceSettings = () => {
 
     // Handle settings update
     const handleSettingsUpdate = useCallback(async (formData) => {
-        setLoading(true);
+        
         try {
-            const response = await axios.post(route('attendance-settings.update'), formData);
+            const response = await updateAttendanceSettings.mutateAsync(formData);
             
             if (response.data.attendanceSettings) {
                 setSettings(response.data.attendanceSettings);
@@ -464,7 +443,7 @@ const AttendanceSettings = () => {
             console.error('Settings update error:', error);
             showToast.error(error.response?.data?.message || 'Failed to update settings');
         } finally {
-            setLoading(false);
+            
         }
     }, []);
 
@@ -523,7 +502,7 @@ const AttendanceSettings = () => {
     }, [onTypeModalOpen]);
 
     const handleTypeUpdate = useCallback(async (typeData) => {
-        setTypeLoading(true);
+        
         try {
             let response;
             
@@ -531,7 +510,7 @@ const AttendanceSettings = () => {
                 // Update existing type
                 response = await axios.put(`/settings/attendance-type/${editingType.id}`, typeData);
                 
-                if (response.data.attendanceType) {
+                if (response.data?.attendanceType) {
                     const updatedType = response.data.attendanceType;
                     setTypes(prev => prev.map(type => 
                         type.id === updatedType.id ? updatedType : type
@@ -540,15 +519,16 @@ const AttendanceSettings = () => {
                 }
             } else {
                 // Create new type
-                response = await axios.post('/settings/attendance-type', {
+                response = await createAttendanceTypeMutation.mutateAsync({
                     ...typeData,
                     slug: editingType?.slug,
                     icon: editingType?.icon,
                 });
                 
-                if (response.data.attendanceType) {
-                    setTypes(prev => [...prev, response.data.attendanceType]);
-                    showToast.success(response.data.message || 'Attendance type created successfully');
+                const createdType = response?.attendanceType ?? response?.data?.attendanceType;
+                if (createdType) {
+                    setTypes(prev => [...prev, createdType]);
+                    showToast.success(response?.message || 'Attendance type created successfully');
                 }
             }
             
@@ -557,7 +537,7 @@ const AttendanceSettings = () => {
             console.error('Type update error:', error);
             showToast.error(error.response?.data?.message || 'Failed to save attendance type');
         } finally {
-            setTypeLoading(false);
+            
         }
     }, [editingType, onTypeModalClose]);
 
@@ -567,7 +547,7 @@ const AttendanceSettings = () => {
         }
         
         try {
-            await axios.delete(`/settings/attendance-type/${type.id}`);
+            await deleteAttendanceTypeMutation.mutateAsync(type.id);
             setTypes(prev => prev.filter(t => t.id !== type.id));
             showToast.success('Attendance type deleted successfully');
         } catch (error) {
@@ -826,12 +806,12 @@ const AttendanceSettings = () => {
                 polygons: [updatedPrimaryPolygon, ...remainingPolygons],
             };
             
-            const response = await axios.put(`/settings/attendance-type/${editingType.id}`, { 
-                config: updatedConfig 
+            const response = await axios.put(`/settings/attendance-type/${editingType.id}`, {
+                config: updatedConfig
             });
             
             setTypes(prev => prev.map(type => 
-                type.id === editingType.id ? response.data.attendanceType : type
+                type.id === editingType.id ? (response.data?.attendanceType ?? type) : type
             ));
             
             showToast.success('Polygon updated successfully');
@@ -872,12 +852,12 @@ const AttendanceSettings = () => {
                 routes: [updatedPrimaryRoute, ...remainingRoutes],
             };
             
-            const response = await axios.put(`/settings/attendance-type/${editingType.id}`, { 
-                config: updatedConfig 
+            const response = await axios.put(`/settings/attendance-type/${editingType.id}`, {
+                config: updatedConfig
             });
             
             setTypes(prev => prev.map(type => 
-                type.id === editingType.id ? response.data.attendanceType : type
+                type.id === editingType.id ? (response.data?.attendanceType ?? type) : type
             ));
             
             showToast.success('Route waypoints updated successfully');
@@ -987,12 +967,12 @@ const AttendanceSettings = () => {
                                                 
                                                 {/* Search for attendance types */}
                                                 <div className="flex gap-2 flex-wrap">
-                                                    <Input
+                                                    <TextField.Root
                                                         placeholder="Search attendance types..."
                                                         value={searchValue}
                                                         onChange={(e) => setSearchValue(e.target.value)}
                                                         startContent={<MagnifyingGlassIcon className="w-4 h-4 text-default-400" />}
-                                                        variant="bordered"
+                                                        variant="outline"
                                                         size="sm"
                                                         radius={getThemeRadius()}
                                                         className="w-64"
@@ -1029,12 +1009,12 @@ const AttendanceSettings = () => {
                                                     </h5>
                                                     
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <Input
+                                                        <TextField.Root
                                                             type="time"
                                                             label="Office Start Time"
                                                             name="office_start_time"
                                                             defaultValue={settings?.office_start_time || "09:00"}
-                                                            variant="bordered"
+                                                            variant="outline"
                                                             radius={getThemeRadius()}
                                                             className="max-w-full"
                                                             labelPlacement="outside"
@@ -1044,12 +1024,12 @@ const AttendanceSettings = () => {
                                                             }}
                                                         />
                                                         
-                                                        <Input
+                                                        <TextField.Root
                                                             type="time"
                                                             label="Office End Time"
                                                             name="office_end_time"
                                                             defaultValue={settings?.office_end_time || "18:00"}
-                                                            variant="bordered"
+                                                            variant="outline"
                                                             radius={getThemeRadius()}
                                                             className="max-w-full"
                                                             labelPlacement="outside"
@@ -1060,12 +1040,12 @@ const AttendanceSettings = () => {
                                                         />
                                                     </div>
                                                     
-                                                    <Input
+                                                    <TextField.Root
                                                         type="number"
                                                         label="Break Time Duration (minutes)"
                                                         name="break_time_duration"
                                                         defaultValue={settings?.break_time_duration || "60"}
-                                                        variant="bordered"
+                                                        variant="outline"
                                                         radius={getThemeRadius()}
                                                         className="max-w-md"
                                                         labelPlacement="outside"
@@ -1085,12 +1065,12 @@ const AttendanceSettings = () => {
                                                     </h5>
                                                     
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <Input
+                                                        <TextField.Root
                                                             type="number"
                                                             label="Late Mark After (minutes)"
                                                             name="late_mark_after"
                                                             defaultValue={settings?.late_mark_after || "15"}
-                                                            variant="bordered"
+                                                            variant="outline"
                                                             radius={getThemeRadius()}
                                                             className="max-w-full"
                                                             labelPlacement="outside"
@@ -1101,12 +1081,12 @@ const AttendanceSettings = () => {
                                                             }}
                                                         />
                                                         
-                                                        <Input
+                                                        <TextField.Root
                                                             type="number"
                                                             label="Early Leave Before (minutes)"
                                                             name="early_leave_before"
                                                             defaultValue={settings?.early_leave_before || "30"}
-                                                            variant="bordered"
+                                                            variant="outline"
                                                             radius={getThemeRadius()}
                                                             className="max-w-full"
                                                             labelPlacement="outside"
@@ -1118,12 +1098,12 @@ const AttendanceSettings = () => {
                                                         />
                                                     </div>
                                                     
-                                                    <Input
+                                                    <TextField.Root
                                                         type="number"
                                                         label="Overtime After (minutes)"
                                                         name="overtime_after"
                                                         defaultValue={settings?.overtime_after || "30"}
-                                                        variant="bordered"
+                                                        variant="outline"
                                                         radius={getThemeRadius()}
                                                         className="max-w-md"
                                                         labelPlacement="outside"
@@ -1182,7 +1162,7 @@ const AttendanceSettings = () => {
                                                         type="submit"
                                                         color="primary"
                                                         variant="shadow"
-                                                        isLoading={loading}
+                                                        isMutating={isMutating}
                                                         size={isMobile ? "sm" : "md"}
                                                         className="font-semibold"
                                                         radius={getThemeRadius()}
@@ -1233,12 +1213,12 @@ const AttendanceSettings = () => {
                                                                     }
                                                                     subtitle={
                                                                         <div className="flex items-center gap-2 mt-1">
-                                                                            <Chip size="sm" variant="flat" color={category.color}>
+                                                                            <Badge size="sm" variant="soft" color={category.color}>
                                                                                 {category.types.length} configuration{category.types.length !== 1 ? 's' : ''}
-                                                                            </Chip>
-                                                                            <Chip size="sm" variant="flat" color="success">
+                                                                            </Badge>
+                                                                            <Badge size="sm" variant="soft" color="success">
                                                                                 {category.types.filter(t => t.is_active).length} active
-                                                                            </Chip>
+                                                                            </Badge>
                                                                         </div>
                                                                     }
                                                                     classNames={{
@@ -1255,10 +1235,10 @@ const AttendanceSettings = () => {
                                                                             <Button
                                                                                 color="primary"
                                                                                 size="sm"
-                                                                                variant="flat"
+                                                                                variant="soft"
                                                                                 startContent={<PlusIcon className="w-4 h-4" />}
                                                                                 radius={getThemeRadius()}
-                                                                                onPress={() => {
+                                                                                onClick={() => {
                                                                                     // Open modal to create new attendance type of this category
                                                                                     const newType = {
                                                                                         id: null,
@@ -1313,15 +1293,15 @@ const AttendanceSettings = () => {
                                                                                                     </span>
                                                                                                 </TableCell>
                                                                                                 <TableCell>
-                                                                                                    <Chip
+                                                                                                    <Badge
                                                                                                         startContent={<StatusIcon className="w-3 h-3" />}
-                                                                                                        variant="flat"
+                                                                                                        variant="soft"
                                                                                                         color={status.color}
                                                                                                         size="sm"
                                                                                                         radius={getThemeRadius()}
                                                                                                     >
                                                                                                         {status.text}
-                                                                                                    </Chip>
+                                                                                                    </Badge>
                                                                                                 </TableCell>
                                                                                                 <TableCell>
                                                                                                     <div className="flex items-center justify-center gap-1">
@@ -1332,7 +1312,7 @@ const AttendanceSettings = () => {
                                                                                                                 variant="light"
                                                                                                                 color="primary"
                                                                                                                 radius={getThemeRadius()}
-                                                                                                                onPress={() => openTypeModal(type)}
+                                                                                                                onClick={() => openTypeModal(type)}
                                                                                                             >
                                                                                                                 <PencilIcon className="w-4 h-4" />
                                                                                                             </Button>
@@ -1345,7 +1325,7 @@ const AttendanceSettings = () => {
                                                                                                                     variant="light"
                                                                                                                     color="secondary"
                                                                                                                     radius={getThemeRadius()}
-                                                                                                                    onPress={() => openWaypointModal(type)}
+                                                                                                                    onClick={() => openWaypointModal(type)}
                                                                                                                 >
                                                                                                                     <MapPinIcon className="w-4 h-4" />
                                                                                                                 </Button>
@@ -1359,20 +1339,20 @@ const AttendanceSettings = () => {
                                                                                                                     variant="light"
                                                                                                                     color="warning"
                                                                                                                     radius={getThemeRadius()}
-                                                                                                                    onPress={() => openPolygonModal(type)}
+                                                                                                                    onClick={() => openPolygonModal(type)}
                                                                                                                 >
                                                                                                                     <MapPinIcon className="w-4 h-4" />
                                                                                                                 </Button>
                                                                                                             </Tooltip>
                                                                                                         )}
-                                                                                                        <Tooltip content="Delete" color="danger">
+                                                                                                        <Tooltip content="Delete" color="red">
                                                                                                             <Button
                                                                                                                 isIconOnly
                                                                                                                 size="sm"
                                                                                                                 variant="light"
-                                                                                                                color="danger"
+                                                                                                                color="red"
                                                                                                                 radius={getThemeRadius()}
-                                                                                                                onPress={() => handleDeleteType(type)}
+                                                                                                                onClick={() => handleDeleteType(type)}
                                                                                                             >
                                                                                                                 <TrashIcon className="w-4 h-4" />
                                                                                                             </Button>
@@ -1409,9 +1389,9 @@ const AttendanceSettings = () => {
                 </div>
             </div>
 
-            {/* Edit Attendance Type Modal */}
-            <Modal 
-                isOpen={isTypeModalOpen} 
+            {/* Edit Attendance Type Dialog */}
+            <Dialog 
+                open={isTypeModalOpen} 
                 onClose={onTypeModalClose}
                 size="2xl"
                 scrollBehavior="inside"
@@ -1423,10 +1403,10 @@ const AttendanceSettings = () => {
                     footer: "border-t border-divider",
                 }}
             >
-                <ModalContent>
+                <Dialog.Content>
                     {(onClose) => (
                         <>
-                            <ModalHeader className="flex flex-col gap-1">
+                            <Dialog.Title className="flex flex-col gap-1">
                                 <div className="flex items-center gap-3">
                                     <div className="text-2xl">{editingType?.icon}</div>
                                     <div>
@@ -1438,17 +1418,17 @@ const AttendanceSettings = () => {
                                         </p>
                                     </div>
                                 </div>
-                            </ModalHeader>
-                            <ModalBody>
+                            </Dialog.Title>
+                            <Box>
                                 <form id="editTypeForm" onSubmit={handleTypeSubmit} className="space-y-6">
                                     <div className="grid grid-cols-1 gap-4">
-                                        <Input
+                                        <TextField.Root
                                             key={`name-${editingType?.id}`}
                                             label="Name"
                                             name="name"
                                             value={typeFormData.name}
                                             onChange={(e) => setTypeFormData(prev => ({ ...prev, name: e.target.value }))}
-                                            variant="bordered"
+                                            variant="outline"
                                             radius={getThemeRadius()}
                                             isRequired
                                             style={{
@@ -1462,7 +1442,7 @@ const AttendanceSettings = () => {
                                             name="description"
                                             value={typeFormData.description}
                                             onChange={(e) => setTypeFormData(prev => ({ ...prev, description: e.target.value }))}
-                                            variant="bordered"
+                                            variant="outline"
                                             radius={getThemeRadius()}
                                             style={{
                                                 fontFamily: `var(--fontFamily, "Inter")`,
@@ -1487,24 +1467,24 @@ const AttendanceSettings = () => {
                                     {getBaseSlug(editingType?.slug) === 'wifi_ip' && (
                                         <div className="space-y-4">
                                             <h5 className="text-lg font-semibold">Network Configuration</h5>
-                                            <Input
+                                            <TextField.Root
                                                 key={`allowed_ips-${editingType?.id}`}
                                                 label="Allowed IPs (comma-separated)"
                                                 name="allowed_ips"
                                                 defaultValue={getPrimaryIpLocationConfig(editingType?.config || {})?.allowed_ips?.join(', ') || ""}
-                                                variant="bordered"
+                                                variant="outline"
                                                 radius={getThemeRadius()}
                                                 placeholder="192.168.1.1, 10.0.0.1"
                                                 style={{
                                                     fontFamily: `var(--fontFamily, "Inter")`,
                                                 }}
                                             />
-                                            <Input
+                                            <TextField.Root
                                                 key={`allowed_ranges-${editingType?.id}`}
                                                 label="Allowed IP Ranges (comma-separated)"
                                                 name="allowed_ranges"
                                                 defaultValue={getPrimaryIpLocationConfig(editingType?.config || {})?.allowed_ranges?.join(', ') || ""}
-                                                variant="bordered"
+                                                variant="outline"
                                                 radius={getThemeRadius()}
                                                 placeholder="192.168.1.0/24, 10.0.0.0/16"
                                                 style={{
@@ -1517,13 +1497,13 @@ const AttendanceSettings = () => {
                                     {getBaseSlug(editingType?.slug) === 'route_waypoint' && (
                                         <div className="space-y-4">
                                             <h5 className="text-lg font-semibold">Route Configuration</h5>
-                                            <Input
+                                            <TextField.Root
                                                 key={`tolerance-${editingType?.id}`}
                                                 label="Tolerance (meters)"
                                                 name="tolerance"
                                                 type="number"
                                                 defaultValue={getPrimaryRouteConfig(editingType?.config || {})?.tolerance || 150}
-                                                variant="bordered"
+                                                variant="outline"
                                                 radius={getThemeRadius()}
                                                 min="10"
                                                 max="1000"
@@ -1540,13 +1520,13 @@ const AttendanceSettings = () => {
                                     {getBaseSlug(editingType?.slug) === 'qr_code' && (
                                         <div className="space-y-4">
                                             <h5 className="text-lg font-semibold">QR Code Configuration</h5>
-                                            <Input
+                                            <TextField.Root
                                                 key={`max_distance-${editingType?.id}`}
                                                 label="Max Distance (meters)"
                                                 name="max_distance"
                                                 type="number"
                                                 defaultValue={editingType?.config?.max_distance || 50}
-                                                variant="bordered"
+                                                variant="outline"
                                                 radius={getThemeRadius()}
                                                 min="1"
                                                 max="500"
@@ -1566,12 +1546,12 @@ const AttendanceSettings = () => {
                                         </div>
                                     )}
                                 </form>
-                            </ModalBody>
-                            <ModalFooter>
+                            </Box>
+                            <Flex>
                                 <Button 
-                                    color="danger" 
+                                    color="red" 
                                     variant="light" 
-                                    onPress={onClose}
+                                    onClick={onClose}
                                     radius={getThemeRadius()}
                                     style={{
                                         fontFamily: `var(--fontFamily, "Inter")`,
@@ -1581,13 +1561,13 @@ const AttendanceSettings = () => {
                                 </Button>
                                 <Button 
                                     color="primary" 
-                                    onPress={() => {
+                                    onClick={() => {
                                         const form = document.getElementById('editTypeForm');
                                         if (form) {
                                             form.requestSubmit();
                                         }
                                     }}
-                                    isLoading={typeLoading}
+                                    isMutating={typeisMutating}
                                     radius={getThemeRadius()}
                                     style={{
                                         fontFamily: `var(--fontFamily, "Inter")`,
@@ -1595,15 +1575,15 @@ const AttendanceSettings = () => {
                                 >
                                     {editingType?.id ? 'Update Type' : 'Create Type'}
                                 </Button>
-                            </ModalFooter>
+                            </Flex>
                         </>
                     )}
-                </ModalContent>
-            </Modal>
+                </Dialog.Content>
+            </Dialog>
 
-            {/* Waypoint Configuration Modal */}
-            <Modal 
-                isOpen={isWaypointModalOpen} 
+            {/* Waypoint Configuration Dialog */}
+            <Dialog 
+                open={isWaypointModalOpen} 
                 onClose={() => {
                     setIsAddingWaypoint(false);
                     onWaypointModalClose();
@@ -1618,10 +1598,10 @@ const AttendanceSettings = () => {
                     footer: "border-t border-divider",
                 }}
             >
-                <ModalContent>
+                <Dialog.Content>
                     {(onClose) => (
                         <>
-                            <ModalHeader className="flex flex-col gap-1">
+                            <Dialog.Title className="flex flex-col gap-1">
                                 <div className="flex items-center gap-3">
                                     <MapPinIcon className="w-6 h-6 text-primary" />
                                     <div>
@@ -1629,40 +1609,40 @@ const AttendanceSettings = () => {
                                         <p className="text-sm text-default-500">Set route waypoints for {editingType?.name}</p>
                                     </div>
                                 </div>
-                            </ModalHeader>
-                            <ModalBody>
+                            </Dialog.Title>
+                            <Box>
                                 <div className="space-y-6">
                                     {/* Tolerance and Stats */}
                                     <div className="flex items-center gap-4">
-                                        <Input
+                                        <TextField.Root
                                             label="Tolerance (meters)"
                                             type="number"
                                             value={waypointForm.tolerance}
                                             onChange={(e) => setWaypointForm(prev => ({ ...prev, tolerance: parseInt(e.target.value) || 150 }))}
-                                            variant="bordered"
+                                            variant="outline"
                                             radius={getThemeRadius()}
                                             min="10"
                                             max="1000"
                                             className="max-w-xs"
                                             style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                         />
-                                        <Chip 
-                                            variant="flat" 
+                                        <Badge 
+                                            variant="soft" 
                                             color="primary" 
                                             size="sm"
                                             style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                         >
                                             {waypointForm.waypoints.length} waypoint{waypointForm.waypoints.length !== 1 ? 's' : ''}
-                                        </Chip>
+                                        </Badge>
                                         {waypointForm.waypoints.length >= 2 && (
-                                            <Chip 
-                                                variant="flat" 
+                                            <Badge 
+                                                variant="soft" 
                                                 color="success" 
                                                 size="sm"
                                                 style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                             >
                                                 {waypointForm.waypoints.length - 1} segment{waypointForm.waypoints.length > 2 ? 's' : ''}
-                                            </Chip>
+                                            </Badge>
                                         )}
                                     </div>
 
@@ -1683,7 +1663,7 @@ const AttendanceSettings = () => {
                                                     color={isAddingWaypoint ? "danger" : "primary"}
                                                     variant={isAddingWaypoint ? "flat" : "solid"}
                                                     size="sm"
-                                                    onPress={() => {
+                                                    onClick={() => {
                                                         if (isAddingWaypoint) {
                                                             setIsAddingWaypoint(false);
                                                             showToast.info('Waypoint adding mode disabled');
@@ -1700,9 +1680,9 @@ const AttendanceSettings = () => {
                                                 {waypointForm.waypoints.length > 0 && (
                                                     <Button
                                                         color="secondary"
-                                                        variant="flat"
+                                                        variant="soft"
                                                         size="sm"
-                                                        onPress={() => {
+                                                        onClick={() => {
                                                             if (waypointForm.waypoints.length > 0) {
                                                                 const bounds = L.latLngBounds(
                                                                     waypointForm.waypoints.map(w => [parseFloat(w.lat), parseFloat(w.lng)])
@@ -1829,7 +1809,7 @@ const AttendanceSettings = () => {
                                                                         color="secondary"
                                                                         variant="light"
                                                                         size="sm"
-                                                                        onPress={() => centerMapOnWaypoint(waypoint)}
+                                                                        onClick={() => centerMapOnWaypoint(waypoint)}
                                                                         radius={getThemeRadius()}
                                                                         title="Center map on waypoint"
                                                                     >
@@ -1837,10 +1817,10 @@ const AttendanceSettings = () => {
                                                                     </Button>
                                                                     <Button
                                                                         isIconOnly
-                                                                        color="danger"
+                                                                        color="red"
                                                                         variant="light"
                                                                         size="sm"
-                                                                        onPress={() => removeWaypoint(index)}
+                                                                        onClick={() => removeWaypoint(index)}
                                                                         radius={getThemeRadius()}
                                                                     >
                                                                         <TrashIcon className="w-4 h-4" />
@@ -1848,13 +1828,13 @@ const AttendanceSettings = () => {
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-3">
-                                                                <Input
+                                                                <TextField.Root
                                                                     label="Latitude"
                                                                     type="number"
                                                                     step="any"
                                                                     value={waypoint.lat}
                                                                     onChange={(e) => updateWaypoint(index, 'lat', e.target.value)}
-                                                                    variant="bordered"
+                                                                    variant="outline"
                                                                     radius={getThemeRadius()}
                                                                     placeholder="e.g., 23.7588"
                                                                     size="sm"
@@ -1862,13 +1842,13 @@ const AttendanceSettings = () => {
                                                                         fontFamily: `var(--fontFamily, "Inter")`,
                                                                     }}
                                                                 />
-                                                                <Input
+                                                                <TextField.Root
                                                                     label="Longitude"
                                                                     type="number"
                                                                     step="any"
                                                                     value={waypoint.lng}
                                                                     onChange={(e) => updateWaypoint(index, 'lng', e.target.value)}
-                                                                    variant="bordered"
+                                                                    variant="outline"
                                                                     radius={getThemeRadius()}
                                                                     placeholder="e.g., 90.3783"
                                                                     size="sm"
@@ -1884,12 +1864,12 @@ const AttendanceSettings = () => {
                                         )}
                                     </div>
                                 </div>
-                            </ModalBody>
-                            <ModalFooter>
+                            </Box>
+                            <Flex>
                                 <Button 
-                                    color="danger" 
+                                    color="red" 
                                     variant="light" 
-                                    onPress={() => {
+                                    onClick={() => {
                                         setIsAddingWaypoint(false);
                                         onClose();
                                     }}
@@ -1902,7 +1882,7 @@ const AttendanceSettings = () => {
                                 </Button>
                                 <Button 
                                     color="primary" 
-                                    onPress={handleWaypointSubmit}
+                                    onClick={handleWaypointSubmit}
                                     radius={getThemeRadius()}
                                     style={{
                                         fontFamily: `var(--fontFamily, "Inter")`,
@@ -1910,15 +1890,15 @@ const AttendanceSettings = () => {
                                 >
                                     Save Waypoints ({waypointForm.waypoints.length})
                                 </Button>
-                            </ModalFooter>
+                            </Flex>
                         </>
                     )}
-                </ModalContent>
-            </Modal>
+                </Dialog.Content>
+            </Dialog>
 
-            {/* Polygon Configuration Modal */}
-            <Modal 
-                isOpen={isPolygonModalOpen} 
+            {/* Polygon Configuration Dialog */}
+            <Dialog 
+                open={isPolygonModalOpen} 
                 onClose={() => {
                     setIsAddingPolygonPoint(false);
                     onPolygonModalClose();
@@ -1933,10 +1913,10 @@ const AttendanceSettings = () => {
                     footer: "border-t border-divider",
                 }}
             >
-                <ModalContent>
+                <Dialog.Content>
                     {(onClose) => (
                         <>
-                            <ModalHeader className="flex flex-col gap-1">
+                            <Dialog.Title className="flex flex-col gap-1">
                                 <div className="flex items-center gap-3">
                                     <MapPinIcon className="w-6 h-6 text-warning" />
                                     <div>
@@ -1944,38 +1924,38 @@ const AttendanceSettings = () => {
                                         <p className="text-sm text-default-500">Set polygon boundary for {editingType?.name}</p>
                                     </div>
                                 </div>
-                            </ModalHeader>
-                            <ModalBody>
+                            </Dialog.Title>
+                            <Box>
                                 <div className="space-y-6">
                                     {/* Polygon Info */}
                                     <div className="flex items-center gap-4">
-                                        <Chip 
-                                            variant="flat" 
+                                        <Badge 
+                                            variant="soft" 
                                             color="warning" 
                                             size="sm"
                                             style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                         >
                                             {polygonForm.polygon.length} point{polygonForm.polygon.length !== 1 ? 's' : ''}
-                                        </Chip>
+                                        </Badge>
                                         {polygonForm.polygon.length >= 3 && (
-                                            <Chip 
-                                                variant="flat" 
+                                            <Badge 
+                                                variant="soft" 
                                                 color="success" 
                                                 size="sm"
                                                 style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                             >
                                                 Valid polygon boundary
-                                            </Chip>
+                                            </Badge>
                                         )}
                                         {polygonForm.polygon.length > 0 && polygonForm.polygon.length < 3 && (
-                                            <Chip 
-                                                variant="flat" 
-                                                color="danger" 
+                                            <Badge 
+                                                variant="soft" 
+                                                color="red" 
                                                 size="sm"
                                                 style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                             >
                                                 Minimum 3 points required
-                                            </Chip>
+                                            </Badge>
                                         )}
                                     </div>
 
@@ -1996,7 +1976,7 @@ const AttendanceSettings = () => {
                                                     color={isAddingPolygonPoint ? "danger" : "warning"}
                                                     variant={isAddingPolygonPoint ? "flat" : "solid"}
                                                     size="sm"
-                                                    onPress={() => {
+                                                    onClick={() => {
                                                         if (isAddingPolygonPoint) {
                                                             setIsAddingPolygonPoint(false);
                                                             showToast.info('Point adding mode disabled');
@@ -2013,9 +1993,9 @@ const AttendanceSettings = () => {
                                                 {polygonForm.polygon.length > 0 && (
                                                     <Button
                                                         color="secondary"
-                                                        variant="flat"
+                                                        variant="soft"
                                                         size="sm"
-                                                        onPress={() => {
+                                                        onClick={() => {
                                                             if (polygonForm.polygon.length > 0) {
                                                                 const bounds = L.latLngBounds(
                                                                     polygonForm.polygon.map(p => [parseFloat(p.lat), parseFloat(p.lng)])
@@ -2142,7 +2122,7 @@ const AttendanceSettings = () => {
                                                                         color="secondary"
                                                                         variant="light"
                                                                         size="sm"
-                                                                        onPress={() => centerMapOnPolygonPoint(point)}
+                                                                        onClick={() => centerMapOnPolygonPoint(point)}
                                                                         radius={getThemeRadius()}
                                                                         title="Center map on point"
                                                                     >
@@ -2150,10 +2130,10 @@ const AttendanceSettings = () => {
                                                                     </Button>
                                                                     <Button
                                                                         isIconOnly
-                                                                        color="danger"
+                                                                        color="red"
                                                                         variant="light"
                                                                         size="sm"
-                                                                        onPress={() => removePolygonPoint(index)}
+                                                                        onClick={() => removePolygonPoint(index)}
                                                                         radius={getThemeRadius()}
                                                                     >
                                                                         <TrashIcon className="w-4 h-4" />
@@ -2161,25 +2141,25 @@ const AttendanceSettings = () => {
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-3">
-                                                                <Input
+                                                                <TextField.Root
                                                                     label="Latitude"
                                                                     type="number"
                                                                     step="any"
                                                                     value={point.lat}
                                                                     onChange={(e) => updatePolygonPoint(index, 'lat', e.target.value)}
-                                                                    variant="bordered"
+                                                                    variant="outline"
                                                                     radius={getThemeRadius()}
                                                                     placeholder="e.g., 23.7588"
                                                                     size="sm"
                                                                     style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                                                 />
-                                                                <Input
+                                                                <TextField.Root
                                                                     label="Longitude"
                                                                     type="number"
                                                                     step="any"
                                                                     value={point.lng}
                                                                     onChange={(e) => updatePolygonPoint(index, 'lng', e.target.value)}
-                                                                    variant="bordered"
+                                                                    variant="outline"
                                                                     radius={getThemeRadius()}
                                                                     placeholder="e.g., 90.3783"
                                                                     size="sm"
@@ -2193,12 +2173,12 @@ const AttendanceSettings = () => {
                                         )}
                                     </div>
                                 </div>
-                            </ModalBody>
-                            <ModalFooter>
+                            </Box>
+                            <Flex>
                                 <Button 
-                                    color="danger" 
+                                    color="red" 
                                     variant="light" 
-                                    onPress={() => {
+                                    onClick={() => {
                                         setIsAddingPolygonPoint(false);
                                         onClose();
                                     }}
@@ -2209,20 +2189,25 @@ const AttendanceSettings = () => {
                                 </Button>
                                 <Button 
                                     color="warning" 
-                                    onPress={handlePolygonSubmit}
-                                    isDisabled={polygonForm.polygon.length < 3}
+                                    onClick={handlePolygonSubmit}
+                                    disabled={polygonForm.polygon.length < 3}
                                     radius={getThemeRadius()}
                                     style={{ fontFamily: `var(--fontFamily, "Inter")` }}
                                 >
                                     Save Polygon ({polygonForm.polygon.length}/3+ points)
                                 </Button>
-                            </ModalFooter>
+                            </Flex>
                         </>
                     )}
-                </ModalContent>
-            </Modal>
+                </Dialog.Content>
+            </Dialog>
         </App>
     );
 };
 
 export default AttendanceSettings;
+
+
+
+
+

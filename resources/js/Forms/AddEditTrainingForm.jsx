@@ -1,25 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Dialog, 
-    DialogTitle, 
-    DialogContent, 
-    DialogActions, 
-    Box, 
-    Grid, 
-    Typography,
+import {
+    Dialog,
+    Box,
+    Grid,
+    Text,
     IconButton,
     Button,
     TextField,
     Select,
-    MenuItem,
-    InputLabel,
-    FormControl,
-    FormHelperText,
-    InputAdornment
-} from '@mui/material';
+    Flex,
+    Spinner,
+    TextArea,
+} from '@radix-ui/themes';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
+
+const fieldError = (errors, field) => {
+    const e = errors[field];
+    if (!e) return null;
+    return Array.isArray(e) ? e[0] : e;
+};
 
 const AddEditTrainingForm = ({ open, onClose, training = null, fetchData, currentPage, perPage, filterData }) => {
     const isEditing = !!training;
@@ -40,9 +41,8 @@ const AddEditTrainingForm = ({ open, onClose, training = null, fetchData, curren
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
-    
+
     useEffect(() => {
-        // Fetch categories
         const fetchCategories = async () => {
             try {
                 const response = await axios.get(route('hr.training.categories.list'));
@@ -52,10 +52,9 @@ const AddEditTrainingForm = ({ open, onClose, training = null, fetchData, curren
                 showToast.error('Failed to load training categories.');
             }
         };
-        
+
         fetchCategories();
-        
-        // Set form data if editing
+
         if (isEditing && training) {
             setFormData({
                 title: training.title || '',
@@ -73,15 +72,14 @@ const AddEditTrainingForm = ({ open, onClose, training = null, fetchData, curren
             });
         }
     }, [isEditing, training]);
-    
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
             [name]: value
         }));
-        
-        // Clear error when field is changed
+
         if (errors[name]) {
             setErrors(prev => ({
                 ...prev,
@@ -89,60 +87,73 @@ const AddEditTrainingForm = ({ open, onClose, training = null, fetchData, curren
             }));
         }
     };
-    
+
+    const handleSelectChange = (name, value) => {
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+        if (errors[name]) {
+            setErrors(prev => ({
+                ...prev,
+                [name]: null
+            }));
+        }
+    };
+
     const validateForm = () => {
         const newErrors = {};
-        
+
         if (!formData.title) newErrors.title = 'Title is required';
         if (!formData.description) newErrors.description = 'Description is required';
         if (!formData.category_id) newErrors.category_id = 'Category is required';
         if (!formData.duration) newErrors.duration = 'Duration is required';
         if (!formData.status) newErrors.status = 'Status is required';
-        
+
         if (formData.max_participants && isNaN(formData.max_participants)) {
             newErrors.max_participants = 'Max participants must be a number';
         }
-        
+
         if (formData.cost && isNaN(formData.cost)) {
             newErrors.cost = 'Cost must be a number';
         }
-        
+
         if (formData.start_date && formData.end_date) {
             const startDate = new Date(formData.start_date);
             const endDate = new Date(formData.end_date);
-            
+
             if (endDate < startDate) {
                 newErrors.end_date = 'End date cannot be before start date';
             }
         }
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
-    
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!validateForm()) return;
-        
+
         setLoading(true);
-        
+
         try {
             let response;
-            
+
             if (isEditing) {
                 response = await axios.put(route('hr.training.update', training.id), formData);
             } else {
                 response = await axios.post(route('hr.training.store'), formData);
             }
-            
+
             showToast.success(response.data.message || `Training ${isEditing ? 'updated' : 'created'} successfully!`);
             onClose();
             fetchData(currentPage, perPage, filterData);
         } catch (error) {
             console.error('Error submitting form:', error);
-            
-            if (error.response && error.response.data && error.response.data.errors) {
+
+            if (error.response?.data?.errors) {
                 setErrors(error.response.data.errors);
             } else {
                 showToast.error(`Failed to ${isEditing ? 'update' : 'create'} training session.`);
@@ -151,275 +162,191 @@ const AddEditTrainingForm = ({ open, onClose, training = null, fetchData, curren
             setLoading(false);
         }
     };
-    
+
     return (
-        <Dialog 
-            open={open} 
-            onClose={onClose} 
-            maxWidth="md" 
-            fullWidth
-            PaperProps={{
-                sx: {
-                    borderRadius: '12px',
-                    backdropFilter: 'blur(10px)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)'
-                }
-            }}
-        >
-            <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" component="div">
-                    {isEditing ? 'Edit Training Session' : 'Create New Training Session'}
-                </Typography>
-                <IconButton onClick={onClose} aria-label="close">
-                    <XMarkIcon className="w-5 h-5" />
-                </IconButton>
-            </DialogTitle>
-            
-            <DialogContent dividers>
-                <Box component="form" noValidate onSubmit={handleSubmit} sx={{ mt: 1 }}>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12}>
-                            <TextField
+        <Dialog.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+            <Dialog.Content style={{ maxWidth: 720 }}>
+                <Flex justify="between" align="center" mb="3">
+                    <Dialog.Title>
+                        {isEditing ? 'Edit Training Session' : 'Create New Training Session'}
+                    </Dialog.Title>
+                    <Dialog.Close>
+                        <IconButton variant="ghost" color="gray" aria-label="close">
+                            <XMarkIcon className="w-5 h-5" />
+                        </IconButton>
+                    </Dialog.Close>
+                </Flex>
+
+                <form onSubmit={handleSubmit}>
+                    <Grid columns={{ initial: '1', md: '2' }} gap="3">
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Training Title *</Text>
+                            <TextField.Root
                                 name="title"
-                                label="Training Title"
                                 placeholder="Enter training title"
                                 value={formData.title}
-                                onChange={(e) => handleChange(e)}
-                                error={!!errors.title}
-                                helperText={errors.title}
-                                required
-                                variant="outlined"
-                                fullWidth
-                                size="small"
+                                onChange={handleChange}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Textarea
+                            {fieldError(errors, 'title') && <Text size="1" color="red" mt="1">{fieldError(errors, 'title')}</Text>}
+                        </Box>
+
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Description *</Text>
+                            <TextArea
                                 name="description"
-                                label="Description"
                                 placeholder="Enter training description"
                                 value={formData.description}
-                                onChange={(e) => handleChange({ target: { name: 'description', value: e.target.value }})}
-                                isInvalid={!!errors.description}
-                                errorMessage={errors.description}
-                                isRequired
-                                variant="bordered"
-                                minRows={3}
-                                classNames={{
-                                    input: "text-small",
-                                }}
+                                onChange={handleChange}
+                                rows={3}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <Select
-                                name="category_id"
-                                label="Category"
-                                placeholder="Select a category"
-                                selectedKeys={formData.category_id ? [formData.category_id.toString()] : []}
-                                onSelectionChange={(keys) => {
-                                    const value = Array.from(keys)[0];
-                                    handleChange({ target: { name: 'category_id', value }});
-                                }}
-                                isInvalid={!!errors.category_id}
-                                errorMessage={errors.category_id}
-                                isRequired
-                                variant="bordered"
-                                classNames={{
-                                    trigger: "h-unit-12",
-                                }}
+                            {fieldError(errors, 'description') && <Text size="1" color="red" mt="1">{fieldError(errors, 'description')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Category *</Text>
+                            <Select.Root
+                                value={formData.category_id ? String(formData.category_id) : undefined}
+                                onValueChange={(v) => handleSelectChange('category_id', v)}
                             >
-                                {categories.map(category => (
-                                    <SelectItem key={category.id} value={category.id}>
-                                        {category.name}
-                                    </SelectItem>
-                                ))}
-                            </Select>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <TextField
+                                <Select.Trigger placeholder="Select a category" style={{ width: '100%' }} />
+                                <Select.Content>
+                                    {categories.map(category => (
+                                        <Select.Item key={category.id} value={String(category.id)}>
+                                            {category.name}
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                            {fieldError(errors, 'category_id') && <Text size="1" color="red" mt="1">{fieldError(errors, 'category_id')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Instructor</Text>
+                            <TextField.Root
                                 name="instructor"
-                                label="Instructor"
                                 placeholder="Enter instructor name"
                                 value={formData.instructor}
-                                onChange={(e) => handleChange(e)}
-                                error={!!errors.instructor}
-                                helperText={errors.instructor}
-                                variant="outlined"
-                                fullWidth
-                                size="small"
+                                onChange={handleChange}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={6} md={3}>
-                            <TextField
+                            {fieldError(errors, 'instructor') && <Text size="1" color="red" mt="1">{fieldError(errors, 'instructor')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Duration *</Text>
+                            <TextField.Root
                                 name="duration"
-                                label="Duration"
-                                placeholder="Enter duration"
                                 type="number"
+                                placeholder="Enter duration"
                                 value={formData.duration}
-                                onChange={(e) => handleChange(e)}
-                                error={!!errors.duration}
-                                helperText={errors.duration}
-                                required
-                                variant="outlined"
-                                fullWidth
-                                size="small"
+                                onChange={handleChange}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={6} md={3}>
-                            <Select
-                                name="duration_unit"
-                                label="Unit"
-                                placeholder="Select unit"
-                                selectedKeys={[formData.duration_unit]}
-                                onSelectionChange={(keys) => {
-                                    const value = Array.from(keys)[0];
-                                    handleChange({ target: { name: 'duration_unit', value }});
-                                }}
-                                variant="bordered"
-                                classNames={{
-                                    trigger: "h-unit-12",
-                                }}
+                            {fieldError(errors, 'duration') && <Text size="1" color="red" mt="1">{fieldError(errors, 'duration')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Unit</Text>
+                            <Select.Root
+                                value={formData.duration_unit}
+                                onValueChange={(v) => handleSelectChange('duration_unit', v)}
                             >
-                                <SelectItem key="hours" value="hours">Hours</SelectItem>
-                                <SelectItem key="days" value="days">Days</SelectItem>
-                                <SelectItem key="weeks" value="weeks">Weeks</SelectItem>
-                                <SelectItem key="months" value="months">Months</SelectItem>
-                            </Select>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <Select
-                                name="status"
-                                label="Status"
-                                placeholder="Select status"
-                                selectedKeys={[formData.status]}
-                                onSelectionChange={(keys) => {
-                                    const value = Array.from(keys)[0];
-                                    handleChange({ target: { name: 'status', value }});
-                                }}
-                                isInvalid={!!errors.status}
-                                errorMessage={errors.status}
-                                isRequired
-                                variant="bordered"
-                                classNames={{
-                                    trigger: "h-unit-12",
-                                }}
+                                <Select.Trigger style={{ width: '100%' }} />
+                                <Select.Content>
+                                    <Select.Item value="hours">Hours</Select.Item>
+                                    <Select.Item value="days">Days</Select.Item>
+                                    <Select.Item value="weeks">Weeks</Select.Item>
+                                    <Select.Item value="months">Months</Select.Item>
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Status *</Text>
+                            <Select.Root
+                                value={formData.status}
+                                onValueChange={(v) => handleSelectChange('status', v)}
                             >
-                                <SelectItem key="planned" value="planned">Planned</SelectItem>
-                                <SelectItem key="active" value="active">Active</SelectItem>
-                                <SelectItem key="completed" value="completed">Completed</SelectItem>
-                                <SelectItem key="cancelled" value="cancelled">Cancelled</SelectItem>
-                            </Select>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <TextField
+                                <Select.Trigger style={{ width: '100%' }} />
+                                <Select.Content>
+                                    <Select.Item value="planned">Planned</Select.Item>
+                                    <Select.Item value="active">Active</Select.Item>
+                                    <Select.Item value="completed">Completed</Select.Item>
+                                    <Select.Item value="cancelled">Cancelled</Select.Item>
+                                </Select.Content>
+                            </Select.Root>
+                            {fieldError(errors, 'status') && <Text size="1" color="red" mt="1">{fieldError(errors, 'status')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Location</Text>
+                            <TextField.Root
                                 name="location"
-                                label="Location"
                                 placeholder="Enter training location"
                                 value={formData.location}
-                                onChange={(e) => handleChange(e)}
-                                error={!!errors.location}
-                                helperText={errors.location}
-                                variant="outlined"
-                                fullWidth
-                                size="small"
+                                onChange={handleChange}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <TextField
+                            {fieldError(errors, 'location') && <Text size="1" color="red" mt="1">{fieldError(errors, 'location')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Maximum Participants</Text>
+                            <TextField.Root
                                 name="max_participants"
-                                label="Maximum Participants"
-                                placeholder="Enter max participants"
                                 type="number"
+                                placeholder="Enter max participants"
                                 value={formData.max_participants}
-                                onChange={(e) => handleChange(e)}
-                                error={!!errors.max_participants}
-                                helperText={errors.max_participants}
-                                variant="outlined"
-                                fullWidth
-                                size="small"
+                                onChange={handleChange}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <TextField
+                            {fieldError(errors, 'max_participants') && <Text size="1" color="red" mt="1">{fieldError(errors, 'max_participants')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Cost</Text>
+                            <TextField.Root
                                 name="cost"
-                                label="Cost"
-                                placeholder="Enter training cost"
                                 type="number"
                                 step="0.01"
+                                placeholder="Enter training cost"
                                 value={formData.cost}
-                                onChange={(e) => handleChange(e)}
-                                error={!!errors.cost}
-                                helperText={errors.cost}
-                                variant="outlined"
-                                fullWidth
-                                size="small"
+                                onChange={handleChange}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <DatePicker
+                            {fieldError(errors, 'cost') && <Text size="1" color="red" mt="1">{fieldError(errors, 'cost')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">Start Date</Text>
+                            <TextField.Root
                                 name="start_date"
-                                label="Start Date"
+                                type="date"
                                 value={formData.start_date}
-                                onChange={(date) => handleChange({ target: { name: 'start_date', value: date }})}
-                                isInvalid={!!errors.start_date}
-                                errorMessage={errors.start_date}
-                                variant="bordered"
-                                showMonthAndYearPickers
-                                classNames={{
-                                    base: "w-full",
-                                    input: "text-small",
-                                    inputWrapper: "h-unit-12",
-                                }}
+                                onChange={handleChange}
                             />
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                            <DatePicker
+                            {fieldError(errors, 'start_date') && <Text size="1" color="red" mt="1">{fieldError(errors, 'start_date')}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text as="label" size="2" weight="medium" mb="1" display="block">End Date</Text>
+                            <TextField.Root
                                 name="end_date"
-                                label="End Date"
+                                type="date"
                                 value={formData.end_date}
-                                onChange={(date) => handleChange({ target: { name: 'end_date', value: date }})}
-                                isInvalid={!!errors.end_date}
-                                errorMessage={errors.end_date}
-                                variant="bordered"
-                                showMonthAndYearPickers
-                                classNames={{
-                                    base: "w-full",
-                                    input: "text-small",
-                                    inputWrapper: "h-unit-12",
-                                }}
+                                onChange={handleChange}
                             />
-                        </Grid>
+                            {fieldError(errors, 'end_date') && <Text size="1" color="red" mt="1">{fieldError(errors, 'end_date')}</Text>}
+                        </Box>
                     </Grid>
-                </Box>
-            </DialogContent>
-            
-            <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
-                <Button 
-                    onClick={onClose} 
-                    variant="light"
-                >
-                    Cancel
-                </Button>
-                <Button 
-                    onClick={handleSubmit}
-                    color="primary"
-                    isLoading={loading}
-                >
-                    {isEditing ? 'Update Training' : 'Create Training'}
-                </Button>
-            </DialogActions>
-        </Dialog>
+
+                    <Flex justify="between" mt="5">
+                        <Button type="button" variant="soft" color="gray" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                            {loading && <Spinner size="1" />}
+                            {isEditing ? 'Update Training' : 'Create Training'}
+                        </Button>
+                    </Flex>
+                </form>
+            </Dialog.Content>
+        </Dialog.Root>
     );
 };
 

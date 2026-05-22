@@ -5,6 +5,7 @@ import { Box, Flex, Grid } from '@radix-ui/themes';
 import UpdatesCards          from '@/Components/UpdatesCards.jsx';
 import PunchStatusCard       from '@/Components/PunchStatusCard.jsx';
 import App                   from '@/Layouts/App.jsx';
+import ErrorBoundary         from '@/Components/ErrorBoundary/ErrorBoundary';
 
 import GreetingBanner          from '@/Components/Dashboard/GreetingBanner.jsx';
 import ClockWidget             from '@/Components/Dashboard/ClockWidget.jsx';
@@ -36,19 +37,27 @@ export default function Dashboard({ auth }) {
                 {/* ── Row 2: Punch + Personal Overview ────────────────────── */}
                 <Grid columns={{ initial: '1', md: '2' }} gap={{ initial: '3', md: '4' }}>
                     {hasAll(['attendance.own.punch', 'attendance.own.view']) && (
-                        <PunchStatusCard handlePunchSuccess={() => {}} />
+                        <ErrorBoundary>
+                            <PunchStatusCard handlePunchSuccess={() => {}} />
+                        </ErrorBoundary>
                     )}
-                    <PersonalOverviewCard permissions={perms} />
+                    <ErrorBoundary>
+                        <PersonalOverviewCard permissions={perms} />
+                    </ErrorBoundary>
                 </Grid>
 
                 {/* ── Row 3: Attendance Charts ─────────────────────────────── */}
                 {hasAny(['attendance.own.view', 'attendance.view']) && (
-                    <AttendanceChartWidget permissions={perms} />
+                    <ErrorBoundary>
+                        <AttendanceChartWidget permissions={perms} />
+                    </ErrorBoundary>
                 )}
 
                 {/* ── Row 4: Leave Updates ─────────────────────────────────── */}
                 {has('core.updates.view') && (
-                    <UpdatesCards />
+                    <ErrorBoundary>
+                        <UpdatesCards />
+                    </ErrorBoundary>
                 )}
 
             </Flex>

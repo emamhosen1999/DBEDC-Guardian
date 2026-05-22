@@ -1,92 +1,69 @@
 import React from 'react';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Typography,
+    AlertDialog,
     Button,
+    Flex,
+    Text,
     Box,
-    IconButton
-} from '@mui/material';
+    IconButton,
+} from '@radix-ui/themes';
 import { XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
-const ConfirmDialog = ({ 
-    open, 
-    onClose, 
-    onConfirm, 
-    title, 
-    description, 
+const ConfirmDialog = ({
+    open,
+    onClose,
+    onConfirm,
+    title,
+    description,
     confirmText = 'Confirm',
     cancelText = 'Cancel',
-    confirmColor = 'primary',
-    icon 
+    confirmColor = 'indigo',
+    icon,
 }) => {
+    const accent = confirmColor === 'error' || confirmColor === 'red' ? 'red' : 'indigo';
+
     return (
-        <Dialog 
-            open={open} 
-            onClose={onClose} 
-            maxWidth="xs" 
-            fullWidth
-            PaperProps={{
-                sx: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)'
-                }
-            }}
-        >
-            <DialogTitle>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Box display="flex" alignItems="center" gap={2}>
-                        {icon || (
-                            <ExclamationTriangleIcon 
-                                className={`w-6 h-6 ${
-                                    confirmColor === 'error' ? 'text-red-500' : 'text-orange-500'
-                                }`} 
+        <AlertDialog.Root open={open} onOpenChange={(v) => { if (!v) onClose?.(); }}>
+            <AlertDialog.Content maxWidth="400px">
+                <Flex justify="between" align="start" gap="3" mb="3">
+                    <Flex align="center" gap="2" style={{ minWidth: 0 }}>
+                        {icon ?? (
+                            <ExclamationTriangleIcon
+                                style={{
+                                    width: 22,
+                                    height: 22,
+                                    color: accent === 'red' ? 'var(--red-11)' : 'var(--amber-11)',
+                                    flexShrink: 0,
+                                }}
                             />
                         )}
-                        <Typography variant="h6" component="div">
-                            {title}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={onClose} size="small">
-                        <XMarkIcon className="w-5 h-5" />
+                        <AlertDialog.Title>{title}</AlertDialog.Title>
+                    </Flex>
+                    <IconButton variant="ghost" color="gray" size="1" onClick={onClose} aria-label="Close">
+                        <XMarkIcon style={{ width: 16, height: 16 }} />
                     </IconButton>
-                </Box>
-            </DialogTitle>
-
-            <DialogContent>
-                <Typography variant="body1" className="text-gray-600 dark:text-gray-300">
-                    {description}
-                </Typography>
-            </DialogContent>
-
-            <DialogActions sx={{ p: 3, pt: 1 }}>
-                <Button 
-                    onClick={onClose} 
-                    variant="outlined"
-                >
-                    {cancelText}
-                </Button>
-                <Button 
-                    onClick={() => {
-                        onConfirm();
-                        onClose();
-                    }}
-                    variant="contained"
-                    color={confirmColor}
-                    sx={confirmColor === 'error' ? {
-                        backgroundColor: '#ef4444',
-                        '&:hover': {
-                            backgroundColor: '#dc2626',
-                        }
-                    } : {}}
-                >
-                    {confirmText}
-                </Button>
-            </DialogActions>
-        </Dialog>
+                </Flex>
+                <AlertDialog.Description mb="4">
+                    <Text size="2" color="gray" as="p">{description}</Text>
+                </AlertDialog.Description>
+                <Flex gap="3" justify="end">
+                    <AlertDialog.Cancel>
+                        <Button variant="soft" color="gray">{cancelText}</Button>
+                    </AlertDialog.Cancel>
+                    <AlertDialog.Action>
+                        <Button
+                            color={accent}
+                            onClick={() => {
+                                onConfirm?.();
+                                onClose?.();
+                            }}
+                        >
+                            {confirmText}
+                        </Button>
+                    </AlertDialog.Action>
+                </Flex>
+            </AlertDialog.Content>
+        </AlertDialog.Root>
     );
 };
 

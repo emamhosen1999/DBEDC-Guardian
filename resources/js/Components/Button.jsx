@@ -1,5 +1,4 @@
 import React, { forwardRef } from 'react';
-import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
 
 const Button = forwardRef(({ 
@@ -143,46 +142,21 @@ const Button = forwardRef(({
         : props;
 
     return (
-        <motion.div
+        <div
             className={clsx(baseStyles, sizes[size], className)}
             style={variantStyles}
-            whileHover={!isDisabled ? { 
-                scale: 1.02,
-                transition: { type: "spring", stiffness: 400, damping: 30 }
-            } : undefined}
-            whileTap={!isDisabled ? { 
-                scale: 0.98,
-                transition: { type: "spring", stiffness: 400, damping: 30 }
-            } : undefined}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
         >
-            {/* Shimmer effect for primary buttons */}
-            {variant === 'primary' && !isDisabled && (
-                <motion.div
-                    className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent"
-                    initial={{ x: '-100%' }}
-                    animate={{ x: '100%' }}
-                    transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        repeatDelay: 3,
-                        ease: "easeInOut"
-                    }}
-                />
-            )}
-            
             <Component
                 ref={ref}
                 className="w-full h-full flex items-center justify-center relative z-10"
                 {...componentProps}
             >
                 {loading && (
-                    <motion.div
+                    <div
                         className="mr-3"
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        style={{
+                            animation: 'spin 1s linear infinite'
+                        }}
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24">
                             <circle
@@ -199,40 +173,26 @@ const Button = forwardRef(({
                                 d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                             />
                         </svg>
-                    </motion.div>
+                    </div>
                 )}
-                
+
                 {Icon && iconPosition === 'left' && !loading && (
-                    <motion.div
-                        className="mr-2"
-                        initial={{ opacity: 0, x: -5 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 }}
-                    >
+                    <div className="mr-2">
                         <Icon className="w-4 h-4" />
-                    </motion.div>
+                    </div>
                 )}
-                
-                <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                >
+
+                <span>
                     {children}
-                </motion.span>
-                
+                </span>
+
                 {Icon && iconPosition === 'right' && !loading && (
-                    <motion.div
-                        className="ml-2"
-                        initial={{ opacity: 0, x: 5 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 }}
-                    >
+                    <div className="ml-2">
                         <Icon className="w-4 h-4" />
-                    </motion.div>
+                    </div>
                 )}
             </Component>
-        </motion.div>
+        </div>
     );
 });
 

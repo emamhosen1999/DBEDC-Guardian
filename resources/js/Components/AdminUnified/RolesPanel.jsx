@@ -20,6 +20,7 @@ import {
     ReloadIcon, TrashIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
+import { unwrapAxiosResponse } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar.jsx';
 import TablePagination from '@/Components/TablePagination.jsx';
@@ -50,8 +51,10 @@ function RolesTab({ roles: initialRoles, permissions, getRolePermissions, canMan
         try {
             const url    = editRole ? `/api/roles/${editRole.id}` : '/api/roles';
             const method = editRole ? 'put' : 'post';
-            const { data } = await axios[method](url, form);
-            const next = editRole ? roles.map(r => r.id === editRole.id ? data.role : r) : [...roles, data.role];
+            const response = await axios[method](url, form);
+            const body = unwrapAxiosResponse(response);
+            const savedRole = body?.role ?? response.data?.role;
+            const next = editRole ? roles.map(r => r.id === editRole.id ? savedRole : r) : [...roles, savedRole];
             setRoles(next);
             onRolesChange?.(next.length);
             setDialogOpen(false);
@@ -239,8 +242,10 @@ function PermissionsTab({ permissions: initialPerms, isMobile }) {
         try {
             const url    = editPerm ? `/api/permissions/${editPerm.id}` : '/api/permissions';
             const method = editPerm ? 'put' : 'post';
-            const { data } = await axios[method](url, form);
-            setPerms(p => editPerm ? p.map(x => x.id === editPerm.id ? data.permission : x) : [...p, data.permission]);
+            const response = await axios[method](url, form);
+            const body = unwrapAxiosResponse(response);
+            const savedPerm = body?.permission ?? response.data?.permission;
+            setPerms(p => editPerm ? p.map(x => x.id === editPerm.id ? savedPerm : x) : [...p, savedPerm]);
             setDialogOpen(false);
             showToast.success(editPerm ? 'Permission updated.' : 'Permission created.');
         } catch (e) {

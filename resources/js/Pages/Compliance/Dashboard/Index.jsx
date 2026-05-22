@@ -2,11 +2,13 @@ import React from 'react';
 import { Head } from '@inertiajs/react';
 import App from '@/Layouts/App';
 import { GlassContainer, GlassCard } from '@/Components/Nebula/index';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 export default function ComplianceDashboard({ stats, recentActivities, upcomingDeadlines, criticalIssues }) {
     return (
         <App>
             <Head title="Compliance Dashboard" />
+            <ErrorBoundary>
             <GlassContainer perspective="mid">
                 <div className="py-12 px-6">
                     <div className="max-w-7xl mx-auto">
@@ -19,6 +21,7 @@ export default function ComplianceDashboard({ stats, recentActivities, upcomingD
                     </div>
                 </div>
             </GlassContainer>
+            </ErrorBoundary>
         </App>
     );
 }

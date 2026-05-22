@@ -1,249 +1,176 @@
-import React, { useState } from 'react';
-import { 
-    PencilIcon, 
-    TrashIcon, 
-    EyeIcon,
+import React from 'react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import {
     CheckCircleIcon,
     ClockIcon,
     DocumentTextIcon,
-    EllipsisVerticalIcon
+    EllipsisVerticalIcon,
+    EyeIcon,
+    PencilIcon,
+    TrashIcon,
 } from '@heroicons/react/24/outline';
-import { 
-    Button, 
-    Chip, 
-    Table, 
-    TableHeader, 
-    TableColumn, 
-    TableBody, 
-    TableRow, 
-    TableCell,
-    Dropdown,
-    DropdownTrigger,
+import {
+    Badge,
+    Box,
     DropdownMenu,
-    DropdownItem,
-    User,
-    Spinner
-} from '@/compat/heroui';
+    Flex,
+    IconButton,
+    ScrollArea,
+    Spinner,
+    Table,
+    Text,
+} from '@radix-ui/themes';
+import ProfileAvatar from '@/Components/Profile/ProfileAvatar.jsx';
 import dayjs from 'dayjs';
 
 const PerformanceReviewsTable = ({ data, loading, permissions, onView, onEdit, onDelete, onApprove }) => {
-    const getStatusChip = (status) => {
-        switch (status) {
-            case 'draft':
-                return (
-                    <Chip 
-                        variant="flat" 
-                        color="default" 
-                        size="sm"
-                        startContent={<DocumentTextIcon className="w-4 h-4" />}
-                    >
-                        Draft
-                    </Chip>
-                );
-            case 'pending':
-                return (
-                    <Chip 
-                        variant="flat" 
-                        color="warning" 
-                        size="sm"
-                        startContent={<ClockIcon className="w-4 h-4" />}
-                    >
-                        Pending
-                    </Chip>
-                );
-            case 'in_progress':
-                return (
-                    <Chip 
-                        variant="flat" 
-                        color="primary" 
-                        size="sm"
-                        startContent={<ClockIcon className="w-4 h-4" />}
-                    >
-                        In Progress
-                    </Chip>
-                );
-            case 'completed':
-                return (
-                    <Chip 
-                        variant="flat" 
-                        color="success" 
-                        size="sm"
-                        startContent={<CheckCircleIcon className="w-4 h-4" />}
-                    >
-                        Completed
-                    </Chip>
-                );
-            case 'approved':
-                return (
-                    <Chip 
-                        variant="flat" 
-                        color="secondary" 
-                        size="sm"
-                        startContent={<CheckCircleIcon className="w-4 h-4" />}
-                    >
-                        Approved
-                    </Chip>
-                );
-            case 'rejected':
-                return (
-                    <Chip 
-                        variant="flat" 
-                        color="danger" 
-                        size="sm"
-                    >
-                        Rejected
-                    </Chip>
-                );
-            default:
-                return (
-                    <Chip 
-                        variant="flat" 
-                        color="default" 
-                        size="sm"
-                    >
-                        {status}
-                    </Chip>
-                );
-        }
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const getStatusBadge = (status) => {
+        const configs = {
+            draft: { color: 'gray', label: 'Draft', icon: DocumentTextIcon },
+            pending: { color: 'amber', label: 'Pending', icon: ClockIcon },
+            in_progress: { color: 'blue', label: 'In Progress', icon: ClockIcon },
+            completed: { color: 'green', label: 'Completed', icon: CheckCircleIcon },
+            approved: { color: 'purple', label: 'Approved', icon: CheckCircleIcon },
+            rejected: { color: 'red', label: 'Rejected', icon: null },
+        };
+        const config = configs[status] || { color: 'gray', label: status, icon: null };
+        const Icon = config.icon;
+
+        return (
+            <Badge color={config.color} variant="soft" size="1">
+                {Icon && <Icon className="w-3 h-3" />}
+                {config.label}
+            </Badge>
+        );
     };
 
     const columns = [
-        { name: "Employee", uid: "employee" },
-        { name: "Review Type", uid: "review_type" },
-        { name: "Period", uid: "period" },
-        { name: "Status", uid: "status" },
-        { name: "Reviewer", uid: "reviewer" },
-        { name: "Score", uid: "score" },
-        { name: "Actions", uid: "actions" }
+        { name: 'Employee', uid: 'employee' },
+        { name: 'Review Type', uid: 'review_type' },
+        { name: 'Period', uid: 'period' },
+        { name: 'Status', uid: 'status' },
+        { name: 'Reviewer', uid: 'reviewer' },
+        { name: 'Score', uid: 'score' },
+        { name: 'Actions', uid: 'actions' },
     ];
 
     const renderCell = (item, columnKey) => {
         switch (columnKey) {
-            case "employee":
+            case 'employee':
                 return (
-                    <User 
-                        name={item.employee?.name}
-                        description={item.employee?.designation?.name}
-                        avatarProps={{
-                            src: item.employee?.avatar,
-                            name: item.employee?.name,
-                            size: "sm"
-                        }}
-                    />
+                    <Flex align="center" gap="2">
+                        <ProfileAvatar
+                            src={item.employee?.avatar}
+                            name={item.employee?.name}
+                            size="1"
+                        />
+                        <Box>
+                            <Text size="2" weight="medium">{item.employee?.name}</Text>
+                            {item.employee?.designation?.name && (
+                                <Text size="1" color="gray">{item.employee.designation.name}</Text>
+                            )}
+                        </Box>
+                    </Flex>
                 );
-            case "review_type":
-                return item.template?.name || item.review_type;
-            case "period":
-                return item.review_period ? dayjs(item.review_period).format('MMM YYYY') : 'N/A';
-            case "status":
-                return getStatusChip(item.status);
-            case "reviewer":
-                return item.reviewer?.name || 'N/A';
-            case "score":
-                return item.score || 'N/A';
-            case "actions":
+            case 'review_type':
+                return <Text size="2">{item.template?.name || item.review_type}</Text>;
+            case 'period':
                 return (
-                    <div className="relative flex items-center justify-end">
-                        <Dropdown>
-                            <DropdownTrigger>
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="light"
-                                    aria-label="More actions"
-                                >
+                    <Text size="2">
+                        {item.review_period ? dayjs(item.review_period).format('MMM YYYY') : 'N/A'}
+                    </Text>
+                );
+            case 'status':
+                return getStatusBadge(item.status);
+            case 'reviewer':
+                return <Text size="2">{item.reviewer?.name || 'N/A'}</Text>;
+            case 'score':
+                return <Text size="2">{item.score || 'N/A'}</Text>;
+            case 'actions':
+                return (
+                    <Flex justify="end">
+                        <DropdownMenu.Root>
+                            <DropdownMenu.Trigger>
+                                <IconButton size="1" variant="ghost" color="gray" aria-label="More actions">
                                     <EllipsisVerticalIcon className="w-5 h-5" />
-                                </Button>
-                            </DropdownTrigger>
-                            <DropdownMenu aria-label="Actions">
+                                </IconButton>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content align="end">
                                 {permissions.includes('performance-reviews.view') && (
-                                    <DropdownItem
-                                        key="view"
-                                        startContent={<EyeIcon className="w-4 h-4" />}
-                                        onPress={() => onView(item)}
-                                    >
-                                        View Details
-                                    </DropdownItem>
+                                    <DropdownMenu.Item onClick={() => onView(item)}>
+                                        <EyeIcon className="w-4 h-4" /> View Details
+                                    </DropdownMenu.Item>
                                 )}
-                                
                                 {permissions.includes('performance-reviews.update') && item.status !== 'completed' && (
-                                    <DropdownItem
-                                        key="edit"
-                                        startContent={<PencilIcon className="w-4 h-4" />}
-                                        onPress={() => onEdit(item)}
-                                    >
-                                        Edit Review
-                                    </DropdownItem>
+                                    <DropdownMenu.Item onClick={() => onEdit(item)}>
+                                        <PencilIcon className="w-4 h-4" /> Edit Review
+                                    </DropdownMenu.Item>
                                 )}
-                                
                                 {permissions.includes('performance-reviews.approve') && item.status === 'pending' && (
-                                    <DropdownItem
-                                        key="approve"
-                                        startContent={<CheckCircleIcon className="w-4 h-4" />}
-                                        onPress={() => onApprove(item)}
-                                    >
-                                        Approve/Finalize
-                                    </DropdownItem>
+                                    <DropdownMenu.Item onClick={() => onApprove(item)}>
+                                        <CheckCircleIcon className="w-4 h-4" /> Approve/Finalize
+                                    </DropdownMenu.Item>
                                 )}
-                                
                                 {permissions.includes('performance-reviews.delete') && item.status !== 'completed' && (
-                                    <DropdownItem
-                                        key="delete"
-                                        className="text-danger"
-                                        color="danger"
-                                        startContent={<TrashIcon className="w-4 h-4" />}
-                                        onPress={() => onDelete(item)}
-                                    >
-                                        Delete
-                                    </DropdownItem>
+                                    <DropdownMenu.Item color="red" onClick={() => onDelete(item)}>
+                                        <TrashIcon className="w-4 h-4" /> Delete
+                                    </DropdownMenu.Item>
                                 )}
-                            </DropdownMenu>
-                        </Dropdown>
-                    </div>
+                            </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+                    </Flex>
                 );
             default:
-                return item[columnKey];
+                return <Text size="2">{item[columnKey]}</Text>;
         }
     };
-    
+
+    if (loading && (!data || data.length === 0)) {
+        return (
+            <Flex justify="center" align="center" py="8" gap="3">
+                <Spinner size="3" />
+                <Text color="gray">Loading performance reviews...</Text>
+            </Flex>
+        );
+    }
+
     return (
-        <div className="w-full">
-            <Table
-                aria-label="Performance Reviews Table"
-                classNames={{
-                    wrapper: "glass-table",
-                    th: "bg-transparent",
-                    td: "group-data-[hover=true]:bg-default-50",
-                }}
-                isStriped
-                removeWrapper
-            >
-                <TableHeader columns={columns}>
-                    {(column) => (
-                        <TableColumn 
-                            key={column.uid} 
-                            align={column.uid === "actions" ? "end" : "start"}
-                        >
-                            {column.name}
-                        </TableColumn>
-                    )}
-                </TableHeader>
-                <TableBody 
-                    items={data} 
-                    isLoading={loading}
-                    loadingContent={<Spinner label="Loading..." />}
-                    emptyContent="No performance reviews found"
-                >
-                    {(item) => (
-                        <TableRow key={item.id}>
-                            {(columnKey) => (
-                                <TableCell>{renderCell(item, columnKey)}</TableCell>
-                            )}
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
-        </div>
+        <Box className="w-full">
+            <ScrollArea type="auto" scrollbars="horizontal">
+                <Table.Root variant="surface" style={{ minWidth: isMobile ? 720 : undefined }}>
+                    <Table.Header>
+                        <Table.Row>
+                            {columns.map((col) => (
+                                <Table.ColumnHeaderCell
+                                    key={col.uid}
+                                    justify={col.uid === 'actions' ? 'end' : 'start'}
+                                >
+                                    {col.name}
+                                </Table.ColumnHeaderCell>
+                            ))}
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {!data || data.length === 0 ? (
+                            <Table.Row>
+                                <Table.Cell colSpan={columns.length}>
+                                    <Text size="2" color="gray">No performance reviews found</Text>
+                                </Table.Cell>
+                            </Table.Row>
+                        ) : (
+                            data.map((item) => (
+                                <Table.Row key={item.id}>
+                                    {columns.map((col) => (
+                                        <Table.Cell key={col.uid}>{renderCell(item, col.uid)}</Table.Cell>
+                                    ))}
+                                </Table.Row>
+                            ))
+                        )}
+                    </Table.Body>
+                </Table.Root>
+            </ScrollArea>
+        </Box>
     );
 };
 

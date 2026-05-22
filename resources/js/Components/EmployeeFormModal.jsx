@@ -1,57 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Typography,
+    Text,
     Box,
-    Alert,
     Grid,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Chip,
-    Stack,
     TextField,
     Select,
     Switch,
-    TextareaAutosize,
-    Button
-} from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { 
+    TextArea,
+    Button,
+    Flex,
+    Badge,
+    Spinner,
+    Callout,
+    ScrollArea,
+} from '@radix-ui/themes';
+import {
     UserIcon,
     EnvelopeIcon,
     PhoneIcon,
     CalendarIcon,
     CurrencyDollarIcon,
-    ExclamationTriangleIcon,
-    CheckCircleIcon
+    CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
 import GlassDialog from './GlassDialog';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
-const EmployeeFormModal = ({ 
-    open, 
-    onClose, 
+const fieldError = (errors, key) => errors[key] || null;
+
+const EmployeeFormModal = ({
+    open,
+    onClose,
     employee = null,
     onSubmit,
     departments = [],
     designations = [],
     attendanceTypes = [],
     loading = false,
-    mode = 'create' // 'create', 'edit', 'view'
+    mode = 'create',
 }) => {
-
     const isEdit = mode === 'edit';
     const isView = mode === 'view';
     const isCreate = mode === 'create';
-    
-    // Form state
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -64,12 +55,10 @@ const EmployeeFormModal = ({
         active: true,
         notes: ''
     });
-    
-    // Validation state
+
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
-    
-    // Initialize form data when employee changes
+
     useEffect(() => {
         if (employee && (isEdit || isView)) {
             setFormData({
@@ -85,7 +74,6 @@ const EmployeeFormModal = ({
                 notes: employee.notes || ''
             });
         } else if (isCreate) {
-            // Reset form for create mode
             setFormData({
                 name: '',
                 email: '',
@@ -103,7 +91,6 @@ const EmployeeFormModal = ({
         setTouched({});
     }, [employee, mode]);
 
-    // Field validation rules
     const validateField = (name, value) => {
         switch (name) {
             case 'name':
@@ -114,8 +101,8 @@ const EmployeeFormModal = ({
                     return 'Name cannot exceed 255 characters';
                 }
                 break;
-                
-            case 'email':
+
+            case 'email': {
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!value) {
                     return 'Email is required';
@@ -124,7 +111,8 @@ const EmployeeFormModal = ({
                     return 'Please enter a valid email address';
                 }
                 break;
-                
+            }
+
             case 'phone':
                 if (value && !/^[\d\s\-\+\(\)]+$/.test(value)) {
                     return 'Please enter a valid phone number';
@@ -133,7 +121,7 @@ const EmployeeFormModal = ({
                     return 'Phone number cannot exceed 20 characters';
                 }
                 break;
-                
+
             case 'salary':
                 if (value && (isNaN(value) || parseFloat(value) < 0)) {
                     return 'Salary must be a positive number';
@@ -142,33 +130,30 @@ const EmployeeFormModal = ({
                     return 'Salary amount is too large';
                 }
                 break;
-                
+
             case 'hire_date':
                 if (value && new Date(value) > new Date()) {
                     return 'Hire date cannot be in the future';
                 }
                 break;
-                
+
             default:
                 break;
         }
         return null;
     };
 
-    // Handle field changes
     const handleFieldChange = (name, value) => {
         setFormData(prev => ({
             ...prev,
             [name]: value
         }));
-        
-        // Mark field as touched
+
         setTouched(prev => ({
             ...prev,
             [name]: true
         }));
-        
-        // Validate field and update errors
+
         const error = validateField(name, value);
         setErrors(prev => ({
             ...prev,
@@ -176,446 +161,305 @@ const EmployeeFormModal = ({
         }));
     };
 
-    // Validate entire form
     const validateForm = () => {
         const newErrors = {};
         const requiredFields = ['name', 'email'];
-        
-        // Check required fields
+
         requiredFields.forEach(field => {
             if (!formData[field] || formData[field].trim() === '') {
                 newErrors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
             }
         });
-        
-        // Validate all fields
+
         Object.keys(formData).forEach(field => {
             const error = validateField(field, formData[field]);
             if (error) {
                 newErrors[field] = error;
             }
         });
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Handle form submission
     const handleSubmit = () => {
-        // Mark all fields as touched
         const allTouched = {};
         Object.keys(formData).forEach(key => {
             allTouched[key] = true;
         });
         setTouched(allTouched);
-        
+
         if (validateForm()) {
             onSubmit(formData);
         }
     };
 
-    // Get department name for view mode
     const getDepartmentName = (id) => {
         const dept = departments.find(d => d.id === id);
         return dept?.name || 'Not assigned';
     };
 
-    // Get designation name for view mode
     const getDesignationName = (id) => {
         const desig = designations.find(d => d.id === id);
         return desig?.name || 'Not assigned';
     };
 
-    // Get attendance type name for view mode
     const getAttendanceTypeName = (id) => {
         const type = attendanceTypes.find(t => t.id === id);
         return type?.name || 'Not assigned';
     };
 
+    const title = isCreate ? 'Add New Employee' : isEdit ? 'Edit Employee' : 'Employee Details';
+
     return (
-        <GlassDialog
-            open={open}
-            onClose={onClose}
-            maxWidth="md"
-            fullWidth
-        >
-            <DialogTitle sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 2,
-                pb: 2
-            }}>
-                <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 2
-                }}>
-                    <UserIcon className="w-6 h-6" />
-                    <Typography variant="h6" component="h2">
-                        {isCreate && 'Add New Employee'}
-                        {isEdit && 'Edit Employee'}
-                        {isView && 'Employee Details'}
-                    </Typography>
-                </Box>
+        <GlassDialog isOpen={open} onClose={onClose} title={title}>
+            <Flex align="center" gap="2" mb="3" px="4">
+                <UserIcon className="w-6 h-6" />
                 {employee && (
-                    <Chip 
-                        size="small"
-                        color={employee.active ? 'success' : 'danger'}
-                        variant="flat"
-                    >
+                    <Badge color={employee.active ? 'green' : 'red'} variant="soft" size="1">
                         {employee.active ? 'Active' : 'Inactive'}
-                    </Chip>
+                    </Badge>
                 )}
-            </DialogTitle>
+            </Flex>
 
-            <DialogContent sx={{ py: 0 }}>
-                {/* Employee Avatar (Edit/View mode) */}
-                {employee && (isEdit || isView) && (
-                    <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        mb: 3 
-                    }}>
-                        <ProfileAvatar
-                            src={employee.profile_image_url || employee.profile_image}
-                            name={employee.name}
-                            size="lg"
-                            className="w-20 h-20"
-                        />
-                    </Box>
-                )}
+            <ScrollArea type="auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
+                <Box px="4" pb="4">
+                    {employee && (isEdit || isView) && (
+                        <Flex justify="center" mb="4">
+                            <ProfileAvatar
+                                src={employee.profile_image_url || employee.profile_image}
+                                name={employee.name}
+                                size="lg"
+                                className="w-20 h-20"
+                            />
+                        </Flex>
+                    )}
 
-                <Box component="form" sx={{ mt: 2 }}>
-                    <Grid container spacing={3}>
-                        {/* Basic Information */}
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2 }}>
-                                Basic Information
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="Full Name"
+                    <Grid columns={{ initial: '1', sm: '2' }} gap="4">
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text size="3" weight="bold" mb="2">Basic Information</Text>
+                        </Box>
+
+                        <Field label="Full Name" required error={touched.name && fieldError(errors, 'name')}>
+                            <TextField.Root
                                 placeholder="Enter employee's full name"
                                 value={formData.name}
                                 onChange={(e) => handleFieldChange('name', e.target.value)}
-                                required
                                 disabled={isView}
-                                error={touched.name && !!errors.name}
-                                helperText={touched.name && errors.name}
-                                fullWidth
-                                InputProps={{
-                                    startAdornment: <UserIcon className="w-4 h-4 text-gray-400 mr-2" />
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                        backdropFilter: 'blur(16px)',
-                                        borderRadius: '12px',
-                                        '& fieldset': {
-                                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                                        },
-                                        '&:hover fieldset': {
-                                            borderColor: 'rgba(255, 255, 255, 0.3)',
-                                        },
-                                        '&.Mui-focused fieldset': {
-                                            borderColor: 'rgba(59, 130, 246, 0.5)',
-                                        },
-                                    },
-                                    '& .MuiInputLabel-root': {
-                                        color: 'rgba(255, 255, 255, 0.7)',
-                                    },
-                                    '& .MuiOutlinedInput-input': {
-                                        color: 'rgba(255, 255, 255, 0.9)',
-                                    },
-                                }}
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="Email Address"
-                                placeholder="Enter email address"
+                            >
+                                <TextField.Slot><UserIcon className="w-4 h-4" /></TextField.Slot>
+                            </TextField.Root>
+                        </Field>
+
+                        <Field label="Email Address" required error={touched.email && fieldError(errors, 'email')}>
+                            <TextField.Root
                                 type="email"
+                                placeholder="Enter email address"
                                 value={formData.email}
                                 onChange={(e) => handleFieldChange('email', e.target.value)}
-                                required
                                 disabled={isView}
-                                error={touched.email && !!errors.email}
-                                helperText={touched.email && errors.email}
-                                fullWidth
-                                InputProps={{
-                                    startAdornment: <EnvelopeIcon className="w-4 h-4 text-gray-400 mr-2" />
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                        backdropFilter: 'blur(16px)',
-                                        borderRadius: '12px',
-                                        '& fieldset': {
-                                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                                        },
-                                        '&:hover fieldset': {
-                                            borderColor: 'rgba(255, 255, 255, 0.3)',
-                                        },
-                                        '&.Mui-focused fieldset': {
-                                            borderColor: 'rgba(59, 130, 246, 0.5)',
-                                        },
-                                    },
-                                    '& .MuiInputLabel-root': {
-                                        color: 'rgba(255, 255, 255, 0.7)',
-                                    },
-                                    '& .MuiOutlinedInput-input': {
-                                        color: 'rgba(255, 255, 255, 0.9)',
-                                    },
-                                }}
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
-                            <TextField
-                                label="Phone Number"
+                            >
+                                <TextField.Slot><EnvelopeIcon className="w-4 h-4" /></TextField.Slot>
+                            </TextField.Root>
+                        </Field>
+
+                        <Field label="Phone Number" error={touched.phone && fieldError(errors, 'phone')}>
+                            <TextField.Root
                                 placeholder="Enter phone number"
                                 value={formData.phone}
                                 onChange={(e) => handleFieldChange('phone', e.target.value)}
                                 disabled={isView}
-                                error={touched.phone && !!errors.phone}
-                                helperText={touched.phone && errors.phone}
-                                fullWidth
-                                InputProps={{
-                                    startAdornment: <PhoneIcon className="w-4 h-4 text-gray-400 mr-2" />
-                                }}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                        backdropFilter: 'blur(16px)',
-                                        borderRadius: '12px',
-                                        '& fieldset': {
-                                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                                        },
-                                        '&:hover fieldset': {
-                                            borderColor: 'rgba(255, 255, 255, 0.3)',
-                                        },
-                                        '&.Mui-focused fieldset': {
-                                            borderColor: 'rgba(59, 130, 246, 0.5)',
-                                        },
-                                    },
-                                    '& .MuiInputLabel-root': {
-                                        color: 'rgba(255, 255, 255, 0.7)',
-                                    },
-                                    '& .MuiOutlinedInput-input': {
-                                        color: 'rgba(255, 255, 255, 0.9)',
-                                    },
-                                }}
-                            />
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
-                            <Input
-                                label="Hire Date"
-                                placeholder="Select hire date"
+                            >
+                                <TextField.Slot><PhoneIcon className="w-4 h-4" /></TextField.Slot>
+                            </TextField.Root>
+                        </Field>
+
+                        <Field label="Hire Date" error={touched.hire_date && fieldError(errors, 'hire_date')}>
+                            <TextField.Root
                                 type="date"
                                 value={formData.hire_date}
-                                onValueChange={(value) => handleFieldChange('hire_date', value)}
-                                isReadOnly={isView}
-                                isInvalid={touched.hire_date && !!errors.hire_date}
-                                errorMessage={touched.hire_date && errors.hire_date}
-                                startContent={<CalendarIcon className="w-4 h-4 text-gray-400" />}
-                            />
-                        </Grid>
+                                onChange={(e) => handleFieldChange('hire_date', e.target.value)}
+                                disabled={isView}
+                            >
+                                <TextField.Slot><CalendarIcon className="w-4 h-4" /></TextField.Slot>
+                            </TextField.Root>
+                        </Field>
 
-                        {/* Job Information */}
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2, mt: 2 }}>
-                                Job Information
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text size="3" weight="bold" mb="2" mt="2">Job Information</Text>
+                        </Box>
+
+                        <Field label="Department">
                             {isView ? (
-                                <Input
-                                    label="Department"
-                                    value={getDepartmentName(formData.department_id)}
-                                    isReadOnly
-                                />
+                                <TextField.Root value={getDepartmentName(formData.department_id)} disabled />
                             ) : (
-                                <Select
-                                    label="Department"
-                                    placeholder="Select department"
-                                    selectedKeys={formData.department_id ? [String(formData.department_id)] : []}
-                                    onSelectionChange={(keys) => {
-                                        const value = Array.from(keys)[0];
-                                        handleFieldChange('department_id', value ? parseInt(value) : '');
-                                    }}
+                                <Select.Root
+                                    value={formData.department_id ? String(formData.department_id) : undefined}
+                                    onValueChange={(v) => handleFieldChange('department_id', v ? parseInt(v, 10) : '')}
                                 >
-                                    {departments.map((dept) => (
-                                        <SelectItem key={dept.id} value={dept.id}>
-                                            {dept.name}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
+                                    <Select.Trigger placeholder="Select department" style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {departments.map((dept) => (
+                                            <Select.Item key={dept.id} value={String(dept.id)}>
+                                                {dept.name}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
                             )}
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
+                        </Field>
+
+                        <Field label="Designation">
                             {isView ? (
-                                <Input
-                                    label="Designation"
-                                    value={getDesignationName(formData.designation_id)}
-                                    isReadOnly
-                                />
+                                <TextField.Root value={getDesignationName(formData.designation_id)} disabled />
                             ) : (
-                                <Select
-                                    label="Designation"
-                                    placeholder="Select designation"
-                                    selectedKeys={formData.designation_id ? [String(formData.designation_id)] : []}
-                                    onSelectionChange={(keys) => {
-                                        const value = Array.from(keys)[0];
-                                        handleFieldChange('designation_id', value ? parseInt(value) : '');
-                                    }}
+                                <Select.Root
+                                    value={formData.designation_id ? String(formData.designation_id) : undefined}
+                                    onValueChange={(v) => handleFieldChange('designation_id', v ? parseInt(v, 10) : '')}
                                 >
-                                    {designations.map((desig) => (
-                                        <SelectItem key={desig.id} value={desig.id}>
-                                            {desig.name}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
+                                    <Select.Trigger placeholder="Select designation" style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        {designations.map((desig) => (
+                                            <Select.Item key={desig.id} value={String(desig.id)}>
+                                                {desig.name}
+                                            </Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
                             )}
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
+                        </Field>
+
+                        <Field label="Attendance Type">
                             {isView ? (
-                                <Input
-                                    label="Attendance Type"
-                                    value={getAttendanceTypeName(formData.attendance_type_id)}
-                                    isReadOnly
-                                />
+                                <TextField.Root value={getAttendanceTypeName(formData.attendance_type_id)} disabled />
                             ) : (
-                                <Select
-                                    label="Attendance Type"
-                                    placeholder="Select attendance type"
-                                    selectedKeys={formData.attendance_type_id ? [String(formData.attendance_type_id)] : []}
-                                    onSelectionChange={(keys) => {
-                                        const value = Array.from(keys)[0];
-                                        handleFieldChange('attendance_type_id', value ? parseInt(value) : '');
-                                    }}
-                                >
-                                    {attendanceTypes.map((type) => (
-                                        <SelectItem key={type.id} value={type.id}>
-                                            {type.name}
-                                        </SelectItem>
-                                    ))}
-                                </Select>
+                                <>
+                                    <Select.Root
+                                        value={formData.attendance_type_id ? String(formData.attendance_type_id) : undefined}
+                                        onValueChange={(v) => handleFieldChange('attendance_type_id', v ? parseInt(v, 10) : '')}
+                                    >
+                                        <Select.Trigger placeholder="Select attendance type" style={{ width: '100%' }} />
+                                        <Select.Content>
+                                            {attendanceTypes.map((type) => (
+                                                <Select.Item key={type.id} value={String(type.id)}>
+                                                    {type.name}
+                                                </Select.Item>
+                                            ))}
+                                        </Select.Content>
+                                    </Select.Root>
+                                    {(() => {
+                                        const selectedType = attendanceTypes.find(
+                                            t => String(t.id) === String(formData.attendance_type_id)
+                                        );
+                                        return selectedType?.slug === 'biometric' ? (
+                                            <Text size="1" color="blue" mt="2">
+                                                Biometric type selected. After saving, go to <strong>Admin → Biometric Devices</strong> to enroll this employee on a device.
+                                            </Text>
+                                        ) : null;
+                                    })()}
+                                </>
                             )}
-                            {/* Biometric enrollment hint */}
-                            {(() => {
-                                const selectedType = attendanceTypes.find(t => String(t.id) === String(formData.attendance_type_id));
-                                return selectedType?.slug === 'biometric' ? (
-                                    <p className="text-xs text-primary-600 bg-primary-50 rounded p-2 mt-1">
-                                        Biometric type selected. After saving, go to <strong>Admin → Biometric Devices</strong> to enroll this employee on a device.
-                                    </p>
-                                ) : null;
-                            })()}
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
-                            <Input
-                                label="Salary"
-                                placeholder="Enter salary amount"
+                        </Field>
+
+                        <Field label="Salary" error={touched.salary && fieldError(errors, 'salary')}>
+                            <TextField.Root
                                 type="number"
+                                placeholder="Enter salary amount"
                                 value={formData.salary}
-                                onValueChange={(value) => handleFieldChange('salary', value)}
-                                isReadOnly={isView}
-                                isInvalid={touched.salary && !!errors.salary}
-                                errorMessage={touched.salary && errors.salary}
-                                startContent={<CurrencyDollarIcon className="w-4 h-4 text-gray-400" />}
-                            />
-                        </Grid>
+                                onChange={(e) => handleFieldChange('salary', e.target.value)}
+                                disabled={isView}
+                            >
+                                <TextField.Slot><CurrencyDollarIcon className="w-4 h-4" /></TextField.Slot>
+                            </TextField.Root>
+                        </Field>
 
-                        {/* Status and Notes */}
-                        <Grid item xs={12}>
-                            <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2, mt: 2 }}>
-                                Additional Information
-                            </Typography>
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={6}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Switch
-                                    isSelected={formData.active}
-                                    onValueChange={(value) => handleFieldChange('active', value)}
-                                    isReadOnly={isView}
-                                >
-                                    Active Employee
-                                </Switch>
-                                <Chip
-                                    size="small"
-                                    color={formData.active ? 'success' : 'danger'}
-                                    variant="flat"
-                                >
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text size="3" weight="bold" mb="2" mt="2">Additional Information</Text>
+                        </Box>
+
+                        <Box>
+                            <Flex align="center" gap="3">
+                                <Flex align="center" gap="2">
+                                    <Switch
+                                        checked={formData.active}
+                                        onCheckedChange={(value) => handleFieldChange('active', value)}
+                                        disabled={isView}
+                                    />
+                                    <Text size="2">Active Employee</Text>
+                                </Flex>
+                                <Badge color={formData.active ? 'green' : 'red'} variant="soft" size="1">
                                     {formData.active ? 'Active' : 'Inactive'}
-                                </Chip>
-                            </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12}>
-                            <Textarea
-                                label="Notes"
-                                placeholder="Additional notes or comments"
-                                value={formData.notes}
-                                onValueChange={(value) => handleFieldChange('notes', value)}
-                                isReadOnly={isView}
-                                minRows={3}
-                                maxRows={5}
-                            />
-                        </Grid>
+                                </Badge>
+                            </Flex>
+                        </Box>
+
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Field label="Notes">
+                                <TextArea
+                                    placeholder="Additional notes or comments"
+                                    value={formData.notes}
+                                    onChange={(e) => handleFieldChange('notes', e.target.value)}
+                                    disabled={isView}
+                                    rows={3}
+                                />
+                            </Field>
+                        </Box>
                     </Grid>
+
+                    {Object.keys(errors).length > 0 && Object.values(errors).some(Boolean) && (
+                        <Callout.Root color="red" mt="4">
+                            <Callout.Text>
+                                <Text weight="medium" size="2" mb="1">Please fix the following errors:</Text>
+                                <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                                    {Object.values(errors).filter(Boolean).map((error, index) => (
+                                        <li key={index}>{error}</li>
+                                    ))}
+                                </ul>
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
                 </Box>
+            </ScrollArea>
 
-                {/* Validation Summary */}
-                {Object.keys(errors).length > 0 && (
-                    <Alert severity="error" sx={{ mt: 3 }}>
-                        <Typography variant="body2" fontWeight="500">
-                            Please fix the following errors:
-                        </Typography>
-                        <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
-                            {Object.values(errors).map((error, index) => (
-                                <li key={index}>{error}</li>
-                            ))}
-                        </ul>
-                    </Alert>
-                )}
-            </DialogContent>
-
-            <DialogActions sx={{ 
-                px: 3, 
-                py: 3, 
-                justifyContent: 'space-between',
-                borderTop: `1px solid ${theme.palette.divider}`
-            }}>
-                <Button 
-                    variant="light" 
-                    onPress={onClose}
-                    disabled={loading}
-                >
+            <Flex
+                px="4"
+                py="3"
+                justify="between"
+                align="center"
+                style={{ borderTop: '1px solid var(--gray-6)' }}
+            >
+                <Button variant="soft" color="gray" onClick={onClose} disabled={loading}>
                     {isView ? 'Close' : 'Cancel'}
                 </Button>
-                
+
                 {!isView && (
-                    <Button
-                        color="primary"
-                        variant="solid"
-                        onPress={handleSubmit}
-                        isLoading={loading}
-                        startContent={!loading && <CheckCircleIcon className="w-4 h-4" />}
-                    >
-                        {loading ? 'Saving...' : (isCreate ? 'Create Employee' : 'Update Employee')}
+                    <Button onClick={handleSubmit} disabled={loading}>
+                        {loading ? (
+                            <>
+                                <Spinner size="1" />
+                                Saving...
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircleIcon className="w-4 h-4" />
+                                {isCreate ? 'Create Employee' : 'Update Employee'}
+                            </>
+                        )}
                     </Button>
                 )}
-            </DialogActions>
+            </Flex>
         </GlassDialog>
     );
 };
+
+const Field = ({ label, required, error, children }) => (
+    <Box>
+        <Text as="label" size="2" weight="medium" mb="1" display="block">
+            {label}{required && <Text color="red"> *</Text>}
+        </Text>
+        {children}
+        {error && <Text size="1" color="red" mt="1">{error}</Text>}
+    </Box>
+);
 
 export default EmployeeFormModal;

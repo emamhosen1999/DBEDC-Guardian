@@ -1,21 +1,12 @@
+import {
+    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
+    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
+    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
+    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+} from '@radix-ui/themes';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { motion } from 'framer-motion';
-import {
-    Select,
-    SelectItem,
-    Card,
-    CardBody,
-    CardHeader,
-    Divider,
-    Chip,
-    Button,
-    ButtonGroup,
-    User,
-    Pagination,
-    Input,
-    Spinner
-} from "@/compat/heroui";
+
 import {
     BuildingOffice2Icon,
     PlusIcon,
@@ -43,20 +34,17 @@ import DepartmentTable from '@/Tables/DepartmentTable.jsx';
 import DepartmentForm from '@/Forms/DepartmentForm.jsx';
 import DeleteDepartmentForm from '@/Forms/DeleteDepartmentForm.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import dayjs from 'dayjs';
+import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import * as useDepartmentsQuery from '@/api/queries/useDepartmentsQuery';
 
 const Departments = ({ title, departments: initialDepartments, managers, parentDepartments, stats: initialStats, filters: initialFilters }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 639px)');
     const isTablet = useMediaQuery('(max-width: 767px)');
     
-    // State for departments data
-    const [departmentsData, setDepartmentsData] = useState(initialDepartments || { data: [] });
-    const [loading, setLoading] = useState(false);
-    
-    // Modal states
+    // Dialog states
     const [modalState, setModalState] = useState({
         type: null,
         department: null
@@ -81,13 +69,16 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         perPage: initialDepartments?.per_page || 10
     });
     
-    // Stats state
-    const [stats, setStats] = useState(initialStats || {
-        total: 0,
-        active: 0,
-        inactive: 0,
-        parent_departments: 0
+    // React Query hooks
+    const { data: departmentsData, isLoading: loading, refetch } = useDepartmentsQuery.useDepartmentsList({
+        page: pagination.currentPage,
+        per_page: pagination.perPage,
+        search: filters.search,
+        status: filters.status,
+        parent_department: filters.parentDepartment
     });
+
+    const { data: stats } = useDepartmentsQuery.useDepartmentStats();
     
     // Check permissions
     const canCreateDepartment = auth.permissions?.includes('departments.create') || false;
@@ -97,50 +88,6 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
     // Check permissions more directly for template use
     const hasEditPermission = canEditDepartment || auth.permissions?.includes('departments.update') || false;
     const hasDeletePermission = canDeleteDepartment || auth.permissions?.includes('departments.delete') || false;
-    
-    // Fetch departments data
-    const fetchDepartments = useCallback(async () => {
-        setLoading(true);
-        
-        try {
-            const response = await axios.get(route('api.departments'), {
-                params: {
-                    page: pagination.currentPage,
-                    per_page: pagination.perPage,
-                    search: filters.search,
-                    status: filters.status,
-                    parent_department: filters.parentDepartment
-                }
-            });
-            
-            setDepartmentsData(response.data.departments);
-        } catch (error) {
-            console.error('Error fetching departments:', error);
-            showToast.error('Failed to load departments data');
-        } finally {
-            setLoading(false);
-        }
-    }, [pagination.currentPage, pagination.perPage, filters.search, filters.status, filters.parentDepartment]);
-    
-    // Fetch department statistics
-    const fetchDepartmentStats = useCallback(async () => {
-        try {
-            const response = await axios.get(route('departments.stats'));
-            
-            if (response.status === 200) {
-                const { stats } = response.data;
-                setStats(stats);
-            }
-        } catch (error) {
-            console.error('Error fetching department stats:', error);
-        }
-    }, []);
-    
-    // Effect to fetch data when filters or pagination changes
-    useEffect(() => {
-        fetchDepartments();
-        fetchDepartmentStats();
-    }, [fetchDepartments, fetchDepartmentStats]);
     
     // Filter handlers
     const handleFilterChange = (key, value) => {
@@ -159,7 +106,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         setPagination({ currentPage: 1, perPage: rowsPerPage });
     };
     
-    // Modal handlers
+    // Dialog handlers
     const openModal = (type, department = null) => {
         setModalState({ type, department });
     };
@@ -170,8 +117,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
     
     // Handle success actions
     const handleSuccess = () => {
-        fetchDepartments();
-        fetchDepartmentStats();
+        refetch();
     };
     
     // Department Card component for grid view
@@ -182,7 +128,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         return (
             <Card 
                 className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer h-full"
-                onPress={() => openModal('view_department', department)}
+                onClick={() => openModal('view_department', department)}
             >
                 <CardBody className="p-4 flex flex-col h-full">
                     {/* Card Header with Department Info */}
@@ -203,7 +149,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                         size="sm"
                                         variant="light"
                                         className="text-default-400 hover:text-foreground ml-2"
-                                        onPress={(e) => {
+                                        onClick={(e) => {
                                             e.stopPropagation();
                                             openModal('edit_department', department);
                                         }}
@@ -247,7 +193,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                     {/* Card Footer with Tags */}
                     <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-2">
                         {/* Status */}
-                        <Chip
+                        <Badge
                             size="sm"
                             variant={department.is_active ? "solid" : "bordered"}
                             color={department.is_active ? "success" : "danger"}
@@ -258,32 +204,32 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                             }
                         >
                             {department.is_active ? 'Active' : 'Inactive'}
-                        </Chip>
+                        </Badge>
                         
                         {/* Parent Department */}
                         {parent && (
-                            <Chip
+                            <Badge
                                 size="sm"
-                                variant="flat"
+                                variant="soft"
                                 color="primary"
                                 className="text-xs"
                                 startContent={<BuildingOffice2Icon className="w-3 h-3" />}
                             >
                                 {parent.name}
-                            </Chip>
+                            </Badge>
                         )}
                         
                         {/* Manager */}
                         {manager && (
-                            <Chip
+                            <Badge
                                 size="sm"
-                                variant="flat"
+                                variant="soft"
                                 color="secondary"
                                 className="text-xs"
                                 startContent={<UsersIcon className="w-3 h-3" />}
                             >
                                 {manager.name}
-                            </Chip>
+                            </Badge>
                         )}
                     </div>
                 </CardBody>
@@ -356,11 +302,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
             <Head title={title} />
             
             <div className="flex justify-center p-2">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                >
+                <div>
                     <GlassCard>
                         <PageHeader
                             title="Department Management"
@@ -371,12 +313,14 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                         >
                             <div className="p-4 sm:p-6">
                                 {/* Statistics Cards */}
-                                <StatsCards stats={statsCards} className="mb-6" />
+                                <ErrorBoundary>
+                                    <StatsCards stats={statsCards} className="mb-6" />
+                                </ErrorBoundary>
                                 
                                 {/* View Controls */}
                                 <div className="flex flex-col sm:flex-row gap-4 mb-6">
                                     <div className="flex-1">
-                                        <Input
+                                        <TextField.Root
                                             label="Search Departments"
                                             placeholder="Search by name, code, or location..."
                                             value={filters.search}
@@ -387,11 +331,11 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
 
                                     <div className="flex gap-2 items-end">
                                         {/* View Toggle */}
-                                        <ButtonGroup variant="bordered" className="bg-white/5">
+                                        <ButtonGroup variant="outline" className="bg-white/5">
                                             <Button
                                                 isIconOnly={isMobile}
                                                 color={viewMode === 'table' ? 'primary' : 'default'}
-                                                onPress={() => setViewMode('table')}
+                                                onClick={() => setViewMode('table')}
                                                 className={viewMode === 'table' ? 'bg-blue-500/20' : ''}
                                             >
                                                 <TableCellsIcon className="w-4 h-4" />
@@ -400,7 +344,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                             <Button
                                                 isIconOnly={isMobile}
                                                 color={viewMode === 'grid' ? 'primary' : 'default'}
-                                                onPress={() => setViewMode('grid')}
+                                                onClick={() => setViewMode('grid')}
                                                 className={viewMode === 'grid' ? 'bg-blue-500/20' : ''}
                                             >
                                                 <Squares2X2Icon className="w-4 h-4" />
@@ -411,8 +355,8 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                         {/* Filter Toggle */}
                                         <Button
                                             isIconOnly={isMobile}
-                                            variant="bordered"
-                                            onPress={() => setShowFilters(!showFilters)}
+                                            variant="outline"
+                                            onClick={() => setShowFilters(!showFilters)}
                                             className={showFilters ? 'bg-purple-500/20' : 'bg-white/5'}
                                         >
                                             <AdjustmentsHorizontalIcon className="w-4 h-4" />
@@ -423,16 +367,13 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
 
                                 {/* Filters Section */}
                                 {showFilters && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3 }}
+                                    <div
                                         className="mb-6 p-4 bg-white/5 backdrop-blur-md rounded-lg border border-white/10"
                                     >
                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                                 <Select
                                                     label="Status"
-                                                    variant="bordered"
+                                                    variant="outline"
                                                     selectedKeys={filters.status !== 'all' ? [filters.status] : []}
                                                     onSelectionChange={(keys) => {
                                                         const value = Array.from(keys)[0] || 'all';
@@ -449,7 +390,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
 
                                                 <Select
                                                     label="Parent Department"
-                                                    variant="bordered"
+                                                    variant="outline"
                                                     selectedKeys={filters.parentDepartment !== 'all' ? [filters.parentDepartment] : []}
                                                     onSelectionChange={(keys) => {
                                                         const value = Array.from(keys)[0] || 'all';
@@ -473,28 +414,28 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                             {(filters.search || filters.status !== 'all' || filters.parentDepartment !== 'all') && (
                                                 <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-white/10">
                                                     {filters.search && (
-                                                        <Chip
-                                                            variant="flat"
+                                                        <Badge
+                                                            variant="soft"
                                                             color="primary"
                                                             size="sm"
                                                             onClose={() => handleFilterChange('search', '')}
                                                         >
                                                             Search: {filters.search}
-                                                        </Chip>
+                                                        </Badge>
                                                     )}
                                                     {filters.status !== 'all' && (
-                                                        <Chip
-                                                            variant="flat"
+                                                        <Badge
+                                                            variant="soft"
                                                             color="secondary"
                                                             size="sm"
                                                             onClose={() => handleFilterChange('status', 'all')}
                                                         >
                                                             Status: {filters.status === 'active' ? 'Active' : 'Inactive'}
-                                                        </Chip>
+                                                        </Badge>
                                                     )}
                                                     {filters.parentDepartment !== 'all' && (
-                                                        <Chip
-                                                            variant="flat"
+                                                        <Badge
+                                                            variant="soft"
                                                             color="warning"
                                                             size="sm"
                                                             onClose={() => handleFilterChange('parentDepartment', 'all')}
@@ -504,11 +445,11 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                                                     ? 'None (Top-Level)' 
                                                                     : parentDepartments?.find(d => d.id === parseInt(filters.parentDepartment))?.name
                                                             }
-                                                        </Chip>
+                                                        </Badge>
                                                     )}
                                                 </div>
                                             )}
-                                        </motion.div>
+                                        </div>
                                 )}
 
                                 {/* Content Area */}
@@ -530,20 +471,22 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                             </p>
                                         </div>
                                     ) : viewMode === 'table' ? (
-                                        <DepartmentTable
-                                            departments={departmentsData}
-                                            loading={loading}
-                                            onEdit={canEditDepartment ? (department) => openModal('edit_department', department) : undefined}
-                                            onDelete={canDeleteDepartment ? (department) => openModal('delete_department', department) : undefined}
-                                            onView={(department) => openModal('view_department', department)}
-                                            isMobile={isMobile}
-                                            isTablet={isTablet}
-                                            pagination={pagination}
-                                            onPageChange={handlePageChange}
-                                            onRowsPerPageChange={handleRowsPerPageChange}
-                                            canEditDepartment={canEditDepartment}
-                                            canDeleteDepartment={canDeleteDepartment}
-                                        />
+                                        <ErrorBoundary>
+                                            <DepartmentTable
+                                                departments={departmentsData}
+                                                loading={loading}
+                                                onEdit={canEditDepartment ? (department) => openModal('edit_department', department) : undefined}
+                                                onDelete={canDeleteDepartment ? (department) => openModal('delete_department', department) : undefined}
+                                                onView={(department) => openModal('view_department', department)}
+                                                isMobile={isMobile}
+                                                isTablet={isTablet}
+                                                pagination={pagination}
+                                                onPageChange={handlePageChange}
+                                                onRowsPerPageChange={handleRowsPerPageChange}
+                                                canEditDepartment={canEditDepartment}
+                                                canDeleteDepartment={canDeleteDepartment}
+                                            />
+                                        </ErrorBoundary>
                                     ) : (
                                         <div className="p-4">
                                             {departmentsData.data && departmentsData.data.length > 0 ? (
@@ -579,7 +522,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                                         page={pagination.currentPage}
                                                         onChange={handlePageChange}
                                                         size={isMobile ? "sm" : "md"}
-                                                        variant="bordered"
+                                                        variant="outline"
                                                         showControls
                                                         classNames={{
                                                             item: "bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15",
@@ -594,10 +537,10 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                             </div>
                         </PageHeader>
                     </GlassCard>
-                </motion.div>
+                </div>
             </div>
             
-            {/* Department Form Modal */}
+            {/* Department Form Dialog */}
             {(modalState.type === 'add_department' || modalState.type === 'edit_department') && (
                 <DepartmentForm
                     open={true}
@@ -609,7 +552,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                 />
             )}
             
-            {/* Delete Department Modal */}
+            {/* Delete Department Dialog */}
             {modalState.type === 'delete_department' && (
                 <DeleteDepartmentForm
                     open={true}
@@ -619,7 +562,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                 />
             )}
             
-            {/* View Department Modal */}
+            {/* View Department Dialog */}
             {modalState.type === 'view_department' && (
                 <DepartmentForm
                     open={true}

@@ -5,10 +5,12 @@ import {createRoot} from 'react-dom/client';
 import {createInertiaApp, router} from '@inertiajs/react';
 import {resolvePageComponent} from 'laravel-vite-plugin/inertia-helpers';
 import axios from 'axios';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ErrorBoundary from './Components/ErrorBoundary/ErrorBoundary';
 import { RadixThemeProvider } from './Contexts/RadixThemeContext';
 import { RadixThemeShell } from './Components/RadixThemeShell';
 import { initializeDeviceAuth } from './utils/deviceAuth';
+import queryClient from './api/reactQueryClient';
 
 // Initialize secure device authentication
 initializeDeviceAuth();
@@ -105,11 +107,13 @@ createInertiaApp({
         
         root.render(
             <ErrorBoundary>
-                <RadixThemeProvider>
-                    <RadixThemeShell>
-                        <App {...props} />
-                    </RadixThemeShell>
-                </RadixThemeProvider>
+                <QueryClientProvider client={queryClient}>
+                    <RadixThemeProvider>
+                        <RadixThemeShell>
+                            <App {...props} />
+                        </RadixThemeShell>
+                    </RadixThemeProvider>
+                </QueryClientProvider>
             </ErrorBoundary>
         );
         
