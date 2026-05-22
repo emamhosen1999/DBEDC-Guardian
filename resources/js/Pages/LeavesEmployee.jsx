@@ -20,6 +20,7 @@ import BulkDeleteModal from '@/Components/BulkDelete/BulkDeleteModal.jsx';
 import { showToast } from '@/utils/toastUtils';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useLeavesQuery from '@/api/queries/useLeavesQuery';
+import LeaveBalanceCards from '@/Components/Leaves/LeaveBalanceCards.jsx';
 
 const LeavesEmployee = ({ title, allUsers }) => {
   const { auth } = usePage().props;
@@ -495,51 +496,6 @@ const LeavesEmployee = ({ title, allUsers }) => {
     }
   ];
 
-  // Render leave type balance cards
-  const renderLeaveTypeCards = () => {
-    if (!leavesData.leaveTypes.length) {
-      return (
-        <Flex direction="column" align="center" py="6" gap="2">
-          <BarChartIcon style={{ width: 40, height: 40, color: 'var(--gray-8)' }} />
-          <Text color="gray">No leave types available</Text>
-        </Flex>
-      );
-    }
-    return (
-      <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="3">
-        {leavesData.leaveTypes.map(({ type }) => {
-          const leaveCount = userLeaveCounts.find(count => count.leave_type === type) || {};
-          const usedDays = leaveCount.days_used || 0;
-          const remainingDays = leaveCount.remaining_days || 0;
-          const totalDays = usedDays + remainingDays;
-          return (
-            <Card key={type} size="2">
-              <Flex align="center" gap="2" mb="3">
-                <CalendarIcon style={{ color: 'var(--accent-9)' }} />
-                <Text weight="medium" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{type}</Text>
-              </Flex>
-              <Flex justify="between" align="center" mb="2">
-                <Box style={{ textAlign: 'center' }}>
-                  <Text size="1" color="gray">Used</Text>
-                  <Text size="5" weight="bold" color="red" style={{ display: 'block' }}>{usedDays}</Text>
-                </Box>
-                <Separator orientation="vertical" size="2" />
-                <Box style={{ textAlign: 'center' }}>
-                  <Text size="1" color="gray">Remaining</Text>
-                  <Text size="5" weight="bold" color="green" style={{ display: 'block' }}>{remainingDays}</Text>
-                </Box>
-              </Flex>
-              {totalDays > 0 && (
-                <Box style={{ height: 6, borderRadius: 'var(--radius-1)', background: 'var(--gray-a4)', overflow: 'hidden' }}>
-                  <Box style={{ height: '100%', width: `${(usedDays / totalDays) * 100}%`, background: 'var(--red-9)', borderRadius: 'var(--radius-1)' }} />
-                </Box>
-              )}
-            </Card>
-          );
-        })}
-      </Grid>
-    );
-  };
 
   const leaveTableRef = useRef(null);
 
@@ -674,7 +630,10 @@ const LeavesEmployee = ({ title, allUsers }) => {
               <BarChartIcon />
               <Text size="3" weight="medium">Leave Balance Summary</Text>
             </Flex>
-            {renderLeaveTypeCards()}
+            <LeaveBalanceCards 
+              leaveTypes={leavesData.leaveTypes} 
+              userLeaveCounts={userLeaveCounts} 
+            />
           </Box>
 
           <Separator size="4" mb="4" />

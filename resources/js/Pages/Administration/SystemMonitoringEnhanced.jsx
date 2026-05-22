@@ -28,7 +28,6 @@ import {
 } from '@heroicons/react/24/outline';
 import * as useSystemMonitoringQuery from '@/api/queries/useSystemMonitoringQuery';
 import App from '@/Layouts/App.jsx';
-import GlassCard from '@/Components/GlassCard';
 import PageHeader from '@/Components/PageHeader';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
@@ -216,7 +215,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
         <>
             <Head title={title} />
             <Box p={{ initial: '3', md: '5' }}>
-                <GlassCard>
+                <Card>
                     <PageHeader
                         title="Enterprise System Monitoring"
                         subtitle="System health, database, performance, security, and compliance"
@@ -319,7 +318,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                             </Grid>
                         </Box>
                     </PageHeader>
-                </GlassCard>
+                </Card>
             </Box>
         </>
     );
