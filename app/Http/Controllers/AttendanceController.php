@@ -625,7 +625,19 @@ class AttendanceController extends Controller
                 return [
                     'id' => 'user-'.$user->id, // Unique ID for user grouping
                     'user_id' => $user->id,
-                    'user' => $user,
+                    'user' => [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'employee_id' => $user->employee_id,
+                        'email' => $user->email,
+                        'phone' => $user->phone,
+                        'profile_image_url' => $user->profile_image_url,
+                        'profile_image' => $user->profile_image,
+                        'designation' => $user->designation ? [
+                            'id' => $user->designation->id,
+                            'title' => $user->designation->title,
+                        ] : null,
+                    ],
                     'date' => $firstRecord->date,
                     'punchin_time' => $firstPunch->punchin,
                     'punchout_time' => $lastCompletePunch ? $lastCompletePunch->punchout : null,
