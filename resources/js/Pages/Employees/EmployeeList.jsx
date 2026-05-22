@@ -255,7 +255,7 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
                                         size="2"
                                         variant="soft"
                                         color="gray"
-                                        onClick={fetchEmployees}
+                                        onClick={() => refetch()}
                                         aria-label="Refresh"
                                     >
                                         <ReloadIcon />

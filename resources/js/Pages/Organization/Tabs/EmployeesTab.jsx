@@ -173,7 +173,7 @@ const EmployeesTab = ({ isActive }) => {
                 </Flex>
                 
                 <Flex gap="2">
-                    <Button size="2" variant="soft" color="gray" onClick={fetchEmployees}><ReloadIcon /></Button>
+                    <Button size="2" variant="soft" color="gray" onClick={() => refetch()}><ReloadIcon /></Button>
                     <Button size="2"><PlusIcon />{!isMobile && 'Add Employee'}</Button>
                 </Flex>
             </Flex>
