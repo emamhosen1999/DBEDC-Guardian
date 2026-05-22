@@ -33,7 +33,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
     if (item.action === 'theme') { toggleThemeDrawer?.(); return; }
     if (item.href) {
       setActiveTab(item.id);
-      router.visit(item.href, { method: 'get', preserveState: false });
+      router.visit(item.href, { method: 'get', preserveState: true, preserveScroll: true });
     }
   }, [toggleThemeDrawer]);
 

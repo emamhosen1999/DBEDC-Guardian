@@ -57,12 +57,12 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
     [notifications]
   );
 
-  const handleLogout = useCallback(() => router.post(route('logout')), []);
+  const handleLogout = useCallback(() => router.post(route('logout'), { preserveState: true, preserveScroll: true }), []);
 
   const handleSearchSubmit = useCallback((e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.get(route('search'), { q: searchQuery });
+      router.get(route('search'), { q: searchQuery }, { preserveState: true, preserveScroll: true });
       setSearchOpen(false);
       setSearchQuery('');
     }

@@ -255,6 +255,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
   const handleToggleSingleDeviceLogin = async () => {
     setProcessing((previous) => ({ ...previous, toggle: true }));
 
+    // Optimistic UI: update state immediately
+    const previousState = { ...userState };
+    const optimisticValue = !userState.single_device_login_enabled;
+    setUserState((previous) => ({
+      ...previous,
+      single_device_login_enabled: optimisticValue,
+    }));
+
     try {
       const result = await toggleSingleDeviceLogin.mutateAsync(userState.id);
       
@@ -269,8 +277,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
         }
 
         showToast.success(result.message || 'Device lock setting updated');
+      } else {
+        // Revert on failure
+        setUserState(previousState);
+        showToast.error('Failed to update device lock setting');
       }
     } catch (error) {
+      // Revert on error
+      setUserState(previousState);
       showToast.error(error.response?.data?.message || 'Failed to update device lock setting');
     } finally {
       setProcessing((previous) => ({ ...previous, toggle: false }));
@@ -281,6 +295,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
     setProcessing((previous) => ({ ...previous, reset: true }));
 
     const reason = resetReason.trim();
+
+    // Optimistic UI: update state immediately
+    const previousState = { ...userState };
+    setUserState((previous) => ({
+      ...previous,
+      device_reset_at: new Date().toISOString(),
+      device_reset_reason: reason || 'Admin reset via user device management',
+    }));
 
     try {
       const result = await resetDevices.mutateAsync({ userId: userState.id, reason });
@@ -300,8 +322,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
         resetModal.onClose();
         showToast.success(result.message || 'Devices reset successfully');
         await refreshDevices();
+      } else {
+        // Revert on failure
+        setUserState(previousState);
+        showToast.error('Failed to reset devices');
       }
     } catch (error) {
+      // Revert on error
+      setUserState(previousState);
       showToast.error(error.response?.data?.message || 'Failed to reset devices');
     } finally {
       setProcessing((previous) => ({ ...previous, reset: false }));
@@ -320,10 +348,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
 
     setProcessing((previous) => ({ ...previous, deactivateId: deviceToDeactivate.id }));
 
+    // Optimistic UI: remove device from local state immediately
+    const previousDevices = [...deviceItems];
+    setDeviceItems(prevItems => prevItems.filter(device => device.id !== deviceToDeactivate.id));
+
     try {
-      const result = await deactivateDevice.mutateAsync({ 
-        userId: userState.id, 
-        deviceId: deviceToDeactivate.id 
+      const result = await deactivateDevice.mutateAsync({
+        userId: userState.id,
+        deviceId: deviceToDeactivate.id
       });
 
       if (result?.success) {
@@ -331,8 +363,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
         deactivateModal.onClose();
         showToast.success(result.message || 'Device deactivated successfully');
         await refreshDevices();
+      } else {
+        // Revert on failure
+        setDeviceItems(previousDevices);
+        showToast.error('Failed to deactivate device');
       }
     } catch (error) {
+      // Revert on error
+      setDeviceItems(previousDevices);
       showToast.error(error.response?.data?.message || 'Failed to deactivate device');
     } finally {
       setProcessing((previous) => ({ ...previous, deactivateId: null }));

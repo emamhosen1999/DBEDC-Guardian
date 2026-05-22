@@ -6,7 +6,7 @@ use App\Http\Controllers\HR\HrAnalyticsController;
 use App\Http\Controllers\HR\HrDocumentController;
 use App\Http\Controllers\HR\OnboardingController;
 use App\Http\Controllers\HR\PayrollController;
-use App\Http\Controllers\HR\PerformanceReviewController;
+// use App\Http\Controllers\HR\PerformanceReviewController; // TODO: Controller not implemented yet
 use App\Http\Controllers\HR\RecruitmentController;
 use App\Http\Controllers\HR\SkillsController;
 use App\Http\Controllers\HR\TimeOffController;
@@ -18,27 +18,27 @@ use Illuminate\Support\Facades\Route;
 // Human Resources Module Routes
 Route::middleware(['auth', 'verified'])->prefix('hr')->name('hr.')->group(function () {
     // HR Dashboard
-    Route::middleware(['permission:hr.dashboard.view'])->get('/dashboard', [PerformanceReviewController::class, 'dashboard'])->name('dashboard');
+    // Route::middleware(['permission:hr.dashboard.view'])->get('/dashboard', [PerformanceReviewController::class, 'dashboard'])->name('dashboard'); // TODO: Controller not implemented yet
 
     // Performance Management
-    Route::middleware(['permission:hr.performance.view'])->group(function () {
-        Route::get('/performance', [PerformanceReviewController::class, 'index'])->name('performance.index');
-        Route::get('/performance/create', [PerformanceReviewController::class, 'create'])->name('performance.create');
-        Route::post('/performance', [PerformanceReviewController::class, 'store'])->name('performance.store');
-        Route::get('/performance/{id}', [PerformanceReviewController::class, 'show'])->name('performance.show');
-        Route::get('/performance/{id}/edit', [PerformanceReviewController::class, 'edit'])->name('performance.edit');
-        Route::put('/performance/{id}', [PerformanceReviewController::class, 'update'])->name('performance.update');
-        Route::delete('/performance/{id}', [PerformanceReviewController::class, 'destroy'])->name('performance.destroy');
+    // Route::middleware(['permission:hr.performance.view'])->group(function () {
+    //     Route::get('/performance', [PerformanceReviewController::class, 'index'])->name('performance.index');
+    //     Route::get('/performance/create', [PerformanceReviewController::class, 'create'])->name('performance.create');
+    //     Route::post('/performance', [PerformanceReviewController::class, 'store'])->name('performance.store');
+    //     Route::get('/performance/{id}', [PerformanceReviewController::class, 'show'])->name('performance.show');
+    //     Route::get('/performance/{id}/edit', [PerformanceReviewController::class, 'edit'])->name('performance.edit');
+    //     Route::put('/performance/{id}', [PerformanceReviewController::class, 'update'])->name('performance.update');
+    //     Route::delete('/performance/{id}', [PerformanceReviewController::class, 'destroy'])->name('performance.destroy');
 
-        // Performance Templates
-        Route::get('/performance/templates', [PerformanceReviewController::class, 'templates'])->name('performance.templates.index');
-        Route::get('/performance/templates/create', [PerformanceReviewController::class, 'createTemplate'])->name('performance.templates.create');
-        Route::post('/performance/templates', [PerformanceReviewController::class, 'storeTemplate'])->name('performance.templates.store');
-        Route::get('/performance/templates/{id}', [PerformanceReviewController::class, 'showTemplate'])->name('performance.templates.show');
-        Route::get('/performance/templates/{id}/edit', [PerformanceReviewController::class, 'editTemplate'])->name('performance.templates.edit');
-        Route::put('/performance/templates/{id}', [PerformanceReviewController::class, 'updateTemplate'])->name('performance.templates.update');
-        Route::delete('/performance/templates/{id}', [PerformanceReviewController::class, 'destroyTemplate'])->name('performance.templates.destroy');
-    });
+    //     // Performance Templates
+    //     Route::get('/performance/templates', [PerformanceReviewController::class, 'templates'])->name('performance.templates.index');
+    //     Route::get('/performance/templates/create', [PerformanceReviewController::class, 'createTemplate'])->name('performance.templates.create');
+    //     Route::post('/performance/templates', [PerformanceReviewController::class, 'storeTemplate'])->name('performance.templates.store');
+    //     Route::get('/performance/templates/{id}', [PerformanceReviewController::class, 'showTemplate'])->name('performance.templates.show');
+    //     Route::get('/performance/templates/{id}/edit', [PerformanceReviewController::class, 'editTemplate'])->name('performance.templates.edit');
+    //     Route::put('/performance/templates/{id}', [PerformanceReviewController::class, 'updateTemplate'])->name('performance.templates.update');
+    //     Route::delete('/performance/templates/{id}', [PerformanceReviewController::class, 'destroyTemplate'])->name('performance.templates.destroy');
+    // }); // TODO: Controller not implemented yet
 
     // Training Management
     Route::middleware(['permission:hr.training.view'])->group(function () {

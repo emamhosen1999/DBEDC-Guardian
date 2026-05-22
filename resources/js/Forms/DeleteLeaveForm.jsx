@@ -2,84 +2,64 @@ import React, { useState } from "react";
 import { Box, Button, Dialog, Flex, Spinner, Text } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, TrashIcon } from '@radix-ui/react-icons';
 import { showToast } from "@/utils/toastUtils";
-import axios from 'axios';
+import { useForm } from '@inertiajs/react';
 
 const DeleteLeaveForm = ({ open, closeModal, leaveId, setLeavesData, setLeaves, setTotalRows, setLastPage, setError, deleteLeaveOptimized, fetchLeavesStats }) => {
-    const [deleting, setDeleting] = useState(false);
+    const { processing, delete: deleteRequest } = useForm();
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!leaveId) {
             showToast.error('Invalid leave ID provided');
             return;
         }
 
-        setDeleting(true);
-        
-        const promise = new Promise(async (resolve, reject) => {
-            try {
-                const response = await axios.delete(route('leave-delete', { id: leaveId, route: route().current() }));
-
-                if (response.status === 200) {
-                    // Optimistic update approach
-                    if (deleteLeaveOptimized) {
-                        deleteLeaveOptimized(leaveId);
-                        if (setTotalRows) setTotalRows(prev => Math.max(0, prev - 1));
-                        if (fetchLeavesStats) {
-                            fetchLeavesStats();
-                        }
-                    } else {
-                        // Fallback approach
-                        if (setLeavesData) setLeavesData(response.data.leavesData);
-                        if (setTotalRows) setTotalRows(response.data.leaves.total);
-                        if (setLastPage) setLastPage(response.data.leaves.last_page);
-                        if (setLeaves) setLeaves(response.data.leaves.data);
-                        if (setError) setError(false);
-                        if (fetchLeavesStats) fetchLeavesStats();
+        const options = {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (response) => {
+                // Optimistic update approach
+                if (deleteLeaveOptimized) {
+                    deleteLeaveOptimized(leaveId);
+                    if (setTotalRows) setTotalRows(prev => Math.max(0, prev - 1));
+                    if (fetchLeavesStats) {
+                        fetchLeavesStats();
                     }
-
-                    resolve('Leave application deleted successfully');
+                } else {
+                    // Fallback approach
+                    if (setLeavesData) setLeavesData(response.props.leavesData);
+                    if (setTotalRows) setTotalRows(response.props.leaves.total);
+                    if (setLastPage) setLastPage(response.props.leaves.last_page);
+                    if (setLeaves) setLeaves(response.props.leaves.data);
+                    if (setError) setError(false);
+                    if (fetchLeavesStats) fetchLeavesStats();
                 }
-            } catch (error) {
+
+                showToast.success('Leave application deleted successfully');
+                closeModal();
+            },
+            onError: (error) => {
                 console.error('Error deleting leave:', error);
                 
                 // Enhanced error handling
-                if (error.response?.status === 404) {
-                    const { leavesData } = error.response.data || {};
+                if (error.status === 404) {
+                    const { leavesData } = error.props || {};
                     if (setLeavesData && leavesData) setLeavesData(leavesData);
-                    if (setError) setError(error.response?.data?.message || 'Leave not found.');
-                    reject('Leave not found or already deleted');
-                } else if (error.response?.status === 403) {
-                    reject('You do not have permission to delete this leave');
-                } else if (error.response?.status === 422) {
-                    reject('Cannot delete leave with current status');
+                    if (setError) setError(error.props?.message || 'Leave not found.');
+                    showToast.error('Leave not found or already deleted');
+                } else if (error.status === 403) {
+                    showToast.error('You do not have permission to delete this leave');
+                } else if (error.status === 422) {
+                    showToast.error('Cannot delete leave with current status');
                 } else {
-                    reject(error.response?.data?.error || 'Failed to delete leave application');
+                    showToast.error(error.props?.error || 'Failed to delete leave application');
                 }
-            } finally {
-                setDeleting(false);
-                closeModal();
             }
-        });
+        };
 
-        showToast.promise(
-            promise,
-            {
-                pending: 'Deleting leave application...',
-                success: {
-                    render({ data }) {
-                        return data;
-                    }
-                },
-                error: {
-                    render({ data }) {
-                        return data;
-                    }
-                }
-            }
-        );
+        deleteRequest(route('leave-delete', { id: leaveId, route: route().current() }), options);
     };
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v && !deleting) closeModal(); }}>
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !processing) closeModal(); }}>
             <Dialog.Content style={{ maxWidth: 420 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
@@ -101,9 +81,9 @@ const DeleteLeaveForm = ({ open, closeModal, leaveId, setLeavesData, setLeaves, 
                 </Box>
 
                 <Flex justify="end" gap="2">
-                    <Button variant="soft" color="gray" onClick={closeModal} disabled={deleting} style={{ cursor: 'pointer' }}>Cancel</Button>
-                    <Button color="red" onClick={handleDelete} disabled={deleting} style={{ cursor: 'pointer' }}>
-                        {deleting ? <Spinner size="1" /> : <TrashIcon />} {deleting ? 'Deleting...' : 'Delete Leave'}
+                    <Button variant="soft" color="gray" onClick={closeModal} disabled={processing} style={{ cursor: 'pointer' }}>Cancel</Button>
+                    <Button color="red" onClick={handleDelete} disabled={processing} style={{ cursor: 'pointer' }}>
+                        {processing ? <Spinner size="1" /> : <TrashIcon />} {processing ? 'Deleting...' : 'Delete Leave'}
                     </Button>
                 </Flex>
             </Dialog.Content>

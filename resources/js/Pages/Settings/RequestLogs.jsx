@@ -135,11 +135,18 @@ const RequestLogs = ({ title }) => {
 
     const handleDeleteLog = async (id) => {
         if (!confirm('Delete this log?')) return;
+        
+        // Optimistic UI: remove from local state immediately
+        const previousLogs = [...logs];
+        setLogs(prev => prev.filter(log => log.id !== id));
+        
         try {
             await deleteLogMutation.mutateAsync(id);
             showToast.success('Log deleted.');
             refetch();
         } catch {
+            // Revert on error
+            setLogs(previousLogs);
             showToast.error('Failed to delete log.');
         }
     };
@@ -147,23 +154,37 @@ const RequestLogs = ({ title }) => {
     const bulkDelete = async () => {
         if (selectedLogs.size === 0) return;
         if (!confirm(`Delete ${selectedLogs.size} selected logs?`)) return;
+        
+        // Optimistic UI: remove from local state immediately
+        const previousLogs = [...logs];
+        const selectedIds = Array.from(selectedLogs);
+        setLogs(prev => prev.filter(log => !selectedIds.includes(log.id)));
+        
         try {
-            await bulkDeleteLogs.mutateAsync(Array.from(selectedLogs));
+            await bulkDeleteLogs.mutateAsync(selectedIds);
             showToast.success('Logs deleted.');
             setSelectedLogs(new Set());
             refetch();
         } catch {
+            // Revert on error
+            setLogs(previousLogs);
             showToast.error('Failed to delete logs.');
         }
     };
 
     const handleClearAllLogs = async () => {
+        // Optimistic UI: clear local state immediately
+        const previousLogs = [...logs];
+        setLogs([]);
+        
         try {
             await clearAllLogsMutation.mutateAsync();
             showToast.success('All logs cleared.');
             setConfirmClearAll(false);
             refetch();
         } catch {
+            // Revert on error
+            setLogs(previousLogs);
             showToast.error('Failed to clear logs.');
         }
     };

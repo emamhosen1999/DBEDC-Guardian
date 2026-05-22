@@ -137,22 +137,29 @@ const LeaveSettings = () => {
         }
 
         
+        // Optimistic UI: add to local state immediately
+        const previousLeaveTypes = [...leaveTypes];
+        const optimisticLeaveType = { ...newLeaveType, id: Date.now() }; // Temporary ID
+        setLeaveTypes(prev => [...prev, optimisticLeaveType]);
+
         const promise = new Promise(async (resolve, reject) => {
             try {
                 const response = await createLeaveTypeMutation.mutateAsync(newLeaveType);
 
                 if (response.status === 201) {
-                    refetch()
+                    refetch();
                     resetForm();
                     resolve(['Leave type added successfully.']);
                 } else {
+                    // Revert on failure
+                    setLeaveTypes(previousLeaveTypes);
                     reject(['Failed to add leave type. Please try again.']);
                 }
             } catch (error) {
+                // Revert on error
+                setLeaveTypes(previousLeaveTypes);
                 console.error(error);
                 reject([error.response?.data?.message || 'Failed to add leave type. Please try again.']);
-            } finally {
-                
             }
         });
 
@@ -186,25 +193,28 @@ const LeaveSettings = () => {
         }
 
         
+        // Optimistic UI: update local state immediately
+        const previousLeaveTypes = [...leaveTypes];
+        setLeaveTypes(prev => prev.map(lt => lt.id === newLeaveType.id ? { ...newLeaveType } : lt));
+
         const promise = new Promise(async (resolve, reject) => {
             try {
                 const response = await updateLeaveTypeMutation.mutateAsync({ id: newLeaveType.id, data: newLeaveType });
 
                 if (response.status === 200) {
-                    const updatedLeaveTypes = leaveTypes.map((lt) =>
-                        lt.id === newLeaveType.id ? { ...newLeaveType } : lt
-                    );
-                    refetch()
+                    refetch();
                     resetForm();
                     resolve(['Leave type updated successfully.']);
                 } else {
+                    // Revert on failure
+                    setLeaveTypes(previousLeaveTypes);
                     reject(['Failed to update leave type. Please try again.']);
                 }
             } catch (error) {
+                // Revert on error
+                setLeaveTypes(previousLeaveTypes);
                 console.error(error);
                 reject([error.response?.data?.message || 'Failed to update leave type. Please try again.']);
-            } finally {
-                
             }
         });
 
@@ -226,23 +236,29 @@ const LeaveSettings = () => {
         if (!deleteCandidate) return;
 
         
+        // Optimistic UI: remove from local state immediately
+        const previousLeaveTypes = [...leaveTypes];
+        setLeaveTypes(prev => prev.filter(lt => lt.id !== deleteCandidate.id));
+
         const promise = new Promise(async (resolve, reject) => {
             try {
                 const response = await deleteLeaveTypeMutation.mutateAsync(deleteCandidate.id);
 
                 if (response.status === 200) {
-                    refetch()
+                    refetch();
                     onDeleteModalClose();
                     setDeleteCandidate(null);
                     resolve([response.data.message || 'Leave type deleted successfully.']);
                 } else {
+                    // Revert on failure
+                    setLeaveTypes(previousLeaveTypes);
                     reject(['Failed to delete leave type. Please try again.']);
                 }
             } catch (error) {
+                // Revert on error
+                setLeaveTypes(previousLeaveTypes);
                 console.error(error);
                 reject([error.response?.data?.message || 'Failed to delete leave type. Please try again.']);
-            } finally {
-                
             }
         });
 
@@ -357,7 +373,8 @@ const LeaveSettings = () => {
                                                     color="gray"
                                                     variant="outline"
                                                     startContent={<ArrowPathIcon className="w-4 h-4" />}
-                                                    onClick={() => window.location.reload()}
+                                                    onClick={() => refetch()}
+                                                    disabled={isLoading}
                                                     size={isMobile ? "sm" : "md"}
                                                     className="font-semibold"
                                                     style={{
@@ -366,7 +383,7 @@ const LeaveSettings = () => {
                                                     }}
                                                     aria-label="Refresh leave types"
                                                 >
-                                                    {!isMobile && 'Refresh'}
+                                                    {!isMobile && (isLoading ? 'Loading...' : 'Refresh')}
                                                 </Button>
                                             </div>
                                         </div>

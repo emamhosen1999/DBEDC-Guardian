@@ -1247,10 +1247,10 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                     The Objections management functionality is currently being migrated from HeroUI to Radix UI. 
                                                     In the meantime, you can access the original objections page through the navigation menu.
                                                 </Text>
-                                                <Button 
-                                                    variant="soft" 
+                                                <Button
+                                                    variant="soft"
                                                     color="indigo"
-                                                    onClick={() => router.visit('/objections')}
+                                                    onClick={() => router.visit('/objections', { preserveState: true, preserveScroll: true })}
                                                 >
                                                     Go to Original Objections Page
                                                 </Button>

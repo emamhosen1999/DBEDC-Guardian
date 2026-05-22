@@ -138,12 +138,12 @@ export default function LeaveSettingsPanel({
     useEffect(() => {
         if (!isActive) return;
         onSetHeaderActions?.(
-            <Button size="2" variant="soft" color="gray" onClick={() => window.location.reload()}>
-                <ReloadIcon /> {!isMobile && 'Refresh'}
+            <Button size="2" variant="soft" color="gray" onClick={() => refetch()} disabled={isLoading}>
+                <ReloadIcon /> {!isMobile && (isLoading ? 'Loading...' : 'Refresh')}
             </Button>
         );
         return () => onSetHeaderActions?.(null);
-    }, [isActive, onSetHeaderActions, isMobile]);
+    }, [isActive, onSetHeaderActions, isMobile, isLoading, refetch]);
 
     /* Derived State */
     const isFormValid = useMemo(() =>

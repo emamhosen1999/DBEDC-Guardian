@@ -33,7 +33,7 @@ const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
     const attendanceType = attendanceTypes?.find(a => a.id === user.attendance_type_id);
 
     return (
-        <Box p="3" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', cursor: 'pointer' }} onClick={() => router.visit(route('profile', { user: user.id }))}>
+        <Box p="3" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', cursor: 'pointer' }} onClick={() => router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true })}>
             <Flex direction="column" gap="3">
                 <Flex align="start" gap="3">
                     <Box style={{ flexShrink: 0 }}>
@@ -45,7 +45,7 @@ const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
                         </Text>
                         <Text size="1" color="gray">ID: {user?.employee_id || 'N/A'}</Text>
                     </Box>
-                    <IconButton size="1" variant="ghost" color="gray" style={{ flexShrink: 0 }} onClick={e => { e.stopPropagation(); router.visit(route('profile', { user: user.id })); }}>
+                    <IconButton size="1" variant="ghost" color="gray" style={{ flexShrink: 0 }} onClick={e => { e.stopPropagation(); router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true }); }}>
                         <Pencil1Icon />
                     </IconButton>
                 </Flex>

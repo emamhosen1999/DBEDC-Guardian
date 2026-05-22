@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { 
     Dialog, Button, Flex, Grid, Text, TextField, 
     Select, Box, Spinner 
 } from '@radix-ui/themes';
 import { SewingPinIcon } from '@radix-ui/react-icons';
-import axios from 'axios';
+import { useForm } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
 
 const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, users = [] }) => {
-    const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState({});
-
     const initialFormState = {
         location: '',
         start_chainage: '',
@@ -18,55 +15,51 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
         incharge: 'none',
     };
 
-    const [formData, setFormData] = useState(initialFormState);
+    const { data, setData, processing, errors, put, post, reset } = useForm(initialFormState);
 
     useEffect(() => {
         if (modalType === 'update' && currentRow) {
-            setFormData({
+            setData({
                 location: currentRow.location || '',
                 start_chainage: currentRow.start_chainage || '',
                 end_chainage: currentRow.end_chainage || '',
                 incharge: currentRow.incharge_id ? String(currentRow.incharge_id) : 'none',
             });
         } else {
-            setFormData(initialFormState);
+            reset();
         }
-        setErrors({});
-    }, [currentRow, modalType, open]);
+    }, [currentRow, modalType, open, setData, reset]);
 
-    const handleChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+    const handleChange = (field, value) => setData(field, value);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        setLoading(true);
-        setErrors({});
 
-        const payload = { ...formData };
+        const payload = { ...data };
         if (payload.incharge === 'none') payload.incharge = null;
 
-        try {
-            if (modalType === 'update') {
-                await axios.put(`/work-locations/${currentRow.id}`, payload);
-                showToast.success('Location updated successfully');
-            } else {
-                await axios.post('/work-locations', payload);
-                showToast.success('Location created successfully');
-            }
-            onSuccess();
-        } catch (error) {
-            if (error.response?.status === 422) {
-                setErrors(error.response.data.errors);
+        const options = {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                showToast.success(modalType === 'update' ? 'Location updated successfully' : 'Location created successfully');
+                onSuccess();
+                reset();
+            },
+            onError: (errors) => {
                 showToast.error('Please check the form for errors');
-            } else {
-                showToast.error(error.response?.data?.message || 'An error occurred');
             }
-        } finally {
-            setLoading(false);
+        };
+
+        if (modalType === 'update') {
+            put(route('work-locations.update', { id: currentRow.id }), payload, options);
+        } else {
+            post(route('work-locations.store'), payload, options);
         }
     };
 
     return (
-        <Dialog.Root open={open} onOpenChange={v => { if (!v && !loading) closeModal(); }}>
+        <Dialog.Root open={open} onOpenChange={v => { if (!v && !processing) closeModal(); }}>
             <Dialog.Content style={{ maxWidth: 500 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
@@ -80,40 +73,40 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">Location Name *</Text>
                             <TextField.Root 
-                                value={formData.location} 
+                                value={data.location} 
                                 onChange={e => handleChange('location', e.target.value)} 
-                                disabled={loading} 
+                                disabled={processing} 
                                 placeholder="e.g. Site Alpha" 
                             />
-                            {errors.location && <Text size="1" color="red">{errors.location[0]}</Text>}
+                            {errors.location && <Text size="1" color="red">{errors.location}</Text>}
                         </Box>
 
                         <Grid columns="2" gap="4">
                             <Box>
                                 <Text size="2" weight="medium" mb="1" as="div">Start Chainage</Text>
                                 <TextField.Root 
-                                    value={formData.start_chainage} 
+                                    value={data.start_chainage} 
                                     onChange={e => handleChange('start_chainage', e.target.value)} 
-                                    disabled={loading} 
+                                    disabled={processing} 
                                     placeholder="e.g. CH 10+000" 
                                 />
-                                {errors.start_chainage && <Text size="1" color="red">{errors.start_chainage[0]}</Text>}
+                                {errors.start_chainage && <Text size="1" color="red">{errors.start_chainage}</Text>}
                             </Box>
                             <Box>
                                 <Text size="2" weight="medium" mb="1" as="div">End Chainage</Text>
                                 <TextField.Root 
-                                    value={formData.end_chainage} 
+                                    value={data.end_chainage} 
                                     onChange={e => handleChange('end_chainage', e.target.value)} 
-                                    disabled={loading} 
+                                    disabled={processing} 
                                     placeholder="e.g. CH 15+500" 
                                 />
-                                {errors.end_chainage && <Text size="1" color="red">{errors.end_chainage[0]}</Text>}
+                                {errors.end_chainage && <Text size="1" color="red">{errors.end_chainage}</Text>}
                             </Box>
                         </Grid>
 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">In-Charge (Optional)</Text>
-                            <Select.Root value={formData.incharge} onValueChange={v => handleChange('incharge', v)} disabled={loading}>
+                            <Select.Root value={data.incharge} onValueChange={v => handleChange('incharge', v)} disabled={processing}>
                                 <Select.Trigger style={{ width: '100%' }} />
                                 <Select.Content>
                                     <Select.Item value="none">Unassigned</Select.Item>
@@ -122,14 +115,14 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                                     ))}
                                 </Select.Content>
                             </Select.Root>
-                            {errors.incharge && <Text size="1" color="red">{errors.incharge[0]}</Text>}
+                            {errors.incharge && <Text size="1" color="red">{errors.incharge}</Text>}
                         </Box>
                     </Grid>
 
                     <Flex justify="end" gap="3" mt="5">
-                        <Button variant="soft" color="gray" type="button" onClick={closeModal} disabled={loading}>Cancel</Button>
-                        <Button type="submit" color="indigo" disabled={loading}>
-                            {loading ? <Spinner size="1" /> : (modalType === 'update' ? 'Update Location' : 'Add Location')}
+                        <Button variant="soft" color="gray" type="button" onClick={closeModal} disabled={processing}>Cancel</Button>
+                        <Button type="submit" color="indigo" disabled={processing}>
+                            {processing ? <Spinner size="1" /> : (modalType === 'update' ? 'Update Location' : 'Add Location')}
                         </Button>
                     </Flex>
                 </form>
