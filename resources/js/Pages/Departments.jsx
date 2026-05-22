@@ -26,7 +26,7 @@ import {
     MapPinIcon,
     CalendarIcon
 } from '@heroicons/react/24/outline';
-import GlassCard from '@/Components/GlassCard.jsx';
+import { Card } from '@radix-ui/themes';
 import PageHeader from '@/Components/PageHeader.jsx';
 import StatsCards from '@/Components/StatsCards.jsx';
 import App from '@/Layouts/App.jsx';
@@ -303,7 +303,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
             
             <div className="flex justify-center p-2">
                 <div>
-                    <GlassCard>
+                    <Card>
                         <PageHeader
                             title="Department Management"
                             subtitle="Manage company departments, hierarchies, and organizational structure"
@@ -536,7 +536,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                 </div>
                             </div>
                         </PageHeader>
-                    </GlassCard>
+                    </Card>
                 </div>
             </div>
             
