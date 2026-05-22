@@ -7,7 +7,7 @@ import { requestJson } from '../client';
 export const useAttendanceToday = () => {
   return useQuery({
     queryKey: ['attendance', 'today'],
-    queryFn: () => requestJson('get', '/api/v1/attendance/today'),
+    queryFn: () => requestJson('get', '/attendance/attendance-today'),
     staleTime: 2 * 60 * 1000, // 2 minutes - attendance changes frequently
   });
 };
@@ -17,11 +17,11 @@ export const useAttendanceToday = () => {
  */
 export const useAttendanceHistory = (params = {}) => {
   const { page = 1, perPage = 10, currentMonth, currentYear, scope = 'self', employee } = params;
-  
+
   return useQuery({
     queryKey: ['attendance', 'history', { page, perPage, currentMonth, currentYear, scope, employee }],
-    queryFn: () => requestJson('get', '/api/v1/attendance/history', {
-      params: { page, perPage, currentMonth, currentYear, scope, employee }
+    queryFn: () => requestJson('get', '/attendances-admin-paginate', {
+      params: { page, per_page: perPage, currentMonth, currentYear, scope, employee }
     }),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -79,7 +79,7 @@ export const useAbsentUsers = (date) => {
 export const useUserLocations = (date) => {
   return useQuery({
     queryKey: ['attendance', 'locations-today', date],
-    queryFn: () => requestJson('get', '/api/v1/attendance/locations-today', {
+    queryFn: () => requestJson('get', '/attendance/locations-today', {
       params: { date }
     }),
     enabled: !!date,
@@ -108,9 +108,9 @@ export const useDailyTimesheet = (params = {}) => {
  */
 export const usePunchAttendance = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: (data) => requestJson('post', '/api/v1/attendance/punch', data),
+    mutationFn: (data) => requestJson('post', '/attendance/punch', data),
     onSuccess: () => {
       // Invalidate attendance queries to refetch
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
@@ -123,9 +123,9 @@ export const usePunchAttendance = () => {
  */
 export const useUpdateTimeCorrection = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ attendanceId, data }) => requestJson('put', `/api/v1/attendance/${attendanceId}/time-correction`, data),
+    mutationFn: ({ attendanceId, data }) => requestJson('post', `/attendance/${attendanceId}/correct`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
     },
@@ -137,9 +137,9 @@ export const useUpdateTimeCorrection = () => {
  */
 export const useMarkAsPresent = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: ({ userId, date, data }) => requestJson('post', `/api/v1/attendance/mark-present`, {
+    mutationFn: ({ userId, date, data }) => requestJson('post', `/attendance/mark-as-present`, {
       user_id: userId,
       date,
       ...data
