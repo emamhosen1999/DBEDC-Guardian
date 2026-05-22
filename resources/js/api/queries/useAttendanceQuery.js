@@ -95,7 +95,7 @@ export const useDailyTimesheet = (params = {}) => {
 
   return useQuery({
     queryKey: ['attendance', 'daily-timesheet', { date, page, perPage }],
-    queryFn: () => requestJson('get', '/attendance/daily-timesheet', {
+    queryFn: () => requestJson('get', '/admin/daily-timesheet', {
       params: { date, page, perPage }
     }),
     enabled: !!date,
