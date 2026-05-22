@@ -562,7 +562,7 @@ class AttendanceController extends Controller
 
             // Get ALL attendance records for these users on the selected date
             // Sort by created_at ascending so first puncher comes first
-            $attendanceRecords = Attendance::with('user')
+            $attendanceRecords = Attendance::with(['user.designation'])
                 ->whereNotNull('punchin')
                 ->whereDate('date', $selectedDate)
                 ->whereIn('user_id', $userIds)
