@@ -611,7 +611,7 @@ function UserRoleTab({ roles, isMobile }) {
                     <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
                 </TextField.Root>
                 {loading && <Spinner size="2" />}
-                <Text size="1" color="gray" ml="auto">{total} users</Text>
+                <Text size="1" color="gray" ml="auto">{pagination.total} users</Text>
             </Flex>
 
             <Box style={{ overflowX: 'auto' }}>
