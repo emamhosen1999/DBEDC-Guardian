@@ -962,18 +962,11 @@ class AttendanceController extends Controller
         $selectedDate = Carbon::parse($request->query('date'))->format('Y-m-d');
 
         try {
-            // Skip absent calculation on weekends
+            // Get weekend settings for reference (but don't skip calculation)
             $settings    = \App\Models\HRM\AttendanceSetting::first();
             $weekendDays = $settings?->weekend_days ?? ['saturday', 'sunday'];
             $dayName     = strtolower(Carbon::parse($selectedDate)->format('l'));
-            if (in_array($dayName, $weekendDays)) {
-                return response()->json([
-                    'absent_users' => [],
-                    'leaves'       => [],
-                    'total_absent' => 0,
-                    'is_weekend'   => true,
-                ]);
-            }
+            $isWeekend   = in_array($dayName, $weekendDays);
 
             // When not searching, get all users with Employee role
             $allUsers = User::role('Employee')->get();
@@ -1005,6 +998,7 @@ class AttendanceController extends Controller
                 'absent_users' => $absentUsers->values(),
                 'leaves' => $todayLeaves,
                 'total_absent' => $absentUsers->count(),
+                'is_weekend' => $isWeekend,
             ]);
         } catch (Throwable $exception) {
             report($exception);
