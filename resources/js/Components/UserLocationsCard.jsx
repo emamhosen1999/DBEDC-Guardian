@@ -306,10 +306,16 @@ const AttendanceTypeBoundaries = React.memo(({ attendanceTypeConfigs, theme }) =
             
             if (combinedBounds && combinedBounds.isValid()) {
                 setTimeout(() => {
-                    map.fitBounds(combinedBounds, { 
-                        padding: [50, 50],
-                        maxZoom: 14
-                    });
+                    try {
+                        if (map && map._container) {
+                            map.fitBounds(combinedBounds, { 
+                                padding: [50, 50],
+                                maxZoom: 14
+                            });
+                        }
+                    } catch (e) {
+                        // Ignore fitBounds errors if map is destroyed
+                    }
                 }, 500);
             }
         }
@@ -318,9 +324,11 @@ const AttendanceTypeBoundaries = React.memo(({ attendanceTypeConfigs, theme }) =
             // Cleanup
             routingControlsRef.current.forEach(control => {
                 try {
-                    map.removeControl(control);
+                    if (control && map && map._container) {
+                        map.removeControl(control);
+                    }
                 } catch (e) {
-                    // Ignore cleanup errors
+                    // Ignore cleanup errors - routing control may already be null
                 }
             });
             routingControlsRef.current = [];
@@ -358,8 +366,12 @@ const RoutingMachine = React.memo(({ startLocation, endLocation, theme }) => {
         }).addTo(map);
 
         return () => {
-            if (map && routingControl) {
-                map.removeControl(routingControl);
+            if (map && routingControl && map._container) {
+                try {
+                    map.removeControl(routingControl);
+                } catch (e) {
+                    // Ignore cleanup errors
+                }
             }
         };
     }, [map, startLocation, endLocation, theme]);

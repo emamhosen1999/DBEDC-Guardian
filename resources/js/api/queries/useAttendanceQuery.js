@@ -51,7 +51,7 @@ export const useAttendanceMonthlySummary = useMonthlySummary;
 export const usePresentUsers = (date) => {
   return useQuery({
     queryKey: ['attendance', 'present-users', date],
-    queryFn: () => requestJson('get', '/api/v1/attendance/present-users', {
+    queryFn: () => requestJson('get', '/admin/get-present-users-for-date', {
       params: { date }
     }),
     enabled: !!date,
@@ -65,7 +65,7 @@ export const usePresentUsers = (date) => {
 export const useAbsentUsers = (date) => {
   return useQuery({
     queryKey: ['attendance', 'absent-users', date],
-    queryFn: () => requestJson('get', '/api/v1/attendance/absent-users', {
+    queryFn: () => requestJson('get', '/admin/get-absent-users-for-date', {
       params: { date }
     }),
     enabled: !!date,
@@ -92,11 +92,11 @@ export const useUserLocations = (date) => {
  */
 export const useDailyTimesheet = (params = {}) => {
   const { date, page = 1, perPage = 25 } = params;
-  
+
   return useQuery({
     queryKey: ['attendance', 'daily-timesheet', { date, page, perPage }],
-    queryFn: () => requestJson('get', '/api/v1/attendance/daily-timesheet', {
-      params: { date, page, perPage }
+    queryFn: () => requestJson('get', '/attendances-admin-paginate', {
+      params: { date, page, per_page: perPage }
     }),
     enabled: !!date,
     staleTime: 3 * 60 * 1000, // 3 minutes - timesheet changes during the day

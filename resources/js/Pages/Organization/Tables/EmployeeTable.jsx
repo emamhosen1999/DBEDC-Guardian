@@ -44,6 +44,7 @@ const EmployeeTable = ({
 }) => {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
     const [profilePictureModal, setProfilePictureModal] = useState({ isOpen: false, employee: null });
     const reportToDebounceRef = useRef({});
 
@@ -136,13 +137,14 @@ const EmployeeTable = ({
     const handleDeleteConfirm = async () => {
         if (!employeeToDelete) return;
         
+        setDeleteLoading(true);
         try {
             await deleteEmployee.mutateAsync(employeeToDelete.id);
             deleteEmployeeOptimized?.(employeeToDelete.id);
             setDeleteModalOpen(false); setEmployeeToDelete(null);
             showToast.success('Employee deleted');
         } catch (err) { showToast.error(err.response?.data?.error || 'Failed to delete employee'); }
-        finally {  }
+        finally { setDeleteLoading(false); }
     };
 
     const startRow = ((pagination.currentPage - 1) * pagination.perPage) + 1;
