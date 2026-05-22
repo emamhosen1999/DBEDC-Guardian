@@ -286,8 +286,8 @@ const DailyTimesheetTab = ({
     const attendances = dailyTimesheetData?.attendances || [];
     const totalRows = dailyTimesheetData?.total || 0;
     const lastPage = dailyTimesheetData?.last_page || 1;
-    const presentUsers = presentUsersData || [];
-    const absentUsers = absentUsersData || [];
+    const presentUsers = presentUsersData?.attendances || [];
+    const absentUsers = absentUsersData?.absent_users || [];
     const isLoaded = !isLoadingTimesheet && !isLoadingPresent && !isLoadingAbsent;
     const error = null; // React Query handles errors automatically
 
