@@ -413,8 +413,8 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
 
     // React Query hooks
     const { data: monthlySummaryData, isLoading, refetch } = useAttendanceQuery.useMonthlySummary({
-        month: monthNum,
-        year: yearNum,
+        currentMonth: monthNum,
+        currentYear: yearNum,
     });
 
     // Derived state from React Query data

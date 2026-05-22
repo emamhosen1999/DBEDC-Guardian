@@ -449,7 +449,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/timesheet', [AttendanceController::class, 'index3'])->name('timesheet'); // New TimeSheet page route
         Route::get('/attendance', [AttendanceController::class, 'indexUnified'])->name('attendance.unified'); // Unified attendance page
         Route::get('/attendances-admin-paginate', [AttendanceController::class, 'paginate'])->name('attendancesAdmin.paginate');
-        Route::get('/attendance/daily-timesheet', [AttendanceController::class, 'getAllUsersAttendanceForDate'])->name('attendance.daily-timesheet');
+        Route::get('/admin/daily-timesheet', [AttendanceController::class, 'getAllUsersAttendanceForDate'])->name('admin.daily-timesheet');
         Route::get('/attendance/locations-today', [AttendanceController::class, 'getUserLocationsForDate'])->name('getUserLocationsForDate');
         Route::get('/admin/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('admin.getPresentUsersForDate');
         Route::get('/admin/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('admin.getAbsentUsersForDate');
