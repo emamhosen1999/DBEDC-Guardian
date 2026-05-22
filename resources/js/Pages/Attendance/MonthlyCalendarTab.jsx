@@ -419,9 +419,9 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
 
     // Derived state from React Query data
     const rows = monthlySummaryData?.data || [];
-    const leaveTypes = monthlySummaryData?.leaveTypes || [];
-    const leaveCounts = monthlySummaryData?.leaveCounts || {};
-    const settings = monthlySummaryData?.settings || null;
+    const leaveTypes = monthlySummaryData?.data?.leaveTypes || [];
+    const leaveCounts = monthlySummaryData?.data?.leaveCounts || {};
+    const settings = monthlySummaryData?.data?.settings || null;
     const weekendDays = settings?.weekend_days || [];
 
     /* export */
