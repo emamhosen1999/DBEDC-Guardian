@@ -552,7 +552,7 @@ const DailyTimesheetTab = ({
                     <Flex align="center" gap="1">
                         <PersonIcon style={{ color: 'var(--accent-9)', width: 14 }} />
                         <Text size="2" color="gray">
-                            Total: {isLoaded ? (isWeekend ? totalRows : totalRows + (absentUsers?.length || 0)) : '…'}
+                            Total: {isLoaded ? totalRows + (absentUsers?.length || 0) : '…'}
                         </Text>
                     </Flex>
                 )}
