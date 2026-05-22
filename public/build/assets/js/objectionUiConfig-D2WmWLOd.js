@@ -1,0 +1,1 @@
+import{S as c,C as t}from"./objectionConfig-De9ddrb9.js";const s=Object.fromEntries(Object.entries(c).map(([e,o])=>[e,{color:o.color,icon:o.solidIcon||o.icon,label:o.label}])),n=Object.fromEntries(Object.entries(t).map(([e,o])=>[e,{label:o.label,color:o.color}]));export{n as c,s};
