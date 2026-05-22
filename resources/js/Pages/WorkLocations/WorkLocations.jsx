@@ -59,43 +59,22 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
     }, []);
 
     const handleDelete = () => {
-        const promise = new Promise(async (resolve, reject) => {
-            try {
-                const response = await fetch(`/work-locations/delete`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.head.querySelector('meta[name="csrf-token"]').content,
-                    },
-                    body: JSON.stringify({
-                        id: locationIdToDelete,
-                    }),
-                });
+        // Optimistic UI: remove from local state immediately
+        const previousData = [...data];
+        setData(prevData => prevData.filter(location => location.id !== locationIdToDelete));
 
-                if (response.ok) {
-                    const result = await response.json();
-                    setData(result.work_locations);
-                    resolve('Work location deleted successfully!');
-                } else {
-                    reject('Failed to delete work location. Please try again.');
-                }
-            } catch (error) {
-                reject('Failed to delete work location. Please try again.');
+        router.delete(route('work-locations.destroy', { id: locationIdToDelete }), {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                showToast.success('Work location deleted successfully!');
+                setData(page.props.work_locations || []);
+            },
+            onError: (errors) => {
+                // Revert optimistic update on error
+                setData(previousData);
+                showToast.error('Failed to delete work location. Please try again.');
             }
-        });
-
-        showToast.promise(promise, {
-            pending: 'Deleting work location...',
-            success: {
-                render({ data }) {
-                    return <>{data}</>;
-                },
-            },
-            error: {
-                render({ data }) {
-                    return <>{data}</>;
-                },
-            },
         });
     };
 

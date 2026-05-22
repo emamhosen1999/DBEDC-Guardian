@@ -176,7 +176,7 @@ const ObjectionsModal = ({
 
     // Navigate to Objections page
     const goToObjectionsPage = () => {
-        router.visit(route('objections.index'));
+        router.visit(route('objections.index'), { preserveState: true, preserveScroll: true });
     };
 
     const renderStatusBadge = (status) => {

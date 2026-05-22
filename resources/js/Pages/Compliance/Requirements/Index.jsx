@@ -30,7 +30,7 @@ export default function RequirementsIndex({ requirements, filters, statuses, use
         setApplicable('');
         setResponsiblePersonId('');
         setEvaluationDue(false);
-        router.get(route('compliance.requirements.index'));
+        router.get(route('compliance.requirements.index'), {}, { preserveState: true, preserveScroll: true });
     };
 
     const deleteRequirement = (requirementId) => {
@@ -38,7 +38,10 @@ export default function RequirementsIndex({ requirements, filters, statuses, use
             return;
         }
 
-        router.delete(route('compliance.requirements.destroy', requirementId));
+        router.delete(route('compliance.requirements.destroy', requirementId), {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     return (

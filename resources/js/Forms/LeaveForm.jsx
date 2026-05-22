@@ -7,7 +7,7 @@ import {
     Box, Button, Dialog, Flex, Grid, Select, 
     Spinner, Text, TextArea, TextField, Card 
 } from '@radix-ui/themes';
-import axios from 'axios';
+import { useForm } from '@inertiajs/react';
 import { showToast } from "@/utils/toastUtils";
 import DepartmentEmployeeSelector from "@/Components/DepartmentEmployeeSelector.jsx";
 import { usePage } from "@inertiajs/react";
@@ -38,26 +38,27 @@ const LeaveForm = ({
 
     const [leaveTypes, setLeaveTypes] = useState(leavesData?.leaveTypes || []);
     const [leaveCounts, setLeaveCounts] = useState([]);
-    const [leaveType, setLeaveType] = useState(currentLeave?.leave_type || "");
-    const [fromDate, setFromDate] = useState(currentLeave?.from_date ? currentLeave.from_date.split('T')[0] : '');
-    const [toDate, setToDate] = useState(currentLeave?.to_date ? currentLeave.to_date.split('T')[0] : '');
     const [daysCount, setDaysCount] = useState(currentLeave?.no_of_days || '');
     const [remainingLeaves, setRemainingLeaves] = useState('');
-    const [leaveReason, setLeaveReason] = useState(currentLeave?.reason || '');
-    const [errors, setErrors] = useState({});
-    const [processing, setProcessing] = useState(false);
+
+    const { data, setData, processing, errors, post, reset } = useForm({
+        leaveType: currentLeave?.leave_type || "",
+        fromDate: currentLeave?.from_date ? currentLeave.from_date.split('T')[0] : '',
+        toDate: currentLeave?.to_date ? currentLeave.to_date.split('T')[0] : '',
+        leaveReason: currentLeave?.reason || '',
+    });
 
     // Sync calculations
     useEffect(() => {
-        const start = new Date(fromDate);
-        const end = new Date(toDate);
+        const start = new Date(data.fromDate);
+        const end = new Date(data.toDate);
         if (start && end && end >= start) {
             const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
             setDaysCount(diff);
         } else {
             setDaysCount('');
         }
-    }, [fromDate, toDate]);
+    }, [data.fromDate, data.toDate]);
 
     // Populate data
     useEffect(() => {
@@ -69,37 +70,48 @@ const LeaveForm = ({
 
     // Compute remaining days whenever leaveType or leaveCounts change
     useEffect(() => {
-        if (!leaveType) { setRemainingLeaves(''); return; }
-        const type = leaveTypes.find(t => t.type === leaveType);
+        if (!data.leaveType) { setRemainingLeaves(''); return; }
+        const type = leaveTypes.find(t => t.type === data.leaveType);
         if (!type) { setRemainingLeaves(''); return; }
-        const lc = leaveCounts.find(l => l.leave_type === leaveType);
+        const lc = leaveCounts.find(l => l.leave_type === data.leaveType);
         const remaining = lc ? (type.days - lc.days_used) : type.days;
         setRemainingLeaves(remaining);
-    }, [leaveType, leaveTypes, leaveCounts]);
+    }, [data.leaveType, leaveTypes, leaveCounts]);
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        setProcessing(true);
-        const apiRoute = currentLeave ? route('leave-update') : route('leave-add');
-        const data = { user_id, leaveType, fromDate, toDate, daysCount, leaveReason, month: selectedMonth };
-        if (currentLeave) data.id = currentLeave.id;
 
-        try {
-            const response = await axios.post(apiRoute, data);
-            setLeavesData(response.data.leavesData);
-            
-            if (currentLeave && updateLeaveOptimized) updateLeaveOptimized(response.data.leave);
-            else if (addLeaveOptimized) addLeaveOptimized(response.data.leave);
-            
-            fetchLeavesStats();
-            showToast.success(response.data.message || 'Leave submitted successfully');
-            closeModal();
-        } catch (err) {
-            if (err.response?.status === 422) setErrors(err.response.data.errors);
-            else showToast.error('Failed to submit application');
-        } finally {
-            setProcessing(false);
-        }
+        const payload = { 
+            user_id, 
+            leaveType: data.leaveType, 
+            fromDate: data.fromDate, 
+            toDate: data.toDate, 
+            daysCount, 
+            leaveReason: data.leaveReason, 
+            month: selectedMonth 
+        };
+        if (currentLeave) payload.id = currentLeave.id;
+
+        const options = {
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (response) => {
+                setLeavesData(response.props.leavesData);
+                
+                if (currentLeave && updateLeaveOptimized) updateLeaveOptimized(response.props.leave);
+                else if (addLeaveOptimized) addLeaveOptimized(response.props.leave);
+                
+                fetchLeavesStats();
+                showToast.success(response.props.message || 'Leave submitted successfully');
+                closeModal();
+                reset();
+            },
+            onError: (errors) => {
+                showToast.error('Failed to submit application');
+            }
+        };
+
+        post(route('leave-add'), payload, options);
     };
 
     return (
@@ -115,7 +127,7 @@ const LeaveForm = ({
                             <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                 <Box>
                                     <Text size="2" weight="medium" mb="1" display="block">Leave Type</Text>
-                                    <Select.Root value={leaveType} onValueChange={setLeaveType}>
+                                    <Select.Root value={data.leaveType} onValueChange={v => setData('leaveType', v)}>
                                         <Select.Trigger style={{ width: '100%' }} />
                                         <Select.Content>
                                             {leaveTypes.map((type) => {
@@ -162,7 +174,7 @@ const LeaveForm = ({
 
                                 <Box style={{ gridColumn: '1 / -1' }}>
                                     <Text size="2" weight="medium" mb="1" display="block">Reason</Text>
-                                    <TextArea value={leaveReason} onChange={e => setLeaveReason(e.target.value)} rows={3} />
+                                    <TextArea value={data.leaveReason} onChange={e => setData('leaveReason', e.target.value)} rows={3} />
                                 </Box>
                             </Grid>
                         </Card>

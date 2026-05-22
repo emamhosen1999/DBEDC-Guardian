@@ -13,9 +13,9 @@ const Header = ({
     const { props } = usePage();
     const { auth } = props;
 
-    const handleLogout = () => router.post(route('logout'));
+    const handleLogout = () => router.post(route('logout'), { preserveState: true, preserveScroll: true });
     const handleProfile = () => {
-        if (auth?.user?.id) router.visit(route('profile', { user: auth.user.id }));
+        if (auth?.user?.id) router.visit(route('profile', { user: auth.user.id }), { preserveState: true, preserveScroll: true });
     };
 
     return (

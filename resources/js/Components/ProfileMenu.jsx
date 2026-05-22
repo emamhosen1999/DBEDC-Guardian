@@ -14,10 +14,10 @@ const ProfileMenu = ({ user, trigger, onThemeOpen, ...rest }) => (
         </Flex>
       )}
       <DropdownMenu.Separator />
-      <DropdownMenu.Item onClick={() => router.get(route('profile', { user: user?.id }))}>Profile</DropdownMenu.Item>
+      <DropdownMenu.Item onClick={() => router.get(route('profile', { user: user?.id }), { preserveState: true, preserveScroll: true })}>Profile</DropdownMenu.Item>
       {onThemeOpen && <DropdownMenu.Item onClick={onThemeOpen}>Theme Settings</DropdownMenu.Item>}
       <DropdownMenu.Separator />
-      <DropdownMenu.Item color="red" onClick={() => router.post(route('logout'))}>Sign out</DropdownMenu.Item>
+      <DropdownMenu.Item color="red" onClick={() => router.post(route('logout'), { preserveState: true, preserveScroll: true })}>Sign out</DropdownMenu.Item>
     </DropdownMenu.Content>
   </DropdownMenu.Root>
 );

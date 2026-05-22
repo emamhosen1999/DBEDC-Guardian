@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Box, Button, Callout, Card, Flex, Heading, Text } from '@radix-ui/themes';
 import { ArrowLeftIcon, HomeIcon, LockClosedIcon } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
@@ -41,7 +41,7 @@ export default function Forbidden({ message, accessType, accessPath }) {
                     </Text>
 
                     <Flex gap="3" justify="center">
-                        <Button variant="soft" color="gray" onClick={() => window.history.back()} style={{ cursor: 'pointer' }}>
+                        <Button variant="soft" color="gray" onClick={() => router.back()} style={{ cursor: 'pointer' }}>
                             <ArrowLeftIcon /> Go Back
                         </Button>
                         <Button asChild>

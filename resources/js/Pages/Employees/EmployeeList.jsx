@@ -66,7 +66,7 @@ function EmployeeCard({ user, departments, designations, attendanceTypes }) {
         <Card
             size="2"
             style={{ cursor: 'pointer' }}
-            onClick={() => router.visit(route('profile', { user: user.id }))}
+            onClick={() => router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true })}
         >
             <Flex direction="column" gap="3">
                 {/* Avatar + name row */}
@@ -89,7 +89,7 @@ function EmployeeCard({ user, departments, designations, attendanceTypes }) {
                         variant="ghost"
                         color="gray"
                         style={{ flexShrink: 0 }}
-                        onClick={e => { e.stopPropagation(); router.visit(route('profile', { user: user.id })); }}
+                        onClick={e => { e.stopPropagation(); router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true }); }}
                     >
                         <Pencil1Icon />
                     </IconButton>

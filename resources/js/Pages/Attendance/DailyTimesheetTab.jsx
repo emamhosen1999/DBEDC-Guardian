@@ -544,14 +544,14 @@ const DailyTimesheetTab = ({
                 {isAdminView && (
                     <Flex align="center" gap="1">
                         <ExclamationTriangleIcon style={{ color: 'var(--amber-9)', width: 14 }} />
-                        <Text size="2" color="gray">Absent: {isLoaded ? absentUsers.length : '…'}</Text>
+                        <Text size="2" color="gray">Absent: {isLoaded ? (absentUsers?.length || 0) : '…'}</Text>
                     </Flex>
                 )}
                 {isAdminView && (
                     <Flex align="center" gap="1">
                         <PersonIcon style={{ color: 'var(--accent-9)', width: 14 }} />
                         <Text size="2" color="gray">
-                            Total: {isLoaded ? totalRows + absentUsers.length : '…'}
+                            Total: {isLoaded ? totalRows + (absentUsers?.length || 0) : '…'}
                         </Text>
                     </Flex>
                 )}
