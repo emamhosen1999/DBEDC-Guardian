@@ -131,10 +131,10 @@ const App = React.memo(({ children }) => {
                   onClick={toggleSideBar}
                   style={{
                     position: 'fixed', inset: 0,
-                    background: 'rgba(0,0,0,0.45)',
+                    background: 'var(--color-background)',
                     zIndex: 40,
                     backdropFilter: 'blur(2px)',
-                    opacity: sideBarOpen ? 1 : 0,
+                    opacity: sideBarOpen ? 0.5 : 0,
                     pointerEvents: sideBarOpen ? 'auto' : 'none',
                     transition: 'opacity 200ms ease',
                   }}

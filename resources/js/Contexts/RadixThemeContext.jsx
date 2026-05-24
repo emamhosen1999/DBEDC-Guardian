@@ -15,7 +15,7 @@ export const RADIUS_OPTIONS = ['none', 'small', 'medium', 'large', 'full'];
 
 export const SCALING_OPTIONS = ['90%', '95%', '100%', '105%', '110%'];
 
-export const PANEL_BACKGROUNDS = ['solid', 'translucent', 'flat'];
+export const PANEL_BACKGROUNDS = ['solid', 'translucent'];
 
 export const FONT_FAMILIES = [
   { label: 'Inter', value: 'Inter, system-ui, sans-serif' },

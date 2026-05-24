@@ -245,7 +245,9 @@ const SectionLabel = ({ icon, label, color = 'accent' }) => (
 const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { auth, app } = usePage().props;
+  const { settings } = useRadixTheme();
   const collapsed = !isMobile && !sideBarOpen;
+  const panelBgVar = settings.panelBackground === 'translucent' ? 'var(--color-panel-translucent)' : 'var(--color-panel-solid)';
 
   const { openSubMenus, setOpenSubMenus: updateOpenSubMenus } = useSidebarState();
   const [activePage, setActivePage] = useState(url);
@@ -342,7 +344,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--color-panel-solid)',
+        background: panelBgVar,
         borderRight: '1px solid var(--gray-a4)',
         flexShrink: 0,
         overflow: 'hidden',
