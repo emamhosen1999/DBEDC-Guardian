@@ -103,14 +103,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
             )}
             <ScrollArea>
                 {Array.from({ length: 6 }).map((_, i) => (
-                    <Card key={i} mb="3" style={{
-                        padding: 16,
-                        backdropFilter: 'blur(24px)',
-                        WebkitBackdropFilter: 'blur(24px)',
-                        background: 'var(--color-panel-translucent)',
-                        border: '1px solid var(--gray-a4)',
-                        boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                    }}>
+                    <Card key={i} mb="3" style={{ padding: 16 }}>
                         <Flex direction="column" gap="3">
                             <Box style={{ width: 120, height: 20, borderRadius: 'var(--radius-1)', background: 'var(--gray-a4)' }} />
                             <Flex gap="2">

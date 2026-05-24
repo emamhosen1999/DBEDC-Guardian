@@ -297,16 +297,7 @@ const AttendanceEmployeeTable = ({
     return (
         <Box role="region" aria-label="Attendance data table" className="w-full">
             {error ? (
-                <Card
-                    style={{
-                        padding: 16,
-                        backdropFilter: 'blur(24px)',
-                        WebkitBackdropFilter: 'blur(24px)',
-                        background: 'var(--color-panel-translucent)',
-                        border: '1px solid var(--gray-a4)',
-                        boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                    }}
-                >
+                <Card style={{ padding: 16 }}>
                     <Flex align="center" gap="3">
                         <ExclamationTriangleIcon className="w-5 h-5" style={{ color: 'var(--red-9)' }} />
                         <Text size="2" color="red">{error}</Text>

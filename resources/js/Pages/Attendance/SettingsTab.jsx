@@ -668,12 +668,7 @@ const SettingsTab = () => {
                     <Flex direction="column" gap="5">
                         {/* Office Timing */}
                         <Card size="2" style={{
-                            backdropFilter: 'blur(24px)',
-                            WebkitBackdropFilter: 'blur(24px)',
-                            background: 'var(--color-panel-translucent)',
-                            border: '1px solid var(--gray-a4)',
-                            boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                        }}>
+                            }}>
                             <Flex align="center" gap="2" mb="3">
                                 <ClockIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                 <Text size="3" weight="bold">Office Timing</Text>
@@ -706,12 +701,7 @@ const SettingsTab = () => {
 
                         {/* Attendance Policies */}
                         <Card size="2" style={{
-                            backdropFilter: 'blur(24px)',
-                            WebkitBackdropFilter: 'blur(24px)',
-                            background: 'var(--color-panel-translucent)',
-                            border: '1px solid var(--gray-a4)',
-                            boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                        }}>
+                            }}>
                             <Flex align="center" gap="2" mb="3">
                                 <GearIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                 <Text size="3" weight="bold">Attendance Policies</Text>
@@ -746,12 +736,7 @@ const SettingsTab = () => {
 
                         {/* Weekend */}
                         <Card size="2" style={{
-                            backdropFilter: 'blur(24px)',
-                            WebkitBackdropFilter: 'blur(24px)',
-                            background: 'var(--color-panel-translucent)',
-                            border: '1px solid var(--gray-a4)',
-                            boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                        }}>
+                            }}>
                             <Flex align="center" gap="2" mb="3">
                                 <CalendarIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                 <Text size="3" weight="bold">Weekend Days</Text>
@@ -807,12 +792,7 @@ const SettingsTab = () => {
 
                         return (
                             <Card key={slug} size="2" style={{
-                                backdropFilter: 'blur(24px)',
-                                WebkitBackdropFilter: 'blur(24px)',
-                                background: 'var(--color-panel-translucent)',
-                                border: '1px solid var(--gray-a4)',
-                                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                            }}>
+                                }}>
                                 {/* accordion header */}
                                 <Flex
                                     align="center" justify="between"

@@ -119,20 +119,6 @@ class LoginController extends Controller
             ]);
         }
 
-        // Check if user account is active
-        if (! $user->active) {
-            $this->authService->logAuthenticationEvent(
-                $user,
-                'login_inactive_account',
-                'failure',
-                $request
-            );
-
-            throw ValidationException::withMessages([
-                'email' => 'This account has been deactivated. Please contact your administrator.',
-            ]);
-        }
-
         // NEW SECURE DEVICE BINDING LOGIC
         // Get device_id from request (UUIDv4 from frontend)
         $deviceId = $request->input('device_id') ?? $request->header('X-Device-ID');

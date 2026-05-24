@@ -33,10 +33,6 @@ class AuthController extends Controller
             );
         }
 
-        if (! $user->active) {
-            return $this->forbiddenResponse('This account has been deactivated. Please contact your administrator.');
-        }
-
         $deviceId = (string) ($credentials['device_id'] ?? '');
         $deviceName = trim((string) ($credentials['device_name'] ?? ''));
         $deviceSignature = is_array($credentials['device_signature'] ?? null)

@@ -128,12 +128,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
             <Card
                 className="transition-all duration-200 cursor-pointer h-full"
                 style={{
-                    backdropFilter: 'blur(24px)',
-                    WebkitBackdropFilter: 'blur(24px)',
-                    background: 'var(--color-panel-translucent)',
-                    border: '1px solid var(--gray-a4)',
-                    boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                }}
+                    }}
                 onClick={() => openModal('view_department', department)}
             >
                 <CardBody className="p-4 flex flex-col h-full">
