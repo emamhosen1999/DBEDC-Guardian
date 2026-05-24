@@ -112,6 +112,25 @@ font[style] {
   50%       { opacity: 0.4; transform: scale(0.75); }
 }
 
+/* ─── Breathing animation for background glows ─────────────────────── */
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* ─── Gradient shift animation ─────────────────────────────────────── */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 /* ─── Radix-style dot-grid + accent glow background ─────────────── */
 .app-bg-grid {
   /* Dot grid via radial-gradient */
@@ -131,9 +150,59 @@ font[style] {
   background:
     radial-gradient(ellipse 80% 60% at 50% -10%, var(--accent-a4) 0%, transparent 70%),
     radial-gradient(ellipse 50% 40% at 90% 100%, var(--accent-a3) 0%, transparent 60%);
+  animation: breathe 8s ease-in-out infinite;
 }
 /* All direct children of .app-bg-grid should sit above the pseudo */
 .app-bg-grid > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── None background (solid) ─────────────────────────────────────── */
+.app-bg-none {
+  background: var(--color-bg);
+}
+
+/* ─── Gradient background ─────────────────────────────────────────── */
+.app-bg-gradient {
+  background: linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a5) 50%, var(--accent-a3) 100%);
+  background-size: 200% 200%;
+  position: relative;
+  animation: gradientShift 10s ease-in-out infinite;
+}
+.app-bg-gradient::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, var(--accent-a4) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 100% 100%, var(--accent-a3) 0%, transparent 60%);
+  animation: breathe 8s ease-in-out infinite;
+}
+.app-bg-gradient > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Pattern background ─────────────────────────────────────────── */
+.app-bg-pattern {
+  background-image:
+    repeating-linear-gradient(45deg, var(--gray-a4) 0px, var(--gray-a4) 2px, transparent 2px, transparent 8px);
+  background-size: 8px 8px;
+  position: relative;
+}
+.app-bg-pattern::before {
+  content: '';
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, var(--accent-a3) 0%, transparent 70%);
+}
+.app-bg-pattern > * {
   position: relative;
   z-index: 1;
 }
