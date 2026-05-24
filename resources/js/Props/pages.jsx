@@ -22,7 +22,8 @@ import {
   PhoneIcon,
   ScaleIcon,
   UserGroupIcon,
-  UsersIcon
+  UsersIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
@@ -34,16 +35,17 @@ export const getPages = (roles, permissions, auth = null) => {
   const workspaceItems = [
     ...(permissions.includes('daily-works.view') ? [
       { name: 'Daily Works', icon: <DocumentTextIcon />, route: 'daily-works-unified' },
-     
+
     ] : []),
-    
+
     ...(permissions.includes('attendance.own.view') ? [
       { name: 'My Attendance', icon: <CalendarDaysIcon />, route: 'attendance.unified' }
     ] : []),
     ...(permissions.includes('leave.own.view') ? [
       { name: 'My Leaves', icon: <ArrowRightOnRectangleIcon />, route: 'leaves-employee' }
     ] : []),
-   
+    { name: 'Petty Cash', icon: <CurrencyDollarIcon />, route: 'petty-cash.index' },
+
   ];
 
   return [

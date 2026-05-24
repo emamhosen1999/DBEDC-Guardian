@@ -7,6 +7,7 @@ import {
   ClockIcon,
   FileTextIcon,
   GearIcon,
+  DotsHorizontalIcon,
 } from '@radix-ui/react-icons';
 
 const BottomNav = ({ toggleThemeDrawer }) => {
@@ -16,6 +17,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
   useEffect(() => {
     if (url.includes('/attendance-employee') || url.includes('/attendance')) setActiveTab('attendance');
     else if (url.includes('/leaves-employee')) setActiveTab('leaves');
+    else if (url.includes('/petty-cash')) setActiveTab('petty-cash');
     else if (url.includes('/dashboard')) setActiveTab('dashboard');
     else if (url.includes('/profile/')) setActiveTab('profile');
     else setActiveTab('dashboard');
@@ -25,6 +27,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
     { id: 'dashboard', label: 'Dashboard', icon: HomeIcon, href: '/dashboard' },
     { id: 'attendance', label: 'Attendance', icon: ClockIcon, href: '/attendance' },
     { id: 'leaves', label: 'Leaves', icon: FileTextIcon, href: '/leaves-employee' },
+    { id: 'petty-cash', label: 'Petty Cash', icon: DotsHorizontalIcon, href: '/petty-cash' },
     { id: 'profile', label: 'Profile', icon: PersonIcon, href: `/profile/${auth?.user?.id}` },
     { id: 'theme', label: 'Theme', icon: GearIcon, action: 'theme' },
   ];

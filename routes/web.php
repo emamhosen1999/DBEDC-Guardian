@@ -18,6 +18,7 @@ use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\IMSController;
 use App\Http\Controllers\JurisdictionController;
 use App\Http\Controllers\LeaveController;
+use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\LetterController;
 use App\Http\Controllers\LMSController;
 use App\Http\Controllers\ModuleController;
@@ -955,9 +956,23 @@ if (config('features.commercial_stack')) {
     require __DIR__.'/modules.php';
 }
 
-require __DIR__.'/quality.php';
+// require __DIR__.'/quality.php'; // File does not exist
 
 require __DIR__.'/hr.php';
+
+// Petty Cash Routes
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/petty-cash', [PettyCashController::class, 'index'])->name('petty-cash.index');
+    Route::post('/petty-cash/loan', [PettyCashController::class, 'createLoan'])->name('petty-cash.loan');
+    Route::post('/petty-cash/expense', [PettyCashController::class, 'addExpense'])->name('petty-cash.expense');
+    Route::post('/petty-cash/reimbursement', [PettyCashController::class, 'addReimbursement'])->name('petty-cash.reimbursement');
+    Route::post('/petty-cash/repayment', [PettyCashController::class, 'addRepayment'])->name('petty-cash.repayment');
+    Route::get('/petty-cash/transactions', [PettyCashController::class, 'getTransactions'])->name('petty-cash.transactions');
+    Route::get('/petty-cash/analytics', [PettyCashController::class, 'getAnalytics'])->name('petty-cash.analytics');
+    Route::post('/petty-cash/upload-bill', [PettyCashController::class, 'uploadBill'])->name('petty-cash.upload-bill');
+    Route::post('/petty-cash/delete-bill', [PettyCashController::class, 'deleteBill'])->name('petty-cash.delete-bill');
+    Route::get('/petty-cash/export', [PettyCashController::class, 'exportData'])->name('petty-cash.export');
+});
 
 
 require __DIR__.'/auth.php';
