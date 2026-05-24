@@ -17,8 +17,6 @@ export const SCALING_OPTIONS = ['90%', '95%', '100%', '105%', '110%'];
 
 export const PANEL_BACKGROUNDS = ['solid'];
 
-export const BG_STYLES = ['grid', 'none', 'gradient', 'pattern'];
-
 export const FONT_FAMILIES = [
   { label: 'Inter', value: 'Inter, system-ui, sans-serif' },
   { label: 'Roboto', value: 'Roboto, sans-serif' },
@@ -40,7 +38,6 @@ const DEFAULT_SETTINGS = {
   customAccentHex: '',
   bgStyle: 'grid',
 };
-
 const RadixThemeContext = createContext(null);
 
 export const useRadixTheme = () => {

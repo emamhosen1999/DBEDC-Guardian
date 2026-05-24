@@ -49,19 +49,10 @@ export const useThemeSync = () => {
         const currentTheme = themeConfigs[savedTheme] || themeConfigs.ocean;
         document.documentElement.style.setProperty('--theme-primary-rgb', currentTheme.primary);
         document.documentElement.style.setProperty('--theme-secondary-rgb', currentTheme.secondary);
-        
+
         // Ensure body background transitions smoothly
         document.body.style.transition = 'background 0.3s ease';
-        
-        // Force a repaint to ensure all styles apply correctly
-        requestAnimationFrame(() => {
-            // Trigger a reflow to ensure background patterns apply
-            document.body.style.transform = 'translateZ(0)';
-            requestAnimationFrame(() => {
-                document.body.style.transform = '';
-            });
-        });
-        
+
         // Return current theme settings
         return {
             background: savedBackground,
@@ -178,23 +169,13 @@ export const useAuthThemeSync = () => {
                         width: 100%;
                         height: 100%;
                         background: rgba(${savedSettings.themeMode === 'dark' ? '15, 20, 25' : '255, 255, 255'}, 0.02);
-                        backdrop-filter: blur(0.5px);
                         pointer-events: none;
                         z-index: -1;
                     `;
                     document.body.appendChild(overlay);
                 }
             }
-            
-            // Force a reflow to ensure background patterns apply immediately
-            requestAnimationFrame(() => {
-                // Trigger style recalculation
-                document.body.style.transform = 'translateZ(0)';
-                requestAnimationFrame(() => {
-                    document.body.style.transform = '';
-                });
-            });
-            
+
             return savedSettings;
         };
         

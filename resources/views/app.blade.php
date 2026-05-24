@@ -129,10 +129,7 @@
             z-index: 9999;
             opacity: 1;
             transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(8px) saturate(150%);
-            -webkit-backdrop-filter: blur(8px) saturate(150%);
             overflow: hidden;
-            will-change: opacity, transform;
         }
 
         #app-loading.hidden {
@@ -149,8 +146,6 @@
             position: relative;
             padding: 2rem;
             background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: blur(12px) saturate(180%);
-            -webkit-backdrop-filter: blur(12px) saturate(180%);
             border-radius: 20px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 
@@ -160,7 +155,6 @@
             animation: contentFloat 3s ease-in-out infinite;
             max-width: 380px;
             text-align: center;
-            will-change: transform;
         }
 
         /* Optimized Loading Spinner */
@@ -169,7 +163,6 @@
             height: 80px;
             position: relative;
             margin-bottom: 1.5rem;
-            will-change: transform;
         }
 
         .loading-spinner::before {
@@ -226,6 +219,7 @@
                 0 0 60px rgba(59, 130, 246, 0.2),
                 inset 0 2px 4px rgba(255, 255, 255, 0.2);
             animation: logoGlow 2s ease-in-out infinite alternate;
+            will-change: box-shadow;
             will-change: box-shadow;
         }
 
@@ -285,7 +279,6 @@
                 rgba(168, 85, 247, 0.6)
             );
             animation: progressSlide 2s ease-in-out infinite;
-            will-change: transform;
         }
 
         /* Optimized animations */
@@ -343,7 +336,6 @@
         #app {
             opacity: 0;
             transition: opacity 0.25s ease-in;
-            will-change: opacity;
         }
 
         #app.loaded {
@@ -353,7 +345,6 @@
         /* Performance optimizations */
         .persistent-layout {
             contain: layout style paint;
-            will-change: contents;
         }
 
         .content-area {
