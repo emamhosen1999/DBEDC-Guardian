@@ -580,7 +580,6 @@ const UserMarkers = React.memo(({ selectedDate, onUsersLoad, theme, lastUpdate, 
                 color: white;
                 font-weight: bold;
                 font-size: 14px;
-                backdrop-filter: blur(10px);
             ">
                 ${user.profile_image_url || user.profile_image ? 
                     `<img src="${user.profile_image_url || user.profile_image}" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover;" onerror="this.style.display='none'; this.parentElement.innerHTML='${user.name?.charAt(0)?.toUpperCase() || '?'}';" />` :
@@ -728,7 +727,6 @@ const UserMarkers = React.memo(({ selectedDate, onUsersLoad, theme, lastUpdate, 
                 border-radius: 8px;
                 border: 1px solid ${alpha(headerColor, 0.2)};
                 backdrop-filter: blur(20px);
-                font-family: var(--fontFamily, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
                 overflow: hidden;
             ">
                 <div style="display: flex; align-items: center; margin-bottom: 6px;">

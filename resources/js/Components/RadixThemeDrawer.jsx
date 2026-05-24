@@ -195,40 +195,6 @@ export default function RadixThemeDrawer({ open, onClose }) {
 
               <Separator size="4" my="4" />
 
-              {/* ── Page background (OUR ADDITION) ───────────────────── */}
-              <Text id="page-bg-title" size="2" weight="medium" mb="3">Page background</Text>
-              <div role="group" aria-labelledby="page-bg-title"
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8, marginBottom: 4 }}>
-                {[
-                  {val:'grid', label:'Grid + Glow'},
-                  {val:'none', label:'None'},
-                  {val:'gradient', label:'Gradient'},
-                  {val:'pattern', label:'Pattern'},
-                ].map(({ val, label }) => (
-                  <label key={val} className="rt-ThemePanelRadioCard">
-                    <input className="rt-ThemePanelRadioCardInput" type="radio" name="bgStyle" value={val}
-                      checked={settings.bgStyle === val}
-                      onChange={() => updateSettings({ bgStyle: val })} />
-                    <Flex direction="column" align="center" justify="center" gap="1" style={{ padding: '8px 4px' }}>
-                      <Box style={{
-                        width: 40, height: 26, borderRadius: 4,
-                        border: '1px solid var(--gray-a5)',
-                        backgroundImage: val === 'grid'
-                          ? 'radial-gradient(circle, var(--accent-a7) 1px, transparent 1px)'
-                          : val === 'gradient'
-                          ? 'linear-gradient(135deg, var(--accent-a3), var(--accent-a5))'
-                          : val === 'pattern'
-                          ? 'repeating-linear-gradient(45deg, var(--gray-a4) 0px, var(--gray-a4) 2px, transparent 2px, transparent 8px)'
-                          : 'none',
-                        background: val === 'none' ? 'var(--gray-a3)' : undefined,
-                        backgroundSize: val === 'grid' ? '8px 8px' : val === 'pattern' ? '8px 8px' : undefined,
-                      }} />
-                      <Text size="1" weight="medium">{label}</Text>
-                    </Flex>
-                  </label>
-                ))}
-              </div>
-
               {/* ── Copy theme button ────────────────────────────────── */}
               <Button mt="5" size="2" style={{ width: '100%' }} onClick={copyTheme}>
                 {copied ? <><CheckIcon /> Copied!</> : <><CopyIcon /> Copy Theme</>}
