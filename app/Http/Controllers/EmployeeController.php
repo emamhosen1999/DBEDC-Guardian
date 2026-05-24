@@ -561,8 +561,8 @@ class EmployeeController extends Controller
     private function getEmployeeStats()
     {
         $totalEmployees = User::withTrashed()->count();
-        $activeEmployees = User::where('active', true)->count();
-        $inactiveEmployees = User::where('active', false)->count();
+        $activeEmployees = User::whereNull('deleted_at')->count();
+        $inactiveEmployees = User::whereNotNull('deleted_at')->count();
 
         // Department distribution
         $departmentStats = Department::withCount('users')
