@@ -16,6 +16,10 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
     const [filterCategory, setFilterCategory] = useState('all');
 
     const fetchTransactions = async () => {
+        if (!loanId) {
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             const response = await axios.get('/petty-cash/transactions', {
