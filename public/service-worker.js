@@ -7,7 +7,7 @@ const DYNAMIC_CACHE = `${CACHE_PREFIX}-dynamic`;
 const API_CACHE = `${CACHE_PREFIX}-api`;
 
 // Version will be replaced during build process
-const APP_VERSION = '4.0.2'; // This will be replaced by build process
+const APP_VERSION = '4.0.4'; // This will be replaced by build process
 
 // Cache configuration - REDUCED TTLs to prevent stale data
 const CACHE_CONFIG = {
@@ -386,4 +386,4 @@ self.addEventListener('backgroundfetch', event => {
     }
 });
 
-console.log(`Service Worker v${APP_VERSION} loaded`);
+console.log(`%c🚀 Service Worker v${APP_VERSION} loaded`, 'color: #10b981; font-weight: bold; font-size: 14px;');

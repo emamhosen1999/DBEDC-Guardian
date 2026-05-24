@@ -2,6 +2,7 @@
 // This module handles service worker registration, updates, and version control
 
 import SERVICE_WORKER_CONFIG from './serviceWorkerConfig.js';
+import { showToast } from './toastUtils.jsx';
 
 class ServiceWorkerManager {
     constructor() {
@@ -203,6 +204,15 @@ class ServiceWorkerManager {
 
     // Notify methods
     notifyUpdateAvailable(data = {}) {
+        // Show toast notification for new version
+        const oldVersion = data.oldVersion || 'unknown';
+        const newVersion = data.newVersion || 'latest';
+        
+        showToast.info(
+            `New version ${newVersion} available! Refresh to update.`,
+            { duration: 10000 }
+        );
+
         this.callbacks.onUpdateAvailable.forEach(callback => {
             try {
                 callback(data);
