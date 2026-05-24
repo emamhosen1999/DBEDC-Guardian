@@ -5,6 +5,7 @@ import {
   Avatar,
   Badge,
   Box,
+  Card,
   DropdownMenu,
   Flex,
   IconButton,
@@ -51,8 +52,6 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchWrapRef = useRef(null);
-
-  const isTranslucent = settings.panelBackground === 'translucent';
 
   const unreadCount = useMemo(() =>
     Array.isArray(notifications) ? notifications.filter(n => !n.read_at).length : 0,
@@ -103,17 +102,14 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
   // ── Mobile full-width search overlay ──────────────────────────────────────
   if (isMobile && searchOpen) {
     return (
-      <Box
+      <Card
         as="header"
         style={{
           height: 56, display: 'flex', alignItems: 'center',
           paddingInline: 10, gap: 6,
           borderBottom: '1px solid var(--gray-a4)',
-          background: isTranslucent
-            ? 'color-mix(in srgb, var(--color-panel-solid), transparent 40%)'
-            : 'var(--color-panel-solid)',
-          backdropFilter: isTranslucent ? 'blur(20px)' : 'none',
           position: 'sticky', top: 0, zIndex: 100, flexShrink: 0,
+          borderRadius: 0,
         }}
       >
         <form
@@ -137,12 +133,12 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
             <Cross1Icon />
           </IconButton>
         </form>
-      </Box>
+      </Card>
     );
   }
 
   return (
-    <Box
+    <Card
       as="header"
       style={{
         height: 56,
@@ -151,14 +147,11 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
         paddingInline: 12,
         gap: 4,
         borderBottom: '1px solid var(--gray-a4)',
-        background: isTranslucent
-          ? 'color-mix(in srgb, var(--color-panel-solid), transparent 40%)'
-          : 'var(--color-panel-solid)',
-        backdropFilter: isTranslucent ? 'blur(20px)' : 'none',
         position: 'sticky',
         top: 0,
         zIndex: 100,
         flexShrink: 0,
+        borderRadius: 0,
       }}
     >
       {/* ── Sidebar toggle ──────────────────────────────────────────────────── */}
@@ -372,23 +365,25 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end" style={{ minWidth: 220 }}>
             {/* User info card */}
-            <Flex align="center" gap="3" px="3" py="3" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-1)', margin: '2px 2px 4px' }}>
-              <Box style={{ position: 'relative', flexShrink: 0 }}>
-                <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="3" radius="full" />
-                <Box style={{
-                  position: 'absolute', bottom: 1, right: 1,
-                  width: 9, height: 9, borderRadius: '50%',
-                  background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
-                }} />
-              </Box>
-              <Box style={{ minWidth: 0 }}>
-                <Text size="2" weight="bold" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</Text>
-                <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userDesignation}</Text>
-                {auth?.user?.email && (
-                  <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{auth.user.email}</Text>
-                )}
-              </Box>
-            </Flex>
+            <Card style={{ margin: '2px 2px 4px', padding: 0 }}>
+              <Flex align="center" gap="3" px="3" py="3">
+                <Box style={{ position: 'relative', flexShrink: 0 }}>
+                  <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="3" radius="full" />
+                  <Box style={{
+                    position: 'absolute', bottom: 1, right: 1,
+                    width: 9, height: 9, borderRadius: '50%',
+                    background: 'var(--green-9)', border: '2px solid var(--color-panel-solid)',
+                  }} />
+                </Box>
+                <Box style={{ minWidth: 0 }}>
+                  <Text size="2" weight="bold" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</Text>
+                  <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userDesignation}</Text>
+                  {auth?.user?.email && (
+                    <Text size="1" color="gray" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{auth.user.email}</Text>
+                  )}
+                </Box>
+              </Flex>
+            </Card>
             <DropdownMenu.Item asChild>
               <Link href={auth?.user?.id ? route('profile', { user: auth.user.id }) : '#'}>
                 <PersonIcon style={{ marginRight: 8 }} /> Profile
@@ -410,7 +405,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
         </DropdownMenu.Root>
 
       </Flex>
-    </Box>
+    </Card>
   );
 });
 

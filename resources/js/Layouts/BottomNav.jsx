@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { Box, Flex, IconButton, Text, Tooltip } from '@radix-ui/themes';
+import { Box, Card, Flex, IconButton, Text, Tooltip } from '@radix-ui/themes';
 import {
   HomeIcon,
   PersonIcon,
@@ -9,14 +9,10 @@ import {
   GearIcon,
   DotsHorizontalIcon,
 } from '@radix-ui/react-icons';
-import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 
 const BottomNav = ({ toggleThemeDrawer }) => {
   const { url, auth } = usePage().props;
-  const { settings } = useRadixTheme();
   const [activeTab, setActiveTab] = useState('dashboard');
-
-  const isTranslucent = settings.panelBackground === 'translucent';
 
   useEffect(() => {
     if (url.includes('/attendance-employee') || url.includes('/attendance')) setActiveTab('attendance');
@@ -45,7 +41,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
   }, [toggleThemeDrawer]);
 
   return (
-    <Box
+    <Card
       as="nav"
       style={{
         position: 'fixed',
@@ -56,13 +52,10 @@ const BottomNav = ({ toggleThemeDrawer }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
-        background: isTranslucent
-          ? 'color-mix(in srgb, var(--color-panel-solid), transparent 40%)'
-          : 'var(--color-panel-solid)',
-        backdropFilter: isTranslucent ? 'blur(20px)' : 'none',
         borderTop: '1px solid var(--gray-a4)',
         zIndex: 200,
         paddingBottom: 'env(safe-area-inset-bottom)',
+        borderRadius: 0,
       }}
       aria-label="Bottom navigation"
     >
@@ -114,7 +107,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
           </Tooltip>
         );
       })}
-    </Box>
+    </Card>
   );
 };
 

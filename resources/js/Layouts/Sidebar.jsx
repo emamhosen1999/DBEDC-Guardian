@@ -6,6 +6,7 @@ import {
   Avatar,
   Badge,
   Box,
+  Card,
   Flex,
   IconButton,
   ScrollArea,
@@ -245,10 +246,7 @@ const SectionLabel = ({ icon, label, color = 'accent' }) => (
 const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { auth, app } = usePage().props;
-  const { settings } = useRadixTheme();
   const collapsed = !isMobile && !sideBarOpen;
-
-  const isTranslucent = settings.panelBackground === 'translucent';
 
   const { openSubMenus, setOpenSubMenus: updateOpenSubMenus } = useSidebarState();
   const [activePage, setActivePage] = useState(url);
@@ -339,19 +337,16 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
     ));
 
   return (
-    <Box
+    <Card
       style={{
         width: isMobile ? 260 : (collapsed ? 56 : 240),
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: isTranslucent
-          ? 'color-mix(in srgb, var(--color-panel-solid), transparent 40%)'
-          : 'var(--color-panel-solid)',
-        backdropFilter: isTranslucent ? 'blur(20px)' : 'none',
         borderRight: '1px solid var(--gray-a4)',
         flexShrink: 0,
         overflow: 'hidden',
+        borderRadius: 0,
       }}>
 
       {/* ── Brand ───────────────────────────────────────────────────────────── */}
@@ -469,7 +464,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
         )}
       </Box>
 
-    </Box>
+    </Card>
   );
 });
 
