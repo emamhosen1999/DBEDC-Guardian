@@ -70,7 +70,6 @@ const EmployeeFormModal = ({
                 attendance_type_id: employee.attendance_type_id || '',
                 hire_date: employee.hire_date || '',
                 salary: employee.salary || '',
-                active: employee.active ?? true,
                 notes: employee.notes || ''
             });
         } else if (isCreate) {
@@ -83,7 +82,6 @@ const EmployeeFormModal = ({
                 attendance_type_id: '',
                 hire_date: '',
                 salary: '',
-                active: true,
                 notes: ''
             });
         }
@@ -215,11 +213,6 @@ const EmployeeFormModal = ({
         <GlassDialog isOpen={open} onClose={onClose} title={title}>
             <Flex align="center" gap="2" mb="3" px="4">
                 <UserIcon className="w-6 h-6" />
-                {employee && (
-                    <Badge color={employee.active ? 'green' : 'red'} variant="soft" size="1">
-                        {employee.active ? 'Active' : 'Inactive'}
-                    </Badge>
-                )}
             </Flex>
 
             <ScrollArea type="auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
@@ -375,22 +368,6 @@ const EmployeeFormModal = ({
 
                         <Box style={{ gridColumn: '1 / -1' }}>
                             <Text size="3" weight="bold" mb="2" mt="2">Additional Information</Text>
-                        </Box>
-
-                        <Box>
-                            <Flex align="center" gap="3">
-                                <Flex align="center" gap="2">
-                                    <Switch
-                                        checked={formData.active}
-                                        onCheckedChange={(value) => handleFieldChange('active', value)}
-                                        disabled={isView}
-                                    />
-                                    <Text size="2">Active Employee</Text>
-                                </Flex>
-                                <Badge color={formData.active ? 'green' : 'red'} variant="soft" size="1">
-                                    {formData.active ? 'Active' : 'Inactive'}
-                                </Badge>
-                            </Flex>
                         </Box>
 
                         <Box style={{ gridColumn: '1 / -1' }}>

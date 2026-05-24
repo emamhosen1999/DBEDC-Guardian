@@ -41,8 +41,8 @@ const DepartmentEmployeeSelector = ({
         );
     }, [departments, departmentSearchTerm]);
 
-    // Only surface active users (active === false means inactive; undefined = not provided = treat as active)
-    const activeUsers = useMemo(() => allUsers.filter(u => u.active !== false), [allUsers]);
+    // Only surface non-deleted users (soft delete)
+    const activeUsers = useMemo(() => allUsers.filter(u => !u.deleted_at), [allUsers]);
 
     // Strictly filter employees by selected department
     const departmentEmployees = useMemo(() => {

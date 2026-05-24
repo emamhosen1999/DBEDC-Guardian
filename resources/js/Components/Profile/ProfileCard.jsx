@@ -80,9 +80,6 @@ const ProfileCard = ({ user, setUser, canEdit, completion }) => {
                 <Box style={{ flex: 1, minWidth: 200 }}>
                     <Flex align="center" gap="3" mb="1">
                         <Text size="5" weight="bold">{user?.name}</Text>
-                        <Badge size="1" color={user?.active ? 'green' : 'red'} variant="soft">
-                            {user?.active ? 'Active' : 'Inactive'}
-                        </Badge>
                     </Flex>
                     <Text size="2" color="gray" as="div" mb="1">
                         {user?.designation?.title || user?.designation || 'No Designation'} 
