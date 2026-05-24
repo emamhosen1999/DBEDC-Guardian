@@ -52,6 +52,8 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
   const [searchQuery, setSearchQuery] = useState('');
   const searchWrapRef = useRef(null);
 
+  const panelBgVar = settings.panelBackground === 'translucent' ? 'var(--color-panel-translucent)' : 'var(--color-panel-solid)';
+
   const unreadCount = useMemo(() =>
     Array.isArray(notifications) ? notifications.filter(n => !n.read_at).length : 0,
     [notifications]
@@ -107,7 +109,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
           height: 56, display: 'flex', alignItems: 'center',
           paddingInline: 10, gap: 6,
           borderBottom: '1px solid var(--gray-a4)',
-          background: 'var(--color-panel-solid)',
+          background: panelBgVar,
           position: 'sticky', top: 0, zIndex: 100, flexShrink: 0,
         }}
       >
@@ -146,7 +148,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
         paddingInline: 12,
         gap: 4,
         borderBottom: '1px solid var(--gray-a4)',
-        background: 'var(--color-panel-solid)',
+        background: panelBgVar,
         position: 'sticky',
         top: 0,
         zIndex: 100,
