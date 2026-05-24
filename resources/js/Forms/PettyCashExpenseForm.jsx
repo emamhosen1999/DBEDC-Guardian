@@ -3,7 +3,7 @@
  * Dialog form for adding an expense.
  * Pure Radix UI.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, Flex, Text, Button, TextField, Select, Box } from '@radix-ui/themes';
 import { ArrowDownIcon, FileTextIcon, CalendarIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
@@ -18,6 +18,13 @@ const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        setFormData(prev => ({
+            ...prev,
+            loan_id: loanId,
+        }));
+    }, [loanId]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
