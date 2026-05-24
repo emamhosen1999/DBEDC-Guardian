@@ -9,14 +9,10 @@ import {
   GearIcon,
   DotsHorizontalIcon,
 } from '@radix-ui/react-icons';
-import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 
 const BottomNav = ({ toggleThemeDrawer }) => {
   const { url, auth } = usePage().props;
-  const { settings } = useRadixTheme();
   const [activeTab, setActiveTab] = useState('dashboard');
-
-  const panelBgVar = settings.panelBackground === 'translucent' ? 'var(--color-panel-translucent)' : 'var(--color-panel-solid)';
 
   useEffect(() => {
     if (url.includes('/attendance-employee') || url.includes('/attendance')) setActiveTab('attendance');
@@ -56,7 +52,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
-        background: panelBgVar,
+        background: 'var(--color-panel-solid)',
         borderTop: '1px solid var(--gray-a4)',
         zIndex: 200,
         paddingBottom: 'env(safe-area-inset-bottom)',
