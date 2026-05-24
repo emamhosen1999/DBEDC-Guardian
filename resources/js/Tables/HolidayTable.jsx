@@ -264,7 +264,14 @@ const HolidayTable = ({
 
             {showFilters && (
                 <div>
-                    <Card style={{ padding: 16 }}>
+                    <Card style={{
+                        padding: 16,
+                        backdropFilter: 'blur(24px)',
+                        WebkitBackdropFilter: 'blur(24px)',
+                        background: 'var(--color-panel-translucent)',
+                        border: '1px solid var(--gray-a4)',
+                        boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+                    }}>
                         <Text size="2" weight="medium" mb="2">
                             Holiday Type
                         </Text>
@@ -442,7 +449,15 @@ const HolidayTable = ({
                     {holiday.from_date !== holiday.to_date && (
                         <Box>
                             <Text size="1" color="gray" mb="1">
-                                End Date
+                          
+                     End Dat
+e               ter',
+                backdropFilter: 'blur(24px)',
+                WebkiBackdropFiltr: 'blur(24px)',
+                backgound: var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+           
                             </Text>
                             <Text size="2" weight="medium">
                                 {format(new Date(holiday.to_date), 'MMM dd, yyyy')}

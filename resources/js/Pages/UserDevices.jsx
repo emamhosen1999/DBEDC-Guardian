@@ -432,7 +432,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
           </div>
         </div>
 
-        <Card>
+        <Card style={{
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            background: 'var(--color-panel-translucent)',
+            border: '1px solid var(--gray-a4)',
+            boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+        }}>
           <CardHeader className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold">Lock and Reset Controls</h2>
@@ -467,28 +473,52 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
           </CardHeader>
 
           <CardBody className="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <Card className="border border-default-200">
+            <Card className="border border-default-200" style={{
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}>
               <CardBody className="py-3">
                 <p className="text-xs text-default-500">Total Devices</p>
                 <p className="text-2xl font-semibold">{summary.total}</p>
               </CardBody>
             </Card>
 
-            <Card className="border border-success-200">
+            <Card className="border border-success-200" style={{
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}>
               <CardBody className="py-3">
                 <p className="text-xs text-default-500">Active Devices</p>
                 <p className="text-2xl font-semibold text-success">{summary.active}</p>
               </CardBody>
             </Card>
 
-            <Card className="border border-default-200">
+            <Card className="border border-default-200" style={{
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}>
               <CardBody className="py-3">
                 <p className="text-xs text-default-500">Inactive Devices</p>
                 <p className="text-2xl font-semibold">{summary.inactive}</p>
               </CardBody>
             </Card>
 
-            <Card className="border border-primary-200">
+            <Card className="border border-primary-200" style={{
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}>
               <CardBody className="py-3">
                 <p className="text-xs text-default-500">Trusted Devices</p>
                 <p className="text-2xl font-semibold text-primary">{summary.trusted}</p>
@@ -507,7 +537,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             </div>
             {lockedDevice && userState.single_device_login_enabled && (
               <p className="mt-2">
-                Locked device: <span className="font-medium">{getSafeText(lockedDevice.device_name)}</span> ({getSafeText(lockedDevice.platform)})
+              style={{
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            background: 'var(--color-panel-translucent)',
+            border: '1px solid var(--gray-a4)',
+            boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+        }}   Locked device: <span className="font-medium">{getSafeText(lockedDevice.device_name)}</span> ({getSafeText(lockedDevice.platform)})
               </p>
             )}
           </CardBody>
@@ -767,7 +803,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                     const details = getDeviceDetails(device);
 
                     return (
-                      <Card key={device.id} className="border border-default-200">
+                      <Card key={device.id} className="border border-default-200" style={{
+                          backdropFilter: 'blur(24px)',
+                          WebkitBackdropFilter: 'blur(24px)',
+                          background: 'var(--color-panel-translucent)',
+                          border: '1px solid var(--gray-a4)',
+                          boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+                      }}>
                         <CardBody className="space-y-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-2">
@@ -923,7 +965,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
 
                   return (
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      <Card className="border border-default-200">
+                      <Card className="border border-default-200" style={{
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}>
                         <CardBody className="space-y-1">
                           <p className="text-xs text-default-500">Identity</p>
                           <p>Device ID: <span className="font-mono text-xs">{getSafeText(selectedDevice.device_id)}</span></p>
@@ -934,7 +982,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                         </CardBody>
                       </Card>
 
-                      <Card className="border border-default-200">
+                      <Card className="border border-default-200" style={{
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}>
                         <CardBody className="space-y-1">
                           <p className="text-xs text-default-500">Application and OS</p>
                           <p>OS Version: {details.osVersion}</p>
