@@ -1,12 +1,15 @@
 /**
  * TransactionsPanel.jsx
- * Displays transaction history table with filters.
+ * Displays transaction history table with filters and CRUD actions.
  * Pure Radix UI.
  */
 import React, { useState, useEffect } from 'react';
 import { Box, Card, Flex, Text, Button, Select, TextField, Table, Badge, Link } from '@radix-ui/themes';
-import { DownloadIcon, FileTextIcon, TrashIcon } from '@radix-ui/react-icons';
+import { DownloadIcon, FileTextIcon, TrashIcon, PlusIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
+import PettyCashExpenseForm from '@/Forms/PettyCashExpenseForm.jsx';
+import PettyCashReimbursementForm from '@/Forms/PettyCashReimbursementForm.jsx';
+import PettyCashRepaymentForm from '@/Forms/PettyCashRepaymentForm.jsx';
 
 const TransactionsPanel = ({ loanId, isMobile }) => {
     const [transactions, setTransactions] = useState([]);
@@ -14,6 +17,9 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
     const [page, setPage] = useState(1);
     const [filterType, setFilterType] = useState('all');
     const [filterCategory, setFilterCategory] = useState('all');
+    const [showExpenseForm, setShowExpenseForm] = useState(false);
+    const [showReimbursementForm, setShowReimbursementForm] = useState(false);
+    const [showRepaymentForm, setShowRepaymentForm] = useState(false);
 
     const fetchTransactions = async () => {
         if (!loanId) {
@@ -122,10 +128,24 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                     </Select.Root>
                 </Flex>
 
-                <Button onClick={handleExport} variant="soft">
-                    <DownloadIcon style={{ marginRight: '8px' }} />
-                    {!isMobile && 'Export'}
-                </Button>
+                <Flex gap="2">
+                    <Button onClick={() => setShowExpenseForm(true)} variant="solid">
+                        <PlusIcon style={{ marginRight: '8px' }} />
+                        {!isMobile && 'Expense'}
+                    </Button>
+                    <Button onClick={() => setShowReimbursementForm(true)} variant="solid">
+                        <PlusIcon style={{ marginRight: '8px' }} />
+                        {!isMobile && 'Reimbursement'}
+                    </Button>
+                    <Button onClick={() => setShowRepaymentForm(true)} variant="solid">
+                        <PlusIcon style={{ marginRight: '8px' }} />
+                        {!isMobile && 'Repayment'}
+                    </Button>
+                    <Button onClick={handleExport} variant="soft">
+                        <DownloadIcon style={{ marginRight: '8px' }} />
+                        {!isMobile && 'Export'}
+                    </Button>
+                </Flex>
             </Flex>
 
             {/* Transactions Table */}
@@ -220,6 +240,35 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                     </Flex>
                 )}
             </Card>
+
+            {/* Transaction Forms */}
+            <PettyCashExpenseForm
+                open={showExpenseForm}
+                onClose={() => setShowExpenseForm(false)}
+                onSuccess={() => {
+                    setShowExpenseForm(false);
+                    fetchTransactions();
+                }}
+                loanId={loanId}
+            />
+            <PettyCashReimbursementForm
+                open={showReimbursementForm}
+                onClose={() => setShowReimbursementForm(false)}
+                onSuccess={() => {
+                    setShowReimbursementForm(false);
+                    fetchTransactions();
+                }}
+                loanId={loanId}
+            />
+            <PettyCashRepaymentForm
+                open={showRepaymentForm}
+                onClose={() => setShowRepaymentForm(false)}
+                onSuccess={() => {
+                    setShowRepaymentForm(false);
+                    fetchTransactions();
+                }}
+                loanId={loanId}
+            />
         </Box>
     );
 };

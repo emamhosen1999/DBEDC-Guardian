@@ -14,6 +14,10 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
 
     useEffect(() => {
         const fetchAnalytics = async () => {
+            if (!loanId) {
+                setLoading(false);
+                return;
+            }
             try {
                 setLoading(true);
                 const response = await axios.get('/petty-cash/analytics', {

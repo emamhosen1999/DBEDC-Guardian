@@ -5,6 +5,13 @@ import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 export function RadixThemeShell({ children }) {
   const { settings } = useRadixTheme();
 
+  const bgClass = {
+    grid: 'app-bg-grid',
+    none: 'app-bg-none',
+    gradient: 'app-bg-gradient',
+    pattern: 'app-bg-pattern',
+  }[settings.bgStyle];
+
   return (
     <Theme
       accentColor={settings.accentColor}
@@ -13,7 +20,7 @@ export function RadixThemeShell({ children }) {
       scaling={settings.scaling}
       appearance={settings.appearance}
       panelBackground={settings.panelBackground}
-      className={settings.bgStyle === 'grid' ? 'app-bg-grid' : undefined}
+      className={bgClass}
       style={{ minHeight: '100%' }}
     >
       {children}
