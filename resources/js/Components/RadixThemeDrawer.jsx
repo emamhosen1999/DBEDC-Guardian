@@ -9,6 +9,7 @@ import {
   GRAY_COLORS,
   RADIUS_OPTIONS,
   SCALING_OPTIONS,
+  PANEL_BACKGROUNDS,
   FONT_FAMILIES,
 } from '@/Contexts/RadixThemeContext';
 import { SunIcon, MoonIcon, ResetIcon, CopyIcon, CheckIcon } from '@radix-ui/react-icons';
@@ -175,6 +176,24 @@ export default function RadixThemeDrawer({ open, onClose }) {
                       onChange={() => updateSettings({ scaling: s })} />
                     <Flex align="center" justify="center" style={{ height: 32 }}>
                       <Text size="1" weight="medium">{s}</Text>
+                    </Flex>
+                  </label>
+                ))}
+              </div>
+
+              <Separator size="4" my="4" />
+
+              {/* ── Panel background ─────────────────────────────────── */}
+              <Text id="panel-title" size="2" weight="medium" mb="3">Panel background</Text>
+              <div role="group" aria-labelledby="panel-title"
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 8, marginBottom: 4 }}>
+                {PANEL_BACKGROUNDS.map((p) => (
+                  <label key={p} className="rt-ThemePanelRadioCard">
+                    <input className="rt-ThemePanelRadioCardInput" type="radio" name="panelBackground" value={p}
+                      checked={settings.panelBackground === p}
+                      onChange={() => updateSettings({ panelBackground: p })} />
+                    <Flex align="center" justify="center" style={{ height: 32 }}>
+                      <Text size="1" weight="medium" style={{ textTransform: 'capitalize' }}>{p}</Text>
                     </Flex>
                   </label>
                 ))}
