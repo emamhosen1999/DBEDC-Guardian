@@ -6,15 +6,36 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Get version from .env, environment variable, or package.json
+// Get version from package.json (source of truth), then .env.example, then .env
 const getVersion = () => {
     try {
-        // Try to get version from environment variable first
-        if (process.env.APP_VERSION) {
-            return process.env.APP_VERSION;
+        // First priority: package.json (source of truth, auto-incremented)
+        try {
+            const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            if (packageJson.version) {
+                return packageJson.version;
+            }
+        } catch (pkgError) {
+            console.warn('Could not read package.json, trying .env.example');
         }
-        
-        // Try to read from .env file
+
+        // Second priority: .env.example (committed, shared between environments)
+        try {
+            const envExamplePath = path.join(__dirname, '../.env.example');
+            const envContent = fs.readFileSync(envExamplePath, 'utf8');
+            const lines = envContent.split('\n');
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine.startsWith('APP_VERSION=')) {
+                    const version = trimmedLine.split('=')[1].trim();
+                    return version;
+                }
+            }
+        } catch (envExampleError) {
+            console.warn('Could not read .env.example, trying .env');
+        }
+
+        // Third priority: .env file (environment-specific, not committed)
         try {
             const envPath = path.join(__dirname, '../.env');
             const envContent = fs.readFileSync(envPath, 'utf8');
@@ -27,12 +48,16 @@ const getVersion = () => {
                 }
             }
         } catch (envError) {
-            console.warn('Could not read .env file, trying package.json');
+            console.warn('Could not read .env file');
         }
-        
-        // Fallback to package.json version
-        const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-        return packageJson.version || '1.0.0';
+
+        // Fallback to environment variable
+        if (process.env.APP_VERSION) {
+            return process.env.APP_VERSION;
+        }
+
+        console.warn('Could not determine version, using default 1.0.0');
+        return '1.0.0';
     } catch (error) {
         console.warn('Could not determine version, using default 1.0.0');
         return '1.0.0';

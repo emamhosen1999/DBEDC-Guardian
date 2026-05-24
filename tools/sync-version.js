@@ -6,13 +6,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Function to read .env file and extract APP_VERSION
+// Function to read .env.example file and extract APP_VERSION
 const getVersionFromEnv = () => {
     try {
-        const envPath = path.join(__dirname, '../.env');
+        const envPath = path.join(__dirname, '../.env.example');
         const envContent = fs.readFileSync(envPath, 'utf8');
-        
-        // Parse .env file for APP_VERSION
+
+        // Parse .env.example file for APP_VERSION
         const lines = envContent.split('\n');
         for (const line of lines) {
             const trimmedLine = line.trim();
@@ -21,11 +21,11 @@ const getVersionFromEnv = () => {
                 return version;
             }
         }
-        
-        console.warn('APP_VERSION not found in .env file');
+
+        console.warn('APP_VERSION not found in .env.example file');
         return null;
     } catch (error) {
-        console.error('❌ Failed to read .env file:', error);
+        console.error('❌ Failed to read .env.example file:', error);
         return null;
     }
 };
