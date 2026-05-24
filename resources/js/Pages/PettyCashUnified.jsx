@@ -149,7 +149,7 @@ const PettyCashUnified = ({ title, activeLoan }) => {
                                 <Tabs.Content value="transactions">
                                     <ErrorBoundary>
                                         <TransactionsPanel
-                                            loanId={activeLoan.loan_id}
+                                            loanId={activeLoan.id}
                                             isMobile={isMobile}
                                         />
                                     </ErrorBoundary>
@@ -160,7 +160,7 @@ const PettyCashUnified = ({ title, activeLoan }) => {
                                 <Tabs.Content value="analytics">
                                     <ErrorBoundary>
                                         <AnalyticsPanel
-                                            loanId={activeLoan.loan_id}
+                                            loanId={activeLoan.id}
                                             isMobile={isMobile}
                                         />
                                     </ErrorBoundary>
