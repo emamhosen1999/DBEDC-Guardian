@@ -1053,7 +1053,7 @@ class AttendanceController extends Controller
             // 4. EMPLOYEE COUNT
             // If Global: 17 employees. If Single: 1 employee.
             $totalEmployees = $isGlobalScope
-                ? User::role('Employee')->where('active', 1)->count()
+                ? User::role('Employee')->count()
                 : 1;
 
             // 5. FETCH DATA (Scoped)
