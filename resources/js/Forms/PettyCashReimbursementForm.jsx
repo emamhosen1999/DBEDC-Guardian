@@ -34,6 +34,7 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
         try {
             const response = await axios.post('/petty-cash/reimbursement', {
                 ...formData,
+                loan_id: loanId,
                 amount: parseFloat(formData.amount),
             });
 
