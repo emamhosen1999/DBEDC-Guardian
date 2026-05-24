@@ -82,10 +82,10 @@ const DesignationsTab = ({ isActive }) => {
         <Box>
             {/* Quick Stats */}
             <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total" value={stats.total} color="blue" />
-                <StatPill label="Active" value={stats.active} color="green" />
-                <StatPill label="Inactive" value={stats.inactive} color="red" />
-                <StatPill label="Top-Level" value={stats.parent_designations} color="purple" />
+                <StatPill label="Total" value={stats?.total || 0} color="blue" />
+                <StatPill label="Active" value={stats?.active || 0} color="green" />
+                <StatPill label="Inactive" value={stats?.inactive || 0} color="red" />
+                <StatPill label="Top-Level" value={stats?.parent_designations || 0} color="purple" />
             </Flex>
 
             {/* Toolbar */}

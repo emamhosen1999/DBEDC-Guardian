@@ -194,17 +194,17 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
                     transition={{ duration: 0.3 }}
                     className="w-full max-w-[2000px]"
                 >
-                    <Card 
+                    <Card
                         className="transition-all duration-200"
                         style={{
-                            border: `var(--borderWidth, 2px) solid transparent`,
+                            backdropFilter: 'blur(24px)',
+                            WebkitBackdropFilter: 'blur(24px)',
+                            background: 'var(--color-panel-translucent)',
+                            border: '1px solid var(--gray-a4)',
+                            boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
                             borderRadius: `var(--borderRadius, 12px)`,
                             fontFamily: `var(--fontFamily, "Inter")`,
                             transform: `scale(var(--scale, 1))`,
-                            background: `linear-gradient(135deg, 
-                                var(--theme-content1, #FAFAFA) 20%, 
-                                var(--theme-content2, #F4F4F5) 10%, 
-                                var(--theme-content3, #F1F3F4) 20%)`,
                         }}
                     >
                         {/* Main Card Content */}
@@ -329,14 +329,16 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
                             </div>
 
                             {/* Work Locations Table */}
-                            <Card 
+                            <Card
                                 radius={getThemeRadius()}
-                                className="bg-content2/50 backdrop-blur-md border border-divider/30"
                                 style={{
+                                    backdropFilter: 'blur(24px)',
+                                    WebkitBackdropFilter: 'blur(24px)',
+                                    background: 'var(--color-panel-translucent)',
+                                    border: '1px solid var(--gray-a4)',
+                                    boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
                                     fontFamily: `var(--fontFamily, "Inter")`,
                                     borderRadius: `var(--borderRadius, 12px)`,
-                                    backgroundColor: 'var(--theme-content2)',
-                                    borderColor: 'var(--theme-divider)',
                                 }}
                             >
                                 <CardBody className="p-4">

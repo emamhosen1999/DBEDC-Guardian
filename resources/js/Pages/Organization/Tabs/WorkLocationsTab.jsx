@@ -33,11 +33,12 @@ const WorkLocationsTab = ({ isActive }) => {
     const [modalType, setModalType] = useState(null); // 'add', 'update', 'delete', null
     const [currentRow, setCurrentRow] = useState(null);
     const [search, setSearch] = useState('');
+    const [filteredData, setFilteredData] = useState([]);
 
     const canCreate = auth.permissions?.includes('work_locations.create') || false;
 
     // React Query hooks
-    const { data: allData, isLoading: loading, refetch } = useWorkLocationsQuery.useWorkLocationsList();
+    const { data: allData = [], isLoading: loading, refetch } = useWorkLocationsQuery.useWorkLocationsList();
 
     // Auto-refetch when tab becomes active
     useEffect(() => {
@@ -71,7 +72,7 @@ const WorkLocationsTab = ({ isActive }) => {
     };
 
     const handleSuccess = () => {
-        fetchData();
+        refetch();
         closeModal();
     };
 
@@ -79,8 +80,8 @@ const WorkLocationsTab = ({ isActive }) => {
         <Box>
             {/* Quick Stats */}
             <Flex wrap="wrap" gap="2" mb="4">
-                <StatPill label="Total Locations" value={allData.length} color="blue" />
-                <StatPill label="With In-Charge" value={allData.filter(d => d.incharge_id).length} color="green" />
+                <StatPill label="Total Locations" value={allData?.length || 0} color="blue" />
+                <StatPill label="With In-Charge" value={allData?.filter(d => d.incharge_id).length || 0} color="green" />
             </Flex>
 
             {/* Toolbar */}
@@ -103,7 +104,7 @@ const WorkLocationsTab = ({ isActive }) => {
                     </TextField.Root>
                 </Flex>
 
-                <Flex gap="2">
+                <Flex gap="2">re
                     <Button size="2" variant="soft" color="gray" onClick={fetchData}>
                         <ReloadIcon />
                     </Button>

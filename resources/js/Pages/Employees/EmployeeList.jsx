@@ -65,7 +65,14 @@ function EmployeeCard({ user, departments, designations, attendanceTypes }) {
     return (
         <Card
             size="2"
-            style={{ cursor: 'pointer' }}
+            style={{
+                cursor: 'pointer',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}
             onClick={() => router.visit(route('profile', { user: user.id }), { preserveState: true, preserveScroll: true })}
         >
             <Flex direction="column" gap="3">

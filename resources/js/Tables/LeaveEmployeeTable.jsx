@@ -174,7 +174,13 @@ const LeaveEmployeeTable = React.forwardRef(({
     const MobileLeaveCard = ({ leave }) => {
         const user = getUserInfo(leave.user_id);
         return (
-            <Card mb="2" variant="surface">
+            <Card mb="2" style={{
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                background: 'var(--color-panel-translucent)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
+            }}>
                 <Flex direction="column" gap="2" p="3">
                     <Flex justify="between" align="start">
                         <Flex align="center" gap="2" style={{ flex: 1 }}>

@@ -726,17 +726,17 @@ const LeaveSettings = () => {
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.5, delay: 0.1 }}
                         >
-                            <Card 
+                            <Card
                                 className="transition-all duration-200"
                                 style={{
-                                    border: `var(--borderWidth, 2px) solid transparent`,
+                                    backdropFilter: 'blur(24px)',
+                                    WebkitBackdropFilter: 'blur(24px)',
+                                    background: 'var(--color-panel-translucent)',
+                                    border: '1px solid var(--gray-a4)',
+                                    boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
                                     borderRadius: `var(--borderRadius, 12px)`,
                                     fontFamily: `var(--fontFamily, "Inter")`,
                                     transform: `scale(var(--scale, 1))`,
-                                    background: `linear-gradient(135deg, 
-                                        var(--theme-content1, #FAFAFA) 20%, 
-                                        var(--theme-content2, #F4F4F5) 10%, 
-                                        var(--theme-content3, #F1F3F4) 20%)`,
                                 }}
                             >
                                 <CardHeader 

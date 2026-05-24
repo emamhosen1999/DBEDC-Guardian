@@ -35,8 +35,8 @@ export const useMonthlySummary = (params = {}) => {
 
   return useQuery({
     queryKey: ['attendance', 'monthly-summary', { currentMonth, currentYear, scope }],
-    queryFn: () => requestJson('get', '/attendance/monthly-stats', {
-      params: { currentMonth, currentYear, scope }
+    queryFn: () => requestJson('get', '/attendances-admin-paginate', {
+      params: { currentMonth, currentYear, page: 1, perPage: 1000 }
     }),
     staleTime: 10 * 60 * 1000, // 10 minutes - summary doesn't change often
   });
