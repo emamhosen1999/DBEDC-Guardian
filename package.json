@@ -1,12 +1,13 @@
 {
      "private": true,
      "type": "module",
-     "version": "4.0.1",
+     "version": "4.0.2",
      "homepage": "http://erp.dhakabypass.com",
      "scripts": {
           "dev": "vite",
-          "build": "npm run version:sync && vite build && npm run pwa:update",
+          "build": "npm run version:auto && vite build && npm run pwa:update",
           "test": "vitest",
+          "version:auto": "node tools/auto-version.js",
           "version:sync": "node tools/sync-version.js",
           "pwa:update": "node tools/update-pwa-version.js",
           "performance:baseline": "node tools/performance/scripts/establish-baseline.js",
