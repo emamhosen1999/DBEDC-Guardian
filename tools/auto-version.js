@@ -48,24 +48,24 @@ const updatePackageJson = (newVersion) => {
     }
 };
 
-// Update .env with new version
+// Update .env.example with new version
 const updateEnvFile = (newVersion) => {
     try {
-        const envPath = path.join(__dirname, '../.env');
+        const envPath = path.join(__dirname, '../.env.example');
         let envContent = fs.readFileSync(envPath, 'utf8');
-        
+
         // Check if APP_VERSION exists
         if (envContent.includes('APP_VERSION=')) {
             envContent = envContent.replace(/APP_VERSION=.*/g, `APP_VERSION=${newVersion}`);
         } else {
             envContent += `\nAPP_VERSION=${newVersion}`;
         }
-        
+
         fs.writeFileSync(envPath, envContent);
-        console.log(`✅ .env updated to: ${newVersion}`);
+        console.log(`✅ .env.example updated to: ${newVersion}`);
         return true;
     } catch (error) {
-        console.error('❌ Failed to update .env:', error);
+        console.error('❌ Failed to update .env.example:', error);
         return false;
     }
 };
