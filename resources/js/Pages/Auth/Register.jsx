@@ -13,12 +13,7 @@ export default function Register() {
                 padding: 16, background: 'var(--color-background)',
             }}>
                 <Box style={{ width: '100%', maxWidth: 400 }}>
-                    <Card size="4" style={{
-                        background: 'var(--color-panel-translucent)',
-                        backdropFilter: 'blur(24px)',
-                        border: '1px solid var(--gray-a4)',
-                        boxShadow: '0 24px 64px var(--black-a6)',
-                    }}>
+                    <Card size="4">
                         <Flex direction="column" align="center" gap="3">
                             <Box style={{
                                 width: 56, height: 56, borderRadius: '50%',

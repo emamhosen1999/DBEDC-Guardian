@@ -264,14 +264,7 @@ const HolidayTable = ({
 
             {showFilters && (
                 <div>
-                    <Card style={{
-                        padding: 16,
-                        backdropFilter: 'blur(24px)',
-                        WebkitBackdropFilter: 'blur(24px)',
-                        background: 'var(--color-panel-translucent)',
-                        border: '1px solid var(--gray-a4)',
-                        boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                    }}>
+                    <Card style={{ padding: 16 }}>
                         <Text size="2" weight="medium" mb="2">
                             Holiday Type
                         </Text>
@@ -401,7 +394,7 @@ const HolidayTable = ({
         const days = differenceInDays(new Date(holiday.to_date), new Date(holiday.from_date)) + 1;
 
         return (
-            <Card mb="2" style={{ padding: 16 }}>
+            <Card mb="2">
                 <Flex justify="between" align="start" gap="2" mb="3">
                     <Box style={{ flex: 1 }}>
                         <Text size="3" weight="bold">
@@ -449,15 +442,7 @@ const HolidayTable = ({
                     {holiday.from_date !== holiday.to_date && (
                         <Box>
                             <Text size="1" color="gray" mb="1">
-                          
-                     End Dat
-e               ter',
-                backdropFilter: 'blur(24px)',
-                WebkiBackdropFiltr: 'blur(24px)',
-                backgound: var(--color-panel-translucent)',
-                border: '1px solid var(--gray-a4)',
-                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-           
+                                End Date
                             </Text>
                             <Text size="2" weight="medium">
                                 {format(new Date(holiday.to_date), 'MMM dd, yyyy')}

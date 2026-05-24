@@ -86,12 +86,7 @@ const Holidays = ({ title }) => {
             <Box p="4">
                 <div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
                     <Card size="3" style={{
-                        backdropFilter: 'blur(24px)',
-                        WebkitBackdropFilter: 'blur(24px)',
-                        background: 'var(--color-panel-translucent)',
-                        border: '1px solid var(--gray-a4)',
-                        boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                    }}>
+                        }}>
                         <Flex justify="between" align={{ initial: 'start', sm: 'center' }} direction={{ initial: 'column', sm: 'row' }} gap="4" p="4">
                             <Flex align="center" gap="3">
                                 <CalendarIcon style={{ width: 28, height: 28, color: 'var(--accent-11)' }} />

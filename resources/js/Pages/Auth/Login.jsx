@@ -377,10 +377,9 @@ export default function Login({
 
         } catch (error) {
             console.error('Login submission error:', error);
-            
+
             showToast.error('An unexpected error occurred. Please try again.', {
                 style: {
-                    backdropFilter: 'blur(16px) saturate(200%)',
                     background: 'var(--theme-danger)',
                     color: 'var(--theme-danger-foreground)',
                 }
@@ -473,13 +472,7 @@ export default function Login({
                 transition: 'opacity 0.35s ease, transform 0.35s ease',
             }}>
                 <Box style={{ width: '100%', maxWidth: 420 }}>
-                    <Card size="4" style={{
-                        backdropFilter: 'blur(24px)',
-                        WebkitBackdropFilter: 'blur(24px)',
-                        background: 'var(--color-panel-translucent)',
-                        border: '1px solid var(--gray-a4)',
-                        boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                    }}>
+                    <Card size="4">
                         {/* Logo + Title */}
                         <Flex direction="column" align="center" gap="2" mb="5">
                             <img src="/assets/images/logo.png" alt="Logo" style={{ width: 96, height: 96, objectFit: 'contain' }}

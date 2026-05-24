@@ -2190,13 +2190,7 @@ const renderCell = useCallback((work, columnKey) => {
         {/* Skeleton rows in tab content */}
         <Flex direction="column" gap="2" pt="3" pb="2">
             {Array.from({ length: 5 }).map((_, index) => (
-                <Card key={index} size="1" variant="surface" style={{
-                    backdropFilter: 'blur(24px)',
-                    WebkitBackdropFilter: 'blur(24px)',
-                    background: 'var(--color-panel-translucent)',
-                    border: '1px solid var(--gray-a4)',
-                    boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-                }}>
+                <Card key={index} size="1" variant="surface">
                     <Flex align="center" gap="3">
                         {/* Main description line skeleton */}
                         <Skeleton style={{ flexGrow: 1, height: '14px' }} />

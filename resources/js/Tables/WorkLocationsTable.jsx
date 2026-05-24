@@ -169,13 +169,7 @@ const WorkLocationsTable = ({
         const status = getLocationStatus(location);
 
         return (
-            <Card key={location.id} mb="3" style={{
-                backdropFilter: 'blur(24px)',
-                WebkitBackdropFilter: 'blur(24px)',
-                background: 'var(--color-panel-translucent)',
-                border: '1px solid var(--gray-a4)',
-                boxShadow: '0 24px 64px var(--black-a6), 0 4px 16px var(--black-a3)',
-            }}>
+            <Card key={location.id} mb="3">
                 <Box p="3" pb="2">
                     <Flex align="start" justify="between" gap="2">
                         <Flex align="center" gap="3" style={{ flex: 1, minWidth: 0 }}>
