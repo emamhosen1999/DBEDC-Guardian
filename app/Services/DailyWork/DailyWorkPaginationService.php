@@ -156,6 +156,14 @@ class DailyWorkPaginationService
             return $baseQuery;
         }
 
+        if ($userDesignationTitle === 'Supervision Engineer') {
+            return $baseQuery->where('incharge', $user->id);
+        }
+
+        if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
+            return $baseQuery->where('assigned', $user->id);
+        }
+
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
@@ -183,7 +191,7 @@ class DailyWorkPaginationService
             }
         }
 
-        // For other roles (non-employee, non-admin): show own works (incharge/assigned) AND manager's works (incharge) if report_to is set
+        // For other roles (non-employee, non-admin) with a manager: apply report_to visibility
         if ($user->report_to) {
             Log::info('User with manager - applying universal filter', [
                 'user_id' => $user->id,

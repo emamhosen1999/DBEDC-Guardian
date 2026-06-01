@@ -2,17 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Events\BiometricAttendanceReceived;
 use App\Events\BiometricDeviceConnected;
 use App\Http\Controllers\Controller;
-use App\Models\HRM\AttendanceType;
-use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
-use App\Models\HRM\BiometricDeviceCommand;
-use App\Models\User;
-use App\Services\Attendance\AttendancePunchService;
+use App\Services\Biometric\BiometricProcessingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -21,21 +15,26 @@ use Illuminate\Support\Facades\Log;
  */
 class BiometricWebhookController extends Controller
 {
+    protected BiometricProcessingService $biometricService;
+
+    public function __construct(BiometricProcessingService $biometricService)
+    {
+        $this->biometricService = $biometricService;
+    }
+
     public function handle(Request $request)
     {
         $authToken    = $request->header('X-Device-Token') ?? $request->input('auth_token');
         $serialNumber = $request->input('device_serial');
         $deviceUserId = $request->input('device_user_id');
-        $punchTime    = $request->input('punch_time'); // ISO8601 or timestamp from device
+        $punchTime    = $request->input('punch_time');
 
         if (! $authToken || ! $serialNumber || ! $deviceUserId) {
             return response()->json(['message' => 'Missing required parameters.'], 422);
         }
 
         // 1. Authenticate device
-        $device = BiometricDevice::where('serial_number', $serialNumber)
-            ->where('auth_token', $authToken)
-            ->first();
+        $device = $this->biometricService->authenticateDevice($serialNumber, $authToken);
 
         if (! $device) {
             Log::warning('Biometric webhook: unknown device or bad token', [
@@ -49,24 +48,16 @@ class BiometricWebhookController extends Controller
         }
 
         // 2. Update heartbeat
-        $device->update(['last_heartbeat_at' => now()]);
+        $this->biometricService->updateHeartbeat($device);
 
         $resolvedPunchTime = $punchTime ? \Carbon\Carbon::parse($punchTime) : now();
 
-        // Parse check_type from verify_code (ZKTeco standard: 0=in, 1=out, 2=break_in, 3=break_out, 4=ot_in, 5=ot_out)
+        // Parse check_type
         $verifyCode = $request->input('verify_code');
-        $checkTypeMap = [
-            0 => 'in',
-            1 => 'out',
-            2 => 'break_in',
-            3 => 'break_out',
-            4 => 'ot_in',
-            5 => 'ot_out',
-        ];
-        $checkType = $checkTypeMap[$verifyCode] ?? $request->input('check_type', 'in');
+        $checkType = $this->biometricService->resolveCheckType($verifyCode, $request->input('check_type', 'in'));
 
-        // 3. Create an ATTLOG record immediately (every punch is stored, regardless of outcome)
-        $attLog = BiometricAttLog::create([
+        // 3. Create an ATTLOG record immediately
+        $attLog = $this->biometricService->createAttLog([
             'biometric_device_id' => $device->id,
             'serial_number'       => $serialNumber,
             'user_pin'            => $deviceUserId,
@@ -81,20 +72,11 @@ class BiometricWebhookController extends Controller
             'punch_status_reason' => 'Pending processing',
         ]);
 
-        // 4. Resolve user by matching PIN to employee_id
-        $user = User::withTrashed()->where('employee_id', $deviceUserId)->first();
+        // 4. Resolve user
+        $resolved = $this->biometricService->resolveOrCreateUser($deviceUserId);
+        $user = $resolved['user'];
 
-        if (! $user) {
-            // Auto-create as inactive placeholder so admin can link/activate later
-            $user = User::create([
-                'name'        => 'Device User ' . $deviceUserId,
-                'email'       => 'device_user_' . $deviceUserId . '@placeholder.local',
-                'password'    => bcrypt(\Illuminate\Support\Str::random(32)),
-                'employee_id' => $deviceUserId,
-                'active'      => false,
-            ]);
-            $user->delete(); // soft-delete = inactive
-
+        if ($resolved['is_new']) {
             $attLog->update([
                 'user_id'             => $user->id,
                 'punch_status'        => 'unknown_user',
@@ -117,70 +99,40 @@ class BiometricWebhookController extends Controller
         // Link the log to the resolved user
         $attLog->update(['user_id' => $user->id]);
 
-        // 5. Validate attendance type
-        if (! $user->attendance_type_id) {
+        // 5. Validate attendance type eligibility
+        $eligibility = $this->biometricService->validateAttendanceEligibility($user, $device);
+
+        if (! $eligibility['valid']) {
+            $punchStatus = ($eligibility['reason'] === 'Device not in attendance zone') ? 'wrong_device' : 'failed';
             $attLog->update([
-                'punch_status'        => 'failed',
-                'punch_status_reason' => 'User has no attendance type assigned',
+                'punch_status'        => $punchStatus,
+                'punch_status_reason' => $eligibility['reason'],
             ]);
-            Log::warning('Biometric webhook: user has no attendance type', [
-                'user_id' => $user->id, 'device_serial' => $serialNumber,
+            Log::warning('Biometric webhook: attendance validation failed', [
+                'user_id' => $user->id, 'device_serial' => $serialNumber, 'reason' => $eligibility['reason']
             ]);
-            return response()->json(['message' => 'User has no attendance type assigned.'], 422);
+
+            $statusCode = ($punchStatus === 'wrong_device') ? 403 : 422;
+            return response()->json(['message' => $eligibility['reason']], $statusCode);
         }
 
-        $attendanceType = AttendanceType::with('biometricDevices')->find($user->attendance_type_id);
-
-        if (! $attendanceType || ! str_starts_with($attendanceType->slug, 'biometric')) {
-            $attLog->update([
-                'punch_status'        => 'failed',
-                'punch_status_reason' => 'Attendance type is not biometric: ' . ($attendanceType?->slug ?? 'not found'),
-            ]);
-            Log::warning('Biometric webhook: attendance type is not biometric', [
-                'user_id' => $user->id, 'attendance_type_slug' => $attendanceType?->slug,
-            ]);
-            return response()->json(['message' => 'User attendance type does not allow biometric punching.'], 422);
-        }
-
-        // 6. Zone check — if the attendance type has linked devices, punch must come from one of them
-        $linkedDevices = $attendanceType->biometricDevices;
-        if ($linkedDevices->isNotEmpty() && ! $linkedDevices->contains('id', $device->id)) {
-            $attLog->update([
-                'punch_status'        => 'wrong_device',
-                'punch_status_reason' => 'Device not in attendance zone',
-            ]);
-            Log::warning('Biometric webhook: punch from device not in attendance zone', [
-                'device_id' => $device->id, 'user_id' => $user->id,
-            ]);
-            return response()->json(['message' => 'Device is not authorised for this user\'s attendance zone.'], 403);
-        }
-
-        // 7. Idempotency — skip if this exact punch time already exists for the user
-        $existingAttendance = DB::table('attendances')
-            ->where('user_id', $user->id)
-            ->where(function ($q) use ($resolvedPunchTime) {
-                $q->where('punchin', $resolvedPunchTime)->orWhere('punchout', $resolvedPunchTime);
-            })
-            ->exists();
-
-        if ($existingAttendance) {
+        // 6. Idempotency check
+        if ($this->biometricService->isDuplicatePunch($user->id, $resolvedPunchTime)) {
             $attLog->update(['punch_status' => 'duplicate']);
             return response()->json(['message' => 'Duplicate punch — already recorded.'], 200);
         }
 
-        // 8. Build a synthetic request for the punch service
-        $syntheticRequest = Request::create('/biometric/punch', 'POST', [
-            'device_serial'  => $serialNumber,
-            'device_user_id' => $deviceUserId,
-            'source'         => 'biometric',
-            'punch_time'     => $resolvedPunchTime->toISOString(),
-            'check_type'     => $checkType,
-        ]);
+        // 7. Build synthetic request
+        $syntheticRequest = $this->biometricService->buildSyntheticPunchRequest(
+            $serialNumber,
+            $deviceUserId,
+            $resolvedPunchTime->toISOString(),
+            $checkType
+        );
 
-        // 9. Process through the existing punch service
+        // 8. Process punch
         try {
-            $punchService = new AttendancePunchService();
-            $result = $punchService->processPunch($user, $syntheticRequest);
+            $result = $this->biometricService->processPunch($user, $syntheticRequest);
 
             $attLog->update([
                 'punch_status'        => $result['status'] === 'success' ? 'processed' : 'failed',
@@ -222,42 +174,12 @@ class BiometricWebhookController extends Controller
         $status   = $request->input('status');
         $deviceId = $request->input('device_id');
 
-        $query = BiometricAttLog::with(['user:id,name,employee_id,profile_image', 'device:id,name,serial_number'])
-            ->orderByDesc('punch_time');
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('user_pin', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")
-                      ->orWhere('employee_id', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($status && $status !== 'all') {
-            $query->where('punch_status', $status);
-        }
-
-        if ($deviceId && $deviceId !== 'all') {
-            $query->where('biometric_device_id', $deviceId);
-        }
-
-        $logs = $query->paginate($perPage, ['*'], 'page', $page);
-
-        $stats = DB::table('biometric_att_logs')->selectRaw("
-            COUNT(*) as total,
-            SUM(punch_status = 'processed')   as processed,
-            SUM(punch_status = 'unknown_user') as unknown_user,
-            SUM(punch_status IN ('failed','wrong_device','duplicate')) as failed
-        ")->first();
+        $logs = $this->biometricService->queryAttLogs($search, $status, $deviceId, $perPage, $page);
+        $stats = $this->biometricService->getAttLogStats();
 
         return response()->json([
             'logs'  => $logs,
-            'stats' => [
-                'total'        => (int) ($stats->total        ?? 0),
-                'processed'    => (int) ($stats->processed    ?? 0),
-                'unknown_user' => (int) ($stats->unknown_user ?? 0),
-                'failed'       => (int) ($stats->failed       ?? 0),
-            ],
+            'stats' => $stats,
         ]);
     }
 
@@ -273,78 +195,60 @@ class BiometricWebhookController extends Controller
             return response()->json(['message' => 'Missing parameters.'], 422);
         }
 
-        $device = BiometricDevice::where('serial_number', $serialNumber)
-            ->where('auth_token', $authToken)
-            ->first();
+        $device = $this->biometricService->authenticateDevice($serialNumber, $authToken);
 
         if (! $device) {
             return response()->json(['message' => 'Unauthorized.'], 401);
         }
 
-        $device->update(['last_heartbeat_at' => now()]);
+        $this->biometricService->updateHeartbeat($device);
 
         return response()->json(['message' => 'OK', 'server_time' => now()->toISOString()]);
     }
 
     /**
      * ZKTeco ADMS Push Protocol - Handshake (GET /iclock/cdata)
-     * Device sends GET request to register itself and establish connection.
-     * Must respond with plain text "OK" and SessionID header.
-     * Also returns pending commands if any.
      */
     public function admsHandshake(Request $request)
     {
         Log::info('ADMS handshake received', [
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
-            'headers' => $request->headers->all(),
             'query' => $request->query->all(),
         ]);
 
         $serialNumber = $request->query('SN');
-        $options = $request->query('options', '');
 
         if (! $serialNumber) {
             Log::warning('ADMS handshake: missing serial number');
-            return response('ERROR', 400)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
-        // Find device by serial number (ADMS doesn't use auth_token in handshake)
-        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
+        $device = $this->biometricService->findDeviceBySerial($serialNumber);
 
         if (! $device) {
             Log::warning('ADMS handshake: unknown device', ['serial' => $serialNumber]);
-            return response('ERROR', 404)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 404)->header('Content-Type', 'text/plain');
         }
 
         if (! $device->is_active) {
             Log::warning('ADMS handshake: inactive device', ['serial' => $serialNumber]);
-            return response('ERROR', 403)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 403)->header('Content-Type', 'text/plain');
         }
 
         // Update heartbeat
-        $device->update(['last_heartbeat_at' => now()]);
+        $this->biometricService->updateHeartbeat($device);
 
         // Dispatch device connected event
         event(new BiometricDeviceConnected($device));
 
-        // Generate session ID for this connection
-        $sessionId = bin2hex(random_bytes(16));
+        // Generate session ID
+        $sessionId = $this->biometricService->generateSessionId();
 
-        // Fetch one pending command at a time — only deliver commands that are due now
-        $command = BiometricDeviceCommand::where('biometric_device_id', $device->id)
-            ->where('status', 'pending')
-            ->where(function ($q) {
-                $q->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', now());
-            })
-            ->oldest()
-            ->first();
+        // Fetch pending command
+        $command = $this->biometricService->fetchNextPendingCommand($device);
 
         if ($command) {
-            // Mark command as sent
             $command->markAsSent();
 
             Log::info('ADMS handshake: sending command', [
@@ -366,28 +270,9 @@ class BiometricWebhookController extends Controller
         Log::info('ADMS handshake successful', [
             'serial' => $serialNumber,
             'session_id' => $sessionId,
-            'options' => $options,
-            'pending_commands' => 0,
         ]);
 
-        // ZKTeco ADMS expects a multiline options block so the device knows from which
-        // timestamp to start syncing. Returning just "OK" causes the device to either
-        // resend all historical records or skip syncing entirely depending on firmware.
-        // ATTLOGStamp=9999 tells the device to push everything it hasn't sent yet.
-        $responseBody = implode("\r\n", [
-            "GET OPTION FROM: {$serialNumber}",
-            "ATTLOGStamp=9999",
-            "OPERLOGStamp=9999",
-            "ATTPHOTOStamp=9999",
-            "errorDelay=30",
-            "delay=10",
-            "transTimes=00:00;14:05",
-            "transFlag=1111000000",
-            "encrypt=None",
-            "ServerVer=2.4.1",
-            "PushProtVer=2.4.1",
-            "",
-        ]);
+        $responseBody = $this->biometricService->buildHandshakeOptionsBody($serialNumber);
 
         return new \Symfony\Component\HttpFoundation\Response(
             $responseBody,
@@ -401,72 +286,62 @@ class BiometricWebhookController extends Controller
 
     /**
      * ZKTeco ADMS Push Protocol - Push Attendance Logs (POST /iclock/cdata)
-     * Device sends POST request with attendance data in plain text format.
-     * Data format: USERID=123\tCHECKTIME=2026-05-12 18:30:05\tCHECKTYPE=I\tVERIFYCODE=1\tSENSORID=1
-     * Also handles command acknowledgments: ID=1&Return=0
-     * Also handles template uploads: table=templatev10 or table=user
-     * Must respond with plain text "OK" to acknowledge.
      */
     public function admsPush(Request $request)
     {
         Log::info('ADMS push received', [
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
-            'headers' => $request->headers->all(),
             'query' => $request->query->all(),
             'content_length' => strlen($request->getContent()),
         ]);
 
         $rawData = $request->getContent();
         $table = $request->query('table');
+        $serialNumber = $this->biometricService->getSerialNumber($request);
+
+        if (! $serialNumber) {
+            Log::warning('ADMS push: missing serial number');
+            return response('ERROR', 400)->header('Content-Type', 'text/plain');
+        }
+
+        $device = $this->biometricService->findDeviceBySerial($serialNumber);
+
+        if (! $device || ! $device->is_active) {
+            Log::warning('ADMS push: unknown or inactive device', ['serial' => $serialNumber]);
+            return response('ERROR', 401)->header('Content-Type', 'text/plain');
+        }
 
         // Handle Biometric Template Uploads (Roaming)
-        // templatev10 = fingerprint, facetmpv10 = face templates
         if ($table === 'templatev10' || $table === 'facetmpv10') {
-            return $this->handleTemplateUpload($rawData, $table, $request);
+            $result = $this->biometricService->processTemplateUpload($rawData, $table, $serialNumber, $device);
+            return $result['success']
+                ? new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain'])
+                : response('ERROR', $result['reason'] === 'invalid_format' ? 400 : 500)->header('Content-Type', 'text/plain');
         }
 
-        // Handle User Enrollment from Device (Device → System sync)
-        // ZKTeco sends table=USERINFO for user data pushes
+        // Handle User Enrollment from Device
         if ($table === 'USERINFO') {
-            return $this->handleUserEnrollment($rawData, $table, $request);
+            $result = $this->biometricService->processUserEnrollment($rawData, $serialNumber, $device);
+            return $result['success']
+                ? new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain'])
+                : response('ERROR', $result['reason'] === 'invalid_format' ? 400 : 500)->header('Content-Type', 'text/plain');
         }
 
-        // OPERLOG = device operation log (door events, admin actions) — store for audit trail
+        // OPERLOG
         if ($table === 'OPERLOG') {
-            $sn = $this->getSerialNumber($request);
-            $operDevice = $sn ? BiometricDevice::where('serial_number', $sn)->first() : null;
-
-            if (! $operDevice || ! $operDevice->is_active) {
-                Log::warning('ADMS push: OPERLOG from unknown/inactive device', ['sn' => $sn]);
-                return new \Symfony\Component\HttpFoundation\Response('ERROR', 401, ['Content-Type' => 'text/plain']);
-            }
-
-            Log::info('ADMS push: OPERLOG received', ['sn' => $sn, 'size' => strlen($rawData)]);
-            $this->storeOperLog($rawData, $request);
-
+            $this->biometricService->storeOperLog($rawData, $serialNumber, $device);
             return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
         }
 
-        // Check if the body contains a Command Acknowledgment
-        // Format: ID=1&Return=0 or ID=1\tReturn=0
+        // Command Acknowledgment
         if (str_contains($rawData, 'ID=') && str_contains($rawData, 'Return=')) {
-            // Parse acknowledgment (replace newlines with & for parse_str)
             $normalizedData = str_replace(["\n", "\t"], '&', $rawData);
             parse_str($normalizedData, $ackData);
 
             if (isset($ackData['ID'])) {
-                // Authenticate device before marking command as executed
-                $ackSn   = $this->getSerialNumber($request);
-                $ackDevice = $ackSn ? BiometricDevice::where('serial_number', $ackSn)->first() : null;
-
-                if (! $ackDevice) {
-                    Log::warning('ADMS acknowledgment: unknown device', ['sn' => $ackSn, 'command_id' => $ackData['ID']]);
-                    return new \Symfony\Component\HttpFoundation\Response('ERROR', 401, ['Content-Type' => 'text/plain']);
-                }
-
-                $command = BiometricDeviceCommand::where('id', $ackData['ID'])
-                    ->where('biometric_device_id', $ackDevice->id)
+                $command = \App\Models\HRM\BiometricDeviceCommand::where('id', $ackData['ID'])
+                    ->where('biometric_device_id', $device->id)
                     ->first();
 
                 if ($command) {
@@ -474,597 +349,20 @@ class BiometricWebhookController extends Controller
                     $command->markAsExecuted($returnCode);
 
                     Log::info('ADMS command acknowledged', [
-                        'serial'       => $ackSn,
+                        'serial'       => $serialNumber,
                         'command_id'   => $command->id,
                         'command_type' => $command->command_type,
                         'return_code'  => $returnCode,
                     ]);
-                } else {
-                    Log::warning('ADMS acknowledgment: command not found or device mismatch', [
-                        'serial'     => $ackSn,
-                        'command_id' => $ackData['ID'],
-                    ]);
                 }
 
                 return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
             }
         }
 
-        // Default: Handle Attendance Logs
-        return $this->processAttendanceLogs($rawData, $request);
-    }
+        // Default: Handle Attendance Logs push
+        $result = $this->biometricService->processAttendanceLogs($rawData, $device, $serialNumber);
 
-    /**
-     * Store OPERLOG entries for audit trail
-     */
-    protected function storeOperLog($rawData, $request)
-    {
-        $serialNumber = $this->getSerialNumber($request);
-        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
-
-        $lines = explode("\n", trim($rawData));
-        
-        foreach ($lines as $line) {
-            if (empty(trim($line))) {
-                continue;
-            }
-
-            $data = [];
-            $operationType = null;
-            $userPin = null;
-            $occurredAt = now();
-
-            // Check if line starts with OPLOG (space-separated format)
-            if (str_starts_with(trim($line), 'OPLOG')) {
-                $parts = preg_split('/\s+/', trim($line));
-                if (count($parts) >= 4) {
-                    // Format: OPLOG <operation> <pin> <datetime> <other_fields>...
-                    $data = [
-                        'type' => 'OPLOG',
-                        'operation' => $parts[1] ?? null,
-                        'pin' => $parts[2] ?? null,
-                        'datetime' => $parts[3] ?? null,
-                        'result' => $parts[4] ?? null,
-                        'params' => array_slice($parts, 5),
-                    ];
-                    $operationType = $this->getOperLogName($parts[1] ?? '0');
-                    $userPin = $parts[2] ?? null;
-                    $rawOccurredAt = $parts[3] ?? null;
-                    $occurredAt = $rawOccurredAt ? \Carbon\Carbon::parse($rawOccurredAt) : now();
-                }
-            } else {
-                // Parse key=value format (FP, USER, etc.)
-                if (preg_match_all('/([^=\t\n]+)=([^\t\n]*)/', $line, $matches)) {
-                    $data = array_combine($matches[1], $matches[2]);
-                }
-                $operationType = $data['Operation'] ?? $data['operation'] ?? $data['type'] ?? null;
-                $userPin = $data['PIN'] ?? $data['pin'] ?? null;
-                $rawOccurredAt2 = $data['DateTime'] ?? $data['dateTime'] ?? null;
-                $occurredAt = $rawOccurredAt2 ? \Carbon\Carbon::parse($rawOccurredAt2) : now();
-            }
-
-            DB::table('biometric_oper_logs')->insert([
-                'biometric_device_id' => $device ? $device->id : null,
-                'serial_number' => $serialNumber,
-                'raw_data' => $line,
-                'operation_type' => $operationType,
-                'user_pin' => $userPin,
-                'context' => json_encode($data),
-                'occurred_at' => $occurredAt,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        Log::info('ADMS push: OPERLOG stored', [
-            'serial' => $serialNumber,
-            'entries_count' => count($lines),
-        ]);
-    }
-
-    /**
-     * Convert OPLOG operation code to human-readable name
-     */
-    protected function getOperLogName($code): string
-    {
-        return match((string)$code) {
-            '0' => 'Verify',
-            '1' => 'Finger',
-            '2' => 'Face',
-            '3' => 'Card',
-            '4' => 'Password',
-            '5' => 'General',
-            '6' => 'Enroll User',
-            '7' => 'Enroll FP',
-            '8' => 'Enroll Face',
-            '9' => 'Enroll Card',
-            '10' => 'Enroll Password',
-            '12' => 'Delete User',
-            '13' => 'Delete FP',
-            '14' => 'Delete Face',
-            '15' => 'Delete Card',
-            '16' => 'Delete Password',
-            '30' => 'Enroll FP',
-            '70' => 'Verify FP',
-            '151' => 'Super Admin',
-            default => 'Unknown',
-        };
-    }
-
-    /**
-     * Handle user enrollment from device (Device → System sync)
-     */
-    protected function handleUserEnrollment($content, $table, Request $request)
-    {
-        // SN is always a query param in ADMS POST requests, never in the body
-        $serialNumber = $this->getSerialNumber($request);
-        if (! $serialNumber) {
-            Log::warning('User enrollment: missing serial number');
-            return response('ERROR', 400)->header('Content-Type', 'text/plain');
-        }
-
-        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
-        if (! $device || ! $device->is_active) {
-            Log::warning('User enrollment: unknown or inactive device', ['serial' => $serialNumber]);
-            return response('ERROR', 401)->header('Content-Type', 'text/plain');
-        }
-
-        // Parse user enrollment data
-        // Format: PIN=42\tName=John Doe\tCard=123456\tPrivilege=0
-        $pattern = '/PIN=(?P<pin>\d+).*?Name=(?P<name>[^\t\n]+).*?Card=(?P<card>[^\t\n]*)/s';
-        
-        if (preg_match($pattern, $content, $matches)) {
-            $pin = $matches['pin'];
-            $name = trim($matches['name']);
-            $card = isset($matches['card']) ? trim($matches['card']) : '';
-
-            try {
-                DB::beginTransaction();
-
-                // Try to find existing system user by employee_id (PIN)
-                $existingUser = User::where('employee_id', $pin)->first();
-
-                if ($existingUser) {
-                    // User already exists with this employee_id
-                    DB::rollBack();
-                    Log::info('User enrollment: user already exists with employee_id', [
-                        'device_serial' => $serialNumber,
-                        'device_user_id' => $pin,
-                        'system_user_id' => $existingUser->id,
-                        'system_user_name' => $existingUser->name,
-                    ]);
-                    return new \Symfony\Component\HttpFoundation\Response(
-                        "OK",
-                        200,
-                        ['Content-Type' => 'text/plain']
-                    );
-                }
-
-                // Create placeholder account as INACTIVE — admin must activate before the user
-                // can log in or have attendance processed. Anyone who can register on the
-                // physical device would otherwise gain an active system account.
-                $newUser = User::create([
-                    'name' => $name,
-                    'email' => 'device-auto-' . $pin . '@device-auto.local',
-                    'password' => bcrypt(\Illuminate\Support\Str::random(32)),
-                    'active' => false,
-                    'employee_id' => $pin,
-                ]);
-
-                Log::info('User enrollment: created inactive system user (pending admin approval)', [
-                    'device_serial' => $serialNumber,
-                    'device_user_id' => $pin,
-                    'system_user_id' => $newUser->id,
-                    'system_user_name' => $newUser->name,
-                ]);
-
-                DB::commit();
-
-                return new \Symfony\Component\HttpFoundation\Response(
-                    "OK",
-                    200,
-                    ['Content-Type' => 'text/plain']
-                );
-            } catch (\Exception $e) {
-                DB::rollBack();
-                Log::error('Failed to process user enrollment', [
-                    'device_serial' => $serialNumber,
-                    'device_user_id' => $pin,
-                    'error' => $e->getMessage(),
-                ]);
-                return response('ERROR', 500)->header('Content-Type', 'text/plain');
-            }
-        }
-
-        Log::warning('User enrollment: invalid format', ['table' => $table]);
-        return response('ERROR', 400)->header('Content-Type', 'text/plain');
-    }
-
-    /**
-     * Handle biometric template uploads from device (for biometric roaming)
-     */
-    protected function handleTemplateUpload($content, $table, Request $request)
-    {
-        // SN is always a query param in ADMS POST requests, never in the body
-        $serialNumber = $this->getSerialNumber($request);
-        if (! $serialNumber) {
-            Log::warning('Template upload: missing serial number');
-            return response('ERROR', 400)->header('Content-Type', 'text/plain');
-        }
-
-        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
-        if (! $device || ! $device->is_active) {
-            Log::warning('Template upload: unknown or inactive device', ['serial' => $serialNumber]);
-            return response('ERROR', 401)->header('Content-Type', 'text/plain');
-        }
-
-        // Pattern to capture User ID and Template string
-        $pattern = '/USERID=(?P<userid>\d+).*?TMP=(?P<template>[a-zA-Z0-9+\/=\s]+)/s';
-        
-        if (preg_match($pattern, $content, $matches)) {
-            $userId = $matches['userid'];
-            $template = trim($matches['template']);
-            
-            // Resolve system user by employee_id (PIN)
-            $systemUser = User::where('employee_id', $userId)->first();
-            if (! $systemUser) {
-                Log::warning('Template upload: no system user for device PIN', [
-                    'device_serial' => $serialNumber,
-                    'device_user_id' => $userId,
-                ]);
-                return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
-            }
-
-            // Determine template type based on table
-            $templateType = $table === 'templatev10' ? 'fingerprint' : 'face';
-
-            try {
-                // Save to biometric_templates table
-                DB::table('biometric_templates')->updateOrInsert(
-                    [
-                        'device_user_id' => $userId,
-                        'biometric_device_id' => $device->id,
-                        'template_type' => $templateType,
-                    ],
-                    [
-                        'user_id' => $systemUser->id,
-                        'template_data' => $template,
-                        'template_size' => strlen($template),
-                        'template_version' => $table,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]
-                );
-
-                Log::info('Biometric template saved', [
-                    'device_serial' => $serialNumber,
-                    'user_id' => $userId,
-                    'template_type' => $templateType,
-                    'template_size' => strlen($template),
-                ]);
-
-                return new \Symfony\Component\HttpFoundation\Response(
-                    "OK",
-                    200,
-                    ['Content-Type' => 'text/plain']
-                );
-            } catch (\Exception $e) {
-                Log::error('Failed to save biometric template', [
-                    'device_serial' => $serialNumber,
-                    'user_id' => $userId,
-                    'error' => $e->getMessage(),
-                ]);
-                return response('ERROR', 500)->header('Content-Type', 'text/plain');
-            }
-        }
-
-        Log::warning('Template upload: invalid format', ['table' => $table]);
-        return response('ERROR', 400)->header('Content-Type', 'text/plain');
-    }
-
-    /**
-     * Extract serial number from an ADMS request.
-     * ZKTeco always sends SN as a query parameter (?SN=xxx), never in the body.
-     */
-    protected function getSerialNumber(Request $request): ?string
-    {
-        return $request->query('SN') ?: ($request->header('SN') ?: null);
-    }
-
-    /**
-     * Process attendance logs (refactored from admsPush)
-     */
-    protected function processAttendanceLogs($rawData, $request)
-    {
-        if (empty($rawData)) {
-            Log::warning('ADMS push: empty body');
-            return response('ERROR', 400)->header('Content-Type', 'text/plain');
-        }
-
-        // ZKTeco sends SN as query param (?SN=xxx); header is a fallback for edge cases
-        $serialNumber = $this->getSerialNumber($request);
-
-        if (! $serialNumber) {
-            Log::warning('ADMS push: missing serial number');
-            return response('ERROR', 400)->header('Content-Type', 'text/plain');
-        }
-
-        // Find device by serial number
-        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
-
-        if (! $device) {
-            Log::warning('ADMS push: unknown device', ['serial' => $serialNumber]);
-            return response('ERROR', 401)->header('Content-Type', 'text/plain');
-        }
-
-        if (! $device->is_active) {
-            Log::warning('ADMS push: inactive device', ['serial' => $serialNumber]);
-            return response('ERROR', 403)->header('Content-Type', 'text/plain');
-        }
-
-        // Update heartbeat
-        $device->update(['last_heartbeat_at' => now()]);
-
-        // Log the raw data for debugging
-        Log::info('ADMS push: raw ATTLOG data', [
-            'serial' => $serialNumber,
-            'raw_data' => $rawData,
-            'data_length' => strlen($rawData),
-        ]);
-
-        // Parse the attendance data
-        // Format: Multiple lines, each line tab-separated: PIN\tDateTime\tStatus\tVerifyCode\tWorkCode\tReserved...
-        $lines = explode("\n", trim($rawData));
-        $processedCount = 0;
-        $errorCount = 0;
-        $duplicateCount = 0;
-        $punchService = new AttendancePunchService();
-
-        foreach ($lines as $line) {
-            if (empty(trim($line))) {
-                continue;
-            }
-
-            // Parse tab-separated format
-            $parts = explode("\t", trim($line));
-            $data = [];
-            if (count($parts) >= 2) {
-                $data['PIN'] = $parts[0] ?? null;
-                $data['DateTime'] = $parts[1] ?? null;
-                $data['Status'] = $parts[2] ?? '0';
-                $data['VerifyCode'] = $parts[3] ?? null;
-                $data['WorkCode'] = $parts[4] ?? null;
-            }
-
-            Log::info('ADMS push: parsing ATTLOG line', [
-                'serial' => $serialNumber,
-                'line' => $line,
-                'parsed_data' => $data,
-            ]);
-
-            $hasUserId = !empty($data['PIN']);
-            $hasCheckTime = !empty($data['DateTime']);
-
-            // Skip lines that don't match ATTLOG format
-            if (! $hasUserId || ! $hasCheckTime) {
-                $errorCount++;
-                Log::warning('ADMS push: line does not match ATTLOG format', [
-                    'serial' => $serialNumber,
-                    'line' => $line,
-                    'parsed_data' => $data,
-                    'has_user_id' => $hasUserId,
-                    'has_check_time' => $hasCheckTime,
-                ]);
-                continue;
-            }
-
-            $deviceUserId = trim($data['PIN'] ?? '');
-            $checkTime = trim($data['DateTime'] ?? '');
-            // ZKTeco ADMS sends numeric check type: 0=IN, 1=OUT, 2=Break-Out, 3=Break-In, 4=OT-In, 5=OT-Out
-            $rawCheckType = trim($data['Status'] ?? '0');
-            $checkType = match ((string) $rawCheckType) {
-                '0'     => 'in',
-                '1'     => 'out',
-                '2'     => 'break_out',
-                '3'     => 'break_in',
-                '4'     => 'ot_in',
-                '5'     => 'ot_out',
-                'I', 'i' => 'in',
-                'O', 'o' => 'out',
-                default => 'in',
-            };
-
-            // Resolve user by matching PIN to employee_id
-            $user = User::withTrashed()->where('employee_id', $deviceUserId)->first();
-
-            if (! $user) {
-                // Auto-create as inactive placeholder so admin can link/activate later
-                $user = User::create([
-                    'name'        => 'Device User ' . $deviceUserId,
-                    'email'       => 'device_user_' . $deviceUserId . '@placeholder.local',
-                    'password'    => bcrypt(\Illuminate\Support\Str::random(32)),
-                    'employee_id' => $deviceUserId,
-                    'active'      => false,
-                ]);
-                // Soft-delete to make it inactive
-                $user->delete();
-                $attLogUserId = $user->id;
-                $attLogStatus = 'unknown_user';
-                $attLogReason = 'Auto-created as inactive placeholder';
-
-                Log::info('ADMS push: auto-created inactive user', [
-                    'device_serial'  => $serialNumber,
-                    'device_user_id' => $deviceUserId,
-                    'new_user_id'    => $user->id,
-                ]);
-            } else {
-                $attLogUserId = $user->id;
-                $attLogStatus = 'failed';
-                $attLogReason = 'Pending processing';
-            }
-
-            // Log the punch immediately — one row per punch, updated in-place as status advances
-            $logId = DB::table('biometric_att_logs')->insertGetId([
-                'biometric_device_id'   => $device->id,
-                'serial_number'         => $serialNumber,
-                'user_pin'              => $deviceUserId,
-                'user_id'               => $attLogUserId,
-                'punch_time'            => $checkTime,
-                'check_type'            => $checkType,
-                'punch_status'          => $attLogStatus,
-                'punch_status_reason'   => $attLogReason,
-                'verify_code'           => $data['VerifyCode'] ?? null,
-                'work_code'             => $data['WorkCode'] ?? null,
-                'raw_data'              => $line,
-                'context'               => json_encode($data),
-                'occurred_at'           => $checkTime,
-                'created_at'            => now(),
-                'updated_at'            => now(),
-            ]);
-
-            // If user was just auto-created, skip further processing
-            if ($attLogStatus === 'unknown_user') {
-                $errorCount++;
-                continue;
-            }
-
-            // Validate attendance type
-            if (! $user->attendance_type_id) {
-                $errorCount++;
-                DB::table('biometric_att_logs')->where('id', $logId)->update([
-                    'punch_status'        => 'failed',
-                    'punch_status_reason' => 'User has no attendance type assigned',
-                    'updated_at'          => now(),
-                ]);
-                Log::warning('ADMS push: user has no attendance type', [
-                    'device_serial' => $serialNumber,
-                    'user_id'       => $user->id,
-                ]);
-                continue;
-            }
-
-            $attendanceType = AttendanceType::with('biometricDevices')->find($user->attendance_type_id);
-
-            if (! $attendanceType || ! str_starts_with($attendanceType->slug, 'biometric')) {
-                $errorCount++;
-                DB::table('biometric_att_logs')->where('id', $logId)->update([
-                    'punch_status'        => 'failed',
-                    'punch_status_reason' => 'Attendance type is not biometric: ' . ($attendanceType?->slug ?? 'not found'),
-                    'updated_at'          => now(),
-                ]);
-                Log::warning('ADMS push: user attendance type is not biometric', [
-                    'device_serial'        => $serialNumber,
-                    'user_id'              => $user->id,
-                    'attendance_type_slug' => $attendanceType?->slug ?? null,
-                ]);
-                continue;
-            }
-
-            // Zone/group device check: if the AT has linked devices, punch must come from one of them
-            $linkedDevices = $attendanceType->biometricDevices;
-            $wrongDevice   = $linkedDevices->isNotEmpty() && ! $linkedDevices->contains('id', $device->id);
-
-            if ($wrongDevice) {
-                DB::table('biometric_att_logs')->where('id', $logId)->update([
-                    'punch_status'        => 'wrong_device',
-                    'punch_status_reason' => 'Device not in attendance zone',
-                    'updated_at'          => now(),
-                ]);
-                $errorCount++;
-                Log::warning('ADMS push: punch from device not in attendance zone', [
-                    'device_serial'    => $serialNumber,
-                    'device_id'        => $device->id,
-                    'user_id'          => $user->id,
-                    'attendance_type'  => $attendanceType->slug,
-                ]);
-                continue;
-            }
-
-            // Idempotency check: skip duplicate punches
-            $existingAttendance = DB::table('attendances')
-                ->where('user_id', $user->id)
-                ->where(function ($query) use ($checkTime) {
-                    $query->where('punchin', $checkTime)
-                          ->orWhere('punchout', $checkTime);
-                })
-                ->exists();
-
-            if ($existingAttendance) {
-                $duplicateCount++;
-                DB::table('biometric_att_logs')
-                    ->where('id', $logId)
-                    ->update(['punch_status' => 'duplicate', 'updated_at' => now()]);
-                Log::info('ADMS push: duplicate punch skipped', [
-                    'device_serial'  => $serialNumber,
-                    'device_user_id' => $deviceUserId,
-                    'check_time'     => $checkTime,
-                ]);
-                continue;
-            }
-
-            // Build synthetic request for punch service
-            $syntheticRequest = Request::create('/biometric/punch', 'POST', [
-                'device_serial'  => $serialNumber,
-                'device_user_id' => $deviceUserId,
-                'source'         => 'biometric',
-                'punch_time'     => $checkTime,
-                'check_type'     => $checkType,
-            ]);
-
-            // Process through existing punch service
-            try {
-                $result = $punchService->processPunch($user, $syntheticRequest);
-
-                if ($result['status'] === 'success') {
-                    $processedCount++;
-                    DB::table('biometric_att_logs')
-                        ->where('id', $logId)
-                        ->update(['punch_status' => 'processed', 'punch_status_reason' => null, 'updated_at' => now()]);
-                } else {
-                    $errorCount++;
-                    DB::table('biometric_att_logs')
-                        ->where('id', $logId)
-                        ->update([
-                            'punch_status'        => 'failed',
-                            'punch_status_reason' => $result['message'] ?? null,
-                            'updated_at'          => now(),
-                        ]);
-                }
-
-                Log::info('ADMS punch processed', [
-                    'user_id'        => $user->id,
-                    'device_serial'  => $serialNumber,
-                    'device_user_id' => $deviceUserId,
-                    'check_time'     => $checkTime,
-                    'check_type'     => $checkType,
-                    'result_status'  => $result['status'],
-                ]);
-
-                event(new BiometricAttendanceReceived($device, $user, [
-                    'device_user_id' => $deviceUserId,
-                    'check_time'     => $checkTime,
-                    'check_type'     => $checkType,
-                    'result'         => $result,
-                ]));
-            } catch (\Exception $e) {
-                $errorCount++;
-                Log::error('ADMS punch error: ' . $e->getMessage(), [
-                    'user_id'        => $user->id,
-                    'device_serial'  => $serialNumber,
-                    'device_user_id' => $deviceUserId,
-                ]);
-            }
-        }
-
-        Log::info('ADMS push completed', [
-            'serial' => $serialNumber,
-            'processed' => $processedCount,
-            'duplicates_skipped' => $duplicateCount,
-            'errors' => $errorCount,
-            'total_lines' => count($lines),
-        ]);
-
-        // Return plain text "OK" using Symfony response to ensure no extra whitespace
         return new \Symfony\Component\HttpFoundation\Response(
             "OK",
             200,
@@ -1094,21 +392,7 @@ class BiometricWebhookController extends Controller
             return response()->json(['message' => 'Commands only supported for ADMS protocol devices'], 400);
         }
 
-        $command = BiometricDeviceCommand::create([
-            'biometric_device_id' => $device->id,
-            'command_type' => $validated['command_type'],
-            'payload' => $validated['payload'] ?? null,
-            'status' => 'pending',
-            'scheduled_at' => $validated['scheduled_at'] ?? null,
-        ]);
-
-        Log::info('ADMS command queued', [
-            'device_id' => $device->id,
-            'device_serial' => $device->serial_number,
-            'command_id' => $command->id,
-            'command_type' => $command->command_type,
-            'scheduled_at' => $command->scheduled_at,
-        ]);
+        $command = $this->biometricService->createCommand($device, $validated);
 
         return response()->json([
             'message' => $command->isScheduled() ? 'Command scheduled successfully' : 'Command queued successfully',
@@ -1133,35 +417,17 @@ class BiometricWebhookController extends Controller
             return response()->json(['message' => 'Device not found'], 404);
         }
 
-        $commands = BiometricDeviceCommand::where('biometric_device_id', $deviceId)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $commandsArray = [];
-        foreach ($commands as $cmd) {
-            $commandsArray[] = [
-                'id' => $cmd->id,
-                'command_type' => $cmd->command_type,
-                'status' => $cmd->status,
-                'payload' => $cmd->payload,
-                'return_code' => $cmd->return_code,
-                'error_message' => $cmd->error_message,
-                'sent_at' => $cmd->sent_at,
-                'executed_at' => $cmd->executed_at,
-                'created_at' => $cmd->created_at,
-                'adms_string' => method_exists($cmd, 'toAdmsString') ? $cmd->toAdmsString() : null,
-            ];
-        }
+        $commandsArray = $this->biometricService->getCommandHistory((int) $deviceId);
 
         return response()->json(['commands' => $commandsArray]);
     }
 
     /**
-     * Get ADMS operation logs for monitoring (from biometric_oper_logs table)
+     * Get ADMS operation logs for monitoring.
      */
     public function getLogs(Request $request, $deviceId = null)
     {
-        $query = DB::table('biometric_oper_logs')
+        $query = \Illuminate\Support\Facades\DB::table('biometric_oper_logs')
             ->orderBy('occurred_at', 'desc')
             ->limit(100);
 
@@ -1187,7 +453,6 @@ class BiometricWebhookController extends Controller
 
     /**
      * ADMS Get Request - Device requests pending commands
-     * Similar to handshake but specifically for command polling
      */
     public function admsGetRequest(Request $request)
     {
@@ -1195,35 +460,24 @@ class BiometricWebhookController extends Controller
 
         if (! $serialNumber) {
             Log::warning('ADMS getrequest: missing serial number');
-            return response('ERROR', 400)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
-        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
+        $device = $this->biometricService->findDeviceBySerial($serialNumber);
 
         if (! $device) {
             Log::warning('ADMS getrequest: unknown device', ['serial' => $serialNumber]);
-            return response('ERROR', 404)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 404)->header('Content-Type', 'text/plain');
         }
 
         if (! $device->is_active) {
             Log::warning('ADMS getrequest: inactive device', ['serial' => $serialNumber]);
-            return response('ERROR', 403)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 403)->header('Content-Type', 'text/plain');
         }
 
-        // Update heartbeat
-        $device->update(['last_heartbeat_at' => now()]);
+        $this->biometricService->updateHeartbeat($device);
 
-        // Fetch pending commands — only deliver commands that are due now
-        $command = BiometricDeviceCommand::where('biometric_device_id', $device->id)
-            ->where('status', 'pending')
-            ->where(function ($q) {
-                $q->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', now());
-            })
-            ->oldest()
-            ->first();
+        $command = $this->biometricService->fetchNextPendingCommand($device);
 
         if ($command) {
             $command->markAsSent();
@@ -1255,29 +509,26 @@ class BiometricWebhookController extends Controller
      */
     public function admsDeviceCmd(Request $request)
     {
-        $serialNumber = $this->getSerialNumber($request);
+        $serialNumber = $this->biometricService->getSerialNumber($request);
         $rawData = $request->getContent();
 
         if (! $serialNumber) {
             Log::warning('ADMS devicecmd: missing serial number');
-            return response('ERROR', 400)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
-        $device = BiometricDevice::where('serial_number', $serialNumber)->first();
+        $device = $this->biometricService->findDeviceBySerial($serialNumber);
 
         if (! $device) {
             Log::warning('ADMS devicecmd: unknown device', ['serial' => $serialNumber]);
-            return response('ERROR', 404)
-                ->header('Content-Type', 'text/plain');
+            return response('ERROR', 404)->header('Content-Type', 'text/plain');
         }
 
-        // Parse acknowledgment (format: ID=1&Return=0)
         $normalizedData = str_replace(["\n", "\t"], '&', $rawData);
         parse_str($normalizedData, $ackData);
 
         if (isset($ackData['ID'])) {
-            $command = BiometricDeviceCommand::find($ackData['ID']);
+            $command = \App\Models\HRM\BiometricDeviceCommand::find($ackData['ID']);
             if ($command) {
                 $returnCode = $ackData['Return'] ?? '1';
                 $command->markAsExecuted($returnCode);
@@ -1288,16 +539,10 @@ class BiometricWebhookController extends Controller
                     'command_type' => $command->command_type,
                     'return_code' => $returnCode,
                 ]);
-            } else {
-                Log::warning('ADMS devicecmd: command not found', [
-                    'serial' => $serialNumber,
-                    'command_id' => $ackData['ID'],
-                ]);
             }
         }
 
-        // Update heartbeat
-        $device->update(['last_heartbeat_at' => now()]);
+        $this->biometricService->updateHeartbeat($device);
 
         return new \Symfony\Component\HttpFoundation\Response(
             "OK",

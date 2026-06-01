@@ -8,13 +8,13 @@ use App\Services\Attendance\IpLocationValidator;
 use App\Services\Attendance\PolygonLocationValidator;
 use App\Services\Attendance\QrCodeValidator;
 use App\Services\Attendance\RouteWaypointValidator;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Tests\TestCase;
 
 class AttendanceMultiConfigTest extends TestCase
 {
-    use DatabaseTransactions;
+    use RefreshDatabase;
 
     private User $user;
 

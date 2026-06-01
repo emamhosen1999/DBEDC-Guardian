@@ -30,13 +30,15 @@ class DailyWorkInspectionDetailsTest extends TestCase
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        // Create necessary permissions
+        // Create necessary roles and permissions
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'daily-works.view']);
         Permission::firstOrCreate(['name' => 'daily-works.update']);
 
         // Create users
         $this->adminUser = User::factory()->create();
         $this->adminUser->assignRole('Administrator');
+        $this->adminUser->givePermissionTo(['daily-works.view', 'daily-works.update']);
 
         $this->inchargeUser = User::factory()->create();
         $this->inchargeUser->givePermissionTo(['daily-works.view', 'daily-works.update']);

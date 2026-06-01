@@ -15,7 +15,7 @@ class UpdateInspectionDetailsRequest extends FormRequest
         $dailyWork = DailyWork::find($this->input('id'));
 
         if (! $dailyWork) {
-            return false;
+            return true; // Let exists validation rule fail and return 422
         }
 
         return $this->user()->can('updateInspectionDetails', $dailyWork);

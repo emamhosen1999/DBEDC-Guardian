@@ -480,13 +480,15 @@ class DailyWorkService
         if ($this->isPrivilegedUser($user)) {
             // Managers and admin roles can access all daily works.
         } else {
-            // Employee logic based on jurisdiction incharge
-            if ($user->hasRole('Employee')) {
+            if ($userDesignationTitle === 'Supervision Engineer') {
+                $query->where('incharge', $user->id);
+            } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
+                $query->where('assigned', $user->id);
+            } elseif ($user->hasRole('Employee')) {
                 // Check if user is incharge of any jurisdiction
                 $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
 
                 if ($hasJurisdiction) {
-                    // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
                     \Log::info('Employee with jurisdiction - showing own incharge works', [
                         'user_id' => $user->id,
                     ]);
@@ -504,26 +506,25 @@ class DailyWorkService
                         $query->where('incharge', $user->id);
                     }
                 }
+            } elseif ($user->report_to) {
+                // For other roles (non-employee, non-admin) with a manager: apply report_to visibility
+                \Log::info('User with manager - applying universal filter', [
+                    'user_id' => $user->id,
+                    'report_to' => $user->report_to,
+                ]);
+                $query->where(function ($dailyWorkQuery) use ($user) {
+                    $dailyWorkQuery
+                        ->where('incharge', $user->id)
+                        ->orWhere('assigned', $user->id)
+                        ->orWhere('incharge', $user->report_to);
+                });
             } else {
-                // For other roles (non-employee, non-admin): show own works (incharge/assigned) AND manager's works (incharge) if report_to is set
-                if ($user->report_to) {
-                    \Log::info('User with manager - applying universal filter', [
-                        'user_id' => $user->id,
-                        'report_to' => $user->report_to,
-                    ]);
-                    $query->where(function ($dailyWorkQuery) use ($user) {
-                        $dailyWorkQuery
-                            ->where('incharge', $user->id)
-                            ->orWhere('assigned', $user->id)
-                            ->orWhere('incharge', $user->report_to);
-                    });
-                } else {
-                    $query->where(function ($dailyWorkQuery) use ($user) {
-                        $dailyWorkQuery
-                            ->where('incharge', $user->id)
-                            ->orWhere('assigned', $user->id);
-                    });
-                }
+                // Otherwise, show only own works (incharge or assigned)
+                $query->where(function ($dailyWorkQuery) use ($user) {
+                    $dailyWorkQuery
+                        ->where('incharge', $user->id)
+                        ->orWhere('assigned', $user->id);
+                });
             }
         }
 

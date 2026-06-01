@@ -17,28 +17,31 @@ class AttendancePaginateTest extends TestCase
     {
         parent::setUp();
 
-        // Create roles
-        Role::create(['name' => 'Employee']);
-        Role::create(['name' => 'Admin']);
+        // Reset cached roles and permissions
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        // Create roles and permissions
+        Role::firstOrCreate(['name' => 'Employee']);
+        Role::firstOrCreate(['name' => 'Admin']);
+        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
     public function test_paginate_handles_null_punchout_gracefully(): void
     {
         // Create a user with Employee role
-        $user = User::create([
+        $user = User::factory()->create([
             'name' => 'Test Employee',
             'email' => 'employee@test.com',
-            'password' => bcrypt('password'),
         ]);
         $user->assignRole('Employee');
 
         // Create an admin user to make the request
-        $admin = User::create([
+        $admin = User::factory()->create([
             'name' => 'Test Admin',
             'email' => 'admin@test.com',
-            'password' => bcrypt('password'),
         ]);
         $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
 
         // Create an attendance record with only punch in (punchout is null)
         Attendance::create([
@@ -76,20 +79,19 @@ class AttendancePaginateTest extends TestCase
     public function test_paginate_with_multiple_punches_and_null_punchouts(): void
     {
         // Create a user with Employee role
-        $user = User::create([
+        $user = User::factory()->create([
             'name' => 'Test Employee 2',
             'email' => 'employee2@test.com',
-            'password' => bcrypt('password'),
         ]);
         $user->assignRole('Employee');
 
         // Create an admin user to make the request
-        $admin = User::create([
+        $admin = User::factory()->create([
             'name' => 'Test Admin 2',
             'email' => 'admin2@test.com',
-            'password' => bcrypt('password'),
         ]);
         $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
 
         $today = Carbon::today();
 

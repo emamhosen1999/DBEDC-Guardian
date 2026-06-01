@@ -291,7 +291,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function hasSingleDeviceLoginEnabled(): bool
     {
-        return $this->single_device_login_enabled;
+        return (bool) $this->single_device_login_enabled;
     }
 
     /**
@@ -299,7 +299,7 @@ class User extends Authenticatable implements HasMedia
      */
     public function getSingleDeviceLoginAttribute(): bool
     {
-        return $this->single_device_login_enabled;
+        return (bool) $this->single_device_login_enabled;
     }
 
     /**

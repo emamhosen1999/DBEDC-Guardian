@@ -460,6 +460,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('check-user-locations-updates');
         Route::get('check-timesheet-updates/{date}/{month?}', [AttendanceController::class, 'checkTimesheetUpdates'])
             ->name('check-timesheet-updates');
+
+        // Export routes (dispatchers for frontend export buttons)
+        Route::get('/attendance/daily-timesheet/export', [AttendanceController::class, 'exportDailyTimesheet'])->name('attendance.dailyTimesheet.export');
+        Route::get('/attendance/monthly-calendar/export', [AttendanceController::class, 'exportMonthlyCalendar'])->name('attendance.monthlyCalendar.export');
     });
 
     // Attendance management routes (admin actions)

@@ -44,8 +44,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_list_only_owned_or_assigned_daily_works(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
 
         $ownedWork = DailyWork::factory()->forUsers($user, $user)->create();
         $assignedWork = DailyWork::factory()->forUsers($otherUser, $user)->create();
@@ -68,8 +68,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_get_selectable_dates_for_owned_or_assigned_daily_works(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
 
         DailyWork::factory()->forUsers($user, $user)->create([
             'date' => '2025-12-18',
@@ -105,10 +105,9 @@ class MobileDailyWorkApiTest extends TestCase
         $supervisionEngineerDesignationId = $this->createDesignation('Supervision Engineer');
 
         $supervisionEngineer = User::factory()->create([
-            'active' => true,
             'designation_id' => $supervisionEngineerDesignationId,
         ]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $otherUser = User::factory()->create();
 
         $inchargeWork = DailyWork::factory()->forUsers($supervisionEngineer, $otherUser)->create();
         $assignedOnlyWork = DailyWork::factory()->forUsers($otherUser, $supervisionEngineer)->create();
@@ -136,10 +135,9 @@ class MobileDailyWorkApiTest extends TestCase
         $qualityControlInspectorDesignationId = $this->createDesignation('Quality Control Inspector');
 
         $qualityControlInspector = User::factory()->create([
-            'active' => true,
             'designation_id' => $qualityControlInspectorDesignationId,
         ]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $otherUser = User::factory()->create();
 
         $inchargeOnlyWork = DailyWork::factory()->forUsers($qualityControlInspector, $otherUser)->create();
         $assignedWork = DailyWork::factory()->forUsers($otherUser, $qualityControlInspector)->create();
@@ -160,17 +158,15 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_manager_can_update_incharge_and_assigned_on_mobile_api(): void
     {
-        $manager = User::factory()->create(['active' => true]);
+        $manager = User::factory()->create();
         $this->assignManagerRole($manager);
 
-        $currentIncharge = User::factory()->create(['active' => true]);
-        $nextIncharge = User::factory()->create(['active' => true]);
+        $currentIncharge = User::factory()->create();
+        $nextIncharge = User::factory()->create();
         $currentAssignee = User::factory()->create([
-            'active' => true,
             'report_to' => $currentIncharge->id,
         ]);
         $nextAssignee = User::factory()->create([
-            'active' => true,
             'report_to' => $nextIncharge->id,
         ]);
 
@@ -201,14 +197,12 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_incharge_can_update_assigned_but_cannot_update_incharge_on_mobile_api(): void
     {
-        $incharge = User::factory()->create(['active' => true]);
-        $otherIncharge = User::factory()->create(['active' => true]);
+        $incharge = User::factory()->create();
+        $otherIncharge = User::factory()->create();
         $currentAssignee = User::factory()->create([
-            'active' => true,
             'report_to' => $incharge->id,
         ]);
         $nextAssignee = User::factory()->create([
-            'active' => true,
             'report_to' => $incharge->id,
         ]);
 
@@ -232,9 +226,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_assignee_cannot_view_incharge_or_assigned_columns_in_mobile_payload(): void
     {
-        $incharge = User::factory()->create(['active' => true]);
+        $incharge = User::factory()->create();
         $assignee = User::factory()->create([
-            'active' => true,
             'report_to' => $incharge->id,
         ]);
 
@@ -256,7 +249,7 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_selectable_dates_endpoint_applies_search_and_status_filters(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
 
         DailyWork::factory()->forUsers($user, $user)->create([
             'date' => '2025-11-01',
@@ -287,8 +280,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_view_owned_daily_work_but_not_unrelated_work(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
 
         $ownedWork = DailyWork::factory()->forUsers($user, $user)->create();
         $unrelatedWork = DailyWork::factory()->forUsers($otherUser, $otherUser)->create();
@@ -308,7 +301,7 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_update_status_for_owned_daily_work(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
         $dailyWork = DailyWork::factory()->forUsers($user, $user)->newStatus()->create();
 
         Sanctum::actingAs($user);
@@ -338,7 +331,7 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_list_objections_for_owned_daily_work(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
         $dailyWork = DailyWork::factory()->forUsers($user, $user)->create();
 
         $objectionId = $this->insertObjectionForDailyWork($dailyWork, $user->id);
@@ -355,7 +348,7 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_create_objection_for_owned_daily_work(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
         $dailyWork = DailyWork::factory()->forUsers($user, $user)->create();
 
         Sanctum::actingAs($user);
@@ -400,8 +393,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_cannot_manage_objections_for_unrelated_daily_work(): void
     {
-        $owner = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
 
         $dailyWork = DailyWork::factory()->forUsers($owner, $owner)->create();
 
@@ -423,7 +416,7 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_mobile_objection_metadata_endpoint_returns_reference_data(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
 
         Sanctum::actingAs($user);
 
@@ -445,8 +438,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_list_only_own_objections_from_mobile_my_objections_endpoint(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
 
         $ownedDailyWork = DailyWork::factory()->forUsers($user, $user)->create();
         $otherDailyWork = DailyWork::factory()->forUsers($otherUser, $otherUser)->create();
@@ -493,7 +486,7 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_user_can_filter_mobile_my_objections_by_status_category_and_search(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
         $dailyWork = DailyWork::factory()->forUsers($user, $user)->create();
 
         $this->insertObjectionForDailyWork($dailyWork, $user->id, [
@@ -522,11 +515,11 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_manager_can_list_mobile_objection_queue_with_statistics_and_creators(): void
     {
-        $manager = User::factory()->create(['active' => true]);
+        $manager = User::factory()->create();
         $this->assignManagerRole($manager);
 
-        $creatorOne = User::factory()->create(['active' => true]);
-        $creatorTwo = User::factory()->create(['active' => true]);
+        $creatorOne = User::factory()->create();
+        $creatorTwo = User::factory()->create();
 
         $dailyWorkOne = DailyWork::factory()->forUsers($creatorOne, $creatorOne)->create();
         $dailyWorkTwo = DailyWork::factory()->forUsers($creatorTwo, $creatorTwo)->create();
@@ -572,11 +565,11 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_manager_can_filter_mobile_objection_queue_by_status_category_creator_and_search(): void
     {
-        $manager = User::factory()->create(['active' => true]);
+        $manager = User::factory()->create();
         $this->assignManagerRole($manager);
 
-        $creatorOne = User::factory()->create(['active' => true]);
-        $creatorTwo = User::factory()->create(['active' => true]);
+        $creatorOne = User::factory()->create();
+        $creatorTwo = User::factory()->create();
 
         $dailyWorkOne = DailyWork::factory()->forUsers($creatorOne, $creatorOne)->create();
         $dailyWorkTwo = DailyWork::factory()->forUsers($creatorTwo, $creatorTwo)->create();
@@ -608,7 +601,7 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_non_manager_cannot_access_mobile_objection_queue_endpoint(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
 
         Sanctum::actingAs($user);
 
@@ -620,8 +613,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_creator_can_submit_objection_and_manager_can_review_and_resolve(): void
     {
-        $creator = User::factory()->create(['active' => true]);
-        $manager = User::factory()->create(['active' => true]);
+        $creator = User::factory()->create();
+        $manager = User::factory()->create();
         $this->assignManagerRole($manager);
 
         $dailyWork = DailyWork::factory()->forUsers($creator, $creator)->create();
@@ -665,8 +658,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_manager_can_reject_submitted_objection(): void
     {
-        $creator = User::factory()->create(['active' => true]);
-        $manager = User::factory()->create(['active' => true]);
+        $creator = User::factory()->create();
+        $manager = User::factory()->create();
         $this->assignManagerRole($manager);
 
         $dailyWork = DailyWork::factory()->forUsers($creator, $creator)->create();
@@ -698,8 +691,8 @@ class MobileDailyWorkApiTest extends TestCase
 
     public function test_non_manager_cannot_review_resolve_or_reject_objection(): void
     {
-        $creator = User::factory()->create(['active' => true]);
-        $nonManager = User::factory()->create(['active' => true]);
+        $creator = User::factory()->create();
+        $nonManager = User::factory()->create();
 
         $dailyWork = DailyWork::factory()->forUsers($creator, $nonManager)->create();
         $objectionId = $this->insertObjectionForDailyWork($dailyWork, $creator->id, [
@@ -734,7 +727,7 @@ class MobileDailyWorkApiTest extends TestCase
     {
         Storage::fake('public');
 
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
         $dailyWork = DailyWork::factory()->forUsers($user, $user)->create();
         $objectionId = $this->insertObjectionForDailyWork($dailyWork, $user->id, [
             'status' => RfiObjection::STATUS_DRAFT,
@@ -778,8 +771,8 @@ class MobileDailyWorkApiTest extends TestCase
     {
         Storage::fake('public');
 
-        $owner = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
         $dailyWork = DailyWork::factory()->forUsers($owner, $owner)->create();
         $objectionId = $this->insertObjectionForDailyWork($dailyWork, $owner->id, [
             'status' => RfiObjection::STATUS_DRAFT,
@@ -821,7 +814,7 @@ class MobileDailyWorkApiTest extends TestCase
     {
         Storage::fake('public');
 
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create();
         $dailyWork = DailyWork::factory()->forUsers($user, $user)->create();
         $objectionId = $this->insertObjectionForDailyWork($dailyWork, $user->id, [
             'status' => RfiObjection::STATUS_DRAFT,
@@ -905,3 +898,4 @@ class MobileDailyWorkApiTest extends TestCase
         ])->id;
     }
 }
+
