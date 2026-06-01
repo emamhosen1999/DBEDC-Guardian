@@ -52,6 +52,15 @@ return Application::configure(basePath: dirname(__DIR__))
             $errorCode = 'INTERNAL_SERVER_ERROR';
             $message = 'An unexpected error occurred. Please try again.';
 
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                if ($e->getStatusCode() === 204) {
+                    return null;
+                }
+                $statusCode = $e->getStatusCode();
+                $errorCode = 'HTTP_EXCEPTION';
+                $message = $e->getMessage() ?: $message;
+            }
+
             // Determine error code and message based on exception type
             if ($e instanceof \Illuminate\Auth\AuthenticationException) {
                 $statusCode = 401;

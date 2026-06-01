@@ -230,6 +230,8 @@ class DailyWorkMultiWordSearchTest extends TestCase
     private function createAuthorizedUser(): User
     {
         $user = User::factory()->create();
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Administrator']);
+        $user->assignRole('Administrator');
         $user->givePermissionTo('daily-works.view');
 
         return $user;

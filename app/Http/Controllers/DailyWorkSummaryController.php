@@ -654,7 +654,9 @@ class DailyWorkSummaryController extends Controller
             $rfiSubmissionPercentage = $completed > 0 ? round(($rfiSubmissions / $completed) * 100, 1) : 0;
 
             // Fetch import snapshot from daily_work_summaries (immutable)
-            $importSummaries = \App\Models\DailyWorkSummary::where('date', $date)->get();
+            $importSummaries = \Illuminate\Support\Facades\Schema::hasTable('daily_work_summaries')
+                ? \App\Models\DailyWorkSummary::where('date', $date)->get()
+                : collect();
             $importSnapshot = $importSummaries->isEmpty() ? null : [
                 'totalDailyWorks' => $importSummaries->sum('totalDailyWorks'),
                 'resubmissions' => $importSummaries->sum('resubmissions'),
