@@ -3,14 +3,18 @@ import laravel from 'laravel-vite-plugin';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import fs from 'node:fs';
+import { globSync } from 'glob';
 
 // Replace 'aero-enterprise-suite' with your actual system username if using Herd/Valet paths
 const host = 'aero-enterprise-suite.test';
 
+// Dynamically discover all Inertia page components
+const pageFiles = globSync('resources/js/Pages/**/*.{js,jsx}');
+
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.jsx'],
+            input: ['resources/css/app.css', 'resources/js/app.jsx', ...pageFiles],
             refresh: true,
         }),
         react(),

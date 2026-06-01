@@ -57,7 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 $statusCode = 401;
                 $errorCode = 'AUTHENTICATION_REQUIRED';
                 $message = 'Authentication required. Please login to continue.';
-            } elseif ($e instanceof \Illuminate\Auth\Access\AuthorizationException) {
+            } elseif ($e instanceof \Illuminate\Auth\Access\AuthorizationException || $e instanceof \Spatie\Permission\Exceptions\UnauthorizedException) {
                 $statusCode = 403;
                 $errorCode = 'FORBIDDEN';
                 $message = 'You do not have permission to perform this action.';
