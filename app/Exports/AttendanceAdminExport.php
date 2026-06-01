@@ -23,7 +23,7 @@ class AttendanceAdminExport
 
             $users = User::with(['attendances', 'leaves'])
                 ->role('Employee')
-                ->where('active', 1)
+                ->whereNull('deleted_at')
                 ->get();
 
             $leaveTypes = LeaveSetting::all();

@@ -705,7 +705,7 @@ class RfiObjectionController extends Controller
             // For submitted events, also notify managers/admins
             if ($event === 'submitted') {
                 $managers = \App\Models\User::role(['Super Admin', 'Admin', 'Project Manager', 'Consultant'])
-                    ->where('active', true)
+                    ->whereNull('deleted_at')
                     ->get();
                 $usersToNotify = $usersToNotify->merge($managers);
             }

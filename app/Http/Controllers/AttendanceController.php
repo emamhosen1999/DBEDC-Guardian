@@ -1677,7 +1677,7 @@ class AttendanceController extends Controller
             $to = $from->copy()->endOfMonth();
             $monthName = $from->format('F Y');
 
-            $users = User::with(['attendances', 'leaves'])->role('Employee')->where('active', 1)->get();
+            $users = User::with(['attendances', 'leaves'])->role('Employee')->whereNull('deleted_at')->get();
             $leaveTypes = LeaveSetting::all();
             $holidays = Holiday::all();
 

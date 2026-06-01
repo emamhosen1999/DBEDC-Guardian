@@ -267,7 +267,11 @@ class ProfileController extends Controller
             }
 
             if ($request->filled('status')) {
-                $query->where('active', $request->status === 'active');
+                if ($request->status === 'active') {
+                    $query->whereNull('deleted_at');
+                } elseif ($request->status === 'inactive') {
+                    $query->whereNotNull('deleted_at');
+                }
             }
 
             // Sorting
