@@ -118,7 +118,7 @@ export const getPages = (roles, permissions, auth = null) => {
     /* Quality module — enable when resources/js/Pages/Quality/* exist */
 
     // 8. Admin & Settings (System Administration)
-    ...((permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') || permissions.includes('company.settings') || permissions.includes('attendance.settings') || permissions.includes('leave-settings.view')) ? [{
+    ...((permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') || permissions.includes('company.settings') || permissions.includes('attendance.settings') || permissions.includes('leave-settings.view') || permissions.includes('request_logs.view') || (auth?.user && auth?.roles?.includes('Super Administrator'))) ? [{
       name: 'Admin',
       icon: <Cog6ToothIcon className="" />,
       priority: 8,
@@ -161,8 +161,8 @@ export const getPages = (roles, permissions, auth = null) => {
 // Utility functions for navigation management
 
 // Get pages by module for better organization
-export const getPagesByModule = (permissions) => {
-  const pages = getPages(permissions);
+export const getPagesByModule = (roles, permissions, auth = null) => {
+  const pages = getPages(roles, permissions, auth);
   const modules = {};
   
   pages.forEach(page => {
@@ -177,13 +177,13 @@ export const getPagesByModule = (permissions) => {
 };
 
 // Get pages sorted by priority
-export const getPagesByPriority = (permissions) => {
-  return getPages(permissions).sort((a, b) => (a.priority || 999) - (b.priority || 999));
+export const getPagesByPriority = (roles, permissions, auth = null) => {
+  return getPages(roles, permissions, auth).sort((a, b) => (a.priority || 999) - (b.priority || 999));
 };
 
 // Get navigation breadcrumb path
-export const getNavigationPath = (currentRoute, permissions) => {
-  const pages = getPages(permissions);
+export const getNavigationPath = (currentRoute, roles, permissions, auth = null) => {
+  const pages = getPages(roles, permissions, auth);
   const path = [];
   // Find the current page in the navigation structure
   const findPageInMenu = (menuItems, targetRoute, currentPath = []) => {

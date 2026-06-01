@@ -117,7 +117,7 @@ Route::post('/log-performance', function (Request $request) {
 })->middleware(['web', 'auth', 'throttle:60,1']);
 
 // System monitoring API routes
-Route::middleware(['web', 'auth', 'throttle:api'])->group(function () {
+Route::middleware(['web', 'auth', 'role:Super Administrator', 'throttle:api'])->group(function () {
     Route::get('/system-monitoring/metrics', [SystemMonitoringController::class, 'getMetrics'])->name('api.system-monitoring.metrics');
     Route::get('/system-monitoring/overview', [SystemMonitoringController::class, 'getSystemOverview'])->name('api.system-monitoring.overview');
 });

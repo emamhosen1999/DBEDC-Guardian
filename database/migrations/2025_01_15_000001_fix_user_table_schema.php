@@ -17,14 +17,14 @@ return new class extends Migration
                 $table->boolean('active')->default(true)->after('email_verified_at');
             }
 
-            // Check if we need to rename columns to match database schema
-            if (Schema::hasColumn('users', 'department_id') && ! Schema::hasColumn('users', 'department')) {
-                $table->renameColumn('department_id', 'department');
-            }
+            // Commented out to match active Eloquent models which use department_id and designation_id
+            // if (Schema::hasColumn('users', 'department_id') && ! Schema::hasColumn('users', 'department')) {
+            //     $table->renameColumn('department_id', 'department');
+            // }
 
-            if (Schema::hasColumn('users', 'designation_id') && ! Schema::hasColumn('users', 'designation')) {
-                $table->renameColumn('designation_id', 'designation');
-            }
+            // if (Schema::hasColumn('users', 'designation_id') && ! Schema::hasColumn('users', 'designation')) {
+            //     $table->renameColumn('designation_id', 'designation');
+            // }
         });
     }
 
@@ -38,13 +38,13 @@ return new class extends Migration
                 $table->dropColumn('active');
             }
 
-            if (Schema::hasColumn('users', 'department') && ! Schema::hasColumn('users', 'department_id')) {
-                $table->renameColumn('department', 'department_id');
-            }
+            // if (Schema::hasColumn('users', 'department') && ! Schema::hasColumn('users', 'department_id')) {
+            //     $table->renameColumn('department', 'department_id');
+            // }
 
-            if (Schema::hasColumn('users', 'designation') && ! Schema::hasColumn('users', 'designation_id')) {
-                $table->renameColumn('designation', 'designation_id');
-            }
+            // if (Schema::hasColumn('users', 'designation') && ! Schema::hasColumn('users', 'designation_id')) {
+            //     $table->renameColumn('designation', 'designation_id');
+            // }
         });
     }
 };

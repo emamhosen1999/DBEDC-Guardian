@@ -20,6 +20,7 @@ use App\Models\RfiObjection;
 use App\Models\User;
 use App\Repositories\DailyWorkRepository;
 use App\Services\DailyWork\DailyWorkQueryService;
+use App\Services\Project\DailyWorkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class DailyWorkController extends Controller
 
     protected DailyWorkRepository $dailyWorkRepository;
     protected DailyWorkQueryService $dailyWorkQueryService;
+    protected DailyWorkService $dailyWorkService;
 
     /**
      * @var array<int, array<int, array{id:int,name:string}>>
@@ -46,10 +48,12 @@ class DailyWorkController extends Controller
 
     public function __construct(
         DailyWorkRepository $dailyWorkRepository,
-        DailyWorkQueryService $dailyWorkQueryService
+        DailyWorkQueryService $dailyWorkQueryService,
+        DailyWorkService $dailyWorkService
     ) {
         $this->dailyWorkRepository = $dailyWorkRepository;
         $this->dailyWorkQueryService = $dailyWorkQueryService;
+        $this->dailyWorkService = $dailyWorkService;
     }
 
     public function index(ListDailyWorksRequest $request): JsonResponse
@@ -314,24 +318,12 @@ class DailyWorkController extends Controller
 
         $status = (string) $request->input('status');
 
-        $updateData = [
-            'status' => $status,
-        ];
-
-        if ($request->filled('inspection_result')) {
-            $updateData['inspection_result'] = $request->input('inspection_result');
-        }
-
-        if ($status === DailyWork::STATUS_COMPLETED && ! $dailyWork->completion_time) {
-            $updateData['completion_time'] = now();
-        }
-
-        if ($status === DailyWork::STATUS_NEW) {
-            $updateData['completion_time'] = null;
-            $updateData['inspection_result'] = null;
-        }
-
-        $dailyWork->update($updateData);
+        $this->dailyWorkService->updateStatus(
+            $dailyWork,
+            $status,
+            $request->input('inspection_result'),
+            false // API updates do not modify submission_time
+        );
 
         $dailyWork->load([
             'inchargeUser:id,name',
@@ -363,9 +355,7 @@ class DailyWorkController extends Controller
             ], 403);
         }
 
-        $dailyWork->update([
-            'incharge' => $request->input('incharge'),
-        ]);
+        $this->dailyWorkService->updateIncharge($dailyWork, $request->input('incharge'));
 
         $dailyWork->load([
             'inchargeUser:id,name',
@@ -397,9 +387,7 @@ class DailyWorkController extends Controller
             ], 403);
         }
 
-        $dailyWork->update([
-            'assigned' => $request->input('assigned'),
-        ]);
+        $this->dailyWorkService->updateAssigned($dailyWork, $request->input('assigned'));
 
         $dailyWork->load([
             'inchargeUser:id,name',
@@ -494,59 +482,7 @@ class DailyWorkController extends Controller
         }
 
         try {
-            DB::beginTransaction();
-
-            $rangeFrom = $request->input('chainage_range_from', $request->input('chainage_from'));
-            $rangeTo = $request->input('chainage_range_to', $request->input('chainage_to'));
-
-            $objection = new RfiObjection;
-            $objection->title = $request->input('title');
-            $objection->category = $request->input('category', RfiObjection::CATEGORY_OTHER);
-            $objection->description = $request->input('description');
-            $objection->reason = $request->input('reason');
-            $objection->status = $request->input('status', RfiObjection::STATUS_DRAFT);
-            $objection->created_by = (int) $request->user()->id;
-
-            if (Schema::hasColumn('rfi_objections', 'type')) {
-                $objection->type = $request->input('type');
-            }
-
-            if (Schema::hasColumn('rfi_objections', 'chainage_from')) {
-                $objection->chainage_from = $rangeFrom;
-            }
-
-            if (Schema::hasColumn('rfi_objections', 'chainage_to')) {
-                $objection->chainage_to = $rangeTo;
-            }
-
-            if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
-                $objection->setAttribute('daily_work_id', $dailyWork->id);
-            }
-
-            $objection->save();
-
-            if (Schema::hasTable('daily_work_objection')) {
-                $objection->dailyWorks()->syncWithoutDetaching([
-                    $dailyWork->id => [
-                        'attached_by' => $request->user()->id,
-                        'attached_at' => now(),
-                        'attachment_notes' => $request->input('attachment_notes'),
-                    ],
-                ]);
-            }
-
-            if (Schema::hasTable('objection_chainages')) {
-                $specificChainages = array_values(array_filter(
-                    array_map('trim', preg_split('/\s*,\s*/', (string) $request->input('specific_chainages', ''))),
-                    fn (string $chainage): bool => $chainage !== ''
-                ));
-
-                $objection->syncChainages($specificChainages, $rangeFrom, $rangeTo);
-            }
-
-            DB::commit();
-
-            $objection = $objection->fresh(['createdBy:id,name']) ?? $objection;
+            $objection = $this->dailyWorkService->storeObjection($dailyWork, $request->all(), $request->user());
 
             return response()->json([
                 'success' => true,
@@ -554,7 +490,6 @@ class DailyWorkController extends Controller
                 'data' => $this->transformObjection($objection),
             ], 201);
         } catch (\Throwable $exception) {
-            DB::rollBack();
             report($exception);
 
             return response()->json([
@@ -599,12 +534,12 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection->submit('Submitted for review');
+            $objection = $this->dailyWorkService->submitObjection($objection);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Objection submitted for review.',
-                'data' => $this->transformObjection($objection->fresh(['createdBy:id,name']) ?? $objection),
+                'data' => $this->transformObjection($objection),
             ]);
         } catch (\InvalidArgumentException $exception) {
             return response()->json([
@@ -656,12 +591,12 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection->startReview('Review started');
+            $objection = $this->dailyWorkService->startReviewObjection($objection);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Objection is now under review.',
-                'data' => $this->transformObjection($objection->fresh(['createdBy:id,name']) ?? $objection),
+                'data' => $this->transformObjection($objection),
             ]);
         } catch (\InvalidArgumentException $exception) {
             return response()->json([
@@ -713,12 +648,12 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection->resolve($request->input('resolution_notes'));
+            $objection = $this->dailyWorkService->resolveObjection($objection, $request->input('resolution_notes'));
 
             return response()->json([
                 'success' => true,
                 'message' => 'Objection resolved successfully.',
-                'data' => $this->transformObjection($objection->fresh(['createdBy:id,name']) ?? $objection),
+                'data' => $this->transformObjection($objection),
             ]);
         } catch (\InvalidArgumentException $exception) {
             return response()->json([
@@ -771,12 +706,12 @@ class DailyWorkController extends Controller
 
         try {
             $reason = $request->input('resolution_notes', $request->input('rejection_reason'));
-            $objection->reject($reason);
+            $objection = $this->dailyWorkService->rejectObjection($objection, $reason);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Objection rejected.',
-                'data' => $this->transformObjection($objection->fresh(['createdBy:id,name']) ?? $objection),
+                'data' => $this->transformObjection($objection),
             ]);
         } catch (\InvalidArgumentException $exception) {
             return response()->json([
@@ -865,12 +800,8 @@ class DailyWorkController extends Controller
         $uploadedFiles = [];
 
         try {
-            foreach ($request->file('files') as $file) {
-                $media = $objection
-                    ->addMedia($file)
-                    ->usingFileName($this->generateUniqueMediaFileName($file))
-                    ->toMediaCollection('objection_files');
-
+            $files = $this->dailyWorkService->uploadObjectionFiles($objection, $request->file('files'));
+            foreach ($files as $media) {
                 $uploadedFiles[] = $this->transformObjectionFile($media);
             }
 
@@ -1075,198 +1006,42 @@ class DailyWorkController extends Controller
 
     private function buildFilteredDailyWorksQuery(User $user, ListDailyWorksRequest $request): Builder
     {
-        $query = DailyWork::query();
-        $userDesignationTitle = $this->getUserDesignationTitle($user);
-
-        \Log::info('buildFilteredDailyWorksQuery', [
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'report_to' => $user->report_to,
-            'designation' => $userDesignationTitle,
-            'is_privileged' => $this->isPrivilegedUser($user),
-        ]);
-
-        if ($this->isPrivilegedUser($user)) {
-            // Managers and admin roles can access all daily works.
-        } else {
-            // Employee logic based on jurisdiction incharge
-            if ($user->hasRole('Employee')) {
-                // Check if user is incharge of any jurisdiction
-                $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-                
-                if ($hasJurisdiction) {
-                    // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
-                    \Log::info('Employee with jurisdiction - showing own incharge works', [
-                        'user_id' => $user->id,
-                    ]);
-                    $query->where('incharge', $user->id);
-                } else {
-                    // Employee has no jurisdiction: show works where their manager (report_to) is incharge
-                    if ($user->report_to) {
-                        \Log::info('Employee without jurisdiction - showing manager\'s incharge works', [
-                            'user_id' => $user->id,
-                            'report_to' => $user->report_to,
-                        ]);
-                        $query->where('incharge', $user->report_to);
-                    } else {
-                        // No jurisdiction and no manager: show own works
-                        $query->where('incharge', $user->id);
-                    }
-                }
-            } else {
-                // For other roles (non-employee, non-admin): show own works (incharge/assigned) AND manager's works (incharge) if report_to is set
-                if ($user->report_to) {
-                    \Log::info('User with manager - applying universal filter', [
-                        'user_id' => $user->id,
-                        'report_to' => $user->report_to,
-                    ]);
-                    $query->where(function ($dailyWorkQuery) use ($user) {
-                        $dailyWorkQuery
-                            ->where('incharge', $user->id)
-                            ->orWhere('assigned', $user->id)
-                            ->orWhere('incharge', $user->report_to);
-                    });
-                } else {
-                    $query->where(function ($dailyWorkQuery) use ($user) {
-                        $dailyWorkQuery
-                            ->where('incharge', $user->id)
-                            ->orWhere('assigned', $user->id);
-                    });
-                }
-            }
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
-        }
-
-        if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
-        }
-
-        if ($request->filled('date_from') && $request->filled('date_to')) {
-            $query->whereBetween('date', [$request->input('date_from'), $request->input('date_to')]);
-        } elseif ($request->filled('date_from')) {
-            $query->whereDate('date', '>=', $request->input('date_from'));
-        } elseif ($request->filled('date_to')) {
-            $query->whereDate('date', '<=', $request->input('date_to'));
-        }
-
-        if ($request->filled('search')) {
-            $search = (string) $request->input('search');
-
-            $query->where(function ($searchQuery) use ($search) {
-                $searchQuery
-                    ->where('number', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('location', 'like', "%{$search}%")
-                    ->orWhere('inspection_details', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->boolean('only_with_objections')) {
-            $query->whereHas('objections', function ($objectionQuery) {
-                $objectionQuery->whereIn('rfi_objections.status', RfiObjection::$activeStatuses);
-            });
-        }
-
-        return $query;
+        return $this->dailyWorkService->buildFilteredDailyWorksQuery($user, $request->all());
     }
 
     private function canAccessDailyWork(User $user, DailyWork $dailyWork): bool
     {
-        if ($this->isPrivilegedUser($user)) {
-            return true;
-        }
-
-        // Employee logic based on jurisdiction incharge
-        if ($user->hasRole('Employee')) {
-            // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
-            if ($hasJurisdiction) {
-                // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge
-                return (int) $dailyWork->incharge === (int) $user->id;
-            } else {
-                // Employee has no jurisdiction: can view works where their manager (report_to) is incharge
-                if ($user->report_to) {
-                    return (int) $dailyWork->incharge === (int) $user->report_to;
-                }
-                // No jurisdiction and no manager: can view own works
-                return (int) $dailyWork->incharge === (int) $user->id;
-            }
-        }
-
-        // For other roles (non-employee, non-admin): can view if incharge/assigned OR manager is incharge
-        if ((int) $dailyWork->incharge === (int) $user->id
-            || (int) $dailyWork->assigned === (int) $user->id) {
-            return true;
-        }
-
-        if ($user->report_to && (int) $dailyWork->incharge === (int) $user->report_to) {
-            return true;
-        }
-
-        return false;
+        return $this->dailyWorkService->canAccessDailyWork($user, $dailyWork);
     }
 
     private function canSubmitObjection(User $user, RfiObjection $objection): bool
     {
-        return (int) $objection->created_by === (int) $user->id || $this->isPrivilegedUser($user);
+        return $this->dailyWorkService->canSubmitObjection($user, $objection);
     }
 
     private function canViewObjectionFiles(User $user, DailyWork $dailyWork, RfiObjection $objection): bool
     {
-        return $this->isPrivilegedUser($user)
-            || (int) $objection->created_by === (int) $user->id
-            || $this->canAccessDailyWork($user, $dailyWork);
+        return $this->dailyWorkService->canViewObjectionFiles($user, $dailyWork, $objection);
     }
 
     private function canManageObjectionFiles(User $user, DailyWork $dailyWork, RfiObjection $objection): bool
     {
-        if (! in_array($objection->status, [RfiObjection::STATUS_DRAFT, RfiObjection::STATUS_SUBMITTED], true)) {
-            return false;
-        }
-
-        return $this->isPrivilegedUser($user)
-            || (int) $objection->created_by === (int) $user->id
-            || $this->canAccessDailyWork($user, $dailyWork);
+        return $this->dailyWorkService->canManageObjectionFiles($user, $dailyWork, $objection);
     }
 
     private function canReviewObjection(User $user): bool
     {
-        return $this->isPrivilegedUser($user);
+        return $this->dailyWorkService->canReviewObjection($user);
     }
 
     private function findObjectionForDailyWork(int $dailyWorkId, int $objectionId): ?RfiObjection
     {
-        return RfiObjection::query()
-            ->with(['createdBy:id,name'])
-            ->where('id', $objectionId)
-            ->where(function ($objectionQuery) use ($dailyWorkId) {
-                $objectionQuery->whereHas('dailyWorks', function ($dailyWorkQuery) use ($dailyWorkId) {
-                    $dailyWorkQuery->where('daily_works.id', $dailyWorkId);
-                });
-
-                if (Schema::hasColumn('rfi_objections', 'daily_work_id')) {
-                    $objectionQuery->orWhere('daily_work_id', $dailyWorkId);
-                }
-            })
-            ->first();
+        return $this->dailyWorkService->findObjectionForDailyWork($dailyWorkId, $objectionId);
     }
 
     private function isPrivilegedUser(User $user): bool
     {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'Daily Work Manager',
-            'HR Manager',
-            'Project Manager',
-            'Consultant',
-            'Super Administrator',
-            'Administrator',
-        ]);
+        return $this->dailyWorkService->isPrivilegedUser($user);
     }
 
     private function transformDailyWork(DailyWork $dailyWork, User $user): array
@@ -1396,15 +1171,6 @@ class DailyWorkController extends Controller
         ];
     }
 
-    private function generateUniqueMediaFileName(mixed $file): string
-    {
-        $extension = $file->getClientOriginalExtension();
-        $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-        $baseName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $baseName);
-
-        return substr((string) $baseName, 0, 100).'_'.time().'_'.uniqid().'.'.$extension;
-    }
-
     private function countObjectionFiles(RfiObjection $objection): int
     {
         return $objection->media()
@@ -1447,15 +1213,7 @@ class DailyWorkController extends Controller
 
     private function getUserDesignationTitle(User $user): string
     {
-        if (! Schema::hasColumn('users', 'designation_id') || ! Schema::hasTable('designations')) {
-            return '';
-        }
-
-        if (! $user->relationLoaded('designation')) {
-            $user->load('designation:id,title');
-        }
-
-        return trim((string) ($user->designation?->title ?? ''));
+        return $this->dailyWorkService->getUserDesignationTitle($user);
     }
 
     /**

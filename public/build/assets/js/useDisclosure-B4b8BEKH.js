@@ -1,1 +1,0 @@
-import{a as e}from"./vendor-inertia-dU45ikgZ.js";function r(o=!1){const[t,s]=e.useState(o),a=e.useCallback(()=>s(!0),[]),n=e.useCallback(()=>s(!1),[]),l=e.useCallback(()=>s(c=>!c),[]);return{isOpen:t,onOpen:a,onClose:n,onToggle:l,setIsOpen:s}}export{r as u};
