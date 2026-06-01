@@ -54,18 +54,14 @@ export const usePerformance = (componentName, options = {}) => {
 
         window.addEventListener('webVitalsUpdate', handleMetricsUpdate);
 
-        if (enableLogging) {
-            console.log(`🎯 Performance tracking initialized for: ${componentName}`);
-        }
+
 
         return () => {
             window.removeEventListener('webVitalsUpdate', handleMetricsUpdate);
             
             if (mountTime.current) {
                 const totalTime = performance.now() - mountTime.current;
-                if (enableLogging) {
-                    console.log(`📊 Component Lifecycle - ${componentName}: ${totalTime.toFixed(2)}ms`);
-                }
+
             }
         };
     }, [componentName, enableLogging]);
@@ -75,9 +71,7 @@ export const usePerformance = (componentName, options = {}) => {
         if (trackRender && renderStartTime.current) {
             const renderTime = performance.now() - renderStartTime.current;
             
-            if (enableLogging) {
-                console.log(`🎨 Render Time - ${componentName}: ${renderTime.toFixed(2)}ms`);
-            }
+
 
             if (renderTime > alertThreshold) {
                 console.warn(`🐌 Slow render detected - ${componentName}: ${renderTime.toFixed(2)}ms`);
@@ -135,9 +129,7 @@ export const usePerformance = (componentName, options = {}) => {
             const result = await asyncFunction();
             const duration = performance.now() - startTime;
             
-            if (enableLogging) {
-                console.log(`⚡ Async Operation - ${operationName}: ${duration.toFixed(2)}ms`);
-            }
+
 
             if (duration > alertThreshold) {
                 console.warn(`🐌 Slow async operation - ${operationName}: ${duration.toFixed(2)}ms`);
@@ -226,12 +218,7 @@ export const usePerformance = (componentName, options = {}) => {
                     `user-interaction-${interactionName}-end`
                 );
 
-                if (enableLogging) {
-                    const measures = performance.getEntriesByName(`user-interaction-${interactionName}`);
-                    if (measures.length > 0) {
-                        console.log(`👆 User Interaction - ${interactionName}: ${measures[0].duration.toFixed(2)}ms`);
-                    }
-                }
+
             };
         }
         

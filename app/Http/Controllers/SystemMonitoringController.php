@@ -1475,7 +1475,7 @@ class SystemMonitoringController extends Controller
     private function checkEncryptionCompliance()
     {
         $httpsEnabled = request()->secure();
-        $databaseEncryption = env('DB_ENCRYPT', false);
+        $databaseEncryption = config('database.connections.mysql.options.encrypt', false);
 
         return [
             'compliant' => $httpsEnabled,

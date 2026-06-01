@@ -36,7 +36,6 @@ class PerformanceBaseline {
         }
 
         this.isRunning = true;
-        console.log('🚀 Starting Glass ERP Performance Baseline Collection');
 
         try {
             // Define all feature modules and their key pages
@@ -81,7 +80,7 @@ class PerformanceBaseline {
 
             // Test each feature module
             for (const [moduleName, pages] of Object.entries(featureModules)) {
-                console.log(`📊 Testing module: ${moduleName}`);
+
                 
                 const moduleResults = await this.testFeatureModule(moduleName, pages);
                 this.baselineData.features[moduleName] = moduleResults;
@@ -99,8 +98,7 @@ class PerformanceBaseline {
             // Store baseline data
             await this.storeBaseline(this.baselineData);
             
-            console.log('✅ Performance baseline collection completed');
-            console.log('📊 Baseline Report:', report);
+
             
             return report;
 
@@ -169,7 +167,7 @@ class PerformanceBaseline {
             // Analyze for issues
             pageResults.issues = this.analyzePageIssues(pageResults);
 
-            console.log(`  ✓ ${pagePath}: ${pageResults.loadTime.toFixed(2)}ms`);
+
 
         } catch (error) {
             console.error(`  ❌ ${pagePath}:`, error);
@@ -482,7 +480,7 @@ class PerformanceBaseline {
                 });
             }
 
-            console.log('💾 Baseline data stored successfully');
+
         } catch (error) {
             console.error('Failed to store baseline data:', error);
         }
@@ -550,7 +548,7 @@ class PerformanceBaseline {
             }
         });
 
-        console.log('📊 Performance Comparison:', comparison);
+
         return comparison;
     }
 

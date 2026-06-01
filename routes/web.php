@@ -10,20 +10,20 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EducationController;
-use App\Http\Controllers\EmailController;
+
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ExperienceController;
-use App\Http\Controllers\FMSController;
+
 use App\Http\Controllers\HolidayController;
-use App\Http\Controllers\IMSController;
+
 use App\Http\Controllers\JurisdictionController;
 use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\LetterController;
-use App\Http\Controllers\LMSController;
+
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\ObjectionController;
-use App\Http\Controllers\POSController;
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
 use App\Http\Controllers\ReportController;
@@ -277,7 +277,7 @@ Route::middleware($middlewareStack)->group(function () {
     });
 
     // Communications routes
-    Route::middleware(['permission:communications.own.view'])->get('/emails', [EmailController::class, 'index'])->name('emails');
+
 
     // Leave summary route
     Route::middleware(['permission:leaves.view,leaves.own.view'])->get('/leave-summary', [LeaveController::class, 'summary'])->name('leave.summary');
@@ -635,13 +635,8 @@ Route::middleware(['auth', 'verified', 'permission:modules.delete'])->group(func
     Route::delete('/admin/modules/components/{component}', [ModuleController::class, 'destroyComponent'])->name('modules.components.destroy');
 });
 
-// Role Debug Routes (for troubleshooting live server issues)
-Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(function () {
-    Route::get('/admin/roles/debug', [App\Http\Controllers\RoleDebugController::class, 'debug'])->name('admin.roles.debug');
-    Route::post('/admin/roles/debug/refresh-cache', [App\Http\Controllers\RoleDebugController::class, 'refreshCache'])->name('admin.roles.debug.refresh-cache');
-    Route::get('/admin/roles/debug/test-role', [App\Http\Controllers\RoleDebugController::class, 'testRole'])->name('admin.roles.debug.test-role');
-    Route::post('/admin/roles/debug/test-permission', [App\Http\Controllers\RoleDebugController::class, 'testPermissionAssignment'])->name('admin.roles.debug.test-permission');
-});
+
+
 
 // System Monitoring Routes (Super Administrator only)
 Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(function () {
@@ -649,152 +644,6 @@ Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(funct
     Route::post('/admin/errors/{errorId}/resolve', [SystemMonitoringController::class, 'resolveError'])->name('admin.errors.resolve');
     Route::get('/admin/system-report', [SystemMonitoringController::class, 'exportReport'])->name('admin.system-report');
     Route::get('/admin/optimization-report', [SystemMonitoringController::class, 'getOptimizationReport'])->name('admin.optimization-report');
-
-    if (config('features.commercial_stack')) {
-        // CRM Module routes
-        Route::middleware(['permission:view_crm'])->prefix('crm')->group(function () {
-            Route::get('/', [App\Http\Controllers\CRMController::class, 'index'])->name('crm.index');
-            Route::get('/leads', [App\Http\Controllers\CRMController::class, 'leads'])->name('crm.leads');
-            Route::post('/leads', [App\Http\Controllers\CRMController::class, 'storeLeads'])->name('crm.leads.store')->middleware('permission:create_leads');
-            Route::get('/customers', [App\Http\Controllers\CRMController::class, 'customers'])->name('crm.customers')->middleware('permission:view_customers');
-            Route::get('/opportunities', [App\Http\Controllers\CRMController::class, 'opportunities'])->name('crm.opportunities')->middleware('permission:view_opportunities');
-            Route::get('/pipeline', [App\Http\Controllers\CRMController::class, 'pipeline'])->name('crm.pipeline')->middleware('permission:view_sales_pipeline');
-            Route::get('/reports', [App\Http\Controllers\CRMController::class, 'reports'])->name('crm.reports')->middleware('permission:view_crm_reports');
-            Route::get('/settings', [App\Http\Controllers\CRMController::class, 'settings'])->name('crm.settings')->middleware('permission:manage_crm_settings');
-        });
-
-        // FMS Module routes
-        Route::middleware(['permission:financial-reports.view'])->prefix('fms')->group(function () {
-            Route::get('/', [FMSController::class, 'index'])->name('fms.index');
-
-            // Accounts Payable
-            Route::get('/accounts-payable', [FMSController::class, 'accountsPayable'])->name('fms.accounts-payable')->middleware('permission:accounts-payable.view');
-            Route::post('/accounts-payable', [FMSController::class, 'storeAccountsPayable'])->name('fms.accounts-payable.store')->middleware('permission:accounts-payable.manage');
-
-            // Accounts Receivable
-            Route::get('/accounts-receivable', [FMSController::class, 'accountsReceivable'])->name('fms.accounts-receivable')->middleware('permission:accounts-receivable.view');
-            Route::post('/accounts-receivable', [FMSController::class, 'storeAccountsReceivable'])->name('fms.accounts-receivable.store')->middleware('permission:accounts-receivable.manage');
-
-            // General Ledger
-            Route::get('/general-ledger', [FMSController::class, 'generalLedger'])->name('fms.general-ledger')->middleware('permission:ledger.view');
-            Route::post('/general-ledger', [FMSController::class, 'storeLedgerEntry'])->name('fms.general-ledger.store')->middleware('permission:ledger.manage');
-
-            // Reports
-            Route::get('/reports', [FMSController::class, 'reports'])->name('fms.reports')->middleware('permission:financial-reports.view');
-            Route::post('/reports/generate', [FMSController::class, 'generateReport'])->name('fms.reports.generate')->middleware('permission:financial-reports.create');
-
-            // Budgets
-            Route::get('/budgets', [FMSController::class, 'budgets'])->name('fms.budgets')->middleware('permission:ledger.view');
-            Route::post('/budgets', [FMSController::class, 'storeBudget'])->name('fms.budgets.store')->middleware('permission:ledger.manage');
-
-            // Expenses
-            Route::get('/expenses', [FMSController::class, 'expenses'])->name('fms.expenses')->middleware('permission:ledger.view');
-            Route::post('/expenses', [FMSController::class, 'storeExpense'])->name('fms.expenses.store')->middleware('permission:ledger.manage');
-
-            // Invoices
-            Route::get('/invoices', [FMSController::class, 'invoices'])->name('fms.invoices')->middleware('permission:financial-reports.view');
-            Route::post('/invoices', [FMSController::class, 'storeInvoice'])->name('fms.invoices.store')->middleware('permission:financial-reports.create');
-
-            // Settings
-            Route::get('/settings', [FMSController::class, 'settings'])->name('fms.settings')->middleware('permission:ledger.manage');
-            Route::put('/settings', [FMSController::class, 'updateSettings'])->name('fms.settings.update')->middleware('permission:ledger.manage');
-        });
-
-        // POS Module routes
-        Route::middleware(['permission:retail.view'])->prefix('pos')->group(function () {
-            Route::get('/', [POSController::class, 'index'])->name('pos.index');
-
-            // POS Terminal
-            Route::get('/terminal', [POSController::class, 'terminal'])->name('pos.terminal')->middleware('permission:pos.access');
-
-            // Sales Management
-            Route::get('/sales', [POSController::class, 'sales'])->name('pos.sales')->middleware('permission:retail.view');
-            Route::post('/sales/process', [POSController::class, 'processSale'])->name('pos.sales.process')->middleware('permission:pos.access');
-
-            // Product Management
-            Route::get('/products', [POSController::class, 'products'])->name('pos.products')->middleware('permission:retail.view');
-            Route::get('/products/barcode/{barcode}', [POSController::class, 'getProductByBarcode'])->name('pos.products.barcode')->middleware('permission:pos.access');
-
-            // Customer Management
-            Route::get('/customers', [POSController::class, 'customers'])->name('pos.customers')->middleware('permission:retail.view');
-
-            // Payment Management
-            Route::get('/payments', [POSController::class, 'payments'])->name('pos.payments')->middleware('permission:retail.view');
-
-            // Reports
-            Route::get('/reports', [POSController::class, 'reports'])->name('pos.reports')->middleware('permission:retail.view');
-
-            // Settings
-            Route::get('/settings', [POSController::class, 'settings'])->name('pos.settings')->middleware('permission:retail.manage');
-            Route::put('/settings', [POSController::class, 'updateSettings'])->name('pos.settings.update')->middleware('permission:retail.manage');
-        });
-
-        // IMS Module routes (Inventory Management System)
-        Route::middleware(['permission:inventory.view'])->prefix('ims')->group(function () {
-            Route::get('/', [IMSController::class, 'index'])->name('ims.index');
-
-            // Products Management
-            Route::get('/products', [IMSController::class, 'products'])->name('ims.products')->middleware('permission:inventory.view');
-            Route::post('/products', [IMSController::class, 'storeProduct'])->name('ims.products.store')->middleware('permission:inventory.create');
-
-            // Warehouse Management
-            Route::get('/warehouse', [IMSController::class, 'warehouse'])->name('ims.warehouse')->middleware('permission:inventory.view');
-            Route::post('/warehouse', [IMSController::class, 'storeWarehouse'])->name('ims.warehouse.store')->middleware('permission:warehousing.manage');
-
-            // Stock Movements
-            Route::get('/stock-movements', [IMSController::class, 'stockMovements'])->name('ims.stock-movements')->middleware('permission:inventory.view');
-            Route::post('/stock-movements', [IMSController::class, 'createMovement'])->name('ims.stock-movements.store')->middleware('permission:inventory.update');
-
-            // Suppliers
-            Route::get('/suppliers', [IMSController::class, 'suppliers'])->name('ims.suppliers')->middleware('permission:suppliers.view');
-            Route::post('/suppliers', [IMSController::class, 'storeSupplier'])->name('ims.suppliers.store')->middleware('permission:suppliers.create');
-
-            // Purchase Orders
-            Route::get('/purchase-orders', [IMSController::class, 'purchaseOrders'])->name('ims.purchase-orders')->middleware('permission:purchase-orders.view');
-            Route::post('/purchase-orders', [IMSController::class, 'storePurchaseOrder'])->name('ims.purchase-orders.store')->middleware('permission:purchase-orders.create');
-
-            // Reports
-            Route::get('/reports', [IMSController::class, 'reports'])->name('ims.reports')->middleware('permission:inventory.view');
-
-            // Settings
-            Route::get('/settings', [IMSController::class, 'settings'])->name('ims.settings')->middleware('permission:warehousing.manage');
-            Route::put('/settings', [IMSController::class, 'updateSettings'])->name('ims.settings.update')->middleware('permission:warehousing.manage');
-        });
-
-        // LMS Module routes (Learning Management System)
-        Route::middleware(['permission:lms.view'])->prefix('lms')->group(function () {
-            Route::get('/', [LMSController::class, 'index'])->name('lms.index');
-
-            // Course Management
-            Route::get('/courses', [LMSController::class, 'courses'])->name('lms.courses')->middleware('permission:lms.courses.view');
-            Route::post('/courses', [LMSController::class, 'storeCourse'])->name('lms.courses.store')->middleware('permission:lms.courses.create');
-
-            // Student Management
-            Route::get('/students', [LMSController::class, 'students'])->name('lms.students')->middleware('permission:lms.students.view');
-            Route::post('/students', [LMSController::class, 'storeStudent'])->name('lms.students.store')->middleware('permission:lms.students.create');
-            Route::put('/students/{id}', [LMSController::class, 'updateStudent'])->name('lms.students.update')->middleware('permission:lms.students.update');
-            Route::delete('/students/{id}', [LMSController::class, 'destroyStudent'])->name('lms.students.destroy')->middleware('permission:lms.students.delete');
-
-            // Instructor Management
-            Route::get('/instructors', [LMSController::class, 'instructors'])->name('lms.instructors')->middleware('permission:lms.instructors.view');
-            Route::post('/instructors', [LMSController::class, 'storeInstructor'])->name('lms.instructors.store')->middleware('permission:lms.instructors.create');
-            Route::put('/instructors/{id}', [LMSController::class, 'updateInstructor'])->name('lms.instructors.update')->middleware('permission:lms.instructors.update');
-            Route::delete('/instructors/{id}', [LMSController::class, 'destroyInstructor'])->name('lms.instructors.destroy')->middleware('permission:lms.instructors.delete');
-
-            // Assessment Management
-            Route::get('/assessments', [LMSController::class, 'assessments'])->name('lms.assessments')->middleware('permission:lms.assessments.view');
-            Route::post('/assessments', [LMSController::class, 'storeAssessment'])->name('lms.assessments.store')->middleware('permission:lms.assessments.create');
-
-            // Certificate Management
-            Route::get('/certificates', [LMSController::class, 'certificates'])->name('lms.certificates')->middleware('permission:lms.certificates.view');
-            Route::post('/certificates', [LMSController::class, 'storeCertificate'])->name('lms.certificates.store')->middleware('permission:lms.certificates.create');
-            Route::put('/certificates/{id}', [LMSController::class, 'updateCertificate'])->name('lms.certificates.update')->middleware('permission:lms.certificates.update');
-            Route::delete('/certificates/{id}', [LMSController::class, 'destroyCertificate'])->name('lms.certificates.destroy')->middleware('permission:lms.certificates.delete');
-
-            // Reports
-            Route::get('/reports', [LMSController::class, 'reports'])->name('lms.reports')->middleware('permission:lms.reports.view');
-        });
-    }
 
     // Designation Management
     Route::middleware(['permission:hr.designations.view'])->group(function () {
@@ -853,113 +702,6 @@ Route::get('/service-worker.js', function () {
     abort(404);
 })->name('service-worker');
 
-// Temporary test route for debugging employee deletion authorization
-Route::middleware(['auth', 'verified'])->get('/test-employee-auth', function () {
-    $currentUser = \Illuminate\Support\Facades\Auth::user();
-    $employee = \App\Models\User::where('id', '!=', $currentUser->id)->first();
-
-    if (! $employee) {
-        return response()->json(['error' => 'No other employee found for testing']);
-    }
-
-    $controller = new \App\Http\Controllers\EmployeeController;
-    $reflection = new ReflectionClass($controller);
-    $method = $reflection->getMethod('canDeleteEmployee');
-    $method->setAccessible(true);
-    $canDelete = $method->invoke($controller, $currentUser, $employee);
-
-    return response()->json([
-        'current_user' => [
-            'id' => $currentUser->id,
-            'name' => $currentUser->name,
-            'roles' => $currentUser->roles->pluck('name'),
-            'has_users_delete_permission' => $currentUser->can('users.delete'),
-            'has_super_admin_role' => $currentUser->hasRole('Super Administrator'),
-            'has_hr_manager_role' => $currentUser->hasRole('HR Manager'),
-            'has_administrator_role' => $currentUser->hasRole('Administrator'),
-        ],
-        'target_employee' => [
-            'id' => $employee->id,
-            'name' => $employee->name,
-        ],
-        'can_delete' => $canDelete,
-        'authorization_result' => $canDelete ? 'AUTHORIZED' : 'UNAUTHORIZED',
-    ]);
-});
-
-// Event Management Public Routes (no authentication required)
-Route::prefix('events')->group(function () {
-    Route::get('/', [\App\Http\Controllers\PublicEventController::class, 'index'])->name('public.events.index');
-    Route::get('/{slug}', [\App\Http\Controllers\PublicEventController::class, 'show'])->name('public.events.show');
-    Route::post('/{slug}/register', [\App\Http\Controllers\PublicEventController::class, 'register'])->name('public.events.register');
-    Route::get('/{slug}/registration-success/{token}', [\App\Http\Controllers\PublicEventController::class, 'registrationSuccess'])->name('public.events.registration-success');
-    Route::get('/check-registration', [\App\Http\Controllers\PublicEventController::class, 'checkRegistration'])->name('public.events.check-registration');
-    Route::get('/token/{token}/download', [\App\Http\Controllers\PublicEventController::class, 'downloadToken'])->name('public.events.download-token');
-});
-
-// Event Management Admin Routes (require authentication and permissions)
-Route::middleware(['auth', 'verified'])->prefix('admin/events')->group(function () {
-    // Create route must come before {event} routes to avoid matching "create" as an event ID
-    Route::middleware(['permission:event.create'])->group(function () {
-        Route::get('/create', [\App\Http\Controllers\EventController::class, 'create'])->name('events.create');
-        Route::post('/', [\App\Http\Controllers\EventController::class, 'store'])->name('events.store');
-    });
-
-    // Event CRUD - View routes
-    Route::middleware(['permission:event.view'])->group(function () {
-        Route::get('/', [\App\Http\Controllers\EventController::class, 'index'])->name('events.index');
-        Route::get('/{event}/analytics', [\App\Http\Controllers\EventController::class, 'analytics'])->name('events.analytics');
-        Route::get('/{event}', [\App\Http\Controllers\EventController::class, 'show'])->name('events.show');
-    });
-
-    Route::middleware(['permission:event.create'])->group(function () {
-        Route::post('/{event}/duplicate', [\App\Http\Controllers\EventController::class, 'duplicate'])->name('events.duplicate');
-    });
-
-    Route::middleware(['permission:event.update'])->group(function () {
-        Route::get('/{event}/edit', [\App\Http\Controllers\EventController::class, 'edit'])->name('events.edit');
-        Route::put('/{event}', [\App\Http\Controllers\EventController::class, 'update'])->name('events.update');
-        Route::post('/{event}/toggle-publish', [\App\Http\Controllers\EventController::class, 'togglePublish'])->name('events.toggle-publish');
-    });
-
-    Route::middleware(['permission:event.delete'])->group(function () {
-        Route::delete('/{event}', [\App\Http\Controllers\EventController::class, 'destroy'])->name('events.destroy');
-    });
-
-    // Sub-Events Management
-    Route::middleware(['permission:event.update'])->group(function () {
-        Route::post('/{event}/sub-events', [\App\Http\Controllers\SubEventController::class, 'store'])->name('sub-events.store');
-        Route::put('/{event}/sub-events/{subEvent}', [\App\Http\Controllers\SubEventController::class, 'update'])->name('sub-events.update');
-        Route::delete('/{event}/sub-events/{subEvent}', [\App\Http\Controllers\SubEventController::class, 'destroy'])->name('sub-events.destroy');
-        Route::post('/{event}/sub-events/reorder', [\App\Http\Controllers\SubEventController::class, 'reorder'])->name('sub-events.reorder');
-        Route::post('/{event}/sub-events/{subEvent}/toggle-active', [\App\Http\Controllers\SubEventController::class, 'toggleActive'])->name('sub-events.toggle-active');
-    });
-
-    // Registration Management
-    Route::middleware(['permission:event.registration.manage'])->group(function () {
-        Route::get('/{event}/registrations', [\App\Http\Controllers\EventRegistrationController::class, 'index'])->name('events.registrations.index');
-        Route::get('/{event}/registrations/{registration}', [\App\Http\Controllers\EventRegistrationController::class, 'show'])->name('events.registrations.show');
-        Route::post('/{event}/registrations/{registration}/approve', [\App\Http\Controllers\EventRegistrationController::class, 'approve'])->name('events.registrations.approve');
-        Route::post('/{event}/registrations/{registration}/reject', [\App\Http\Controllers\EventRegistrationController::class, 'reject'])->name('events.registrations.reject');
-        Route::post('/{event}/registrations/{registration}/cancel', [\App\Http\Controllers\EventRegistrationController::class, 'cancel'])->name('events.registrations.cancel');
-        Route::post('/{event}/registrations/{registration}/verify-payment', [\App\Http\Controllers\EventRegistrationController::class, 'verifyPayment'])->name('events.registrations.verify-payment');
-        Route::post('/{event}/registrations/bulk-approve', [\App\Http\Controllers\EventRegistrationController::class, 'bulkApprove'])->name('events.registrations.bulk-approve');
-        Route::post('/{event}/registrations/bulk-reject', [\App\Http\Controllers\EventRegistrationController::class, 'bulkReject'])->name('events.registrations.bulk-reject');
-        Route::get('/{event}/registrations/export/csv', [\App\Http\Controllers\EventRegistrationController::class, 'exportCsv'])->name('events.registrations.export-csv');
-        Route::get('/{event}/registrations/export/pdf', [\App\Http\Controllers\EventRegistrationController::class, 'exportPdf'])->name('events.registrations.export-pdf');
-        Route::get('/{event}/registrations/{registration}/print-token', [\App\Http\Controllers\EventRegistrationController::class, 'printToken'])->name('events.registrations.print-token');
-    });
-});
-
-// Include all module routes
-if (config('features.commercial_stack')) {
-    require __DIR__.'/modules.php';
-}
-
-// require __DIR__.'/quality.php'; // File does not exist
-
-require __DIR__.'/hr.php';
-
 // Petty Cash Routes
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/petty-cash', [PettyCashController::class, 'index'])->name('petty-cash.index');
@@ -973,6 +715,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/petty-cash/delete-bill', [PettyCashController::class, 'deleteBill'])->name('petty-cash.delete-bill');
     Route::get('/petty-cash/export', [PettyCashController::class, 'exportData'])->name('petty-cash.export');
 });
-
 
 require __DIR__.'/auth.php';

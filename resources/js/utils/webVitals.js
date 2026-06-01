@@ -39,7 +39,7 @@ class WebVitalsMonitor {
         // Initialize session tracking
         this.initializeSession();
         
-        console.log('🚀 Glass ERP Performance Monitoring Initialized');
+
     }
 
     setupCoreWebVitals() {
@@ -108,7 +108,7 @@ class WebVitalsMonitor {
                 });
                 longTaskObserver.observe({ entryTypes: ['longtask'] });
             } catch (e) {
-                console.log('Long task observer not supported');
+                // Long task observer not supported
             }
         }
     }
@@ -160,7 +160,7 @@ class WebVitalsMonitor {
             page: this.getCurrentPage()
         };
 
-        console.log('📊 Navigation Timings:', timings);
+
     }
 
     handleResourceTiming(entry) {
@@ -315,7 +315,7 @@ class WebVitalsMonitor {
         this.sessionStart = Date.now();
         this.baselineData.sessions += 1;
 
-        console.log(`🔍 Performance Session Started: ${this.sessionId}`);
+
     }
 
     generateSessionId() {
@@ -409,7 +409,7 @@ class WebVitalsMonitor {
             recommendations: this.generateRecommendations()
         };
 
-        console.log('📊 Performance Report Generated:', report);
+
         return report;
     }
 
@@ -503,7 +503,7 @@ export const measureFeatureLoad = (featureName, startTime) => {
     const endTime = performance.now();
     const loadTime = endTime - startTime;
     
-    console.log(`⚡ Feature Load Time - ${featureName}: ${loadTime.toFixed(2)}ms`);
+
     
     if (loadTime > 1000) {
         console.warn(`🐌 Slow feature load detected: ${featureName}`);
@@ -519,7 +519,7 @@ export const measureComponentRender = (componentName) => {
         const endTime = performance.now();
         const renderTime = endTime - startTime;
         
-        console.log(`🎨 Component Render - ${componentName}: ${renderTime.toFixed(2)}ms`);
+    
         
         if (renderTime > 16) { // 60fps threshold
             console.warn(`🐌 Slow component render: ${componentName}`);

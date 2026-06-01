@@ -60,7 +60,15 @@ class AuthServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         // Define implicit permissions based on roles
-        Gate::before(function ($user, $ability) {
+        Gate::before(function ($user, $ability, $args) {
+            // Prevent self-destructive actions even for Super Administrator
+            if (in_array($ability, ['delete', 'updateRoles', 'toggleStatus'])) {
+                $targetUser = $args[0] ?? null;
+                if ($targetUser instanceof User && $user->id === $targetUser->id) {
+                    return false;
+                }
+            }
+
             // Super Admin can do everything
             if ($user->hasRole('Super Administrator')) {
                 return true;

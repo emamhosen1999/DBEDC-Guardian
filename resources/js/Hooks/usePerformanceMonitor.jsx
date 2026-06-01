@@ -136,9 +136,6 @@ export const usePerformanceMonitor = (componentName, options = {}) => {
             lastUpdate: new Date()
         }));
 
-        if (enableLogging) {
-            console.log(`${componentName} - ${metricName}: ${value}`);
-        }
     }, [componentName, enableLogging]);
 
     // Initialize tracking on mount
@@ -157,9 +154,7 @@ export const usePerformanceMonitor = (componentName, options = {}) => {
             // Cleanup on unmount
             if (mountTime.current) {
                 const totalLifetime = performance.now() - mountTime.current;
-                if (enableLogging) {
-                    console.log(`${componentName}: Component lifetime - ${totalLifetime.toFixed(2)}ms`);
-                }
+
             }
         };
     }, [trackRender, trackMemory, trackRenderPerformance, trackMemoryUsage, componentName, enableLogging]);
@@ -170,13 +165,7 @@ export const usePerformanceMonitor = (componentName, options = {}) => {
 
         const interval = setInterval(() => {
             if (metrics.lastUpdate) {
-                console.group(`${componentName} Performance Report`);
-                console.log('Load Time:', `${metrics.loadTime.toFixed(2)}ms`);
-                console.log('Render Time:', `${metrics.renderTime.toFixed(2)}ms`);
-                console.log('Memory Usage:', `${metrics.memoryUsage.toFixed(2)}MB`);
-                console.log('Render Count:', metrics.renderCount);
-                console.log('Performance Score:', `${performanceScore}/100`);
-                console.groupEnd();
+                // Performance metrics collected silently
             }
         }, reportInterval);
 

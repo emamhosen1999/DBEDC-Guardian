@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         Schema::table('biometric_att_logs', function (Blueprint $table) {
             $table->dropColumn('employee_id');
         });
@@ -21,6 +21,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         Schema::table('biometric_att_logs', function (Blueprint $table) {
             $table->integer('employee_id')->nullable()->after('user_id')->index();
         });
