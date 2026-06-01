@@ -31,7 +31,6 @@ export const usePerformanceMonitor = (componentName = 'Unknown', options = {}) =
         if (!shouldMonitor) return;
 
         console.group(`🔍 Performance: ${componentName}`);
-        console.log('📊 Metrics:', data);
         
         if (data.averageRenderTime > renderTimeThreshold) {
             console.warn(`⚠️ Slow render detected: ${data.averageRenderTime.toFixed(2)}ms`);
@@ -89,8 +88,6 @@ export const usePerformanceMonitor = (componentName = 'Unknown', options = {}) =
         return () => {
             const unmountTime = performance.now();
             const componentLifetime = unmountTime - startTime;
-            
-            console.log(`🔄 ${componentName} unmounted after ${componentLifetime.toFixed(2)}ms, ${renderCount.current} renders`);
         };
     }, [componentName, shouldMonitor]);
 
@@ -103,7 +100,6 @@ export const usePerformanceMonitor = (componentName = 'Unknown', options = {}) =
         renderCount: renderCount.current,
         trackCustomMetric: useCallback((metricName, value) => {
             if (!shouldMonitor) return;
-            console.log(`📈 Custom Metric [${componentName}] ${metricName}:`, value);
         }, [componentName, shouldMonitor])
     };
 };
@@ -133,7 +129,6 @@ export const usePageLoadPerformance = (pageName) => {
             };
 
             console.group(`📄 Page Load Performance: ${pageName}`);
-            console.log('⏱️ Metrics:', metrics);
             
             if (loadTime > 3000) {
                 console.warn(`🐌 Slow page load: ${loadTime.toFixed(2)}ms`);
@@ -187,7 +182,6 @@ export const useMemoryMonitor = (options = {}) => {
 
             // Trigger garbage collection in development if memory usage is high
             if (process.env.NODE_ENV === 'development' && usedMB > threshold * 1.5 && window.gc) {
-                console.log('🗑️ Triggering garbage collection...');
                 window.gc();
             }
         };
@@ -241,17 +235,7 @@ export const useBundleMonitor = () => {
             const scripts = Array.from(document.querySelectorAll('script[src]'));
             const stylesheets = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
 
-            console.group('📦 Bundle Analysis');
-            console.log('📜 Scripts:', scripts.length);
-            console.log('🎨 Stylesheets:', stylesheets.length);
 
-            scripts.forEach(script => {
-                if (script.src.includes('app.') || script.src.includes('vendor.')) {
-                    console.log(`  - ${script.src.split('/').pop()}`);
-                }
-            });
-
-            console.groupEnd();
         };
 
         // Log after page load

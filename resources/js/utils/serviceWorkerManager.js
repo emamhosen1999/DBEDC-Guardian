@@ -18,10 +18,6 @@ class ServiceWorkerManager {
     // Register service worker
     async register() {
         if (!SERVICE_WORKER_CONFIG.shouldEnable()) {
-            console.log('Service Worker registration skipped:', {
-                isDevelopment: SERVICE_WORKER_CONFIG.isDevelopment(),
-                hostname: window.location.hostname
-            });
             return false;
         }
 
@@ -30,7 +26,7 @@ class ServiceWorkerManager {
                 SERVICE_WORKER_CONFIG.getRegistrationOptions()
             );
 
-            console.log('Service Worker registered:', this.registration);
+
 
             // Set up event listeners
             this.setupEventListeners();
@@ -77,7 +73,7 @@ class ServiceWorkerManager {
 
         // Listen for controller change (after update)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-            console.log('Service Worker controller changed');
+
             // Temporarily disable automatic reload to prevent infinite reload loops
             // window.location.reload();
         });
@@ -87,15 +83,15 @@ class ServiceWorkerManager {
     handleMessage(data) {
         switch (data.type) {
             case 'VERSION_UPDATE_AVAILABLE':
-                console.log('Version update available:', data);
+
                 this.isUpdateAvailable = true;
                 this.notifyUpdateAvailable(data);
                 break;
             case 'CACHE_UPDATED':
-                console.log('Cache updated:', data);
+
                 break;
             default:
-                console.log('Unknown message from service worker:', data);
+
         }
     }
 
@@ -134,7 +130,7 @@ class ServiceWorkerManager {
                 await Promise.all(
                     cacheNames.map(cacheName => caches.delete(cacheName))
                 );
-                console.log('All caches cleared');
+
             }
 
             // Also tell service worker to clear its caches
@@ -180,7 +176,7 @@ class ServiceWorkerManager {
 
         try {
             const result = await this.registration.unregister();
-            console.log('Service Worker unregistered:', result);
+
             this.registration = null;
             return result;
         } catch (error) {
@@ -268,11 +264,6 @@ if (shouldRegister) {
         setTimeout(() => serviceWorkerManager.register(), 1000);
     }
 } else {
-    console.log('Service Worker registration skipped:', {
-        isDevelopment: SERVICE_WORKER_CONFIG.isDevelopment(),
-        hostname: window.location.hostname,
-        reason: SERVICE_WORKER_CONFIG.isDevelopment() ? 'Development environment' : 'Service Worker not supported'
-    });
 }
 
 export default serviceWorkerManager;

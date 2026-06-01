@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Responses\HandlesApiExceptions;
+use App\Traits\HandlesApiExceptions;
 use App\Exports\AttendanceAdminExport;
 use App\Exports\AttendanceExport;
 use App\Models\HRM\Attendance;

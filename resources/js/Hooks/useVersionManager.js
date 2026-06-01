@@ -42,7 +42,6 @@ export const useVersionManager = () => {
             
             // Quick local check first
             if (storedVersion !== currentVersion) {
-                console.log('Version mismatch detected:', { stored: storedVersion, current: currentVersion });
                 setIsUpdateAvailable(true);
                 setIsChecking(false);
                 return true;
@@ -67,7 +66,6 @@ export const useVersionManager = () => {
             setLastChecked(new Date());
 
             if (!response.data.version_match) {
-                console.log('Server version mismatch:', response.data);
                 setIsUpdateAvailable(true);
                 setIsChecking(false);
                 return true;
@@ -96,7 +94,6 @@ export const useVersionManager = () => {
                 const registrations = await navigator.serviceWorker.getRegistrations();
                 for (const registration of registrations) {
                     await registration.unregister();
-                    console.log('Service worker unregistered');
                 }
             }
 
@@ -106,7 +103,6 @@ export const useVersionManager = () => {
                 await Promise.all(
                     cacheNames.map(cacheName => caches.delete(cacheName))
                 );
-                console.log('Browser caches cleared');
             }
 
             // Store new version
@@ -170,7 +166,6 @@ export const useVersionManager = () => {
     useEffect(() => {
         const handleMessage = (event) => {
             if (event.data?.type === 'VERSION_UPDATE_AVAILABLE') {
-                console.log('Service worker detected version update');
                 setIsUpdateAvailable(true);
             }
         };

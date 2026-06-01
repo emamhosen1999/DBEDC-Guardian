@@ -17,9 +17,6 @@ export const initFirebase = async () => {
             
             try {
                 const response = await axios.post(route('updateFcmToken'), { fcm_token: token });
-                if (response.status === 200) {
-                    console.log('FCM Token Updated:', response.data.fcm_token);
-                }
             } catch (error) {
                 console.error('Failed to update FCM token:', error);
             }
@@ -30,7 +27,6 @@ export const initFirebase = async () => {
         // Listen for foreground messages
         const unsubscribeOnMessage = onMessageListener()
             .then(payload => {
-                console.log('Message received:', payload);
                 const { title, body, icon } = payload.notification;
 
                 // Display desktop notification

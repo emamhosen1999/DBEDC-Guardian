@@ -35,26 +35,6 @@ class RouteServiceProvider extends ServiceProvider
 
             Route::middleware('web')
                 ->group(base_path('routes/web.php'));
-
-            Route::middleware('web')
-                ->group(base_path('routes/hr.php'));
-
-            Route::middleware('web')
-                ->group(base_path('routes/analytics.php'));
-
-            // Route::middleware('web')
-            //     ->group(base_path('routes/compliance.php')); // File does not exist
-
-            // Route::middleware('web')
-            //     ->group(base_path('routes/project-management.php')); // File does not exist
-
-            // Route::middleware('web')
-            //     ->group(base_path('routes/quality.php')); // File does not exist
-
-            if (config('features.commercial_stack')) {
-                Route::middleware('web')
-                    ->group(base_path('routes/modules.php'));
-            }
         });
     }
 }

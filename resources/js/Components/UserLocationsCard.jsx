@@ -1177,7 +1177,6 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
         if (loading) {
             const timeoutId = setTimeout(() => {
                 if (loading) {
-                    console.log('Loading timeout reached, forcing loading to false');
                     setLoading(false);
                 }
             }, 10000); // 10 seconds timeout

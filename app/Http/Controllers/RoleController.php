@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Responses\ApiResponse;
-use App\Http\Responses\HandlesApiExceptions;
+use App\Traits\HandlesApiExceptions;
 use App\Models\User;
 use App\Services\Role\RolePermissionService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;

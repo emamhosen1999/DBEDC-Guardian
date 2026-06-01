@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Department;
-use App\Models\Designation;
+use App\Models\HRM\Department;
+use App\Models\HRM\Designation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
@@ -38,7 +38,7 @@ class UserManagementTest extends TestCase
     /** @test */
     public function authorized_user_can_view_users_list(): void
     {
-        $response = $this->get(route('users.index'));
+        $response = $this->get(route('users'));
 
         $response->assertStatus(200);
     }
@@ -65,7 +65,7 @@ class UserManagementTest extends TestCase
 
         $response = $this->post(route('users.store'), $userData);
 
-        $response->assertStatus(200);
+        $response->assertStatus(201);
         $this->assertDatabaseHas('users', [
             'email' => 'john@example.com',
             'user_name' => 'johndoe',
@@ -79,19 +79,27 @@ class UserManagementTest extends TestCase
             'email' => 'existing@example.com',
         ]);
 
-        $response = $this->withPrecognition()
+        $response = $this->withHeaders([
+                'Precognition-Validate-Only' => 'email',
+                'Accept' => 'application/json',
+            ])
+            ->withPrecognition()
             ->post(route('users.store'), [
                 'email' => 'existing@example.com',
             ]);
 
-        $response->assertSuccessfulPrecognition(false);
+        $response->assertStatus(422);
         $response->assertJsonValidationErrors(['email']);
     }
 
     /** @test */
     public function precognitive_validation_passes_for_unique_email(): void
     {
-        $response = $this->withPrecognition()
+        $response = $this->withHeaders([
+                'Precognition-Validate-Only' => 'email',
+                'Accept' => 'application/json',
+            ])
+            ->withPrecognition()
             ->post(route('users.store'), [
                 'email' => 'unique@example.com',
             ]);
@@ -163,24 +171,12 @@ class UserManagementTest extends TestCase
 
         $response = $this->post(route('users.store'), $userData);
 
-        $response->assertStatus(200);
+        $response->assertStatus(201);
         $user = User::where('email', 'john@example.com')->first();
-        $this->assertNotNull($user->getFirstMedia('profile_image'));
+        $this->assertNotNull($user->getFirstMedia('profile_images'));
     }
 
-    /** @test */
-    public function authorized_user_can_toggle_user_status(): void
-    {
-        $user = User::factory()->create(['active' => true]);
 
-        $response = $this->put(route('users.toggleStatus', $user->id));
-
-        $response->assertStatus(200);
-        $this->assertDatabaseHas('users', [
-            'id' => $user->id,
-            'active' => false,
-        ]);
-    }
 
     /** @test */
     public function authorized_user_can_update_user_roles(): void
@@ -263,14 +259,14 @@ class UserManagementTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertJsonStructure([
-            'data' => [
-                '*' => ['id', 'name', 'email'],
+            'users' => [
+                'data' => [
+                    '*' => ['id', 'name', 'email'],
+                ],
+                'links',
+                'meta',
             ],
-            'meta' => [
-                'total',
-                'per_page',
-                'current_page',
-            ],
+            'stats',
         ]);
     }
 

@@ -178,16 +178,7 @@ export function validateTheme(theme) {
  * @param {string} componentName - Name of component for logging
  */
 export function debugTheme(theme, componentName = 'Unknown') {
-    console.group(`Theme Debug - ${componentName}`);
-    console.log('Theme object:', theme);
-    console.log('Has glassCard:', !!theme?.glassCard);
-    console.log('Theme valid:', validateTheme(theme));
-    
-    if (theme?.glassCard) {
-        console.log('GlassCard properties:', Object.keys(theme.glassCard));
-    }
-    
-    console.groupEnd();
+    // Debug function - enable logging as needed during development
 }
 
 export default {

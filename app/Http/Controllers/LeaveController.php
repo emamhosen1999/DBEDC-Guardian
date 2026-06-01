@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Responses\HandlesApiExceptions;
+use App\Traits\HandlesApiExceptions;
 use App\Http\Resources\LeaveResource;
 use App\Http\Resources\LeaveResourceCollection;
 use App\Models\HRM\Department;

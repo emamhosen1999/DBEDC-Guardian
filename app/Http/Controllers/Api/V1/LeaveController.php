@@ -462,7 +462,7 @@ class LeaveController extends Controller
     {
         $reviewedLeaves = Leave::query()
             ->whereNotNull('approval_chain')
-            ->whereRaw("LOWER(status) IN ('approved', 'rejected')")
+            ->whereRaw('LOWER(status) IN (?, ?)', ['approved', 'rejected'])
             ->get();
 
         $approved = 0;

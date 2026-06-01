@@ -24,7 +24,7 @@ return new class extends Migration
         // Seed existing assignments from users.attendance_type_id
         DB::statement('
             INSERT INTO employee_attendance_types (user_id, attendance_type_id, created_at, updated_at)
-            SELECT id, attendance_type_id, NOW(), NOW()
+            SELECT id, attendance_type_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             FROM users
             WHERE attendance_type_id IS NOT NULL
         ');

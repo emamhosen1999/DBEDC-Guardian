@@ -79,7 +79,7 @@ class NotificationController extends Controller
     private function getAccessToken()
     {
         // Load your service account credentials
-        $keyFilePath = env('GOOGLE_APPLICATION_CREDENTIALS'); // Path to your service account JSON file
+        $keyFilePath = config('firebase.credentials.file', config('services.firebase.credentials')); // Path to your service account JSON file
         $credentials = json_decode(file_get_contents($keyFilePath), true);
 
         // Create JWT client and get the access token

@@ -3,15 +3,14 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCwfSbrgNYCrhdmFIlU7pS7bVVT__lwOgo",
-    authDomain: "dbedc-erp.firebaseapp.com",
-    projectId: "dbedc-erp",
-    storageBucket: "dbedc-erp.firebasestorage.app",
-    messagingSenderId: "551140686722",
-    appId: "1:551140686722:web:d99b8829aad35e60232d9b",
-    measurementId: "G-GRR20JHLW3"
-  };
-  
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
 
 const app = initializeApp(firebaseConfig);
 const messaging = getMessaging(app);
@@ -19,9 +18,7 @@ const messaging = getMessaging(app);
 export const requestNotificationPermission = async () => {
     try {
         // Support both old REACT_APP and new VITE naming conventions
-        const vapidKey = import.meta.env.VITE_VAPID_KEY 
-            || import.meta.env.REACT_APP_VAPID_ID 
-            || 'BIB_ue-OutyDEoIxodVhJkdkmUif0C_4pOjd6CCK5U1FxicXrzSh1m8oHjm5su8jCELdd0osPgEdd_7DeYk2JxI';
+        const vapidKey = import.meta.env.VITE_VAPID_KEY || import.meta.env.REACT_APP_VAPID_ID;
         
         const token = await getToken(messaging, { vapidKey });
         if (token) {

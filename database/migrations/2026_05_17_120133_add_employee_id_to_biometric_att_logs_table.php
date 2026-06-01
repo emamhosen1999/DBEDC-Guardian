@@ -16,11 +16,18 @@ return new class extends Migration
         });
 
         // Populate employee_id from users table for existing records
-        DB::statement('
-            UPDATE biometric_att_logs bal
-            JOIN users u ON bal.user_id = u.id
-            SET bal.employee_id = u.employee_id
-        ');
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('
+                UPDATE biometric_att_logs
+                SET employee_id = (SELECT employee_id FROM users WHERE users.id = biometric_att_logs.user_id)
+            ');
+        } else {
+            DB::statement('
+                UPDATE biometric_att_logs bal
+                JOIN users u ON bal.user_id = u.id
+                SET bal.employee_id = u.employee_id
+            ');
+        }
     }
 
     /**
@@ -28,6 +35,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         Schema::table('biometric_att_logs', function (Blueprint $table) {
             $table->dropColumn('employee_id');
         });

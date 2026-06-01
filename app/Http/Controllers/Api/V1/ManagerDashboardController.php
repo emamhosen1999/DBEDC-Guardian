@@ -165,7 +165,7 @@ class ManagerDashboardController extends Controller
             ->whereIn("leaves.{$userColumn}", $teamMemberIds)
             ->whereDate('leaves.from_date', '<=', $queryRangeEnd)
             ->whereDate('leaves.to_date', '>=', $queryRangeStart)
-            ->whereRaw("LOWER(COALESCE(leaves.status, '')) NOT IN ('declined', 'rejected', 'cancelled', 'canceled')");
+            ->whereRaw("LOWER(COALESCE(leaves.status, '')) NOT IN (?, ?, ?, ?)", ['declined', 'rejected', 'cancelled', 'canceled']);
 
         if ($hasLeaveSettingsTable) {
             $leaveQuery->leftJoin('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id');

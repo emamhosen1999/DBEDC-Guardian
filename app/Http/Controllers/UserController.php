@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Responses\HandlesApiExceptions;
+use App\Traits\HandlesApiExceptions;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Requests\UpdateUserRoleRequest;
@@ -492,7 +492,11 @@ class UserController extends Controller
             $statsQuery = clone $query;
 
             // Sort: active users first (not deleted), then inactive (deleted)
-            $query->orderByRaw('ISNULL(deleted_at) DESC')->orderBy('name');
+            if (DB::getDriverName() === 'sqlite') {
+                $query->orderByRaw('CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END ASC')->orderBy('name');
+            } else {
+                $query->orderByRaw('ISNULL(deleted_at) DESC')->orderBy('name');
+            }
 
             // Paginate
             $users = $query->paginate($perPage, ['*'], 'page', $page);

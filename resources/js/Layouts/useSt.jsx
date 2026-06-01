@@ -38,9 +38,6 @@ function App({ children }) {
                 if (token) {
                     try {
                         const response = await axios.post(route('updateFcmToken'), { fcm_token: token });
-                        if (response.status === 200) {
-                            console.log('FCM Token Updated:', response.data.fcm_token);
-                        }
                     } catch (error) {
                         console.error('Failed to update FCM token:', error);
                     }
@@ -51,7 +48,6 @@ function App({ children }) {
                 // Listen for foreground messages
                 unsubscribeOnMessage = onMessageListener()
                     .then(payload => {
-                        console.log('Message received:', payload);
                         const { title, body, icon } = payload.notification;
 
                         // Display desktop notification
