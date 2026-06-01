@@ -787,8 +787,8 @@ class UserController extends Controller
         try {
             // Basic employee counts
             $totalEmployees = User::count();
-            $activeEmployees = User::where('active', 1)->count();
-            $inactiveEmployees = User::where('active', 0)->count();
+            $activeEmployees = User::whereNull('deleted_at')->count();
+            $inactiveEmployees = User::whereNotNull('deleted_at')->count();
 
             // Department and designation counts
             $departmentCount = Department::count();

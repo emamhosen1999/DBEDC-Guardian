@@ -420,7 +420,7 @@ class ManagerDashboardController extends Controller
     {
         if ($this->isAdminLikeUser($user)) {
             return User::query()
-                ->where('active', true)
+                ->whereNull('deleted_at')
                 ->where('id', '!=', $user->id)
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
@@ -428,7 +428,7 @@ class ManagerDashboardController extends Controller
         }
 
         return User::query()
-            ->where('active', true)
+            ->whereNull('deleted_at')
             ->where('report_to', $user->id)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)

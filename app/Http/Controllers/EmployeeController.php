@@ -53,7 +53,7 @@ class EmployeeController extends Controller
         $data['employee_id'] = $data['employee_id'] ?? $this->generateEmployeeId();
         $data['date_of_joining'] = $data['date_of_joining'] ?? now();
         $data['user_name'] = $data['email'] ?? null;
-        $data['active'] = $data['active'] ?? true;
+        // Note: 'active' column removed; user activation is managed via soft deletes
         $data['roles'] = $data['roles'] ?? ['Employee'];
 
         try {
@@ -356,10 +356,10 @@ class EmployeeController extends Controller
             if (! empty($status) && $status !== 'all') {
                 switch ($status) {
                     case 'active':
-                        $query->where('active', true);
+                        $query->whereNull('users.deleted_at');
                         break;
                     case 'inactive':
-                        $query->where('active', false);
+                        $query->whereNotNull('users.deleted_at');
                         break;
                 }
             }
@@ -453,7 +453,7 @@ class EmployeeController extends Controller
                     'phone' => $employee->phone,
                     'employee_id' => $employee->employee_id,
                     'profile_image_url' => $employee->profile_image_url,
-                    'active' => $employee->active,
+                    'active' => is_null($employee->deleted_at),
                     'department_id' => $employee->department_id,
                     'department_name' => $departmentName,
                     'designation_id' => $employee->designation_id,

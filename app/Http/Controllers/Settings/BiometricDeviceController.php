@@ -24,7 +24,7 @@ class BiometricDeviceController extends Controller
             });
 
         $employees = User::select('id', 'name', 'employee_id')
-            ->where('active', true)
+            ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();
 

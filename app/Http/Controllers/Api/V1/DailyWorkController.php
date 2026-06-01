@@ -1468,7 +1468,7 @@ class DailyWorkController extends Controller
         }
 
         $query = User::query()
-            ->where('active', true)
+            ->whereNull('deleted_at')
             ->select(['id', 'name'])
             ->orderBy('name');
 
@@ -1508,7 +1508,7 @@ class DailyWorkController extends Controller
         }
 
         $candidates = User::query()
-            ->where('active', true)
+            ->whereNull('deleted_at')
             ->where('report_to', $inchargeUserId)
             ->select(['id', 'name'])
             ->orderBy('name')
