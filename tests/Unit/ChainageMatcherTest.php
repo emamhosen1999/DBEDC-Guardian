@@ -350,3 +350,4 @@ class ChainageMatcherTest extends TestCase
         ));
     }
 }
+

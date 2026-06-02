@@ -127,3 +127,4 @@ class AttendancePaginateTest extends TestCase
         $response->assertJsonMissing(['error']);
     }
 }
+

@@ -14,7 +14,7 @@ class InstallAppGateTest extends TestCase
     /** @test */
     public function guest_is_redirected_to_install_app_from_root()
     {
-        $response = $this->get('/');
+        $response = $this->withHeader('User-Agent', 'Android')->get('/');
         $response->assertRedirect('/install-app');
     }
 
@@ -22,7 +22,7 @@ class InstallAppGateTest extends TestCase
     public function authenticated_user_is_redirected_to_install_app_from_root()
     {
         $user = \App\Models\User::factory()->create();
-        $response = $this->actingAs($user)->get('/');
+        $response = $this->actingAs($user)->withHeader('User-Agent', 'Android')->get('/');
         $response->assertRedirect('/install-app');
     }
 
@@ -65,3 +65,4 @@ class InstallAppGateTest extends TestCase
         $response->assertStatus(404);
     }
 }
+

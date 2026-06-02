@@ -191,3 +191,4 @@ class NavigationRoutesTest extends TestCase
         return $user;
     }
 }
+

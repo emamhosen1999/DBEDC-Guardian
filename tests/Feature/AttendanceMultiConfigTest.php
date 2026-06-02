@@ -414,3 +414,4 @@ class AttendanceMultiConfigTest extends TestCase
         $this->assertEquals('error', $result['status']);
     }
 }
+

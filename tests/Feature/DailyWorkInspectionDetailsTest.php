@@ -209,3 +209,4 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response->assertForbidden();
     }
 }
+

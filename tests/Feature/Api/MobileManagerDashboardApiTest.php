@@ -22,7 +22,7 @@ class MobileManagerDashboardApiTest extends TestCase
 
     public function test_non_manager_cannot_access_manager_dashboard_summary_endpoint(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
 
         Sanctum::actingAs($user);
 
@@ -34,20 +34,18 @@ class MobileManagerDashboardApiTest extends TestCase
 
     public function test_manager_gets_team_approval_and_objection_summary(): void
     {
-        $manager = User::factory()->create(['active' => true]);
+        $manager = User::factory()->create([]);
         $this->assignRole($manager, 'Project Manager');
 
         $teamMemberA = User::factory()->create([
-            'active' => true,
             'report_to' => $manager->id,
         ]);
 
         $teamMemberB = User::factory()->create([
-            'active' => true,
             'report_to' => $manager->id,
         ]);
 
-        $outsideUser = User::factory()->create(['active' => true]);
+        $outsideUser = User::factory()->create([]);
 
         DB::table('attendances')->insert([
             [
@@ -249,3 +247,4 @@ class MobileManagerDashboardApiTest extends TestCase
         return $objectionId;
     }
 }
+

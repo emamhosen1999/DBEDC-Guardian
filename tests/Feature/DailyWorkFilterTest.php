@@ -132,3 +132,4 @@ class DailyWorkFilterTest extends TestCase
         ]);
     }
 }
+

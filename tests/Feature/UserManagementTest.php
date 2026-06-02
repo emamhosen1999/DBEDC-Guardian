@@ -297,3 +297,4 @@ class UserManagementTest extends TestCase
         $response->assertSessionHasErrors(['profile_image']);
     }
 }
+

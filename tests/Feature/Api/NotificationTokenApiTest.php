@@ -25,8 +25,7 @@ class NotificationTokenApiTest extends TestCase
     public function test_authenticated_user_can_store_notification_token_via_legacy_and_v1_routes(): void
     {
         $user = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
 
         Sanctum::actingAs($user);
 
@@ -70,8 +69,7 @@ class NotificationTokenApiTest extends TestCase
     public function test_notification_token_requires_fcm_token_field(): void
     {
         $user = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
 
         Sanctum::actingAs($user);
 
@@ -81,3 +79,4 @@ class NotificationTokenApiTest extends TestCase
             ->assertJsonValidationErrors(['fcm_token']);
     }
 }
+

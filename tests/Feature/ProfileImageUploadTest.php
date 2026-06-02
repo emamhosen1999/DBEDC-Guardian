@@ -211,3 +211,4 @@ class ProfileImageUploadTest extends TestCase
         $this->assertStringContainsString('storage', $profileImageUrl);
     }
 }
+

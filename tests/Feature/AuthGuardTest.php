@@ -4,11 +4,25 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class AuthGuardTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Reset cached roles and permissions
+        $this->app->make(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        // Create the dashboard permission
+        Permission::firstOrCreate(['name' => 'core.dashboard.view']);
+    }
 
     public function test_unauthenticated_user_cannot_access_dashboard(): void
     {
@@ -21,6 +35,7 @@ class AuthGuardTest extends TestCase
     {
         /** @var User $user */
         $user = User::factory()->create();
+        $user->givePermissionTo('core.dashboard.view');
 
         $response = $this->actingAs($user)->get('/dashboard');
 
@@ -50,12 +65,15 @@ class AuthGuardTest extends TestCase
     {
         /** @var User $user */
         $user = User::factory()->create();
+        $user->givePermissionTo('core.dashboard.view');
 
         $response = $this->actingAs($user)->get('/dashboard');
 
         $response->assertOk();
 
-        $sharedData = $response->original->getShared();
+        $page = $response->viewData('page');
+        $this->assertNotNull($page);
+        $sharedData = $page['props'];
 
         $this->assertTrue($sharedData['auth']['isAuthenticated']);
         $this->assertTrue($sharedData['auth']['sessionValid']);
@@ -69,7 +87,9 @@ class AuthGuardTest extends TestCase
 
         $response->assertOk();
 
-        $sharedData = $response->original->getShared();
+        $page = $response->viewData('page');
+        $this->assertNotNull($page);
+        $sharedData = $page['props'];
 
         $this->assertFalse($sharedData['auth']['isAuthenticated']);
         $this->assertFalse($sharedData['auth']['sessionValid']);

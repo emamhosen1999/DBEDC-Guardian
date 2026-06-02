@@ -206,3 +206,4 @@ class BulkLeaveControllerTest extends TestCase
             ->assertJsonValidationErrors(['dates']);
     }
 }
+

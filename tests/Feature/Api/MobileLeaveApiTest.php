@@ -28,8 +28,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_authenticated_user_can_fetch_leave_types_and_own_leaves(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $ownLeaveId = $this->insertLeaveForUser($user->id, $leaveTypeId);
@@ -54,8 +54,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_authenticated_user_can_fetch_leave_analytics(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $year = now()->year;
 
@@ -142,7 +142,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_leave_analytics_can_be_filtered_by_leave_type(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $year = now()->year;
 
         $casualLeaveTypeId = $this->createLeaveType([
@@ -196,8 +196,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_authenticated_user_can_fetch_leave_calendar_with_holidays(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $year = now()->year;
         $month = now()->month;
@@ -287,7 +287,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_leave_calendar_can_be_filtered_by_leave_type(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $year = now()->year;
         $month = now()->month;
 
@@ -333,7 +333,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_leave_calendar_validates_month_range(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
 
         Sanctum::actingAs($user);
 
@@ -345,7 +345,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_authenticated_user_can_fetch_own_leave_details(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType([
             'type' => 'Annual',
@@ -372,8 +372,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_cannot_fetch_another_users_leave_details(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertLeaveForUser($otherUser->id, $leaveTypeId);
@@ -389,7 +389,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_fetching_non_existent_leave_details_returns_not_found(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
 
         Sanctum::actingAs($user);
 
@@ -402,8 +402,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_authenticated_user_can_fetch_leave_summary_with_totals_and_balances(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $casualLeaveTypeId = $this->createLeaveType([
             'type' => 'Casual',
@@ -487,7 +487,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_leave_summary_can_be_filtered_by_leave_type(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
 
         $casualLeaveTypeId = $this->createLeaveType([
             'type' => 'Casual',
@@ -531,7 +531,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_authenticated_user_can_apply_leave_via_mobile_api(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType([
             'requires_approval' => true,
             'auto_approve' => false,
@@ -571,7 +571,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_can_update_own_non_final_leave_request(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType([
             'type' => 'Annual',
@@ -615,8 +615,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_cannot_update_another_users_leave_request(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertLeaveForUser($otherUser->id, $leaveTypeId, [
@@ -639,7 +639,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_cannot_update_finalized_leave_request(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
 
         $leaveId = $this->insertLeaveForUser($user->id, $leaveTypeId, [
@@ -662,7 +662,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_cannot_update_leave_with_overlapping_dates(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
 
         $leaveToUpdateId = $this->insertLeaveForUser($user->id, $leaveTypeId, [
@@ -695,7 +695,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_mobile_leave_application_blocks_overlapping_dates(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
 
         $this->insertLeaveForUser($user->id, $leaveTypeId, [
@@ -719,7 +719,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_can_cancel_own_non_final_leave(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertLeaveForUser($user->id, $leaveTypeId, [
             'status' => 'New',
@@ -740,8 +740,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_cannot_cancel_another_users_leave(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertLeaveForUser($otherUser->id, $leaveTypeId);
@@ -757,7 +757,7 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_user_cannot_cancel_finalized_leave_status(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertLeaveForUser($user->id, $leaveTypeId, [
             'status' => 'Approved',
@@ -870,3 +870,4 @@ class MobileLeaveApiTest extends TestCase
         return Schema::hasColumn('leaves', 'user_id') ? 'user_id' : 'user';
     }
 }
+

@@ -46,7 +46,7 @@ class AttendanceController extends Controller
             return $this->successResponse($todayData);
         } catch (\Throwable $exception) {
             report($exception);
-            return $this->errorResponse('An error occurred while retrieving attendance data.', 500);
+            return $this->errorResponse('An error occurred while retrieving attendance data.', 'INTERNAL_SERVER_ERROR', 500);
         }
     }
 
@@ -57,7 +57,7 @@ class AttendanceController extends Controller
         $isTeamScope = $scope === 'team';
 
         if ($isTeamScope && ! $this->isManagerUser($currentUser)) {
-            return $this->errorResponse('You are not authorized to access team attendance history.', 403);
+            return $this->errorResponse('You are not authorized to access team attendance history.', 'FORBIDDEN', 403);
         }
 
         try {
@@ -79,7 +79,7 @@ class AttendanceController extends Controller
             return $this->successResponse($historyData);
         } catch (\Throwable $exception) {
             report($exception);
-            return $this->errorResponse('Failed to fetch attendance history.', 500);
+            return $this->errorResponse('Failed to fetch attendance history.', 'INTERNAL_SERVER_ERROR', 500);
         }
     }
 

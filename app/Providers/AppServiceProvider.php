@@ -10,6 +10,7 @@ use App\Repositories\Eloquent\CompanySettingRepository;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 
@@ -37,6 +38,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Schema::defaultStringLength(191);
+
+        Model::preventLazyLoading(! $this->app->isProduction());
 
         // Share application version with all Inertia responses
         Inertia::share([

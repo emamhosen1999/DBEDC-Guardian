@@ -301,7 +301,7 @@ class UserManagementService
         $department = $filters['department'] ?? null;
 
         $query = User::withTrashed()
-            ->with(['department', 'designation', 'roles', 'currentDevice', 'reportsTo']);
+            ->with(['department', 'designation', 'roles', 'currentDevice', 'reportsTo', 'attendanceType']);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -386,7 +386,7 @@ class UserManagementService
 
         $query->orderBy('created_at', 'desc');
 
-        $employees = $query->with('reportsTo')->paginate($perPage, ['*'], 'page', $page);
+        $employees = $query->with('reportsTo.designation')->paginate($perPage, ['*'], 'page', $page);
 
         $transformedEmployees = $employees->map(function ($employee) {
             return [

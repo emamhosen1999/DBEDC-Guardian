@@ -190,3 +190,4 @@ class BulkLeaveServiceTest extends TestCase
         }
     }
 }
+

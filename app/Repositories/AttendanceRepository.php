@@ -33,6 +33,14 @@ class AttendanceRepository extends BaseRepository
             $query->where('user_id', $filters['user_id']);
         }
 
+        // Filter by employee keyword (name or employee_id)
+        if (!empty($filters['employee'])) {
+            $query->whereHas('user', function ($q) use ($filters) {
+                $q->where('name', 'like', '%' . $filters['employee'] . '%')
+                  ->orWhere('employee_id', 'like', '%' . $filters['employee'] . '%');
+            });
+        }
+
         // Filter by date range
         if (isset($filters['from_date'])) {
             $query->where('date', '>=', $filters['from_date']);
