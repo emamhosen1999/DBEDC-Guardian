@@ -20,6 +20,7 @@ import {
     FileIcon,
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
+import { handleExportResponse } from '@/utils/exportUtils';
 import { route } from 'ziggy-js';
 import axios from 'axios';
 
@@ -239,14 +240,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
             responseType: 'blob'
         });
         
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `${filename}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
+        await handleExportResponse(response.data, `${filename}.pdf`, 'application/pdf', 'pdf');
     };
 
     const exportToExcelServer = async (filename) => {
@@ -265,14 +259,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
             responseType: 'blob'
         });
         
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `${filename}.xlsx`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
+        await handleExportResponse(response.data, `${filename}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx');
     };
 
     const exportToCSVServer = async (filename) => {
@@ -291,14 +278,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
             responseType: 'blob'
         });
         
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `${filename}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
+        await handleExportResponse(response.data, `${filename}.csv`, 'text/csv', 'csv');
     };
 
     return (

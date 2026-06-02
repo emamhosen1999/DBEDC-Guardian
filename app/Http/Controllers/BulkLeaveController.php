@@ -138,6 +138,8 @@ class BulkLeaveController extends Controller
                     'success' => false,
                     'error' => $result['message'] ?? 'No leave requests could be created',
                     'message' => 'Failed to create bulk leave requests',
+                    'summary' => $result['summary'] ?? null,
+                    'failed_dates' => $result['failed_dates'] ?? [],
                 ], 422);
             }
         } catch (\Throwable $e) {

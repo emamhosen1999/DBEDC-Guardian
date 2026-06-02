@@ -1,12 +1,14 @@
 import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
-import DailyWorkSummaryAnalytics from "@/Components/DailyWorkSummaryAnalytics.jsx";
-import DailyWorkForm from "@/Forms/DailyWorkForm.jsx";
-import DailyWorksUploadForm from "@/Forms/DailyWorksUploadForm.jsx";
-import DeleteDailyWorkForm from "@/Forms/DeleteDailyWorkForm.jsx";
-import EnhancedDailyWorksExportForm from "@/Forms/EnhancedDailyWorksExportForm.jsx";
-import EnhancedDailyWorkSummaryExportForm from "@/Forms/EnhancedDailyWorkSummaryExportForm.jsx";
-import ImportPreviewModalRadix from "@/Forms/ImportPreviewModalRadix.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import { lazy, Suspense } from 'react';
+
+const DailyWorkSummaryAnalytics = lazy(() => import("@/Components/DailyWorkSummaryAnalytics.jsx"));
+const DailyWorkForm = lazy(() => import("@/Forms/DailyWorkForm.jsx"));
+const DailyWorksUploadForm = lazy(() => import("@/Forms/DailyWorksUploadForm.jsx"));
+const DeleteDailyWorkForm = lazy(() => import("@/Forms/DeleteDailyWorkForm.jsx"));
+const EnhancedDailyWorksExportForm = lazy(() => import("@/Forms/EnhancedDailyWorksExportForm.jsx"));
+const EnhancedDailyWorkSummaryExportForm = lazy(() => import("@/Forms/EnhancedDailyWorkSummaryExportForm.jsx"));
+const ImportPreviewModalRadix = lazy(() => import("@/Forms/ImportPreviewModalRadix.jsx"));
 import App from "@/Layouts/App.jsx";
 import DailyWorksTable from '@/Tables/DailyWorksTable.jsx';
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
@@ -668,92 +670,106 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
             {/* Modals */}
             {openModalType === 'addDailyWork' && (
-                <DailyWorkForm
-                    modalType="add"
-                    open={openModalType === 'addDailyWork'}
-                    setData={setData}
-                    closeModal={closeModal}
-                    onSuccess={handleAddSuccess}
-                />
+                <Suspense fallback={<Flex align="center" justify="center" p="4"><Spinner /></Flex>}>
+                    <DailyWorkForm
+                        modalType="add"
+                        open={openModalType === 'addDailyWork'}
+                        setData={setData}
+                        closeModal={closeModal}
+                        onSuccess={handleAddSuccess}
+                    />
+                </Suspense>
             )}
             {openModalType === 'editDailyWork' && (
-                <DailyWorkForm
-                    modalType="update"
-                    open={openModalType === 'editDailyWork'}
-                    currentRow={currentRow}
-                    setData={setData}
-                    closeModal={closeModal}
-                    onSuccess={handleEditSuccess}
-                />
+                <Suspense fallback={<Flex align="center" justify="center" p="4"><Spinner /></Flex>}>
+                    <DailyWorkForm
+                        modalType="update"
+                        open={openModalType === 'editDailyWork'}
+                        currentRow={currentRow}
+                        setData={setData}
+                        closeModal={closeModal}
+                        onSuccess={handleEditSuccess}
+                    />
+                </Suspense>
             )}
             {openModalType === 'deleteDailyWork' && (
-                <DeleteDailyWorkForm
-                    open={openModalType === 'deleteDailyWork'}
-                    handleClose={handleClose}
-                    handleDelete={handleDelete}
-                    isLoading={deleteLoading}
-                    setData={setData}
-                />
+                <Suspense fallback={<Flex align="center" justify="center" p="4"><Spinner /></Flex>}>
+                    <DeleteDailyWorkForm
+                        open={openModalType === 'deleteDailyWork'}
+                        handleClose={handleClose}
+                        handleDelete={handleDelete}
+                        isLoading={deleteLoading}
+                        setData={setData}
+                    />
+                </Suspense>
             )}
             {openModalType === 'importDailyWorks' && (
-                <DailyWorksUploadForm
-                    open={openModalType === 'importDailyWorks'}
-                    closeModal={closeModal}
-                    setData={setData}
-                    setTotalRows={setTotalRows}
-                    refreshData={refreshData}
-                    onSuccess={handleImportSuccess}
-                    file={importFile}
-                    onPreviewReady={handlePreviewReady}
-                />
+                <Suspense fallback={<Flex align="center" justify="center" p="4"><Spinner /></Flex>}>
+                    <DailyWorksUploadForm
+                        open={openModalType === 'importDailyWorks'}
+                        closeModal={closeModal}
+                        setData={setData}
+                        setTotalRows={setTotalRows}
+                        refreshData={refreshData}
+                        onSuccess={handleImportSuccess}
+                        file={importFile}
+                        onPreviewReady={handlePreviewReady}
+                    />
+                </Suspense>
             )}
             {openModalType === 'exportDailyWorks' && (
-                <EnhancedDailyWorksExportForm
-                    open={openModalType === 'exportDailyWorks'}
-                    closeModal={closeModal}
-                    filterData={{
-                        ...filterData,
-                        startDate: isMobile ? selectedDate : dateRange.start,
-                        endDate: isMobile ? selectedDate : dateRange.end,
-                        search: search
-                    }}
-                    users={users}
-                    inCharges={allData.allInCharges}
-                    auth={auth}
-                />
+                <Suspense fallback={<Flex align="center" justify="center" p="4"><Spinner /></Flex>}>
+                    <EnhancedDailyWorksExportForm
+                        open={openModalType === 'exportDailyWorks'}
+                        closeModal={closeModal}
+                        filterData={{
+                            ...filterData,
+                            startDate: isMobile ? selectedDate : dateRange.start,
+                            endDate: isMobile ? selectedDate : dateRange.end,
+                            search: search
+                        }}
+                        users={users}
+                        inCharges={allData.allInCharges}
+                        auth={auth}
+                    />
+                </Suspense>
             )}
             {openModalType === 'exportSummary' && (
-                <EnhancedDailyWorkSummaryExportForm
-                    open={openModalType === 'exportSummary'}
-                    closeModal={closeModal}
-                    filteredData={summaryFilteredData}
-                    inCharges={allData.allInCharges}
-                    currentFilters={{
-                        ...filterData,
-                        startDate: dateRange.start,
-                        endDate: dateRange.end
-                    }}
-                    auth={auth}
-                />
+                <Suspense fallback={<Flex align="center" justify="center" p="4"><Spinner /></Flex>}>
+                    <EnhancedDailyWorkSummaryExportForm
+                        open={openModalType === 'exportSummary'}
+                        closeModal={closeModal}
+                        filteredData={summaryFilteredData}
+                        inCharges={allData.allInCharges}
+                        currentFilters={{
+                            ...filterData,
+                            startDate: dateRange.start,
+                            endDate: dateRange.end
+                        }}
+                        auth={auth}
+                    />
+                </Suspense>
             )}
 
             {/* Import Preview Modal */}
             {showImportPreview && (
-                <ImportPreviewModalRadix
-                    isOpen={showImportPreview}
-                    onClose={() => {
-                        if (!isImporting) {
-                            setShowImportPreview(false);
-                            setPreviewData(null);
-                            setImportFile(null);
-                        }
-                    }}
-                    onCancel={handlePreviewCancel}
-                    previewData={previewData}
-                    onConfirm={handlePreviewConfirm}
-                    isImporting={isImporting}
-                    importProgress={importProgress}
-                />
+                <Suspense fallback={<Flex align="center" justify="center" p="4"><Spinner /></Flex>}>
+                    <ImportPreviewModalRadix
+                        isOpen={showImportPreview}
+                        onClose={() => {
+                            if (!isImporting) {
+                                setShowImportPreview(false);
+                                setPreviewData(null);
+                                setImportFile(null);
+                            }
+                        }}
+                        onCancel={handlePreviewCancel}
+                        previewData={previewData}
+                        onConfirm={handlePreviewConfirm}
+                        isImporting={isImporting}
+                        importProgress={importProgress}
+                    />
+                </Suspense>
             )}
 
             <Flex justify="center" p="4">
@@ -1223,11 +1239,13 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                         )}
 
                                         {summarySubTab === 'analytics' && (
-                                            <DailyWorkSummaryAnalytics
-                                                filters={filterData}
-                                                data={summaryFilteredData}
-                                                isVisible={summarySubTab === 'analytics'}
-                                            />
+                                            <Suspense fallback={<Flex align="center" justify="center" p="6" style={{ minHeight: 300 }}><Spinner size="3" /></Flex>}>
+                                                <DailyWorkSummaryAnalytics
+                                                    filters={filterData}
+                                                    data={summaryFilteredData}
+                                                    isVisible={summarySubTab === 'analytics'}
+                                                />
+                                            </Suspense>
                                         )}
                                     </Box>
                                 </Tabs.Content>

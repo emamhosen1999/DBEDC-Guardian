@@ -32,7 +32,7 @@ class UserResource extends JsonResource
             // Work Information
             'date_of_joining' => $this->date_of_joining,
             'report_to' => $this->report_to,
-            'reports_to' => $this->when($this->reportsTo, function () {
+            'reports_to' => $this->when($this->relationLoaded('reportsTo') && $this->reportsTo, function () {
                 return [
                     'id' => $this->reportsTo->id,
                     'name' => $this->reportsTo->name,
@@ -45,25 +45,35 @@ class UserResource extends JsonResource
             ),
 
             // Relationships
-            'department' => [
+            'department' => $this->relationLoaded('department') ? [
                 'id' => $this->department_id,
                 'name' => $this->department?->name,
+            ] : [
+                'id' => $this->department_id,
+                'name' => null,
             ],
-            'designation' => [
+            'designation' => $this->relationLoaded('designation') ? [
                 'id' => $this->designation_id,
                 'title' => $this->designation?->title,
+            ] : [
+                'id' => $this->designation_id,
+                'title' => null,
             ],
-            'attendance_type' => [
+            'attendance_type' => $this->relationLoaded('attendanceType') ? [
                 'id' => $this->attendance_type_id,
                 'name' => $this->attendanceType?->name,
                 'slug' => $this->attendanceType?->slug,
+            ] : [
+                'id' => $this->attendance_type_id,
+                'name' => null,
+                'slug' => null,
             ],
-            'roles' => $this->roles->pluck('name')->toArray(),
+            'roles' => $this->relationLoaded('roles') ? $this->roles->pluck('name')->toArray() : [],
 
             // Device information
             'single_device_login' => $this->single_device_login_enabled,
             'single_device_login_enabled' => $this->single_device_login_enabled,
-            'active_device' => $this->when($this->currentDevice, function () {
+            'active_device' => $this->when($this->relationLoaded('currentDevice') && $this->currentDevice, function () {
                 return [
                     'id' => $this->currentDevice->id,
                     'device_name' => $this->currentDevice->device_name,

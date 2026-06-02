@@ -10,6 +10,21 @@ class Holiday extends Model
 {
     use HasFactory;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saved(function ($holiday) {
+            \Illuminate\Support\Facades\Cache::forget('active_holidays_list');
+            \Illuminate\Support\Facades\Cache::forget('holiday_stats');
+        });
+
+        static::deleted(function ($holiday) {
+            \Illuminate\Support\Facades\Cache::forget('active_holidays_list');
+            \Illuminate\Support\Facades\Cache::forget('holiday_stats');
+        });
+    }
+
     protected $fillable = [
         'title',
         'description',

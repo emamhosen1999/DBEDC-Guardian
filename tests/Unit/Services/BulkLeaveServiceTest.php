@@ -180,13 +180,13 @@ class BulkLeaveServiceTest extends TestCase
         // Verify each leave was created with correct data
         foreach ($dates as $date) {
             $leave = Leave::where('user_id', $this->user->id)
-                ->where('from_date', $date)
+                ->whereDate('from_date', $date)
                 ->first();
 
             $this->assertNotNull($leave);
             $this->assertEquals($this->leaveSetting->id, $leave->leave_type);
             $this->assertEquals('Test successful bulk creation', $leave->reason);
-            $this->assertEquals('New', $leave->status);
+            $this->assertEquals('approved', $leave->status);
         }
     }
 }

@@ -11,6 +11,23 @@ class Designation extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saved(function ($designation) {
+            \Illuminate\Support\Facades\Cache::forget('active_designations_list');
+        });
+
+        static::deleted(function ($designation) {
+            \Illuminate\Support\Facades\Cache::forget('active_designations_list');
+        });
+
+        static::restored(function ($designation) {
+            \Illuminate\Support\Facades\Cache::forget('active_designations_list');
+        });
+    }
+
     protected $table = 'designations';
 
     protected $fillable = [
@@ -71,10 +88,17 @@ class Designation extends Model
             ->get();
     }
 
-    // Accessors
     public function getEmployeeCountAttribute(): int
     {
-        return $this->users()->count(); // note: better to use withCount() outside
+        if ($this->relationLoaded('users')) {
+            return $this->users->count();
+        }
+
+        if (array_key_exists('users_count', $this->attributes)) {
+            return (int) $this->attributes['users_count'];
+        }
+
+        return $this->users()->count();
     }
 
     // Optional: customize array output for API responses

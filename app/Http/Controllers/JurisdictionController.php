@@ -15,7 +15,7 @@ class JurisdictionController extends Controller
         return Inertia::render('WorkLocations/WorkLocations', [
             'title' => 'Work Locations',
             'jurisdictions' => Jurisdiction::with('inchargeUser')->get(),
-            'users' => User::all(),
+            'users' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
         ]);
     }
 
@@ -24,7 +24,7 @@ class JurisdictionController extends Controller
         return Inertia::render('WorkLocations/WorkLocations', [
             'title' => 'Work Locations Management',
             'jurisdictions' => Jurisdiction::with('inchargeUser')->get(),
-            'users' => User::all(),
+            'users' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
         ]);
     }
 

@@ -47,7 +47,7 @@ class ProfileController extends Controller
         return Inertia::render('Profile/UserProfile', [
             'title' => 'Profile',
             'user' => $userDetails,
-            'allUsers' => User::all(),
+            'allUsers' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
             'departments' => Department::all(),
             'designations' => Designation::all(),
             'report_to' => $reportTo,

@@ -8,6 +8,7 @@ use App\Services\PettyCash\PettyCashService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Jobs\ExportPettyCashTransactions;
 
 class PettyCashController extends Controller
 {
@@ -323,24 +324,16 @@ class PettyCashController extends Controller
                 ], 403);
             }
 
-            $transactions = $this->pettyCashService->getTransactionHistory($loan, 1, 1000);
+            $filename = 'petty_cash_transactions_' . now()->format('Y_m_d_H_i_s') . '_' . time() . '.csv';
 
-            $exportData = collect($transactions['data'])->map(function ($transaction) {
-                return [
-                    'Date' => $transaction['transaction_date'],
-                    'Type' => ucfirst(str_replace('_', ' ', $transaction['type'])),
-                    'Category' => $transaction['category'] ? ucfirst(str_replace('_', ' ', $transaction['category'])) : 'N/A',
-                    'Amount' => $transaction['amount'],
-                    'Description' => $transaction['description'],
-                    'Has Bills' => $transaction['has_bills'] ? 'Yes' : 'No',
-                ];
-            });
+            ExportPettyCashTransactions::dispatch($loan->id, Auth::id(), $filename);
 
             return response()->json([
                 'success' => true,
-                'data' => $exportData,
-                'filename' => 'petty_cash_transactions_' . now()->format('Y_m_d_H_i_s'),
-                'total_records' => count($exportData),
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/' . $filename),
+                'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
             return response()->json([

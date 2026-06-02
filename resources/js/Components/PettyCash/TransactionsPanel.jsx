@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Card, Flex, Text, Button, Select, TextField, Table, Badge, Link } from '@radix-ui/themes';
 import { DownloadIcon, FileTextIcon, TrashIcon, PlusIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
+import { handleExportResponse } from '@/utils/exportUtils';
 import PettyCashExpenseForm from '@/Forms/PettyCashExpenseForm.jsx';
 import PettyCashReimbursementForm from '@/Forms/PettyCashReimbursementForm.jsx';
 import PettyCashRepaymentForm from '@/Forms/PettyCashRepaymentForm.jsx';
@@ -49,18 +50,22 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                 params: { loan_id: loanId },
             });
             
-            const data = response.data.data;
-            const csv = [
-                Object.keys(data[0]).join(','),
-                ...data.map(row => Object.values(row).join(','))
-            ].join('\n');
+            if (response.data && response.data.queued) {
+                await handleExportResponse(response.data, `${response.data.filename || 'petty_cash_transactions'}.csv`, 'text/csv', 'csv');
+            } else {
+                const data = response.data.data;
+                const csv = [
+                    Object.keys(data[0]).join(','),
+                    ...data.map(row => Object.values(row).join(','))
+                ].join('\n');
 
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${response.data.filename}.csv`;
-            a.click();
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${response.data.filename}.csv`;
+                a.click();
+            }
         } catch (error) {
             console.error('Failed to export:', error);
         }

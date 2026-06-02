@@ -6,26 +6,31 @@ use App\Models\HRM\Holiday;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class HolidayController extends Controller
 {
     public function index(): \Inertia\Response
     {
-        $holidays = Holiday::active()
-            ->orderBy('from_date', 'asc')
-            ->get();
+        $holidays = Cache::remember('active_holidays_list', now()->addDay(), function () {
+            return Holiday::active()
+                ->orderBy('from_date', 'asc')
+                ->get();
+        });
 
-        // Get statistics for the dashboard (for reference, but frontend will calculate dynamically)
-        $currentYearHolidays = Holiday::active()->currentYear()->get();
-        $stats = [
-            'total_holidays' => Holiday::active()->count(),
-            'upcoming_holidays' => Holiday::active()->upcoming()->count(),
-            'current_year_holidays' => $currentYearHolidays->count(),
-            'total_holiday_days' => $currentYearHolidays->sum(function ($holiday) {
-                return $holiday->duration;
-            }),
-        ];
+        // Get statistics for the dashboard
+        $stats = Cache::remember('holiday_stats', now()->addDay(), function () {
+            $currentYearHolidays = Holiday::active()->currentYear()->get();
+            return [
+                'total_holidays' => Holiday::active()->count(),
+                'upcoming_holidays' => Holiday::active()->upcoming()->count(),
+                'current_year_holidays' => $currentYearHolidays->count(),
+                'total_holiday_days' => $currentYearHolidays->sum(function ($holiday) {
+                    return $holiday->duration;
+                }),
+            ];
+        });
 
         return Inertia::render('Holidays', [
             'title' => 'Company Holidays',

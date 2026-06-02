@@ -12,6 +12,7 @@ import {
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { showToast } from '@/utils/toastUtils';
+import { handleExportResponse } from '@/utils/exportUtils';
 import AbsentSidebar from './AbsentSidebar';
 import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
 import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
@@ -355,17 +356,13 @@ const DailyTimesheetTab = ({
             const mime = type === 'pdf'   ? 'application/pdf'               : undefined;
             const ext  = type === 'excel' ? 'xlsx'                          : 'pdf';
             const { data } = await exportDailyTimesheet.mutateAsync({ date: selectedDate, type });
-            const blobUrl = window.URL.createObjectURL(new Blob([data], mime ? { type: mime } : undefined));
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = `Daily_Timesheet_${dayjs(selectedDate).format('YYYY_MM_DD')}.${ext}`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(blobUrl);
-        } catch { showToast.error(`Failed to download ${type}.`); }
-        finally { setDownloading(''); }
-    }, [selectedDate]);
+            const defaultFilename = `Daily_Timesheet_${dayjs(selectedDate).format('YYYY_MM_DD')}.${ext}`;
+            await handleExportResponse(data, defaultFilename, mime, ext);
+        } catch (err) {
+            console.error('Export failed:', err);
+            showToast.error(`Failed to download ${type}.`);
+        } finally { setDownloading(''); }
+    }, [selectedDate, exportDailyTimesheet]);
 
     const getUserLeave = (uid) => leaves.find(l => String(l.user_id) === String(uid));
 

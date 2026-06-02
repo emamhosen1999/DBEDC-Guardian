@@ -11,6 +11,23 @@ class Department extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saved(function ($department) {
+            \Illuminate\Support\Facades\Cache::forget('active_departments_list');
+        });
+
+        static::deleted(function ($department) {
+            \Illuminate\Support\Facades\Cache::forget('active_departments_list');
+        });
+
+        static::restored(function ($department) {
+            \Illuminate\Support\Facades\Cache::forget('active_departments_list');
+        });
+    }
+
     // Specify the table name if it's different from the default
     protected $table = 'departments';
 
@@ -81,13 +98,16 @@ class Department extends Model
         return $query->where('is_active', true);
     }
 
-    /**
-     * Format department according to ISO standards
-     */
     public function toArray()
     {
         $array = parent::toArray();
-        $array['employee_count'] = $this->employees()->count();
+        if ($this->relationLoaded('employees')) {
+            $array['employee_count'] = $this->employees->count();
+        } elseif (array_key_exists('employees_count', $this->attributes)) {
+            $array['employee_count'] = (int) $this->attributes['employees_count'];
+        } else {
+            $array['employee_count'] = $this->employees()->count();
+        }
 
         return $array;
     }
