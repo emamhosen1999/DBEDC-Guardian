@@ -43,10 +43,13 @@ use App\Models\User;
 // APK Install Gate (public, always accessible)
 use Inertia\Inertia;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\ApkDownloadController;
 
 Route::get('/install-app', function () {
     return Inertia::render('InstallApp');
 })->name('install-app');
+
+Route::get('/apk/latest.apk', [ApkDownloadController::class, 'latest'])->name('apk.download');
 
 // Include authentication routes
 require __DIR__.'/auth.php';

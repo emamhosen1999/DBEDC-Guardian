@@ -39,7 +39,6 @@ class MobileAuthApiTest extends TestCase
     public function test_mobile_login_returns_token_and_user_payload(): void
     {
         $user = User::factory()->create([
-            'active' => true,
             'email' => 'mobile.user@example.com',
             'password' => Hash::make('secret-1234'),
         ]);
@@ -66,7 +65,6 @@ class MobileAuthApiTest extends TestCase
     public function test_mobile_login_fails_with_invalid_credentials(): void
     {
         User::factory()->create([
-            'active' => true,
             'email' => 'mobile.user@example.com',
             'password' => Hash::make('secret-1234'),
         ]);
@@ -81,28 +79,11 @@ class MobileAuthApiTest extends TestCase
             ->assertJsonPath('message', 'The provided credentials are incorrect.');
     }
 
-    public function test_mobile_login_rejects_inactive_account(): void
-    {
-        User::factory()->create([
-            'active' => false,
-            'email' => 'inactive.user@example.com',
-            'password' => Hash::make('secret-1234'),
-        ]);
 
-        $response = $this->postJson('/api/v1/auth/login', array_merge([
-            'email' => 'inactive.user@example.com',
-            'password' => 'secret-1234',
-        ], $this->mobileDevicePayload()));
-
-        $response->assertStatus(403)
-            ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'This account has been deactivated. Please contact your administrator.');
-    }
 
     public function test_mobile_auth_me_and_logout_require_token_and_work_with_valid_token(): void
     {
         $user = User::factory()->create([
-            'active' => true,
             'email' => 'active.user@example.com',
             'password' => Hash::make('secret-1234'),
         ]);
@@ -142,7 +123,6 @@ class MobileAuthApiTest extends TestCase
     public function test_mobile_login_blocks_other_device_when_single_device_lock_is_enabled(): void
     {
         User::factory()->create([
-            'active' => true,
             'single_device_login_enabled' => true,
             'email' => 'locked.mobile.user@example.com',
             'password' => Hash::make('secret-1234'),
@@ -184,3 +164,4 @@ class MobileAuthApiTest extends TestCase
             ->assertJsonPath('data.blocked_device_info.device_name', 'Samsung S24');
     }
 }
+

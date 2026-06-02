@@ -24,8 +24,8 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_approver_can_fetch_pending_approvals(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $requester = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $requester = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $pendingLeaveId = $this->insertPendingLeaveForApprover($requester->id, $approver->id, $leaveTypeId);
@@ -44,8 +44,8 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_approver_can_approve_pending_leave(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $requester = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $requester = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $pendingLeaveId = $this->insertPendingLeaveForApprover($requester->id, $approver->id, $leaveTypeId);
@@ -68,8 +68,8 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_approver_can_reject_pending_leave(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $requester = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $requester = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $pendingLeaveId = $this->insertPendingLeaveForApprover($requester->id, $approver->id, $leaveTypeId);
@@ -93,9 +93,9 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_non_approver_cannot_approve_leave(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $nonApprover = User::factory()->create(['active' => true]);
-        $requester = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $nonApprover = User::factory()->create([]);
+        $requester = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $pendingLeaveId = $this->insertPendingLeaveForApprover($requester->id, $approver->id, $leaveTypeId);
@@ -113,8 +113,8 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_reject_requires_reason_validation(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $requester = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $requester = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $pendingLeaveId = $this->insertPendingLeaveForApprover($requester->id, $approver->id, $leaveTypeId);
@@ -129,9 +129,9 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_approver_can_bulk_approve_pending_leaves(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $requesterA = User::factory()->create(['active' => true]);
-        $requesterB = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $requesterA = User::factory()->create([]);
+        $requesterB = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $leaveA = $this->insertPendingLeaveForApprover($requesterA->id, $approver->id, $leaveTypeId);
@@ -163,9 +163,9 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_approver_can_bulk_reject_pending_leaves(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $requesterA = User::factory()->create(['active' => true]);
-        $requesterB = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $requesterA = User::factory()->create([]);
+        $requesterB = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $leaveA = $this->insertPendingLeaveForApprover($requesterA->id, $approver->id, $leaveTypeId);
@@ -199,9 +199,9 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_non_approver_bulk_approve_returns_failed_results(): void
     {
-        $approver = User::factory()->create(['active' => true]);
-        $nonApprover = User::factory()->create(['active' => true]);
-        $requester = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
+        $nonApprover = User::factory()->create([]);
+        $requester = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertPendingLeaveForApprover($requester->id, $approver->id, $leaveTypeId);
@@ -223,7 +223,7 @@ class MobileLeaveApprovalApiTest extends TestCase
 
     public function test_bulk_reject_requires_reason_and_leave_ids_validation(): void
     {
-        $approver = User::factory()->create(['active' => true]);
+        $approver = User::factory()->create([]);
 
         Sanctum::actingAs($approver);
 
@@ -291,3 +291,4 @@ class MobileLeaveApprovalApiTest extends TestCase
         return (int) DB::table('leaves')->insertGetId($payload);
     }
 }
+

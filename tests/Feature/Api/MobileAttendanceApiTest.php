@@ -35,8 +35,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_non_manager_cannot_access_mobile_daily_timesheet_endpoints(): void
     {
         $user = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
 
         Sanctum::actingAs($user);
 
@@ -79,8 +78,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_authenticated_user_can_fetch_mobile_attendance_today_summary(): void
     {
         $user = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
 
         Attendance::query()->create([
             'user_id' => $user->id,
@@ -111,7 +109,6 @@ class MobileAttendanceApiTest extends TestCase
         ]);
 
         $user = User::factory()->create([
-            'active' => true,
             'attendance_type_id' => $attendanceType->id,
         ]);
 
@@ -144,7 +141,6 @@ class MobileAttendanceApiTest extends TestCase
     public function test_mobile_punch_requires_active_attendance_type(): void
     {
         $user = User::factory()->create([
-            'active' => true,
             'attendance_type_id' => null,
         ]);
 
@@ -160,7 +156,6 @@ class MobileAttendanceApiTest extends TestCase
     public function test_authenticated_user_can_fetch_monthly_mobile_attendance_history(): void
     {
         $user = User::factory()->create([
-            'active' => true,
             'single_device_login_enabled' => false,
         ]);
 
@@ -191,20 +186,17 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_team_monthly_mobile_attendance_history_with_employee_filter(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
             'single_device_login_enabled' => false,
         ]);
         $this->assignRole($manager, 'Project Manager');
 
         $targetEmployee = User::factory()->create([
-            'active' => true,
             'employee_id' => 'EMP-9001',
             'single_device_login_enabled' => false,
         ]);
         $this->assignRole($targetEmployee, 'Employee');
 
         $otherEmployee = User::factory()->create([
-            'active' => true,
             'employee_id' => 'EMP-9002',
             'single_device_login_enabled' => false,
         ]);
@@ -247,7 +239,6 @@ class MobileAttendanceApiTest extends TestCase
     public function test_non_manager_cannot_fetch_team_mobile_attendance_history(): void
     {
         $user = User::factory()->create([
-            'active' => true,
             'single_device_login_enabled' => false,
         ]);
 
@@ -266,12 +257,10 @@ class MobileAttendanceApiTest extends TestCase
 
         try {
             $user = User::factory()->create([
-                'active' => true,
-            ]);
+                ]);
 
             $otherUser = User::factory()->create([
-                'active' => true,
-            ]);
+                ]);
 
             Attendance::query()->create([
                 'user_id' => $user->id,
@@ -332,8 +321,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_monthly_attendance_summary_validates_month_range(): void
     {
         $user = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
 
         Sanctum::actingAs($user);
 
@@ -346,18 +334,15 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_daily_timesheet_payload(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($manager, 'Project Manager');
 
         $presentEmployee = User::factory()->create([
-            'active' => true,
             'employee_id' => 'EMP-1001',
         ]);
         $this->assignRole($presentEmployee, 'Employee');
 
         $absentEmployee = User::factory()->create([
-            'active' => true,
             'employee_id' => 'EMP-1002',
         ]);
         $this->assignRole($absentEmployee, 'Employee');
@@ -408,8 +393,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_team_locations_payload(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($manager, 'Project Manager');
 
         $attendanceType = AttendanceType::factory()->create([
@@ -425,7 +409,6 @@ class MobileAttendanceApiTest extends TestCase
         ]);
 
         $employee = User::factory()->create([
-            'active' => true,
             'attendance_type_id' => $attendanceType->id,
         ]);
         $this->assignRole($employee, 'Employee');
@@ -460,12 +443,10 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_present_users_payload(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($manager, 'Project Manager');
 
         $employee = User::factory()->create([
-            'active' => true,
             'employee_id' => 'EMP-2001',
         ]);
         $this->assignRole($employee, 'Employee');
@@ -499,18 +480,15 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_absent_users_payload(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($manager, 'Project Manager');
 
         $presentEmployee = User::factory()->create([
-            'active' => true,
             'employee_id' => 'EMP-3001',
         ]);
         $this->assignRole($presentEmployee, 'Employee');
 
         $absentEmployee = User::factory()->create([
-            'active' => true,
             'employee_id' => 'EMP-3002',
         ]);
         $this->assignRole($absentEmployee, 'Employee');
@@ -547,8 +525,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_locations_today_payload(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($manager, 'Project Manager');
 
         $attendanceType = AttendanceType::factory()->create([
@@ -564,7 +541,6 @@ class MobileAttendanceApiTest extends TestCase
         ]);
 
         $employee = User::factory()->create([
-            'active' => true,
             'attendance_type_id' => $attendanceType->id,
         ]);
         $this->assignRole($employee, 'Employee');
@@ -596,13 +572,11 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_check_mobile_attendance_update_status(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($manager, 'Project Manager');
 
         $employee = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($employee, 'Employee');
 
         Attendance::query()->create([
@@ -635,8 +609,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_mobile_attendance_update_status_validates_date_format_for_manager(): void
     {
         $manager = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
         $this->assignRole($manager, 'Project Manager');
 
         Sanctum::actingAs($manager);
@@ -751,3 +724,4 @@ class MobileAttendanceApiTest extends TestCase
         return (int) DB::table('holidays')->insertGetId($payload);
     }
 }
+

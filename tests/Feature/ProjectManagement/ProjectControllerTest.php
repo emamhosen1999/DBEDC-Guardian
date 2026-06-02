@@ -17,6 +17,17 @@ class ProjectControllerTest extends TestCase
     {
         parent::setUp();
 
+        // Create required permissions first
+        foreach ([
+            'project-management.projects.view',
+            'project-management.projects.create',
+            'project-management.projects.update',
+            'project-management.projects.delete',
+            'project-management.projects.export',
+        ] as $perm) {
+            \Spatie\Permission\Models\Permission::findOrCreate($perm);
+        }
+
         // Create a user with project management permissions
         $this->user = User::factory()->create();
         $this->user->givePermissionTo([
@@ -250,3 +261,4 @@ class ProjectControllerTest extends TestCase
         );
     }
 }
+

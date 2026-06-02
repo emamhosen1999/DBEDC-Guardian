@@ -16,3 +16,4 @@ class DashboardUpdatesTest extends TestCase
         $response->assertStatus(200);
     }
 }
+

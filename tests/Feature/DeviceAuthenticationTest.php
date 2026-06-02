@@ -363,7 +363,6 @@ class DeviceAuthenticationTest extends TestCase
     {
         $user = User::factory()->create([
             'password' => bcrypt('password'),
-            'active' => true,
             'single_device_login_enabled' => false,
         ]);
 
@@ -427,3 +426,4 @@ class DeviceAuthenticationTest extends TestCase
         ]);
     }
 }
+

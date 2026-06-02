@@ -70,14 +70,19 @@ class AttendanceQueryService
      */
     public function getAttendanceHistory(int $userId, array $filters = []): array
     {
-        $filters['user_id'] = $userId;
+        if (($filters['scope'] ?? 'self') !== 'team') {
+            $filters['user_id'] = $userId;
+        } else {
+            unset($filters['user_id']);
+        }
+        $filters['with'] = ['user.designation'];
         $perPage = $filters['per_page'] ?? 10;
         $page = $filters['page'] ?? 1;
 
         $paginator = $this->attendanceRepository->paginate($perPage, $filters);
 
         return [
-            'data' => $paginator->items(),
+            'attendances' => $paginator->items(),
             'pagination' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),

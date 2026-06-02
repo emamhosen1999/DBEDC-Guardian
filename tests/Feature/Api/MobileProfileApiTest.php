@@ -21,8 +21,7 @@ class MobileProfileApiTest extends TestCase
     {
         $user = User::factory()->create([
             'name' => 'Mobile User',
-            'active' => true,
-        ]);
+            ]);
 
         Sanctum::actingAs($user);
 
@@ -40,8 +39,7 @@ class MobileProfileApiTest extends TestCase
     {
         $user = User::factory()->create([
             'name' => 'Old Name',
-            'active' => true,
-        ]);
+            ]);
 
         Sanctum::actingAs($user);
 
@@ -75,8 +73,7 @@ class MobileProfileApiTest extends TestCase
     public function test_mobile_profile_update_validates_required_name(): void
     {
         $user = User::factory()->create([
-            'active' => true,
-        ]);
+            ]);
 
         Sanctum::actingAs($user);
 
@@ -88,3 +85,4 @@ class MobileProfileApiTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 }
+

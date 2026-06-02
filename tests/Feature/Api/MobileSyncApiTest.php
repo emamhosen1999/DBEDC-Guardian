@@ -26,8 +26,8 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_bootstrap_returns_requested_modules_with_user_scoped_data(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $this->insertAttendanceRecord($user->id, now()->subMinutes(20)->toDateTimeString());
         $this->insertAttendanceRecord($otherUser->id, now()->subMinutes(10)->toDateTimeString());
@@ -55,8 +55,8 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_pull_returns_changes_since_cursor_with_module_filter_and_scope(): void
     {
-        $user = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $oldAttendanceId = $this->insertAttendanceRecord($user->id, now()->subHours(2)->toDateTimeString());
         $newAttendanceId = $this->insertAttendanceRecord($user->id, now()->subMinutes(20)->toDateTimeString());
@@ -95,7 +95,7 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_pull_requires_cursor_and_valid_modules(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         Sanctum::actingAs($user);
 
         $this->getJson('/api/v1/sync/pull')
@@ -109,7 +109,7 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_applies_leave_cancel_and_daily_work_status_mutations(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
 
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertLeaveForUser($user->id, $leaveTypeId, now()->subMinutes(3)->toDateTimeString());
@@ -171,7 +171,7 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_applies_leave_apply_mutation(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
 
         Sanctum::actingAs($user);
@@ -226,7 +226,7 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_fails_leave_apply_for_overlapping_dates(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
         $this->insertLeaveForUser($user->id, $leaveTypeId, now()->subMinute()->toDateTimeString());
 
@@ -272,7 +272,7 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_returns_duplicate_result_for_replayed_idempotency_key(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         $leaveTypeId = $this->createLeaveType();
         $leaveId = $this->insertLeaveForUser($user->id, $leaveTypeId, now()->subMinutes(3)->toDateTimeString());
 
@@ -309,8 +309,8 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_reports_failed_mutation_for_unauthorized_daily_work_update(): void
     {
-        $owner = User::factory()->create(['active' => true]);
-        $otherUser = User::factory()->create(['active' => true]);
+        $owner = User::factory()->create([]);
+        $otherUser = User::factory()->create([]);
 
         $dailyWork = DailyWork::factory()->forUsers($owner, $owner)->newStatus()->create();
 
@@ -347,8 +347,8 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_applies_daily_work_objection_transition_mutations(): void
     {
-        $owner = User::factory()->create(['active' => true]);
-        $manager = User::factory()->create(['active' => true]);
+        $owner = User::factory()->create([]);
+        $manager = User::factory()->create([]);
         $this->assignManagerRole($manager);
 
         $dailyWork = DailyWork::factory()->forUsers($owner, $owner)->create();
@@ -438,8 +438,8 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_fails_daily_work_objection_review_for_non_manager_user(): void
     {
-        $owner = User::factory()->create(['active' => true]);
-        $reviewer = User::factory()->create(['active' => true]);
+        $owner = User::factory()->create([]);
+        $reviewer = User::factory()->create([]);
 
         $dailyWork = DailyWork::factory()->forUsers($owner, $reviewer)->create();
         $objectionId = $this->insertObjectionForDailyWork($dailyWork, $owner->id, [
@@ -496,7 +496,6 @@ class MobileSyncApiTest extends TestCase
         ]);
 
         $user = User::factory()->create([
-            'active' => true,
             'attendance_type_id' => $attendanceType->id,
         ]);
 
@@ -540,7 +539,6 @@ class MobileSyncApiTest extends TestCase
     public function test_sync_push_fails_attendance_mutation_without_active_attendance_type(): void
     {
         $user = User::factory()->create([
-            'active' => true,
             'attendance_type_id' => null,
         ]);
 
@@ -569,7 +567,7 @@ class MobileSyncApiTest extends TestCase
 
     public function test_sync_push_requires_mutations_payload(): void
     {
-        $user = User::factory()->create(['active' => true]);
+        $user = User::factory()->create([]);
         Sanctum::actingAs($user);
 
         $this->postJson('/api/v1/sync/push', [])
@@ -688,3 +686,4 @@ class MobileSyncApiTest extends TestCase
         $user->assignRole('Project Manager');
     }
 }
+
