@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Jobs\ExportDailyWorkSummary;
 
 class DailyWorkSummaryController extends Controller
 {
@@ -381,17 +382,17 @@ class DailyWorkSummaryController extends Controller
     public function exportExcel(Request $request)
     {
         try {
-            $query = $this->buildFilteredQuery($request);
-            $works = $query->get();
-            $summaries = $this->generateSummariesFromDailyWorks($works);
-            $analytics = $this->buildAnalyticsPayload($works);
+            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'_'.time().'.xlsx';
 
-            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'.xlsx';
+            ExportDailyWorkSummary::dispatch('excel', $request->all(), Auth::id(), $filename);
 
-            return Excel::download(
-                new DailyWorkSummaryExport($summaries, $analytics, $request->all()),
-                $filename
-            );
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/' . $filename),
+                'message' => 'Export job has been dispatched.',
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Excel export failed: '.$e->getMessage(),
@@ -505,46 +506,17 @@ class DailyWorkSummaryController extends Controller
     public function exportPdf(Request $request)
     {
         try {
-            $query = $this->buildFilteredQuery($request);
-            $works = $query->get();
-            $summaries = $this->generateSummariesFromDailyWorks($works);
-            $analytics = $this->buildAnalyticsPayload($works);
+            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'_'.time().'.pdf';
 
-            $startDate = $request->input('startDate');
-            $endDate = $request->input('endDate');
+            ExportDailyWorkSummary::dispatch('pdf', $request->all(), Auth::id(), $filename);
 
-            // Generate charts server-side
-            $chartImages = [];
-            
-            // Generate daily trend chart
-            if (!empty($analytics['dailyTrend'])) {
-                $chartImages['daily_trend'] = $this->generateDailyTrendChart($analytics['dailyTrend']);
-            }
-            
-            // Generate work type pie chart
-            if (!empty($analytics['typeBreakdown'])) {
-                $chartImages['work_type'] = $this->generatePieChart($analytics['typeBreakdown'], 'Work Type Distribution');
-            }
-            
-            // Generate status pie chart
-            if (!empty($analytics['statusBreakdown'])) {
-                $chartImages['status'] = $this->generatePieChart($analytics['statusBreakdown'], 'Status Distribution');
-            }
-
-            $pdf = Pdf::loadView('daily_work_summary_pdf', [
-                'title' => 'Daily Work Summary Report',
-                'generatedOn' => Carbon::now()->format('F d, Y h:i A'),
-                'periodLabel' => $startDate && $endDate
-                    ? Carbon::parse($startDate)->format('M d, Y').' - '.Carbon::parse($endDate)->format('M d, Y')
-                    : 'All Time',
-                'summaries' => $summaries,
-                'analytics' => $analytics,
-                'chartImages' => $chartImages,
-            ])->setPaper('a4', 'landscape');
-
-            $filename = 'daily_work_summary_'.now()->format('Y-m-d_His').'.pdf';
-
-            return $pdf->download($filename);
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/' . $filename),
+                'message' => 'Export job has been dispatched.',
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'PDF export failed: '.$e->getMessage(),

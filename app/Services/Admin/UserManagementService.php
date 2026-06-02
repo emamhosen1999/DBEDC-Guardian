@@ -301,7 +301,7 @@ class UserManagementService
         $department = $filters['department'] ?? null;
 
         $query = User::withTrashed()
-            ->with(['department', 'designation', 'roles', 'currentDevice', 'reportsTo', 'attendanceType']);
+            ->with(['department', 'designation', 'roles', 'currentDevice', 'reportsTo', 'attendanceType', 'media']);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -361,7 +361,7 @@ class UserManagementService
         $designation    = $filters['designation'] ?? null;
         $attendanceType = $filters['attendanceType'] ?? null;
 
-        $query = User::with(['department', 'designation', 'attendanceType']);
+        $query = User::with(['department', 'designation', 'attendanceType', 'media']);
 
         if (! empty($search)) {
             $query->where(function ($q) use ($search) {
@@ -426,7 +426,8 @@ class UserManagementService
             'designations' => Designation::count(),
         ];
 
-        $allManagers = User::with(['designation', 'department'])
+        $allManagers = User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')
+            ->with(['designation', 'department', 'media'])
             ->get()
             ->map(function ($user) {
                 return [

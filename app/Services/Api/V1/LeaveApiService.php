@@ -147,7 +147,7 @@ class LeaveApiService
         }
 
         if ((int) ($leave->{$userColumn} ?? 0) !== (int) $user->id) {
-            throw new RuntimeException('Unauthorized', 403);
+            throw new RuntimeException('You are not authorized to access this leave request.', 403);
         }
 
         $query = DB::table('leaves')->where('leaves.id', $leaveId);

@@ -20,11 +20,18 @@ class LeaveModuleTest extends TestCase
     {
         parent::setUp();
 
+        // Clear Spatie cached permissions
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
         // Create a test user
         $this->user = User::factory()->create([
             'email' => 'test@example.com',
             'password' => bcrypt('password'),
         ]);
+
+        // Assign proper permissions
+        \Spatie\Permission\Models\Permission::findOrCreate('leave.own.view');
+        $this->user->givePermissionTo('leave.own.view');
 
         // Create a leave setting
         $this->leaveSetting = LeaveSetting::create([
@@ -71,7 +78,7 @@ class LeaveModuleTest extends TestCase
         $this->assertDatabaseHas('leaves', [
             'user_id' => $this->user->id,
             'no_of_days' => 3,
-            'status' => 'New',
+            'status' => 'approved',
         ]);
     }
 

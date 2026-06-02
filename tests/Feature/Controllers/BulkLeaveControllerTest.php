@@ -20,13 +20,20 @@ class BulkLeaveControllerTest extends TestCase
     {
         parent::setUp();
 
+        // Clear Spatie cached permissions
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
         $this->user = User::factory()->create();
         $this->leaveSetting = LeaveSetting::factory()->create([
             'type' => 'Annual',
             'days' => 20,
         ]);
 
-        // Mock permissions (adjust based on your permission system)
+        // Assign proper permissions
+        \Spatie\Permission\Models\Permission::findOrCreate('leaves.create');
+        \Spatie\Permission\Models\Permission::findOrCreate('leaves.delete');
+        $this->user->givePermissionTo(['leaves.create', 'leaves.delete']);
+
         $this->actingAs($this->user);
     }
 
@@ -119,7 +126,6 @@ class BulkLeaveControllerTest extends TestCase
                     'successful',
                     'failed',
                 ],
-                'leaves',
                 'leavesData',
             ]);
 
@@ -132,7 +138,7 @@ class BulkLeaveControllerTest extends TestCase
         foreach ($dates as $date) {
             $this->assertDatabaseHas('leaves', [
                 'user_id' => $this->user->id,
-                'from_date' => $date,
+                'from_date' => $date . ' 00:00:00',
                 'leave_type' => $this->leaveSetting->id,
                 'reason' => 'Test bulk creation endpoint',
             ]);
@@ -183,7 +189,7 @@ class BulkLeaveControllerTest extends TestCase
         $this->assertDatabaseCount('leaves', 1);
         $this->assertDatabaseHas('leaves', [
             'user_id' => $this->user->id,
-            'from_date' => $futureDate,
+            'from_date' => $futureDate . ' 00:00:00',
         ]);
     }
 

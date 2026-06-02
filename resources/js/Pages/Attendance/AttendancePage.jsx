@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, lazy, Suspense } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import App from '@/Layouts/App';
 import {
-    Box, Flex, Text, Card, Tabs, Separator,
+    Box, Flex, Text, Card, Tabs, Separator, Skeleton,
 } from '@radix-ui/themes';
 import {
     ClockIcon, CalendarIcon, GearIcon,
@@ -11,8 +11,8 @@ import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
 
 import DailyTimesheetTab  from './DailyTimesheetTab';
-import MonthlyCalendarTab from './MonthlyCalendarTab';
-import SettingsTab        from './SettingsTab';
+const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
+const SettingsTab        = lazy(() => import('./SettingsTab'));
 import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 
 /* ── optional: mark-as-present modals (keep your existing) ── */
@@ -172,10 +172,12 @@ const AttendancePage = ({ title }) => {
                             <Tabs.Content value="monthly">
                                 <Box mt="4">
                                     <ErrorBoundary>
-                                        <MonthlyCalendarTab
-                                            selectedMonth={selectedMonth}
-                                            onMonthChange={handleMonthChange}
-                                        />
+                                        <Suspense fallback={<Skeleton height="400px" />}>
+                                            <MonthlyCalendarTab
+                                                selectedMonth={selectedMonth}
+                                                onMonthChange={handleMonthChange}
+                                            />
+                                        </Suspense>
                                     </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
@@ -184,7 +186,11 @@ const AttendancePage = ({ title }) => {
                             {canSettings && (
                                 <Tabs.Content value="settings">
                                     <Box mt="4">
-                                        <SettingsTab />
+                                        <ErrorBoundary>
+                                            <Suspense fallback={<Skeleton height="400px" />}>
+                                                <SettingsTab />
+                                            </Suspense>
+                                        </ErrorBoundary>
                                     </Box>
                                 </Tabs.Content>
                             )}

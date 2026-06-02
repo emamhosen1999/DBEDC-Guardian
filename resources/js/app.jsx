@@ -11,6 +11,7 @@ import { RadixThemeProvider } from './Contexts/RadixThemeContext';
 import { RadixThemeShell } from './Components/RadixThemeShell';
 import { initializeDeviceAuth } from './utils/deviceAuth';
 import queryClient from './api/reactQueryClient';
+import { showToast } from './utils/toastUtils';
 
 // Initialize secure device authentication
 initializeDeviceAuth();
@@ -79,6 +80,18 @@ axios.interceptors.response.use(
             });
             
             return Promise.reject(error);
+        }
+
+        // Global Error Visibility for common HTTP errors
+        if (error.response) {
+            const status = error.response.status;
+            const message = error.response.data?.message || 'An unexpected error occurred';
+            
+            if (status === 403) {
+                showToast.error('Access Denied: You do not have permission for this action.');
+            } else if (status >= 500) {
+                showToast.error(`Server Error (${status}): ${message}`);
+            }
         }
         
         return Promise.reject(error);

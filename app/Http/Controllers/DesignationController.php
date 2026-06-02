@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class DesignationController extends Controller
@@ -59,7 +60,7 @@ class DesignationController extends Controller
      */
     public function getDesignations(Request $request)
     {
-        $query = Designation::with(['department', 'users']);
+        $query = Designation::with(['department'])->withCount('users');
 
         // Apply search
         if ($request->filled('search')) {
@@ -199,11 +200,13 @@ class DesignationController extends Controller
      */
     public function list()
     {
-        return response()->json(
-            Designation::select('id', 'title')
+        $designations = Cache::remember('active_designations_list', now()->addHour(), function () {
+            return Designation::select('id', 'title')
                 ->where('is_active', true)
-                ->get()
-        );
+                ->get();
+        });
+
+        return response()->json($designations);
     }
 
     /**

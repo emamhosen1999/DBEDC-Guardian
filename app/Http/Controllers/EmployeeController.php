@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class EmployeeController extends Controller
@@ -36,11 +37,23 @@ class EmployeeController extends Controller
      */
     public function index()
     {
+        $departments = Cache::remember('active_departments_list', now()->addHour(), function () {
+            return Department::where('is_active', true)->get();
+        });
+
+        $designations = Cache::remember('active_designations_list', now()->addHour(), function () {
+            return Designation::where('is_active', true)->get();
+        });
+
+        $attendanceTypes = Cache::remember('active_attendance_types_list', now()->addHour(), function () {
+            return AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->where('is_active', true)->get();
+        });
+
         return Inertia::render('Employees/EmployeeList', [
             'title' => 'Employee Management',
-            'departments' => Department::where('is_active', true)->get(),
-            'designations' => Designation::where('is_active', true)->get(),
-            'attendanceTypes' => AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->where('is_active', true)->get(),
+            'departments' => $departments,
+            'designations' => $designations,
+            'attendanceTypes' => $attendanceTypes,
         ]);
     }
 
@@ -322,8 +335,8 @@ class EmployeeController extends Controller
             $attendanceType = $request->input('attendanceType');
             $status = $request->input('status');
 
-            // Build query - no eager loading due to attribute/relationship name conflicts
-            $query = User::query();
+            // Build query - eager load relationships to avoid N+1 query issues
+            $query = User::with(['department', 'designation', 'attendanceType', 'reportsTo.designation']);
 
             // Include soft deleted if status filter includes inactive
             if ($status === 'all' || $status === 'inactive') {
@@ -392,51 +405,28 @@ class EmployeeController extends Controller
 
             // Transform data for frontend
             $employees->getCollection()->transform(function ($employee) use ($atDeviceMap) {
-                // Get department name safely
-                $departmentName = null;
-                if ($employee->department_id) {
-                    $dept = \App\Models\HRM\Department::find($employee->department_id);
-                    $departmentName = $dept ? $dept->name : null;
-                }
+                // Get department name safely from loaded relation
+                $departmentName = $employee->department ? $employee->department->name : null;
 
-                // Get designation name safely
-                $designationName = null;
-                if ($employee->designation_id) {
-                    $desig = \App\Models\HRM\Designation::find($employee->designation_id);
-                    $designationName = $desig ? $desig->title : null;
-                }
+                // Get designation name safely from loaded relation
+                $designationName = $employee->designation ? $employee->designation->title : null;
 
-                // Get attendance type name safely
-                $attendanceTypeName = null;
-                if ($employee->attendance_type_id) {
-                    $attType = \App\Models\HRM\AttendanceType::find($employee->attendance_type_id);
-                    $attendanceTypeName = $attType ? $attType->name : null;
-                }
+                // Get attendance type name safely from loaded relation
+                $attendanceTypeName = $employee->attendanceType ? $employee->attendanceType->name : null;
 
-                // Get designation hierarchy level
-                $hierarchyLevel = 999;
-                if ($employee->designation_id) {
-                    $desig = \App\Models\HRM\Designation::find($employee->designation_id);
-                    $hierarchyLevel = $desig ? ($desig->hierarchy_level ?? 999) : 999;
-                }
+                // Get designation hierarchy level from loaded relation
+                $hierarchyLevel = $employee->designation ? ($employee->designation->hierarchy_level ?? 999) : 999;
 
-                // Get reports_to info (current manager)
+                // Get reports_to info (current manager) from loaded relation
                 $reportsTo = null;
-                if ($employee->report_to) {
-                    $manager = User::find($employee->report_to);
-                    if ($manager) {
-                        $managerDesigName = null;
-                        if ($manager->designation_id) {
-                            $managerDesig = \App\Models\HRM\Designation::find($manager->designation_id);
-                            $managerDesigName = $managerDesig ? $managerDesig->title : null;
-                        }
-                        $reportsTo = [
-                            'id' => $manager->id,
-                            'name' => $manager->name,
-                            'profile_image_url' => $manager->profile_image_url,
-                            'designation_name' => $managerDesigName,
-                        ];
-                    }
+                if ($employee->reportsTo) {
+                    $manager = $employee->reportsTo;
+                    $reportsTo = [
+                        'id' => $manager->id,
+                        'name' => $manager->name,
+                        'profile_image_url' => $manager->profile_image_url,
+                        'designation_name' => $manager->designation ? $manager->designation->title : null,
+                    ];
                 }
 
                 // Devices available to this employee via their attendance type
@@ -478,26 +468,14 @@ class EmployeeController extends Controller
             $allManagers = User::with(['designation', 'department'])
                 ->get()
                 ->map(function ($user) {
-                    // Get designation hierarchy level
-                    $hierarchyLevel = 999;
-                    if ($user->designation_id) {
-                        $desig = \App\Models\HRM\Designation::find($user->designation_id);
-                        $hierarchyLevel = $desig ? ($desig->hierarchy_level ?? 999) : 999;
-                    }
+                    // Get designation hierarchy level from relation
+                    $hierarchyLevel = $user->designation ? ($user->designation->hierarchy_level ?? 999) : 999;
 
-                    // Get department name
-                    $deptName = null;
-                    if ($user->department_id) {
-                        $dept = \App\Models\HRM\Department::find($user->department_id);
-                        $deptName = $dept ? $dept->name : null;
-                    }
+                    // Get department name from relation
+                    $deptName = $user->department ? $user->department->name : null;
 
-                    // Get designation name
-                    $desigName = null;
-                    if ($user->designation_id) {
-                        $desig = \App\Models\HRM\Designation::find($user->designation_id);
-                        $desigName = $desig ? $desig->title : null;
-                    }
+                    // Get designation name from relation
+                    $desigName = $user->designation ? $user->designation->title : null;
 
                     return [
                         'id' => $user->id,

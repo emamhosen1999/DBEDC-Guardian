@@ -434,9 +434,21 @@ class DailyWork extends Model implements HasMedia
             }
         });
 
+        static::saved(function ($dailyWork) {
+            \Illuminate\Support\Facades\Cache::forever('daily_works_cache_version', time());
+        });
+
         // Detach all objections when soft-deleting to prevent orphan pivot entries
         static::deleting(function ($dailyWork) {
             $dailyWork->objections()->detach();
+        });
+
+        static::deleted(function ($dailyWork) {
+            \Illuminate\Support\Facades\Cache::forever('daily_works_cache_version', time());
+        });
+
+        static::restored(function ($dailyWork) {
+            \Illuminate\Support\Facades\Cache::forever('daily_works_cache_version', time());
         });
     }
 }

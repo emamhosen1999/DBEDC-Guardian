@@ -77,7 +77,7 @@ class DailyWorkController extends Controller
             );
         $reports = Report::all();
         $reports_with_daily_works = Report::with('daily_works')->has('daily_works')->get();
-        $users = User::with(['roles', 'designation'])->get();
+        $users = User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with(['roles', 'designation', 'media'])->get();
 
         // Loop through each user and add role and designation_title fields
         $users->transform(function ($user) {
@@ -128,7 +128,7 @@ class DailyWorkController extends Controller
         
         $reports = Report::all();
         $reports_with_daily_works = Report::with('daily_works')->has('daily_works')->get();
-        $users = User::with(['roles', 'designation'])->get();
+        $users = User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with(['roles', 'designation', 'media'])->get();
 
         // Loop through each user and add role and designation_title fields
         $users->transform(function ($user) {

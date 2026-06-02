@@ -118,6 +118,7 @@ class LeaveApprovalService
 
                 Log::info("Leave #{$leave->id} auto-approved - no approvers in chain");
 
+                DB::commit();
                 return true;
             }
 

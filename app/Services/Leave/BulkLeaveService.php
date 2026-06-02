@@ -54,6 +54,12 @@ class BulkLeaveService
                     $dateResult['errors'][] = $overlapError;
                 }
 
+                // Check if it's a past date
+                if ($carbonDate->startOfDay()->lt(now()->startOfDay())) {
+                    $dateResult['status'] = 'conflict';
+                    $dateResult['errors'][] = 'Leave cannot be applied for past dates';
+                }
+
                 // Check if it's a weekend
                 if ($carbonDate->isWeekend()) {
                     $dateResult['warnings'][] = 'Weekend date - may require special approval';
@@ -98,76 +104,90 @@ class BulkLeaveService
         $failedDates = [];
         $totalRequested = count($dates);
 
-        return DB::transaction(function () use ($dates, $userId, $leaveTypeId, $reason, $allowPartialSuccess, &$createdLeaves, &$failedDates, $totalRequested) {
-            foreach ($dates as $date) {
-                try {
-                    $carbonDate = Carbon::parse($date);
+        try {
+            return DB::transaction(function () use ($dates, $userId, $leaveTypeId, $reason, $allowPartialSuccess, &$createdLeaves, &$failedDates, $totalRequested) {
+                foreach ($dates as $date) {
+                    try {
+                        $carbonDate = Carbon::parse($date);
 
-                    // Validate individual date
-                    $validation = $this->validateSingleDate($userId, $carbonDate, $leaveTypeId);
+                        // Validate individual date
+                        $validation = $this->validateSingleDate($userId, $carbonDate, $leaveTypeId);
 
-                    if (! empty($validation['errors'])) {
+                        if (! empty($validation['errors'])) {
+                            $failedDates[] = [
+                                'date' => $date,
+                                'errors' => $validation['errors'],
+                            ];
+
+                            if (! $allowPartialSuccess) {
+                                throw new \Exception('Validation failed for date: '.$date);
+                            }
+
+                            continue;
+                        }
+
+                        // Create leave record
+                        $leaveData = [
+                            'user_id' => $userId,
+                            'leaveType' => LeaveSetting::find($leaveTypeId)->type,
+                            'fromDate' => $date,
+                            'toDate' => $date,
+                            'daysCount' => 1,
+                            'leaveReason' => $reason,
+                        ];
+
+                        $leave = $this->crudService->createLeave($leaveData);
+                        $createdLeaves[] = $leave;
+
+                    } catch (\Exception $e) {
                         $failedDates[] = [
                             'date' => $date,
-                            'errors' => $validation['errors'],
+                            'errors' => [$e->getMessage()],
                         ];
 
                         if (! $allowPartialSuccess) {
-                            throw new \Exception('Validation failed for date: '.$date);
+                            throw $e;
                         }
-
-                        continue;
-                    }
-
-                    // Create leave record
-                    $leaveData = [
-                        'user_id' => $userId,
-                        'leaveType' => LeaveSetting::find($leaveTypeId)->type,
-                        'fromDate' => $date,
-                        'toDate' => $date,
-                        'daysCount' => 1,
-                        'leaveReason' => $reason,
-                    ];
-
-                    $leave = $this->crudService->createLeave($leaveData);
-                    $createdLeaves[] = $leave;
-
-                } catch (\Exception $e) {
-                    $failedDates[] = [
-                        'date' => $date,
-                        'errors' => [$e->getMessage()],
-                    ];
-
-                    if (! $allowPartialSuccess) {
-                        throw $e;
                     }
                 }
-            }
 
-            $successful = count($createdLeaves);
-            $failed = count($failedDates);
+                $successful = count($createdLeaves);
+                $failed = count($failedDates);
 
-            // Log the bulk operation
-            Log::info('Bulk leave operation completed', [
-                'user_id' => $userId,
-                'total_requested' => $totalRequested,
-                'successful' => $successful,
-                'failed' => $failed,
-                'partial_success_mode' => $allowPartialSuccess,
-            ]);
-
-            return [
-                'success' => $successful > 0,
-                'message' => $this->generateSuccessMessage($successful, $failed, $totalRequested),
-                'created_leaves' => $createdLeaves,
-                'failed_dates' => $failedDates,
-                'summary' => [
+                // Log the bulk operation
+                Log::info('Bulk leave operation completed', [
+                    'user_id' => $userId,
                     'total_requested' => $totalRequested,
                     'successful' => $successful,
                     'failed' => $failed,
+                    'partial_success_mode' => $allowPartialSuccess,
+                ]);
+
+                return [
+                    'success' => $successful > 0,
+                    'message' => $this->generateSuccessMessage($successful, $failed, $totalRequested),
+                    'created_leaves' => $createdLeaves,
+                    'failed_dates' => $failedDates,
+                    'summary' => [
+                        'total_requested' => $totalRequested,
+                        'successful' => $successful,
+                        'failed' => $failed,
+                    ],
+                ];
+            });
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Bulk leave creation failed: ' . $e->getMessage(),
+                'created_leaves' => [],
+                'failed_dates' => $failedDates,
+                'summary' => [
+                    'total_requested' => $totalRequested,
+                    'successful' => 0,
+                    'failed' => $totalRequested,
                 ],
             ];
-        });
+        }
     }
 
     /**
@@ -176,6 +196,11 @@ class BulkLeaveService
     private function validateSingleDate(int $userId, Carbon $date, int $leaveTypeId): array
     {
         $errors = [];
+
+        // Check if it's a past date
+        if ($date->startOfDay()->lt(now()->startOfDay())) {
+            $errors[] = 'Leave cannot be applied for past dates';
+        }
 
         // Check for overlapping leaves
         $overlapError = $this->overlapService->getOverlapErrorMessage($userId, $date, $date);
@@ -216,7 +241,7 @@ class BulkLeaveService
 
         $totalAllowedDays = (float) $leaveSetting->days;
         $currentBalance = max(0, $totalAllowedDays - $usedDays);
-        $remainingBalance = max(0, $currentBalance - $requestedDays);
+        $remainingBalance = $currentBalance - $requestedDays;
 
         return [
             'leave_type' => $leaveSetting->type,

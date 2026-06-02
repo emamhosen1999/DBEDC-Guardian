@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use App\Jobs\ExportAttendanceReport;
 
 class AttendanceController extends Controller
 {
@@ -401,8 +402,17 @@ class AttendanceController extends Controller
     {
         try {
             $date = $request->input('date');
+            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'.xlsx';
 
-            return \Maatwebsite\Excel\Facades\Excel::download(new AttendanceExport($date), 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.xlsx');
+            ExportAttendanceReport::dispatch('daily_excel', $date, null, Auth::id(), $filename);
+
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/' . $filename),
+                'message' => 'Export job has been dispatched.',
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Excel export failed.',
@@ -415,14 +425,17 @@ class AttendanceController extends Controller
     {
         try {
             $date = $request->input('date');
-            $rows = (new AttendanceExport($date))->collection();
-            $pdf = PDF::loadView('attendance_pdf', [
-                'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($date)),
-                'generatedOn' => now()->format('F d, Y h:i A'),
-                'rows' => $rows,
-            ])->setPaper('a4', 'landscape');
+            $filename = 'Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'_'.time().'.pdf';
 
-            return $pdf->download('Daily_Timesheet_'.date('Y_m_d', strtotime($date)).'.pdf');
+            ExportAttendanceReport::dispatch('daily_pdf', $date, null, Auth::id(), $filename);
+
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/' . $filename),
+                'message' => 'Export job has been dispatched.',
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'PDF export failed.',
@@ -435,8 +448,17 @@ class AttendanceController extends Controller
     {
         try {
             $month = $request->get('month');
+            $filename = 'DBEDC_Attendance_'.$month.'_'.time().'.xlsx';
 
-            return (new AttendanceAdminExport)->export($month);
+            ExportAttendanceReport::dispatch('monthly_excel', null, $month, Auth::id(), $filename);
+
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/' . $filename),
+                'message' => 'Export job has been dispatched.',
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Excel export failed.',
@@ -450,28 +472,18 @@ class AttendanceController extends Controller
         try {
             $month = $request->get('month');
             $from = Carbon::parse($month.'-01');
-            $to = $from->copy()->endOfMonth();
             $monthName = $from->format('F Y');
+            $filename = 'DBEDC_Attendance_'.$monthName.'_'.time().'.pdf';
 
-            $users = User::with(['attendances', 'leaves'])->role('Employee')->whereNull('deleted_at')->get();
-            $leaveTypes = LeaveSetting::all();
-            $holidays = $this->attendanceReportService->getHolidaysForMonth($from->year, $from->month);
+            ExportAttendanceReport::dispatch('monthly_pdf', null, $month, Auth::id(), $filename);
 
-            $attendanceData = [];
-            foreach ($users as $user) {
-                $attendanceData[] = $this->attendanceReportService->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
-            }
-
-            $pdf = PDF::loadView('attendance_admin_pdf', [
-                'monthName' => $monthName,
-                'from' => $from,
-                'to' => $to,
-                'users' => $users,
-                'attendanceData' => $attendanceData,
-                'leaveTypes' => $leaveTypes,
-            ])->setPaper('a4', 'landscape');
-
-            return $pdf->download('DBEDC_Attendance_'.$monthName.'.pdf');
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/' . $filename),
+                'message' => 'Export job has been dispatched.',
+            ]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'PDF export failed.',

@@ -12,6 +12,7 @@ import {
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { showToast } from '@/utils/toastUtils';
+import { handleExportResponse } from '@/utils/exportUtils';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 
@@ -431,15 +432,13 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
             const mime = type === 'pdf'   ? 'application/pdf'                    : undefined;
             const ext  = type === 'excel' ? 'xlsx'                               : 'pdf';
             const { data } = await exportMonthlyCalendar.mutateAsync({ month: selectedMonth, type });
-            const url = window.URL.createObjectURL(new Blob([data], mime ? { type: mime } : undefined));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Admin_Attendance_${selectedMonth}.${ext}`;
-            document.body.appendChild(a); a.click(); a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch { showToast.error(`Failed to export ${type}.`); }
-        finally { setDownloading(''); }
-    }, [selectedMonth]);
+            const defaultFilename = `Admin_Attendance_${selectedMonth}.${ext}`;
+            await handleExportResponse(data, defaultFilename, mime, ext);
+        } catch (err) {
+            console.error('Export failed:', err);
+            showToast.error(`Failed to export ${type}.`);
+        } finally { setDownloading(''); }
+    }, [selectedMonth, exportMonthlyCalendar]);
 
     /* month nav */
     const goMonth = (delta) => {

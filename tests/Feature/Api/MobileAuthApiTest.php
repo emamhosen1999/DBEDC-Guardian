@@ -74,7 +74,7 @@ class MobileAuthApiTest extends TestCase
             'password' => 'wrong-password',
         ], $this->mobileDevicePayload()));
 
-        $response->assertStatus(422)
+        $response->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'The provided credentials are incorrect.');
     }

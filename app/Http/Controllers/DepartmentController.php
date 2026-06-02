@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Traits\HandlesApiExceptions;
 
 class DepartmentController extends Controller
 {
+    use HandlesApiExceptions;
     /**
      * Display a listing of departments
      */
@@ -70,29 +72,37 @@ class DepartmentController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate request data
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50|unique:departments',
-            'description' => 'nullable|string',
-            'parent_id' => 'nullable|exists:departments,id',
-            'manager_id' => 'nullable|exists:users,id',
-            'location' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-            'established_date' => 'nullable|date',
-        ]);
+        try {
+            // Validate request data
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'code' => 'nullable|string|max:50|unique:departments',
+                'description' => 'nullable|string',
+                'parent_id' => 'nullable|exists:departments,id',
+                'manager_id' => 'nullable|exists:users,id',
+                'location' => 'nullable|string|max:255',
+                'is_active' => 'boolean',
+                'established_date' => 'nullable|date',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            // Create new department
+            $department = Department::create($request->all());
+
+            return response()->json([
+                'message' => 'Department created successfully',
+                'department' => $department,
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('Failed to create department: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to create department',
+                'message' => $this->safeExceptionMessage($e),
+            ], 500);
         }
-
-        // Create new department
-        $department = Department::create($request->all());
-
-        return response()->json([
-            'message' => 'Department created successfully',
-            'department' => $department,
-        ], 201);
     }
 
     /**
@@ -103,10 +113,18 @@ class DepartmentController extends Controller
      */
     public function show($id)
     {
-        $department = Department::with(['parent', 'manager', 'children'])
-            ->findOrFail($id);
+        try {
+            $department = Department::with(['parent', 'manager', 'children'])
+                ->findOrFail($id);
 
-        return response()->json($department);
+            return response()->json($department);
+        } catch (\Exception $e) {
+            Log::error('Failed to get department: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to get department',
+                'message' => $this->safeExceptionMessage($e),
+            ], 500);
+        }
     }
 
     /**
@@ -117,36 +135,44 @@ class DepartmentController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $department = Department::findOrFail($id);
+        try {
+            $department = Department::findOrFail($id);
 
-        // Validate request data
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'code' => [
-                'nullable',
-                'string',
-                'max:50',
-                Rule::unique('departments')->ignore($id),
-            ],
-            'description' => 'nullable|string',
-            'parent_id' => 'nullable|exists:departments,id',
-            'manager_id' => 'nullable|exists:users,id',
-            'location' => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-            'established_date' => 'nullable|date',
-        ]);
+            // Validate request data
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'code' => [
+                    'nullable',
+                    'string',
+                    'max:50',
+                    Rule::unique('departments')->ignore($id),
+                ],
+                'description' => 'nullable|string',
+                'parent_id' => 'nullable|exists:departments,id',
+                'manager_id' => 'nullable|exists:users,id',
+                'location' => 'nullable|string|max:255',
+                'is_active' => 'boolean',
+                'established_date' => 'nullable|date',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            // Update department
+            $department->update($request->all());
+
+            return response()->json([
+                'message' => 'Department updated successfully',
+                'department' => $department,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to update department: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to update department',
+                'message' => $this->safeExceptionMessage($e),
+            ], 500);
         }
-
-        // Update department
-        $department->update($request->all());
-
-        return response()->json([
-            'message' => 'Department updated successfully',
-            'department' => $department,
-        ]);
     }
 
     /**
@@ -157,22 +183,30 @@ class DepartmentController extends Controller
      */
     public function destroy($id)
     {
-        $department = Department::findOrFail($id);
+        try {
+            $department = Department::findOrFail($id);
 
-        // Check if department has employees
-        if ($department->employees()->count() > 0) {
+            // Check if department has employees
+            if ($department->employees()->count() > 0) {
+                return response()->json([
+                    'message' => 'Cannot delete department with active employees',
+                    'errors' => ['department' => 'Department has active employees. Reassign them before deleting.'],
+                ], 422);
+            }
+
+            // Soft delete the department
+            $department->delete();
+
             return response()->json([
-                'message' => 'Cannot delete department with active employees',
-                'errors' => ['department' => 'Department has active employees. Reassign them before deleting.'],
-            ], 422);
+                'message' => 'Department deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete department: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to delete department',
+                'message' => $this->safeExceptionMessage($e),
+            ], 500);
         }
-
-        // Soft delete the department
-        $department->delete();
-
-        return response()->json([
-            'message' => 'Department deleted successfully',
-        ]);
     }
 
     /**

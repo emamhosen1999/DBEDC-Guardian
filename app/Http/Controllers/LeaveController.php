@@ -59,7 +59,7 @@ class LeaveController extends Controller
     {
         return Inertia::render('LeavesEmployee', [
             'title' => 'Leaves',
-            'allUsers' => User::all(),
+            'allUsers' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
 
         ]);
     }
@@ -68,7 +68,7 @@ class LeaveController extends Controller
     {
         return Inertia::render('LeavesAdmin', [
             'title' => 'Leaves',
-            'allUsers' => User::all(),
+            'allUsers' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
         ]);
     }
 
@@ -241,7 +241,7 @@ class LeaveController extends Controller
     {
         try {
             $this->validationService->validateDeleteRequest($request);
-            $this->crudService->deleteLeave($request->query('id'));
+            $this->crudService->deleteLeave($request->input('id'));
 
             $leaveData = $this->queryService->getLeaveRecords($request);
 
