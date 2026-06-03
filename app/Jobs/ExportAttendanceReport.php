@@ -41,6 +41,14 @@ class ExportAttendanceReport implements ShouldQueue
     }
 
     /**
+     * Get the job type.
+     */
+    public function getType(): string
+    {
+        return $this->type;
+    }
+
+    /**
      * Execute the job.
      */
     public function handle(AttendanceReportService $attendanceReportService): void
@@ -67,7 +75,7 @@ class ExportAttendanceReport implements ShouldQueue
                 
                 Storage::disk('public')->put($filePath, $pdf->output());
             } elseif ($this->type === 'monthly_excel') {
-                Excel::store(new AttendanceAdminExport($this->month), $filePath, 'public');
+                (new AttendanceAdminExport)->saveToDisk($this->month, $filePath, 'public');
             } elseif ($this->type === 'monthly_pdf') {
                 $from = Carbon::parse($this->month . '-01');
                 $to = $from->copy()->endOfMonth();

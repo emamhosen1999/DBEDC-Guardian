@@ -355,7 +355,7 @@ const DailyTimesheetTab = ({
         try {
             const mime = type === 'pdf'   ? 'application/pdf'               : undefined;
             const ext  = type === 'excel' ? 'xlsx'                          : 'pdf';
-            const { data } = await exportDailyTimesheet.mutateAsync({ date: selectedDate, type });
+            const data = await exportDailyTimesheet.mutateAsync({ date: selectedDate, type });
             const defaultFilename = `Daily_Timesheet_${dayjs(selectedDate).format('YYYY_MM_DD')}.${ext}`;
             await handleExportResponse(data, defaultFilename, mime, ext);
         } catch (err) {

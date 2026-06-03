@@ -62,10 +62,29 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
     });
 
     // Derived state from React Query data
-    const stats = monthlyStatsResponse?.stats || monthlyStatsResponse?.data || {
-        meta: { month: '', workingDays: 0, holidays: 0, weekends: 0 },
-        attendance: { present: 0, absent: 0, leaves: 0, lateArrivals: 0, percentage: 0 },
-        hours: { totalWork: 0, averageDaily: 0, overtime: 0 }
+    const rawStats = monthlyStatsResponse?.stats || monthlyStatsResponse?.data;
+    const stats = {
+        meta: {
+            month: rawStats?.meta?.month || '',
+            workingDays: rawStats?.meta?.workingDays ?? 0,
+            holidays: rawStats?.meta?.holidays ?? 0,
+            weekends: rawStats?.meta?.weekends ?? 0,
+            totalEmployees: rawStats?.meta?.totalEmployees ?? 0,
+            scope: rawStats?.meta?.scope || 'Single',
+        },
+        attendance: {
+            present: rawStats?.attendance?.present ?? 0,
+            absent: rawStats?.attendance?.absent ?? 0,
+            leaves: rawStats?.attendance?.leaves ?? 0,
+            lateArrivals: rawStats?.attendance?.lateArrivals ?? 0,
+            percentage: rawStats?.attendance?.percentage ?? 0,
+            perfectCount: rawStats?.attendance?.perfectCount ?? 0,
+        },
+        hours: {
+            totalWork: rawStats?.hours?.totalWork ?? 0,
+            averageDaily: rawStats?.hours?.averageDaily ?? 0,
+            overtime: rawStats?.hours?.overtime ?? 0,
+        }
     };
 
     const handleDateChange = (event) => {

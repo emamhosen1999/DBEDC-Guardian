@@ -434,7 +434,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
         try {
             const mime = type === 'pdf'   ? 'application/pdf'                    : undefined;
             const ext  = type === 'excel' ? 'xlsx'                               : 'pdf';
-            const { data } = await exportMonthlyCalendar.mutateAsync({ month: selectedMonth, type });
+            const data = await exportMonthlyCalendar.mutateAsync({ month: selectedMonth, type });
             const defaultFilename = `Admin_Attendance_${selectedMonth}.${ext}`;
             await handleExportResponse(data, defaultFilename, mime, ext);
         } catch (err) {
