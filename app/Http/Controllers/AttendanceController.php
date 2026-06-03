@@ -506,7 +506,10 @@ class AttendanceController extends Controller
 
             $stats = $this->attendanceReportService->calculateMonthlyStats($currentMonth, $currentYear, $isGlobalScope, $userId);
 
-            return response()->json(['stats' => $stats]);
+            return response()->json([
+                'stats' => $stats,
+                'data' => $stats,
+            ]);
         } catch (\Exception $e) {
             Log::error('Failed to get monthly attendance stats: '.$e->getMessage());
 

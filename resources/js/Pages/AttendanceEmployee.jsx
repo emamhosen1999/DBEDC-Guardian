@@ -12,16 +12,16 @@ import axios from 'axios';
 import App from "@/Layouts/App.jsx";
 import StatsCards from '@/Components/StatsCards.jsx';
 import AttendanceEmployeeTable from "@/Tables/AttendanceEmployeeTable.jsx";
-import { 
-  ClockIcon, 
-  CalendarDaysIcon,
-  ChartBarIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
-  PresentationChartLineIcon,
-  UserIcon
-} from '@heroicons/react/24/outline';
+import {
+    ClockIcon,
+    CalendarIcon,
+    BarChartIcon,
+    CheckCircledIcon,
+    CrossCircledIcon,
+    ExclamationTriangleIcon,
+    DashboardIcon,
+    PersonIcon,
+} from '@radix-ui/react-icons';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
@@ -56,13 +56,13 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
     const yearNum = new Date(filterData.currentMonth).getFullYear();
     const monthNum = String(new Date(filterData.currentMonth).getMonth() + 1).padStart(2, '0');
     
-    const { data: monthlyStatsData, isLoading, refetch } = useAttendanceQuery.useMonthlySummary({
-        month: parseInt(monthNum),
-        year: yearNum,
+    const { data: monthlyStatsResponse, isLoading, refetch } = useAttendanceQuery.useMyMonthlyStats({
+        currentMonth: parseInt(monthNum),
+        currentYear: yearNum,
     });
 
     // Derived state from React Query data
-    const stats = monthlyStatsData || {
+    const stats = monthlyStatsResponse?.stats || monthlyStatsResponse?.data || {
         meta: { month: '', workingDays: 0, holidays: 0, weekends: 0 },
         attendance: { present: 0, absent: 0, leaves: 0, lateArrivals: 0, percentage: 0 },
         hours: { totalWork: 0, averageDaily: 0, overtime: 0 }
@@ -103,7 +103,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         { 
             title: "Working Days", 
             value: stats.meta.workingDays, 
-            icon: <CalendarDaysIcon />, 
+            icon: <CalendarIcon />, 
             color: "text-default-600", 
             iconBg: "bg-default-100", 
             description: `Calendar: ${stats.meta.month}` 
@@ -111,7 +111,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         { 
             title: "Present", 
             value: stats.attendance.present, 
-            icon: <CheckCircleIcon />, 
+            icon: <CheckCircledIcon />, 
             color: "text-success", 
             iconBg: "bg-success/20", 
             description: `${stats.attendance.percentage}% Attendance Rate` 
@@ -119,7 +119,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         { 
             title: "Absent", 
             value: stats.attendance.absent, 
-            icon: <XCircleIcon />, 
+            icon: <CrossCircledIcon />, 
             color: "text-danger", 
             iconBg: "bg-danger/20", 
             description: "Unexcused absences" 
@@ -127,7 +127,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         { 
             title: "On Leave", 
             value: stats.attendance.leaves, 
-            icon: <UserIcon />, 
+            icon: <PersonIcon />, 
             color: "text-warning", 
             iconBg: "bg-warning/20", 
             description: "Approved leaves" 
@@ -151,7 +151,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         { 
             title: "Daily Avg", 
             value: `${stats.hours.averageDaily}h`, 
-            icon: <PresentationChartLineIcon />, 
+            icon: <DashboardIcon />, 
             color: "text-secondary", 
             iconBg: "bg-secondary/20", 
             description: "Target: 8.0h" 
@@ -159,7 +159,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
         { 
             title: "Overtime", 
             value: `${stats.hours.overtime}h`, 
-            icon: <ChartBarIcon />, 
+            icon: <BarChartIcon />, 
             color: "text-success-600", 
             iconBg: "bg-success-100", 
             description: "Extra hours logged" 
@@ -202,7 +202,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                                             borderRadius: `var(--borderRadius, 12px)`,
                                                         }}
                                                     >
-                                                        <PresentationChartLineIcon className={`${isLargeScreen ? 'w-8 h-8' : isMediumScreen ? 'w-6 h-6' : 'w-5 h-5'}`} style={{ color: 'var(--theme-primary)' }} />
+                                                        <DashboardIcon className={`${isLargeScreen ? 'w-8 h-8' : isMediumScreen ? 'w-6 h-6' : 'w-5 h-5'}`} style={{ color: 'var(--theme-primary)' }} />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
                                                         <h4 className={`${isLargeScreen ? 'text-2xl' : isMediumScreen ? 'text-xl' : 'text-lg'} font-bold text-foreground ${!isLargeScreen ? 'truncate' : ''}`} style={{ fontFamily: `var(--fontFamily, "Inter")` }}>
@@ -235,7 +235,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                                     aria-label="Select month and year for attendance"
                                                 >
                                                     <TextField.Slot>
-                                                        <CalendarDaysIcon className="w-4 h-4 text-default-400" />
+                                                        <CalendarIcon className="w-4 h-4 text-default-400" />
                                                     </TextField.Slot>
                                                 </TextField.Root>
                                             </div>
@@ -260,7 +260,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                                         borderColor: `color-mix(in srgb, var(--theme-primary) 25%, transparent)`,
                                                     }}
                                                 >
-                                                    <ClockIcon className="w-6 h-6" style={{ color: 'var(--theme-primary)' }} />
+                                                    <ClockIcon style={{ width: 24, height: 24, color: 'var(--theme-primary)' }} />
                                                 </div>
                                                 <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground" style={{ fontFamily: `var(--fontFamily, "Inter")` }}>
                                                     My Attendance Records

@@ -243,3 +243,18 @@ export const useExportMonthlyCalendar = () => {
     }),
   });
 };
+
+/**
+ * Fetch monthly attendance stats for the current user
+ */
+export const useMyMonthlyStats = (params = {}) => {
+  const { currentMonth, currentYear } = params;
+
+  return useQuery({
+    queryKey: ['attendance', 'my-monthly-stats', { currentMonth, currentYear }],
+    queryFn: () => requestJson('get', '/attendance/my-monthly-stats', {
+      params: { currentMonth, currentYear }
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
+};
