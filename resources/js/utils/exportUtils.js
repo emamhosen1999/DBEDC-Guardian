@@ -16,8 +16,12 @@ export const pollExport = async (downloadUrl, filename, timeout = 60000, interva
   return new Promise((resolve, reject) => {
     const check = async () => {
       try {
-        // Use a HEAD/GET request to verify file existence
-        await axios.get(downloadUrl);
+        // Use a HEAD/GET request to verify file existence without triggering global axios interceptors
+        const response = await fetch(downloadUrl, { method: 'HEAD', cache: 'no-store' });
+        
+        if (!response.ok) {
+          throw new Error('Not ready');
+        }
         
         // If it succeeds, trigger the browser download
         const link = document.createElement('a');
