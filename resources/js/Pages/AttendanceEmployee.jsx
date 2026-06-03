@@ -182,7 +182,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                     fontFamily: `var(--fontFamily, "Inter")`,
                                 }}
                             >
-                                <CardHeader 
+                                <Box 
                                     className="border-b p-0"
                                     style={{
                                         borderColor: `var(--theme-divider, #E4E4E7)`,
@@ -216,9 +216,9 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                             </div>
                                         </div>
                                     </div>
-                                </CardHeader>
+                                </Box>
 
-                                <CardBody className="p-6">
+                                <Box className="p-6">
                                     <ErrorBoundary>
                                         <StatsCards stats={allStatsData} className="mb-6" />
                                     </ErrorBoundary>
@@ -227,18 +227,17 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
                                             <div className="w-full sm:w-auto sm:min-w-[200px]">
                                                 <TextField.Root
-                                                    label="Month/Year"
                                                     type="month"
                                                     value={filterData.currentMonth}
                                                     onChange={(e) => handleFilterChange('currentMonth', e.target.value)}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    radius={getThemeRadius()}
-                                                    startContent={<CalendarDaysIcon className="w-4 h-4 text-default-400" />}
-                                                    classNames={{ input: "text-sm" }}
-                                                    style={{ fontFamily: `var(--fontFamily, "Inter")` }}
+                                                    size="2"
+                                                    style={{ fontFamily: `var(--fontFamily, "Inter")`, width: 200 }}
                                                     aria-label="Select month and year for attendance"
-                                                />
+                                                >
+                                                    <TextField.Slot>
+                                                        <CalendarDaysIcon className="w-4 h-4 text-default-400" />
+                                                    </TextField.Slot>
+                                                </TextField.Root>
                                             </div>
                                         </div>
                                     </div>
@@ -252,7 +251,7 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                             background: `linear-gradient(135deg, var(--theme-content1, #FAFAFA) 20%, var(--theme-content2, #F4F4F5) 10%, var(--theme-content3, #F1F3F4) 20%)`,
                                         }}
                                     >
-                                        <CardHeader className="border-b pb-2" style={{ borderColor: `var(--theme-divider, #E4E4E7)` }}>
+                                        <Box className="border-b pb-2" style={{ borderColor: `var(--theme-divider, #E4E4E7)` }}>
                                             <div className="flex items-center gap-3">
                                                 <div 
                                                     className="p-2 rounded-lg flex items-center justify-center"
@@ -267,8 +266,8 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                                     My Attendance Records
                                                 </h1>
                                             </div>
-                                        </CardHeader>
-                                        <CardBody>
+                                        </Box>
+                                        <Box>
                                             <div className="max-h-[84vh] overflow-y-auto">
                                                 <ErrorBoundary>
                                                     <AttendanceEmployeeTable
@@ -280,9 +279,9 @@ const AttendanceEmployee = React.memo(({ title, totalWorkingDays, presentDays, a
                                                     />
                                                 </ErrorBoundary>
                                             </div>
-                                        </CardBody>
+                                        </Box>
                                     </Card>
-                                </CardBody>
+                                </Box>
                             </Card>
                         </div>
                     </div>

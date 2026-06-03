@@ -31,12 +31,12 @@ export const useAttendanceHistory = (params = {}) => {
  * Fetch monthly attendance summary
  */
 export const useMonthlySummary = (params = {}) => {
-  const { currentMonth, currentYear, scope = 'self' } = params;
+  const { currentMonth, currentYear, scope = 'self', employee, departmentId } = params;
 
   return useQuery({
-    queryKey: ['attendance', 'monthly-summary', { currentMonth, currentYear, scope }],
+    queryKey: ['attendance', 'monthly-summary', { currentMonth, currentYear, scope, employee, departmentId }],
     queryFn: () => requestJson('get', '/attendances-admin-paginate', {
-      params: { currentMonth, currentYear, page: 1, perPage: 1000 }
+      params: { currentMonth, currentYear, page: 1, perPage: 1000, employee, department_id: departmentId }
     }),
     staleTime: 10 * 60 * 1000, // 10 minutes - summary doesn't change often
   });
@@ -91,12 +91,12 @@ export const useUserLocations = (date) => {
  * Fetch daily timesheet data
  */
 export const useDailyTimesheet = (params = {}) => {
-  const { date, page = 1, perPage = 25 } = params;
+  const { date, page = 1, perPage = 25, employee } = params;
 
   return useQuery({
-    queryKey: ['attendance', 'daily-timesheet', { date, page, perPage }],
+    queryKey: ['attendance', 'daily-timesheet', { date, page, perPage, employee }],
     queryFn: () => requestJson('get', '/admin/daily-timesheet', {
-      params: { date, page, perPage }
+      params: { date, page, perPage, employee }
     }),
     enabled: !!date,
     staleTime: 3 * 60 * 1000, // 3 minutes - timesheet changes during the day

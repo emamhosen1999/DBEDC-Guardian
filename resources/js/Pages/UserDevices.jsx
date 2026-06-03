@@ -31,6 +31,21 @@ import { showToast } from '@/utils/toastUtils';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import * as useUserDevicesQuery from '@/api/queries/useUserDevicesQuery';
 
+const useDisclosure = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const onOpen = () => setIsOpen(true);
+  const onClose = () => setIsOpen(false);
+  return { isOpen, onOpen, onClose };
+};
+
+const CardHeader = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
+const CardBody = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
 const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
   const [userState, setUserState] = useState({
     ...user,

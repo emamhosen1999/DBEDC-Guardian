@@ -1,63 +1,65 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Card, Flex, Grid, Heading, Skeleton, Text } from '@radix-ui/themes';
-import { CheckCircledIcon, ClockIcon, FileTextIcon, StackIcon } from '@radix-ui/react-icons';
-import axios from 'axios';
+import React from 'react';
+import { Card, Flex, Box, Text, Skeleton } from '@radix-ui/themes';
 
-const STAT_CONFIG = [
-  { key: 'total',           label: 'Total Tasks',     Icon: StackIcon,        color: 'accent' },
-  { key: 'completed',       label: 'Completed',       Icon: CheckCircledIcon, color: 'green'  },
-  { key: 'pending',         label: 'Pending',         Icon: ClockIcon,        color: 'amber'  },
-  { key: 'rfi_submissions', label: 'RFI Submissions', Icon: FileTextIcon,     color: 'blue'   },
-];
+const parseColor = (colorClass) => {
+  if (!colorClass) return 'gray';
+  const c = colorClass.toLowerCase();
+  if (c.includes('green') || c.includes('success')) return 'green';
+  if (c.includes('red') || c.includes('danger')) return 'red';
+  if (c.includes('blue') || c.includes('info') || c.includes('primary')) return 'blue';
+  if (c.includes('amber') || c.includes('warning') || c.includes('orange')) return 'amber';
+  if (c.includes('purple')) return 'purple';
+  if (c.includes('pink')) return 'pink';
+  return 'gray';
+};
 
-function StatTile({ label, value, Icon, color, loading }) {
+export default function StatisticCard({
+  title,
+  value,
+  icon,
+  color,
+  description,
+  isLoading = false,
+}) {
+  const radixColor = parseColor(color);
+
   return (
-    <Card >
+    <Card style={{ flex: '1 1 200px', minWidth: 200 }}>
       <Flex align="center" justify="between" mb="2">
         <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {label}
+          {title}
         </Text>
-        <Box style={{
-          padding: 5, flexShrink: 0,
-          background: `var(--${color}-a3)`,
-          borderRadius: 'var(--radius-2)',
-        }}>
-          <Icon style={{ color: `var(--${color}-9)`, display: 'block' }} />
-        </Box>
+        {icon && (
+          <Box style={{
+            padding: 6,
+            borderRadius: 'var(--radius-2)',
+            background: `var(--${radixColor}-a3)`,
+            color: `var(--${radixColor}-9)`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {icon}
+          </Box>
+        )}
       </Flex>
-      {loading
-        ? <Skeleton style={{ width: 52, height: 28 }} />
-        : <Text size={{ initial: '4', md: '6' }} weight="bold">{value ?? '\u2014'}</Text>
-      }
+      {isLoading ? (
+        <Flex direction="column" gap="1">
+          <Skeleton style={{ width: 52, height: 28 }} />
+          <Skeleton style={{ width: 100, height: 12 }} />
+        </Flex>
+      ) : (
+        <Flex direction="column" gap="1">
+          <Text size={{ initial: '5', md: '6' }} weight="bold">
+            {value ?? '\u2014'}
+          </Text>
+          {description && (
+            <Text size="1" color="gray">
+              {description}
+            </Text>
+          )}
+        </Flex>
+      )}
     </Card>
-  );
-}
-
-export default function StatisticCard() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    axios.get(route('stats'))
-      .then(r => setStats(r.data.statistics))
-      .catch(() => setStats(null))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    
-        <Grid columns="2" gap="3" style={{ flex: 1 }}>
-          {STAT_CONFIG.map(({ key, label, Icon, color }) => (
-            <StatTile
-              key={key}
-              label={label}
-              value={stats?.[key]}
-              Icon={Icon}
-              color={color}
-              loading={loading}
-            />
-          ))}
-        </Grid>
-     
   );
 }

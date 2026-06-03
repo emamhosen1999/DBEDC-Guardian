@@ -27,6 +27,14 @@ import DeleteWorkLocationForm from "@/Forms/DeleteWorkLocationForm.jsx";
 import axios from "axios";
 import { showToast } from "@/utils/toastUtils";
 
+const CardHeader = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
+const CardBody = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
 const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
     const isLargeScreen = useMediaQuery('(min-width: 1025px)');
     const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
@@ -303,23 +311,17 @@ const WorkLocations = React.memo(({ auth, title, jurisdictions, users }) => {
                                         placeholder="Search by location, chainage, or incharge..."
                                         value={search}
                                         onChange={(e) => handleSearch(e)}
-                                        variant="outline"
-                                        size={isMobile ? "sm" : "md"}
-                                        radius={getThemeRadius()}
-                                        startContent={
-                                            <MagnifyingGlassIcon className="w-4 h-4 text-default-400" />
-                                        }
-                                        classNames={{
-                                            input: "text-foreground",
-                                            inputWrapper: `bg-content2/50 hover:bg-content2/70 
-                                                         focus-within:bg-content2/90 border-divider/50 
-                                                         hover:border-divider data-[focus]:border-primary`,
-                                        }}
+                                        size="2"
                                         style={{
                                             fontFamily: `var(--fontFamily, "Inter")`,
                                             borderRadius: `var(--borderRadius, 12px)`,
+                                            width: 320
                                         }}
-                                    />
+                                    >
+                                        <TextField.Slot>
+                                            <MagnifyingGlassIcon className="w-4 h-4 text-default-400" />
+                                        </TextField.Slot>
+                                    </TextField.Root>
                                 </div>
                             </div>
 

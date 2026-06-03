@@ -5,10 +5,19 @@ import {
     Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
 } from '@radix-ui/themes';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import useDisclosure from '@/Hooks/useDisclosure';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { Head, usePage } from "@inertiajs/react";
 import App from "@/Layouts/App";
 import { motion } from "framer-motion";
+
+const CardHeader = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
+const CardBody = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';

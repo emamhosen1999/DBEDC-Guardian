@@ -1,10 +1,211 @@
 import {
-    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
-    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
-    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
-    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
+    Box, Flex, Grid, Text, Heading, IconButton, Card, Separator,
+    Checkbox, Switch, RadioGroup, Radio, Spinner, Skeleton, ScrollArea,
+    Tabs, Tooltip, Progress, Callout, Inset,
+    Dialog as RadixDialog,
+    Select as RadixSelect,
+    TextField as RadixTextField,
+    TextArea,
+    Table as RadixTable,
+    DropdownMenu as RadixDropdownMenu,
+    Button as RadixButton,
+    Badge as RadixBadge,
 } from '@radix-ui/themes';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+
+const CardHeader = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
+const CardBody = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
+const Dropdown = ({ children }) => (
+  <RadixDropdownMenu.Root>{children}</RadixDropdownMenu.Root>
+);
+const DropdownTrigger = ({ children }) => (
+  <RadixDropdownMenu.Trigger>{children}</RadixDropdownMenu.Trigger>
+);
+const DropdownMenu = ({ children, ...props }) => (
+  <RadixDropdownMenu.Content {...props}>{children}</RadixDropdownMenu.Content>
+);
+const DropdownItem = ({ children, onClick, ...props }) => (
+  <RadixDropdownMenu.Item onClick={onClick} {...props}>{children}</RadixDropdownMenu.Item>
+);
+
+const Table = ({ children }) => (
+  <RadixTable.Root variant="surface">{children}</RadixTable.Root>
+);
+
+const TableHeader = ({ columns, children }) => (
+  <RadixTable.Header>
+    <RadixTable.Row>
+      {typeof children === 'function' ? columns.map(children) : children}
+    </RadixTable.Row>
+  </RadixTable.Header>
+);
+
+const TableColumn = ({ children, ...props }) => (
+  <RadixTable.ColumnHeaderCell {...props}>{children}</RadixTable.ColumnHeaderCell>
+);
+
+const TableBody = ({ items, emptyContent, children }) => {
+  if (!items || items.length === 0) {
+    return (
+      <RadixTable.Body>
+        <RadixTable.Row>
+          <RadixTable.Cell colSpan={8}>
+            {emptyContent}
+          </RadixTable.Cell>
+        </RadixTable.Row>
+      </RadixTable.Body>
+    );
+  }
+
+  return (
+    <RadixTable.Body>
+      {items.map((item, idx) => {
+        const rowElement = children(item);
+        return React.cloneElement(rowElement, { key: item.id || idx, item });
+      })}
+    </RadixTable.Body>
+  );
+};
+
+const TableRow = ({ item, children, className }) => {
+  const columnKeys = ['title', 'category', 'chainage', 'status', 'affected_rfis', 'created_by', 'created_at', 'actions'];
+  return (
+    <RadixTable.Row className={className}>
+      {columnKeys.map((key) => {
+        const cell = children(key);
+        return <RadixTable.Cell key={key}>{cell?.props?.children}</RadixTable.Cell>;
+      })}
+    </RadixTable.Row>
+  );
+};
+
+const TableCell = ({ children, ...props }) => (
+  <RadixTable.Cell {...props}>{children}</RadixTable.Cell>
+);
+
+const Pagination = ({ total, page, onChange }) => {
+  return (
+    <Flex gap="1">
+      {Array.from({ length: total }, (_, i) => {
+        const p = i + 1;
+        return (
+          <RadixButton
+            key={p}
+            size="1"
+            variant={p === page ? 'solid' : 'soft'}
+            color={p === page ? 'indigo' : 'gray'}
+            onClick={() => onChange(p)}
+          >
+            {p}
+          </RadixButton>
+        );
+      })}
+    </Flex>
+  );
+};
+
+const Textarea = ({ label, value, onValueChange, placeholder, minRows }) => {
+  return (
+    <Flex direction="column" gap="1" style={{ width: '100%' }}>
+      {label && <Text size="1" color="gray">{label}</Text>}
+      <TextArea
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+        rows={minRows}
+      />
+    </Flex>
+  );
+};
+
+const TextField = ({ label, value, onValueChange, placeholder, isRequired, ...props }) => {
+  return (
+    <Flex direction="column" gap="1" style={{ width: '100%' }}>
+      {label && <Text size="1" color="gray">{label}</Text>}
+      <RadixTextField.Root
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => {
+          if (onValueChange) onValueChange(e.target.value);
+        }}
+        {...props}
+      />
+    </Flex>
+  );
+};
+
+const SelectItem = ({ children, value }) => {
+  return <RadixSelect.Item value={value}>{children}</RadixSelect.Item>;
+};
+
+const Select = ({ children, label, selectedKeys, onSelectionChange, placeholder }) => {
+  const selectedValue = selectedKeys ? Array.from(selectedKeys)[0] : undefined;
+  
+  return (
+    <Flex direction="column" gap="1" style={{ width: '100%' }}>
+      {label && <Text size="1" color="gray">{label}</Text>}
+      <RadixSelect.Root
+        value={selectedValue}
+        onValueChange={(val) => {
+          if (onSelectionChange) onSelectionChange(new Set([val]));
+        }}
+      >
+        <RadixSelect.Trigger placeholder={placeholder} />
+        <RadixSelect.Content>
+          {React.Children.map(children, child => {
+            if (React.isValidElement(child)) {
+              return React.cloneElement(child, { value: child.props.value || child.key });
+            }
+            return child;
+          })}
+        </RadixSelect.Content>
+      </RadixSelect.Root>
+    </Flex>
+  );
+};
+
+const Button = ({ children, startContent, isIconOnly, onPress, onClick, loading, ...props }) => {
+  const handler = onClick || onPress;
+  return (
+    <RadixButton onClick={handler} {...props}>
+      {loading && <Spinner size="1" />}
+      {!loading && startContent}
+      {!isIconOnly && children}
+    </RadixButton>
+  );
+};
+
+const Badge = ({ children, startContent, ...props }) => {
+  return (
+    <RadixBadge {...props}>
+      <Flex align="center" gap="1">
+        {startContent}
+        {children}
+      </Flex>
+    </RadixBadge>
+  );
+};
+
+const DialogShim = ({ children, open, onClose }) => {
+  return (
+    <RadixDialog.Root open={open} onOpenChange={(val) => { if (!val && onClose) onClose(); }}>
+      {children}
+    </RadixDialog.Root>
+  );
+};
+DialogShim.Content = ({ children, ...props }) => (
+  <RadixDialog.Content {...props}>{children}</RadixDialog.Content>
+);
+DialogShim.Title = ({ children, ...props }) => (
+  <RadixDialog.Title {...props}>{children}</RadixDialog.Title>
+);
+const Dialog = DialogShim;
 import { showToast } from '@/utils/toastUtils';
 import {
     ShieldExclamationIcon,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Button, Card, Flex, Grid, Text, TextField, IconButton } from '@radix-ui/themes';
-import { Pencil1Icon, Cross2Icon, PlusIcon, GraduationCapIcon } from '@radix-ui/react-icons';
+import { Pencil1Icon, Cross2Icon, PlusIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 
 const EducationInformationForm = ({ user, setUser }) => {

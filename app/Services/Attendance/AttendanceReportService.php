@@ -20,11 +20,17 @@ class AttendanceReportService
     /**
      * Get all Employee users with their attendances and leaves for a given month.
      */
-    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month): Collection
+    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null): Collection
     {
-        return User::role('Employee')
-            ->leftJoin('designations', 'users.designation_id', '=', 'designations.id')
-            ->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
+        $query = User::role('Employee')
+            ->select('users.*')
+            ->leftJoin('designations', 'users.designation_id', '=', 'designations.id');
+
+        if ($departmentId) {
+            $query->where('users.department_id', $departmentId);
+        }
+
+        return $query->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
             ->orderBy('users.name')
             ->with([
                 'attendances' => function ($query) use ($year, $month) {

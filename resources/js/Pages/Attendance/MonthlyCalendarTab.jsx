@@ -388,7 +388,7 @@ const MobileMonthCalendar = ({ rows, days, month, year, leaveTypes, leaveCounts,
 /* ════════════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════════ */
-const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
+const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) => {
     const { auth, url } = usePage().props;
 
     const canViewAll  = auth.permissions?.includes('attendance.view') || false;
@@ -397,6 +397,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
     // Zustand store for shared state
     const { employeeQuery, setEmployeeQuery } = useAttendanceStore();
 
+    const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
     const [downloading, setDownloading] = useState('');
 
     // React Query mutation
@@ -416,6 +417,8 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
     const { data: monthlySummaryData, isLoading, refetch } = useAttendanceQuery.useMonthlySummary({
         currentMonth: monthNum,
         currentYear: yearNum,
+        departmentId: selectedDepartmentId !== 'all' ? parseInt(selectedDepartmentId) : null,
+        employee: employeeQuery,
     });
 
     // Derived state from React Query data
@@ -486,6 +489,23 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
                             </TextField.Slot>
                         </TextField.Root>
                     )}
+
+                    {isAdminView && departments?.length > 0 && (
+                        <Select.Root
+                            value={selectedDepartmentId || 'all'}
+                            onValueChange={val => setSelectedDepartmentId(val)}
+                        >
+                            <Select.Trigger size="2" style={{ minWidth: 150 }} placeholder="All Departments" />
+                            <Select.Content>
+                                <Select.Item value="all">All Departments</Select.Item>
+                                {departments.map(dept => (
+                                    <Select.Item key={dept.id} value={String(dept.id)}>
+                                        {dept.name}
+                                    </Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
+                    )}
                 </Flex>
 
                 {/* right: refresh + export (admin only) */}
@@ -534,7 +554,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange }) => {
 
             {/* Table / Cards */}
             {isMobile
-                ? <MobileMonthTable
+                ? <MobileMonthCalendar
                     rows={rows} days={days} month={monthNum} year={yearNum}
                     leaveTypes={leaveTypes} leaveCounts={leaveCounts}
                     weekendDays={weekendDays} loading={isLoading}
