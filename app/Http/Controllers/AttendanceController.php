@@ -630,6 +630,15 @@ class AttendanceController extends Controller
         return $this->exportAdminExcel($request);
     }
 
+    public function checkExportStatus($filename)
+    {
+        $exists = \Illuminate\Support\Facades\Storage::disk('public')->exists('exports/' . $filename);
+        if ($exists) {
+            return response()->json(['status' => 'ready', 'url' => asset('storage/exports/' . $filename)]);
+        }
+        return response()->json(['status' => 'processing'], 202);
+    }
+
     public function exportExcel(Request $request)
     {
         try {

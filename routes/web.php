@@ -138,11 +138,8 @@ Route::middleware($middlewareStack)->group(function () {
     Route::get('/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('getAbsentUsersForDate');
     Route::get('/get-client-ip', [AttendanceController::class, 'getClientIp'])->name('getClientIp');
     
-    // Fallback route for exports polling: If Nginx can't find the file (it's not generated yet), 
-    // it forwards to index.php. We return 202 Accepted so the browser doesn't log a 404 error.
-    Route::match(['GET', 'HEAD'], '/storage/exports/{filename}', function ($filename) {
-        return response()->json(['status' => 'processing', 'message' => 'Export is being generated.'], 202);
-    })->name('storage.exports.fallback');
+    // Dedicated route for polling export status without hitting Nginx static file handlers
+    Route::get('/attendance/export/status/{filename}', [AttendanceController::class, 'checkExportStatus'])->name('attendance.exportStatus');
 
     // Daily works routes
     Route::middleware(['permission:daily-works.view'])->group(function () {
