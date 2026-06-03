@@ -19,7 +19,7 @@ export const pollExport = async (downloadUrl, filename, timeout = 60000, interva
         // Use a HEAD/GET request to verify file existence without triggering global axios interceptors
         const response = await fetch(downloadUrl, { method: 'HEAD', cache: 'no-store' });
         
-        if (!response.ok) {
+        if (response.status !== 200) {
           throw new Error('Not ready');
         }
         
