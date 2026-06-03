@@ -6,15 +6,13 @@ import {
     Dialog,
     Flex,
     Grid,
-    Heading,
     Select,
-    Separator,
     Switch,
     Text,
     TextArea,
     TextField,
 } from '@radix-ui/themes';
-import { CalendarDaysIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import { differenceInDays } from 'date-fns';
 import axios from 'axios';
@@ -121,7 +119,7 @@ const HolidayForm = ({ open, closeModal, setHolidaysData, currentHoliday }) => {
             <Dialog.Content style={{ maxWidth: 640 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
-                        <CalendarDaysIcon style={{ width: 20, height: 20 }} />
+                        <CalendarIcon style={{ width: 20, height: 20 }} />
                         {currentHoliday ? 'Edit holiday' : 'Add holiday'}
                     </Flex>
                 </Dialog.Title>
