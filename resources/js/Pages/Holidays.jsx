@@ -33,9 +33,11 @@ const Holidays = ({ title }) => {
     const handleModalOpen = useCallback((type, holidayId = null, holiday = null) => {
         setModalState({ type, holidayId, currentHoliday: holiday });
     }, []);
+
     const handleModalClose = useCallback(() => {
         setModalState({ type: null, holidayId: null, currentHoliday: null });
     }, []);
+
     const updateHolidaysData = useCallback((newData) => setHolidaysData(newData), []);
 
     useEffect(() => {
@@ -70,10 +72,12 @@ const Holidays = ({ title }) => {
 
     return (
         <>
-            <Head title={title} />
+            <Head title={title || 'Company Holidays'} />
+
             {(modalState.type === 'add_holiday' || modalState.type === 'edit_holiday') && (
                 <HolidayForm {...modalProps} />
             )}
+
             {modalState.type === 'delete_holiday' && (
                 <DeleteHolidayForm
                     open
@@ -83,34 +87,61 @@ const Holidays = ({ title }) => {
                 />
             )}
 
-            <Box p="4">
-                <div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-                    <Card size="3" style={{
-                        }}>
-                        <Flex justify="between" align={{ initial: 'start', sm: 'center' }} direction={{ initial: 'column', sm: 'row' }} gap="4" p="4">
-                            <Flex align="center" gap="3">
-                                <CalendarIcon style={{ width: 28, height: 28, color: 'var(--accent-11)' }} />
-                                <Box>
-                                    <Heading size="5">Company holidays</Heading>
-                                    <Text size="2" color="gray">Manage holidays and observances</Text>
-                                </Box>
+            <Flex justify="center" p="4">
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Card>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex
+                                direction={{ initial: 'column', sm: 'row' }}
+                                align={{ initial: 'start', sm: 'center' }}
+                                justify="between"
+                                gap="4"
+                            >
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{
+                                        background: 'var(--accent-a3)',
+                                        borderRadius: 'var(--radius-2)',
+                                        border: '1px solid var(--accent-a6)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <CalendarIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5">Company holidays</Heading>
+                                        <Text size="2" color="gray">
+                                            Manage company holidays and observances
+                                        </Text>
+                                    </Box>
+                                </Flex>
+
+                                {/* Header Actions */}
+                                <Flex gap="2" align="center" wrap="wrap">
+                                    <Button onClick={() => handleModalOpen('add_holiday')}>
+                                        <PlusIcon style={{ width: 16, height: 16 }} />
+                                        {!isMobile && 'Add holiday'}
+                                    </Button>
+                                </Flex>
                             </Flex>
-                            <Button onClick={() => handleModalOpen('add_holiday')}>
-                                <PlusIcon style={{ width: 16, height: 16 }} />
-                                {!isMobile && 'Add holiday'}
-                            </Button>
-                        </Flex>
-                        <Separator size="4" />
-                        <Box p="4">
-                            <ErrorBoundary>
-                                <StatsCards stats={statsData} className="mb-4" />
-                            </ErrorBoundary>
+                        </Box>
+
+                        <Separator size="4" mb="4" />
+
+                        {/* ── Content Area ── */}
+                        <Box>
+                            <Box mb="4">
+                                <ErrorBoundary>
+                                    <StatsCards stats={statsData} />
+                                </ErrorBoundary>
+                            </Box>
+
                             <Heading size="3" mb="3">
                                 <Flex align="center" gap="2">
                                     <BarChartIcon style={{ width: 18, height: 18 }} />
                                     Holiday management
                                 </Flex>
                             </Heading>
+
                             <Box style={{ overflowX: 'auto' }}>
                                 <ErrorBoundary>
                                     <HolidayTable
@@ -123,8 +154,8 @@ const Holidays = ({ title }) => {
                             </Box>
                         </Box>
                     </Card>
-                </div>
-            </Box>
+                </Box>
+            </Flex>
         </>
     );
 };

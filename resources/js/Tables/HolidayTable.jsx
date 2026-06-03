@@ -14,16 +14,17 @@ import {
     Spinner,
 } from '@radix-ui/themes';
 import {
-    CalendarDaysIcon,
+    CalendarIcon,
     MagnifyingGlassIcon,
-    PencilIcon,
+    Pencil2Icon,
     TrashIcon,
-    EyeIcon,
+    EyeOpenIcon,
     ClockIcon,
-    CheckCircleIcon,
-    AdjustmentsHorizontalIcon,
-} from '@heroicons/react/24/outline';
-import { DotsVerticalIcon, Cross2Icon } from '@radix-ui/react-icons';
+    CheckCircledIcon,
+    MixerHorizontalIcon,
+    DotsVerticalIcon,
+    Cross2Icon,
+} from '@radix-ui/react-icons';
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import TablePagination from '@/Components/TablePagination.jsx';
@@ -38,8 +39,8 @@ const holidayTypes = {
 
 const statusOptions = [
     { key: 'upcoming', label: 'Upcoming', color: 'blue', icon: ClockIcon },
-    { key: 'ongoing', label: 'Ongoing', color: 'green', icon: CheckCircleIcon },
-    { key: 'past', label: 'Past', color: 'gray', icon: CheckCircleIcon },
+    { key: 'ongoing', label: 'Ongoing', color: 'green', icon: CheckCircledIcon },
+    { key: 'past', label: 'Past', color: 'gray', icon: CheckCircledIcon },
 ];
 
 const toggleInArray = (setter, value) => {
@@ -74,9 +75,9 @@ const HolidayTable = ({
             return { status: 'upcoming', label: 'Upcoming', color: 'blue', icon: ClockIcon };
         }
         if (isAfter(today, toDate)) {
-            return { status: 'past', label: 'Past', color: 'gray', icon: CheckCircleIcon };
+            return { status: 'past', label: 'Past', color: 'gray', icon: CheckCircledIcon };
         }
-        return { status: 'ongoing', label: 'Ongoing', color: 'green', icon: CheckCircleIcon };
+        return { status: 'ongoing', label: 'Ongoing', color: 'green', icon: CheckCircledIcon };
     }, []);
 
     const filteredHolidays = useMemo(() => {
@@ -139,13 +140,13 @@ const HolidayTable = ({
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
                 <DropdownMenu.Item>
-                    <EyeIcon className="w-4 h-4" /> View Details
+                    <EyeOpenIcon style={{ width: 16, height: 16, marginRight: 8 }} /> View Details
                 </DropdownMenu.Item>
                 <DropdownMenu.Item onClick={() => onEdit?.(holiday)}>
-                    <PencilIcon className="w-4 h-4" /> Edit Holiday
+                    <Pencil2Icon style={{ width: 16, height: 16, marginRight: 8 }} /> Edit Holiday
                 </DropdownMenu.Item>
                 <DropdownMenu.Item color="red" onClick={() => onDelete?.(holiday.id)}>
-                    <TrashIcon className="w-4 h-4" /> Delete Holiday
+                    <TrashIcon style={{ width: 16, height: 16, marginRight: 8 }} /> Delete Holiday
                 </DropdownMenu.Item>
             </DropdownMenu.Content>
         </DropdownMenu.Root>
@@ -159,11 +160,11 @@ const HolidayTable = ({
                         differenceInDays(new Date(holiday.to_date), new Date(holiday.from_date)) + 1;
                     return (
                         <Box>
-                            <Text size="2" weight="bold" className="capitalize">
+                            <Text size="2" weight="bold" style={{ textTransform: 'capitalize' }}>
                                 {holiday.title}
                             </Text>
                             <Flex align="center" gap="1" mt="1">
-                                <CalendarDaysIcon className="w-3 h-3" style={{ color: 'var(--gray-9)' }} />
+                                <CalendarIcon style={{ width: 12, height: 12, color: 'var(--gray-9)' }} />
                                 <Text size="1" color="gray">
                                     {format(new Date(holiday.from_date), 'MMM dd, yyyy')}
                                     {duration > 1 &&
@@ -171,7 +172,12 @@ const HolidayTable = ({
                                 </Text>
                             </Flex>
                             {holiday.description && (
-                                <Text size="1" color="gray" className="line-clamp-2 mt-1">
+                                <Text size="1" color="gray" mt="1" style={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden'
+                                }}>
                                     {holiday.description}
                                 </Text>
                             )}
@@ -200,7 +206,7 @@ const HolidayTable = ({
                     const StatusIcon = statusConfig.icon;
                     return (
                         <Badge color={statusConfig.color} variant="outline" size="1">
-                            <StatusIcon className="w-3 h-3" />
+                            <StatusIcon style={{ width: 12, height: 12, marginRight: 4 }} />
                             {statusConfig.label}
                         </Badge>
                     );
@@ -232,7 +238,7 @@ const HolidayTable = ({
                     lineHeight: 0,
                 }}
             >
-                <Cross2Icon width={12} height={12} />
+                <Cross2Icon style={{ width: 12, height: 12 }} />
             </button>
         </Badge>
     );
@@ -248,7 +254,7 @@ const HolidayTable = ({
                         onChange={(e) => setFilterValue(e.target.value)}
                     >
                         <TextField.Slot>
-                            <MagnifyingGlassIcon className="w-4 h-4" style={{ color: 'var(--gray-9)' }} />
+                            <MagnifyingGlassIcon style={{ width: 16, height: 16, color: 'var(--gray-9)' }} />
                         </TextField.Slot>
                     </TextField.Root>
                 </Box>
@@ -257,15 +263,15 @@ const HolidayTable = ({
                     color={showFilters ? 'blue' : 'gray'}
                     onClick={() => setShowFilters(!showFilters)}
                 >
-                    <AdjustmentsHorizontalIcon className="w-4 h-4" />
+                    <MixerHorizontalIcon style={{ width: 16, height: 16 }} />
                     {!isMobile && <span style={{ marginLeft: 4 }}>Filters</span>}
                 </Button>
             </Flex>
 
             {showFilters && (
-                <div>
+                <Box>
                     <Card style={{ padding: 16 }}>
-                        <Text size="2" weight="medium" mb="2">
+                        <Text size="2" weight="medium" mb="2" as="div">
                             Holiday Type
                         </Text>
                         <Flex gap="2" wrap="wrap" mb="4">
@@ -283,7 +289,7 @@ const HolidayTable = ({
                             ))}
                         </Flex>
 
-                        <Text size="2" weight="medium" mb="2">
+                        <Text size="2" weight="medium" mb="2" as="div">
                             Status
                         </Text>
                         <Flex gap="2" wrap="wrap" mb="4">
@@ -296,12 +302,12 @@ const HolidayTable = ({
                                     style={{ cursor: 'pointer' }}
                                     onClick={() => toggleInArray(setStatusFilter, opt.key)}
                                 >
-                                    <opt.icon className="w-3 h-3" /> {opt.label}
+                                    <opt.icon style={{ width: 12, height: 12, marginRight: 4 }} /> {opt.label}
                                 </Badge>
                             ))}
                         </Flex>
 
-                        <Text size="2" weight="medium" mb="2">
+                        <Text size="2" weight="medium" mb="2" as="div">
                             Year
                         </Text>
                         <Flex gap="2" wrap="wrap" mb="4">
@@ -318,7 +324,7 @@ const HolidayTable = ({
                             ))}
                         </Flex>
 
-                        <Text size="2" weight="medium" mb="2">
+                        <Text size="2" weight="medium" mb="2" as="div">
                             Rows per page
                         </Text>
                         <Flex gap="2" wrap="wrap">
@@ -339,44 +345,44 @@ const HolidayTable = ({
                             typeFilter.length > 0 ||
                             statusFilter.length > 0 ||
                             yearFilter.length > 0) && (
-                            <Flex gap="2" wrap="wrap" mt="4" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
-                                {filterValue && (
-                                    <FilterChip
-                                        label={`Search: ${filterValue}`}
-                                        onRemove={() => setFilterValue('')}
-                                    />
-                                )}
-                                {typeFilter.map((type) => (
-                                    <FilterChip
-                                        key={type}
-                                        label={`${holidayTypes[type]?.icon} ${holidayTypes[type]?.label}`}
-                                        onRemove={() =>
-                                            setTypeFilter((prev) => prev.filter((t) => t !== type))
-                                        }
-                                    />
-                                ))}
-                                {statusFilter.map((status) => (
-                                    <FilterChip
-                                        key={status}
-                                        label={status.charAt(0).toUpperCase() + status.slice(1)}
-                                        onRemove={() =>
-                                            setStatusFilter((prev) => prev.filter((s) => s !== status))
-                                        }
-                                    />
-                                ))}
-                                {yearFilter.map((year) => (
-                                    <FilterChip
-                                        key={year}
-                                        label={`📅 ${year}`}
-                                        onRemove={() =>
-                                            setYearFilter((prev) => prev.filter((y) => y !== year))
-                                        }
-                                    />
-                                ))}
-                            </Flex>
-                        )}
+                                <Flex gap="2" wrap="wrap" mt="4" pt="3" style={{ borderTop: '1px solid var(--gray-a4)' }}>
+                                    {filterValue && (
+                                        <FilterChip
+                                            label={`Search: ${filterValue}`}
+                                            onRemove={() => setFilterValue('')}
+                                        />
+                                    )}
+                                    {typeFilter.map((type) => (
+                                        <FilterChip
+                                            key={type}
+                                            label={`${holidayTypes[type]?.icon} ${holidayTypes[type]?.label}`}
+                                            onRemove={() =>
+                                                setTypeFilter((prev) => prev.filter((t) => t !== type))
+                                            }
+                                        />
+                                    ))}
+                                    {statusFilter.map((status) => (
+                                        <FilterChip
+                                            key={status}
+                                            label={status.charAt(0).toUpperCase() + status.slice(1)}
+                                            onRemove={() =>
+                                                setStatusFilter((prev) => prev.filter((s) => s !== status))
+                                            }
+                                        />
+                                    ))}
+                                    {yearFilter.map((year) => (
+                                        <FilterChip
+                                            key={year}
+                                            label={`📅 ${year}`}
+                                            onRemove={() =>
+                                                setYearFilter((prev) => prev.filter((y) => y !== year))
+                                            }
+                                        />
+                                    ))}
+                                </Flex>
+                            )}
                     </Card>
-                </div>
+                </Box>
             )}
 
             <Text size="1" color="gray">
@@ -401,14 +407,19 @@ const HolidayTable = ({
                             {holiday.title}
                         </Text>
                         {holiday.description && (
-                            <Text size="2" color="gray" className="line-clamp-2 mt-1">
+                            <Text size="2" color="gray" mt="1" style={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden'
+                            }}>
                                 {holiday.description}
                             </Text>
                         )}
                     </Box>
                     <Flex align="center" gap="2">
                         <Badge color={statusConfig.color} variant="outline" size="1">
-                            <StatusIcon className="w-3 h-3" />
+                            <StatusIcon style={{ width: 12, height: 12, marginRight: 4 }} />
                             {statusConfig.label}
                         </Badge>
                         {renderActionsMenu(holiday)}
@@ -416,7 +427,7 @@ const HolidayTable = ({
                 </Flex>
                 <Flex gap="4" wrap="wrap">
                     <Box>
-                        <Text size="1" color="gray" mb="1">
+                        <Text size="1" color="gray" mb="1" as="div">
                             Type
                         </Text>
                         <Badge color={typeConfig.color} variant="soft" size="1">
@@ -424,7 +435,7 @@ const HolidayTable = ({
                         </Badge>
                     </Box>
                     <Box>
-                        <Text size="1" color="gray" mb="1">
+                        <Text size="1" color="gray" mb="1" as="div">
                             Duration
                         </Text>
                         <Text size="2" weight="bold">
@@ -432,7 +443,7 @@ const HolidayTable = ({
                         </Text>
                     </Box>
                     <Box>
-                        <Text size="1" color="gray" mb="1">
+                        <Text size="1" color="gray" mb="1" as="div">
                             Start Date
                         </Text>
                         <Text size="2" weight="medium">
@@ -441,7 +452,7 @@ const HolidayTable = ({
                     </Box>
                     {holiday.from_date !== holiday.to_date && (
                         <Box>
-                            <Text size="1" color="gray" mb="1">
+                            <Text size="1" color="gray" mb="1" as="div">
                                 End Date
                             </Text>
                             <Text size="2" weight="medium">
@@ -457,8 +468,8 @@ const HolidayTable = ({
     if (holidaysData.length === 0) {
         return (
             <Card style={{ padding: 48, textAlign: 'center' }}>
-                <CalendarDaysIcon className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--gray-8)' }} />
-                <Text size="4" weight="bold" mb="2">
+                <CalendarIcon style={{ width: 64, height: 64, color: 'var(--gray-8)', margin: '0 auto 16px auto' }} />
+                <Text size="4" weight="bold" mb="2" as="div">
                     No Holidays Found
                 </Text>
                 <Text size="2" color="gray">
@@ -470,7 +481,7 @@ const HolidayTable = ({
 
     if (isMobile) {
         return (
-            <Box className="space-y-4">
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {topContent}
                 <ScrollArea type="auto" scrollbars="horizontal">
                     <Box style={{ minWidth: 320 }}>
@@ -501,11 +512,11 @@ const HolidayTable = ({
     }
 
     return (
-        <Box className="space-y-4">
+        <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {topContent}
             <ScrollArea type="auto" scrollbars="horizontal" style={{ maxHeight: '70vh' }}>
                 {isLoading ? (
-                    <Flex justify="center" py="8">
+                    <Flex justify="center" py="8" align="center">
                         <Spinner size="3" />
                         <Text ml="2">Loading holidays...</Text>
                     </Flex>
@@ -528,9 +539,8 @@ const HolidayTable = ({
                                 <Table.Row>
                                     <Table.Cell colSpan={columns.length}>
                                         <Flex direction="column" align="center" py="6" gap="2">
-                                            <CalendarDaysIcon
-                                                className="w-12 h-12"
-                                                style={{ color: 'var(--gray-8)' }}
+                                            <CalendarIcon
+                                                style={{ width: 48, height: 48, color: 'var(--gray-8)' }}
                                             />
                                             <Text size="2" weight="medium">
                                                 No holidays found
