@@ -13,19 +13,29 @@ import { showToast } from './toastUtils';
 export const pollExport = async (downloadUrl, filename, timeout = 60000, interval = 2000) => {
   const startTime = Date.now();
   
+  // Extract filename from downloadUrl
+  const fileParts = downloadUrl.split('?')[0].split('/');
+  const actualFilename = fileParts[fileParts.length - 1];
+  const statusUrl = `/attendance/export/status/${encodeURIComponent(actualFilename)}`;
+  
   return new Promise((resolve, reject) => {
     const check = async () => {
       try {
-        // Use a HEAD/GET request to verify file existence without triggering global axios interceptors
-        const response = await fetch(downloadUrl, { method: 'HEAD', cache: 'no-store' });
+        // Query the API endpoint instead of the static file to avoid browser 404 logs
+        const response = await fetch(statusUrl, { method: 'GET', cache: 'no-store' });
         
         if (response.status !== 200) {
           throw new Error('Not ready');
         }
         
-        // If it succeeds, trigger the browser download
+        const data = await response.json();
+        if (data.status !== 'ready') {
+          throw new Error('Not ready');
+        }
+        
+        // If it succeeds, trigger the browser download using the actual download URL
         const link = document.createElement('a');
-        link.href = downloadUrl;
+        link.href = data.url || downloadUrl;
         link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
