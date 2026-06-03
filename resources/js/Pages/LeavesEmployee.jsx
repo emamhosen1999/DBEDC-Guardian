@@ -490,7 +490,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
     },
     {
       label: "Refresh",
-      icon: <ArrowPathIcon className="w-4 h-4" />,
+      icon: <ReloadIcon className="w-4 h-4" />,
       onPress: refetch,
       className: "bg-linear-to-r from-[rgba(var(--theme-success-rgb),0.8)] to-[rgba(var(--theme-success-rgb),1)] text-white font-medium hover:opacity-90"
     }

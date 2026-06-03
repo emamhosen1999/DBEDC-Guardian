@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
+import { Box, Button, Card, Flex, Heading, Separator, Text } from '@radix-ui/themes';
 import {
     CalendarIcon,
     PlusIcon,
-    ChartBarIcon,
-} from '@heroicons/react/24/outline';
-import { Box, Button, Card, Flex, Heading, Separator, Text } from '@radix-ui/themes';
+    BarChartIcon,
+} from '@radix-ui/react-icons';
 import StatsCards from '@/Components/StatsCards.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import App from '@/Layouts/App.jsx';
@@ -54,10 +54,10 @@ const Holidays = ({ title }) => {
         const upcoming = safe.filter((h) => h?.from_date && new Date(h.from_date) > now);
         const totalDays = safe.reduce((sum, h) => sum + (h.duration || 1), 0);
         return [
-            { title: 'Total Holidays', value: safe.length, icon: <ChartBarIcon style={{ width: 20, height: 20 }} />, color: 'text-blue-400', iconBg: 'bg-blue-500/20', description: 'Filtered' },
+            { title: 'Total Holidays', value: safe.length, icon: <BarChartIcon style={{ width: 20, height: 20 }} />, color: 'text-blue-400', iconBg: 'bg-blue-500/20', description: 'Filtered' },
             { title: 'This Year', value: thisYear.length, icon: <CalendarIcon style={{ width: 20, height: 20 }} />, color: 'text-green-400', iconBg: 'bg-green-500/20', description: 'Current year' },
             { title: 'Upcoming', value: upcoming.length, icon: <CalendarIcon style={{ width: 20, height: 20 }} />, color: 'text-purple-400', iconBg: 'bg-purple-500/20', description: 'Future' },
-            { title: 'Holiday Days', value: totalDays, icon: <ChartBarIcon style={{ width: 20, height: 20 }} />, color: 'text-orange-400', iconBg: 'bg-orange-500/20', description: 'Total days' },
+            { title: 'Holiday Days', value: totalDays, icon: <BarChartIcon style={{ width: 20, height: 20 }} />, color: 'text-orange-400', iconBg: 'bg-orange-500/20', description: 'Total days' },
         ];
     }, [filteredHolidaysData]);
 
@@ -107,7 +107,7 @@ const Holidays = ({ title }) => {
                             </ErrorBoundary>
                             <Heading size="3" mb="3">
                                 <Flex align="center" gap="2">
-                                    <ChartBarIcon style={{ width: 18, height: 18 }} />
+                                    <BarChartIcon style={{ width: 18, height: 18 }} />
                                     Holiday management
                                 </Flex>
                             </Heading>

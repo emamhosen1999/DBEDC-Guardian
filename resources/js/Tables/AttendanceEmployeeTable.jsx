@@ -12,10 +12,10 @@ import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
-    CalendarDaysIcon,
+    CalendarIcon,
     ClockIcon,
     ExclamationTriangleIcon,
-} from '@heroicons/react/24/outline';
+} from '@radix-ui/react-icons';
 import axios from 'axios';
 import TablePagination from '@/Components/TablePagination.jsx';
 
@@ -129,7 +129,7 @@ const AttendanceEmployeeTable = ({
     };
 
     const columns = [
-        { name: 'Date', uid: 'date', icon: CalendarDaysIcon },
+        { name: 'Date', uid: 'date', icon: CalendarIcon },
         { name: 'Clock In', uid: 'clockin_time', icon: ClockIcon },
         { name: 'Clock Out', uid: 'clockout_time', icon: ClockIcon },
         { name: 'Work Hours', uid: 'production_time', icon: ClockIcon },
@@ -144,7 +144,7 @@ const AttendanceEmployeeTable = ({
                 case 'date':
                     return (
                         <Flex align="center" gap="2">
-                            <CalendarDaysIcon className="w-4 h-4 shrink-0" style={{ color: 'var(--accent-9)' }} />
+                            <CalendarIcon className="w-4 h-4 shrink-0" style={{ color: 'var(--accent-9)' }} />
                             <Text size="2">{dayjs(attendance.date).format('MMM D, YYYY')}</Text>
                         </Flex>
                     );
