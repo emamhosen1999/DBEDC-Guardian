@@ -502,6 +502,10 @@ class AttendanceController extends Controller
             $currentMonth = (int) $request->get('currentMonth', now()->month);
             $currentYear = (int) $request->get('currentYear', now()->year);
             $userId = $request->get('userId') ? (int) $request->get('userId') : null;
+            $routeName = $request->route()?->getName();
+            if ($routeName === 'attendance.myMonthlyStats' || !Auth::user()->can('attendance.view')) {
+                $userId = Auth::id();
+            }
             $isGlobalScope = $userId === null;
 
             $stats = $this->attendanceReportService->calculateMonthlyStats($currentMonth, $currentYear, $isGlobalScope, $userId);
