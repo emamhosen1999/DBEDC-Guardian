@@ -175,7 +175,7 @@ class AttendanceQueryService
     {
         $attendances = $this->attendanceRepository->all([
             'date' => $date,
-            'with' => ['user'],
+            'with' => ['user.designation'],
         ]);
         
         return $attendances->filter(function ($attendance) {
@@ -184,8 +184,14 @@ class AttendanceQueryService
             return [
                 'user_id' => $attendance->user_id,
                 'user_name' => $attendance->user->name,
+                'name' => $attendance->user->name,
+                'profile_image_url' => $attendance->user->profile_image_url,
+                'designation' => $attendance->user->designation?->title ?? 'Employee',
                 'location' => $attendance->punchin_location_array,
+                'punchin_location' => $attendance->punchin_location_array,
+                'punchout_location' => $attendance->punchout_location_array,
                 'punchin_time' => $attendance->punchin->format('H:i:s'),
+                'punchout_time' => $attendance->punchout?->format('H:i:s'),
             ];
         })->values()->toArray();
     }

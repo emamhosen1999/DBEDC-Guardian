@@ -208,7 +208,21 @@ class AttendanceController extends Controller
             $selectedDate = Carbon::parse($request->query('date'))->format('Y-m-d');
             $locations = $this->attendanceQueryService->getUserLocationsForDate($selectedDate);
 
-            return response()->json(['locations' => $locations]);
+            $attendanceTypeConfigs = \App\Models\HRM\AttendanceType::all()->map(function ($type) {
+                return [
+                    'id' => $type->id,
+                    'name' => $type->name,
+                    'slug' => $type->slug,
+                    'base_slug' => preg_replace('/_\d+$/', '', (string) $type->slug),
+                    'config' => $type->config ?? [],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'locations' => $locations,
+                'attendance_type_configs' => $attendanceTypeConfigs,
+            ]);
         } catch (\Exception $e) {
             Log::error('Failed to get user locations: '.$e->getMessage());
 

@@ -95,4 +95,33 @@ class AttendanceExportAndStatsTest extends TestCase
         $response->assertJsonPath('stats.meta.scope', 'Single');
         $response->assertJsonPath('stats.meta.totalEmployees', 1);
     }
+
+    public function test_get_user_locations_for_date_returns_expected_structure(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
+
+        // Create AttendanceType config
+        \App\Models\HRM\AttendanceType::create([
+            'name' => 'Geofence Test',
+            'slug' => 'geo_polygon_1',
+            'config' => ['polygon' => []],
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('getUserLocationsForDate', [
+                'date' => '2026-06-03',
+            ]));
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+        $response->assertJsonStructure([
+            'success',
+            'locations',
+            'attendance_type_configs',
+        ]);
+    }
 }
