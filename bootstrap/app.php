@@ -114,7 +114,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             // Log the error with context
-            \Illuminate\Support\Facades\Log::error('API Exception', [
+            $logContext = [
                 'error_code' => $errorCode,
                 'message' => $e->getMessage(),
                 'status_code' => $statusCode,
@@ -122,7 +122,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 'url' => $request->fullUrl(),
                 'method' => $request->method(),
                 'trace' => config('app.debug') ? $e->getTraceAsString() : null,
-            ]);
+            ];
+
+            if ($statusCode >= 500) {
+                \Illuminate\Support\Facades\Log::error('API Server Exception', $logContext);
+            } elseif (!in_array($statusCode, [401, 404, 419, 422])) {
+                \Illuminate\Support\Facades\Log::warning('API Client Exception', $logContext);
+            }
 
             return response()->json($response, $statusCode);
         });
