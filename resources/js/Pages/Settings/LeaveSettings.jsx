@@ -14,6 +14,14 @@ import * as useLeavesQuery from '@/api/queries/useLeavesQuery';
 import QueryState from '@/Components/Common/QueryState';
 import useDisclosure from '@/Hooks/useDisclosure';
 
+const CardHeader = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
+const CardBody = ({ children, className, ...props }) => (
+  <Box className={className} {...props}>{children}</Box>
+);
+
 import {
     PlusIcon,
     ClockIcon,

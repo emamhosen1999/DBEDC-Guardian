@@ -19,7 +19,7 @@ import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
 // import BulkMarkAsPresentForm from '@/Forms/BulkMarkAsPresentForm';
 
-const AttendancePage = ({ title }) => {
+const AttendancePage = ({ title, departments = [] }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isDesktop = useMediaQuery('(min-width: 1025px)');
@@ -176,6 +176,7 @@ const AttendancePage = ({ title }) => {
                                             <MonthlyCalendarTab
                                                 selectedMonth={selectedMonth}
                                                 onMonthChange={handleMonthChange}
+                                                departments={departments}
                                             />
                                         </Suspense>
                                     </ErrorBoundary>

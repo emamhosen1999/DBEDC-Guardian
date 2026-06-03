@@ -43,7 +43,25 @@ class AttendanceController extends Controller
             'title'            => 'Attendance',
             'attendanceSettings' => \App\Models\HRM\AttendanceSetting::first(),
             'attendanceTypes'    => \App\Models\HRM\AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get(),
+            'departments'        => \App\Models\HRM\Department::active()->get(['id', 'name']),
         ]);
+    }
+
+    public function index1(): \Inertia\Response
+    {
+        return $this->indexUnified();
+    }
+
+    public function index2(): \Inertia\Response
+    {
+        return Inertia::render('AttendanceEmployee', [
+            'title' => 'My Attendance',
+        ]);
+    }
+
+    public function index3(): \Inertia\Response
+    {
+        return $this->indexUnified();
     }
 
     public function paginate(Request $request): \Illuminate\Http\JsonResponse
@@ -54,8 +72,9 @@ class AttendanceController extends Controller
             $employee = $request->get('employee');
             $currentMonth = (int) $request->get('currentMonth');
             $currentYear = (int) $request->get('currentYear');
+            $departmentId = $request->get('department_id') ? (int) $request->get('department_id') : null;
 
-            $users = $this->attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($currentYear, $currentMonth);
+            $users = $this->attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($currentYear, $currentMonth, $departmentId);
             $leaveTypes = LeaveSetting::all();
             $holidays = $this->attendanceReportService->getHolidaysForMonth($currentYear, $currentMonth);
             $leaveCountsArray = $this->attendanceReportService->getLeaveCountsArray($currentYear, $currentMonth);
@@ -73,7 +92,8 @@ class AttendanceController extends Controller
                 $page = 1; // Reset page if filtered
             }
 
-            $sortedAttendances = $attendances->sortBy('user_id')->values();
+            // Preserving the designation hierarchy sorting order from service
+            $sortedAttendances = $attendances->values();
             $total = $sortedAttendances->count();
             $lastPage = ceil($total / $perPage);
             $paginated = $sortedAttendances->slice(($page - 1) * $perPage, $perPage)->values();
@@ -213,13 +233,116 @@ class AttendanceController extends Controller
     public function getAllUsersAttendanceForDate(Request $request): \Illuminate\Http\JsonResponse
     {
         try {
-            $date = $request->query('date', now()->toDateString());
-            $data = $this->attendanceQueryService->getDailyTimesheet($date, [
-                'per_page' => $request->query('perPage', 25),
-                'page' => $request->query('page', 1),
-            ]);
+            $selectedDate = $request->query('date', now()->toDateString());
+            $page = (int) $request->query('page', 1);
+            $perPage = (int) $request->query('perPage', 25);
+            $employeeKeyword = trim((string) $request->query('employee', ''));
 
-            return response()->json($data);
+            $usersWithAttendanceQuery = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                })
+                ->whereHas('attendances', function ($query) use ($selectedDate) {
+                    $query->whereNotNull('punchin')
+                        ->whereDate('date', $selectedDate);
+                });
+
+            if ($employeeKeyword !== '') {
+                $usersWithAttendanceQuery->where(function ($query) use ($employeeKeyword) {
+                    $query->where('name', 'like', '%'.$employeeKeyword.'%')
+                        ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
+                });
+            }
+
+            $usersWithAttendance = $usersWithAttendanceQuery->get();
+            $paginatedUsers = $usersWithAttendance->forPage($page, $perPage)->values();
+            $userIds = $paginatedUsers->pluck('id')->all();
+
+            $attendanceRecords = Attendance::query()
+                ->with(['user.designation'])
+                ->whereNotNull('punchin')
+                ->whereDate('date', $selectedDate)
+                ->whereIn('user_id', $userIds)
+                ->orderBy('user_id')
+                ->orderBy('punchin')
+                ->get();
+
+            $attendances = $attendanceRecords->groupBy('user_id')->map(function ($userAttendances) {
+                $firstRecord = $userAttendances->first();
+                $user = $firstRecord?->user;
+                $sortedPunches = $userAttendances->sortBy('punchin')->values();
+
+                $totalWorkMinutes = 0;
+                $completePunches = 0;
+                $hasIncompletePunch = false;
+
+                $punches = $sortedPunches->map(function (Attendance $record) use (&$totalWorkMinutes, &$completePunches, &$hasIncompletePunch) {
+                    if ($record->punchin && $record->punchout) {
+                        $punchIn = Carbon::parse($record->punchin);
+                        $punchOut = Carbon::parse($record->punchout);
+
+                        if ($punchOut->lt($punchIn)) {
+                            $punchOut->addDay();
+                        }
+
+                        $totalWorkMinutes += $punchIn->diffInMinutes($punchOut);
+                        $completePunches++;
+                    } elseif ($record->punchin && ! $record->punchout) {
+                        $hasIncompletePunch = true;
+                    }
+
+                    return [
+                        'id' => $record->id,
+                        'date' => $record->date,
+                        'punch_in' => $record->punchin,
+                        'punch_out' => $record->punchout,
+                        'punchin_location' => $record->punchin_location_array,
+                        'punchout_location' => $record->punchout_location_array,
+                    ];
+                })->values();
+
+                $firstPunch = $sortedPunches->first();
+                $lastCompletePunch = $sortedPunches->whereNotNull('punchout')->last();
+
+                return [
+                    'id' => 'user-'.($user?->id ?? 'unknown'),
+                    'user_id' => (int) ($user?->id ?? 0),
+                    'user' => [
+                        'id' => (int) ($user?->id ?? 0),
+                        'name' => $user?->name,
+                        'employee_id' => $user?->employee_id,
+                        'phone' => $user?->phone,
+                        'profile_image' => $user?->profile_image,
+                        'profile_image_url' => $user?->profile_image_url,
+                        'designation' => [
+                            'id' => $user?->designation_id ? (int) $user->designation_id : null,
+                            'title' => $user?->designation?->title,
+                        ],
+                    ],
+                    'date' => $firstRecord?->date,
+                    'punchin_time' => $firstPunch?->punchin,
+                    'punchout_time' => $lastCompletePunch?->punchout,
+                    'punchin_location' => $firstPunch?->punchin_location_array,
+                    'punchout_location' => $lastCompletePunch?->punchout_location_array,
+                    'total_work_minutes' => round($totalWorkMinutes, 2),
+                    'punch_count' => $userAttendances->count(),
+                    'complete_punches' => $completePunches,
+                    'has_incomplete_punch' => $hasIncompletePunch,
+                    'first_punch_date' => $firstRecord?->date,
+                    'last_punch_date' => $sortedPunches->last()?->date,
+                    'punches' => $punches,
+                ];
+            })->values();
+
+            $totalUsers = $usersWithAttendance->count();
+            $lastPage = max(1, (int) ceil($totalUsers / max($perPage, 1)));
+
+            return response()->json([
+                'attendances' => $attendances,
+                'total' => $totalUsers,
+                'last_page' => $lastPage,
+                'current_page' => $page,
+            ]);
         } catch (\Exception $e) {
             Log::error('Failed to get all users attendance: '.$e->getMessage());
 
@@ -272,11 +395,99 @@ class AttendanceController extends Controller
     {
         try {
             $date = $request->query('date', now()->toDateString());
-            $users = $this->attendanceQueryService->getAbsentUsersForDate($date);
+            $employeeKeyword = trim((string) $request->query('employee', ''));
+
+            $allUsersQuery = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                });
+
+            if ($employeeKeyword !== '') {
+                $allUsersQuery->where(function ($query) use ($employeeKeyword) {
+                    $query->where('name', 'like', '%'.$employeeKeyword.'%')
+                        ->orWhere('employee_id', 'like', '%'.$employeeKeyword.'%');
+                });
+            }
+
+            $allUsers = $allUsersQuery->get();
+
+            $presentUserIds = User::query()
+                ->whereHas('roles', function ($query) {
+                    $query->where('name', 'Employee');
+                })
+                ->whereHas('attendances', function ($query) use ($date) {
+                    $query->whereNotNull('punchin')
+                        ->whereDate('date', $date);
+                })
+                ->pluck('id');
+
+            $absentUsers = $allUsers->filter(function (User $user) use ($presentUserIds) {
+                return ! $presentUserIds->contains($user->id);
+            })->values();
+
+            $absentUserIds = $absentUsers->pluck('id')->all();
+
+            $leaveUserColumn = null;
+            if (\Illuminate\Support\Facades\Schema::hasColumn('leaves', 'user_id')) {
+                $leaveUserColumn = 'user_id';
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('leaves', 'employee_id')) {
+                $leaveUserColumn = 'employee_id';
+            }
+
+            $leaves = collect();
+            if (
+                $absentUserIds !== []
+                && $leaveUserColumn
+                && \Illuminate\Support\Facades\Schema::hasTable('leaves')
+                && \Illuminate\Support\Facades\Schema::hasTable('leave_settings')
+            ) {
+                $leaves = \Illuminate\Support\Facades\DB::table('leaves')
+                    ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
+                    ->select(
+                        'leaves.id',
+                        "leaves.{$leaveUserColumn} as user_id",
+                        'leaves.leave_type',
+                        'leave_settings.type as leave_type_name',
+                        'leaves.from_date',
+                        'leaves.to_date',
+                        'leaves.no_of_days',
+                        'leaves.status'
+                    )
+                    ->whereDate('leaves.from_date', '<=', $date)
+                    ->whereDate('leaves.to_date', '>=', $date)
+                    ->whereIn("leaves.{$leaveUserColumn}", $absentUserIds)
+                    ->get()
+                    ->map(function ($leave) {
+                        return [
+                            'id' => (int) ($leave->id ?? 0),
+                            'user_id' => (int) ($leave->user_id ?? 0),
+                            'leave_type' => (int) ($leave->leave_type ?? 0),
+                            'leave_type_name' => $leave->leave_type_name,
+                            'from_date' => $leave->from_date,
+                            'to_date' => $leave->to_date,
+                            'no_of_days' => (int) ($leave->no_of_days ?? 0),
+                            'status' => $leave->status,
+                        ];
+                    })
+                    ->values();
+            }
+
+            $serializedAbsentUsers = $absentUsers->map(function (User $user) {
+                return [
+                    'id' => (int) $user->id,
+                    'name' => $user->name,
+                    'employee_id' => $user->employee_id,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'profile_image' => $user->profile_image,
+                    'profile_image_url' => $user->profile_image_url,
+                ];
+            })->values();
 
             return response()->json([
-                'users' => $users,
-                'count' => count($users),
+                'absent_users' => $serializedAbsentUsers,
+                'leaves' => $leaves,
+                'total_absent' => $serializedAbsentUsers->count(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to get absent users: '.$e->getMessage());

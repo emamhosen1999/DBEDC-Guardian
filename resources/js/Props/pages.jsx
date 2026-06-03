@@ -39,7 +39,7 @@ export const getPages = (roles, permissions, auth = null) => {
     ] : []),
 
     ...(permissions.includes('attendance.own.view') ? [
-      { name: 'My Attendance', icon: <CalendarDaysIcon />, route: 'attendance.unified' }
+      { name: 'My Attendance', icon: <CalendarDaysIcon />, route: 'attendance-employee' }
     ] : []),
     ...(permissions.includes('leave.own.view') ? [
       { name: 'My Leaves', icon: <ArrowRightOnRectangleIcon />, route: 'leaves-employee' }
