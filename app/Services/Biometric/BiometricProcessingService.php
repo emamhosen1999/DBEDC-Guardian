@@ -111,6 +111,7 @@ class BiometricProcessingService
         $user = User::create([
             'name'        => 'Device User ' . $deviceUserId,
             'email'       => 'device_user_' . $deviceUserId . '@placeholder.local',
+            'user_name'   => 'device_user_' . $deviceUserId,
             'password'    => bcrypt(Str::random(32)),
             'employee_id' => $deviceUserId,
             'active'      => false,
@@ -678,6 +679,7 @@ class BiometricProcessingService
             $newUser = User::create([
                 'name'        => $name,
                 'email'       => 'device-auto-' . $pin . '@device-auto.local',
+                'user_name'   => 'device-auto-' . $pin,
                 'password'    => bcrypt(Str::random(32)),
                 'active'      => false,
                 'employee_id' => $pin,
@@ -1029,7 +1031,7 @@ class BiometricProcessingService
      */
     public function getDownloadSessions(?int $deviceId = null, $perPage = 20, int $page = 1)
     {
-        $query = BiometricDownloadSession::with(['device:id,name,serial_number', 'creator:id,name'])
+        $query = BiometricDownloadSession::with(['device:id,name,serial_number', 'creator:id,name', 'command'])
             ->orderBy('created_at', 'desc');
 
         if ($deviceId) {

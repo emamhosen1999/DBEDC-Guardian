@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
+use App\Models\HRM\BiometricDownloadSession;
 use App\Models\User;
 use App\Services\Biometric\BiometricProcessingService;
 use Illuminate\Http\Request;
@@ -598,5 +599,34 @@ class BiometricDeviceController extends Controller
         return response()->json([
             'sessions' => $sessions
         ]);
+    }
+
+    public function getSessionLogs(Request $request, $id)
+    {
+        try {
+            $session = BiometricDownloadSession::with('command')->findOrFail($id);
+            
+            $query = BiometricAttLog::with('user:id,name,employee_id')
+                ->where('biometric_device_id', $session->biometric_device_id);
+            
+            $payload = $session->command?->payload;
+            if (is_array($payload) && isset($payload['start_time']) && isset($payload['end_time'])) {
+                $query->whereBetween('punch_time', [$payload['start_time'], $payload['end_time']]);
+            } else {
+                $start = $session->started_at ?? $session->created_at;
+                $end = $session->completed_at ?? now();
+                $query->whereBetween('created_at', [$start, $end]);
+            }
+            
+            $logs = $query->orderBy('punch_time', 'desc')->get();
+            
+            return response()->json([
+                'logs' => $logs
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch session logs: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

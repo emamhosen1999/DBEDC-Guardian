@@ -521,10 +521,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/biometric-devices/bulk/ping', [BiometricDeviceController::class, 'bulkPing'])->name('biometric-devices.bulk.ping');
         Route::post('settings/biometric-devices/bulk/delete', [BiometricDeviceController::class, 'bulkDelete'])->name('biometric-devices.bulk.delete');
 
-        // Biometric log download routes
         Route::post('settings/biometric-devices/{id}/download-logs', [BiometricDeviceController::class, 'downloadLogs'])->name('biometric-devices.download-logs');
         Route::post('settings/biometric-devices/bulk/download-logs', [BiometricDeviceController::class, 'bulkDownloadLogs'])->name('biometric-devices.bulk.download-logs');
         Route::get('settings/biometric-devices/download-history', [BiometricDeviceController::class, 'getDownloadHistory'])->name('biometric-devices.download-history');
+        Route::get('settings/biometric-devices/download-sessions/{id}/logs', [BiometricDeviceController::class, 'getSessionLogs'])->name('biometric-devices.download-sessions.logs');
 
         // Request logs routes
         Route::get('settings/request-logs', [RequestLogController::class, 'index'])->name('request-logs.index');

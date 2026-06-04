@@ -1591,85 +1591,43 @@ function DownloadsTab({ isMobile, devices = [] }) {
     const [loading, setLoading] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState('all');
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
-    const [exporting, setExporting] = useState(false);
+    const [downloadingSessionLogs, setDownloadingSessionLogs] = useState(null);
 
-    const fetchAllSessionsForExport = async () => {
-        const { data } = await axios.get(route('biometric-devices.download-history'), {
-            params: {
-                device_id: selectedDevice !== 'all' ? selectedDevice : undefined,
-                per_page: 'all',
+    const downloadSessionPunches = async (session) => {
+        setDownloadingSessionLogs(session.id);
+        try {
+            const { data } = await axios.get(route('biometric-devices.download-sessions.logs', session.id));
+            const logs = data.logs ?? [];
+            if (logs.length === 0) {
+                showToast.info('No attendance logs found for this session.');
+                return;
             }
-        });
-        return data.sessions ?? [];
-    };
 
-    const handleExportExcel = async () => {
-        setExporting(true);
-        try {
-            const data = await fetchAllSessionsForExport();
-            const sheetData = data.map(s => ({
-                'Device': s.device?.name || 'Unknown',
-                'Serial Number': s.device?.serial_number || '—',
-                'Trigger Type': s.trigger_type,
-                'Status': s.status,
-                'Total Records': s.total_records,
-                'Processed Count': s.processed_count,
-                'Duplicate Count': s.duplicate_count,
-                'Failed Count': s.failed_count,
-                'Error Message': s.error_message || '—',
-                'Created At': new Date(s.created_at).toLocaleString(),
-                'Completed At': s.completed_at ? new Date(s.completed_at).toLocaleString() : '—',
-                'Initiated By': s.creator?.name || 'System'
+            const exportData = logs.map(l => ({
+                'Employee PIN': l.user_pin,
+                'Employee Name': l.user?.name || 'Unknown',
+                'Punch Time': l.punch_time,
+                'Check Type': l.check_type.toUpperCase(),
+                'Verify Code': l.verify_code || '—',
+                'Work Code': l.work_code || '—',
+                'Status': l.punch_status,
+                'Status Reason': l.punch_status_reason || '—',
+                'Device': session.device?.name || 'Unknown',
+                'Log ID': l.id
             }));
-            const worksheet = XLSX.utils.json_to_sheet(sheetData);
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Download History');
-            XLSX.writeFile(workbook, `Biometric_Downloads_History_${new Date().toISOString().slice(0, 10)}.xlsx`);
-            showToast.success('Excel file exported successfully.');
-        } catch (err) {
-            console.error('Excel Export Error:', err);
-            showToast.error('Failed to export Excel.');
-        } finally {
-            setExporting(false);
-        }
-    };
-
-    const handleExportPDF = async () => {
-        setExporting(true);
-        try {
-            const data = await fetchAllSessionsForExport();
-            const doc = new jsPDF({ orientation: 'landscape' });
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance Logs');
             
-            doc.text('Biometric Attendance Logs Download History', 14, 15);
-            doc.setFontSize(10);
-            doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${selectedDevice === 'all' ? 'All Devices' : 'Device ID ' + selectedDevice}`, 14, 22);
-
-            const tableRows = data.map(s => [
-                s.device?.name || 'Unknown',
-                s.trigger_type,
-                s.status.toUpperCase(),
-                `${s.processed_count}/${s.total_records}`,
-                s.duplicate_count,
-                s.failed_count,
-                s.creator?.name || 'System',
-                new Date(s.created_at).toLocaleString()
-            ]);
-
-            doc.autoTable({
-                startY: 28,
-                head: [['Device', 'Trigger', 'Status', 'Processed / Total', 'Duplicates', 'Failed', 'Initiated By', 'Created At']],
-                body: tableRows,
-                theme: 'striped',
-                headStyles: { fillColor: [43, 108, 176] }
-            });
-
-            doc.save(`Biometric_Downloads_History_${new Date().toISOString().slice(0, 10)}.pdf`);
-            showToast.success('PDF report exported successfully.');
+            const filename = `attendance_logs_device_${session.device?.name.replace(/\s+/g, '_')}_session_${session.id}.xlsx`;
+            XLSX.writeFile(workbook, filename);
+            showToast.success('Attendance logs downloaded successfully.');
         } catch (err) {
-            console.error('PDF Export Error:', err);
-            showToast.error('Failed to export PDF.');
+            console.error('Failed to download session logs:', err);
+            showToast.error('Failed to download attendance logs.');
         } finally {
-            setExporting(false);
+            setDownloadingSessionLogs(null);
         }
     };
 
@@ -1803,16 +1761,10 @@ function DownloadsTab({ isMobile, devices = [] }) {
                         ))}
                     </Select.Content>
                 </Select.Root>
-                <Button size="1" variant="soft" color="gray" onClick={() => fetchHistory()} disabled={loading || exporting}>
+                <Button size="1" variant="soft" color="gray" onClick={() => fetchHistory()} disabled={loading}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
-                <Button size="1" variant="soft" color="green" onClick={handleExportExcel} disabled={loading || exporting}>
-                    {exporting ? <Spinner size="1" /> : <DownloadIcon />} Export Excel
-                </Button>
-                <Button size="1" variant="soft" color="red" onClick={handleExportPDF} disabled={loading || exporting}>
-                    {exporting ? <Spinner size="1" /> : <DownloadIcon />} Export PDF
-                </Button>
-                {(loading || exporting) && <Spinner size="2" />}
+                {(loading || downloadingSessionLogs) && <Spinner size="2" />}
             </Flex>
 
             {/* Downloads Table */}
@@ -1821,6 +1773,7 @@ function DownloadsTab({ isMobile, devices = [] }) {
                     <Table.Header>
                         <Table.Row>
                             <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Date Range</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Trigger</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Records (Processed/Total)</Table.ColumnHeaderCell>
@@ -1829,6 +1782,7 @@ function DownloadsTab({ isMobile, devices = [] }) {
                             <Table.ColumnHeaderCell>Duration</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Started At</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Initiated By</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
@@ -1839,6 +1793,17 @@ function DownloadsTab({ isMobile, devices = [] }) {
                                         <Text weight="bold" size="2">{session.device?.name ?? '—'}</Text>
                                         <Text size="1" color="gray">{session.device?.serial_number ?? '—'}</Text>
                                     </Flex>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    {session.command?.payload?.start_time && session.command?.payload?.end_time ? (
+                                        <Tooltip content={`${session.command.payload.start_time} to ${session.command.payload.end_time}`}>
+                                            <Text size="1" style={{ whiteSpace: 'nowrap' }}>
+                                                {session.command.payload.start_time.split(' ')[0]} to {session.command.payload.end_time.split(' ')[0]}
+                                            </Text>
+                                        </Tooltip>
+                                    ) : (
+                                        <Badge color="gray" variant="soft">Full Sync</Badge>
+                                    )}
                                 </Table.Cell>
                                 <Table.Cell>{triggerBadge(session.trigger_type)}</Table.Cell>
                                 <Table.Cell>
@@ -1873,11 +1838,28 @@ function DownloadsTab({ isMobile, devices = [] }) {
                                 <Table.Cell>
                                     <Text size="1">{session.creator?.name ?? 'System'}</Text>
                                 </Table.Cell>
+                                <Table.Cell>
+                                    {(session.status === 'completed' || session.status === 'partial') ? (
+                                        <Tooltip content="Download synced logs">
+                                            <IconButton
+                                                size="1"
+                                                variant="soft"
+                                                color="blue"
+                                                onClick={() => downloadSessionPunches(session)}
+                                                disabled={downloadingSessionLogs === session.id}
+                                            >
+                                                {downloadingSessionLogs === session.id ? <Spinner size="1" /> : <DownloadIcon />}
+                                            </IconButton>
+                                        </Tooltip>
+                                    ) : (
+                                        <Text size="1" color="gray">—</Text>
+                                    )}
+                                </Table.Cell>
                             </Table.Row>
                         ))}
                         {sessions.length === 0 && !loading && (
                             <Table.Row>
-                                <Table.Cell colSpan={9}>
+                                <Table.Cell colSpan={11}>
                                     <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
                                         No download sessions found.
                                     </Text>
