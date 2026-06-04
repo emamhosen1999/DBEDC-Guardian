@@ -1027,13 +1027,17 @@ class BiometricProcessingService
     /**
      * Query paginated download sessions.
      */
-    public function getDownloadSessions(?int $deviceId = null, int $perPage = 20, int $page = 1)
+    public function getDownloadSessions(?int $deviceId = null, $perPage = 20, int $page = 1)
     {
         $query = BiometricDownloadSession::with(['device:id,name,serial_number', 'creator:id,name'])
             ->orderBy('created_at', 'desc');
 
         if ($deviceId) {
             $query->where('biometric_device_id', $deviceId);
+        }
+
+        if ($perPage === 'all' || (int)$perPage === -1) {
+            return $query->get();
         }
 
         return $query->paginate($perPage, ['*'], 'page', $page);

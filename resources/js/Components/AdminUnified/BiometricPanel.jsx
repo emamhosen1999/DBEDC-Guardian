@@ -20,6 +20,9 @@ import {
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import TablePagination from '@/Components/TablePagination.jsx';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 const EMPTY_DEVICE = {
     name: '', serial_number: '', ip_address: '', location: '',
@@ -45,6 +48,8 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [commandDevice, setCommandDevice] = useState(null);
     const [commandType, setCommandType] = useState('REBOOT');
     const [commandPayload, setCommandPayload] = useState('');
+    const [logStartDate, setLogStartDate] = useState('');
+    const [logEndDate, setLogEndDate] = useState('');
     const [sendingCommand, setSendingCommand] = useState(false);
     const [commandHistory, setCommandHistory] = useState([]);
     const [loadingCommands, setLoadingCommands] = useState(false);
@@ -180,6 +185,8 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         setCommandDevice(device);
         setCommandType('REBOOT');
         setCommandPayload('');
+        setLogStartDate('');
+        setLogEndDate('');
         setLoadingCommands(true);
         setIsCommandOpen(true);
         try {
@@ -206,6 +213,24 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                 catch { showToast.error('Invalid JSON payload.'); setSendingCommand(false); return; }
             } else if (commandType === 'DELETE_USER') {
                 payload = { pin: commandPayload };
+            } else if (commandType === 'CHECK_ATTLOG') {
+                if (logStartDate && logEndDate) {
+                    const formatDateTime = (val) => {
+                        let formatted = val.replace('T', ' ');
+                        if (formatted.length === 16) {
+                            formatted += ':00';
+                        }
+                        return formatted;
+                    };
+                    payload = {
+                        start_time: formatDateTime(logStartDate),
+                        end_time: formatDateTime(logEndDate),
+                    };
+                } else if (logStartDate || logEndDate) {
+                    showToast.error('Please specify both start and end date/time, or leave both empty.');
+                    setSendingCommand(false);
+                    return;
+                }
             }
 
             const { data } = await axios.post(
@@ -220,6 +245,8 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
             setCommandHistory(historyData.commands ?? []);
             setCommandType('REBOOT');
             setCommandPayload('');
+            setLogStartDate('');
+            setLogEndDate('');
         } catch (err) {
             showToast.error(err.response?.data?.message ?? 'Failed to queue command.');
         } finally {
@@ -530,6 +557,50 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                             </Text>
                                         )}
                                     </Box>
+                                )}
+
+                                {commandType === 'CHECK_ATTLOG' && (
+                                    <Flex direction="column" gap="3">
+                                        <Box>
+                                            <Text size="2" weight="medium" as="div" mb="1">Start Date & Time (Optional)</Text>
+                                            <input
+                                                type="datetime-local"
+                                                value={logStartDate}
+                                                onChange={e => setLogStartDate(e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    borderRadius: 'var(--radius-2)',
+                                                    border: '1px solid var(--gray-7)',
+                                                    background: 'var(--color-background)',
+                                                    color: 'var(--color-text)',
+                                                    fontSize: 'var(--font-size-2)',
+                                                    fontFamily: 'inherit',
+                                                }}
+                                            />
+                                        </Box>
+                                        <Box>
+                                            <Text size="2" weight="medium" as="div" mb="1">End Date & Time (Optional)</Text>
+                                            <input
+                                                type="datetime-local"
+                                                value={logEndDate}
+                                                onChange={e => setLogEndDate(e.target.value)}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 12px',
+                                                    borderRadius: 'var(--radius-2)',
+                                                    border: '1px solid var(--gray-7)',
+                                                    background: 'var(--color-background)',
+                                                    color: 'var(--color-text)',
+                                                    fontSize: 'var(--font-size-2)',
+                                                    fontFamily: 'inherit',
+                                                }}
+                                            />
+                                        </Box>
+                                        <Text size="1" color="gray" mt="1" as="div">
+                                            Leave both fields empty to sync all records from the device.
+                                        </Text>
+                                    </Flex>
                                 )}
 
                                 <Button
@@ -1520,6 +1591,87 @@ function DownloadsTab({ isMobile, devices = [] }) {
     const [loading, setLoading] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState('all');
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
+    const [exporting, setExporting] = useState(false);
+
+    const fetchAllSessionsForExport = async () => {
+        const { data } = await axios.get(route('biometric-devices.download-history'), {
+            params: {
+                device_id: selectedDevice !== 'all' ? selectedDevice : undefined,
+                per_page: 'all',
+            }
+        });
+        return data.sessions ?? [];
+    };
+
+    const handleExportExcel = async () => {
+        setExporting(true);
+        try {
+            const data = await fetchAllSessionsForExport();
+            const sheetData = data.map(s => ({
+                'Device': s.device?.name || 'Unknown',
+                'Serial Number': s.device?.serial_number || '—',
+                'Trigger Type': s.trigger_type,
+                'Status': s.status,
+                'Total Records': s.total_records,
+                'Processed Count': s.processed_count,
+                'Duplicate Count': s.duplicate_count,
+                'Failed Count': s.failed_count,
+                'Error Message': s.error_message || '—',
+                'Created At': new Date(s.created_at).toLocaleString(),
+                'Completed At': s.completed_at ? new Date(s.completed_at).toLocaleString() : '—',
+                'Initiated By': s.creator?.name || 'System'
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(sheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Download History');
+            XLSX.writeFile(workbook, `Biometric_Downloads_History_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            showToast.success('Excel file exported successfully.');
+        } catch (err) {
+            console.error('Excel Export Error:', err);
+            showToast.error('Failed to export Excel.');
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setExporting(true);
+        try {
+            const data = await fetchAllSessionsForExport();
+            const doc = new jsPDF({ orientation: 'landscape' });
+            
+            doc.text('Biometric Attendance Logs Download History', 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${selectedDevice === 'all' ? 'All Devices' : 'Device ID ' + selectedDevice}`, 14, 22);
+
+            const tableRows = data.map(s => [
+                s.device?.name || 'Unknown',
+                s.trigger_type,
+                s.status.toUpperCase(),
+                `${s.processed_count}/${s.total_records}`,
+                s.duplicate_count,
+                s.failed_count,
+                s.creator?.name || 'System',
+                new Date(s.created_at).toLocaleString()
+            ]);
+
+            doc.autoTable({
+                startY: 28,
+                head: [['Device', 'Trigger', 'Status', 'Processed / Total', 'Duplicates', 'Failed', 'Initiated By', 'Created At']],
+                body: tableRows,
+                theme: 'striped',
+                headStyles: { fillColor: [43, 108, 176] }
+            });
+
+            doc.save(`Biometric_Downloads_History_${new Date().toISOString().slice(0, 10)}.pdf`);
+            showToast.success('PDF report exported successfully.');
+        } catch (err) {
+            console.error('PDF Export Error:', err);
+            showToast.error('Failed to export PDF.');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     const fetchHistory = useCallback(async (deviceFilter = selectedDevice, page = pagination.currentPage, pp = pagination.perPage) => {
         setLoading(true);
@@ -1651,10 +1803,16 @@ function DownloadsTab({ isMobile, devices = [] }) {
                         ))}
                     </Select.Content>
                 </Select.Root>
-                <Button size="1" variant="soft" color="gray" onClick={() => fetchHistory()} disabled={loading}>
+                <Button size="1" variant="soft" color="gray" onClick={() => fetchHistory()} disabled={loading || exporting}>
                     {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
                 </Button>
-                {loading && <Spinner size="2" />}
+                <Button size="1" variant="soft" color="green" onClick={handleExportExcel} disabled={loading || exporting}>
+                    {exporting ? <Spinner size="1" /> : <DownloadIcon />} Export Excel
+                </Button>
+                <Button size="1" variant="soft" color="red" onClick={handleExportPDF} disabled={loading || exporting}>
+                    {exporting ? <Spinner size="1" /> : <DownloadIcon />} Export PDF
+                </Button>
+                {(loading || exporting) && <Spinner size="2" />}
             </Flex>
 
             {/* Downloads Table */}
