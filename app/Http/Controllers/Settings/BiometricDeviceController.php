@@ -619,15 +619,81 @@ class BiometricDeviceController extends Controller
                 $end->copy()->addSeconds(10)
             ]);
             
-            $logs = $query->orderBy('punch_time', 'desc')->get();
+            $logs = $query->orderBy('punch_time', 'asc')->get();
             
+            $grouped = [];
+            foreach ($logs as $log) {
+                $pin = $log->user_pin;
+                $name = $log->user ? $log->user->name : 'Unknown';
+                $punchTime = $log->punch_time;
+                
+                if (!$punchTime) {
+                    continue;
+                }
+
+                $date = $punchTime->format('Y-m-d');
+                $time = $punchTime->format('H:i:s');
+
+                $key = $pin . '_' . $date;
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'pin' => $pin,
+                        'name' => $name,
+                        'date' => $date,
+                        'times' => []
+                    ];
+                }
+                $grouped[$key]['times'][] = $time;
+            }
+
+            $rows = [];
+            foreach ($grouped as $key => $group) {
+                $times = $group['times'];
+                sort($times);
+                
+                $inTimeRaw = count($times) > 0 ? $times[0] : '—';
+                $outTimeRaw = count($times) > 1 ? $times[count($times) - 1] : '—';
+
+                $rows[] = [
+                    'pin' => $group['pin'],
+                    'name' => $group['name'],
+                    'date' => $group['date'],
+                    'inTime' => $this->formatTo12Hour($inTimeRaw),
+                    'outTime' => $this->formatTo12Hour($outTimeRaw),
+                ];
+            }
+
+            // Sort by date desc, pin asc
+            usort($rows, function ($a, $b) {
+                if ($a['date'] !== $b['date']) {
+                    return strcmp($b['date'], $a['date']);
+                }
+                return strcmp($a['pin'], $b['pin']);
+            });
+
             return response()->json([
-                'logs' => $logs
+                'logs' => $rows
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to fetch session logs: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    private function formatTo12Hour(?string $timeStr): string
+    {
+        if (!$timeStr || $timeStr === '—') {
+            return '—';
+        }
+        try {
+            return \Carbon\Carbon::createFromFormat('H:i:s', $timeStr)->format('h:i:s A');
+        } catch (\Exception $e) {
+            try {
+                return \Carbon\Carbon::parse($timeStr)->format('h:i:s A');
+            } catch (\Exception $e2) {
+                return $timeStr;
+            }
         }
     }
 }
