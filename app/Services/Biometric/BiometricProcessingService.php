@@ -337,6 +337,11 @@ class BiometricProcessingService
         $errorCount = 0;
         $duplicateCount = 0;
 
+        $session = BiometricDownloadSession::where('biometric_device_id', $device->id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->first();
+        $isDownloading = !is_null($session);
+
         foreach ($lines as $line) {
             if (empty(trim($line))) {
                 continue;
@@ -379,6 +384,31 @@ class BiometricProcessingService
             $checkTime = trim($data['DateTime'] ?? '');
             $rawCheckType = trim($data['Status'] ?? '0');
             $checkType = $this->mapAdmsCheckType($rawCheckType);
+
+            if ($isDownloading) {
+                $user = User::withTrashed()->where('employee_id', $deviceUserId)->first();
+
+                DB::table('biometric_att_logs')->insert([
+                    'biometric_device_id'   => $device->id,
+                    'serial_number'         => $serialNumber,
+                    'user_pin'              => $deviceUserId,
+                    'user_id'               => $user ? $user->id : null,
+                    'punch_time'            => $checkTime,
+                    'check_type'            => $checkType,
+                    'punch_status'          => 'downloaded',
+                    'punch_status_reason'   => 'Downloaded via active sync session',
+                    'verify_code'           => $data['VerifyCode'] ?? null,
+                    'work_code'             => $data['WorkCode'] ?? null,
+                    'raw_data'              => $line,
+                    'context'               => json_encode($data),
+                    'occurred_at'           => $checkTime,
+                    'created_at'            => now(),
+                    'updated_at'            => now(),
+                ]);
+
+                $processedCount++;
+                continue;
+            }
 
             // Resolve user by matching PIN to employee_id
             $resolved = $this->resolveOrCreateUser($deviceUserId);
@@ -1032,6 +1062,7 @@ class BiometricProcessingService
     public function getDownloadSessions(?int $deviceId = null, $perPage = 20, int $page = 1)
     {
         $query = BiometricDownloadSession::with(['device:id,name,serial_number', 'creator:id,name', 'command'])
+            ->where('status', '!=', 'failed')
             ->orderBy('created_at', 'desc');
 
         if ($deviceId) {
