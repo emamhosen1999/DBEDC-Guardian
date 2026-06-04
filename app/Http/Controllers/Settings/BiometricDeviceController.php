@@ -578,15 +578,22 @@ class BiometricDeviceController extends Controller
 
     public function getDownloadHistory(Request $request)
     {
-        $perPage  = (int) $request->input('per_page', 20);
+        $perPage  = $request->input('per_page', 20);
         $page     = (int) $request->input('page', 1);
         $deviceId = $request->input('device_id');
 
-        $sessions = $this->biometricService->getDownloadSessions(
-            $deviceId ? (int) $deviceId : null,
-            $perPage,
-            $page
-        );
+        if ($perPage === 'all' || (int)$perPage === -1) {
+            $sessions = $this->biometricService->getDownloadSessions(
+                $deviceId ? (int) $deviceId : null,
+                'all'
+            );
+        } else {
+            $sessions = $this->biometricService->getDownloadSessions(
+                $deviceId ? (int) $deviceId : null,
+                (int)$perPage,
+                $page
+            );
+        }
 
         return response()->json([
             'sessions' => $sessions

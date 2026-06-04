@@ -335,29 +335,9 @@ class BiometricWebhookController extends Controller
         }
 
         // Command Acknowledgment
-        if (str_contains($rawData, 'ID=') && str_contains($rawData, 'Return=')) {
-            $normalizedData = str_replace(["\n", "\t"], '&', $rawData);
-            parse_str($normalizedData, $ackData);
-
-            if (isset($ackData['ID'])) {
-                $command = \App\Models\HRM\BiometricDeviceCommand::where('id', $ackData['ID'])
-                    ->where('biometric_device_id', $device->id)
-                    ->first();
-
-                if ($command) {
-                    $returnCode = $ackData['Return'] ?? '1';
-                    $command->markAsExecuted($returnCode);
-
-                    Log::info('ADMS command acknowledged', [
-                        'serial'       => $serialNumber,
-                        'command_id'   => $command->id,
-                        'command_type' => $command->command_type,
-                        'return_code'  => $returnCode,
-                    ]);
-                }
-
-                return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
-            }
+        if ($this->biometricService->isCommandAcknowledgment($rawData)) {
+            $this->biometricService->processInlineAcknowledgment($rawData, $request);
+            return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
         }
 
         // Default: Handle Attendance Logs push
@@ -524,23 +504,7 @@ class BiometricWebhookController extends Controller
             return response('ERROR', 404)->header('Content-Type', 'text/plain');
         }
 
-        $normalizedData = str_replace(["\n", "\t"], '&', $rawData);
-        parse_str($normalizedData, $ackData);
-
-        if (isset($ackData['ID'])) {
-            $command = \App\Models\HRM\BiometricDeviceCommand::find($ackData['ID']);
-            if ($command) {
-                $returnCode = $ackData['Return'] ?? '1';
-                $command->markAsExecuted($returnCode);
-
-                Log::info('ADMS devicecmd: command acknowledged', [
-                    'serial' => $serialNumber,
-                    'command_id' => $command->id,
-                    'command_type' => $command->command_type,
-                    'return_code' => $returnCode,
-                ]);
-            }
-        }
+        $this->biometricService->acknowledgeCommand($rawData, $device, $serialNumber);
 
         $this->biometricService->updateHeartbeat($device);
 

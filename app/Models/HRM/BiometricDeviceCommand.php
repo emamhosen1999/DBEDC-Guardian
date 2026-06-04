@@ -52,7 +52,8 @@ class BiometricDeviceCommand extends Model
                 break;
 
             case 'SET_TIME':
-                $command .= "SET TIME " . ($payload['time'] ?? now()->format('Y-m-d H:i:s'));
+                $timestamp = isset($payload['time']) ? strtotime($payload['time']) : time();
+                $command .= "SET OPTIONS DateTime={$timestamp}";
                 break;
 
             case 'ADD_USER':
@@ -85,7 +86,9 @@ class BiometricDeviceCommand extends Model
                 break;
 
             case 'CHECK_ATTLOG':
-                $command .= "CHECK";
+                $startTime = $payload['start_time'] ?? '2000-01-01 00:00:00';
+                $endTime = $payload['end_time'] ?? now()->addDay()->format('Y-m-d H:i:s');
+                $command .= "QUERY ATTLOG StartTime={$startTime}\tEndTime={$endTime}";
                 break;
 
             default:

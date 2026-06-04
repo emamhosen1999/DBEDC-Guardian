@@ -1,7 +1,7 @@
 {
      "private": true,
      "type": "module",
-     "version": "4.0.30",
+     "version": "4.0.33",
      "homepage": "http://erp.dhakabypass.com",
      "scripts": {
           "dev": "vite",
