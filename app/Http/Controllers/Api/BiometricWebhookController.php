@@ -372,7 +372,24 @@ class BiometricWebhookController extends Controller
             return response()->json(['message' => 'Commands only supported for ADMS protocol devices'], 400);
         }
 
-        $command = $this->biometricService->createCommand($device, $validated);
+        if ($validated['command_type'] === 'CHECK_ATTLOG') {
+            $session = $this->biometricService->initiateLogDownload(
+                $device,
+                'manual',
+                auth()->id() ?? $request->user()?->id,
+                $validated['payload'] ?? null
+            );
+
+            if ($session) {
+                // Also dispatch the monitoring job to prevent stuck sessions
+                \App\Jobs\ProcessBiometricDownloadSession::dispatch($session);
+                $command = $session->command;
+            } else {
+                return response()->json(['message' => 'Failed to initiate log download session.'], 500);
+            }
+        } else {
+            $command = $this->biometricService->createCommand($device, $validated);
+        }
 
         return response()->json([
             'message' => $command->isScheduled() ? 'Command scheduled successfully' : 'Command queued successfully',
