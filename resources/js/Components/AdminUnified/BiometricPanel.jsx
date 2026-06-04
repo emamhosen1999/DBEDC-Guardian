@@ -1593,82 +1593,16 @@ function DownloadsTab({ isMobile, devices = [] }) {
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const [downloadingSessionLogs, setDownloadingSessionLogs] = useState(null);
 
-    const formatTo12Hour = (timeStr) => {
-        if (!timeStr || timeStr === '—') return '—';
-        const parts = timeStr.split(':');
-        if (parts.length < 2) return timeStr;
-        let hours = parseInt(parts[0], 10);
-        const minutes = parts[1];
-        const seconds = parts[2] || '00';
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12;
-        hours = hours ? hours : 12; // hour '0' should be '12'
-        const hoursStr = String(hours).padStart(2, '0');
-        return `${hoursStr}:${minutes}:${seconds} ${ampm}`;
-    };
-
-    const groupPunchesByDate = (logs) => {
-        const grouped = {};
-        logs.forEach(log => {
-            const pin = log.user_pin;
-            const name = log.user?.name || 'Unknown';
-            
-            const dtPart = log.punch_time || '';
-            const date = dtPart.split(' ')[0] || '—';
-            const time = dtPart.split(' ')[1] || '—';
-            
-            if (date === '—') return;
-            
-            const key = `${pin}_${date}`;
-            if (!grouped[key]) {
-                grouped[key] = {
-                    pin: pin,
-                    name: name,
-                    date: date,
-                    times: []
-                };
-            }
-            if (time !== '—') {
-                grouped[key].times.push(time);
-            }
-        });
-
-        const rows = Object.values(grouped).map(group => {
-            group.times.sort();
-            const inTimeRaw = group.times.length > 0 ? group.times[0] : '—';
-            const outTimeRaw = group.times.length > 1 ? group.times[group.times.length - 1] : '—';
-            
-            return {
-                pin: group.pin,
-                name: group.name,
-                date: group.date,
-                inTime: formatTo12Hour(inTimeRaw),
-                outTime: formatTo12Hour(outTimeRaw)
-            };
-        });
-
-        // Sort by date desc, pin asc
-        rows.sort((a, b) => {
-            if (a.date !== b.date) {
-                return b.date.localeCompare(a.date);
-            }
-            return a.pin.localeCompare(b.pin);
-        });
-
-        return rows;
-    };
-
     const downloadSessionPunches = async (session) => {
         setDownloadingSessionLogs(session.id);
         try {
             const { data } = await axios.get(route('biometric-devices.download-sessions.logs', session.id));
-            const logs = data.logs ?? [];
-            if (logs.length === 0) {
+            const groupedRows = data.logs ?? [];
+            if (groupedRows.length === 0) {
                 showToast.info('No attendance logs found for this session.');
                 return;
             }
 
-            const groupedRows = groupPunchesByDate(logs);
             const exportData = groupedRows.map(r => ({
                 'Employee ID': r.pin,
                 'Employee Name': r.name,
@@ -1696,13 +1630,11 @@ function DownloadsTab({ isMobile, devices = [] }) {
         setDownloadingSessionLogs(session.id);
         try {
             const { data } = await axios.get(route('biometric-devices.download-sessions.logs', session.id));
-            const logs = data.logs ?? [];
-            if (logs.length === 0) {
+            const groupedRows = data.logs ?? [];
+            if (groupedRows.length === 0) {
                 showToast.info('No attendance logs found for this session.');
                 return;
             }
-
-            const groupedRows = groupPunchesByDate(logs);
 
             const doc = new jsPDF({ orientation: 'portrait' });
             
