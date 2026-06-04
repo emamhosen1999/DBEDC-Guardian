@@ -16,6 +16,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         \App\Console\Commands\SendAttendanceReminders::class,
         \App\Console\Commands\ProcessScheduledBiometricCommands::class,
+        \App\Console\Commands\ScheduledBiometricLogDownload::class,
     ];
 
     /**
@@ -97,6 +98,13 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/biometric-commands.log'));
+
+        // Scheduled download of attendance logs from all active ADMS devices - runs every 4 hours
+        $schedule->command('biometric:scheduled-log-download')
+            ->everyFourHours()
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/biometric-log-download.log'));
     }
 
     /**

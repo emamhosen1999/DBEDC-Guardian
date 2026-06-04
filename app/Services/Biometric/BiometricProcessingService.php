@@ -8,6 +8,7 @@ use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDeviceCommand;
+use App\Models\HRM\BiometricDownloadSession;
 use App\Models\User;
 use App\Services\Attendance\AttendancePunchService;
 use Carbon\Carbon;
@@ -267,9 +268,27 @@ class BiometricProcessingService
      */
     public function buildHandshakeOptionsBody(string $serialNumber): string
     {
+        $attlogStamp = 9999;
+
+        $device = $this->findDeviceBySerial($serialNumber);
+        if ($device) {
+            $hasPendingCommand = BiometricDeviceCommand::where('biometric_device_id', $device->id)
+                ->where('command_type', 'CHECK_ATTLOG')
+                ->where('status', 'pending')
+                ->exists();
+
+            $hasActiveSession = BiometricDownloadSession::where('biometric_device_id', $device->id)
+                ->whereIn('status', ['pending', 'in_progress'])
+                ->exists();
+
+            if ($hasPendingCommand || $hasActiveSession) {
+                $attlogStamp = 0;
+            }
+        }
+
         return implode("\r\n", [
             "GET OPTION FROM: {$serialNumber}",
-            "ATTLOGStamp=9999",
+            "ATTLOGStamp={$attlogStamp}",
             "OPERLOGStamp=9999",
             "ATTPHOTOStamp=9999",
             "errorDelay=30",
@@ -491,6 +510,24 @@ class BiometricProcessingService
             'errors'             => $errorCount,
             'total_lines'        => count($lines),
         ]);
+
+        // Update active download session if exists
+        $session = BiometricDownloadSession::where('biometric_device_id', $device->id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->first();
+
+        if ($session) {
+            $session->update([
+                'status'          => 'in_progress',
+                'total_records'   => $session->total_records + count($lines),
+                'processed_count' => $session->processed_count + $processedCount,
+                'duplicate_count' => $session->duplicate_count + $duplicateCount,
+                'failed_count'    => $session->failed_count + $errorCount,
+                'started_at'      => $session->started_at ?? now(),
+            ]);
+
+            $device->update(['last_log_download_at' => now()]);
+        }
 
         return [
             'processed'   => $processedCount,
@@ -807,6 +844,7 @@ class BiometricProcessingService
             if ($command) {
                 $returnCode = $ackData['Return'] ?? '1';
                 $command->markAsExecuted($returnCode);
+                $this->completeDownloadSessionForCommand($command, $returnCode);
 
                 Log::info('ADMS devicecmd: command acknowledged', [
                     'serial'       => $serialNumber,
@@ -893,6 +931,7 @@ class BiometricProcessingService
         if ($command) {
             $returnCode = $ackData['Return'] ?? '1';
             $command->markAsExecuted($returnCode);
+            $this->completeDownloadSessionForCommand($command, $returnCode);
 
             Log::info('ADMS command acknowledged', [
                 'serial'       => $ackSn,
@@ -908,5 +947,118 @@ class BiometricProcessingService
         }
 
         return true;
+    }
+
+    /**
+     * Initiate an attendance log download session for a device.
+     */
+    public function initiateLogDownload(BiometricDevice $device, string $triggerType, ?int $userId = null): BiometricDownloadSession
+    {
+        if (!$device->is_active) {
+            throw new \InvalidArgumentException("Device is inactive.");
+        }
+
+        if (!$device->isAdms()) {
+            throw new \InvalidArgumentException("Log downloads are only supported for ADMS devices.");
+        }
+
+        // Check if there is already an active session to prevent duplicates
+        $existing = BiometricDownloadSession::where('biometric_device_id', $device->id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return DB::transaction(function () use ($device, $triggerType, $userId) {
+            // 1. Create a pending session
+            $session = BiometricDownloadSession::create([
+                'biometric_device_id' => $device->id,
+                'trigger_type'        => $triggerType,
+                'status'              => 'pending',
+                'created_by'          => $userId,
+            ]);
+
+            // 2. Create the command to tell the device to check attlog
+            $command = $this->createCommand($device, [
+                'command_type' => 'CHECK_ATTLOG',
+                'payload'      => null,
+            ]);
+
+            // 3. Link the command to the session
+            $session->update(['command_id' => $command->id]);
+
+            return $session;
+        });
+    }
+
+    /**
+     * Bulk initiate download sessions for multiple devices.
+     */
+    public function bulkInitiateLogDownload(array $deviceIds, string $triggerType, ?int $userId = null): array
+    {
+        $devices = BiometricDevice::whereIn('id', $deviceIds)->active()->get();
+        $sessions = [];
+        $skipped = [];
+
+        foreach ($deviceIds as $id) {
+            $device = $devices->firstWhere('id', $id);
+            if ($device && $device->isAdms()) {
+                try {
+                    $sessions[] = $this->initiateLogDownload($device, $triggerType, $userId);
+                } catch (\Exception $e) {
+                    $skipped[] = ['device_id' => $id, 'reason' => $e->getMessage()];
+                }
+            } else {
+                $skipped[] = [
+                    'device_id' => $id,
+                    'reason' => $device ? 'Not an ADMS protocol device.' : 'Device not found or inactive.'
+                ];
+            }
+        }
+
+        return [
+            'sessions' => $sessions,
+            'skipped'  => $skipped,
+        ];
+    }
+
+    /**
+     * Query paginated download sessions.
+     */
+    public function getDownloadSessions(?int $deviceId = null, int $perPage = 20, int $page = 1)
+    {
+        $query = BiometricDownloadSession::with(['device:id,name,serial_number', 'creator:id,name'])
+            ->orderBy('created_at', 'desc');
+
+        if ($deviceId) {
+            $query->where('biometric_device_id', $deviceId);
+        }
+
+        return $query->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    /**
+     * Complete the download session associated with a command.
+     */
+    public function completeDownloadSessionForCommand(BiometricDeviceCommand $command, string $returnCode): void
+    {
+        $session = BiometricDownloadSession::where('command_id', $command->id)->first();
+        if (!$session) {
+            return;
+        }
+
+        if ($returnCode == '0') {
+            if ($session->failed_count > 0 && $session->processed_count > 0) {
+                $session->markPartial();
+            } else if ($session->failed_count > 0 && $session->processed_count == 0 && $session->total_records > 0) {
+                $session->markFailed("Completed with errors. No records were processed successfully.");
+            } else {
+                $session->markCompleted();
+            }
+        } else {
+            $session->markFailed("Device returned error code: {$returnCode}");
+        }
     }
 }

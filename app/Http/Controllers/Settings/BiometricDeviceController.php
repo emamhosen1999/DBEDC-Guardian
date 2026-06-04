@@ -7,12 +7,20 @@ use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
 use App\Models\User;
+use App\Services\Biometric\BiometricProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class BiometricDeviceController extends Controller
 {
+    protected BiometricProcessingService $biometricService;
+
+    public function __construct(BiometricProcessingService $biometricService)
+    {
+        $this->biometricService = $biometricService;
+    }
+
     public function index()
     {
         $devices = BiometricDevice::orderBy('name')
@@ -498,5 +506,90 @@ class BiometricDeviceController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function downloadLogs(Request $request, $id)
+    {
+        $device = BiometricDevice::findOrFail($id);
+
+        if (!$device->is_active) {
+            return response()->json(['message' => 'Device is inactive.'], 403);
+        }
+
+        if (!$device->isAdms()) {
+            return response()->json(['message' => 'Log downloads are only supported for ADMS devices.'], 400);
+        }
+
+        try {
+            $session = $this->biometricService->initiateLogDownload(
+                $device,
+                'manual',
+                auth()->id()
+            );
+
+            // Also dispatch the monitoring job
+            \App\Jobs\ProcessBiometricDownloadSession::dispatch($session);
+
+            return response()->json([
+                'message' => 'Log download initiated. The device will be commanded to send its logs upon its next connection.',
+                'session' => $session,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to initiate log download: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function bulkDownloadLogs(Request $request)
+    {
+        $request->validate([
+            'device_ids' => 'required|array',
+            'device_ids.*' => 'exists:biometric_devices,id',
+        ]);
+
+        $deviceIds = $request->input('device_ids');
+
+        try {
+            $result = $this->biometricService->bulkInitiateLogDownload(
+                $deviceIds,
+                'bulk',
+                auth()->id()
+            );
+
+            foreach ($result['sessions'] as $session) {
+                \App\Jobs\ProcessBiometricDownloadSession::dispatch($session);
+            }
+
+            $count = count($result['sessions']);
+            $skippedCount = count($result['skipped']);
+
+            return response()->json([
+                'message' => "Log download initiated for {$count} device(s)." . ($skippedCount > 0 ? " Skipped {$skippedCount} device(s)." : ""),
+                'sessions' => $result['sessions'],
+                'skipped' => $result['skipped'],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to bulk initiate log download: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getDownloadHistory(Request $request)
+    {
+        $perPage  = (int) $request->input('per_page', 20);
+        $page     = (int) $request->input('page', 1);
+        $deviceId = $request->input('device_id');
+
+        $sessions = $this->biometricService->getDownloadSessions(
+            $deviceId ? (int) $deviceId : null,
+            $perPage,
+            $page
+        );
+
+        return response()->json([
+            'sessions' => $sessions
+        ]);
     }
 }

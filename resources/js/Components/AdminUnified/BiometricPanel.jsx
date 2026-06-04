@@ -15,6 +15,7 @@ import {
     EnvelopeClosedIcon, Link2Icon, LockClosedIcon, LockOpen1Icon,
     MagnifyingGlassIcon, MobileIcon, Pencil1Icon, PlusIcon, ReloadIcon,
     TrashIcon, HeartIcon, CheckIcon, CrossCircledIcon, ExclamationTriangleIcon,
+    DownloadIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
@@ -33,6 +34,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
     const [saving, setSaving]           = useState(false);
     const [pinging, setPinging]         = useState(null);
     const [tokenDialog, setTokenDialog] = useState({ open: false, device: null, token: '' });
+    const [downloadingDevice, setDownloadingDevice] = useState(null);
 
     // Bulk selection state
     const [selectedIds, setSelectedIds] = useState([]);
@@ -101,6 +103,18 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         } catch (e) {
             showToast.error(e.response?.data?.message ?? 'Ping failed.');
         } finally { setPinging(null); }
+    };
+
+    const handleDownloadLogs = async (device) => {
+        setDownloadingDevice(device.id);
+        try {
+            const { data } = await axios.post(route('biometric-devices.download-logs', device.id));
+            showToast.success(data.message || 'Log download initiated.');
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to initiate log download.');
+        } finally {
+            setDownloadingDevice(null);
+        }
     };
 
     const regen = async d => {
@@ -213,6 +227,25 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
         }
     };
 
+    const handleBulkDownloadLogs = async () => {
+        setBulkLoading(true);
+        try {
+            const { data } = await axios.post(route('biometric-devices.bulk.download-logs'), {
+                device_ids: selectedIds,
+            });
+            showToast.success(data.message || 'Bulk log download initiated.');
+            clearSelection();
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to initiate bulk download.');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
+    const hasSelectedAdms = useMemo(() => {
+        return devices.some(d => selectedIds.includes(d.id) && d.protocol === 'adms');
+    }, [devices, selectedIds]);
+
     const copy = t => navigator.clipboard.writeText(t).then(() => showToast.success('Copied!'));
 
     return (
@@ -233,6 +266,11 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                             <Button size="2" variant="soft" color="indigo" disabled={bulkLoading} onClick={handleBulkPing}>
                                 {bulkLoading ? <Spinner size="1" /> : 'Ping'}
                             </Button>
+                            {hasSelectedAdms && (
+                                <Button size="2" variant="soft" color="green" disabled={bulkLoading} onClick={handleBulkDownloadLogs}>
+                                    {bulkLoading ? <Spinner size="1" /> : <><DownloadIcon /> Download Logs</>}
+                                </Button>
+                            )}
                             <Button size="2" variant="soft" color="red" disabled={bulkLoading} onClick={() => setBulkDeleteDialog(true)}>
                                 {bulkLoading ? <Spinner size="1" /> : <><TrashIcon /> Delete</>}
                             </Button>
@@ -309,6 +347,31 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                                     <ReloadIcon />
                                                 </IconButton>
                                             </Tooltip>
+                                            {d.protocol === 'adms' && (
+                                                <>
+                                                    <Tooltip content="Download Logs">
+                                                        <IconButton
+                                                            size="1"
+                                                            variant="soft"
+                                                            color="green"
+                                                            onClick={() => handleDownloadLogs(d)}
+                                                            disabled={downloadingDevice === d.id}
+                                                        >
+                                                            {downloadingDevice === d.id ? <Spinner size="1" /> : <DownloadIcon />}
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip content="Device Commands">
+                                                        <IconButton
+                                                            size="1"
+                                                            variant="soft"
+                                                            color="violet"
+                                                            onClick={() => openCommandModal(d)}
+                                                        >
+                                                            <DotsVerticalIcon />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </>
+                                            )}
                                             <Tooltip content="Edit device">
                                                 <IconButton size="1" variant="soft" color="gray" onClick={() => openEdit(d)}>
                                                     <Pencil1Icon />
@@ -434,6 +497,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                         <Select.Item value="DELETE_USER">Delete User</Select.Item>
                                         <Select.Item value="CLEAR_LOG">Clear Attendance Logs</Select.Item>
                                         <Select.Item value="CLEAR_DATA">Clear All Data</Select.Item>
+                                        <Select.Item value="CHECK_ATTLOG">Download Attendance Logs</Select.Item>
                                     </Select.Content>
                                 </Select.Root>
 
@@ -1450,6 +1514,235 @@ function AttLogTab({ isMobile }) {
     );
 }
 
+/* ── Downloads sub-tab ── */
+function DownloadsTab({ isMobile, devices = [] }) {
+    const [sessions, setSessions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [selectedDevice, setSelectedDevice] = useState('all');
+    const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
+
+    const fetchHistory = useCallback(async (deviceFilter = selectedDevice, page = pagination.currentPage, pp = pagination.perPage) => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get(route('biometric-devices.download-history'), {
+                params: {
+                    device_id: deviceFilter !== 'all' ? deviceFilter : undefined,
+                    page: page,
+                    per_page: pp,
+                }
+            });
+            const items = data.sessions?.data ?? data.sessions ?? [];
+            setSessions(items);
+            setPagination(prev => ({
+                ...prev,
+                currentPage: data.sessions?.current_page || page,
+                total: data.sessions?.total ?? items.length
+            }));
+        } catch (e) {
+            showToast.error('Failed to load download history.');
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedDevice, pagination.currentPage, pagination.perPage]);
+
+    useEffect(() => {
+        fetchHistory();
+    }, [selectedDevice, pagination.currentPage, pagination.perPage]);
+
+    // Auto-refresh every 10 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchHistory(selectedDevice, pagination.currentPage, pagination.perPage);
+        }, 10000);
+        return () => clearInterval(interval);
+    }, [fetchHistory, selectedDevice, pagination.currentPage, pagination.perPage]);
+
+    const handlePageChange = (page) => {
+        setPagination(prev => ({ ...prev, currentPage: page }));
+    };
+
+    const handleRowsPerPageChange = (newPerPage) => {
+        setPagination(prev => ({ ...prev, perPage: newPerPage, currentPage: 1 }));
+    };
+
+    const handleDeviceFilterChange = (val) => {
+        setSelectedDevice(val);
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
+    };
+
+    // Calculate summary statistics
+    const stats = useMemo(() => {
+        const total = pagination.total;
+        const completed = sessions.filter(s => s.status === 'completed').length;
+        const inProgress = sessions.filter(s => s.status === 'in_progress' || s.status === 'pending').length;
+        const failed = sessions.filter(s => s.status === 'failed').length;
+        return { total, completed, inProgress, failed };
+    }, [sessions, pagination.total]);
+
+    const statusBadge = (status) => {
+        const config = {
+            pending: { color: 'yellow', label: 'Pending' },
+            in_progress: { color: 'blue', label: 'In Progress' },
+            completed: { color: 'green', label: 'Completed' },
+            failed: { color: 'red', label: 'Failed' },
+            partial: { color: 'orange', label: 'Partial' }
+        }[status] ?? { color: 'gray', label: status };
+
+        return <Badge color={config.color} variant="soft" size="1">{config.label.toUpperCase()}</Badge>;
+    };
+
+    const triggerBadge = (trigger) => {
+        const config = {
+            manual: { color: 'plum', label: 'Manual' },
+            scheduled: { color: 'cyan', label: 'Scheduled' },
+            reconnect: { color: 'indigo', label: 'Reconnect' },
+            bulk: { color: 'violet', label: 'Bulk' }
+        }[trigger] ?? { color: 'gray', label: trigger };
+
+        return <Badge color={config.color} variant="soft" size="1">{config.label}</Badge>;
+    };
+
+    const formatDuration = (start, end) => {
+        if (!start || !end) return '—';
+        const ms = new Date(end) - new Date(start);
+        const sec = Math.max(0, Math.floor(ms / 1000));
+        if (sec < 60) return `${sec}s`;
+        return `${Math.floor(sec / 60)}m ${sec % 60}s`;
+    };
+
+    return (
+        <Box>
+            {/* Stats Summary Cards */}
+            <Grid columns={{ initial: '2', sm: '4' }} gap="3" mb="4">
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">Total Sessions</Text>
+                        <Text size="4" weight="bold">{stats.total}</Text>
+                    </Flex>
+                </Card>
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">In Progress / Pending</Text>
+                        <Text size="4" weight="bold" color="blue">{stats.inProgress}</Text>
+                    </Flex>
+                </Card>
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">Completed Successfully</Text>
+                        <Text size="4" weight="bold" color="green">{stats.completed}</Text>
+                    </Flex>
+                </Card>
+                <Card variant="surface">
+                    <Flex direction="column" gap="1">
+                        <Text size="1" color="gray">Failed Sessions</Text>
+                        <Text size="4" weight="bold" color="red">{stats.failed}</Text>
+                    </Flex>
+                </Card>
+            </Grid>
+
+            {/* Filter toolbar */}
+            <Flex gap="3" mb="3" wrap="wrap" align="center">
+                <Select.Root size="2" value={selectedDevice} onValueChange={handleDeviceFilterChange}>
+                    <Select.Trigger style={{ width: 220 }} placeholder="Filter by device" />
+                    <Select.Content>
+                        <Select.Item value="all">All Devices</Select.Item>
+                        {devices.filter(d => d.protocol === 'adms').map(d => (
+                            <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                        ))}
+                    </Select.Content>
+                </Select.Root>
+                <Button size="1" variant="soft" color="gray" onClick={() => fetchHistory()} disabled={loading}>
+                    {loading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
+                </Button>
+                {loading && <Spinner size="2" />}
+            </Flex>
+
+            {/* Downloads Table */}
+            <Box style={{ overflowX: 'auto' }}>
+                <Table.Root variant="surface" size="2">
+                    <Table.Header>
+                        <Table.Row>
+                            <Table.ColumnHeaderCell>Device</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Trigger</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Records (Processed/Total)</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Duplicates</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Failed</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Duration</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Started At</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Initiated By</Table.ColumnHeaderCell>
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {sessions.map(session => (
+                            <Table.Row key={session.id}>
+                                <Table.Cell>
+                                    <Flex direction="column">
+                                        <Text weight="bold" size="2">{session.device?.name ?? '—'}</Text>
+                                        <Text size="1" color="gray">{session.device?.serial_number ?? '—'}</Text>
+                                    </Flex>
+                                </Table.Cell>
+                                <Table.Cell>{triggerBadge(session.trigger_type)}</Table.Cell>
+                                <Table.Cell>
+                                    <Flex direction="column" gap="1" align="start">
+                                        {statusBadge(session.status)}
+                                        {session.error_message && (
+                                            <Tooltip content={session.error_message}>
+                                                <Text size="1" color="red" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {session.error_message}
+                                                </Text>
+                                            </Tooltip>
+                                        )}
+                                    </Flex>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Text size="2">{session.processed_count} / {session.total_records}</Text>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Text size="2" color="gray">{session.duplicate_count}</Text>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Text size="2" color={session.failed_count > 0 ? 'red' : 'gray'}>{session.failed_count}</Text>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Text size="2">{formatDuration(session.started_at, session.completed_at)}</Text>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Text size="1" color="gray">
+                                        {session.created_at ? new Date(session.created_at).toLocaleString() : '—'}
+                                    </Text>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Text size="1">{session.creator?.name ?? 'System'}</Text>
+                                </Table.Cell>
+                            </Table.Row>
+                        ))}
+                        {sessions.length === 0 && !loading && (
+                            <Table.Row>
+                                <Table.Cell colSpan={9}>
+                                    <Text size="2" color="gray" style={{ display: 'block', textAlign: 'center', padding: '24px 0' }}>
+                                        No download sessions found.
+                                    </Text>
+                                </Table.Cell>
+                            </Table.Row>
+                        )}
+                    </Table.Body>
+                </Table.Root>
+            </Box>
+
+            {/* Pagination */}
+            {pagination.total > 0 && (
+                <TablePagination
+                    pagination={pagination}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleRowsPerPageChange}
+                    loading={loading}
+                />
+            )}
+        </Box>
+    );
+}
+
 /* ── Main BiometricPanel ── */
 export default function BiometricPanel({
     initialDevices = [], employees = [],
@@ -1530,6 +1823,9 @@ export default function BiometricPanel({
                     <Tabs.Trigger value="webhook">
                         <Flex align="center" gap="2"><Link2Icon /> Webhook Config</Flex>
                     </Tabs.Trigger>
+                    <Tabs.Trigger value="downloads">
+                        <Flex align="center" gap="2"><DownloadIcon /> Downloads</Flex>
+                    </Tabs.Trigger>
                 </Tabs.List>
 
                 <Tabs.Content value="devices">
@@ -1549,6 +1845,9 @@ export default function BiometricPanel({
                 </Tabs.Content>
                 <Tabs.Content value="webhook">
                     <WebhookTab />
+                </Tabs.Content>
+                <Tabs.Content value="downloads">
+                    <DownloadsTab isMobile={isMobile} devices={devices} />
                 </Tabs.Content>
             </Tabs.Root>
         </Box>

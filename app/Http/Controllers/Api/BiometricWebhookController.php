@@ -377,7 +377,7 @@ class BiometricWebhookController extends Controller
     {
         $validated = $request->validate([
             'device_id' => 'required|exists:biometric_devices,id',
-            'command_type' => 'required|in:REBOOT,SET_TIME,ADD_USER,UPDATE_USER,DELETE_USER,CLEAR_LOG,CLEAR_DATA,GET_USERINFO',
+            'command_type' => 'required|in:REBOOT,SET_TIME,ADD_USER,UPDATE_USER,DELETE_USER,CLEAR_LOG,CLEAR_DATA,GET_USERINFO,CHECK_ATTLOG',
             'payload' => 'nullable|array',
             'scheduled_at' => 'nullable|date',
         ]);
