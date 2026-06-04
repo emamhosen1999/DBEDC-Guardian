@@ -1593,6 +1593,71 @@ function DownloadsTab({ isMobile, devices = [] }) {
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 20, total: 0 });
     const [downloadingSessionLogs, setDownloadingSessionLogs] = useState(null);
 
+    const formatTo12Hour = (timeStr) => {
+        if (!timeStr || timeStr === '—') return '—';
+        const parts = timeStr.split(':');
+        if (parts.length < 2) return timeStr;
+        let hours = parseInt(parts[0], 10);
+        const minutes = parts[1];
+        const seconds = parts[2] || '00';
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // hour '0' should be '12'
+        const hoursStr = String(hours).padStart(2, '0');
+        return `${hoursStr}:${minutes}:${seconds} ${ampm}`;
+    };
+
+    const groupPunchesByDate = (logs) => {
+        const grouped = {};
+        logs.forEach(log => {
+            const pin = log.user_pin;
+            const name = log.user?.name || 'Unknown';
+            
+            const dtPart = log.punch_time || '';
+            const date = dtPart.split(' ')[0] || '—';
+            const time = dtPart.split(' ')[1] || '—';
+            
+            if (date === '—') return;
+            
+            const key = `${pin}_${date}`;
+            if (!grouped[key]) {
+                grouped[key] = {
+                    pin: pin,
+                    name: name,
+                    date: date,
+                    times: []
+                };
+            }
+            if (time !== '—') {
+                grouped[key].times.push(time);
+            }
+        });
+
+        const rows = Object.values(grouped).map(group => {
+            group.times.sort();
+            const inTimeRaw = group.times.length > 0 ? group.times[0] : '—';
+            const outTimeRaw = group.times.length > 1 ? group.times[group.times.length - 1] : '—';
+            
+            return {
+                pin: group.pin,
+                name: group.name,
+                date: group.date,
+                inTime: formatTo12Hour(inTimeRaw),
+                outTime: formatTo12Hour(outTimeRaw)
+            };
+        });
+
+        // Sort by date desc, pin asc
+        rows.sort((a, b) => {
+            if (a.date !== b.date) {
+                return b.date.localeCompare(a.date);
+            }
+            return a.pin.localeCompare(b.pin);
+        });
+
+        return rows;
+    };
+
     const downloadSessionPunches = async (session) => {
         setDownloadingSessionLogs(session.id);
         try {
@@ -1603,26 +1668,22 @@ function DownloadsTab({ isMobile, devices = [] }) {
                 return;
             }
 
-            const exportData = logs.map(l => ({
-                'Employee PIN': l.user_pin,
-                'Employee Name': l.user?.name || 'Unknown',
-                'Punch Time': l.punch_time,
-                'Check Type': l.check_type.toUpperCase(),
-                'Verify Code': l.verify_code || '—',
-                'Work Code': l.work_code || '—',
-                'Status': l.punch_status,
-                'Status Reason': l.punch_status_reason || '—',
-                'Device': session.device?.name || 'Unknown',
-                'Log ID': l.id
+            const groupedRows = groupPunchesByDate(logs);
+            const exportData = groupedRows.map(r => ({
+                'Employee ID': r.pin,
+                'Employee Name': r.name,
+                'Date': r.date,
+                'In Time': r.inTime,
+                'Out Time': r.outTime
             }));
 
             const worksheet = XLSX.utils.json_to_sheet(exportData);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance Logs');
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance Report');
             
-            const filename = `attendance_logs_device_${session.device?.name.replace(/\s+/g, '_')}_session_${session.id}.xlsx`;
+            const filename = `attendance_report_device_${session.device?.name.replace(/\s+/g, '_')}_session_${session.id}.xlsx`;
             XLSX.writeFile(workbook, filename);
-            showToast.success('Attendance logs downloaded successfully.');
+            showToast.success('Attendance report downloaded successfully.');
         } catch (err) {
             console.error('Failed to download session logs:', err);
             showToast.error('Failed to download attendance logs.');
@@ -1641,6 +1702,8 @@ function DownloadsTab({ isMobile, devices = [] }) {
                 return;
             }
 
+            const groupedRows = groupPunchesByDate(logs);
+
             const doc = new jsPDF({ orientation: 'portrait' });
             
             // Title
@@ -1654,24 +1717,23 @@ function DownloadsTab({ isMobile, devices = [] }) {
             doc.text(`Date Range: ${session.command?.payload?.start_time && session.command?.payload?.end_time ? `${session.command.payload.start_time} to ${session.command.payload.end_time}` : 'Full Sync'}`, 14, 34);
             doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
 
-            const tableRows = logs.map(l => [
-                l.user_pin,
-                l.user?.name || 'Unknown',
-                l.punch_time,
-                l.check_type.toUpperCase(),
-                l.verify_code || '—',
-                l.punch_status
+            const tableRows = groupedRows.map(r => [
+                r.pin,
+                r.name,
+                r.date,
+                r.inTime,
+                r.outTime
             ]);
 
             doc.autoTable({
                 startY: 46,
-                head: [['PIN', 'Employee Name', 'Punch Time', 'Type', 'Verify Code', 'Status']],
+                head: [['Employee ID', 'Employee Name', 'Date', 'In Time', 'Out Time']],
                 body: tableRows,
                 theme: 'striped',
                 headStyles: { fillColor: [43, 108, 176] }
             });
 
-            const filename = `attendance_logs_device_${session.device?.name.replace(/\s+/g, '_')}_session_${session.id}.pdf`;
+            const filename = `attendance_report_device_${session.device?.name.replace(/\s+/g, '_')}_session_${session.id}.pdf`;
             doc.save(filename);
             showToast.success('PDF report downloaded successfully.');
         } catch (err) {
