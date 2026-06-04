@@ -984,7 +984,7 @@ class BiometricProcessingService
     /**
      * Initiate an attendance log download session for a device.
      */
-    public function initiateLogDownload(BiometricDevice $device, string $triggerType, ?int $userId = null): BiometricDownloadSession
+    public function initiateLogDownload(BiometricDevice $device, string $triggerType, ?int $userId = null, ?array $payload = null): BiometricDownloadSession
     {
         if (!$device->is_active) {
             throw new \InvalidArgumentException("Device is inactive.");
@@ -1000,10 +1000,15 @@ class BiometricProcessingService
             ->first();
 
         if ($existing) {
-            return $existing;
+            // If the existing session is older than 5 minutes, mark it as failed (timeout) and proceed to create a new session
+            if ($existing->created_at->lt(now()->subMinutes(5))) {
+                $existing->markFailed("Session timed out after 5 minutes of inactivity.");
+            } else {
+                return $existing;
+            }
         }
 
-        return DB::transaction(function () use ($device, $triggerType, $userId) {
+        return DB::transaction(function () use ($device, $triggerType, $userId, $payload) {
             // 1. Create a pending session
             $session = BiometricDownloadSession::create([
                 'biometric_device_id' => $device->id,
@@ -1015,7 +1020,7 @@ class BiometricProcessingService
             // 2. Create the command to tell the device to check attlog
             $command = $this->createCommand($device, [
                 'command_type' => 'CHECK_ATTLOG',
-                'payload'      => null,
+                'payload'      => $payload,
             ]);
 
             // 3. Link the command to the session
