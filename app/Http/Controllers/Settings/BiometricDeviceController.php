@@ -607,16 +607,17 @@ class BiometricDeviceController extends Controller
             $session = BiometricDownloadSession::with('command')->findOrFail($id);
             
             $query = BiometricAttLog::with('user:id,name,employee_id')
-                ->where('biometric_device_id', $session->biometric_device_id);
+                ->where('biometric_device_id', $session->biometric_device_id)
+                ->where('punch_status', 'downloaded');
             
-            $payload = $session->command?->payload;
-            if (is_array($payload) && isset($payload['start_time']) && isset($payload['end_time'])) {
-                $query->whereBetween('punch_time', [$payload['start_time'], $payload['end_time']]);
-            } else {
-                $start = $session->started_at ?? $session->created_at;
-                $end = $session->completed_at ?? now();
-                $query->whereBetween('created_at', [$start, $end]);
-            }
+            $start = $session->started_at ?? $session->created_at;
+            $end = $session->completed_at ?? now();
+            
+            // Add a buffer of 10 seconds before and after to account for any tiny race conditions
+            $query->whereBetween('created_at', [
+                $start->copy()->subSeconds(10),
+                $end->copy()->addSeconds(10)
+            ]);
             
             $logs = $query->orderBy('punch_time', 'desc')->get();
             

@@ -1631,6 +1631,57 @@ function DownloadsTab({ isMobile, devices = [] }) {
         }
     };
 
+    const downloadSessionPunchesPDF = async (session) => {
+        setDownloadingSessionLogs(session.id);
+        try {
+            const { data } = await axios.get(route('biometric-devices.download-sessions.logs', session.id));
+            const logs = data.logs ?? [];
+            if (logs.length === 0) {
+                showToast.info('No attendance logs found for this session.');
+                return;
+            }
+
+            const doc = new jsPDF({ orientation: 'portrait' });
+            
+            // Title
+            doc.setFontSize(16);
+            doc.text('Biometric Attendance Logs Download Report', 14, 15);
+            doc.setFontSize(10);
+            
+            // Meta Info
+            doc.text(`Device: ${session.device?.name || 'Unknown'} (${session.device?.serial_number || '—'})`, 14, 22);
+            doc.text(`Session ID: ${session.id} | Trigger: ${session.trigger_type.toUpperCase()}`, 14, 28);
+            doc.text(`Date Range: ${session.command?.payload?.start_time && session.command?.payload?.end_time ? `${session.command.payload.start_time} to ${session.command.payload.end_time}` : 'Full Sync'}`, 14, 34);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
+
+            const tableRows = logs.map(l => [
+                l.user_pin,
+                l.user?.name || 'Unknown',
+                l.punch_time,
+                l.check_type.toUpperCase(),
+                l.verify_code || '—',
+                l.punch_status
+            ]);
+
+            doc.autoTable({
+                startY: 46,
+                head: [['PIN', 'Employee Name', 'Punch Time', 'Type', 'Verify Code', 'Status']],
+                body: tableRows,
+                theme: 'striped',
+                headStyles: { fillColor: [43, 108, 176] }
+            });
+
+            const filename = `attendance_logs_device_${session.device?.name.replace(/\s+/g, '_')}_session_${session.id}.pdf`;
+            doc.save(filename);
+            showToast.success('PDF report downloaded successfully.');
+        } catch (err) {
+            console.error('Failed to download session logs PDF:', err);
+            showToast.error('Failed to download PDF logs.');
+        } finally {
+            setDownloadingSessionLogs(null);
+        }
+    };
+
     const fetchHistory = useCallback(async (deviceFilter = selectedDevice, page = pagination.currentPage, pp = pagination.perPage) => {
         setLoading(true);
         try {
@@ -1723,7 +1774,7 @@ function DownloadsTab({ isMobile, devices = [] }) {
     return (
         <Box>
             {/* Stats Summary Cards */}
-            <Grid columns={{ initial: '2', sm: '4' }} gap="3" mb="4">
+            <Grid columns={{ initial: '3', sm: '3' }} gap="3" mb="4">
                 <Card variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Total Sessions</Text>
@@ -1740,12 +1791,6 @@ function DownloadsTab({ isMobile, devices = [] }) {
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Completed Successfully</Text>
                         <Text size="4" weight="bold" color="green">{stats.completed}</Text>
-                    </Flex>
-                </Card>
-                <Card variant="surface">
-                    <Flex direction="column" gap="1">
-                        <Text size="1" color="gray">Failed Sessions</Text>
-                        <Text size="4" weight="bold" color="red">{stats.failed}</Text>
                     </Flex>
                 </Card>
             </Grid>
@@ -1840,17 +1885,30 @@ function DownloadsTab({ isMobile, devices = [] }) {
                                 </Table.Cell>
                                 <Table.Cell>
                                     {(session.status === 'completed' || session.status === 'partial') ? (
-                                        <Tooltip content="Download synced logs">
-                                            <IconButton
-                                                size="1"
-                                                variant="soft"
-                                                color="blue"
-                                                onClick={() => downloadSessionPunches(session)}
-                                                disabled={downloadingSessionLogs === session.id}
-                                            >
-                                                {downloadingSessionLogs === session.id ? <Spinner size="1" /> : <DownloadIcon />}
-                                            </IconButton>
-                                        </Tooltip>
+                                        <Flex gap="2">
+                                            <Tooltip content="Download Excel Logs">
+                                                <IconButton
+                                                    size="1"
+                                                    variant="soft"
+                                                    color="green"
+                                                    onClick={() => downloadSessionPunches(session)}
+                                                    disabled={downloadingSessionLogs === session.id}
+                                                >
+                                                    {downloadingSessionLogs === session.id ? <Spinner size="1" /> : <DownloadIcon />}
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip content="Download PDF Logs">
+                                                <IconButton
+                                                    size="1"
+                                                    variant="soft"
+                                                    color="red"
+                                                    onClick={() => downloadSessionPunchesPDF(session)}
+                                                    disabled={downloadingSessionLogs === session.id}
+                                                >
+                                                    {downloadingSessionLogs === session.id ? <Spinner size="1" /> : <DownloadIcon />}
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Flex>
                                     ) : (
                                         <Text size="1" color="gray">—</Text>
                                     )}

@@ -88,7 +88,7 @@ class BiometricDeviceCommand extends Model
             case 'CHECK_ATTLOG':
                 $startTime = $payload['start_time'] ?? '2000-01-01 00:00:00';
                 $endTime = $payload['end_time'] ?? now()->addDay()->format('Y-m-d H:i:s');
-                $command .= "QUERY ATTLOG StartTime={$startTime}\tEndTime={$endTime}";
+                $command .= "DATA QUERY ATTLOG StartTime={$startTime}\tEndTime={$endTime}";
                 break;
 
             default:
