@@ -18,15 +18,17 @@ class BiometricDevice extends Model
         'protocol',
         'is_active',
         'last_heartbeat_at',
+        'last_log_download_at',
         'notes',
         'config',
         'users_count',
     ];
 
     protected $casts = [
-        'is_active'         => 'boolean',
-        'last_heartbeat_at' => 'datetime',
-        'config'            => 'array',
+        'is_active'            => 'boolean',
+        'last_heartbeat_at'    => 'datetime',
+        'last_log_download_at' => 'datetime',
+        'config'               => 'array',
     ];
 
     protected static function booted(): void
@@ -80,5 +82,15 @@ class BiometricDevice extends Model
             'biometric_device_id',
             'attendance_type_id'
         )->withPivot('created_at');
+    }
+
+    public function downloadSessions()
+    {
+        return $this->hasMany(BiometricDownloadSession::class, 'biometric_device_id');
+    }
+
+    public function isAdms(): bool
+    {
+        return $this->protocol === 'adms';
     }
 }
