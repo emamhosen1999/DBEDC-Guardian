@@ -425,5 +425,43 @@ class DeviceAuthenticationTest extends TestCase
             'tokenable_id' => $user->id,
         ]);
     }
+
+    /**
+     * Test registering a device already registered to another user does not cause unique constraint violation.
+     */
+    public function test_registering_device_already_registered_to_another_user(): void
+    {
+        $user1 = User::factory()->create();
+        $user2 = User::factory()->create();
+        $deviceId = $this->faker->uuid;
+
+        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
+        $request->server->set('REMOTE_ADDR', '127.0.0.1');
+
+        // Register device for user 1
+        $device1 = $this->deviceAuthService->registerDevice($user1, $request, $deviceId);
+        $this->assertNotNull($device1);
+        $this->assertDatabaseHas('user_devices', [
+            'user_id' => $user1->id,
+            'device_id' => $deviceId,
+        ]);
+
+        // Register same device for user 2
+        $device2 = $this->deviceAuthService->registerDevice($user2, $request, $deviceId);
+        $this->assertNotNull($device2);
+
+        // Assert that the old user's device association is deleted
+        $this->assertDatabaseMissing('user_devices', [
+            'user_id' => $user1->id,
+            'device_id' => $deviceId,
+        ]);
+
+        // Assert that the new user's device association exists
+        $this->assertDatabaseHas('user_devices', [
+            'user_id' => $user2->id,
+            'device_id' => $deviceId,
+        ]);
+    }
 }
 

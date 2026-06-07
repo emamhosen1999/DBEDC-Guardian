@@ -51,6 +51,19 @@ class DeviceAuthService
             return null;
         }
 
+        // Prevent IntegrityConstraintViolation if this device ID is already registered to a different user.
+        $deletedCount = UserDevice::where('device_id', $deviceId)
+            ->where('user_id', '!=', $user->id)
+            ->delete();
+
+        if ($deletedCount > 0) {
+            Log::info('Deleted existing device association for other users to allow registration', [
+                'device_id' => $deviceId,
+                'new_user_id' => $user->id,
+                'deleted_count' => $deletedCount,
+            ]);
+        }
+
         $deviceToken = $this->generateDeviceToken($deviceId, $user->id);
         $deviceInfo = $this->getDeviceInfo($request, $deviceSignature, $deviceName);
 
