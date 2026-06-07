@@ -905,8 +905,16 @@ class DataSyncService
             return true;
         }
 
-        return (int) $dailyWork->incharge === (int) $user->id
-            || (int) $dailyWork->assigned === (int) $user->id;
+        if ((int) $dailyWork->incharge === (int) $user->id
+            || (int) $dailyWork->assigned === (int) $user->id) {
+            return true;
+        }
+
+        if ($user->report_to && (int) $dailyWork->incharge === (int) $user->report_to) {
+            return true;
+        }
+
+        return false;
     }
 
     private function canSubmitObjection(User $user, RfiObjection $objection): bool
@@ -971,9 +979,40 @@ class DataSyncService
     {
         $query = DailyWork::query();
 
-        if (! $this->isPrivilegedUser($user)) {
-            $query->where(function ($dailyWorkQuery) use ($user) {
-                $dailyWorkQuery->where('incharge', $user->id)
+        if ($this->isPrivilegedUser($user)) {
+            return $query;
+        }
+
+        $userDesignationTitle = '';
+        if (\Schema::hasColumn('users', 'designation_id') && \Schema::hasTable('designations')) {
+            if (! $user->relationLoaded('designation')) {
+                $user->load('designation:id,title');
+            }
+            $userDesignationTitle = trim((string) ($user->designation?->title ?? ''));
+        }
+
+        if ($userDesignationTitle === 'Supervision Engineer') {
+            $query->where('incharge', $user->id);
+        } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
+            $query->where('assigned', $user->id);
+        } elseif ($user->hasRole('Employee')) {
+            $query->where(function ($q) use ($user) {
+                $q->where('incharge', $user->id)
+                    ->orWhere('assigned', $user->id);
+
+                if ($user->report_to) {
+                    $q->orWhere('incharge', $user->report_to);
+                }
+            });
+        } elseif ($user->report_to) {
+            $query->where(function ($q) use ($user) {
+                $q->where('incharge', $user->id)
+                    ->orWhere('assigned', $user->id)
+                    ->orWhere('incharge', $user->report_to);
+            });
+        } else {
+            $query->where(function ($q) use ($user) {
+                $q->where('incharge', $user->id)
                     ->orWhere('assigned', $user->id);
             });
         }

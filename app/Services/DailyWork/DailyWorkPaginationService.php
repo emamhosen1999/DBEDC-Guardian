@@ -166,29 +166,19 @@ class DailyWorkPaginationService
 
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
-            // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
-            if ($hasJurisdiction) {
-                // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
-                Log::info('Employee with jurisdiction - showing own incharge works', [
-                    'user_id' => $user->id,
-                    'user_name' => $user->name,
-                ]);
-                return $baseQuery->where('incharge', $user->id);
-            } else {
-                // Employee has no jurisdiction: show works where their manager (report_to) is incharge
+            Log::info('Employee visibility filter applied', [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'report_to' => $user->report_to,
+            ]);
+            return $baseQuery->where(function ($q) use ($user) {
+                $q->where('incharge', $user->id)
+                    ->orWhere('assigned', $user->id);
+
                 if ($user->report_to) {
-                    Log::info('Employee without jurisdiction - showing manager\'s incharge works', [
-                        'user_id' => $user->id,
-                        'user_name' => $user->name,
-                        'report_to' => $user->report_to,
-                    ]);
-                    return $baseQuery->where('incharge', $user->report_to);
+                    $q->orWhere('incharge', $user->report_to);
                 }
-                // No jurisdiction and no manager: show own works
-                return $baseQuery->where('incharge', $user->id);
-            }
+            });
         }
 
         // For other roles (non-employee, non-admin) with a manager: apply report_to visibility
