@@ -40,7 +40,7 @@ export const useCreateWorkLocation = () => {
   
   return useMutation({
     mutationFn: async (data) => {
-      const response = await axios.post(route('workLocations.store'), data);
+      const response = await axios.post(route('addWorkLocation'), data);
       return response.data;
     },
     onSuccess: () => {
@@ -55,7 +55,7 @@ export const useUpdateWorkLocation = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const response = await axios.put(route('workLocations.update', { id }), data);
+      const response = await axios.post(route('updateWorkLocation'), { id, ...data });
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -71,7 +71,7 @@ export const useDeleteWorkLocation = () => {
   
   return useMutation({
     mutationFn: async (id) => {
-      const response = await axios.delete(route('workLocations.destroy', { id }));
+      const response = await axios.post(route('deleteWorkLocation'), { id });
       return response.data;
     },
     onSuccess: () => {

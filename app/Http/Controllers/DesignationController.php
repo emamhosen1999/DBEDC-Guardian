@@ -16,7 +16,10 @@ class DesignationController extends Controller
     public function __construct()
     {
         // Apply authorization middleware or policies
-        $this->middleware('can:manage-designations');
+        $this->middleware('permission:designations.view')->only(['index', 'getDesignations', 'stats', 'show', 'list']);
+        $this->middleware('permission:designations.create')->only(['store']);
+        $this->middleware('permission:designations.update')->only(['update', 'updateUserDesignation']);
+        $this->middleware('permission:designations.delete')->only(['destroy']);
     }
 
     /**

@@ -372,7 +372,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:departments.update'])->put('/departments/{id}', [DepartmentController::class, 'update'])->name('departments.update');
     Route::middleware(['permission:departments.delete'])->delete('/departments/{id}', [DepartmentController::class, 'destroy'])->name('departments.delete');
     Route::middleware(['permission:departments.update'])->put('/users/{id}/department', [DepartmentController::class, 'updateUserDepartment'])->name('users.update-department');
-    Route::middleware(['permission:hr.designations.update'])->post('/users/{id}/designation', [\App\Http\Controllers\DesignationController::class, 'updateUserDesignation'])->name('users.updateDesignation');
+    Route::middleware(['permission:designations.update'])->post('/users/{id}/designation', [\App\Http\Controllers\DesignationController::class, 'updateUserDesignation'])->name('users.updateDesignation');
 
     Route::middleware(['permission:jurisdiction.view'])->get('/jurisdiction', [JurisdictionController::class, 'index'])->name('jurisdiction');
 
@@ -411,8 +411,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('users.update');
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
         Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
-        Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateUserAttendanceType'])->name('users.updateAttendanceType');
-        Route::post('/users/{id}/biometric-device', [UserController::class, 'updateEmployeeBiometricDevice'])->name('users.updateBiometricDevice');
+        Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateAttendanceType'])->name('users.updateAttendanceType');
+        Route::post('/users/{id}/biometric-device', [UserController::class, 'assignBiometricDevice'])->name('users.updateBiometricDevice');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
         
         // Bulk operations
@@ -661,7 +661,7 @@ Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(funct
     Route::get('/admin/optimization-report', [SystemMonitoringController::class, 'getOptimizationReport'])->name('admin.optimization-report');
 
     // Designation Management
-    Route::middleware(['permission:hr.designations.view'])->group(function () {
+    Route::middleware(['permission:designations.view'])->group(function () {
         // Initial page render (Inertia)
         Route::get('/designations', [\App\Http\Controllers\DesignationController::class, 'index'])->name('designations.index');
         // API data fetch (JSON)

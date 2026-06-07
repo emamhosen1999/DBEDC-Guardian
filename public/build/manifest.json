@@ -205,8 +205,8 @@
       "_vendor-inertia-B_jPe_ra.js"
     ]
   },
-  "_ProfilePictureModal-D7xoVgj-.js": {
-    "file": "assets/js/ProfilePictureModal-D7xoVgj-.js",
+  "_ProfilePictureModal-B5gYKA1s.js": {
+    "file": "assets/js/ProfilePictureModal-B5gYKA1s.js",
     "name": "ProfilePictureModal",
     "imports": [
       "_useQuery-CBUjrAmM.js",
@@ -431,8 +431,8 @@
       "_client-CFe2EJ1h.js"
     ]
   },
-  "_useDepartmentsQuery-Pvyl03Nr.js": {
-    "file": "assets/js/useDepartmentsQuery-Pvyl03Nr.js",
+  "_useDepartmentsQuery-CtHciO8f.js": {
+    "file": "assets/js/useDepartmentsQuery-CtHciO8f.js",
     "name": "useDepartmentsQuery",
     "imports": [
       "_useQuery-CBUjrAmM.js",
@@ -441,8 +441,8 @@
       "_vendor-utils-D6Wd6ilh.js"
     ]
   },
-  "_useDesignationsQuery-C99oNEgr.js": {
-    "file": "assets/js/useDesignationsQuery-C99oNEgr.js",
+  "_useDesignationsQuery-Bxp2h9oL.js": {
+    "file": "assets/js/useDesignationsQuery-Bxp2h9oL.js",
     "name": "useDesignationsQuery",
     "imports": [
       "_useQuery-CBUjrAmM.js",
@@ -492,8 +492,8 @@
       "_vendor-radix-CceonArz.js"
     ]
   },
-  "_useWorkLocationsQuery-CW_YCg1Y.js": {
-    "file": "assets/js/useWorkLocationsQuery-CW_YCg1Y.js",
+  "_useWorkLocationsQuery-BMQMePkC.js": {
+    "file": "assets/js/useWorkLocationsQuery-BMQMePkC.js",
     "name": "useWorkLocationsQuery",
     "imports": [
       "_useQuery-CBUjrAmM.js",
@@ -1245,7 +1245,7 @@
     ]
   },
   "resources/js/Pages/Departments.jsx": {
-    "file": "assets/js/Departments-BxNyV1q8.js",
+    "file": "assets/js/Departments-BeUKXpHt.js",
     "name": "Departments",
     "src": "resources/js/Pages/Departments.jsx",
     "isDynamicEntry": true,
@@ -1265,7 +1265,7 @@
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_DeleteConfirmDialog-mRanAo-J.js",
       "_ErrorBoundary-DewExqUk.js",
-      "_useDepartmentsQuery-Pvyl03Nr.js",
+      "_useDepartmentsQuery-CtHciO8f.js",
       "_CheckCircleIcon-BYMaoOBN.js",
       "_XCircleIcon-ByqJQJwa.js",
       "_PlusIcon-CmPtE-Jm.js",
@@ -1549,7 +1549,7 @@
     ]
   },
   "resources/js/Pages/Organization/Tabs/DepartmentsTab.jsx": {
-    "file": "assets/js/DepartmentsTab-Br4kUKHF.js",
+    "file": "assets/js/DepartmentsTab-Bq8psXr7.js",
     "name": "DepartmentsTab",
     "src": "resources/js/Pages/Organization/Tabs/DepartmentsTab.jsx",
     "isDynamicEntry": true,
@@ -1559,7 +1559,7 @@
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_useMediaQuery-DzkaZ5Od.js",
       "_react-icons.esm-CNMM4raU.js",
-      "_useDepartmentsQuery-Pvyl03Nr.js",
+      "_useDepartmentsQuery-CtHciO8f.js",
       "_QueryState-BB3flp1D.js",
       "resources/js/Pages/Organization/Tables/DepartmentTable.jsx",
       "resources/js/Pages/Organization/Components/DepartmentForm.jsx",
@@ -1599,7 +1599,7 @@
     ]
   },
   "resources/js/Pages/Organization/Tabs/WorkLocationsTab.jsx": {
-    "file": "assets/js/WorkLocationsTab-DvPAxPyz.js",
+    "file": "assets/js/WorkLocationsTab-DyxwaYyB.js",
     "name": "WorkLocationsTab",
     "src": "resources/js/Pages/Organization/Tabs/WorkLocationsTab.jsx",
     "isDynamicEntry": true,
@@ -1609,7 +1609,7 @@
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_useMediaQuery-DzkaZ5Od.js",
       "_react-icons.esm-CNMM4raU.js",
-      "_useWorkLocationsQuery-CW_YCg1Y.js",
+      "_useWorkLocationsQuery-BMQMePkC.js",
       "resources/js/Pages/Organization/Tables/WorkLocationsTable.jsx",
       "resources/js/Pages/Organization/Components/WorkLocationForm.jsx",
       "resources/js/Pages/Organization/Components/DeleteWorkLocationForm.jsx",
@@ -2015,7 +2015,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-B93rAkYY.js",
+    "file": "assets/js/app-CrSDw1yK.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

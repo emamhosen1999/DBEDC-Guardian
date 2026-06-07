@@ -40,7 +40,7 @@ export const useDepartment = (id) => {
   return useQuery({
     queryKey: departmentsKeys.detail(id),
     queryFn: async () => {
-      const response = await axios.get(route('api.departments.show', { id }));
+      const response = await axios.get(route('departments.show', { id }));
       return response.data.department;
     },
     enabled: !!id,
@@ -53,7 +53,7 @@ export const useCreateDepartment = () => {
   
   return useMutation({
     mutationFn: async (data) => {
-      const response = await axios.post(route('api.departments.store'), data);
+      const response = await axios.post(route('departments.store'), data);
       return response.data;
     },
     onSuccess: () => {
@@ -69,7 +69,7 @@ export const useUpdateDepartment = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const response = await axios.put(route('api.departments.update', { id }), data);
+      const response = await axios.put(route('departments.update', { id }), data);
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -86,7 +86,7 @@ export const useDeleteDepartment = () => {
   
   return useMutation({
     mutationFn: async (id) => {
-      const response = await axios.delete(route('api.departments.destroy', { id }));
+      const response = await axios.delete(route('departments.delete', { id }));
       return response.data;
     },
     onSuccess: () => {
