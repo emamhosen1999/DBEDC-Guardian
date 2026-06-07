@@ -158,12 +158,14 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
         attendanceType: filters.attendanceType,
     });
 
-    const { data: statsData } = useEmployeesQuery.useEmployeeStats();
+    const { data: statsData, refetch: refetchStats } = useEmployeesQuery.useEmployeeStats();
+
+    /* ── local state ── */
+    const [employees, setEmployees] = useState([]);
+    const [totalRows, setTotalRows] = useState(0);
 
     /* ── derived state ── */
-    const employees = employeesData?.data?.filter(e => !e.deleted_at) || [];
     const allManagers = employeesData?.allManagers || [];
-    const totalRows = employeesData?.total || 0;
     const stats = statsData?.stats || {
         overview: { total_employees: 0, active_employees: 0, inactive_employees: 0, total_departments: 0, total_designations: 0, total_attendance_types: 0 },
         distribution: { by_department: [], by_designation: [], by_attendance_type: [] },
@@ -171,10 +173,16 @@ const EmployeesList = ({ title, departments, designations, attendanceTypes }) =>
         workforce_health: { status_ratio: { active_percentage: 0 }, retention_rate: 0, turnover_rate: 0 },
     };
 
-    /* ── update pagination when data changes ── */
+    const fetchStats = useCallback(() => {
+        refetchStats();
+    }, [refetchStats]);
+
+    /* ── update local state when data changes ── */
     useEffect(() => {
         if (employeesData) {
-            setPagination(prev => ({ ...prev, total: employeesData.total }));
+            setEmployees(employeesData.data?.filter(e => !e.deleted_at) || []);
+            setTotalRows(employeesData.total || 0);
+            setPagination(prev => ({ ...prev, total: employeesData.total || 0 }));
         }
     }, [employeesData]);
 

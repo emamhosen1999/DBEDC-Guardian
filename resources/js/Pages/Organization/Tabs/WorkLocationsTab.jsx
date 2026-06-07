@@ -104,8 +104,8 @@ const WorkLocationsTab = ({ isActive }) => {
                     </TextField.Root>
                 </Flex>
 
-                <Flex gap="2">re
-                    <Button size="2" variant="soft" color="gray" onClick={fetchData}>
+                <Flex gap="2">
+                    <Button size="2" variant="soft" color="gray" onClick={() => refetch()}>
                         <ReloadIcon />
                     </Button>
                     {canCreate && (
