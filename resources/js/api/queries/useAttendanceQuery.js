@@ -199,7 +199,7 @@ export const useUpdateAttendanceSettings = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (data) => requestJson('post', '/attendance-settings/update', data),
+    mutationFn: (data) => requestJson('post', route('attendance-settings.update'), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance-settings'] });
     },
@@ -213,7 +213,7 @@ export const useDeleteAttendanceCorrection = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (attendanceId) => requestJson('delete', `/attendance/correct/${attendanceId}`),
+    mutationFn: (attendanceId) => requestJson('delete', route('attendance.correct.delete', { id: attendanceId })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] });
     },

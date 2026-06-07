@@ -7,7 +7,7 @@ import {
     MagnifyingGlassIcon, CalendarIcon, ClockIcon, PersonIcon,
     ExclamationTriangleIcon, CheckCircledIcon, DownloadIcon,
     MobileIcon,
-    ReloadIcon, UpdateIcon,
+    ReloadIcon, UpdateIcon, TrashIcon,
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
@@ -79,77 +79,95 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
             );
 
         case 'clockin_time': {
-            const timeStr = formatTime(attendance.punchin_time, attendance.date);
-            const punchinRecordId = attendance.punchin_id ?? attendance.id;
-            const isEditing = editingCell?.attendanceId === punchinRecordId && editingCell?.field === 'punchin';
+            const punches = attendance.punches || [];
             
             return (
                 <Table.Cell>
-                    {canCorrect && isEditing ? (
-                        <AttendanceTimePicker
-                            value={attendance.punchin_time ? dayjs(attendance.punchin_time).format('HH:mm') : ''}
-                            onSave={(time) => onSaveTime(punchinRecordId, 'punchin', time)}
-                            onCancel={onCancelEdit}
-                            label="In"
-                        />
-                    ) : (
-                        <Flex align="center" gap="2">
-                            <ClockIcon style={{ color: 'var(--green-9)', width: 14, flexShrink: 0 }} />
-                            {canCorrect ? (
-                                <Text 
-                                    size="2" 
-                                    weight="medium"
-                                    style={{ cursor: 'pointer', color: 'var(--accent-11)' }}
-                                    onClick={() => onStartEdit(punchinRecordId, 'punchin')}
-                                >
-                                    {timeStr || <Text size="2" color="gray">—</Text>}
-                                </Text>
-                            ) : (
-                                <Text size="2" weight="medium">
-                                    {timeStr || <Text size="2" color="gray">—</Text>}
-                                </Text>
-                            )}
-                        </Flex>
-                    )}
+                    <Flex direction="column" gap="1">
+                        {punches.length > 0 ? (
+                            punches.map((p) => {
+                                const isEditing = editingCell?.attendanceId === p.id && editingCell?.field === 'punchin';
+                                const timeStr = formatTime(p.punch_in, attendance.date);
+                                
+                                return (
+                                    <Flex key={p.id} align="center" gap="2">
+                                        <ClockIcon style={{ color: 'var(--green-9)', width: 14, flexShrink: 0 }} />
+                                        {canCorrect && isEditing ? (
+                                            <AttendanceTimePicker
+                                                value={p.punch_in ? dayjs(p.punch_in).format('HH:mm') : ''}
+                                                onSave={(time) => onSaveTime(p.id, 'punchin', time)}
+                                                onCancel={onCancelEdit}
+                                                label="In"
+                                            />
+                                        ) : canCorrect ? (
+                                            <Text 
+                                                size="2" 
+                                                weight="medium"
+                                                style={{ cursor: 'pointer', color: 'var(--accent-11)' }}
+                                                onClick={() => onStartEdit(p.id, 'punchin')}
+                                            >
+                                                {timeStr || <Text size="2" color="gray">—</Text>}
+                                            </Text>
+                                        ) : (
+                                            <Text size="2" weight="medium">
+                                                {timeStr || <Text size="2" color="gray">—</Text>}
+                                            </Text>
+                                        )}
+                                    </Flex>
+                                );
+                            })
+                        ) : (
+                            <Text size="2" color="gray">Not started</Text>
+                        )}
+                    </Flex>
                 </Table.Cell>
             );
         }
 
         case 'clockout_time': {
-            const hasPunches = attendance.punches && attendance.punches.length > 0;
-            const punchoutRecordId = attendance.punchout_id ?? attendance.id;
-            const isEditing = editingCell?.attendanceId === punchoutRecordId && editingCell?.field === 'punchout';
+            const punches = attendance.punches || [];
             
             return (
                 <Table.Cell>
-                    {canCorrect && isEditing ? (
-                        <AttendanceTimePicker
-                            value={attendance.punchout_time ? dayjs(attendance.punchout_time).format('HH:mm') : ''}
-                            onSave={(time) => onSaveTime(punchoutRecordId, 'punchout', time)}
-                            onCancel={onCancelEdit}
-                            label="Out"
-                        />
-                    ) : (
-                        <Flex align="center" gap="2">
-                            {hasPunches ? (
-                                attendance.punches.map((p, idx) => (
-                                    <Flex key={idx} align="center" gap="2">
+                    <Flex direction="column" gap="1">
+                        {punches.length > 0 ? (
+                            punches.map((p) => {
+                                const isEditing = editingCell?.attendanceId === p.id && editingCell?.field === 'punchout';
+                                const timeStr = formatTime(p.punch_out, attendance.date);
+                                
+                                return (
+                                    <Flex key={p.id} align="center" gap="2">
                                         <ClockIcon style={{ color: 'var(--red-9)', width: 14, flexShrink: 0 }} />
-                                        <Text size="2" weight="medium">
-                                            {p.punch_out
-                                                ? formatTime(p.punch_out, attendance.date)
-                                                : <Text size="2" color="gray">—</Text>
-                                            }
-                                        </Text>
+                                        {canCorrect && isEditing ? (
+                                            <AttendanceTimePicker
+                                                value={p.punch_out ? dayjs(p.punch_out).format('HH:mm') : ''}
+                                                onSave={(time) => onSaveTime(p.id, 'punchout', time)}
+                                                onCancel={onCancelEdit}
+                                                label="Out"
+                                            />
+                                        ) : canCorrect ? (
+                                            <Text 
+                                                size="2" 
+                                                weight="medium"
+                                                style={{ cursor: 'pointer', color: 'var(--accent-11)' }}
+                                                onClick={() => onStartEdit(p.id, 'punchout')}
+                                            >
+                                                {timeStr || <Text size="2" color="gray">—</Text>}
+                                            </Text>
+                                        ) : (
+                                            <Text size="2" weight="medium">
+                                                {timeStr || <Text size="2" color="gray">—</Text>}
+                                            </Text>
+                                        )}
                                     </Flex>
-                                  ))
-                            ) : attendance.punchout_time ? (
-                                <Text size="2" color="gray">{isToday ? 'Still working' : 'Missing punch-out'}</Text>
-                            ) : (
-                                <Text size="2" color="gray">Not started</Text>
-                            )}
-                        </Flex>
-                    )}
+                                );
+                            })
+                        ) : attendance.punchout_time ? (
+                            <Text size="2" color="gray">{isToday ? 'Still working' : 'Missing punch-out'}</Text>
+                        ) : (
+                            <Text size="2" color="gray">Not started</Text>
+                        )}
+                    </Flex>
                 </Table.Cell>
             );
         }
@@ -219,6 +237,43 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
                                     : null
                             }
                         </Flex>
+                    </Flex>
+                </Table.Cell>
+            );
+
+        case 'actions':
+            return (
+                <Table.Cell>
+                    <Flex gap="2" align="center">
+                        {attendance.punches && attendance.punches.length > 0 ? (
+                            attendance.punches.map((p, idx) => (
+                                <Tooltip content={`Delete Punch ${idx + 1}`} key={p.id}>
+                                    <Button
+                                        size="1"
+                                        variant="ghost"
+                                        color="red"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => onDelete(p.id)}
+                                    >
+                                        <TrashIcon style={{ width: 14, height: 14 }} />
+                                    </Button>
+                                </Tooltip>
+                            ))
+                        ) : (
+                            attendance.id && !String(attendance.id).startsWith('user-') && (
+                                <Tooltip content="Delete Record">
+                                    <Button
+                                        size="1"
+                                        variant="ghost"
+                                        color="red"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => onDelete(attendance.id)}
+                                    >
+                                        <TrashIcon style={{ width: 14, height: 14 }} />
+                                    </Button>
+                                </Tooltip>
+                            )
+                        )}
                     </Flex>
                 </Table.Cell>
             );
@@ -301,7 +356,8 @@ const DailyTimesheetTab = ({
         { uid: 'clockout_time',       name: 'Clock Out'  },
         { uid: 'production_time',     name: 'Work Hours' },
         { uid: 'punch_details',       name: 'Punches'    },
-    ], [isAdminView]);
+        ...(canCorrect              ? [{ uid: 'actions',         name: 'Actions'    }] : []),
+    ], [isAdminView, canCorrect]);
 
     /* fetch functions using React Query */
     const fetchPresent = useCallback((page = currentPage, force = false) => {

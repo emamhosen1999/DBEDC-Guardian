@@ -421,8 +421,8 @@
       "_vendor-inertia-B_jPe_ra.js"
     ]
   },
-  "_useAttendanceQuery-uGrr2t_n.js": {
-    "file": "assets/js/useAttendanceQuery-uGrr2t_n.js",
+  "_useAttendanceQuery-NSlhZ-xb.js": {
+    "file": "assets/js/useAttendanceQuery-NSlhZ-xb.js",
     "name": "useAttendanceQuery",
     "imports": [
       "_useQuery-CBUjrAmM.js",
@@ -1043,7 +1043,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-F8Vtj5-x.js",
+    "file": "assets/js/AttendancePage-DJ2EK9sU.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1068,7 +1068,7 @@
       "_TileLayer-OsRTXKLT.js",
       "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx",
       "_TablePagination-jAHZ5XhY.js",
-      "_useAttendanceQuery-uGrr2t_n.js",
+      "_useAttendanceQuery-NSlhZ-xb.js",
       "_useQuery-CBUjrAmM.js",
       "_QueryClientProvider-BNAITzMU.js",
       "_useMutation-DxawGjZs.js",
@@ -1119,7 +1119,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab-Cn2H8H-5.js",
+    "file": "assets/js/SettingsTab-UVrtHbeK.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -1128,7 +1128,7 @@
       "_vendor-inertia-B_jPe_ra.js",
       "_react-icons.esm-CNMM4raU.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "_useAttendanceQuery-uGrr2t_n.js",
+      "_useAttendanceQuery-NSlhZ-xb.js",
       "_leaflet-CpeWTaXg.js",
       "_TileLayer-OsRTXKLT.js",
       "_Marker-CyTy_h8R.js",
@@ -1140,7 +1140,7 @@
     ]
   },
   "resources/js/Pages/AttendanceEmployee.jsx": {
-    "file": "assets/js/AttendanceEmployee-8fwEDn1A.js",
+    "file": "assets/js/AttendanceEmployee-B8-w9PMA.js",
     "name": "AttendanceEmployee",
     "src": "resources/js/Pages/AttendanceEmployee.jsx",
     "isDynamicEntry": true,
@@ -1154,7 +1154,7 @@
       "_react-icons.esm-CNMM4raU.js",
       "_ErrorBoundary-DewExqUk.js",
       "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx",
-      "_useAttendanceQuery-uGrr2t_n.js",
+      "_useAttendanceQuery-NSlhZ-xb.js",
       "_vendor-utils-D6Wd6ilh.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_RadixThemeContext-DmqhMJoZ.js",
@@ -1868,7 +1868,7 @@
     ]
   },
   "resources/js/Pages/Settings/AttendanceSettings.jsx": {
-    "file": "assets/js/AttendanceSettings-Peeu03re.js",
+    "file": "assets/js/AttendanceSettings-BpOh9fm0.js",
     "name": "AttendanceSettings",
     "src": "resources/js/Pages/Settings/AttendanceSettings.jsx",
     "isDynamicEntry": true,
@@ -1880,7 +1880,7 @@
       "resources/js/Pages/UserDevices.jsx",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_vendor-utils-D6Wd6ilh.js",
-      "_useAttendanceQuery-uGrr2t_n.js",
+      "_useAttendanceQuery-NSlhZ-xb.js",
       "_leaflet-CpeWTaXg.js",
       "_leaflet-routing-machine-CqCZn3Dx.js",
       "_vendor-framer-ecpKUgbw.js",
@@ -2015,7 +2015,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CrSDw1yK.js",
+    "file": "assets/js/app-DRM30KYn.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
