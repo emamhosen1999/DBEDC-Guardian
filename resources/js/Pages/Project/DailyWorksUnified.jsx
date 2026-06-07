@@ -634,6 +634,26 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         }
     };
 
+    // Practical comparison check for daily works visibility logs
+    useEffect(() => {
+        if (data && data.length > 0) {
+            console.log('─── Daily Works Visibility Check ───');
+            console.log(`Total visible works for current user (${auth.user?.name}): ${data.length}`);
+            if (auth.user?.report_to) {
+                const managerWorks = data.filter(w => String(w.incharge) === String(auth.user.report_to));
+                const ownAssignedWorks = data.filter(w => String(w.assigned) === String(auth.user.id));
+                const otherWorks = data.filter(w => String(w.incharge) !== String(auth.user.report_to) && String(w.assigned) !== String(auth.user.id));
+                
+                console.log(`- Works belonging to Incharge (User ID: ${auth.user.report_to}): ${managerWorks.length}`);
+                console.log(`- Works directly assigned to you (User ID: ${auth.user.id}): ${ownAssignedWorks.length}`);
+                console.log(`- Other visible works: ${otherWorks.length}`);
+            } else {
+                console.log('- No manager (report_to) is defined for your account.');
+            }
+            console.log('────────────────────────────────────');
+        }
+    }, [data, auth.user]);
+
     // Enhanced useEffect for mobile/desktop mode switching and initial load
     useEffect(() => {
         if (isMobile && !selectedDate) {
