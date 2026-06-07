@@ -5,7 +5,7 @@ import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { router } from '@inertiajs/react';
 
-const BulkCompletionDateModal = ({ isOpen, onClose, selectedWorks, onSuccess }) => {
+const BulkCompletionDateModal = ({ isOpen, onClose, selectedWorks = [], onSuccess }) => {
     const [completionDate, setCompletionDate] = useState('');
     const [clearDate, setClearDate] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);

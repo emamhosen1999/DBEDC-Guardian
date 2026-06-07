@@ -5,7 +5,7 @@ import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { router } from '@inertiajs/react';
 
-const BulkDeleteModal = ({ isOpen, onClose, selectedWorks, onSuccess }) => {
+const BulkDeleteModal = ({ isOpen, onClose, selectedWorks = [], onSuccess }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleDelete = async () => {

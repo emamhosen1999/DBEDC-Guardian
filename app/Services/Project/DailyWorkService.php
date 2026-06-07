@@ -485,27 +485,18 @@ class DailyWorkService
             } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
                 $query->where('assigned', $user->id);
             } elseif ($user->hasRole('Employee')) {
-                // Check if user is incharge of any jurisdiction
-                $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+                \Log::info('Employee visibility filter applied', [
+                    'user_id' => $user->id,
+                    'report_to' => $user->report_to,
+                ]);
+                $query->where(function ($q) use ($user) {
+                    $q->where('incharge', $user->id)
+                        ->orWhere('assigned', $user->id);
 
-                if ($hasJurisdiction) {
-                    \Log::info('Employee with jurisdiction - showing own incharge works', [
-                        'user_id' => $user->id,
-                    ]);
-                    $query->where('incharge', $user->id);
-                } else {
-                    // Employee has no jurisdiction: show works where their manager (report_to) is incharge
                     if ($user->report_to) {
-                        \Log::info('Employee without jurisdiction - showing manager\'s incharge works', [
-                            'user_id' => $user->id,
-                            'report_to' => $user->report_to,
-                        ]);
-                        $query->where('incharge', $user->report_to);
-                    } else {
-                        // No jurisdiction and no manager: show own works
-                        $query->where('incharge', $user->id);
+                        $q->orWhere('incharge', $user->report_to);
                     }
-                }
+                });
             } elseif ($user->report_to) {
                 // For other roles (non-employee, non-admin) with a manager: apply report_to visibility
                 \Log::info('User with manager - applying universal filter', [

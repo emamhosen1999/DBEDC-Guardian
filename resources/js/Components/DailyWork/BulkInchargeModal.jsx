@@ -5,7 +5,7 @@ import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { router } from '@inertiajs/react';
 
-const BulkInchargeModal = ({ isOpen, onClose, selectedWorks, incharges, onSuccess }) => {
+const BulkInchargeModal = ({ isOpen, onClose, selectedWorks = [], incharges = [], onSuccess }) => {
     const [selectedIncharge, setSelectedIncharge] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
