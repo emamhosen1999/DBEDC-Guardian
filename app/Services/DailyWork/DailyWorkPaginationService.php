@@ -188,12 +188,10 @@ class DailyWorkPaginationService
         }
 
         if (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
-            return $baseQuery->where(function ($q) use ($user) {
-                $q->where('assigned', $user->id);
-                if ($user->report_to) {
-                    $q->orWhere('incharge', $user->report_to);
-                }
-            });
+            if ($user->report_to) {
+                return $baseQuery->where('incharge', $user->report_to);
+            }
+            return $baseQuery->where('assigned', $user->id);
         }
 
         // Employee logic based on jurisdiction incharge
