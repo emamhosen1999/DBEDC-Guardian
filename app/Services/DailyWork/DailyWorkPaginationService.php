@@ -151,6 +151,12 @@ class DailyWorkPaginationService
             'assignedUser:id,name',  // Load assigned user names
         ])->withCount(['activeObjections']);
 
+        \Log::debug('DailyWorkPaginationService::buildBaseQuery applied constraints', [
+            'user_id' => $user->id,
+            'designation' => $userDesignationTitle,
+            'roles' => $user->roles->pluck('name')->toArray(),
+        ]);
+
         // Super Administrator and Administrator get all data
         if ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')) {
             return $baseQuery;

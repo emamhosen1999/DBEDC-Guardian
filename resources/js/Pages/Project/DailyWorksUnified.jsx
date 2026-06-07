@@ -72,6 +72,11 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     // Role-based access control
     const userIsAdmin = auth.roles?.includes('Administrator') || auth.roles?.includes('Super Administrator') || auth.roles?.includes('Daily Work Manager') || false;
 
+    console.log('[DailyWorksUnified Props] auth:', auth);
+    console.log('[DailyWorksUnified Props] allData:', allData);
+    console.log('[DailyWorksUnified Props] jurisdictions:', jurisdictions);
+    console.log('[DailyWorksUnified Props] users:', users);
+
     // Tab state
     const [activeTab, setActiveTab] = useState('works'); // 'works' | 'summary' | 'objections'
 

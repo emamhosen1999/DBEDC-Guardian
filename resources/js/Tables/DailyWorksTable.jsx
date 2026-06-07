@@ -131,6 +131,10 @@ const DailyWorksTable = ({
     const isMediumScreen = useMediaQuery('(min-width: 641px) and (max-width: 1024px)');
     const isMobile = useMediaQuery('(max-width: 640px)');
 
+    console.log('[DailyWorksTable Props] allData:', allData);
+    console.log('[DailyWorksTable Props] allInCharges:', allInCharges);
+    console.log('[DailyWorksTable Props] juniors:', juniors);
+
     // Handle refresh functionality
     const handleRefresh = useCallback(() => {
         router.reload({ only: ['allData', 'reports_with_daily_works'], onSuccess: () => {
