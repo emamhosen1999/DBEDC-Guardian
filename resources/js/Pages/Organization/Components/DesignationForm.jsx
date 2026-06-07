@@ -65,7 +65,7 @@ const DesignationForm = ({ open, onClose, onSuccess, designation = null, departm
                 response = await createDesignation.mutateAsync(payload);
                 showToast.success('Designation created successfully');
             }
-            onSuccess(response.data.designation);
+            onSuccess(response.designation);
             onClose();
         } catch (error) {
             if (error.response?.status === 422) {

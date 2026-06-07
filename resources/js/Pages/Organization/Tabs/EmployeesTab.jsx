@@ -74,9 +74,11 @@ const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
 };
 
 const EmployeesTab = ({ isActive }) => {
-    const { departments, designations, attendanceTypes } = usePage().props;
+    const { auth, departments, designations, attendanceTypes } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isTablet = useMediaQuery('(max-width: 768px)');
+    
+    const canCreate = auth?.permissions?.includes('users.create') || false;
 
     /* ── view ── */
     const [viewMode, setViewMode] = useState('table');
@@ -188,7 +190,11 @@ const EmployeesTab = ({ isActive }) => {
                 
                 <Flex gap="2">
                     <Button size="2" variant="soft" color="gray" onClick={() => refetch()}><ReloadIcon /></Button>
-                    <Button size="2"><PlusIcon />{!isMobile && 'Add Employee'}</Button>
+                    {canCreate && (
+                        <Button size="2" onClick={() => router.visit(route('admin.unified'))}>
+                            <PlusIcon />{!isMobile && 'Add Employee'}
+                        </Button>
+                    )}
                 </Flex>
             </Flex>
 

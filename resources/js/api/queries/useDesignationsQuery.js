@@ -16,7 +16,7 @@ export const useDesignationsList = (params = {}) => {
   return useQuery({
     queryKey: designationsKeys.list(params),
     queryFn: async () => {
-      const response = await axios.get(route('api.designations'), { params });
+      const response = await axios.get(route('designations.json'), { params });
       return response.data.designations;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -40,7 +40,7 @@ export const useDesignation = (id) => {
   return useQuery({
     queryKey: designationsKeys.detail(id),
     queryFn: async () => {
-      const response = await axios.get(route('api.designations.show', { id }));
+      const response = await axios.get(route('designations.show', { id }));
       return response.data.designation;
     },
     enabled: !!id,
@@ -53,7 +53,7 @@ export const useCreateDesignation = () => {
   
   return useMutation({
     mutationFn: async (data) => {
-      const response = await axios.post(route('api.designations.store'), data);
+      const response = await axios.post(route('designations.store'), data);
       return response.data;
     },
     onSuccess: () => {
@@ -69,7 +69,7 @@ export const useUpdateDesignation = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const response = await axios.put(route('api.designations.update', { id }), data);
+      const response = await axios.put(route('designations.update', { id }), data);
       return response.data;
     },
     onSuccess: (_, variables) => {
@@ -86,7 +86,7 @@ export const useDeleteDesignation = () => {
   
   return useMutation({
     mutationFn: async (id) => {
-      const response = await axios.delete(route('api.designations.destroy', { id }));
+      const response = await axios.delete(route('designations.destroy', { id }));
       return response.data;
     },
     onSuccess: () => {

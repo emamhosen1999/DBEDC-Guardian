@@ -63,7 +63,7 @@ export const useCreateEmployee = () => {
   
   return useMutation({
     mutationFn: async (data) => {
-      const { data: body } = await axios.post(route('employees.store'), data);
+      const { data: body } = await axios.post(route('users.store'), data);
       return body;
     },
     onSuccess: () => {
@@ -79,7 +79,7 @@ export const useUpdateEmployee = () => {
   
   return useMutation({
     mutationFn: async ({ id, data }) => {
-      const { data: body } = await axios.put(route('employees.update', { id }), data);
+      const { data: body } = await axios.put(route('users.update', { id }), data);
       return body;
     },
     onSuccess: (_, variables) => {
@@ -95,7 +95,7 @@ export const useDeleteEmployee = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id) => axios.delete(route('employees.destroy', { id })),
+    mutationFn: (id) => axios.delete(route('users.destroy', { id })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: employeesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: employeesKeys.stats() });
@@ -108,7 +108,7 @@ export const useUpdateDepartment = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, department }) => requestJson('put', `/users/${id}/department`, { department }),
+    mutationFn: ({ id, department }) => axios.put(route('users.update-department', { id }), { department }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: employeesKeys.lists() });
     },
@@ -120,7 +120,7 @@ export const useUpdateDesignation = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, designation_id }) => requestJson('post', `/users/${id}/designation`, { designation_id }),
+    mutationFn: ({ id, designation_id }) => axios.post(route('users.updateDesignation', { id }), { designation_id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: employeesKeys.lists() });
     },
@@ -132,7 +132,7 @@ export const useUpdateAttendanceType = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, attendance_type_id }) => requestJson('post', `/users/${id}/attendance-type`, { attendance_type_id }),
+    mutationFn: ({ id, attendance_type_id }) => axios.post(route('users.updateAttendanceType', { userId: id }), { attendance_type_id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: employeesKeys.lists() });
     },
@@ -144,7 +144,10 @@ export const useUpdateBiometricDevice = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, biometric_device_id }) => requestJson('post', `/users/${id}/biometric-device`, { biometric_device_id }),
+    mutationFn: async ({ id, biometric_device_id }) => {
+      const response = await axios.post(route('users.updateBiometricDevice', { id }), { biometric_device_id });
+      return response.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: employeesKeys.lists() });
     },
@@ -156,7 +159,10 @@ export const useUpdateReportTo = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, report_to }) => requestJson('post', `/users/${id}/report-to`, { report_to }),
+    mutationFn: async ({ id, report_to }) => {
+      const response = await axios.post(route('users.updateReportTo', { id }), { report_to });
+      return response.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: employeesKeys.lists() });
     },
