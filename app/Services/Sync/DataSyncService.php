@@ -999,12 +999,11 @@ class DataSyncService
                 }
             });
         } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
-            $query->where(function ($q) use ($user) {
-                $q->where('assigned', $user->id);
-                if ($user->report_to) {
-                    $q->orWhere('incharge', $user->report_to);
-                }
-            });
+            if ($user->report_to) {
+                $query->where('incharge', $user->report_to);
+            } else {
+                $query->where('assigned', $user->id);
+            }
         } elseif ($user->hasRole('Employee')) {
             $query->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id)
