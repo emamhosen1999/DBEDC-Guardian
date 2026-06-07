@@ -174,6 +174,13 @@ class DailyWorkController extends Controller
             ->orderByDesc('date')
             ->get();
 
+        \Log::debug('DailyWorkController::unified data payload', [
+            'user_id' => \Auth::id(),
+            'roles' => $user->roles->pluck('name')->toArray(),
+            'designation' => $userDesignationTitle,
+            'allData' => $allData,
+        ]);
+
         return Inertia::render('Project/DailyWorksUnified', [
             'allData' => $allData,
             'jurisdictions' => Jurisdiction::all(),

@@ -9,6 +9,10 @@ const BulkInchargeModal = ({ isOpen, onClose, selectedWorks = [], incharges = []
     const [selectedIncharge, setSelectedIncharge] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    console.log('[BulkInchargeModal Props] isOpen:', isOpen);
+    console.log('[BulkInchargeModal Props] selectedWorks:', selectedWorks);
+    console.log('[BulkInchargeModal Props] incharges:', incharges);
+
     const handleSubmit = async () => {
         if (!selectedIncharge) return;
 
