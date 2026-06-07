@@ -12,8 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Add 'downloaded' to punch_status ENUM
-        DB::statement("ALTER TABLE `biometric_att_logs` MODIFY COLUMN `punch_status` ENUM('processed', 'failed', 'duplicate', 'unknown_user', 'wrong_device', 'downloaded') NOT NULL DEFAULT 'processed'");
+        if (DB::getDriverName() === 'mysql') {
+            // Add 'downloaded' to punch_status ENUM
+            DB::statement("ALTER TABLE `biometric_att_logs` MODIFY COLUMN `punch_status` ENUM('processed', 'failed', 'duplicate', 'unknown_user', 'wrong_device', 'downloaded') NOT NULL DEFAULT 'processed'");
+        }
     }
 
     /**
@@ -21,7 +23,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revert punch_status ENUM
-        DB::statement("ALTER TABLE `biometric_att_logs` MODIFY COLUMN `punch_status` ENUM('processed', 'failed', 'duplicate', 'unknown_user', 'wrong_device') NOT NULL DEFAULT 'processed'");
+        if (DB::getDriverName() === 'mysql') {
+            // Revert punch_status ENUM
+            DB::statement("ALTER TABLE `biometric_att_logs` MODIFY COLUMN `punch_status` ENUM('processed', 'failed', 'duplicate', 'unknown_user', 'wrong_device') NOT NULL DEFAULT 'processed'");
+        }
     }
 };
