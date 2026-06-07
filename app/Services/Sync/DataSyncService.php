@@ -992,9 +992,19 @@ class DataSyncService
         }
 
         if ($userDesignationTitle === 'Supervision Engineer') {
-            $query->where('incharge', $user->id);
+            $query->where(function ($q) use ($user) {
+                $q->where('incharge', $user->id);
+                if ($user->report_to) {
+                    $q->orWhere('incharge', $user->report_to);
+                }
+            });
         } elseif (in_array($userDesignationTitle, ['Quality Control Inspector', 'Asst. Quality Control Inspector'])) {
-            $query->where('assigned', $user->id);
+            $query->where(function ($q) use ($user) {
+                $q->where('assigned', $user->id);
+                if ($user->report_to) {
+                    $q->orWhere('incharge', $user->report_to);
+                }
+            });
         } elseif ($user->hasRole('Employee')) {
             $query->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id)
