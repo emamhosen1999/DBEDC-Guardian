@@ -93,10 +93,13 @@ const EmployeesTab = ({ isActive }) => {
         ...filters
     });
 
-    const { data: statsData } = useEmployeesQuery.useEmployeeStats();
+    const { data: statsData, refetch: refetchStats } = useEmployeesQuery.useEmployeeStats();
+
+    /* ── local state ── */
+    const [employees, setEmployees] = useState([]);
+    const [totalRows, setTotalRows] = useState(0);
 
     /* ── Derived state ── */
-    const employees = employeesResponse?.data?.filter(e => !e.deleted_at) || [];
     const allManagers = employeesResponse?.allManagers || [];
     const stats = statsData?.stats || {
         overview: { total_employees: 0, active_employees: 0, inactive_employees: 0, total_departments: 0, total_designations: 0 },
@@ -104,7 +107,15 @@ const EmployeesTab = ({ isActive }) => {
         hiring_trends: { recent_hires: { last_30_days: 0, last_90_days: 0, last_year: 0 }, monthly_growth_rate: 0 },
         workforce_health: { status_ratio: { active_percentage: 0 }, retention_rate: 0, turnover_rate: 0 },
     };
-    const totalRows = employeesResponse?.total || 0;
+
+    /* ── Update local state and pagination when data changes ── */
+    useEffect(() => {
+        if (employeesResponse) {
+            setEmployees(employeesResponse.data?.filter(e => !e.deleted_at) || []);
+            setTotalRows(employeesResponse.total || 0);
+            setPagination(prev => ({ ...prev, total: employeesResponse.total || 0 }));
+        }
+    }, [employeesResponse]);
 
     /* ── Auto-refetch when filters or pagination changes ── */
     useEffect(() => {
@@ -121,12 +132,15 @@ const EmployeesTab = ({ isActive }) => {
 
     /* ── optimistic updates ── */
     const updateEmployeeOptimized = useCallback((id, fields) => {
-        // This would need to be handled by React Query cache updates
+        setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...fields } : e));
     }, []);
     const deleteEmployeeOptimized = useCallback((id) => {
-        // This would need to be handled by React Query cache updates
+        setEmployees(prev => prev.filter(e => e.id !== id));
+        setTotalRows(prev => Math.max(0, prev - 1));
+        setPagination(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+        refetchStats();
         refetch();
-    }, [refetch]);
+    }, [refetch, refetchStats]);
 
     const filteredDesignations = useMemo(() => {
         if (filters.department === 'all') return designations;
