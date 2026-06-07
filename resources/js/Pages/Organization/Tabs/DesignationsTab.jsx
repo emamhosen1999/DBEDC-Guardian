@@ -131,7 +131,7 @@ const DesignationsTab = ({ isActive }) => {
 
             {/* Data Table */}
             <Box>
-                {loading && designationsData.data.length === 0 ? (
+                {loading && !designationsData?.data ? (
                     <Flex justify="center" align="center" py="8" direction="column" gap="3">
                         <Spinner size="3" />
                         <Text color="gray">Loading designations...</Text>
