@@ -64,6 +64,22 @@ class DailyWorkPaginationService
 
         $query = $this->applyFilters($query, $search, $statusFilter, $inChargeFilter, $jurisdictionFilter, $startDate, $endDate);
 
+        // Practical comparison check for daily works visibility logs (Backend count before pagination)
+        $totalVisibleCount = (clone $query)->count();
+        $managerInchargeCount = $user->report_to ? (clone $query)->where('incharge', $user->report_to)->count() : 0;
+        $ownAssignedCount = (clone $query)->where('assigned', $user->id)->count();
+        $ownInchargeCount = (clone $query)->where('incharge', $user->id)->count();
+
+        Log::info('─── Backend Daily Works Visibility Check ───', [
+            'current_user' => $user->name,
+            'user_id' => $user->id,
+            'report_to' => $user->report_to,
+            'total_visible' => $totalVisibleCount,
+            'manager_incharge_count' => $managerInchargeCount,
+            'own_assigned_count' => $ownAssignedCount,
+            'own_incharge_count' => $ownInchargeCount,
+        ]);
+
         // Mobile mode detection: if perPage is very large (1000+), return all data without pagination
         if ($perPage >= 1000) {
             Log::info('Mobile mode: fetching all data without pagination', [
