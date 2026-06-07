@@ -55,9 +55,21 @@ class AttendanceQueryService
             ];
         })->values();
 
+        // Check if user is on leave today
+        $isUserOnLeave = false;
+        if (\Illuminate\Support\Facades\Schema::hasTable('leaves')) {
+            $isUserOnLeave = \App\Models\HRM\Leave::query()
+                ->where('user_id', $userId)
+                ->whereDate('from_date', '<=', Carbon::today())
+                ->whereDate('to_date', '>=', Carbon::today())
+                ->whereIn('status', ['Approved', 'approved'])
+                ->exists();
+        }
+
         return [
             'punches' => $punches,
             'total_production_time' => gmdate('H:i:s', $totalProductionTime),
+            'isUserOnLeave' => $isUserOnLeave,
         ];
     }
 

@@ -94,7 +94,29 @@ class MobileAttendanceApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.total_production_time', '03:00:00')
-            ->assertJsonCount(1, 'data.punches');
+            ->assertJsonCount(1, 'data.punches')
+            ->assertJsonPath('data.isUserOnLeave', false);
+    }
+
+    public function test_authenticated_user_today_summary_reflects_leave_status(): void
+    {
+        $user = User::factory()->create([
+            ]);
+
+        $leaveTypeId = $this->createLeaveType();
+        $this->insertLeaveForUser($user->id, $leaveTypeId, [
+            'from_date' => now()->toDateString(),
+            'to_date' => now()->toDateString(),
+            'status' => 'Approved',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->getJson('/api/v1/attendance/today');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.isUserOnLeave', true);
     }
 
     public function test_authenticated_user_can_punch_in_and_out_from_mobile_api(): void
