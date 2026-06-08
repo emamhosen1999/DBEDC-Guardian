@@ -16,9 +16,10 @@ import DepartmentsTab from './Tabs/DepartmentsTab';
 import DesignationsTab from './Tabs/DesignationsTab';
 import WorkLocationsTab from './Tabs/WorkLocationsTab';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import OrganizationOverview from './Components/OrganizationOverview';
 
 const OrganizationPage = ({ title }) => {
-    const { auth } = usePage().props;
+    const { auth, overviewStats } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isDesktop = useMediaQuery('(min-width: 1025px)');
 
@@ -80,16 +81,30 @@ const OrganizationPage = ({ title }) => {
                             </Flex>
                         </Box>
 
+                        <OrganizationOverview stats={overviewStats} />
+
                         <Separator size="4" mb="4" />
 
                         {/* ══ TABS ═══════════════════════════════════════ */}
                         <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-                            <Tabs.List style={{ marginBottom: 'var(--space-4)' }}>
+                            <Tabs.List 
+                                style={{ 
+                                    marginBottom: 'var(--space-4)',
+                                    overflowX: 'auto',
+                                    display: 'flex',
+                                    flexWrap: 'nowrap',
+                                    scrollbarWidth: 'none', // hide scrollbar Firefox
+                                    msOverflowStyle: 'none', // hide scrollbar IE/Edge
+                                }}
+                                className="hide-scrollbar"
+                            >
                                 {tabs.map(tab => (
                                     <Tabs.Trigger key={tab.value} value={tab.value}>
                                         <Flex align="center" gap="2">
                                             {tab.icon}
-                                            {!isMobile && tab.label}
+                                            <Text size="2" weight="medium" style={{ whiteSpace: 'nowrap' }}>
+                                                {tab.label}
+                                            </Text>
                                         </Flex>
                                     </Tabs.Trigger>
                                 ))}
@@ -135,6 +150,11 @@ const OrganizationPage = ({ title }) => {
                     </Card>
                 </Box>
             </Flex>
+            <style dangerouslySetInnerHTML={{__html: `
+                .hide-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+            `}} />
         </>
     );
 };

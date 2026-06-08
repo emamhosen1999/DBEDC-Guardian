@@ -60,7 +60,7 @@ export default function PendingTasksWidget({ permissions = [] }) {
                 )}
 
                 <Flex justify="end" mt="auto">
-                    <Link href={route('daily-works')} style={{ textDecoration: 'none' }}>
+                    <Link href={route('daily-works-unified')} style={{ textDecoration: 'none' }}>
                         <Flex align="center" gap="1" style={{ color: 'var(--accent-9)', cursor: 'pointer' }}>
                             <Text size="2" weight="medium">View Tasks</Text>
                             <DoubleArrowRightIcon />
