@@ -1,11 +1,12 @@
 {
      "private": true,
      "type": "module",
-     "version": "4.0.48",
+     "version": "4.0.49",
      "homepage": "http://erp.dhakabypass.com",
      "scripts": {
           "dev": "vite",
           "build": "npm run version:auto && vite build && npm run pwa:update",
+          "postbuild": "git add . && git commit -m \"build: auto commit and push\" && git push",
           "test": "vitest",
           "version:auto": "node tools/auto-version.js",
           "version:sync": "node tools/sync-version.js",

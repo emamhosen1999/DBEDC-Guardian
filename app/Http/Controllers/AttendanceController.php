@@ -537,6 +537,57 @@ class AttendanceController extends Controller
         }
     }
 
+    public function getDailyOverviewStats(Request $request): \Illuminate\Http\JsonResponse
+    {
+        try {
+            $date = $request->query('date', now()->toDateString());
+            $departmentId = $request->query('department_id') ? (int) $request->query('department_id') : null;
+
+            $totalEmployeesQuery = User::query()->whereHas('roles', function ($q) { $q->where('name', 'Employee'); });
+            if ($departmentId) {
+                $totalEmployeesQuery->where('department_id', $departmentId);
+            }
+            $totalEmployees = $totalEmployeesQuery->count();
+
+            $presentUsersIds = Attendance::whereDate('date', $date)
+                ->whereNotNull('punchin')
+                ->pluck('user_id')
+                ->unique();
+
+            $presentCount = $presentUsersIds->count();
+            
+            $lateCount = Attendance::whereDate('date', $date)
+                ->whereNotNull('punchin')
+                ->whereRaw('TIME(punchin) > "09:00:00"')
+                ->count();
+            
+            $onLeaveCount = 0;
+            if (\Illuminate\Support\Facades\Schema::hasTable('leaves')) {
+                $leaveUserColumn = \Illuminate\Support\Facades\Schema::hasColumn('leaves', 'user_id') ? 'user_id' : 'employee_id';
+                $onLeaveCount = \Illuminate\Support\Facades\DB::table('leaves')
+                    ->whereDate('from_date', '<=', $date)
+                    ->whereDate('to_date', '>=', $date)
+                    ->where('status', 'Approved')
+                    ->pluck($leaveUserColumn)
+                    ->unique()
+                    ->count();
+            }
+
+            $absentCount = max(0, $totalEmployees - $presentCount - $onLeaveCount);
+
+            return response()->json([
+                'present' => $presentCount,
+                'absent' => $absentCount,
+                'late' => $lateCount,
+                'on_leave' => $onLeaveCount,
+                'total' => $totalEmployees
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get daily overview stats: '.$e->getMessage());
+            return response()->json(['error' => 'Failed to calculate daily statistics.'], 500);
+        }
+    }
+
     public function checkForLocationUpdates($date)
     {
         return response()->json([
