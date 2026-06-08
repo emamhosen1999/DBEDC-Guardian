@@ -56,6 +56,13 @@ class OrganizationController extends Controller
             ->withCount(['users as employee_count'])
             ->paginate(10);
 
+        $overviewStats = [
+            'total_employees' => $activeUsers->count(),
+            'total_departments' => $departments->count(),
+            'total_designations' => $designations->count(),
+            'total_locations' => $attendanceTypes->count(),
+        ];
+
         return Inertia::render('Organization/OrganizationPage', [
             'title' => 'Organization Directory',
             
@@ -76,10 +83,13 @@ class OrganizationController extends Controller
             // Designation Tab specific
             'allDesignations' => $designations,
             'initialDesignations' => $initialDesignations,
-            'designationStats' => $designationStats, // If you need to separate it from department stats
+            'designationStats' => $designationStats,
             
             // Work Locations Tab specific
             'users' => $activeUsers, 
+            
+            // Page Overview Stats
+            'overviewStats' => $overviewStats,
         ]);
     }
 }
