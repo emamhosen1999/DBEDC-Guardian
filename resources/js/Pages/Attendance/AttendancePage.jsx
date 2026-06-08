@@ -14,6 +14,7 @@ import DailyTimesheetTab  from './DailyTimesheetTab';
 const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
 const SettingsTab        = lazy(() => import('./SettingsTab'));
 import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
+import AttendanceOverview from './Components/AttendanceOverview';
 
 /* ── optional: mark-as-present modals (keep your existing) ── */
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
@@ -133,6 +134,8 @@ const AttendancePage = ({ title, departments = [] }) => {
                             </Flex>
                         </Box>
 
+                        <AttendanceOverview date={selectedDate} />
+
                         <Separator size="4" mb="4" />
 
                         {/* ══ TABS ═══════════════════════════════════════ */}
@@ -143,13 +146,21 @@ const AttendancePage = ({ title, departments = [] }) => {
                             <Tabs.List
                                 style={{
                                     marginBottom: 'var(--space-4)',
+                                    overflowX: 'auto',
+                                    display: 'flex',
+                                    flexWrap: 'nowrap',
+                                    scrollbarWidth: 'none', // hide scrollbar Firefox
+                                    msOverflowStyle: 'none', // hide scrollbar IE/Edge
                                 }}
+                                className="hide-scrollbar"
                             >
                                 {tabs.map(tab => (
                                     <Tabs.Trigger key={tab.value} value={tab.value}>
                                         <Flex align="center" gap="2">
                                             {tab.icon}
-                                            {!isMobile && tab.label}
+                                            <Text size="2" weight="medium" style={{ whiteSpace: 'nowrap' }}>
+                                                {tab.label}
+                                            </Text>
                                         </Flex>
                                     </Tabs.Trigger>
                                 ))}
@@ -200,6 +211,11 @@ const AttendancePage = ({ title, departments = [] }) => {
                     </Card>
                 </Box>
             </Flex>
+            <style dangerouslySetInnerHTML={{__html: `
+                .hide-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+            `}} />
         </>
     );
 };
