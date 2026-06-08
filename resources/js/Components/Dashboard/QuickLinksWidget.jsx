@@ -38,8 +38,11 @@ const QuickLink = ({ href, icon: Icon, label, color }) => (
     </Link>
 );
 
+import { usePage } from '@inertiajs/react';
+
 export default function QuickLinksWidget({ permissions = [] }) {
     const has = (p) => permissions.includes(p);
+    const { auth } = usePage().props;
     
     return (
         <Card style={{ height: '100%' }}>
@@ -56,16 +59,16 @@ export default function QuickLinksWidget({ permissions = [] }) {
 
                 <Grid columns="2" gap="3" style={{ flex: 1 }}>
                     {has('attendance.own.view') && (
-                        <QuickLink href={route('attendance.employee')} icon={ClockIcon} label="My Attendance" color="blue" />
+                        <QuickLink href={route('attendance-employee')} icon={ClockIcon} label="My Attendance" color="blue" />
                     )}
                     {has('leave.own.view') && (
-                        <QuickLink href={route('leaves.employee')} icon={FileTextIcon} label="My Leaves" color="amber" />
+                        <QuickLink href={route('leaves-employee')} icon={FileTextIcon} label="My Leaves" color="amber" />
                     )}
                     {has('daily-works.own.view') && (
-                        <QuickLink href={route('daily-works')} icon={PersonIcon} label="My Tasks" color="green" />
+                        <QuickLink href={route('daily-works-unified')} icon={PersonIcon} label="My Tasks" color="green" />
                     )}
-                    {has('profile.view') && (
-                        <QuickLink href={route('profile.edit')} icon={PersonIcon} label="My Profile" color="purple" />
+                    {has('profile.own.view') && auth?.user?.id && (
+                        <QuickLink href={route('profile', { user: auth.user.id })} icon={PersonIcon} label="My Profile" color="purple" />
                     )}
                 </Grid>
             </Flex>
