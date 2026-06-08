@@ -174,7 +174,6 @@ const UpdatesCards = () => {
     const [users, setUsers] = useState([]);
     const [todayLeaves, setTodayLeaves] = useState([]);
     const [upcomingLeaves, setUpcomingLeaves] = useState([]);
-    const [upcomingHoliday, setUpcomingHoliday] = useState(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -194,7 +193,6 @@ const UpdatesCards = () => {
                     setUsers(response.data.users || []);
                     setTodayLeaves(response.data.todayLeaves || []);
                     setUpcomingLeaves(response.data.upcomingLeaves || []);
-                    setUpcomingHoliday(response.data.upcomingHoliday || null);
                 }
             } catch (err) {
                 if (isMounted && !controller.signal.aborted) {
@@ -203,7 +201,6 @@ const UpdatesCards = () => {
                     setUsers([]);
                     setTodayLeaves([]);
                     setUpcomingLeaves([]);
-                    setUpcomingHoliday(null);
                 }
             } finally {
                 if (isMounted) {
@@ -350,43 +347,6 @@ const UpdatesCards = () => {
                 ))}
             </Grid>
 
-            {upcomingHoliday && (
-                <Card>
-                    <Box pb="2" mb="2" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
-                        <Flex align="center" gap="3">
-                            <Box style={{
-                                padding: 10, borderRadius: 'var(--radius-3)',
-                                background: 'var(--amber-a3)', border: '1px solid var(--amber-a6)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                width: 40, height: 40, flexShrink: 0,
-                            }}>
-                                <SunIcon style={{ color: 'var(--amber-9)', width: 18, height: 18 }} />
-                            </Box>
-                            <Heading size="3">Upcoming Holiday</Heading>
-                        </Flex>
-                    </Box>
-                    <Flex direction="column" gap="1">
-                        <Flex align="center" gap="2">
-                            <InfoCircledIcon style={{ color: 'var(--gray-9)' }} />
-                            <Text size="2" weight="medium">{upcomingHoliday.title}</Text>
-                        </Flex>
-                        <Flex align="center" gap="2">
-                            <CalendarIcon style={{ color: 'var(--gray-9)' }} />
-                            <Text size="2" color="gray">
-                                {new Date(upcomingHoliday.from_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                                {' – '}
-                                {new Date(upcomingHoliday.to_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                            </Text>
-                        </Flex>
-                        {upcomingHoliday.description && (
-                            <Flex align="center" gap="2">
-                                <TextAlignLeftIcon style={{ color: 'var(--gray-9)' }} />
-                                <Text size="2" color="gray">{upcomingHoliday.description}</Text>
-                            </Flex>
-                        )}
-                    </Flex>
-                </Card>
-            )}
         </Box>
     );
 };

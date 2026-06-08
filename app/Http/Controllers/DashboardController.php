@@ -126,19 +126,20 @@ class DashboardController extends Controller
                 ->get();
         }
 
-        $upcomingHoliday = null;
+        $upcomingHolidays = [];
         if ($user->can('holidays.view')) {
-            $upcomingHoliday = DB::table('holidays')
+            $upcomingHolidays = DB::table('holidays')
                 ->whereDate('holidays.from_date', '>=', now())
                 ->orderBy('holidays.from_date', 'asc')
-                ->first();
+                ->limit(3)
+                ->get();
         }
 
         return response()->json([
             'users' => $users,
             'todayLeaves' => $todayLeaves,
             'upcomingLeaves' => $upcomingLeaves,
-            'upcomingHoliday' => $upcomingHoliday,
+            'upcomingHolidays' => $upcomingHolidays,
         ]);
     }
 }
