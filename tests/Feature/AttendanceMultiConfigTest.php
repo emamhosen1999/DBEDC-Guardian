@@ -413,5 +413,67 @@ class AttendanceMultiConfigTest extends TestCase
         // So this should fail
         $this->assertEquals('error', $result['status']);
     }
+
+    /**
+     * Test polygon validator with 0 points
+     */
+    public function test_polygon_validator_with_zero_points_returns_error(): void
+    {
+        $type = AttendanceType::factory()->create([
+            'name' => 'Test Polygon Zero Points',
+            'slug' => 'geo_polygon_zero_'.uniqid(),
+            'config' => [
+                'polygons' => [
+                    [
+                        'id' => 'polygon_1',
+                        'name' => 'Empty Zone',
+                        'points' => [],
+                        'is_active' => true,
+                    ],
+                ],
+                'validation_mode' => 'any',
+                'allow_without_location' => false,
+            ],
+        ]);
+
+        $request = Request::create('/punch', 'POST', [
+            'lat' => 23.05,
+            'lng' => 90.05,
+        ]);
+
+        $validator = new PolygonLocationValidator($type, $request);
+        $result = $validator->validate();
+
+        $this->assertEquals('error', $result['status']);
+        $this->assertStringContainsString('You are not within any allowed location boundary', $result['message']);
+    }
+
+    /**
+     * Test polygon validator with no polygons configured
+     */
+    public function test_polygon_validator_with_no_polygons_returns_error(): void
+    {
+        $type = AttendanceType::factory()->create([
+            'name' => 'Test No Polygons',
+            'slug' => 'geo_polygon_none_'.uniqid(),
+            'config' => [
+                'polygons' => [],
+                'validation_mode' => 'any',
+                'allow_without_location' => false,
+            ],
+        ]);
+
+        $request = Request::create('/punch', 'POST', [
+            'lat' => 23.05,
+            'lng' => 90.05,
+        ]);
+
+        $validator = new PolygonLocationValidator($type, $request);
+        $result = $validator->validate();
+
+        $this->assertEquals('error', $result['status']);
+        $this->assertStringContainsString('No polygon boundaries configured', $result['message']);
+    }
 }
+
 
