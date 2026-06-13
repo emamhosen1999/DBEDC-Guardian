@@ -1043,7 +1043,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-D2V6W0rM.js",
+    "file": "assets/js/AttendancePage-DZWSeNEV.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1131,7 +1131,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab-CGDzW3xS.js",
+    "file": "assets/js/SettingsTab-vDeAzR6D.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -1891,7 +1891,7 @@
     ]
   },
   "resources/js/Pages/Settings/AttendanceSettings.jsx": {
-    "file": "assets/js/AttendanceSettings-C3LfJVgh.js",
+    "file": "assets/js/AttendanceSettings-BitKWK9f.js",
     "name": "AttendanceSettings",
     "src": "resources/js/Pages/Settings/AttendanceSettings.jsx",
     "isDynamicEntry": true,
@@ -2038,7 +2038,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-DBNRNOMY.js",
+    "file": "assets/js/app-1NYjEFkf.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

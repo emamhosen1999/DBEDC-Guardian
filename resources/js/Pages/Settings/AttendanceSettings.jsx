@@ -311,6 +311,7 @@ const AttendanceSettings = () => {
     const updateAttendanceTypeMutation = useAttendanceQuery.useUpdateAttendanceType();
     const createAttendanceTypeMutation = useAttendanceQuery.useCreateAttendanceType();
     const deleteAttendanceTypeMutation = useAttendanceQuery.useDeleteAttendanceType();
+    const updateAttendanceSettings = useAttendanceQuery.useUpdateAttendanceSettings();
 
     // Dialog management
     const {
@@ -532,21 +533,18 @@ const AttendanceSettings = () => {
 
     // Handle settings update
     const handleSettingsUpdate = useCallback(async (formData) => {
-        
         try {
-            const response = await updateAttendanceSettings.mutateAsync(formData);
+            const data = await updateAttendanceSettings.mutateAsync(formData);
             
-            if (response.data.attendanceSettings) {
-                setSettings(response.data.attendanceSettings);
-                showToast.success(response.data.message || 'Settings updated successfully');
+            if (data.attendanceSettings) {
+                setSettings(data.attendanceSettings);
+                showToast.success(data.message || 'Settings updated successfully');
             }
         } catch (error) {
             console.error('Settings update error:', error);
             showToast.error(error.response?.data?.message || 'Failed to update settings');
-        } finally {
-            
         }
-    }, []);
+    }, [updateAttendanceSettings]);
 
     // Handle settings form submission
     const handleSettingsSubmit = useCallback((e) => {
@@ -1677,18 +1675,19 @@ const AttendanceSettings = () => {
                 </Dialog.Content>
             </Dialog>
 
-            {/* Waypoint Configuration Dialog */}
-            <Dialog 
+{/* Waypoint Configuration Dialog */}
+             <Dialog 
                 open={isWaypointModalOpen} 
                 onClose={() => {
                     setIsAddingWaypoint(false);
                     onWaypointModalClose();
                 }}
                 size="5xl"
-                scrollBehavior="inside"
+                scrollBehavior="outside"
                 radius={getThemeRadius()}
+                style={{ maxHeight: '90vh' }}
                 classNames={{
-                    base: "bg-content1",
+                    base: "bg-content1 max-h-[90vh]",
                     backdrop: "bg-black/50",
                     header: "border-b border-divider",
                     footer: "border-t border-divider",
@@ -1992,18 +1991,19 @@ const AttendanceSettings = () => {
                 </Dialog.Content>
             </Dialog>
 
-            {/* Polygon Configuration Dialog */}
-            <Dialog 
+{/* Polygon Configuration Dialog */}
+             <Dialog 
                 open={isPolygonModalOpen} 
                 onClose={() => {
                     setIsAddingPolygonPoint(false);
                     onPolygonModalClose();
                 }}
                 size="5xl"
-                scrollBehavior="inside"
+                scrollBehavior="outside"
                 radius={getThemeRadius()}
+                style={{ maxHeight: '90vh' }}
                 classNames={{
-                    base: "bg-content1",
+                    base: "bg-content1 max-h-[90vh]",
                     backdrop: "bg-black/50",
                     header: "border-b border-divider",
                     footer: "border-t border-divider",
