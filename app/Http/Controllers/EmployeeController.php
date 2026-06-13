@@ -355,15 +355,15 @@ class EmployeeController extends Controller
 
             // Apply filters
             if (! empty($department) && $department !== 'all') {
-                $query->where('department_id', $department);
+                $query->where('users.department_id', $department);
             }
 
             if (! empty($designation) && $designation !== 'all') {
-                $query->where('designation_id', $designation);
+                $query->where('users.designation_id', $designation);
             }
 
             if (! empty($attendanceType) && $attendanceType !== 'all') {
-                $query->where('attendance_type_id', $attendanceType);
+                $query->where('users.attendance_type_id', $attendanceType);
             }
 
             if (! empty($status) && $status !== 'all') {
