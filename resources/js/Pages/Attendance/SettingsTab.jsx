@@ -82,10 +82,10 @@ const Modal = ({ open, onClose, title, children, footer }) => {
                     </IconButton>
                 </Flex>
 
-                {/* body */}
-                <ScrollArea style={{ flex: 1 }}>
-                    <Box p="4">{children}</Box>
-                </ScrollArea>
+                {/* body - removed ScrollArea to fix Leaflet map rendering */}
+                <Box style={{ flex: 1, overflow: 'auto', minHeight: 0, padding: '16px' }}>
+                    {children}
+                </Box>
 
                 {/* footer */}
                 {footer && (
@@ -115,6 +115,13 @@ const WaypointModal = ({ open, onClose, type, onSave }) => {
     const [waypoints,  setWaypoints]  = useState(primaryRoute?.waypoints || []);
     const [picking,    setPicking]    = useState(false);
     const [isMutating,     setisMutating]     = useState(false);
+
+    // Sync waypoints when type changes
+    useEffect(() => {
+        const route = getPrimaryRoute(type?.config || {});
+        setWaypoints(route?.waypoints || []);
+        setTolerance(route?.tolerance || 150);
+    }, [type]);
     const mapCenter = waypoints[0]?.lat
         ? [parseFloat(waypoints[0].lat), parseFloat(waypoints[0].lng)]
         : [23.8103, 90.4125];
@@ -253,6 +260,12 @@ const PolygonModal = ({ open, onClose, type, onSave }) => {
     const [points,  setPoints]  = useState(primaryPoly?.points || []);
     const [picking, setPicking] = useState(false);
     const [isMutating,  setisMutating]  = useState(false);
+
+    // Sync points when type changes
+    useEffect(() => {
+        const poly = getPrimaryPolygon(type?.config || {});
+        setPoints(poly?.points || []);
+    }, [type]);
     const mapCenter = points[0]?.lat
         ? [parseFloat(points[0].lat), parseFloat(points[0].lng)]
         : [23.8103, 90.4125];
