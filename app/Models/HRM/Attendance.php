@@ -23,7 +23,7 @@ class Attendance extends Model implements HasMedia
     ];
 
     protected $casts = [
-        'date' => 'date',
+        'date' => 'date:Y-m-d',
         'punchin' => 'datetime',
         'punchout' => 'datetime',
     ];
