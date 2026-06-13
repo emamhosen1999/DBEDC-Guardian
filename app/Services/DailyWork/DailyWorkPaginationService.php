@@ -201,15 +201,19 @@ class DailyWorkPaginationService
                 'user_name' => $user->name,
                 'report_to' => $user->report_to,
             ]);
-            return $baseQuery->where(function ($q) use ($user) {
-                $q->where('incharge', $user->id)
-                    ->orWhere('assigned', $user->id);
-
+            
+            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            
+            if ($hasJurisdiction) {
+                return $baseQuery->where('incharge', $user->id);
+            } else {
                 if ($user->report_to) {
-                    $q->orWhere('incharge', $user->report_to);
+                    return $baseQuery->where('incharge', $user->report_to);
                 }
-            });
+                return $baseQuery->where('incharge', $user->id);
+            }
         }
+
 
         // For other roles (non-employee, non-admin) with a manager: apply report_to visibility
         if ($user->report_to) {
