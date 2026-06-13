@@ -417,26 +417,118 @@ const AttendanceSettings = () => {
         return grouped;
     }, [filteredTypes, getBaseSlug]);
 
+    const normalizePoints = useCallback((points) => {
+        if (!Array.isArray(points)) return [];
+        return points.map(p => {
+            if (Array.isArray(p) && p.length >= 2) {
+                return { lat: parseFloat(p[0]), lng: parseFloat(p[1]) };
+            }
+            if (p && typeof p === 'object') {
+                return {
+                    lat: parseFloat(p.lat ?? p.latitude ?? 0),
+                    lng: parseFloat(p.lng ?? p.longitude ?? 0)
+                };
+            }
+            return null;
+        }).filter(Boolean);
+    }, []);
+
     const getPrimaryIpLocationConfig = useCallback((config = {}) => {
-        const ipLocations = Array.isArray(config.ip_locations) ? config.ip_locations : [];
+        let parsedConfig = config;
+        if (typeof config === 'string') {
+            try {
+                parsedConfig = JSON.parse(config);
+            } catch (e) {
+                parsedConfig = {};
+            }
+        }
+        const ipLocations = Array.isArray(parsedConfig?.ip_locations) ? parsedConfig.ip_locations : [];
         const activeLocation = ipLocations.find((location) => location?.is_active !== false);
 
-        return activeLocation || ipLocations[0] || null;
+        if (activeLocation) return activeLocation;
+        if (ipLocations[0]) return ipLocations[0];
+
+        // Legacy format fallback
+        if ((Array.isArray(parsedConfig?.allowed_ips) && parsedConfig.allowed_ips.length > 0) ||
+            (Array.isArray(parsedConfig?.allowed_ranges) && parsedConfig.allowed_ranges.length > 0)) {
+            return {
+                id: 'office_legacy',
+                name: 'Primary Office',
+                allowed_ips: parsedConfig.allowed_ips || [],
+                allowed_ranges: parsedConfig.allowed_ranges || [],
+                is_active: true
+            };
+        }
+
+        return null;
     }, []);
 
     const getPrimaryRouteConfig = useCallback((config = {}) => {
-        const routes = Array.isArray(config.routes) ? config.routes : [];
+        let parsedConfig = config;
+        if (typeof config === 'string') {
+            try {
+                parsedConfig = JSON.parse(config);
+            } catch (e) {
+                parsedConfig = {};
+            }
+        }
+        const routes = Array.isArray(parsedConfig?.routes) ? parsedConfig.routes : [];
         const activeRoute = routes.find((route) => route?.is_active !== false);
+        const chosenRoute = activeRoute || routes[0] || null;
 
-        return activeRoute || routes[0] || null;
-    }, []);
+        if (chosenRoute) {
+            return {
+                ...chosenRoute,
+                waypoints: normalizePoints(chosenRoute.waypoints)
+            };
+        }
+
+        // Legacy format fallback
+        if (Array.isArray(parsedConfig?.waypoints) && parsedConfig.waypoints.length > 0) {
+            return {
+                id: 'route_legacy',
+                name: 'Primary Route',
+                waypoints: normalizePoints(parsedConfig.waypoints),
+                tolerance: parsedConfig.tolerance || 150,
+                is_active: true
+            };
+        }
+
+        return null;
+    }, [normalizePoints]);
 
     const getPrimaryPolygonConfig = useCallback((config = {}) => {
-        const polygons = Array.isArray(config.polygons) ? config.polygons : [];
+        let parsedConfig = config;
+        if (typeof config === 'string') {
+            try {
+                parsedConfig = JSON.parse(config);
+            } catch (e) {
+                parsedConfig = {};
+            }
+        }
+        const polygons = Array.isArray(parsedConfig?.polygons) ? parsedConfig.polygons : [];
         const activePolygon = polygons.find((polygon) => polygon?.is_active !== false);
+        const chosenPolygon = activePolygon || polygons[0] || null;
 
-        return activePolygon || polygons[0] || null;
-    }, []);
+        if (chosenPolygon) {
+            return {
+                ...chosenPolygon,
+                points: normalizePoints(chosenPolygon.points)
+            };
+        }
+
+        // Legacy format fallback
+        if (Array.isArray(parsedConfig?.polygon) && parsedConfig.polygon.length > 0) {
+            return {
+                id: 'polygon_legacy',
+                name: 'Primary Location',
+                points: normalizePoints(parsedConfig.polygon),
+                is_active: true
+            };
+        }
+
+        return null;
+    }, [normalizePoints]);
 
     // Handle settings update
     const handleSettingsUpdate = useCallback(async (formData) => {
