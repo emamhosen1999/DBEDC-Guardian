@@ -846,27 +846,26 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
         </Card>
       </div>
 
-      <Dialog open={resetModal.isOpen} onClose={resetModal.onClose} size="lg">
-        <Dialog.Content>
-          <Dialog.Title className="flex items-center gap-2">
+      <Dialog.Root open={resetModal.isOpen} onOpenChange={open => { if (!open) resetModal.onClose(); }}>
+        <Dialog.Content style={{ maxWidth: 500 }}>
+          <Dialog.Title className="flex items-center gap-2 mb-3">
             <ExclamationTriangleIcon className="h-5 w-5 text-danger" />
             Reset All User Devices
           </Dialog.Title>
-          <Box>
-            <p className="text-sm text-default-600">
+          <Box mb="4">
+            <p className="text-sm text-default-600 mb-3">
               This will deactivate all devices for this user. On next login, a new device can be registered.
             </p>
-            <Textarea
-              label="Reset reason"
+            <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Reset Reason (Optional)</Text>
+            <TextArea
               placeholder="Optional reason shown in user device history"
               value={resetReason}
-              onValueChange={setResetReason}
+              onChange={e => setResetReason(e.target.value)}
               maxLength={255}
-              variant="outline"
-              minRows={3}
+              rows={3}
             />
           </Box>
-          <Flex>
+          <Flex gap="3" justify="end">
             <Button variant="outline" onClick={resetModal.onClose} disabled={processing.reset}>
               Cancel
             </Button>
@@ -880,26 +879,26 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             </Button>
           </Flex>
         </Dialog.Content>
-      </Dialog>
+      </Dialog.Root>
 
-      <Dialog open={deactivateModal.isOpen} onClose={deactivateModal.onClose} size="md">
-        <Dialog.Content>
-          <Dialog.Title className="flex items-center gap-2">
+      <Dialog.Root open={deactivateModal.isOpen} onOpenChange={open => { if (!open) deactivateModal.onClose(); }}>
+        <Dialog.Content style={{ maxWidth: 450 }}>
+          <Dialog.Title className="flex items-center gap-2 mb-3">
             <TrashIcon className="h-5 w-5 text-danger" />
             Deactivate Device
           </Dialog.Title>
-          <Box>
+          <Box mb="4">
             <p className="text-sm text-default-600">
               Are you sure you want to deactivate
               {' '}
               <span className="font-semibold">{getSafeText(deviceToDeactivate?.device_name, 'this device')}</span>
               ?
             </p>
-            <p className="text-xs text-default-500">
+            <p className="text-xs text-default-500 mt-1">
               Device ID: {getSafeText(deviceToDeactivate?.device_id)}
             </p>
           </Box>
-          <Flex>
+          <Flex gap="3" justify="end">
             <Button variant="outline" onClick={deactivateModal.onClose} disabled={processing.deactivateId !== null}>
               Cancel
             </Button>
@@ -912,16 +911,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             </Button>
           </Flex>
         </Dialog.Content>
-      </Dialog>
+      </Dialog.Root>
 
-      <Dialog
+      <Dialog.Root
         open={detailsModal.isOpen}
-        onClose={detailsModal.onClose}
-        size="2xl"
-        scrollBehavior="inside"
+        onOpenChange={open => { if (!open) detailsModal.onClose(); }}
       >
-        <Dialog.Content>
-          <Dialog.Title>Device Details</Dialog.Title>
+        <Dialog.Content style={{ maxWidth: 650 }}>
+          <Dialog.Title className="mb-4">Device Details</Dialog.Title>
           <Box>
             {selectedDevice && (
               <div className="space-y-4 text-sm">
@@ -998,13 +995,13 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               </div>
             )}
           </Box>
-          <Flex>
+          <Flex gap="3" justify="end" mt="4">
             <Button color="primary" variant="soft" onClick={detailsModal.onClose}>
               Close
             </Button>
           </Flex>
         </Dialog.Content>
-      </Dialog>
+      </Dialog.Root>
       </ErrorBoundary>
     </App>
   );
