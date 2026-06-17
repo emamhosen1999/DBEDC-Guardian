@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api;
 
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class AttendanceResource extends JsonResource
@@ -9,8 +10,7 @@ class AttendanceResource extends JsonResource
     /**
      * Transform the resource into an array
      *
-     * @param \Illuminate\Http\Request $request
-     * @return array
+     * @param  Request  $request
      */
     public function toArray($request): array
     {
@@ -25,6 +25,7 @@ class AttendanceResource extends JsonResource
             'is_late' => (bool) $this->is_late,
             'duration' => $this->when($this->punchin && $this->punchout, function () {
                 $duration = $this->punchin->diffInSeconds($this->punchout);
+
                 return gmdate('H:i:s', $duration);
             }),
             'punchin_photo_url' => $this->punchin_photo_url,

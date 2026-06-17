@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Responses\ApiResponse;
-use App\Traits\HandlesApiExceptions;
 use App\Services\Role\RolePermissionService;
+use App\Traits\HandlesApiExceptions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Permission Controller
@@ -118,7 +119,7 @@ class PermissionController extends Controller
                 'guard_name' => $request->guard_name ?? 'web',
             ]);
 
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::info('Permission created', [
                 'permission_id' => $permission->id,
@@ -201,7 +202,7 @@ class PermissionController extends Controller
             $permission->name = $request->name;
             $permission->save();
 
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::info('Permission updated', [
                 'permission_id' => $permission->id,
@@ -253,7 +254,7 @@ class PermissionController extends Controller
             $permissionName = $permission->name;
             $permission->delete();
 
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::warning('Permission deleted', [
                 'permission_name' => $permissionName,
@@ -299,7 +300,7 @@ class PermissionController extends Controller
 
             $permission->syncRoles($request->roles);
 
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             Log::info('Permission roles synced', [
                 'permission_id' => $permission->id,

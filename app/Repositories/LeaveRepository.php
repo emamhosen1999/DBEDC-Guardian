@@ -11,8 +11,6 @@ class LeaveRepository extends BaseRepository
 {
     /**
      * Create a new repository instance
-     *
-     * @param Leave $model
      */
     public function __construct(Leave $model)
     {
@@ -21,10 +19,6 @@ class LeaveRepository extends BaseRepository
 
     /**
      * Apply filters to query
-     *
-     * @param Builder $query
-     * @param array $filters
-     * @return Builder
      */
     public function applyFilters(Builder $query, array $filters): Builder
     {
@@ -55,7 +49,7 @@ class LeaveRepository extends BaseRepository
         // Filter by specific date (leaves that overlap with this date)
         if (isset($filters['date'])) {
             $query->where('from_date', '<=', $filters['date'])
-                  ->where('to_date', '>=', $filters['date']);
+                ->where('to_date', '>=', $filters['date']);
         }
 
         // Filter by department
@@ -105,77 +99,61 @@ class LeaveRepository extends BaseRepository
 
     /**
      * Get leaves for a specific user
-     *
-     * @param int $userId
-     * @param array $filters
-     * @return Collection
      */
     public function getUserLeaves(int $userId, array $filters = []): Collection
     {
         $filters['user_id'] = $userId;
+
         return $this->all($filters);
     }
 
     /**
      * Get leaves for a specific date range
      *
-     * @param string|Carbon $fromDate
-     * @param string|Carbon $toDate
-     * @param array $filters
-     * @return Collection
+     * @param  string|Carbon  $fromDate
+     * @param  string|Carbon  $toDate
      */
     public function getLeavesForDateRange($fromDate, $toDate, array $filters = []): Collection
     {
         $filters['from_date'] = $fromDate;
         $filters['to_date'] = $toDate;
+
         return $this->all($filters);
     }
 
     /**
      * Get leaves pending approval
-     *
-     * @param array $filters
-     * @return Collection
      */
     public function getPendingLeaves(array $filters = []): Collection
     {
         $filters['status'] = 'pending';
+
         return $this->all($filters);
     }
 
     /**
      * Get leaves approved
-     *
-     * @param array $filters
-     * @return Collection
      */
     public function getApprovedLeaves(array $filters = []): Collection
     {
         $filters['status'] = 'approved';
+
         return $this->all($filters);
     }
 
     /**
      * Get leaves for a specific month
-     *
-     * @param int $month
-     * @param int $year
-     * @param array $filters
-     * @return Collection
      */
     public function getMonthlyLeaves(int $month, int $year, array $filters = []): Collection
     {
         $filters['month'] = $month;
         $filters['year'] = $year;
+
         return $this->all($filters);
     }
 
     /**
      * Get leave summary for a user
-     *
-     * @param int $userId
-     * @param int $year
-     * @return array
      */
     public function getUserLeaveSummary(int $userId, int $year): array
     {
@@ -205,9 +183,7 @@ class LeaveRepository extends BaseRepository
     /**
      * Check if user has leave on a specific date
      *
-     * @param int $userId
-     * @param string|Carbon $date
-     * @return bool
+     * @param  string|Carbon  $date
      */
     public function hasLeaveOnDate(int $userId, $date): bool
     {
@@ -221,9 +197,6 @@ class LeaveRepository extends BaseRepository
 
     /**
      * Get leave analytics
-     *
-     * @param array $filters
-     * @return array
      */
     public function getLeaveAnalytics(array $filters = []): array
     {
@@ -245,11 +218,6 @@ class LeaveRepository extends BaseRepository
 
     /**
      * Get leave calendar data
-     *
-     * @param int $month
-     * @param int $year
-     * @param array $filters
-     * @return Collection
      */
     public function getLeaveCalendar(int $month, int $year, array $filters = []): Collection
     {
@@ -268,27 +236,21 @@ class LeaveRepository extends BaseRepository
 
     /**
      * Update leave status
-     *
-     * @param int $leaveId
-     * @param string $status
-     * @return Leave
      */
     public function updateStatus(int $leaveId, string $status): Leave
     {
         $leave = $this->findOrFail($leaveId);
         $leave->status = $status;
         $leave->save();
+
         return $leave->fresh();
     }
 
     /**
      * Get overlapping leaves for a user
      *
-     * @param int $userId
-     * @param string|Carbon $fromDate
-     * @param string|Carbon $toDate
-     * @param int|null $excludeLeaveId
-     * @return Collection
+     * @param  string|Carbon  $fromDate
+     * @param  string|Carbon  $toDate
      */
     public function getOverlappingLeaves(int $userId, $fromDate, $toDate, ?int $excludeLeaveId = null): Collection
     {
@@ -296,11 +258,11 @@ class LeaveRepository extends BaseRepository
             ->where('user_id', $userId)
             ->where(function ($q) use ($fromDate, $toDate) {
                 $q->whereBetween('from_date', [$fromDate, $toDate])
-                  ->orWhereBetween('to_date', [$fromDate, $toDate])
-                  ->orWhere(function ($q2) use ($fromDate, $toDate) {
-                      $q2->where('from_date', '<=', $fromDate)
-                         ->where('to_date', '>=', $toDate);
-                  });
+                    ->orWhereBetween('to_date', [$fromDate, $toDate])
+                    ->orWhere(function ($q2) use ($fromDate, $toDate) {
+                        $q2->where('from_date', '<=', $fromDate)
+                            ->where('to_date', '>=', $toDate);
+                    });
             });
 
         if ($excludeLeaveId) {

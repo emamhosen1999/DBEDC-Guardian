@@ -7,9 +7,10 @@ use App\Models\HRM\Designation;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class DesignationController extends Controller
 {
@@ -25,7 +26,7 @@ class DesignationController extends Controller
     /**
      * Render the Designations page with dropdown data and stats.
      */
-    public function index(Request $request): \Inertia\Response
+    public function index(Request $request): Response
     {
         $managers = User::whereHas('roles', function ($q) {
             $q->where('name', 'like', '%Manager%')

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\LeaveApprovalNotification;
 use App\Notifications\LeaveApprovedNotification;
 use App\Notifications\LeaveRejectedNotification;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -119,6 +120,7 @@ class LeaveApprovalService
                 Log::info("Leave #{$leave->id} auto-approved - no approvers in chain");
 
                 DB::commit();
+
                 return true;
             }
 
@@ -395,7 +397,7 @@ class LeaveApprovalService
     /**
      * Get leaves pending approval for a user
      */
-    public function getPendingApprovalsForUser(User $user): \Illuminate\Database\Eloquent\Collection
+    public function getPendingApprovalsForUser(User $user): Collection
     {
         return Leave::where('status', 'pending')
             ->whereNotNull('approval_chain')

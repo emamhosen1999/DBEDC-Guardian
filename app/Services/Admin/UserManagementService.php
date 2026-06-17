@@ -27,8 +27,8 @@ class UserManagementService
     public function getEmployeeListPageData(): array
     {
         return [
-            'departments'     => Department::all(),
-            'designations'    => Designation::all(),
+            'departments' => Department::all(),
+            'designations' => Designation::all(),
             'attendanceTypes' => AttendanceType::where('is_active', true)->get(),
         ];
     }
@@ -40,22 +40,22 @@ class UserManagementService
     {
         return [
             // Users panel
-            'roles'                => Role::with('permissions')->get(),
-            'departments'          => Department::all(),
-            'designations'         => Designation::with('department')->orderBy('hierarchy_level', 'asc')->get(),
+            'roles' => Role::with('permissions')->get(),
+            'departments' => Department::all(),
+            'designations' => Designation::with('department')->orderBy('hierarchy_level', 'asc')->get(),
 
             // Roles & Permissions panel
-            'permissions'          => Permission::all(),
+            'permissions' => Permission::all(),
             'role_has_permissions' => DB::table('role_has_permissions')->get(),
-            'permissionsGrouped'   => Permission::all()->groupBy('module')
+            'permissionsGrouped' => Permission::all()->groupBy('module')
                 ->map(fn ($perms, $module) => [
-                    'label'       => $module,
+                    'label' => $module,
                     'permissions' => $perms->values(),
                 ]),
 
             // Biometric panel
-            'devices'         => BiometricDevice::all(),
-            'employees'       => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->get(),
+            'devices' => BiometricDevice::all(),
+            'employees' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->get(),
             'attendanceTypes' => AttendanceType::where('is_active', true)->select('id', 'name', 'slug')->get(),
         ];
     }
@@ -67,7 +67,7 @@ class UserManagementService
     /**
      * Create a new user from validated data.
      *
-     * @return User  The freshly created (and eagerly-loaded) user.
+     * @return User The freshly created (and eagerly-loaded) user.
      */
     public function createUser(array $validated, ?array $roles, $profileImage = null): User
     {
@@ -104,7 +104,7 @@ class UserManagementService
     /**
      * Update an existing user from validated data.
      *
-     * @return User  The freshly loaded user.
+     * @return User The freshly loaded user.
      */
     public function updateUser(int $id, array $validated, ?array $roles, bool $hasRoles, $profileImage = null): User
     {
@@ -277,9 +277,9 @@ class UserManagementService
         $device = $deviceId ? BiometricDevice::find($deviceId) : null;
 
         return [
-            'success'               => true,
-            'message'               => $device ? "Assigned to {$device->name}." : 'Device assignment cleared.',
-            'biometric_device_id'   => $deviceId,
+            'success' => true,
+            'message' => $device ? "Assigned to {$device->name}." : 'Device assignment cleared.',
+            'biometric_device_id' => $deviceId,
             'biometric_device_name' => $device?->name,
         ];
     }
@@ -293,11 +293,11 @@ class UserManagementService
      */
     public function paginateUsers(array $filters): array
     {
-        $perPage    = $filters['perPage'] ?? 20;
-        $page       = $filters['page'] ?? 1;
-        $search     = $filters['search'] ?? null;
-        $role       = $filters['role'] ?? null;
-        $status     = $filters['status'] ?? null;
+        $perPage = $filters['perPage'] ?? 20;
+        $page = $filters['page'] ?? 1;
+        $search = $filters['search'] ?? null;
+        $role = $filters['role'] ?? null;
+        $status = $filters['status'] ?? null;
         $department = $filters['department'] ?? null;
 
         $query = User::withTrashed()
@@ -341,8 +341,8 @@ class UserManagementService
             'users' => $users,
             'stats' => [
                 'overview' => [
-                    'total_users'    => (clone $statsQuery)->count(),
-                    'active_users'   => (clone $statsQuery)->whereNull('deleted_at')->count(),
+                    'total_users' => (clone $statsQuery)->count(),
+                    'active_users' => (clone $statsQuery)->whereNull('deleted_at')->count(),
                     'inactive_users' => (clone $statsQuery)->whereNotNull('deleted_at')->count(),
                 ],
             ],
@@ -354,11 +354,11 @@ class UserManagementService
      */
     public function paginateEmployees(array $filters): array
     {
-        $perPage        = $filters['perPage'] ?? 20;
-        $page           = $filters['page'] ?? 1;
-        $search         = $filters['search'] ?? '';
-        $department     = $filters['department'] ?? null;
-        $designation    = $filters['designation'] ?? null;
+        $perPage = $filters['perPage'] ?? 20;
+        $page = $filters['page'] ?? 1;
+        $search = $filters['search'] ?? '';
+        $department = $filters['department'] ?? null;
+        $designation = $filters['designation'] ?? null;
         $attendanceType = $filters['attendanceType'] ?? null;
 
         $query = User::with(['department', 'designation', 'attendanceType', 'media']);
@@ -390,24 +390,24 @@ class UserManagementService
 
         $transformedEmployees = $employees->map(function ($employee) {
             return [
-                'id'                          => $employee->id,
-                'name'                        => $employee->name,
-                'email'                       => $employee->email,
-                'phone'                       => $employee->phone,
-                'employee_id'                 => $employee->employee_id,
-                'profile_image_url'           => $employee->profile_image_url,
-                'deleted_at'                  => $employee->deleted_at,
-                'department_id'               => $employee->department_id,
-                'department_name'             => $employee->department?->name,
-                'designation_id'              => $employee->designation_id,
-                'designation_name'            => $employee->designation?->title,
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'phone' => $employee->phone,
+                'employee_id' => $employee->employee_id,
+                'profile_image_url' => $employee->profile_image_url,
+                'deleted_at' => $employee->deleted_at,
+                'department_id' => $employee->department_id,
+                'department_name' => $employee->department?->name,
+                'designation_id' => $employee->designation_id,
+                'designation_name' => $employee->designation?->title,
                 'designation_hierarchy_level' => $employee->designation?->hierarchy_level,
-                'attendance_type_id'          => $employee->attendance_type_id,
-                'attendance_type_name'        => $employee->attendanceType?->name,
-                'report_to'                   => $employee->report_to,
-                'reports_to'                  => $employee->reportsTo ? [
-                    'id'               => $employee->reportsTo->id,
-                    'name'             => $employee->reportsTo->name,
+                'attendance_type_id' => $employee->attendance_type_id,
+                'attendance_type_name' => $employee->attendanceType?->name,
+                'report_to' => $employee->report_to,
+                'reports_to' => $employee->reportsTo ? [
+                    'id' => $employee->reportsTo->id,
+                    'name' => $employee->reportsTo->name,
                     'profile_image_url' => $employee->reportsTo->profile_image_url,
                     'designation_name' => $employee->reportsTo->designation?->title,
                 ] : null,
@@ -419,10 +419,10 @@ class UserManagementService
         $employees->setCollection($transformedEmployees);
 
         $stats = [
-            'total'        => User::withTrashed()->count(),
-            'active'       => User::whereNull('deleted_at')->count(),
-            'inactive'     => User::onlyTrashed()->count(),
-            'departments'  => Department::count(),
+            'total' => User::withTrashed()->count(),
+            'active' => User::whereNull('deleted_at')->count(),
+            'inactive' => User::onlyTrashed()->count(),
+            'departments' => Department::count(),
             'designations' => Designation::count(),
         ];
 
@@ -431,20 +431,20 @@ class UserManagementService
             ->get()
             ->map(function ($user) {
                 return [
-                    'id'                          => $user->id,
-                    'name'                        => $user->name,
-                    'profile_image_url'           => $user->profile_image_url,
-                    'department_id'               => $user->department_id,
-                    'department_name'             => $user->department?->name,
-                    'designation_id'              => $user->designation_id,
-                    'designation_name'            => $user->designation?->title,
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'profile_image_url' => $user->profile_image_url,
+                    'department_id' => $user->department_id,
+                    'department_name' => $user->department?->name,
+                    'designation_id' => $user->designation_id,
+                    'designation_name' => $user->designation?->title,
                     'designation_hierarchy_level' => $user->designation?->hierarchy_level ?? 999,
                 ];
             });
 
         return [
-            'employees'   => $employees,
-            'stats'       => $stats,
+            'employees' => $employees,
+            'stats' => $stats,
             'allManagers' => $allManagers,
         ];
     }
@@ -458,23 +458,23 @@ class UserManagementService
      */
     public function getUserStats(): array
     {
-        $totalUsers   = User::withTrashed()->count();
-        $activeUsers  = User::whereNull('deleted_at')->count();
+        $totalUsers = User::withTrashed()->count();
+        $activeUsers = User::whereNull('deleted_at')->count();
         $inactiveUsers = User::onlyTrashed()->count();
 
-        $roleCount     = Role::count();
+        $roleCount = Role::count();
         $rolesWithUsers = Role::withCount('users')->get()->map(function ($role) use ($totalUsers) {
             return [
-                'name'       => $role->name,
-                'count'      => $role->users_count,
+                'name' => $role->name,
+                'count' => $role->users_count,
                 'percentage' => $totalUsers > 0 ? round(($role->users_count / $totalUsers) * 100, 1) : 0,
             ];
         });
 
         $departmentStats = Department::withCount('users')->get()->map(function ($dept) use ($totalUsers) {
             return [
-                'name'       => $dept->name,
-                'count'      => $dept->users_count,
+                'name' => $dept->name,
+                'count' => $dept->users_count,
                 'percentage' => $totalUsers > 0 ? round(($dept->users_count / $totalUsers) * 100, 1) : 0,
             ];
         });
@@ -483,68 +483,68 @@ class UserManagementService
         $recentActivity = [
             'new_users_30_days' => User::where('created_at', '>=', $now->copy()->subDays(30))->count(),
             'new_users_90_days' => User::where('created_at', '>=', $now->copy()->subDays(90))->count(),
-            'new_users_year'    => User::where('created_at', '>=', $now->copy()->subYear())->count(),
-            'recently_active'   => User::where('updated_at', '>=', $now->copy()->subDays(7))->count(),
+            'new_users_year' => User::where('created_at', '>=', $now->copy()->subYear())->count(),
+            'recently_active' => User::where('updated_at', '>=', $now->copy()->subDays(7))->count(),
         ];
 
         $statusRatio = [
-            'active_percentage'   => $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 1) : 0,
+            'active_percentage' => $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 1) : 0,
             'inactive_percentage' => $totalUsers > 0 ? round(($inactiveUsers / $totalUsers) * 100, 1) : 0,
         ];
 
         $previousMonthUsers = User::withTrashed()->where('created_at', '<', $now->copy()->startOfMonth())->count();
-        $currentMonthUsers  = User::withTrashed()->where('created_at', '>=', $now->copy()->startOfMonth())->count();
-        $userGrowthRate     = $previousMonthUsers > 0 ? round((($currentMonthUsers / $previousMonthUsers) * 100), 1) : 0;
+        $currentMonthUsers = User::withTrashed()->where('created_at', '>=', $now->copy()->startOfMonth())->count();
+        $userGrowthRate = $previousMonthUsers > 0 ? round((($currentMonthUsers / $previousMonthUsers) * 100), 1) : 0;
 
         $securityMetrics = [
-            'users_with_roles'    => User::whereHas('roles')->count(),
+            'users_with_roles' => User::whereHas('roles')->count(),
             'users_without_roles' => User::whereDoesntHave('roles')->count(),
-            'admin_users'         => User::whereHas('roles', fn ($q) => $q->where('name', 'like', '%admin%'))->count(),
-            'regular_users'       => User::whereHas('roles', fn ($q) => $q->where('name', 'not like', '%admin%'))->count(),
+            'admin_users' => User::whereHas('roles', fn ($q) => $q->where('name', 'like', '%admin%'))->count(),
+            'regular_users' => User::whereHas('roles', fn ($q) => $q->where('name', 'not like', '%admin%'))->count(),
         ];
 
         $systemHealth = [
             'user_activation_rate' => $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 1) : 0,
-            'role_coverage'        => $totalUsers > 0 ? round(($securityMetrics['users_with_roles'] / $totalUsers) * 100, 1) : 0,
-            'department_coverage'  => $totalUsers > 0 ? round((User::whereNotNull('department_id')->count() / $totalUsers) * 100, 1) : 0,
+            'role_coverage' => $totalUsers > 0 ? round(($securityMetrics['users_with_roles'] / $totalUsers) * 100, 1) : 0,
+            'department_coverage' => $totalUsers > 0 ? round((User::whereNotNull('department_id')->count() / $totalUsers) * 100, 1) : 0,
         ];
 
         return [
             'overview' => [
-                'total_users'       => $totalUsers,
-                'active_users'      => $activeUsers,
-                'inactive_users'    => $inactiveUsers,
-                'total_roles'       => $roleCount,
+                'total_users' => $totalUsers,
+                'active_users' => $activeUsers,
+                'inactive_users' => $inactiveUsers,
+                'total_roles' => $roleCount,
                 'total_departments' => Department::count(),
             ],
             'distribution' => [
-                'by_role'       => $rolesWithUsers,
+                'by_role' => $rolesWithUsers,
                 'by_department' => $departmentStats,
-                'by_status'     => [
+                'by_status' => [
                     ['name' => 'Active', 'count' => $activeUsers, 'percentage' => $statusRatio['active_percentage']],
                     ['name' => 'Inactive', 'count' => $inactiveUsers, 'percentage' => $statusRatio['inactive_percentage']],
                 ],
             ],
             'activity' => [
-                'recent_registrations'        => $recentActivity,
-                'user_growth_rate'            => $userGrowthRate,
+                'recent_registrations' => $recentActivity,
+                'user_growth_rate' => $userGrowthRate,
                 'current_month_registrations' => $currentMonthUsers,
             ],
             'security' => [
-                'access_metrics'    => $securityMetrics,
+                'access_metrics' => $securityMetrics,
                 'role_distribution' => $rolesWithUsers,
             ],
             'health' => [
-                'status_ratio'   => $statusRatio,
+                'status_ratio' => $statusRatio,
                 'system_metrics' => $systemHealth,
             ],
             'quick_metrics' => [
-                'total_users'          => $totalUsers,
-                'active_ratio'         => $statusRatio['active_percentage'],
-                'role_diversity'       => $roleCount,
+                'total_users' => $totalUsers,
+                'active_ratio' => $statusRatio['active_percentage'],
+                'role_diversity' => $roleCount,
                 'department_diversity' => Department::count(),
-                'recent_activity'      => $recentActivity['new_users_30_days'],
-                'system_health_score'  => round(($systemHealth['user_activation_rate'] + $systemHealth['role_coverage'] + $systemHealth['department_coverage']) / 3, 1),
+                'recent_activity' => $recentActivity['new_users_30_days'],
+                'system_health_score' => round(($systemHealth['user_activation_rate'] + $systemHealth['role_coverage'] + $systemHealth['department_coverage']) / 3, 1),
             ],
         ];
     }
@@ -554,11 +554,11 @@ class UserManagementService
      */
     public function getEmployeeStats(): array
     {
-        $totalEmployees    = User::count();
-        $activeEmployees   = User::whereNull('deleted_at')->count();
+        $totalEmployees = User::count();
+        $activeEmployees = User::whereNull('deleted_at')->count();
         $inactiveEmployees = User::whereNotNull('deleted_at')->count();
 
-        $departmentCount  = Department::count();
+        $departmentCount = Department::count();
         $designationCount = Designation::count();
 
         $attendanceTypeStats = AttendanceType::withCount('users')
@@ -566,24 +566,24 @@ class UserManagementService
             ->get()
             ->map(function ($type) use ($totalEmployees) {
                 return [
-                    'name'       => $type->name,
-                    'count'      => $type->users_count,
+                    'name' => $type->name,
+                    'count' => $type->users_count,
                     'percentage' => $type->users_count > 0 ? round(($type->users_count / ($totalEmployees ?: 1)) * 100, 1) : 0,
                 ];
             });
 
         $departmentStats = Department::withCount('users')->get()->map(function ($dept) use ($totalEmployees) {
             return [
-                'name'       => $dept->name,
-                'count'      => $dept->users_count,
+                'name' => $dept->name,
+                'count' => $dept->users_count,
                 'percentage' => $dept->users_count > 0 ? round(($dept->users_count / ($totalEmployees ?: 1)) * 100, 1) : 0,
             ];
         });
 
         $designationStats = Designation::withCount('users')->get()->map(function ($desig) use ($totalEmployees) {
             return [
-                'name'       => $desig->title,
-                'count'      => $desig->users_count,
+                'name' => $desig->title,
+                'count' => $desig->users_count,
                 'percentage' => $desig->users_count > 0 ? round(($desig->users_count / ($totalEmployees ?: 1)) * 100, 1) : 0,
             ];
         });
@@ -592,49 +592,49 @@ class UserManagementService
         $recentHires = [
             'last_30_days' => User::where('created_at', '>=', $now->copy()->subDays(30))->count(),
             'last_90_days' => User::where('created_at', '>=', $now->copy()->subDays(90))->count(),
-            'last_year'    => User::where('created_at', '>=', $now->copy()->subYear())->count(),
+            'last_year' => User::where('created_at', '>=', $now->copy()->subYear())->count(),
         ];
 
         $statusRatio = [
-            'active_percentage'   => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
+            'active_percentage' => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
             'inactive_percentage' => $totalEmployees > 0 ? round(($inactiveEmployees / $totalEmployees) * 100, 1) : 0,
-            'retention_rate'      => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
+            'retention_rate' => $totalEmployees > 0 ? round(($activeEmployees / $totalEmployees) * 100, 1) : 0,
         ];
 
         $previousMonthCount = User::where('created_at', '<', $now->copy()->startOfMonth())->count();
-        $currentMonthHires  = User::where('created_at', '>=', $now->copy()->startOfMonth())->count();
-        $growthRate         = $previousMonthCount > 0 ? round((($currentMonthHires / $previousMonthCount) * 100), 1) : 0;
+        $currentMonthHires = User::where('created_at', '>=', $now->copy()->startOfMonth())->count();
+        $growthRate = $previousMonthCount > 0 ? round((($currentMonthHires / $previousMonthCount) * 100), 1) : 0;
 
         return [
             'overview' => [
-                'total_employees'        => $totalEmployees,
-                'active_employees'       => $activeEmployees,
-                'inactive_employees'     => $inactiveEmployees,
-                'total_departments'      => $departmentCount,
-                'total_designations'     => $designationCount,
+                'total_employees' => $totalEmployees,
+                'active_employees' => $activeEmployees,
+                'inactive_employees' => $inactiveEmployees,
+                'total_departments' => $departmentCount,
+                'total_designations' => $designationCount,
                 'total_attendance_types' => AttendanceType::where('is_active', true)->count(),
             ],
             'distribution' => [
-                'by_department'      => $departmentStats,
-                'by_designation'     => $designationStats,
+                'by_department' => $departmentStats,
+                'by_designation' => $designationStats,
                 'by_attendance_type' => $attendanceTypeStats,
             ],
             'hiring_trends' => [
-                'recent_hires'        => $recentHires,
+                'recent_hires' => $recentHires,
                 'monthly_growth_rate' => $growthRate,
                 'current_month_hires' => $currentMonthHires,
             ],
             'workforce_health' => [
-                'status_ratio'  => $statusRatio,
+                'status_ratio' => $statusRatio,
                 'retention_rate' => $statusRatio['retention_rate'],
                 'turnover_rate' => 100 - $statusRatio['retention_rate'],
             ],
             'quick_metrics' => [
-                'headcount'            => $totalEmployees,
-                'active_ratio'         => $statusRatio['active_percentage'],
+                'headcount' => $totalEmployees,
+                'active_ratio' => $statusRatio['active_percentage'],
                 'department_diversity' => $departmentCount,
-                'role_diversity'       => $designationCount,
-                'recent_activity'      => $recentHires['last_30_days'],
+                'role_diversity' => $designationCount,
+                'recent_activity' => $recentHires['last_30_days'],
             ],
         ];
     }
@@ -649,11 +649,11 @@ class UserManagementService
     public function getUserRoles(User $user): array
     {
         return [
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'user_name' => $user->name,
-            'roles'     => $user->roles->map(fn ($role) => [
-                'id'         => $role->id,
-                'name'       => $role->name,
+            'roles' => $user->roles->map(fn ($role) => [
+                'id' => $role->id,
+                'name' => $role->name,
                 'guard_name' => $role->guard_name,
             ]),
         ];
@@ -665,23 +665,23 @@ class UserManagementService
     public function getUserPermissions(User $user): array
     {
         $directPermissions = $user->getDirectPermissions()->map(fn ($p) => [
-            'id'     => $p->id,
-            'name'   => $p->name,
+            'id' => $p->id,
+            'name' => $p->name,
             'source' => 'direct',
         ]);
 
         $rolePermissions = $user->getPermissionsViaRoles()->map(fn ($p) => [
-            'id'     => $p->id,
-            'name'   => $p->name,
+            'id' => $p->id,
+            'name' => $p->name,
             'source' => 'role',
         ]);
 
         return [
-            'user_id'              => $user->id,
-            'user_name'            => $user->name,
-            'direct_permissions'   => $directPermissions,
-            'role_permissions'     => $rolePermissions,
-            'all_permissions'      => $user->getAllPermissions()->pluck('name'),
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'direct_permissions' => $directPermissions,
+            'role_permissions' => $rolePermissions,
+            'all_permissions' => $user->getAllPermissions()->pluck('name'),
         ];
     }
 
@@ -695,11 +695,11 @@ class UserManagementService
         $user->syncRoles($roles);
 
         Log::info('User roles synced', [
-            'user_id'        => $user->id,
-            'user_name'      => $user->name,
+            'user_id' => $user->id,
+            'user_name' => $user->name,
             'original_roles' => $originalRoles,
-            'new_roles'      => $roles,
-            'synced_by'      => auth()->id(),
+            'new_roles' => $roles,
+            'synced_by' => auth()->id(),
         ]);
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
@@ -717,18 +717,18 @@ class UserManagementService
         $user->syncPermissions($permissions);
 
         Log::info('User permissions synced', [
-            'user_id'              => $user->id,
-            'user_name'            => $user->name,
+            'user_id' => $user->id,
+            'user_name' => $user->name,
             'original_permissions' => $originalPermissions,
-            'new_permissions'      => $permissions,
-            'synced_by'            => auth()->id(),
+            'new_permissions' => $permissions,
+            'synced_by' => auth()->id(),
         ]);
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         return [
             'direct_permissions' => $user->getDirectPermissions()->pluck('name'),
-            'all_permissions'    => $user->getAllPermissions()->pluck('name'),
+            'all_permissions' => $user->getAllPermissions()->pluck('name'),
         ];
     }
 
@@ -744,8 +744,8 @@ class UserManagementService
         $user->givePermissionTo($permissionName);
 
         Log::info('Permission granted to user', [
-            'user_id'    => $user->id,
-            'user_name'  => $user->name,
+            'user_id' => $user->id,
+            'user_name' => $user->name,
             'permission' => $permissionName,
             'granted_by' => auth()->id(),
         ]);
@@ -769,8 +769,8 @@ class UserManagementService
         $user->revokePermissionTo($permissionName);
 
         Log::info('Permission revoked from user', [
-            'user_id'    => $user->id,
-            'user_name'  => $user->name,
+            'user_id' => $user->id,
+            'user_name' => $user->name,
             'permission' => $permissionName,
             'revoked_by' => auth()->id(),
         ]);

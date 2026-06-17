@@ -23,9 +23,13 @@ class ExportAttendanceReport implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected string $type;
+
     protected ?string $date;
+
     protected ?string $month;
+
     protected int $userId;
+
     protected string $filename;
 
     /**
@@ -57,27 +61,27 @@ class ExportAttendanceReport implements ShouldQueue
             Log::info("ExportAttendanceReport started: Type={$this->type}, File={$this->filename}");
 
             // Ensure exports directory exists
-            if (!Storage::disk('public')->exists('exports')) {
+            if (! Storage::disk('public')->exists('exports')) {
                 Storage::disk('public')->makeDirectory('exports');
             }
 
-            $filePath = 'exports/' . $this->filename;
+            $filePath = 'exports/'.$this->filename;
 
             if ($this->type === 'daily_excel') {
                 Excel::store(new AttendanceExport($this->date), $filePath, 'public');
             } elseif ($this->type === 'daily_pdf') {
                 $rows = (new AttendanceExport($this->date))->collection();
                 $pdf = PDF::loadView('attendance_pdf', [
-                    'title' => 'Daily Timesheet - ' . date('F d, Y', strtotime($this->date)),
+                    'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($this->date)),
                     'generatedOn' => now()->format('F d, Y h:i A'),
                     'rows' => $rows,
                 ])->setPaper('a4', 'landscape');
-                
+
                 Storage::disk('public')->put($filePath, $pdf->output());
             } elseif ($this->type === 'monthly_excel') {
                 (new AttendanceAdminExport)->saveToDisk($this->month, $filePath, 'public');
             } elseif ($this->type === 'monthly_pdf') {
-                $from = Carbon::parse($this->month . '-01');
+                $from = Carbon::parse($this->month.'-01');
                 $to = $from->copy()->endOfMonth();
                 $monthName = $from->format('F Y');
 
@@ -104,12 +108,12 @@ class ExportAttendanceReport implements ShouldQueue
 
             Log::info("ExportAttendanceReport completed: File={$this->filename}");
         } catch (\Exception $e) {
-            Log::error("ExportAttendanceReport failed: " . $e->getMessage(), [
+            Log::error('ExportAttendanceReport failed: '.$e->getMessage(), [
                 'type' => $this->type,
                 'date' => $this->date,
                 'month' => $this->month,
                 'file' => $this->filename,
-                'exception' => $e
+                'exception' => $e,
             ]);
             throw $e;
         }

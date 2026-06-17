@@ -6,6 +6,8 @@ use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class LeaveModuleTest extends TestCase
@@ -21,7 +23,7 @@ class LeaveModuleTest extends TestCase
         parent::setUp();
 
         // Clear Spatie cached permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Create a test user
         $this->user = User::factory()->create([
@@ -30,7 +32,7 @@ class LeaveModuleTest extends TestCase
         ]);
 
         // Assign proper permissions
-        \Spatie\Permission\Models\Permission::findOrCreate('leave.own.view');
+        Permission::findOrCreate('leave.own.view');
         $this->user->givePermissionTo('leave.own.view');
 
         // Create a leave setting
@@ -251,4 +253,3 @@ class LeaveModuleTest extends TestCase
             ]);
     }
 }
-

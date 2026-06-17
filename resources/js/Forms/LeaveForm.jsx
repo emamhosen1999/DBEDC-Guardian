@@ -24,7 +24,7 @@ const LeaveForm = ({
     selectedMonth,
     addLeaveOptimized,
     updateLeaveOptimized,
-    fetchLeavesStats
+    refetchStats
 }) => {
     const { auth } = usePage().props;
 
@@ -112,7 +112,7 @@ const LeaveForm = ({
                     addLeaveOptimized(response.data.leave);
                 }
                 
-                fetchLeavesStats();
+                refetchStats();
                 showToast.success(response.data.message || 'Leave submitted successfully');
                 closeModal();
                 reset();

@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\DailyWork;
+use App\Models\HRM\Designation;
+use App\Models\Jurisdiction;
 use App\Models\User;
 use App\Policies\DailyWorkPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -20,12 +23,12 @@ class DailyWorkReportingHierarchyTest extends TestCase
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Permission::create(['name' => 'daily-works.view']);
-        \Spatie\Permission\Models\Role::create(['name' => 'Employee']);
+        Role::create(['name' => 'Employee']);
     }
 
     private function createDesignation(string $title)
     {
-        return \App\Models\HRM\Designation::create([
+        return Designation::create([
             'title' => $title,
             'description' => 'Test designation',
         ]);
@@ -50,7 +53,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $dailyWork = $this->createDailyWork('DW-3001', $manager->id, $otherUser->id, '2025-03-01', 'completed');
 
         // Test policy allows employee to view
-        $policy = new DailyWorkPolicy();
+        $policy = new DailyWorkPolicy;
         $canView = $policy->view($employee, $dailyWork);
 
         $this->assertTrue($canView, 'Employee should be able to view daily work where their manager is incharge');
@@ -75,7 +78,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $dailyWork = $this->createDailyWork('DW-3002', $otherUser->id, $manager->id, '2025-03-01', 'completed');
 
         // Test policy does not allow employee to view
-        $policy = new DailyWorkPolicy();
+        $policy = new DailyWorkPolicy;
         $canView = $policy->view($employee, $dailyWork);
 
         $this->assertFalse($canView, 'Employee should not be able to view daily work where non-manager is incharge');
@@ -99,7 +102,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $managerDailyWork = $this->createDailyWork('DW-3003b', $manager->id, $otherUser->id, '2025-03-01', 'completed');
 
         // Test policy allows viewing own work but not manager's work
-        $policy = new DailyWorkPolicy();
+        $policy = new DailyWorkPolicy;
         $canViewOwn = $policy->view($employee, $ownDailyWork);
         $canViewManager = $policy->view($employee, $managerDailyWork);
 
@@ -130,7 +133,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $managerDailyWork = $this->createDailyWork('DW-3005', $manager->id, $assignedUser->id, '2025-03-01', 'completed');
 
         // Test policy allows viewing only manager's work, not own work
-        $policy = new DailyWorkPolicy();
+        $policy = new DailyWorkPolicy;
         $canViewOwn = $policy->view($employee, $ownDailyWork);
         $canViewManager = $policy->view($employee, $managerDailyWork);
 
@@ -151,7 +154,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $employee->save();
 
         // Create a jurisdiction with employee as incharge
-        \App\Models\Jurisdiction::create([
+        Jurisdiction::create([
             'location' => 'Test Location',
             'start_chainage' => 0,
             'end_chainage' => 100,
@@ -169,7 +172,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $managerDailyWork = $this->createDailyWork('DW-3007', $manager->id, $assignedUser->id, '2025-03-01', 'completed');
 
         // Test policy allows viewing only own work, not manager's work
-        $policy = new DailyWorkPolicy();
+        $policy = new DailyWorkPolicy;
         $canViewOwn = $policy->view($employee, $ownDailyWork);
         $canViewManager = $policy->view($employee, $managerDailyWork);
 
@@ -307,7 +310,7 @@ class DailyWorkReportingHierarchyTest extends TestCase
         $this->assertNotContains('DW-5005', $managerWorkNumbers, 'Manager should not see work where their report is incharge');
 
         // Verify employee sees exactly the same works as manager (manager's incharge works)
-        $this->assertEqualsCanonicalizing($managerWorkNumbers, $employeeWorkNumbers, 
+        $this->assertEqualsCanonicalizing($managerWorkNumbers, $employeeWorkNumbers,
             'Employee should see exactly the same daily works as manager (manager\'s incharge works)');
     }
 
@@ -333,4 +336,3 @@ class DailyWorkReportingHierarchyTest extends TestCase
         ]);
     }
 }
-

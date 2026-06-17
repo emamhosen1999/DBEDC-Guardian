@@ -2,9 +2,11 @@
 
 namespace App\Models\HRM;
 
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class Holiday extends Model
 {
@@ -15,13 +17,13 @@ class Holiday extends Model
         parent::boot();
 
         static::saved(function ($holiday) {
-            \Illuminate\Support\Facades\Cache::forget('active_holidays_list');
-            \Illuminate\Support\Facades\Cache::forget('holiday_stats');
+            Cache::forget('active_holidays_list');
+            Cache::forget('holiday_stats');
         });
 
         static::deleted(function ($holiday) {
-            \Illuminate\Support\Facades\Cache::forget('active_holidays_list');
-            \Illuminate\Support\Facades\Cache::forget('holiday_stats');
+            Cache::forget('active_holidays_list');
+            Cache::forget('holiday_stats');
         });
     }
 
@@ -134,12 +136,12 @@ class Holiday extends Model
     // Relationships
     public function creator()
     {
-        return $this->belongsTo(\App\Models\User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updater()
     {
-        return $this->belongsTo(\App\Models\User::class, 'updated_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     // Static methods

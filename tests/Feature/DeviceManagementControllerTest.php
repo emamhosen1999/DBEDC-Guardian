@@ -187,4 +187,3 @@ class DeviceManagementControllerTest extends TestCase
         return $request;
     }
 }
-

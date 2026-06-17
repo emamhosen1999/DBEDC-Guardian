@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ExportPettyCashTransactions;
 use App\Models\PettyCashLoan;
+use App\Models\PettyCashTransaction;
 use App\Services\PettyCash\PettyCashFileService;
 use App\Services\PettyCash\PettyCashService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use App\Jobs\ExportPettyCashTransactions;
 
 class PettyCashController extends Controller
 {
     protected PettyCashService $pettyCashService;
+
     protected PettyCashFileService $fileService;
 
     public function __construct(
@@ -53,7 +55,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to create loan: ' . $e->getMessage(),
+                'error' => 'Failed to create loan: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -90,7 +92,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to add expense: ' . $e->getMessage(),
+                'error' => 'Failed to add expense: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -127,7 +129,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to add reimbursement: ' . $e->getMessage(),
+                'error' => 'Failed to add reimbursement: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -163,7 +165,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to add repayment: ' . $e->getMessage(),
+                'error' => 'Failed to add repayment: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -199,7 +201,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to fetch transactions: ' . $e->getMessage(),
+                'error' => 'Failed to fetch transactions: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -230,7 +232,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to fetch analytics: ' . $e->getMessage(),
+                'error' => 'Failed to fetch analytics: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -243,7 +245,7 @@ class PettyCashController extends Controller
         ]);
 
         try {
-            $transaction = \App\Models\PettyCashTransaction::findOrFail($request->transaction_id);
+            $transaction = PettyCashTransaction::findOrFail($request->transaction_id);
 
             // Ensure user owns the loan for this transaction
             if ($transaction->pettyCashLoan->user_id !== Auth::id()) {
@@ -263,7 +265,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to upload bill: ' . $e->getMessage(),
+                'error' => 'Failed to upload bill: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -276,7 +278,7 @@ class PettyCashController extends Controller
         ]);
 
         try {
-            $transaction = \App\Models\PettyCashTransaction::findOrFail($request->transaction_id);
+            $transaction = PettyCashTransaction::findOrFail($request->transaction_id);
 
             // Ensure user owns the loan for this transaction
             if ($transaction->pettyCashLoan->user_id !== Auth::id()) {
@@ -302,7 +304,7 @@ class PettyCashController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to delete bill: ' . $e->getMessage(),
+                'error' => 'Failed to delete bill: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -324,7 +326,7 @@ class PettyCashController extends Controller
                 ], 403);
             }
 
-            $filename = 'petty_cash_transactions_' . now()->format('Y_m_d_H_i_s') . '_' . time() . '.csv';
+            $filename = 'petty_cash_transactions_'.now()->format('Y_m_d_H_i_s').'_'.time().'.csv';
 
             ExportPettyCashTransactions::dispatch($loan->id, Auth::id(), $filename);
 
@@ -332,13 +334,13 @@ class PettyCashController extends Controller
                 'success' => true,
                 'queued' => true,
                 'filename' => $filename,
-                'download_url' => asset('storage/exports/' . $filename),
+                'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to export data: ' . $e->getMessage(),
+                'error' => 'Failed to export data: '.$e->getMessage(),
             ], 500);
         }
     }

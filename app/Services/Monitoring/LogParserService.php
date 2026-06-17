@@ -121,7 +121,7 @@ class LogParserService
     {
         $filePath = storage_path('logs/'.$filename);
 
-        if (!File::exists($filePath) || !File::isReadable($filePath)) {
+        if (! File::exists($filePath) || ! File::isReadable($filePath)) {
             return 'Log file not found or not readable.';
         }
 
@@ -133,7 +133,7 @@ class LogParserService
         $file->seek($startLine);
 
         $lines = [];
-        while (!$file->eof()) {
+        while (! $file->eof()) {
             $lines[] = $file->fgets();
         }
 
@@ -149,6 +149,7 @@ class LogParserService
 
         if (File::exists($filePath)) {
             File::put($filePath, '');
+
             return true;
         }
 

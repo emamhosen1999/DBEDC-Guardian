@@ -1,9 +1,12 @@
 <?php
+
 require 'vendor/autoload.php';
 $app = require_once 'bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$app->make(Kernel::class)->bootstrap();
 
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 $payload = [
     'config' => [
@@ -13,12 +16,12 @@ $payload = [
                 'name' => 'Primary Office',
                 'allowed_ips' => ['192.168.1.1'],
                 'allowed_ranges' => [],
-                'is_active' => true
-            ]
+                'is_active' => true,
+            ],
         ],
         'validation_mode' => 'any',
-        'allow_without_network' => false
-    ]
+        'allow_without_network' => false,
+    ],
 ];
 
 $request = Request::create('/settings/attendance-type/8', 'PUT', $payload);
@@ -81,7 +84,7 @@ try {
     $data = $validator->validate();
     echo "Validated data:\n";
     print_r($data);
-} catch (\Illuminate\Validation\ValidationException $e) {
-    echo "Validation failed: " . $e->getMessage() . "\n";
+} catch (ValidationException $e) {
+    echo 'Validation failed: '.$e->getMessage()."\n";
     print_r($e->errors());
 }

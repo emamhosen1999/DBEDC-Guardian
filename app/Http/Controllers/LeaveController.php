@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Traits\HandlesApiExceptions;
+use App\Exports\LeaveSummaryExport;
 use App\Http\Resources\LeaveResource;
 use App\Http\Resources\LeaveResourceCollection;
 use App\Models\HRM\Department;
@@ -15,13 +15,18 @@ use App\Services\Leave\LeaveOverlapService;
 use App\Services\Leave\LeaveQueryService;
 use App\Services\Leave\LeaveSummaryService;
 use App\Services\Leave\LeaveValidationService;
+use App\Traits\HandlesApiExceptions;
 use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LeaveController extends Controller
 {
@@ -55,7 +60,7 @@ class LeaveController extends Controller
         $this->approvalService = $approvalService;
     }
 
-    public function index1(): \Inertia\Response
+    public function index1(): Response
     {
         return Inertia::render('LeavesEmployee', [
             'title' => 'Leaves',
@@ -64,7 +69,7 @@ class LeaveController extends Controller
         ]);
     }
 
-    public function index2(): \Inertia\Response
+    public function index2(): Response
     {
         return Inertia::render('LeavesAdmin', [
             'title' => 'Leaves',
@@ -72,7 +77,7 @@ class LeaveController extends Controller
         ]);
     }
 
-    public function paginate(Request $request): \Illuminate\Http\JsonResponse
+    public function paginate(Request $request): JsonResponse
     {
         try {
             $leaveData = $this->queryService->getLeaveRecords($request);
@@ -108,7 +113,7 @@ class LeaveController extends Controller
         }
     }
 
-    public function stats(Request $request): \Illuminate\Http\JsonResponse
+    public function stats(Request $request): JsonResponse
     {
         try {
             $stats = $this->queryService->getLeaveStatistics($request);
@@ -126,7 +131,7 @@ class LeaveController extends Controller
         }
     }
 
-    public function create(Request $request): \Illuminate\Http\JsonResponse
+    public function create(Request $request): JsonResponse
     {
         $validator = $this->validationService->validateLeaveRequest($request);
 
@@ -141,7 +146,22 @@ class LeaveController extends Controller
         try {
             $fromDate = Carbon::parse($request->input('fromDate'));
             $toDate = Carbon::parse($request->input('toDate'));
-            $userId = $request->input('user_id');
+
+            // Build safe data array — never trust $request->all()
+            $requestedUserId = $request->input('user_id');
+            if ($requestedUserId && $requestedUserId != Auth::id() && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+                $data['user_id'] = Auth::id();
+            } else {
+                $data['user_id'] = $requestedUserId ?? Auth::id();
+            }
+            $data['leaveType'] = $request->input('leaveType');
+            $data['fromDate'] = $request->input('fromDate');
+            $data['toDate'] = $request->input('toDate');
+            $data['daysCount'] = $request->input('daysCount');
+            $data['leaveReason'] = $request->input('leaveReason');
+            $data['month'] = $request->input('month');
+
+            $userId = $data['user_id'];
 
             // Check for overlapping leaves
             $overlapError = $this->overlapService->getOverlapErrorMessage($userId, $fromDate, $toDate);
@@ -153,8 +173,8 @@ class LeaveController extends Controller
                 ], 422);
             }
 
-            // Create new leave
-            $newLeave = $this->crudService->createLeave($request->all());
+            // Create new leave (use sanitized data)
+            $newLeave = $this->crudService->createLeave($data);
 
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
@@ -189,10 +209,42 @@ class LeaveController extends Controller
         }
     }
 
-    public function update(Request $request): \Illuminate\Http\JsonResponse
+    public function update(Request $request): JsonResponse
     {
         try {
-            $updatedLeave = $this->crudService->updateLeave($request->input('id'), $request->all());
+            $leaveId = $request->input('id');
+            $existing = Leave::findOrFail($leaveId);
+
+            // Only owner or a user with approve/manage permission may update arbitrary leaves
+            if ($existing->user_id !== Auth::id() && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+                return response()->json(['error' => 'Unauthorized to update this leave'], 403);
+            }
+
+            $safeData = [
+                'user_id' => $request->input('user_id', $existing->user_id),
+                'leaveType' => $request->input('leaveType'),
+                'fromDate' => $request->input('fromDate'),
+                'toDate' => $request->input('toDate'),
+                'daysCount' => $request->input('daysCount'),
+                'leaveReason' => $request->input('leaveReason'),
+                'month' => $request->input('month'),
+            ];
+
+            $fromDate = Carbon::parse($safeData['fromDate'] ?? $existing->from_date);
+            $toDate = Carbon::parse($safeData['toDate'] ?? $existing->to_date);
+            $overlapError = $this->overlapService->getOverlapErrorMessage(
+                $safeData['user_id'], $fromDate, $toDate, $leaveId
+            );
+
+            if ($overlapError) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $overlapError,
+                    'message' => 'Leave dates overlap with existing leave or holiday',
+                ], 422);
+            }
+
+            $updatedLeave = $this->crudService->updateLeave($leaveId, $safeData);
 
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
@@ -228,6 +280,11 @@ class LeaveController extends Controller
 
     public function updateStatus(Request $request)
     {
+        // Only approvers may change status
+        if (! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+            return response()->json(['error' => 'Unauthorized to change leave status'], 403);
+        }
+
         $result = $this->crudService->updateLeaveStatus(
             $request->input('id'),
             $request->input('status'),
@@ -237,11 +294,18 @@ class LeaveController extends Controller
         return response()->json(['message' => $result['message']]);
     }
 
-    public function delete(Request $request): \Illuminate\Http\JsonResponse
+    public function delete(Request $request): JsonResponse
     {
         try {
             $this->validationService->validateDeleteRequest($request);
-            $this->crudService->deleteLeave($request->input('id'));
+            $leaveId = $request->input('id');
+            $existing = Leave::findOrFail($leaveId);
+
+            if ($existing->user_id !== Auth::id() && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+                return response()->json(['error' => 'Unauthorized to delete this leave'], 403);
+            }
+
+            $this->crudService->deleteLeave($leaveId);
 
             $leaveData = $this->queryService->getLeaveRecords($request);
 
@@ -283,29 +347,33 @@ class LeaveController extends Controller
     public function getSummaryData(?Request $request = null): array
     {
         $filters = [
-            'year'          => $request?->integer('summary_year', now()->year) ?? now()->year,
+            'year' => $request?->integer('summary_year', now()->year) ?? now()->year,
             'department_id' => $request?->input('summary_dept') ?: null,
-            'employee_id'   => null,
-            'status'        => null,
-            'leave_type'    => null,
+            'employee_id' => null,
+            'status' => null,
+            'leave_type' => null,
         ];
 
         return $this->summaryService->generateLeaveSummary($filters);
     }
 
-    public function bulkApprove(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkApprove(Request $request): JsonResponse
     {
         try {
             $request->validate([
                 'leave_ids' => 'required|array',
-                'leave_ids.*' => 'integer|exists:leave_applications,id',
+                'leave_ids.*' => 'integer|exists:leaves,id',
             ]);
+
+            if (! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+                return response()->json(['error' => 'Unauthorized to bulk approve leaves'], 403);
+            }
 
             $leaveIds = $request->input('leave_ids');
             $updatedCount = 0;
 
             foreach ($leaveIds as $leaveId) {
-                $result = $this->crudService->updateLeaveStatus($leaveId, 'Approved', Auth::id());
+                $result = $this->crudService->updateLeaveStatus($leaveId, 'approved', Auth::id());
                 if ($result['updated']) {
                     $updatedCount++;
                 }
@@ -326,19 +394,23 @@ class LeaveController extends Controller
         }
     }
 
-    public function bulkReject(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkReject(Request $request): JsonResponse
     {
         try {
             $request->validate([
                 'leave_ids' => 'required|array',
-                'leave_ids.*' => 'integer|exists:leave_applications,id',
+                'leave_ids.*' => 'integer|exists:leaves,id',
             ]);
+
+            if (! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+                return response()->json(['error' => 'Unauthorized to bulk reject leaves'], 403);
+            }
 
             $leaveIds = $request->input('leave_ids');
             $updatedCount = 0;
 
             foreach ($leaveIds as $leaveId) {
-                $result = $this->crudService->updateLeaveStatus($leaveId, 'Declined', Auth::id());
+                $result = $this->crudService->updateLeaveStatus($leaveId, 'declined', Auth::id());
                 if ($result['updated']) {
                     $updatedCount++;
                 }
@@ -370,8 +442,8 @@ class LeaveController extends Controller
                 'leave_type' => $request->input('leave_type'),
             ];
 
-            return \Maatwebsite\Excel\Facades\Excel::download(
-                new \App\Exports\LeaveSummaryExport($filters),
+            return Excel::download(
+                new LeaveSummaryExport($filters),
                 'Leave_Summary_'.($filters['year'] ?? now()->year).'.xlsx'
             );
         } catch (\Exception $e) {
@@ -459,7 +531,7 @@ class LeaveController extends Controller
             }
 
             return response()->json($result, 403);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',

@@ -6,7 +6,7 @@ use App\Models\HRM\AttendanceType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\HRM\AttendanceType>
+ * @extends Factory<AttendanceType>
  */
 class AttendanceTypeFactory extends Factory
 {

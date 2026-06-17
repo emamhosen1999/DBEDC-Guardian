@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\BiometricWebhookController;
+use App\Http\Controllers\Api\LocaleController;
 use App\Http\Controllers\Api\V1\AttendanceController as MobileAttendanceController;
 use App\Http\Controllers\Api\V1\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\V1\DailyWorkController as MobileDailyWorkController;
@@ -7,10 +9,13 @@ use App\Http\Controllers\Api\V1\LeaveController as MobileLeaveController;
 use App\Http\Controllers\Api\V1\ManagerDashboardController as MobileManagerDashboardController;
 use App\Http\Controllers\Api\V1\ProfileController as MobileProfileController;
 use App\Http\Controllers\Api\V1\SyncController as MobileSyncController;
-use App\Http\Controllers\Api\BiometricWebhookController;
 use App\Http\Controllers\Api\VersionController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SystemMonitoringController;
+use App\Http\Controllers\UserController;
+use App\Http\Middleware\ApiDeviceAuthMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -78,7 +83,7 @@ Route::post('/log-error', function (Request $request) {
         ]);
 
         return response()->json(['success' => true]);
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         Log::error('Failed to log frontend error: '.$e->getMessage());
 
         return response()->json(['success' => false], 500);
@@ -109,7 +114,7 @@ Route::post('/log-performance', function (Request $request) {
         ]);
 
         return response()->json(['success' => true]);
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         Log::error('Failed to log performance metric: '.$e->getMessage());
 
         return response()->json(['success' => false], 500);
@@ -124,9 +129,9 @@ Route::middleware(['web', 'auth', 'role:Super Administrator', 'throttle:api'])->
 
 // Locale API routes
 Route::prefix('locale')->middleware('throttle:api')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Api\LocaleController::class, 'index'])->name('api.locale.index');
-    Route::post('/', [\App\Http\Controllers\Api\LocaleController::class, 'update'])->name('api.locale.update');
-    Route::get('/translations/{namespace?}', [\App\Http\Controllers\Api\LocaleController::class, 'translations'])->name('api.locale.translations');
+    Route::get('/', [LocaleController::class, 'index'])->name('api.locale.index');
+    Route::post('/', [LocaleController::class, 'update'])->name('api.locale.update');
+    Route::get('/translations/{namespace?}', [LocaleController::class, 'translations'])->name('api.locale.translations');
 });
 
 // ============================================================================
@@ -134,39 +139,39 @@ Route::prefix('locale')->middleware('throttle:api')->group(function () {
 // ============================================================================
 Route::middleware(['web', 'auth', 'throttle:api'])->prefix('roles')->group(function () {
     // Role CRUD operations
-    Route::get('/', [\App\Http\Controllers\RoleController::class, 'apiIndex'])->name('api.roles.index');
-    Route::post('/', [\App\Http\Controllers\RoleController::class, 'storeRole'])->name('api.roles.store');
-    Route::get('/{id}', [\App\Http\Controllers\RoleController::class, 'apiShow'])->name('api.roles.show');
-    Route::put('/{id}', [\App\Http\Controllers\RoleController::class, 'updateRole'])->name('api.roles.update');
-    Route::delete('/{id}', [\App\Http\Controllers\RoleController::class, 'deleteRole'])->name('api.roles.destroy');
+    Route::get('/', [RoleController::class, 'apiIndex'])->name('api.roles.index');
+    Route::post('/', [RoleController::class, 'storeRole'])->name('api.roles.store');
+    Route::get('/{id}', [RoleController::class, 'apiShow'])->name('api.roles.show');
+    Route::put('/{id}', [RoleController::class, 'updateRole'])->name('api.roles.update');
+    Route::delete('/{id}', [RoleController::class, 'deleteRole'])->name('api.roles.destroy');
 
     // Role-Permission assignment
-    Route::patch('/{id}/permissions', [\App\Http\Controllers\RoleController::class, 'batchUpdatePermissions'])->name('api.roles.permissions.batch');
-    Route::post('/{id}/permissions/sync', [\App\Http\Controllers\RoleController::class, 'syncRolePermissions'])->name('api.roles.permissions.sync');
+    Route::patch('/{id}/permissions', [RoleController::class, 'batchUpdatePermissions'])->name('api.roles.permissions.batch');
+    Route::post('/{id}/permissions/sync', [RoleController::class, 'syncRolePermissions'])->name('api.roles.permissions.sync');
 });
 
 Route::middleware(['web', 'auth', 'throttle:api'])->prefix('permissions')->group(function () {
     // Permission CRUD operations
-    Route::get('/', [\App\Http\Controllers\PermissionController::class, 'index'])->name('api.permissions.index');
-    Route::post('/', [\App\Http\Controllers\PermissionController::class, 'store'])->name('api.permissions.store');
-    Route::get('/{id}', [\App\Http\Controllers\PermissionController::class, 'show'])->name('api.permissions.show');
-    Route::put('/{id}', [\App\Http\Controllers\PermissionController::class, 'update'])->name('api.permissions.update');
-    Route::delete('/{id}', [\App\Http\Controllers\PermissionController::class, 'destroy'])->name('api.permissions.destroy');
+    Route::get('/', [PermissionController::class, 'index'])->name('api.permissions.index');
+    Route::post('/', [PermissionController::class, 'store'])->name('api.permissions.store');
+    Route::get('/{id}', [PermissionController::class, 'show'])->name('api.permissions.show');
+    Route::put('/{id}', [PermissionController::class, 'update'])->name('api.permissions.update');
+    Route::delete('/{id}', [PermissionController::class, 'destroy'])->name('api.permissions.destroy');
 
     // Permission grouping
-    Route::get('/grouped/modules', [\App\Http\Controllers\PermissionController::class, 'groupedByModule'])->name('api.permissions.grouped');
+    Route::get('/grouped/modules', [PermissionController::class, 'groupedByModule'])->name('api.permissions.grouped');
 });
 
 Route::middleware(['web', 'auth', 'throttle:api'])->prefix('users')->group(function () {
     // User-Role assignment
-    Route::get('/{id}/roles', [\App\Http\Controllers\UserController::class, 'getUserRoles'])->name('api.users.roles.index');
-    Route::post('/{id}/roles', [\App\Http\Controllers\UserController::class, 'updateUserRole'])->name('api.users.roles.sync');
+    Route::get('/{id}/roles', [UserController::class, 'getUserRoles'])->name('api.users.roles.index');
+    Route::post('/{id}/roles', [UserController::class, 'updateUserRole'])->name('api.users.roles.sync');
 
     // User-Permission direct assignment
-    Route::get('/{id}/permissions', [\App\Http\Controllers\UserController::class, 'getUserPermissions'])->name('api.users.permissions.index');
-    Route::post('/{id}/permissions', [\App\Http\Controllers\UserController::class, 'syncUserPermissions'])->name('api.users.permissions.sync');
-    Route::post('/{id}/permissions/give', [\App\Http\Controllers\UserController::class, 'giveUserPermission'])->name('api.users.permissions.give');
-    Route::post('/{id}/permissions/revoke', [\App\Http\Controllers\UserController::class, 'revokeUserPermission'])->name('api.users.permissions.revoke');
+    Route::get('/{id}/permissions', [UserController::class, 'getUserPermissions'])->name('api.users.permissions.index');
+    Route::post('/{id}/permissions', [UserController::class, 'syncUserPermissions'])->name('api.users.permissions.sync');
+    Route::post('/{id}/permissions/give', [UserController::class, 'giveUserPermission'])->name('api.users.permissions.give');
+    Route::post('/{id}/permissions/revoke', [UserController::class, 'revokeUserPermission'])->name('api.users.permissions.revoke');
 });
 
 // ============================================================================
@@ -176,7 +181,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::post('/auth/login', [MobileAuthController::class, 'login'])->name('api.v1.auth.login');
 });
 
-Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
     Route::get('/auth/me', [MobileAuthController::class, 'me'])->name('api.v1.auth.me');
     Route::post('/auth/logout', [MobileAuthController::class, 'logout'])->name('api.v1.auth.logout');
     Route::get('/profile', [MobileProfileController::class, 'show'])->name('api.v1.profile.show');

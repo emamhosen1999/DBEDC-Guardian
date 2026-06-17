@@ -13,41 +13,41 @@ return new class extends Migration
     public function up(): void
     {
         // Fix duplicate RFI numbers before adding unique constraint
-        $duplicates = DB::select("
+        $duplicates = DB::select('
             SELECT number, COUNT(*) as count 
             FROM daily_works 
             GROUP BY number 
             HAVING count > 1
-        ");
-        
+        ');
+
         foreach ($duplicates as $duplicate) {
             $records = DB::table('daily_works')
                 ->where('number', $duplicate->number)
                 ->orderBy('id')
                 ->get();
-            
+
             // Keep first, rename rest with suffix
             $suffix = 1;
             foreach ($records as $index => $record) {
                 if ($index > 0) {
                     DB::table('daily_works')
                         ->where('id', $record->id)
-                        ->update(['number' => $duplicate->number . '-DUP' . $suffix]);
+                        ->update(['number' => $duplicate->number.'-DUP'.$suffix]);
                     $suffix++;
                 }
             }
         }
-        
+
         Schema::table('daily_works', function (Blueprint $table) {
             // Add unique constraint on RFI number
             $table->unique('number');
-            
+
             // Add performance indexes
             $table->index(['status', 'date']);
             $table->index(['incharge', 'date']);
             $table->index(['assigned', 'status']);
             $table->index('type');
-            
+
             // Add soft deletes
             $table->softDeletes();
         });

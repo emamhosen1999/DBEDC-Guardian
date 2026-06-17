@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -84,8 +85,8 @@ class ProjectResource extends Model
      */
     private function getWorkingDaysBetween($startDate, $endDate): int
     {
-        $start = \Carbon\Carbon::parse($startDate);
-        $end = \Carbon\Carbon::parse($endDate);
+        $start = Carbon::parse($startDate);
+        $end = Carbon::parse($endDate);
 
         return $start->diffInWeekdays($end) + 1;
     }

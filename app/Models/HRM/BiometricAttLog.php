@@ -27,9 +27,9 @@ class BiometricAttLog extends Model
     ];
 
     protected $casts = [
-        'punch_time'  => 'datetime',
+        'punch_time' => 'datetime',
         'occurred_at' => 'datetime',
-        'context'     => 'array',
+        'context' => 'array',
     ];
 
     public function user(): BelongsTo

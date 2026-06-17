@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
 use App\Http\Controllers\DailyWorkController;
@@ -9,20 +10,16 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EducationController;
-
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ExperienceController;
-
 use App\Http\Controllers\HolidayController;
-
 use App\Http\Controllers\JurisdictionController;
 use App\Http\Controllers\LeaveController;
-use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\LetterController;
-
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\ObjectionController;
-
+use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
 use App\Http\Controllers\ReportController;
@@ -36,13 +33,14 @@ use App\Http\Controllers\Settings\RequestLogController;
 use App\Http\Controllers\SystemMonitoringController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
-use App\Models\User;
+use App\Models\HRM\Department;
 // APK Install Gate (public, always accessible)
+use App\Models\HRM\Designation;
+use App\Models\HRM\LeaveSetting;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\ApkDownloadController;
 
 Route::get('/install-app', function () {
     return Inertia::render('InstallApp');
@@ -69,7 +67,7 @@ Route::get('/csrf-token', function () {
 });
 
 // Locale switching route (for dynamic translations) - client-side only, no server redirect
-Route::post('/locale', function (\Illuminate\Http\Request $request) {
+Route::post('/locale', function (Request $request) {
     $locale = $request->input('locale', 'en');
     $supportedLocales = ['en', 'bn', 'ar', 'es', 'fr', 'de', 'hi', 'zh-CN', 'zh-TW'];
 
@@ -128,27 +126,29 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/attendance/punch', [AttendanceController::class, 'punch'])->name('attendance.punch');
     });
 
-    // General access routes (available to all authenticated users)
-    Route::get('/attendance/export/excel', [AttendanceController::class, 'exportExcel'])->name('attendance.exportExcel');
-    Route::get('/admin/attendance/export/excel', [AttendanceController::class, 'exportAdminExcel'])->name('attendance.exportAdminExcel');
-    Route::get('/admin/attendance/export/pdf', [AttendanceController::class, 'exportAdminPdf'])->name('attendance.exportAdminPdf');
-    Route::get('/attendance/export/pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.exportPdf');
-    Route::get('/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('getPresentUsersForDate');
-    Route::get('/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('getAbsentUsersForDate');
-    Route::get('/get-client-ip', [AttendanceController::class, 'getClientIp'])->name('getClientIp');
-    
-    // Dedicated route for polling export status without hitting Nginx static file handlers
-    Route::get('/attendance/export/status/{filename}', [AttendanceController::class, 'checkExportStatus'])->name('attendance.exportStatus');
+    // General access routes (available to all authenticated users with attendance permissions)
+    Route::middleware(['permission:attendance.view'])->group(function () {
+        Route::get('/attendance/export/excel', [AttendanceController::class, 'exportExcel'])->name('attendance.exportExcel');
+        Route::get('/admin/attendance/export/excel', [AttendanceController::class, 'exportAdminExcel'])->name('attendance.exportAdminExcel');
+        Route::get('/admin/attendance/export/pdf', [AttendanceController::class, 'exportAdminPdf'])->name('attendance.exportAdminPdf');
+        Route::get('/attendance/export/pdf', [AttendanceController::class, 'exportPdf'])->name('attendance.exportPdf');
+        Route::get('/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('getPresentUsersForDate');
+        Route::get('/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('getAbsentUsersForDate');
+        Route::get('/get-client-ip', [AttendanceController::class, 'getClientIp'])->name('getClientIp');
+
+        // Dedicated route for polling export status without hitting Nginx static file handlers
+        Route::get('/attendance/export/status/{filename}', [AttendanceController::class, 'checkExportStatus'])->name('attendance.exportStatus');
+    });
 
     // Daily works routes
     Route::middleware(['permission:daily-works.view'])->group(function () {
         // Unified daily works page (new consolidated page)
         Route::get('/daily-works-unified', [DailyWorkController::class, 'unified'])->name('daily-works-unified');
-        
+
         // Original routes (hidden - kept for rollback)
         // Route::get('/daily-works', [DailyWorkController::class, 'index'])->name('daily-works');
         // Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
-        
+
         Route::get('/daily-works-paginate', [DailyWorkController::class, 'paginate'])->name('dailyWorks.paginate');
         Route::get('/daily-works-all', [DailyWorkController::class, 'all'])->name('dailyWorks.all');
         // Route::get('/daily-works-summary', [DailyWorkSummaryController::class, 'index'])->name('daily-works-summary');
@@ -283,7 +283,6 @@ Route::middleware($middlewareStack)->group(function () {
 
     // Communications routes
 
-
     // Leave summary route
     Route::middleware(['permission:leaves.view,leaves.own.view'])->get('/leave-summary', [LeaveController::class, 'summary'])->name('leave.summary');
 });
@@ -299,16 +298,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['permission:letters.update'])->put('/letters-update', [LetterController::class, 'update'])->name('letters.update');    // Leave management routes
     Route::middleware(['permission:leaves.view'])->group(function () {
-        Route::get('/leaves', function (\Illuminate\Http\Request $request) {
-    return Inertia::render('LeavesUnified', [
-        'title'       => 'Leave Management',
-        'allUsers'    => User::with('department')->get(),
-        'summaryData' => app(LeaveController::class)->getSummaryData($request),
-        'leaveTypes'  => \App\Models\HRM\LeaveSetting::all(),
-    ]);
-})->middleware('auth')->name('leaves.index');
+        Route::get('/leaves', function (Request $request) {
+            return Inertia::render('LeavesUnified', [
+                'title' => 'Leave Management',
+                'allUsers' => User::with('department')->get(),
+                'summaryData' => app(LeaveController::class)->getSummaryData($request),
+                'leaveTypes' => LeaveSetting::all(),
+            ]);
+        })->middleware('auth')->name('leaves.index');
         Route::get('/leave-summary', [LeaveController::class, 'leaveSummary'])->name('leave-summary');
-        Route::post('/leave-update-status', [LeaveController::class, 'updateStatus'])->name('leave-update-status');
 
         // Leave summary export routes
         Route::get('/leave-summary/export/excel', [LeaveController::class, 'exportExcel'])->name('leave.summary.exportExcel');
@@ -329,6 +327,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Approval workflow actions
         Route::post('/leaves/{id}/approve', [LeaveController::class, 'approveLeave'])->name('leaves.approve');
         Route::post('/leaves/{id}/reject', [LeaveController::class, 'rejectLeave'])->name('leaves.reject');
+
+        // Update leave status (approve/decline individual leaves)
+        Route::post('/leave-update-status', [LeaveController::class, 'updateStatus'])->name('leave-update-status');
     });
 
     // Bulk leave creation routes
@@ -354,13 +355,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // HR Management routes
     Route::middleware(['permission:employees.view'])->group(function () {
-        Route::get('/employees', [\App\Http\Controllers\EmployeeController::class, 'index'])->name('employees');
-        Route::get('/employees/paginate', [\App\Http\Controllers\EmployeeController::class, 'paginate'])->name('employees.paginate');
-        Route::get('/employees/stats', [\App\Http\Controllers\EmployeeController::class, 'stats'])->name('employees.stats');
+        Route::get('/employees', [EmployeeController::class, 'index'])->name('employees');
+        Route::get('/employees/paginate', [EmployeeController::class, 'paginate'])->name('employees.paginate');
+        Route::get('/employees/stats', [EmployeeController::class, 'stats'])->name('employees.stats');
     });
 
     // The Master Organization Page
-    Route::get('/organization', [OrganizationController::class, 'index'])->name('organization.index');
+    Route::middleware(['permission:employees.view'])->get('/organization', [OrganizationController::class, 'index'])->name('organization.index');
 
     // Department management routes
     Route::middleware(['permission:departments.view'])->get('/departments', [DepartmentController::class, 'index'])->name('departments');
@@ -371,7 +372,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:departments.update'])->put('/departments/{id}', [DepartmentController::class, 'update'])->name('departments.update');
     Route::middleware(['permission:departments.delete'])->delete('/departments/{id}', [DepartmentController::class, 'destroy'])->name('departments.delete');
     Route::middleware(['permission:departments.update'])->put('/users/{id}/department', [DepartmentController::class, 'updateUserDepartment'])->name('users.update-department');
-    Route::middleware(['permission:designations.update'])->post('/users/{id}/designation', [\App\Http\Controllers\DesignationController::class, 'updateUserDesignation'])->name('users.updateDesignation');
+    Route::middleware(['permission:designations.update'])->post('/users/{id}/designation', [DesignationController::class, 'updateUserDesignation'])->name('users.updateDesignation');
 
     Route::middleware(['permission:jurisdiction.view'])->get('/jurisdiction', [JurisdictionController::class, 'index'])->name('jurisdiction');
 
@@ -413,7 +414,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'assignBiometricDevice'])->name('users.updateBiometricDevice');
         Route::post('/users/{id}/report-to', [UserController::class, 'updateReportTo'])->name('users.updateReportTo');
-        
+
         // Bulk operations
         Route::post('/users/bulk/role', [UserController::class, 'bulkAssignRole'])->name('users.bulk.role');
     });
@@ -536,7 +537,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('settings/request-logs/export', [RequestLogController::class, 'export'])->name('request-logs.export');
     });
 
-
     // Task management routes
     Route::middleware(['permission:tasks.view'])->group(function () {
         Route::get('/tasks-all', [TaskController::class, 'allTasks'])->name('allTasks');
@@ -650,9 +650,6 @@ Route::middleware(['auth', 'verified', 'permission:modules.delete'])->group(func
     Route::delete('/admin/modules/components/{component}', [ModuleController::class, 'destroyComponent'])->name('modules.components.destroy');
 });
 
-
-
-
 // System Monitoring Routes (Super Administrator only)
 Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(function () {
     Route::get('/admin/system-monitoring', [SystemMonitoringController::class, 'index'])->name('admin.system-monitoring');
@@ -663,32 +660,32 @@ Route::middleware(['auth', 'verified', 'role:Super Administrator'])->group(funct
     // Designation Management
     Route::middleware(['permission:designations.view'])->group(function () {
         // Initial page render (Inertia)
-        Route::get('/designations', [\App\Http\Controllers\DesignationController::class, 'index'])->name('designations.index');
+        Route::get('/designations', [DesignationController::class, 'index'])->name('designations.index');
         // API data fetch (JSON)
-        Route::get('/designations/json', [\App\Http\Controllers\DesignationController::class, 'getDesignations'])->name('designations.json');
+        Route::get('/designations/json', [DesignationController::class, 'getDesignations'])->name('designations.json');
         // Stats endpoint for frontend analytics
-        Route::get('/designations/stats', [\App\Http\Controllers\DesignationController::class, 'stats'])->name('designations.stats');
-        Route::post('/designations', [\App\Http\Controllers\DesignationController::class, 'store'])->name('designations.store');
-        Route::get('/designations/{id}', [\App\Http\Controllers\DesignationController::class, 'show'])->name('designations.show');
-        Route::put('/designations/{id}', [\App\Http\Controllers\DesignationController::class, 'update'])->name('designations.update');
-        Route::delete('/designations/{id}', [\App\Http\Controllers\DesignationController::class, 'destroy'])->name('designations.destroy');
-        // For dropdowns and API
-        Route::get('/designations/list', [\App\Http\Controllers\DesignationController::class, 'list'])->name('designations.list');
+        Route::get('/designations/stats', [DesignationController::class, 'stats'])->name('designations.stats');
+        // For dropdowns and API (must be before wildcard {id})
+        Route::get('/designations/list', [DesignationController::class, 'list'])->name('designations.list');
+        Route::post('/designations', [DesignationController::class, 'store'])->name('designations.store');
+        Route::get('/designations/{id}', [DesignationController::class, 'show'])->name('designations.show');
+        Route::put('/designations/{id}', [DesignationController::class, 'update'])->name('designations.update');
+        Route::delete('/designations/{id}', [DesignationController::class, 'destroy'])->name('designations.destroy');
     });
 });
 
 // API routes for dropdown data
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/designations/list', function () {
-        return response()->json(\App\Models\HRM\Designation::select('id', 'title as name')->get());
+        return response()->json(Designation::select('id', 'title as name')->get());
     })->name('api.designations.list');
 
     Route::get('/api/departments/list', function () {
-        return response()->json(\App\Models\HRM\Department::select('id', 'name')->get());
+        return response()->json(Department::select('id', 'name')->get());
     })->name('departments.list');
 
     Route::get('/api/users/managers/list', function () {
-        return response()->json(\App\Models\User::whereHas('roles', function ($query) {
+        return response()->json(User::whereHas('roles', function ($query) {
             $query->whereIn('name', [
                 'Super Administrator',
                 'Administrator',

@@ -33,7 +33,7 @@ class CheckModuleAccess
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      * @param  string  $moduleCode  The module code (e.g., 'hrm')
      * @param  string|null  $subModuleCode  The sub-module code (optional, e.g., 'employees')
      * @param  string|null  $componentCode  The component code (optional, e.g., 'list')

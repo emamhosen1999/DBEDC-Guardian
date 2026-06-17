@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\HR;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 
 /**
  * HR Time-Off Management Controller - Stub (routes registered, implementation pending)

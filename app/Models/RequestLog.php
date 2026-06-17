@@ -50,6 +50,7 @@ class RequestLog extends Model
         if ($endDate) {
             return $query->whereBetween('created_at', [$startDate, $endDate]);
         }
+
         return $query->where('created_at', '>=', $startDate);
     }
 

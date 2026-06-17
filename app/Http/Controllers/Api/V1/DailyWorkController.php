@@ -24,7 +24,6 @@ use App\Services\Project\DailyWorkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -33,7 +32,9 @@ class DailyWorkController extends Controller
     use ApiResponse;
 
     protected DailyWorkRepository $dailyWorkRepository;
+
     protected DailyWorkQueryService $dailyWorkQueryService;
+
     protected DailyWorkService $dailyWorkService;
 
     /**

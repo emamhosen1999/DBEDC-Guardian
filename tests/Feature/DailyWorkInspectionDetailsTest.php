@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -31,7 +32,7 @@ class DailyWorkInspectionDetailsTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         // Create necessary roles and permissions
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Administrator']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         Permission::firstOrCreate(['name' => 'daily-works.view']);
         Permission::firstOrCreate(['name' => 'daily-works.update']);
 
@@ -209,4 +210,3 @@ class DailyWorkInspectionDetailsTest extends TestCase
         $response->assertForbidden();
     }
 }
-

@@ -3,16 +3,19 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Traits\HandlesApiExceptions;
 use App\Models\HRM\LeaveSetting;
+use App\Traits\HandlesApiExceptions;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class LeaveSettingController extends Controller
 {
     use HandlesApiExceptions;
 
-    public function index(Request $request): \Inertia\Response|\Illuminate\Http\JsonResponse
+    public function index(Request $request): Response|JsonResponse
     {
         $leaveSettings = LeaveSetting::orderBy('type')->get();
 
@@ -31,6 +34,10 @@ class LeaveSettingController extends Controller
 
     public function store(Request $request)
     {
+        if (! Auth::user()->can('leave-settings.update')) {
+            return response()->json(['error' => 'Unauthorized to manage leave settings.'], 403);
+        }
+
         $request->validate([
             'type' => 'required|string|max:255',
             'days' => 'required|integer',
@@ -68,6 +75,10 @@ class LeaveSettingController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (! Auth::user()->can('leave-settings.update')) {
+            return response()->json(['error' => 'Unauthorized to manage leave settings.'], 403);
+        }
+
         $request->validate([
             'type' => 'required|string|max:255',
             'days' => 'required|integer',
@@ -109,6 +120,10 @@ class LeaveSettingController extends Controller
 
     public function destroy($id)
     {
+        if (! Auth::user()->can('leave-settings.update')) {
+            return response()->json(['error' => 'Unauthorized to manage leave settings.'], 403);
+        }
+
         try {
             // Find the leave type by ID
             $leaveType = LeaveSetting::findOrFail($id);

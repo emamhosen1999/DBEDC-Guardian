@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\ProcessBiometricDownloadSession;
 use App\Models\HRM\BiometricDevice;
 use App\Services\Biometric\BiometricProcessingService;
-use App\Jobs\ProcessBiometricDownloadSession;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -50,17 +50,19 @@ class ScheduledBiometricLogDownload extends Command
 
         if ($devices->isEmpty()) {
             $this->info('No active ADMS devices found.');
+
             return 0;
         }
 
         $triggeredCount = 0;
         foreach ($devices as $device) {
             // Check if last download was more than threshold hours ago (or never)
-            $shouldDownload = is_null($device->last_log_download_at) || 
+            $shouldDownload = is_null($device->last_log_download_at) ||
                               $device->last_log_download_at->lt(now()->subHours($hoursThreshold));
 
-            if (!$shouldDownload) {
+            if (! $shouldDownload) {
                 $this->info("Skipping device {$device->name} (serial: {$device->serial_number}) - last synced recently.");
+
                 continue;
             }
 
@@ -76,12 +78,13 @@ class ScheduledBiometricLogDownload extends Command
 
                 $triggeredCount++;
             } catch (\Exception $e) {
-                $this->error("Failed to trigger download for device {$device->name}: " . $e->getMessage());
-                Log::error("Scheduled log download failed for device {$device->id}: " . $e->getMessage());
+                $this->error("Failed to trigger download for device {$device->name}: ".$e->getMessage());
+                Log::error("Scheduled log download failed for device {$device->id}: ".$e->getMessage());
             }
         }
 
         $this->info("Triggered downloads for {$triggeredCount} device(s).");
+
         return 0;
     }
 }

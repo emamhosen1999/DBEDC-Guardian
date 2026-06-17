@@ -16,6 +16,7 @@ class DatabaseAnalyticsService
             $driver = DB::connection()->getDriverName();
             if ($driver === 'sqlite') {
                 $tables = DB::select("SELECT name as table_name, 0 as table_rows, 0.0 as size_mb FROM sqlite_master WHERE type='table'");
+
                 return [
                     'largest_tables' => $tables,
                     'total_tables' => count($tables),
@@ -159,12 +160,12 @@ class DatabaseAnalyticsService
             $driver = DB::connection()->getDriverName();
             if ($driver === 'sqlite') {
                 $storage = [
-                    (object)[
+                    (object) [
                         'ENGINE' => 'sqlite',
                         'table_count' => count(DB::select("SELECT name FROM sqlite_master WHERE type='table'")),
                         'total_size_mb' => 0.0,
-                        'avg_size_mb' => 0.0
-                    ]
+                        'avg_size_mb' => 0.0,
+                    ],
                 ];
                 $fragmentation = [];
             } else {

@@ -48,7 +48,7 @@ class PettyCashFileService
     {
         $media = $transaction->getMedia('bills')->where('id', $mediaId)->first();
 
-        if (!$media) {
+        if (! $media) {
             return false;
         }
 
@@ -63,7 +63,7 @@ class PettyCashFileService
         $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
         $sanitizedName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $originalName);
 
-        return $sanitizedName . '_' . uniqid() . '.' . $extension;
+        return $sanitizedName.'_'.uniqid().'.'.$extension;
     }
 
     private function formatBytes(int $bytes, int $precision = 2): string
@@ -74,6 +74,6 @@ class PettyCashFileService
         $pow = min($pow, count($units) - 1);
         $bytes /= pow(1024, $pow);
 
-        return round($bytes, $precision) . ' ' . $units[$pow];
+        return round($bytes, $precision).' '.$units[$pow];
     }
 }

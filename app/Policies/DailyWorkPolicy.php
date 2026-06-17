@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\DailyWork;
+use App\Models\Jurisdiction;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
@@ -35,8 +36,8 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge
                 return (int) $dailyWork->incharge === (int) $user->id;
@@ -45,6 +46,7 @@ class DailyWorkPolicy
                 if ($user->report_to) {
                     return (int) $dailyWork->incharge === (int) $user->report_to;
                 }
+
                 // No jurisdiction and no manager: can view own works
                 return (int) $dailyWork->incharge === (int) $user->id;
             }
@@ -84,8 +86,8 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update works where they are incharge
                 return (int) $dailyWork->incharge === (int) $user->id;
@@ -94,6 +96,7 @@ class DailyWorkPolicy
                 if ($user->report_to) {
                     return (int) $dailyWork->incharge === (int) $user->report_to;
                 }
+
                 // No jurisdiction and no manager: can update own works
                 return (int) $dailyWork->incharge === (int) $user->id;
             }
@@ -120,8 +123,8 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can delete works where they are incharge
                 return (int) $dailyWork->incharge === (int) $user->id;
@@ -130,6 +133,7 @@ class DailyWorkPolicy
                 if ($user->report_to) {
                     return (int) $dailyWork->incharge === (int) $user->report_to;
                 }
+
                 // No jurisdiction and no manager: can delete own works
                 return (int) $dailyWork->incharge === (int) $user->id;
             }
@@ -172,8 +176,8 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update status of works where they are incharge
                 return (int) $dailyWork->incharge === (int) $user->id;
@@ -182,6 +186,7 @@ class DailyWorkPolicy
                 if ($user->report_to) {
                     return (int) $dailyWork->incharge === (int) $user->report_to;
                 }
+
                 // No jurisdiction and no manager: can update status of own works
                 return (int) $dailyWork->incharge === (int) $user->id;
             }
@@ -224,8 +229,8 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can update inspection details of works where they are incharge
                 return (int) $dailyWork->incharge === (int) $user->id;
@@ -234,6 +239,7 @@ class DailyWorkPolicy
                 if ($user->report_to) {
                     return (int) $dailyWork->incharge === (int) $user->report_to;
                 }
+
                 // No jurisdiction and no manager: can update inspection details of own works
                 return (int) $dailyWork->incharge === (int) $user->id;
             }
@@ -273,8 +279,8 @@ class DailyWorkPolicy
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can assign users to works where they are incharge
                 return (int) $dailyWork->incharge === (int) $user->id;
@@ -283,6 +289,7 @@ class DailyWorkPolicy
                 if ($user->report_to) {
                     return (int) $dailyWork->incharge === (int) $user->report_to;
                 }
+
                 // No jurisdiction and no manager: can assign users to own works
                 return (int) $dailyWork->incharge === (int) $user->id;
             }

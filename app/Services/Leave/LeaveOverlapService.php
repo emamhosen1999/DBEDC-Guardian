@@ -27,7 +27,7 @@ class LeaveOverlapService
             });
 
         if ($excludeLeaveId) {
-            $query->where('id', '!=', $excludeLeaveId);
+            $query->where('leaves.id', '!=', $excludeLeaveId);
         }
 
         $overlapping = $query->get();

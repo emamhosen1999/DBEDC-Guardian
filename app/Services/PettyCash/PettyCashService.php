@@ -5,92 +5,107 @@ namespace App\Services\PettyCash;
 use App\Models\PettyCashLoan;
 use App\Models\PettyCashTransaction;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PettyCashService
 {
     public function createLoan(array $data): PettyCashLoan
     {
-        $loan = PettyCashLoan::create([
-            'user_id' => Auth::id(),
-            'loan_amount' => $data['amount'],
-            'original_amount' => $data['amount'],
-            'current_balance' => $data['amount'],
-            'status' => 'active',
-            'loan_date' => $data['loan_date'] ?? now()->toDateString(),
-            'notes' => $data['notes'] ?? null,
-        ]);
+        return DB::transaction(function () use ($data) {
+            $loan = PettyCashLoan::create([
+                'user_id' => Auth::id(),
+                'loan_amount' => $data['amount'],
+                'original_amount' => $data['amount'],
+                'current_balance' => $data['amount'],
+                'status' => 'active',
+                'loan_date' => $data['loan_date'] ?? now()->toDateString(),
+                'notes' => $data['notes'] ?? null,
+            ]);
 
-        // Create initial loan_taken transaction
-        $loan->transactions()->create([
-            'type' => 'loan_taken',
-            'amount' => $data['amount'],
-            'description' => 'Initial loan amount',
-            'transaction_date' => $data['loan_date'] ?? now()->toDateString(),
-        ]);
+            // Create initial loan_taken transaction
+            $loan->transactions()->create([
+                'type' => 'loan_taken',
+                'amount' => $data['amount'],
+                'description' => 'Initial loan amount',
+                'transaction_date' => $data['loan_date'] ?? now()->toDateString(),
+            ]);
 
-        return $loan;
+            return $loan;
+        });
     }
 
     public function addExpense(PettyCashLoan $loan, array $data): PettyCashTransaction
     {
-        $transaction = $loan->transactions()->create([
-            'type' => 'expense',
-            'category' => $data['category'],
-            'amount' => $data['amount'],
-            'description' => $data['description'],
-            'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
-        ]);
+        return DB::transaction(function () use ($loan, $data) {
+            $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
+            $transaction = $loan->transactions()->create([
+                'type' => 'expense',
+                'category' => $data['category'],
+                'amount' => $data['amount'],
+                'description' => $data['description'],
+                'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
+            ]);
 
-        $loan->updateBalance();
+            $loan->updateBalance();
 
-        return $transaction;
+            return $transaction;
+        });
     }
 
     public function addReimbursement(PettyCashLoan $loan, array $data): PettyCashTransaction
     {
-        $transaction = $loan->transactions()->create([
-            'type' => 'reimbursement',
-            'category' => $data['category'] ?? null,
-            'amount' => $data['amount'],
-            'description' => $data['description'],
-            'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
-        ]);
+        return DB::transaction(function () use ($loan, $data) {
+            $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
+            $transaction = $loan->transactions()->create([
+                'type' => 'reimbursement',
+                'category' => $data['category'] ?? null,
+                'amount' => $data['amount'],
+                'description' => $data['description'],
+                'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
+            ]);
 
-        $loan->updateBalance();
+            $loan->updateBalance();
 
-        return $transaction;
+            return $transaction;
+        });
     }
 
     public function addRepayment(PettyCashLoan $loan, array $data): PettyCashTransaction
     {
-        $transaction = $loan->transactions()->create([
-            'type' => 'repayment',
-            'amount' => $data['amount'],
-            'description' => $data['description'],
-            'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
-        ]);
-
-        $loan->updateBalance();
-
-        // Check if loan is fully repaid
-        if ((float) $loan->current_balance <= 0) {
-            $loan->update([
-                'status' => 'settled',
-                'closed_date' => now()->toDateString(),
+        return DB::transaction(function () use ($loan, $data) {
+            $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
+            $transaction = $loan->transactions()->create([
+                'type' => 'repayment',
+                'amount' => $data['amount'],
+                'description' => $data['description'],
+                'transaction_date' => $data['transaction_date'] ?? now()->toDateString(),
             ]);
-        }
 
-        return $transaction;
+            $loan->updateBalance();
+
+            // Check if loan is fully repaid
+            if ((float) $loan->current_balance <= 0) {
+                $loan->update([
+                    'status' => 'settled',
+                    'closed_date' => now()->toDateString(),
+                ]);
+            }
+
+            return $transaction;
+        });
     }
 
     public function closeLoan(PettyCashLoan $loan): PettyCashLoan
     {
-        $loan->update([
-            'status' => 'closed',
-            'closed_date' => now()->toDateString(),
-        ]);
+        return DB::transaction(function () use ($loan) {
+            $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
+            $loan->update([
+                'status' => 'closed',
+                'closed_date' => now()->toDateString(),
+            ]);
 
-        return $loan;
+            return $loan;
+        });
     }
 
     public function getLoanSummary(PettyCashLoan $loan): array
@@ -98,6 +113,7 @@ class PettyCashService
         $transactions = $loan->transactions;
 
         return [
+            'id' => $loan->id,
             'original_amount' => $loan->original_amount,
             'current_balance' => $loan->current_balance,
             'total_expenses' => $transactions->where('type', 'expense')->sum('amount'),

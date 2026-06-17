@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessBiometricDownloadSession;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\BiometricDownloadSession;
 use App\Models\User;
 use App\Services\Biometric\BiometricProcessingService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -29,6 +31,7 @@ class BiometricDeviceController extends Controller
             ->map(function ($device) {
                 $device->is_online = $device->isOnline();
                 $device->online_status = $device->getOnlineStatusAttribute();
+
                 return $device;
             });
 
@@ -39,14 +42,14 @@ class BiometricDeviceController extends Controller
 
         if (request()->expectsJson()) {
             return response()->json([
-                'devices'   => $devices,
+                'devices' => $devices,
                 'employees' => $employees,
             ]);
         }
 
         return Inertia::render('Settings/BiometricDevices', [
-            'title'     => 'Biometric Devices',
-            'devices'   => $devices,
+            'title' => 'Biometric Devices',
+            'devices' => $devices,
             'employees' => $employees,
         ]);
     }
@@ -54,14 +57,14 @@ class BiometricDeviceController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'          => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'serial_number' => 'required|string|max:191|unique:biometric_devices,serial_number',
-            'ip_address'    => 'nullable|ip',
-            'location'      => 'nullable|string|max:255',
-            'model'         => 'nullable|string|max:255',
-            'protocol'      => 'nullable|in:push_sdk,adms',
-            'is_active'     => 'boolean',
-            'config'        => 'nullable|array',
+            'ip_address' => 'nullable|ip',
+            'location' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:255',
+            'protocol' => 'nullable|in:push_sdk,adms',
+            'is_active' => 'boolean',
+            'config' => 'nullable|array',
         ]);
 
         $device = BiometricDevice::create($data);
@@ -71,7 +74,7 @@ class BiometricDeviceController extends Controller
 
         return response()->json([
             'message' => 'Device registered successfully.',
-            'device'  => $device->fresh(),
+            'device' => $device->fresh(),
         ], 201);
     }
 
@@ -80,21 +83,21 @@ class BiometricDeviceController extends Controller
         $device = BiometricDevice::findOrFail($id);
 
         $data = $request->validate([
-            'name'          => 'sometimes|required|string|max:255',
-            'serial_number' => 'sometimes|required|string|max:191|unique:biometric_devices,serial_number,' . $id,
-            'ip_address'    => 'nullable|ip',
-            'location'      => 'nullable|string|max:255',
-            'model'         => 'nullable|string|max:255',
-            'protocol'      => 'nullable|in:push_sdk,adms',
-            'is_active'     => 'boolean',
-            'config'        => 'nullable|array',
+            'name' => 'sometimes|required|string|max:255',
+            'serial_number' => 'sometimes|required|string|max:191|unique:biometric_devices,serial_number,'.$id,
+            'ip_address' => 'nullable|ip',
+            'location' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:255',
+            'protocol' => 'nullable|in:push_sdk,adms',
+            'is_active' => 'boolean',
+            'config' => 'nullable|array',
         ]);
 
         $device->update($data);
 
         return response()->json([
             'message' => 'Device updated successfully.',
-            'device'  => $device->fresh(),
+            'device' => $device->fresh(),
         ]);
     }
 
@@ -109,10 +112,10 @@ class BiometricDeviceController extends Controller
     public function regenerateToken($id)
     {
         $device = BiometricDevice::findOrFail($id);
-        $token  = $device->regenerateToken();
+        $token = $device->regenerateToken();
 
         return response()->json([
-            'message'    => 'Token regenerated.',
+            'message' => 'Token regenerated.',
             'auth_token' => $token,
         ]);
     }
@@ -216,36 +219,36 @@ class BiometricDeviceController extends Controller
         $devices = BiometricDevice::all()->map(function ($device) {
             $isOnline = $device->isOnline();
             $lastHeartbeat = $device->last_heartbeat_at;
-            
+
             // Calculate health score (0-100)
             $healthScore = 100;
-            
+
             // Deduct points for offline status
-            if (!$isOnline) {
+            if (! $isOnline) {
                 $healthScore -= 50;
             }
-            
+
             // Deduct points for old heartbeat (more than 5 minutes)
             if ($lastHeartbeat && $lastHeartbeat->lt(now()->subMinutes(5))) {
                 $healthScore -= 30;
             }
-            
+
             // Deduct points for very old heartbeat (more than 1 hour)
             if ($lastHeartbeat && $lastHeartbeat->lt(now()->subHour())) {
                 $healthScore -= 20;
             }
-            
+
             // Deduct points for inactive device
-            if (!$device->is_active) {
+            if (! $device->is_active) {
                 $healthScore -= 10;
             }
-            
+
             // Ensure score is between 0 and 100
             $healthScore = max(0, min(100, $healthScore));
-            
+
             // Calculate uptime (days since creation or last reset)
             $uptimeDays = $device->created_at ? now()->diffInDays($device->created_at) : 0;
-            
+
             // Get latency from last ping (stored in config or calculate fresh)
             $latency = null;
             if ($device->ip_address) {
@@ -253,7 +256,7 @@ class BiometricDeviceController extends Controller
                 $reachable = $this->executePing($device->ip_address);
                 $latency = $reachable ? round((microtime(true) - $startTime) * 1000, 2) : null;
             }
-            
+
             return [
                 'id' => $device->id,
                 'name' => $device->name,
@@ -275,7 +278,7 @@ class BiometricDeviceController extends Controller
         $healthyDevices = $devices->where('status', 'healthy')->count();
         $warningDevices = $devices->where('status', 'warning')->count();
         $criticalDevices = $devices->where('status', 'critical')->count();
-        
+
         $overallHealthScore = $totalDevices > 0 ? round($devices->avg('health_score'), 1) : 100;
 
         return response()->json([
@@ -313,7 +316,9 @@ class BiometricDeviceController extends Controller
         for ($i = 0; $i < $linesToRead; $i++) {
             $file->seek($totalLines - $linesToRead + $i);
             $line = trim($file->current());
-            if (empty($line)) continue;
+            if (empty($line)) {
+                continue;
+            }
 
             // Parse log line and extract ADMS-related entries
             if (str_contains($line, 'ADMS') || str_contains($line, 'biometric')) {
@@ -377,10 +382,10 @@ class BiometricDeviceController extends Controller
      */
     public function getAttLogs(Request $request)
     {
-        $perPage  = (int) $request->input('per_page', 25);
-        $page     = (int) $request->input('page', 1);
-        $search   = $request->input('search');
-        $status   = $request->input('status');
+        $perPage = (int) $request->input('per_page', 25);
+        $page = (int) $request->input('page', 1);
+        $search = $request->input('search');
+        $status = $request->input('status');
         $deviceId = $request->input('device_id');
 
         $query = BiometricAttLog::with([
@@ -391,9 +396,9 @@ class BiometricDeviceController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('user_pin', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn ($u) => $u->withTrashed()
-                      ->where('name', 'like', "%{$search}%")
-                      ->orWhere('employee_id', 'like', "%{$search}%"));
+                    ->orWhereHas('user', fn ($u) => $u->withTrashed()
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('employee_id', 'like', "%{$search}%"));
             });
         }
 
@@ -408,12 +413,12 @@ class BiometricDeviceController extends Controller
         $logs = $query->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
-            'logs'  => $logs,
+            'logs' => $logs,
             'stats' => [
-                'total'        => BiometricAttLog::count(),
-                'processed'    => BiometricAttLog::where('punch_status', 'processed')->count(),
+                'total' => BiometricAttLog::count(),
+                'processed' => BiometricAttLog::where('punch_status', 'processed')->count(),
                 'unknown_user' => BiometricAttLog::where('punch_status', 'unknown_user')->count(),
-                'failed'       => BiometricAttLog::whereIn('punch_status', ['failed', 'wrong_device', 'duplicate'])->count(),
+                'failed' => BiometricAttLog::whereIn('punch_status', ['failed', 'wrong_device', 'duplicate'])->count(),
             ],
         ]);
     }
@@ -434,8 +439,9 @@ class BiometricDeviceController extends Controller
 
             foreach ($deviceIds as $deviceId) {
                 $device = BiometricDevice::find($deviceId);
-                if (!$device || !$device->ip_address) {
+                if (! $device || ! $device->ip_address) {
                     $results[] = ['id' => $deviceId, 'success' => false, 'message' => 'No IP address'];
+
                     continue;
                 }
 
@@ -454,7 +460,7 @@ class BiometricDeviceController extends Controller
             $reachableCount = collect($results)->where('success', true)->count();
 
             return response()->json([
-                'message' => 'Pinged ' . count($deviceIds) . ' device(s). ' . $reachableCount . ' reachable.',
+                'message' => 'Pinged '.count($deviceIds).' device(s). '.$reachableCount.' reachable.',
                 'results' => $results,
                 'reachable_count' => $reachableCount,
             ]);
@@ -513,11 +519,11 @@ class BiometricDeviceController extends Controller
     {
         $device = BiometricDevice::findOrFail($id);
 
-        if (!$device->is_active) {
+        if (! $device->is_active) {
             return response()->json(['message' => 'Device is inactive.'], 403);
         }
 
-        if (!$device->isAdms()) {
+        if (! $device->isAdms()) {
             return response()->json(['message' => 'Log downloads are only supported for ADMS devices.'], 400);
         }
 
@@ -529,7 +535,7 @@ class BiometricDeviceController extends Controller
             );
 
             // Also dispatch the monitoring job
-            \App\Jobs\ProcessBiometricDownloadSession::dispatch($session);
+            ProcessBiometricDownloadSession::dispatch($session);
 
             return response()->json([
                 'message' => 'Log download initiated. The device will be commanded to send its logs upon its next connection.',
@@ -537,7 +543,7 @@ class BiometricDeviceController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Failed to initiate log download: ' . $e->getMessage()
+                'message' => 'Failed to initiate log download: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -559,31 +565,31 @@ class BiometricDeviceController extends Controller
             );
 
             foreach ($result['sessions'] as $session) {
-                \App\Jobs\ProcessBiometricDownloadSession::dispatch($session);
+                ProcessBiometricDownloadSession::dispatch($session);
             }
 
             $count = count($result['sessions']);
             $skippedCount = count($result['skipped']);
 
             return response()->json([
-                'message' => "Log download initiated for {$count} device(s)." . ($skippedCount > 0 ? " Skipped {$skippedCount} device(s)." : ""),
+                'message' => "Log download initiated for {$count} device(s).".($skippedCount > 0 ? " Skipped {$skippedCount} device(s)." : ''),
                 'sessions' => $result['sessions'],
                 'skipped' => $result['skipped'],
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Failed to bulk initiate log download: ' . $e->getMessage()
+                'message' => 'Failed to bulk initiate log download: '.$e->getMessage(),
             ], 500);
         }
     }
 
     public function getDownloadHistory(Request $request)
     {
-        $perPage  = $request->input('per_page', 20);
-        $page     = (int) $request->input('page', 1);
+        $perPage = $request->input('per_page', 20);
+        $page = (int) $request->input('page', 1);
         $deviceId = $request->input('device_id');
 
-        if ($perPage === 'all' || (int)$perPage === -1) {
+        if ($perPage === 'all' || (int) $perPage === -1) {
             $sessions = $this->biometricService->getDownloadSessions(
                 $deviceId ? (int) $deviceId : null,
                 'all'
@@ -591,13 +597,13 @@ class BiometricDeviceController extends Controller
         } else {
             $sessions = $this->biometricService->getDownloadSessions(
                 $deviceId ? (int) $deviceId : null,
-                (int)$perPage,
+                (int) $perPage,
                 $page
             );
         }
 
         return response()->json([
-            'sessions' => $sessions
+            'sessions' => $sessions,
         ]);
     }
 
@@ -605,42 +611,42 @@ class BiometricDeviceController extends Controller
     {
         try {
             $session = BiometricDownloadSession::with('command')->findOrFail($id);
-            
+
             $query = BiometricAttLog::with('user:id,name,employee_id')
                 ->where('biometric_device_id', $session->biometric_device_id)
                 ->where('punch_status', 'downloaded');
-            
+
             $start = $session->started_at ?? $session->created_at;
             $end = $session->completed_at ?? now();
-            
+
             // Add a buffer of 10 seconds before and after to account for any tiny race conditions
             $query->whereBetween('created_at', [
                 $start->copy()->subSeconds(10),
-                $end->copy()->addSeconds(10)
+                $end->copy()->addSeconds(10),
             ]);
-            
+
             $logs = $query->orderBy('punch_time', 'asc')->get();
-            
+
             $grouped = [];
             foreach ($logs as $log) {
                 $pin = $log->user_pin;
                 $name = $log->user ? $log->user->name : 'Unknown';
                 $punchTime = $log->punch_time;
-                
-                if (!$punchTime) {
+
+                if (! $punchTime) {
                     continue;
                 }
 
                 $date = $punchTime->format('Y-m-d');
                 $time = $punchTime->format('H:i:s');
 
-                $key = $pin . '_' . $date;
-                if (!isset($grouped[$key])) {
+                $key = $pin.'_'.$date;
+                if (! isset($grouped[$key])) {
                     $grouped[$key] = [
                         'pin' => $pin,
                         'name' => $name,
                         'date' => $date,
-                        'times' => []
+                        'times' => [],
                     ];
                 }
                 $grouped[$key]['times'][] = $time;
@@ -650,7 +656,7 @@ class BiometricDeviceController extends Controller
             foreach ($grouped as $key => $group) {
                 $times = $group['times'];
                 sort($times);
-                
+
                 $inTimeRaw = count($times) > 0 ? $times[0] : '—';
                 $outTimeRaw = count($times) > 1 ? $times[count($times) - 1] : '—';
 
@@ -668,29 +674,30 @@ class BiometricDeviceController extends Controller
                 if ($a['date'] !== $b['date']) {
                     return strcmp($b['date'], $a['date']);
                 }
+
                 return strcmp($a['pin'], $b['pin']);
             });
 
             return response()->json([
-                'logs' => $rows
+                'logs' => $rows,
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Failed to fetch session logs: ' . $e->getMessage()
+                'message' => 'Failed to fetch session logs: '.$e->getMessage(),
             ], 500);
         }
     }
 
     private function formatTo12Hour(?string $timeStr): string
     {
-        if (!$timeStr || $timeStr === '—') {
+        if (! $timeStr || $timeStr === '—') {
             return '—';
         }
         try {
-            return \Carbon\Carbon::createFromFormat('H:i:s', $timeStr)->format('h:i:s A');
+            return Carbon::createFromFormat('H:i:s', $timeStr)->format('h:i:s A');
         } catch (\Exception $e) {
             try {
-                return \Carbon\Carbon::parse($timeStr)->format('h:i:s A');
+                return Carbon::parse($timeStr)->format('h:i:s A');
             } catch (\Exception $e2) {
                 return $timeStr;
             }

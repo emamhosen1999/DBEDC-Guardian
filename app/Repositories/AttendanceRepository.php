@@ -11,8 +11,6 @@ class AttendanceRepository extends BaseRepository
 {
     /**
      * Create a new repository instance
-     *
-     * @param Attendance $model
      */
     public function __construct(Attendance $model)
     {
@@ -21,10 +19,6 @@ class AttendanceRepository extends BaseRepository
 
     /**
      * Apply filters to query
-     *
-     * @param Builder $query
-     * @param array $filters
-     * @return Builder
      */
     public function applyFilters(Builder $query, array $filters): Builder
     {
@@ -34,10 +28,10 @@ class AttendanceRepository extends BaseRepository
         }
 
         // Filter by employee keyword (name or employee_id)
-        if (!empty($filters['employee'])) {
+        if (! empty($filters['employee'])) {
             $query->whereHas('user', function ($q) use ($filters) {
-                $q->where('name', 'like', '%' . $filters['employee'] . '%')
-                  ->orWhere('employee_id', 'like', '%' . $filters['employee'] . '%');
+                $q->where('name', 'like', '%'.$filters['employee'].'%')
+                    ->orWhere('employee_id', 'like', '%'.$filters['employee'].'%');
             });
         }
 
@@ -99,9 +93,7 @@ class AttendanceRepository extends BaseRepository
     /**
      * Get attendance for a specific user on a specific date
      *
-     * @param int $userId
-     * @param string|Carbon $date
-     * @return Collection
+     * @param  string|Carbon  $date
      */
     public function getUserAttendanceForDate(int $userId, $date): Collection
     {
@@ -114,9 +106,6 @@ class AttendanceRepository extends BaseRepository
 
     /**
      * Get today's attendance for a user
-     *
-     * @param int $userId
-     * @return Collection
      */
     public function getTodayAttendance(int $userId): Collection
     {
@@ -126,9 +115,7 @@ class AttendanceRepository extends BaseRepository
     /**
      * Get users present on a specific date
      *
-     * @param string|Carbon $date
-     * @param array $filters
-     * @return Collection
+     * @param  string|Carbon  $date
      */
     public function getPresentUsersForDate($date, array $filters = []): Collection
     {
@@ -148,25 +135,21 @@ class AttendanceRepository extends BaseRepository
     /**
      * Get users absent on a specific date
      *
-     * @param string|Carbon $date
-     * @param array $filters
-     * @return Collection
+     * @param  string|Carbon  $date
      */
     public function getAbsentUsersForDate($date, array $filters = []): Collection
     {
         // This is a complex query - for now return empty collection
         // In a real implementation, you'd need to get all active users
         // and filter out those with attendance records
-        return new Collection();
+        return new Collection;
     }
 
     /**
      * Get attendance summary for a date range
      *
-     * @param int $userId
-     * @param string|Carbon $fromDate
-     * @param string|Carbon $toDate
-     * @return array
+     * @param  string|Carbon  $fromDate
+     * @param  string|Carbon  $toDate
      */
     public function getAttendanceSummary(int $userId, $fromDate, $toDate): array
     {
@@ -190,11 +173,6 @@ class AttendanceRepository extends BaseRepository
 
     /**
      * Get attendance for a month
-     *
-     * @param int $userId
-     * @param int $month
-     * @param int $year
-     * @return Collection
      */
     public function getMonthlyAttendance(int $userId, int $month, int $year): Collection
     {
@@ -208,9 +186,6 @@ class AttendanceRepository extends BaseRepository
 
     /**
      * Check if user has punched in today
-     *
-     * @param int $userId
-     * @return bool
      */
     public function hasPunchedInToday(int $userId): bool
     {
@@ -223,9 +198,6 @@ class AttendanceRepository extends BaseRepository
 
     /**
      * Check if user has punched out today
-     *
-     * @param int $userId
-     * @return bool
      */
     public function hasPunchedOutToday(int $userId): bool
     {
@@ -238,9 +210,6 @@ class AttendanceRepository extends BaseRepository
 
     /**
      * Get latest attendance record for a user
-     *
-     * @param int $userId
-     * @return Attendance|null
      */
     public function getLatestAttendance(int $userId): ?Attendance
     {

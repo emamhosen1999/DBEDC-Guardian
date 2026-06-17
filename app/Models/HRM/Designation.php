@@ -5,7 +5,10 @@ namespace App\Models\HRM;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Designation extends Model
 {
@@ -16,15 +19,15 @@ class Designation extends Model
         parent::boot();
 
         static::saved(function ($designation) {
-            \Illuminate\Support\Facades\Cache::forget('active_designations_list');
+            Cache::forget('active_designations_list');
         });
 
         static::deleted(function ($designation) {
-            \Illuminate\Support\Facades\Cache::forget('active_designations_list');
+            Cache::forget('active_designations_list');
         });
 
         static::restored(function ($designation) {
-            \Illuminate\Support\Facades\Cache::forget('active_designations_list');
+            Cache::forget('active_designations_list');
         });
     }
 
@@ -47,17 +50,17 @@ class Designation extends Model
     ];
 
     // Relationships
-    public function department(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
-    public function users(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function users(): HasMany
     {
         return $this->hasMany(User::class, 'designation_id');
     }
 
-    public function parent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function parent(): BelongsTo
     {
         return $this->belongsTo(Designation::class, 'parent_id');
     }

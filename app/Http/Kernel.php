@@ -2,7 +2,44 @@
 
 namespace App\Http;
 
+use App\Http\Middleware\ApiDeviceAuthMiddleware;
+use App\Http\Middleware\ApiSecurityMiddleware;
+use App\Http\Middleware\AttendanceRateLimit;
+use App\Http\Middleware\Authenticate;
+use App\Http\Middleware\CheckModuleAccess;
+use App\Http\Middleware\Cors;
+use App\Http\Middleware\DeviceAuthMiddleware;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\LogRequestMiddleware;
+use App\Http\Middleware\PreventRequestsDuringMaintenance;
+use App\Http\Middleware\RoleHierarchyMiddleware;
+use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\TrimStrings;
+use App\Http\Middleware\TrustProxies;
+use Illuminate\Auth\Middleware\AuthenticateWithBasicAuth;
+use Illuminate\Auth\Middleware\Authorize;
+use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
+use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
+use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
+use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Http\Middleware\ValidatePostSize;
+use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Http\Middleware\SetCacheHeaders;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\Middleware\ValidateSignature;
+use Illuminate\Session\Middleware\AuthenticateSession;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 class Kernel extends HttpKernel
 {
@@ -11,13 +48,13 @@ class Kernel extends HttpKernel
      */
     protected $middleware = [
         // \App\Http\Middleware\TrustHosts::class,
-        \App\Http\Middleware\TrustProxies::class,
-        \Illuminate\Http\Middleware\HandleCors::class,
-        \App\Http\Middleware\PreventRequestsDuringMaintenance::class,
-        \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
-        \App\Http\Middleware\TrimStrings::class,
-        \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
-        \App\Http\Middleware\LogRequestMiddleware::class,
+        TrustProxies::class,
+        HandleCors::class,
+        PreventRequestsDuringMaintenance::class,
+        ValidatePostSize::class,
+        TrimStrings::class,
+        ConvertEmptyStringsToNull::class,
+        LogRequestMiddleware::class,
     ];
 
     /**
@@ -25,23 +62,23 @@ class Kernel extends HttpKernel
      */
     protected $middlewareGroups = [
         'web' => [
-            \Illuminate\Cookie\Middleware\EncryptCookies::class,
-            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-            \Illuminate\Session\Middleware\StartSession::class,
-            \App\Http\Middleware\DeviceAuthMiddleware::class,
-            \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
-            \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            \App\Http\Middleware\SetLocale::class, // Locale detection before Inertia
-            \App\Http\Middleware\HandleInertiaRequests::class,
-            \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
-            \App\Http\Middleware\Cors::class,
+            EncryptCookies::class,
+            AddQueuedCookiesToResponse::class,
+            StartSession::class,
+            DeviceAuthMiddleware::class,
+            ShareErrorsFromSession::class,
+            ValidateCsrfToken::class,
+            SubstituteBindings::class,
+            SetLocale::class, // Locale detection before Inertia
+            HandleInertiaRequests::class,
+            AddLinkHeadersForPreloadedAssets::class,
+            Cors::class,
         ],
 
         'api' => [
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
-            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            ThrottleRequests::class.':api',
+            SubstituteBindings::class,
         ],
     ];
 
@@ -49,29 +86,29 @@ class Kernel extends HttpKernel
      * The application's middleware aliases.
      */
     protected $middlewareAliases = [
-        'auth' => \App\Http\Middleware\Authenticate::class,
-        'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
-        'auth.session' => \Illuminate\Session\Middleware\AuthenticateSession::class,
-        'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
-        'can' => \Illuminate\Auth\Middleware\Authorize::class,
-        'guest' => \Illuminate\Auth\Middleware\RedirectIfAuthenticated::class,
-        'password.confirm' => \Illuminate\Auth\Middleware\RequirePassword::class,
-        'precognitive' => \Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests::class,
-        'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
-        'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
-        'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+        'auth' => Authenticate::class,
+        'auth.basic' => AuthenticateWithBasicAuth::class,
+        'auth.session' => AuthenticateSession::class,
+        'cache.headers' => SetCacheHeaders::class,
+        'can' => Authorize::class,
+        'guest' => RedirectIfAuthenticated::class,
+        'password.confirm' => RequirePassword::class,
+        'precognitive' => HandlePrecognitiveRequests::class,
+        'signed' => ValidateSignature::class,
+        'throttle' => ThrottleRequests::class,
+        'verified' => EnsureEmailIsVerified::class,
         // Spatie Permission Middleware
-        'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-        'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-        'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+        'role' => RoleMiddleware::class,
+        'permission' => PermissionMiddleware::class,
+        'role_or_permission' => RoleOrPermissionMiddleware::class,
         // Custom Security Middleware
-        'api_security' => \App\Http\Middleware\ApiSecurityMiddleware::class,
-        'custom_permission' => \App\Http\Middleware\PermissionMiddleware::class,
-        'role_hierarchy' => \App\Http\Middleware\RoleHierarchyMiddleware::class,
+        'api_security' => ApiSecurityMiddleware::class,
+        'custom_permission' => Middleware\PermissionMiddleware::class,
+        'role_hierarchy' => RoleHierarchyMiddleware::class,
         // Module Permission Registry Middleware
-        'module' => \App\Http\Middleware\CheckModuleAccess::class,
-        'attendance.rate_limit' => \App\Http\Middleware\AttendanceRateLimit::class,
+        'module' => CheckModuleAccess::class,
+        'attendance.rate_limit' => AttendanceRateLimit::class,
         // Device auth is now global middleware - no need for alias
-        'api.device' => \App\Http\Middleware\ApiDeviceAuthMiddleware::class,
+        'api.device' => ApiDeviceAuthMiddleware::class,
     ];
 }

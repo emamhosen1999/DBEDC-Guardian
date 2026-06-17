@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Exports\DailyWorkSummaryExport;
+use App\Jobs\ExportDailyWorkSummary;
 use App\Models\DailyWork;
+use App\Models\DailyWorkSummary;
 use App\Models\Jurisdiction;
 use App\Models\User;
 use App\Traits\DailyWorkFilterable;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Jobs\ExportDailyWorkSummary;
 
 class DailyWorkSummaryController extends Controller
 {
@@ -32,8 +32,8 @@ class DailyWorkSummaryController extends Controller
         // Employee logic based on jurisdiction incharge
         if (! $isAdmin && in_array('Employee', $userRoles)) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
                 \Log::info('DailyWorkSummaryController index - Employee with jurisdiction', [
@@ -111,8 +111,8 @@ class DailyWorkSummaryController extends Controller
             // Employee logic based on jurisdiction incharge
             if (! $isAdmin && in_array('Employee', $userRoles)) {
                 // Check if user is incharge of any jurisdiction
-                $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-                
+                $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
                 if ($hasJurisdiction) {
                     // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
                     $query->where('incharge', $user->id);
@@ -181,8 +181,8 @@ class DailyWorkSummaryController extends Controller
         // Employee logic based on jurisdiction incharge
         if (! $isAdmin && in_array('Employee', $userRoles)) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
                 $query->where('incharge', $user->id);
@@ -390,7 +390,7 @@ class DailyWorkSummaryController extends Controller
                 'success' => true,
                 'queued' => true,
                 'filename' => $filename,
-                'download_url' => asset('storage/exports/' . $filename),
+                'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
@@ -405,25 +405,27 @@ class DailyWorkSummaryController extends Controller
      */
     private function generateDailyTrendChart($dailyTrend)
     {
-        if (empty($dailyTrend)) return null;
+        if (empty($dailyTrend)) {
+            return null;
+        }
 
         $width = 800;
         $height = 300;
         $padding = 40;
-        
+
         $maxValue = max(array_column($dailyTrend, 'total')) ?: 1;
         $maxValue = ceil($maxValue * 1.1); // Add 10% headroom
-        
-        $svg = '<svg width="' . $width . '" height="' . $height . '" xmlns="http://www.w3.org/2000/svg">';
-        $svg .= '<rect width="' . $width . '" height="' . $height . '" fill="#ffffff"/>';
-        
+
+        $svg = '<svg width="'.$width.'" height="'.$height.'" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<rect width="'.$width.'" height="'.$height.'" fill="#ffffff"/>';
+
         // Title
-        $svg .= '<text x="' . ($width / 2) . '" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976D2">Daily Work Trend</text>';
-        
+        $svg .= '<text x="'.($width / 2).'" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976D2">Daily Work Trend</text>';
+
         // Axes
-        $svg .= '<line x1="' . $padding . '" y1="' . $padding . '" x2="' . $padding . '" y2="' . ($height - $padding) . '" stroke="#333" stroke-width="1"/>';
-        $svg .= '<line x1="' . $padding . '" y1="' . ($height - $padding) . '" x2="' . ($width - $padding) . '" y2="' . ($height - $padding) . '" stroke="#333" stroke-width="1"/>';
-        
+        $svg .= '<line x1="'.$padding.'" y1="'.$padding.'" x2="'.$padding.'" y2="'.($height - $padding).'" stroke="#333" stroke-width="1"/>';
+        $svg .= '<line x1="'.$padding.'" y1="'.($height - $padding).'" x2="'.($width - $padding).'" y2="'.($height - $padding).'" stroke="#333" stroke-width="1"/>';
+
         // Plot points
         $points = [];
         foreach ($dailyTrend as $i => $day) {
@@ -431,21 +433,21 @@ class DailyWorkSummaryController extends Controller
             $y = ($height - $padding) - ($day['total'] / $maxValue * ($height - 2 * $padding));
             $points[] = "{$x},{$y}";
         }
-        
+
         // Draw line
         if (count($points) > 1) {
-            $svg .= '<polyline points="' . implode(' ', $points) . '" fill="none" stroke="#0070F0" stroke-width="2"/>';
-            
+            $svg .= '<polyline points="'.implode(' ', $points).'" fill="none" stroke="#0070F0" stroke-width="2"/>';
+
             // Draw points
             foreach ($points as $i => $point) {
-                list($x, $y) = explode(',', $point);
-                $svg .= '<circle cx="' . $x . '" cy="' . $y . '" r="4" fill="#0070F0"/>';
+                [$x, $y] = explode(',', $point);
+                $svg .= '<circle cx="'.$x.'" cy="'.$y.'" r="4" fill="#0070F0"/>';
             }
         }
-        
+
         $svg .= '</svg>';
-        
-        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 
     /**
@@ -453,51 +455,55 @@ class DailyWorkSummaryController extends Controller
      */
     private function generatePieChart($data, $title)
     {
-        if (empty($data)) return null;
+        if (empty($data)) {
+            return null;
+        }
 
         $width = 400;
         $height = 300;
         $cx = $width / 2;
         $cy = $height / 2;
         $radius = 100;
-        
+
         $total = array_sum(array_column($data, 'value'));
-        if ($total == 0) return null;
-        
+        if ($total == 0) {
+            return null;
+        }
+
         $colors = ['#0070F0', '#17C964', '#F5A524', '#F31260', '#9333EA'];
-        
-        $svg = '<svg width="' . $width . '" height="' . $height . '" xmlns="http://www.w3.org/2000/svg">';
-        $svg .= '<rect width="' . $width . '" height="' . $height . '" fill="#ffffff"/>';
-        $svg .= '<text x="' . ($width / 2) . '" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976D2">' . htmlspecialchars($title) . '</text>';
-        
+
+        $svg = '<svg width="'.$width.'" height="'.$height.'" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<rect width="'.$width.'" height="'.$height.'" fill="#ffffff"/>';
+        $svg .= '<text x="'.($width / 2).'" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976D2">'.htmlspecialchars($title).'</text>';
+
         $startAngle = 0;
         foreach ($data as $i => $item) {
             $sliceAngle = ($item['value'] / $total) * 2 * M_PI;
             $endAngle = $startAngle + $sliceAngle;
-            
+
             $x1 = $cx + $radius * cos($startAngle);
             $y1 = $cy + $radius * sin($startAngle);
             $x2 = $cx + $radius * cos($endAngle);
             $y2 = $cy + $radius * sin($endAngle);
-            
+
             $largeArc = $sliceAngle > M_PI ? 1 : 0;
-            
+
             $color = $colors[$i % count($colors)];
-            $svg .= '<path d="M ' . $cx . ' ' . $cy . ' L ' . $x1 . ' ' . $y1 . ' A ' . $radius . ' ' . $radius . ' 0 ' . $largeArc . ' 1 ' . $x2 . ' ' . $y2 . ' Z" fill="' . $color . '"/>';
-            
+            $svg .= '<path d="M '.$cx.' '.$cy.' L '.$x1.' '.$y1.' A '.$radius.' '.$radius.' 0 '.$largeArc.' 1 '.$x2.' '.$y2.' Z" fill="'.$color.'"/>';
+
             // Label
             $labelAngle = $startAngle + $sliceAngle / 2;
             $labelX = $cx + ($radius + 20) * cos($labelAngle);
             $labelY = $cy + ($radius + 20) * sin($labelAngle);
             $percentage = round(($item['value'] / $total) * 100);
-            $svg .= '<text x="' . $labelX . '" y="' . $labelY . '" text-anchor="middle" font-size="10" fill="#333">' . htmlspecialchars($item['name']) . ' (' . $percentage . '%)</text>';
-            
+            $svg .= '<text x="'.$labelX.'" y="'.$labelY.'" text-anchor="middle" font-size="10" fill="#333">'.htmlspecialchars($item['name']).' ('.$percentage.'%)</text>';
+
             $startAngle = $endAngle;
         }
-        
+
         $svg .= '</svg>';
-        
-        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 
     /**
@@ -514,7 +520,7 @@ class DailyWorkSummaryController extends Controller
                 'success' => true,
                 'queued' => true,
                 'filename' => $filename,
-                'download_url' => asset('storage/exports/' . $filename),
+                'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
@@ -537,8 +543,8 @@ class DailyWorkSummaryController extends Controller
             // Employee logic based on jurisdiction incharge
             if (! $isAdmin && in_array('Employee', $userRoles)) {
                 // Check if user is incharge of any jurisdiction
-                $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-                
+                $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
                 if ($hasJurisdiction) {
                     // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
                     $query->where('incharge', $user->id);
@@ -626,8 +632,8 @@ class DailyWorkSummaryController extends Controller
             $rfiSubmissionPercentage = $completed > 0 ? round(($rfiSubmissions / $completed) * 100, 1) : 0;
 
             // Fetch import snapshot from daily_work_summaries (immutable)
-            $importSummaries = \Illuminate\Support\Facades\Schema::hasTable('daily_work_summaries')
-                ? \App\Models\DailyWorkSummary::where('date', $date)->get()
+            $importSummaries = Schema::hasTable('daily_work_summaries')
+                ? DailyWorkSummary::where('date', $date)->get()
                 : collect();
             $importSnapshot = $importSummaries->isEmpty() ? null : [
                 'totalDailyWorks' => $importSummaries->sum('totalDailyWorks'),
@@ -727,8 +733,8 @@ class DailyWorkSummaryController extends Controller
             // Query remains unfiltered to get all daily works
         } elseif (in_array('Employee', $userRoles)) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): show works where they are incharge
                 $query->where('incharge', $user->id);

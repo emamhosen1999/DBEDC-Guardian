@@ -3,7 +3,6 @@
 namespace App\Services\Biometric;
 
 use App\Events\BiometricAttendanceReceived;
-use App\Events\BiometricDeviceConnected;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\BiometricAttLog;
 use App\Models\HRM\BiometricDevice;
@@ -13,6 +12,7 @@ use App\Models\User;
 use App\Services\Attendance\AttendancePunchService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -109,12 +109,12 @@ class BiometricProcessingService
         }
 
         $user = User::create([
-            'name'        => 'Device User ' . $deviceUserId,
-            'email'       => 'device_user_' . $deviceUserId . '@placeholder.local',
-            'user_name'   => 'device_user_' . $deviceUserId,
-            'password'    => bcrypt(Str::random(32)),
+            'name' => 'Device User '.$deviceUserId,
+            'email' => 'device_user_'.$deviceUserId.'@placeholder.local',
+            'user_name' => 'device_user_'.$deviceUserId,
+            'password' => bcrypt(Str::random(32)),
             'employee_id' => $deviceUserId,
-            'active'      => false,
+            'active' => false,
         ]);
         $user->delete(); // soft-delete = inactive
 
@@ -137,8 +137,8 @@ class BiometricProcessingService
 
         if (! $attendanceType || ! str_starts_with($attendanceType->slug, 'biometric')) {
             return [
-                'valid'  => false,
-                'reason' => 'Attendance type is not biometric: ' . ($attendanceType?->slug ?? 'not found'),
+                'valid' => false,
+                'reason' => 'Attendance type is not biometric: '.($attendanceType?->slug ?? 'not found'),
                 'attendance_type' => $attendanceType,
             ];
         }
@@ -171,11 +171,11 @@ class BiometricProcessingService
     public function buildSyntheticPunchRequest(string $serialNumber, string $deviceUserId, string $punchTime, string $checkType): Request
     {
         return Request::create('/biometric/punch', 'POST', [
-            'device_serial'  => $serialNumber,
+            'device_serial' => $serialNumber,
             'device_user_id' => $deviceUserId,
-            'source'         => 'biometric',
-            'punch_time'     => $punchTime,
-            'check_type'     => $checkType,
+            'source' => 'biometric',
+            'punch_time' => $punchTime,
+            'check_type' => $checkType,
         ]);
     }
 
@@ -202,8 +202,8 @@ class BiometricProcessingService
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('user_pin', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")
-                      ->orWhere('employee_id', 'like', "%{$search}%"));
+                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")
+                        ->orWhere('employee_id', 'like', "%{$search}%"));
             });
         }
 
@@ -231,10 +231,10 @@ class BiometricProcessingService
         ")->first();
 
         return [
-            'total'        => (int) ($stats->total        ?? 0),
-            'processed'    => (int) ($stats->processed    ?? 0),
+            'total' => (int) ($stats->total ?? 0),
+            'processed' => (int) ($stats->processed ?? 0),
             'unknown_user' => (int) ($stats->unknown_user ?? 0),
-            'failed'       => (int) ($stats->failed       ?? 0),
+            'failed' => (int) ($stats->failed ?? 0),
         ];
     }
 
@@ -290,16 +290,16 @@ class BiometricProcessingService
         return implode("\r\n", [
             "GET OPTION FROM: {$serialNumber}",
             "ATTLOGStamp={$attlogStamp}",
-            "OPERLOGStamp=9999",
-            "ATTPHOTOStamp=9999",
-            "errorDelay=30",
-            "delay=10",
-            "transTimes=00:00;14:05",
-            "transFlag=1111000000",
-            "encrypt=None",
-            "ServerVer=2.4.1",
-            "PushProtVer=2.4.1",
-            "",
+            'OPERLOGStamp=9999',
+            'ATTPHOTOStamp=9999',
+            'errorDelay=30',
+            'delay=10',
+            'transTimes=00:00;14:05',
+            'transFlag=1111000000',
+            'encrypt=None',
+            'ServerVer=2.4.1',
+            'PushProtVer=2.4.1',
+            '',
         ]);
     }
 
@@ -313,12 +313,12 @@ class BiometricProcessingService
     public function mapAdmsCheckType(string $rawCheckType): string
     {
         return match ((string) $rawCheckType) {
-            '0'     => 'in',
-            '1'     => 'out',
-            '2'     => 'break_out',
-            '3'     => 'break_in',
-            '4'     => 'ot_in',
-            '5'     => 'ot_out',
+            '0' => 'in',
+            '1' => 'out',
+            '2' => 'break_out',
+            '3' => 'break_in',
+            '4' => 'ot_in',
+            '5' => 'ot_out',
             'I', 'i' => 'in',
             'O', 'o' => 'out',
             default => 'in',
@@ -340,7 +340,7 @@ class BiometricProcessingService
         $session = BiometricDownloadSession::where('biometric_device_id', $device->id)
             ->whereIn('status', ['pending', 'in_progress'])
             ->first();
-        $isDownloading = !is_null($session);
+        $isDownloading = ! is_null($session);
 
         foreach ($lines as $line) {
             if (empty(trim($line))) {
@@ -360,23 +360,24 @@ class BiometricProcessingService
 
             Log::info('ADMS push: parsing ATTLOG line', [
                 'serial' => $serialNumber,
-                'line'   => $line,
+                'line' => $line,
                 'parsed_data' => $data,
             ]);
 
-            $hasUserId = !empty($data['PIN']);
-            $hasCheckTime = !empty($data['DateTime']);
+            $hasUserId = ! empty($data['PIN']);
+            $hasCheckTime = ! empty($data['DateTime']);
 
             // Skip lines that don't match ATTLOG format
             if (! $hasUserId || ! $hasCheckTime) {
                 $errorCount++;
                 Log::warning('ADMS push: line does not match ATTLOG format', [
-                    'serial'        => $serialNumber,
-                    'line'          => $line,
-                    'parsed_data'   => $data,
-                    'has_user_id'   => $hasUserId,
+                    'serial' => $serialNumber,
+                    'line' => $line,
+                    'parsed_data' => $data,
+                    'has_user_id' => $hasUserId,
                     'has_check_time' => $hasCheckTime,
                 ]);
+
                 continue;
             }
 
@@ -389,24 +390,25 @@ class BiometricProcessingService
                 $user = User::withTrashed()->where('employee_id', $deviceUserId)->first();
 
                 DB::table('biometric_att_logs')->insert([
-                    'biometric_device_id'   => $device->id,
-                    'serial_number'         => $serialNumber,
-                    'user_pin'              => $deviceUserId,
-                    'user_id'               => $user ? $user->id : null,
-                    'punch_time'            => $checkTime,
-                    'check_type'            => $checkType,
-                    'punch_status'          => 'downloaded',
-                    'punch_status_reason'   => 'Downloaded via active sync session',
-                    'verify_code'           => $data['VerifyCode'] ?? null,
-                    'work_code'             => $data['WorkCode'] ?? null,
-                    'raw_data'              => $line,
-                    'context'               => json_encode($data),
-                    'occurred_at'           => $checkTime,
-                    'created_at'            => now(),
-                    'updated_at'            => now(),
+                    'biometric_device_id' => $device->id,
+                    'serial_number' => $serialNumber,
+                    'user_pin' => $deviceUserId,
+                    'user_id' => $user ? $user->id : null,
+                    'punch_time' => $checkTime,
+                    'check_type' => $checkType,
+                    'punch_status' => 'downloaded',
+                    'punch_status_reason' => 'Downloaded via active sync session',
+                    'verify_code' => $data['VerifyCode'] ?? null,
+                    'work_code' => $data['WorkCode'] ?? null,
+                    'raw_data' => $line,
+                    'context' => json_encode($data),
+                    'occurred_at' => $checkTime,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]);
 
                 $processedCount++;
+
                 continue;
             }
 
@@ -419,9 +421,9 @@ class BiometricProcessingService
                 $attLogReason = 'Auto-created as inactive placeholder';
 
                 Log::info('ADMS push: auto-created inactive user', [
-                    'device_serial'  => $serialNumber,
+                    'device_serial' => $serialNumber,
                     'device_user_id' => $deviceUserId,
-                    'new_user_id'    => $user->id,
+                    'new_user_id' => $user->id,
                 ]);
             } else {
                 $attLogStatus = 'failed';
@@ -430,26 +432,27 @@ class BiometricProcessingService
 
             // Log the punch immediately
             $logId = DB::table('biometric_att_logs')->insertGetId([
-                'biometric_device_id'   => $device->id,
-                'serial_number'         => $serialNumber,
-                'user_pin'              => $deviceUserId,
-                'user_id'               => $user->id,
-                'punch_time'            => $checkTime,
-                'check_type'            => $checkType,
-                'punch_status'          => $attLogStatus,
-                'punch_status_reason'   => $attLogReason,
-                'verify_code'           => $data['VerifyCode'] ?? null,
-                'work_code'             => $data['WorkCode'] ?? null,
-                'raw_data'              => $line,
-                'context'               => json_encode($data),
-                'occurred_at'           => $checkTime,
-                'created_at'            => now(),
-                'updated_at'            => now(),
+                'biometric_device_id' => $device->id,
+                'serial_number' => $serialNumber,
+                'user_pin' => $deviceUserId,
+                'user_id' => $user->id,
+                'punch_time' => $checkTime,
+                'check_type' => $checkType,
+                'punch_status' => $attLogStatus,
+                'punch_status_reason' => $attLogReason,
+                'verify_code' => $data['VerifyCode'] ?? null,
+                'work_code' => $data['WorkCode'] ?? null,
+                'raw_data' => $line,
+                'context' => json_encode($data),
+                'occurred_at' => $checkTime,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             // If user was just auto-created, skip further processing
             if ($attLogStatus === 'unknown_user') {
                 $errorCount++;
+
                 continue;
             }
 
@@ -460,15 +463,16 @@ class BiometricProcessingService
                 $errorCount++;
                 $punchStatus = ($eligibility['reason'] === 'Device not in attendance zone') ? 'wrong_device' : 'failed';
                 DB::table('biometric_att_logs')->where('id', $logId)->update([
-                    'punch_status'        => $punchStatus,
+                    'punch_status' => $punchStatus,
                     'punch_status_reason' => $eligibility['reason'],
-                    'updated_at'          => now(),
+                    'updated_at' => now(),
                 ]);
                 Log::warning('ADMS push: attendance validation failed', [
                     'device_serial' => $serialNumber,
-                    'user_id'       => $user->id,
-                    'reason'        => $eligibility['reason'],
+                    'user_id' => $user->id,
+                    'reason' => $eligibility['reason'],
                 ]);
+
                 continue;
             }
 
@@ -479,10 +483,11 @@ class BiometricProcessingService
                     ->where('id', $logId)
                     ->update(['punch_status' => 'duplicate', 'updated_at' => now()]);
                 Log::info('ADMS push: duplicate punch skipped', [
-                    'device_serial'  => $serialNumber,
+                    'device_serial' => $serialNumber,
                     'device_user_id' => $deviceUserId,
-                    'check_time'     => $checkTime,
+                    'check_time' => $checkTime,
                 ]);
+
                 continue;
             }
 
@@ -503,43 +508,43 @@ class BiometricProcessingService
                     DB::table('biometric_att_logs')
                         ->where('id', $logId)
                         ->update([
-                            'punch_status'        => 'failed',
+                            'punch_status' => 'failed',
                             'punch_status_reason' => $result['message'] ?? null,
-                            'updated_at'          => now(),
+                            'updated_at' => now(),
                         ]);
                 }
 
                 Log::info('ADMS punch processed', [
-                    'user_id'        => $user->id,
-                    'device_serial'  => $serialNumber,
+                    'user_id' => $user->id,
+                    'device_serial' => $serialNumber,
                     'device_user_id' => $deviceUserId,
-                    'check_time'     => $checkTime,
-                    'check_type'     => $checkType,
-                    'result_status'  => $result['status'],
+                    'check_time' => $checkTime,
+                    'check_type' => $checkType,
+                    'result_status' => $result['status'],
                 ]);
 
                 event(new BiometricAttendanceReceived($device, $user, [
                     'device_user_id' => $deviceUserId,
-                    'check_time'     => $checkTime,
-                    'check_type'     => $checkType,
-                    'result'         => $result,
+                    'check_time' => $checkTime,
+                    'check_type' => $checkType,
+                    'result' => $result,
                 ]));
             } catch (\Exception $e) {
                 $errorCount++;
-                Log::error('ADMS punch error: ' . $e->getMessage(), [
-                    'user_id'        => $user->id,
-                    'device_serial'  => $serialNumber,
+                Log::error('ADMS punch error: '.$e->getMessage(), [
+                    'user_id' => $user->id,
+                    'device_serial' => $serialNumber,
                     'device_user_id' => $deviceUserId,
                 ]);
             }
         }
 
         Log::info('ADMS push completed', [
-            'serial'             => $serialNumber,
-            'processed'          => $processedCount,
+            'serial' => $serialNumber,
+            'processed' => $processedCount,
             'duplicates_skipped' => $duplicateCount,
-            'errors'             => $errorCount,
-            'total_lines'        => count($lines),
+            'errors' => $errorCount,
+            'total_lines' => count($lines),
         ]);
 
         // Update active download session if exists
@@ -549,21 +554,21 @@ class BiometricProcessingService
 
         if ($session) {
             $session->update([
-                'status'          => 'in_progress',
-                'total_records'   => $session->total_records + count($lines),
+                'status' => 'in_progress',
+                'total_records' => $session->total_records + count($lines),
                 'processed_count' => $session->processed_count + $processedCount,
                 'duplicate_count' => $session->duplicate_count + $duplicateCount,
-                'failed_count'    => $session->failed_count + $errorCount,
-                'started_at'      => $session->started_at ?? now(),
+                'failed_count' => $session->failed_count + $errorCount,
+                'started_at' => $session->started_at ?? now(),
             ]);
 
             $device->update(['last_log_download_at' => now()]);
         }
 
         return [
-            'processed'   => $processedCount,
-            'errors'      => $errorCount,
-            'duplicates'  => $duplicateCount,
+            'processed' => $processedCount,
+            'errors' => $errorCount,
+            'duplicates' => $duplicateCount,
             'total_lines' => count($lines),
         ];
     }
@@ -594,12 +599,12 @@ class BiometricProcessingService
                 $parts = preg_split('/\s+/', trim($line));
                 if (count($parts) >= 4) {
                     $data = [
-                        'type'      => 'OPLOG',
+                        'type' => 'OPLOG',
                         'operation' => $parts[1] ?? null,
-                        'pin'       => $parts[2] ?? null,
-                        'datetime'  => $parts[3] ?? null,
-                        'result'    => $parts[4] ?? null,
-                        'params'    => array_slice($parts, 5),
+                        'pin' => $parts[2] ?? null,
+                        'datetime' => $parts[3] ?? null,
+                        'result' => $parts[4] ?? null,
+                        'params' => array_slice($parts, 5),
                     ];
                     $operationType = $this->getOperLogName($parts[1] ?? '0');
                     $userPin = $parts[2] ?? null;
@@ -619,19 +624,19 @@ class BiometricProcessingService
 
             DB::table('biometric_oper_logs')->insert([
                 'biometric_device_id' => $device ? $device->id : null,
-                'serial_number'       => $serialNumber,
-                'raw_data'            => $line,
-                'operation_type'      => $operationType,
-                'user_pin'            => $userPin,
-                'context'             => json_encode($data),
-                'occurred_at'         => $occurredAt,
-                'created_at'          => now(),
-                'updated_at'          => now(),
+                'serial_number' => $serialNumber,
+                'raw_data' => $line,
+                'operation_type' => $operationType,
+                'user_pin' => $userPin,
+                'context' => json_encode($data),
+                'occurred_at' => $occurredAt,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
 
         Log::info('ADMS push: OPERLOG stored', [
-            'serial'        => $serialNumber,
+            'serial' => $serialNumber,
             'entries_count' => count($lines),
         ]);
     }
@@ -642,24 +647,24 @@ class BiometricProcessingService
     public function getOperLogName(string $code): string
     {
         return match ((string) $code) {
-            '0'   => 'Verify',
-            '1'   => 'Finger',
-            '2'   => 'Face',
-            '3'   => 'Card',
-            '4'   => 'Password',
-            '5'   => 'General',
-            '6'   => 'Enroll User',
-            '7'   => 'Enroll FP',
-            '8'   => 'Enroll Face',
-            '9'   => 'Enroll Card',
-            '10'  => 'Enroll Password',
-            '12'  => 'Delete User',
-            '13'  => 'Delete FP',
-            '14'  => 'Delete Face',
-            '15'  => 'Delete Card',
-            '16'  => 'Delete Password',
-            '30'  => 'Enroll FP',
-            '70'  => 'Verify FP',
+            '0' => 'Verify',
+            '1' => 'Finger',
+            '2' => 'Face',
+            '3' => 'Card',
+            '4' => 'Password',
+            '5' => 'General',
+            '6' => 'Enroll User',
+            '7' => 'Enroll FP',
+            '8' => 'Enroll Face',
+            '9' => 'Enroll Card',
+            '10' => 'Enroll Password',
+            '12' => 'Delete User',
+            '13' => 'Delete FP',
+            '14' => 'Delete Face',
+            '15' => 'Delete Card',
+            '16' => 'Delete Password',
+            '30' => 'Enroll FP',
+            '70' => 'Verify FP',
             '151' => 'Super Admin',
             default => 'Unknown',
         };
@@ -682,6 +687,7 @@ class BiometricProcessingService
 
         if (! preg_match($pattern, $content, $matches)) {
             Log::warning('User enrollment: invalid format');
+
             return ['success' => false, 'reason' => 'invalid_format'];
         }
 
@@ -697,28 +703,29 @@ class BiometricProcessingService
             if ($existingUser) {
                 DB::rollBack();
                 Log::info('User enrollment: user already exists with employee_id', [
-                    'device_serial'    => $serialNumber,
-                    'device_user_id'   => $pin,
-                    'system_user_id'   => $existingUser->id,
+                    'device_serial' => $serialNumber,
+                    'device_user_id' => $pin,
+                    'system_user_id' => $existingUser->id,
                     'system_user_name' => $existingUser->name,
                 ]);
+
                 return ['success' => true, 'reason' => 'already_exists'];
             }
 
             // Create placeholder account as INACTIVE
             $newUser = User::create([
-                'name'        => $name,
-                'email'       => 'device-auto-' . $pin . '@device-auto.local',
-                'user_name'   => 'device-auto-' . $pin,
-                'password'    => bcrypt(Str::random(32)),
-                'active'      => false,
+                'name' => $name,
+                'email' => 'device-auto-'.$pin.'@device-auto.local',
+                'user_name' => 'device-auto-'.$pin,
+                'password' => bcrypt(Str::random(32)),
+                'active' => false,
                 'employee_id' => $pin,
             ]);
 
             Log::info('User enrollment: created inactive system user (pending admin approval)', [
-                'device_serial'    => $serialNumber,
-                'device_user_id'   => $pin,
-                'system_user_id'   => $newUser->id,
+                'device_serial' => $serialNumber,
+                'device_user_id' => $pin,
+                'system_user_id' => $newUser->id,
                 'system_user_name' => $newUser->name,
             ]);
 
@@ -728,10 +735,11 @@ class BiometricProcessingService
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Failed to process user enrollment', [
-                'device_serial'  => $serialNumber,
+                'device_serial' => $serialNumber,
                 'device_user_id' => $pin,
-                'error'          => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
+
             return ['success' => false, 'reason' => 'exception'];
         }
     }
@@ -752,6 +760,7 @@ class BiometricProcessingService
 
         if (! preg_match($pattern, $content, $matches)) {
             Log::warning('Template upload: invalid format', ['table' => $table]);
+
             return ['success' => false, 'reason' => 'invalid_format'];
         }
 
@@ -762,9 +771,10 @@ class BiometricProcessingService
         $systemUser = User::where('employee_id', $userId)->first();
         if (! $systemUser) {
             Log::warning('Template upload: no system user for device PIN', [
-                'device_serial'  => $serialNumber,
+                'device_serial' => $serialNumber,
                 'device_user_id' => $userId,
             ]);
+
             return ['success' => true, 'reason' => 'no_user'];
         }
 
@@ -775,23 +785,23 @@ class BiometricProcessingService
             // Save to biometric_templates table
             DB::table('biometric_templates')->updateOrInsert(
                 [
-                    'device_user_id'      => $userId,
+                    'device_user_id' => $userId,
                     'biometric_device_id' => $device->id,
-                    'template_type'       => $templateType,
+                    'template_type' => $templateType,
                 ],
                 [
-                    'user_id'          => $systemUser->id,
-                    'template_data'    => $template,
-                    'template_size'    => strlen($template),
+                    'user_id' => $systemUser->id,
+                    'template_data' => $template,
+                    'template_size' => strlen($template),
                     'template_version' => $table,
-                    'created_at'       => now(),
-                    'updated_at'       => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ]
             );
 
             Log::info('Biometric template saved', [
                 'device_serial' => $serialNumber,
-                'user_id'       => $userId,
+                'user_id' => $userId,
                 'template_type' => $templateType,
                 'template_size' => strlen($template),
             ]);
@@ -800,9 +810,10 @@ class BiometricProcessingService
         } catch (\Exception $e) {
             Log::error('Failed to save biometric template', [
                 'device_serial' => $serialNumber,
-                'user_id'       => $userId,
-                'error'         => $e->getMessage(),
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
             ]);
+
             return ['success' => false, 'reason' => 'exception'];
         }
     }
@@ -818,18 +829,18 @@ class BiometricProcessingService
     {
         $command = BiometricDeviceCommand::create([
             'biometric_device_id' => $device->id,
-            'command_type'        => $validated['command_type'],
-            'payload'             => $validated['payload'] ?? null,
-            'status'              => 'pending',
-            'scheduled_at'        => $validated['scheduled_at'] ?? null,
+            'command_type' => $validated['command_type'],
+            'payload' => $validated['payload'] ?? null,
+            'status' => 'pending',
+            'scheduled_at' => $validated['scheduled_at'] ?? null,
         ]);
 
         Log::info('ADMS command queued', [
-            'device_id'     => $device->id,
+            'device_id' => $device->id,
             'device_serial' => $device->serial_number,
-            'command_id'    => $command->id,
-            'command_type'  => $command->command_type,
-            'scheduled_at'  => $command->scheduled_at,
+            'command_id' => $command->id,
+            'command_type' => $command->command_type,
+            'scheduled_at' => $command->scheduled_at,
         ]);
 
         return $command;
@@ -847,16 +858,16 @@ class BiometricProcessingService
         $commandsArray = [];
         foreach ($commands as $cmd) {
             $commandsArray[] = [
-                'id'            => $cmd->id,
-                'command_type'  => $cmd->command_type,
-                'status'        => $cmd->status,
-                'payload'       => $cmd->payload,
-                'return_code'   => $cmd->return_code,
+                'id' => $cmd->id,
+                'command_type' => $cmd->command_type,
+                'status' => $cmd->status,
+                'payload' => $cmd->payload,
+                'return_code' => $cmd->return_code,
                 'error_message' => $cmd->error_message,
-                'sent_at'       => $cmd->sent_at,
-                'executed_at'   => $cmd->executed_at,
-                'created_at'    => $cmd->created_at,
-                'adms_string'   => method_exists($cmd, 'toAdmsString') ? $cmd->toAdmsString() : null,
+                'sent_at' => $cmd->sent_at,
+                'executed_at' => $cmd->executed_at,
+                'created_at' => $cmd->created_at,
+                'adms_string' => method_exists($cmd, 'toAdmsString') ? $cmd->toAdmsString() : null,
             ];
         }
 
@@ -879,14 +890,14 @@ class BiometricProcessingService
                 $this->completeDownloadSessionForCommand($command, $returnCode);
 
                 Log::info('ADMS devicecmd: command acknowledged', [
-                    'serial'       => $serialNumber,
-                    'command_id'   => $command->id,
+                    'serial' => $serialNumber,
+                    'command_id' => $command->id,
                     'command_type' => $command->command_type,
-                    'return_code'  => $returnCode,
+                    'return_code' => $returnCode,
                 ]);
             } else {
                 Log::warning('ADMS devicecmd: command not found', [
-                    'serial'     => $serialNumber,
+                    'serial' => $serialNumber,
                     'command_id' => $ackData['ID'],
                 ]);
             }
@@ -900,7 +911,7 @@ class BiometricProcessingService
     /**
      * Get operation logs, optionally filtered by device.
      */
-    public function getOperationLogs(?int $deviceId): \Illuminate\Support\Collection
+    public function getOperationLogs(?int $deviceId): Collection
     {
         $query = DB::table('biometric_oper_logs')
             ->orderBy('occurred_at', 'desc')
@@ -912,14 +923,14 @@ class BiometricProcessingService
 
         return $query->get()->map(function ($log) {
             return [
-                'id'             => $log->id,
-                'level'          => 'info',
-                'serial_number'  => $log->serial_number,
+                'id' => $log->id,
+                'level' => 'info',
+                'serial_number' => $log->serial_number,
                 'operation_type' => $log->operation_type,
-                'user_pin'       => $log->user_pin,
-                'raw_data'       => $log->raw_data,
-                'context'        => json_decode($log->context ?? '[]', true),
-                'created_at'     => $log->occurred_at,
+                'user_pin' => $log->user_pin,
+                'raw_data' => $log->raw_data,
+                'context' => json_decode($log->context ?? '[]', true),
+                'created_at' => $log->occurred_at,
             ];
         });
     }
@@ -953,6 +964,7 @@ class BiometricProcessingService
 
         if (! $ackDevice) {
             Log::warning('ADMS acknowledgment: unknown device', ['sn' => $ackSn, 'command_id' => $ackData['ID']]);
+
             return false;
         }
 
@@ -966,14 +978,14 @@ class BiometricProcessingService
             $this->completeDownloadSessionForCommand($command, $returnCode);
 
             Log::info('ADMS command acknowledged', [
-                'serial'       => $ackSn,
-                'command_id'   => $command->id,
+                'serial' => $ackSn,
+                'command_id' => $command->id,
                 'command_type' => $command->command_type,
-                'return_code'  => $returnCode,
+                'return_code' => $returnCode,
             ]);
         } else {
             Log::warning('ADMS acknowledgment: command not found or device mismatch', [
-                'serial'     => $ackSn,
+                'serial' => $ackSn,
                 'command_id' => $ackData['ID'],
             ]);
         }
@@ -986,12 +998,12 @@ class BiometricProcessingService
      */
     public function initiateLogDownload(BiometricDevice $device, string $triggerType, ?int $userId = null, ?array $payload = null): BiometricDownloadSession
     {
-        if (!$device->is_active) {
-            throw new \InvalidArgumentException("Device is inactive.");
+        if (! $device->is_active) {
+            throw new \InvalidArgumentException('Device is inactive.');
         }
 
-        if (!$device->isAdms()) {
-            throw new \InvalidArgumentException("Log downloads are only supported for ADMS devices.");
+        if (! $device->isAdms()) {
+            throw new \InvalidArgumentException('Log downloads are only supported for ADMS devices.');
         }
 
         // Check if there is already an active session to prevent duplicates
@@ -1002,7 +1014,7 @@ class BiometricProcessingService
         if ($existing) {
             // If the existing session is older than 5 minutes, mark it as failed (timeout) and proceed to create a new session
             if ($existing->created_at->lt(now()->subMinutes(5))) {
-                $existing->markFailed("Session timed out after 5 minutes of inactivity.");
+                $existing->markFailed('Session timed out after 5 minutes of inactivity.');
             } else {
                 return $existing;
             }
@@ -1012,15 +1024,15 @@ class BiometricProcessingService
             // 1. Create a pending session
             $session = BiometricDownloadSession::create([
                 'biometric_device_id' => $device->id,
-                'trigger_type'        => $triggerType,
-                'status'              => 'pending',
-                'created_by'          => $userId,
+                'trigger_type' => $triggerType,
+                'status' => 'pending',
+                'created_by' => $userId,
             ]);
 
             // 2. Create the command to tell the device to check attlog
             $command = $this->createCommand($device, [
                 'command_type' => 'CHECK_ATTLOG',
-                'payload'      => $payload,
+                'payload' => $payload,
             ]);
 
             // 3. Link the command to the session
@@ -1050,14 +1062,14 @@ class BiometricProcessingService
             } else {
                 $skipped[] = [
                     'device_id' => $id,
-                    'reason' => $device ? 'Not an ADMS protocol device.' : 'Device not found or inactive.'
+                    'reason' => $device ? 'Not an ADMS protocol device.' : 'Device not found or inactive.',
                 ];
             }
         }
 
         return [
             'sessions' => $sessions,
-            'skipped'  => $skipped,
+            'skipped' => $skipped,
         ];
     }
 
@@ -1074,7 +1086,7 @@ class BiometricProcessingService
             $query->where('biometric_device_id', $deviceId);
         }
 
-        if ($perPage === 'all' || (int)$perPage === -1) {
+        if ($perPage === 'all' || (int) $perPage === -1) {
             return $query->get();
         }
 
@@ -1087,15 +1099,15 @@ class BiometricProcessingService
     public function completeDownloadSessionForCommand(BiometricDeviceCommand $command, string $returnCode): void
     {
         $session = BiometricDownloadSession::where('command_id', $command->id)->first();
-        if (!$session) {
+        if (! $session) {
             return;
         }
 
         if ($returnCode == '0') {
             if ($session->failed_count > 0 && $session->processed_count > 0) {
                 $session->markPartial();
-            } else if ($session->failed_count > 0 && $session->processed_count == 0 && $session->total_records > 0) {
-                $session->markFailed("Completed with errors. No records were processed successfully.");
+            } elseif ($session->failed_count > 0 && $session->processed_count == 0 && $session->total_records > 0) {
+                $session->markFailed('Completed with errors. No records were processed successfully.');
             } else {
                 $session->markCompleted();
             }

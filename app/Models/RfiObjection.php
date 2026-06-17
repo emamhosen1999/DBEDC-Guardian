@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\ChainageMatcher;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -743,7 +744,7 @@ class RfiObjection extends Model implements HasMedia
      * Returns RFIs whose location matches this objection's chainages.
      *
      * @param  int  $limit  Maximum number of RFIs to return
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @return Collection
      */
     public function suggestAffectedRfis(int $limit = 100)
     {

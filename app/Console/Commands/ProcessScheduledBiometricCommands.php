@@ -33,6 +33,7 @@ class ProcessScheduledBiometricCommands extends Command
 
         if ($dueCommands->isEmpty()) {
             $this->info('No scheduled commands due.');
+
             return 0;
         }
 

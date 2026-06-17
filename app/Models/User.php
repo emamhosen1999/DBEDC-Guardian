@@ -5,13 +5,14 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
-use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
+use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\Leave;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -187,7 +188,6 @@ class User extends Authenticatable implements HasMedia
         ]);
     }
 
-
     public function ledProjects()
     {
         return $this->hasMany(Project::class, 'project_leader_id');
@@ -208,7 +208,6 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(Education::class);
     }
 
-
     public function leaves()
     {
         return $this->hasMany(Leave::class, 'user_id');
@@ -225,7 +224,7 @@ class User extends Authenticatable implements HasMedia
         return $this->belongsTo(AttendanceType::class, 'attendance_type_id');
     }
 
-    public function employeeAttendanceType(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function employeeAttendanceType(): HasOne
     {
         return $this->hasOne(EmployeeAttendanceType::class, 'user_id');
     }

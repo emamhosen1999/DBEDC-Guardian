@@ -5,11 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Requests\BulkLeaveRequest;
 use App\Http\Resources\LeaveResource;
 use App\Models\HRM\Department;
+use App\Models\HRM\Holiday;
+use App\Models\HRM\Leave;
+use App\Models\HRM\LeaveSetting;
 use App\Services\Leave\BulkLeaveService;
 use App\Services\Leave\LeaveQueryService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class BulkLeaveController extends Controller
 {
@@ -67,10 +72,10 @@ class BulkLeaveController extends Controller
                 $year = now()->year;
 
                 // Get updated leave types and counts
-                $leaveTypes = \App\Models\HRM\LeaveSetting::all();
-                $leaveCounts = \App\Models\HRM\Leave::where('user_id', $userId)
+                $leaveTypes = LeaveSetting::all();
+                $leaveCounts = Leave::where('user_id', $userId)
                     ->whereYear('from_date', $year)
-                    ->whereIn('status', ['Approved', 'Pending'])
+                    ->whereRaw('LOWER(status) IN (?, ?)', ['approved', 'pending'])
                     ->selectRaw('leave_type, SUM(no_of_days) as days_used')
                     ->groupBy('leave_type')
                     ->get()
@@ -98,7 +103,7 @@ class BulkLeaveController extends Controller
                                 'year' => is_string($leave->from_date)
                                     ? date('Y', strtotime($leave->from_date))
                                     : $leave->from_date->year,
-                                'leave_type' => \App\Models\HRM\LeaveSetting::find($leave->leave_type)?->type,
+                                'leave_type' => LeaveSetting::find($leave->leave_type)?->type,
                             ]
                         );
                     }),
@@ -106,13 +111,13 @@ class BulkLeaveController extends Controller
                     'leavesData' => [
                         'leaveTypes' => $leaveTypes,
                         'leaveCountsByUser' => [$userId => $leaveCounts],
-                        'publicHolidays' => \App\Models\HRM\Holiday::active()
+                        'publicHolidays' => Holiday::active()
                             ->whereYear('from_date', $year)
                             ->get()
                             ->flatMap(function ($holiday) {
                                 $dates = [];
-                                $startDate = \Carbon\Carbon::parse($holiday->from_date);
-                                $endDate = \Carbon\Carbon::parse($holiday->to_date);
+                                $startDate = Carbon::parse($holiday->from_date);
+                                $endDate = Carbon::parse($holiday->to_date);
 
                                 while ($startDate->lte($endDate)) {
                                     $dates[] = [
@@ -159,16 +164,16 @@ class BulkLeaveController extends Controller
     public function getLeaveTypes(Request $request): JsonResponse
     {
         try {
-            $userId = $request->get('user_id', \Illuminate\Support\Facades\Auth::id());
+            $userId = $request->get('user_id', Auth::id());
             $year = $request->get('year', now()->year);
 
             // Get leave types
-            $leaveTypes = \App\Models\HRM\LeaveSetting::all();
+            $leaveTypes = LeaveSetting::all();
 
             // Calculate remaining balances for the specific user
-            $usedLeaves = \App\Models\HRM\Leave::where('user_id', $userId)
+            $usedLeaves = Leave::where('user_id', $userId)
                 ->whereYear('from_date', $year)
-                ->whereIn('status', ['Approved', 'Pending'])
+                ->whereRaw('LOWER(status) IN (?, ?)', ['approved', 'pending'])
                 ->selectRaw('leave_type, SUM(no_of_days) as total_used')
                 ->groupBy('leave_type')
                 ->pluck('total_used', 'leave_type');
@@ -210,29 +215,29 @@ class BulkLeaveController extends Controller
     public function getCalendarData(Request $request): JsonResponse
     {
         try {
-            $userId = $request->get('user_id', \Illuminate\Support\Facades\Auth::id());
+            $userId = $request->get('user_id', Auth::id());
             $year = $request->get('year', now()->year);
 
             // Get existing leaves for the user for the entire year (removed month filtering)
-            $existingLeaves = \App\Models\HRM\Leave::where('user_id', $userId)
+            $existingLeaves = Leave::where('user_id', $userId)
                 ->whereYear('from_date', $year)
                 ->get(['from_date', 'to_date', 'status'])
                 ->map(function ($leave) {
                     return [
-                        'from_date' => \Carbon\Carbon::parse($leave->from_date)->format('Y-m-d'),
-                        'to_date' => \Carbon\Carbon::parse($leave->to_date)->format('Y-m-d'),
+                        'from_date' => Carbon::parse($leave->from_date)->format('Y-m-d'),
+                        'to_date' => Carbon::parse($leave->to_date)->format('Y-m-d'),
                         'status' => $leave->status,
                     ];
                 });
 
             // Get public holidays for the entire year
-            $publicHolidays = \App\Models\HRM\Holiday::active()
+            $publicHolidays = Holiday::active()
                 ->whereYear('from_date', $year)
                 ->get()
                 ->flatMap(function ($holiday) {
                     $dates = [];
-                    $startDate = \Carbon\Carbon::parse($holiday->from_date);
-                    $endDate = \Carbon\Carbon::parse($holiday->to_date);
+                    $startDate = Carbon::parse($holiday->from_date);
+                    $endDate = Carbon::parse($holiday->to_date);
 
                     while ($startDate->lte($endDate)) {
                         $dates[] = $startDate->format('Y-m-d');
@@ -278,7 +283,7 @@ class BulkLeaveController extends Controller
             $currentUserId = Auth::id();
 
             // Get the leaves to be deleted with their user info for authorization
-            $leavesToDelete = \App\Models\HRM\Leave::whereIn('id', $leaveIds)
+            $leavesToDelete = Leave::whereIn('id', $leaveIds)
                 ->with('employee:id,name')
                 ->get();
 
@@ -325,7 +330,7 @@ class BulkLeaveController extends Controller
             }
 
             // Perform bulk deletion
-            $deletedCount = \App\Models\HRM\Leave::whereIn('id', $leaveIds)->delete();
+            $deletedCount = Leave::whereIn('id', $leaveIds)->delete();
 
             // Get updated leave statistics for affected users
             $affectedUserIds = $leavesToDelete->pluck('user_id')->unique();
@@ -335,10 +340,10 @@ class BulkLeaveController extends Controller
                 $year = now()->year;
 
                 // Get updated leave types and counts for this user
-                $leaveTypes = \App\Models\HRM\LeaveSetting::all();
-                $leaveCounts = \App\Models\HRM\Leave::where('user_id', $userId)
+                $leaveTypes = LeaveSetting::all();
+                $leaveCounts = Leave::where('user_id', $userId)
                     ->whereYear('from_date', $year)
-                    ->whereIn('status', ['Approved', 'Pending'])
+                    ->whereRaw('LOWER(status) IN (?, ?)', ['approved', 'pending'])
                     ->selectRaw('leave_type, SUM(no_of_days) as days_used')
                     ->groupBy('leave_type')
                     ->get()
@@ -376,15 +381,15 @@ class BulkLeaveController extends Controller
                 }),
                 // Updated leave data for balance updates
                 'leavesData' => [
-                    'leaveTypes' => \App\Models\HRM\LeaveSetting::all(),
+                    'leaveTypes' => LeaveSetting::all(),
                     'leaveCountsByUser' => $updatedLeavesData,
-                    'publicHolidays' => \App\Models\HRM\Holiday::active()
+                    'publicHolidays' => Holiday::active()
                         ->whereYear('from_date', now()->year)
                         ->get()
                         ->flatMap(function ($holiday) {
                             $dates = [];
-                            $startDate = \Carbon\Carbon::parse($holiday->from_date);
-                            $endDate = \Carbon\Carbon::parse($holiday->to_date);
+                            $startDate = Carbon::parse($holiday->from_date);
+                            $endDate = Carbon::parse($holiday->to_date);
 
                             while ($startDate->lte($endDate)) {
                                 $dates[] = [
@@ -402,7 +407,7 @@ class BulkLeaveController extends Controller
 
             return response()->json($response, 200);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Validation failed',

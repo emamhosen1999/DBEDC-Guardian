@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class ComprehensiveRolePermissionSeeder extends Seeder
 {
@@ -34,7 +35,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
     public function run(): void
     {
         // Clear cache
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Create permissions for all modules
         $this->createPermissions();

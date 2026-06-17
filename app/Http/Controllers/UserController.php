@@ -2,18 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Traits\HandlesApiExceptions;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Http\Requests\UpdateUserRoleRequest;
-use App\Http\Requests\UpdateUserStatusRequest;
 use App\Http\Resources\UserCollection;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\Admin\UserManagementService;
+use App\Traits\HandlesApiExceptions;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class UserController extends Controller
 {
@@ -26,23 +30,25 @@ class UserController extends Controller
         $this->userService = $userService;
     }
 
-    public function index1(): \Inertia\Response
+    public function index1(): Response
     {
         $pageData = $this->userService->getEmployeeListPageData();
+
         return Inertia::render('Employees/EmployeeList', array_merge([
-            'title' => 'Employee Management'
+            'title' => 'Employee Management',
         ], $pageData));
     }
 
-    public function adminUnified(): \Inertia\Response
+    public function adminUnified(): Response
     {
         return $this->index2();
     }
 
-    public function index2(): \Inertia\Response
+    public function index2(): Response
     {
         $this->authorize('viewAny', User::class);
         $pageData = $this->userService->getAdminUnifiedPageData();
+
         return Inertia::render('AdminUnified', array_merge([
             'title' => 'User/Role Management',
             'can_manage_super_admin' => auth()->user()->can('manage super admin'),
@@ -71,16 +77,17 @@ class UserController extends Controller
                 'message' => 'User created successfully',
                 'user' => new UserResource($user),
             ], 201);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('User creation failed: ' . $e->getMessage());
+            Log::error('User creation failed: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to create user',
                 'message' => $this->safeExceptionMessage($e),
@@ -111,16 +118,17 @@ class UserController extends Controller
                 'message' => 'User updated successfully',
                 'user' => new UserResource($user),
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('User update failed: ' . $e->getMessage());
+            Log::error('User update failed: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to update user',
                 'message' => $this->safeExceptionMessage($e),
@@ -146,16 +154,17 @@ class UserController extends Controller
             return response()->json([
                 'message' => 'User deleted successfully.',
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('User deletion failed: ' . $e->getMessage());
+            Log::error('User deletion failed: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to delete user.',
                 'message' => $this->safeExceptionMessage($e),
@@ -182,16 +191,17 @@ class UserController extends Controller
                 'message' => 'User restored successfully.',
                 'user' => new UserResource($restoredUser),
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('User restoration failed: ' . $e->getMessage());
+            Log::error('User restoration failed: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to restore user',
                 'message' => $this->safeExceptionMessage($e),
@@ -223,16 +233,17 @@ class UserController extends Controller
             return response()->json([
                 'message' => 'Password changed successfully',
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to change user password: ' . $e->getMessage());
+            Log::error('Failed to change user password: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to change password',
                 'message' => $this->safeExceptionMessage($e),
@@ -258,16 +269,17 @@ class UserController extends Controller
                 'message' => 'Role updated successfully',
                 'user' => new UserResource($updatedUser),
             ], 200);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to update user role: ' . $e->getMessage());
+            Log::error('Failed to update user role: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to update user role.',
                 'message' => $this->safeExceptionMessage($e),
@@ -293,16 +305,17 @@ class UserController extends Controller
                 'message' => 'Report-to updated successfully',
                 'user' => new UserResource($updatedUser),
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to update report-to: ' . $e->getMessage());
+            Log::error('Failed to update report-to: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to update report-to',
                 'message' => $this->safeExceptionMessage($e),
@@ -326,16 +339,17 @@ class UserController extends Controller
             return response()->json([
                 'message' => 'FCM token updated successfully',
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to update FCM token: ' . $e->getMessage());
+            Log::error('Failed to update FCM token: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to update FCM token',
                 'message' => $this->safeExceptionMessage($e),
@@ -361,16 +375,17 @@ class UserController extends Controller
                 'message' => 'Attendance type updated successfully',
                 'user' => new UserResource($updatedUser),
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to update attendance type: ' . $e->getMessage());
+            Log::error('Failed to update attendance type: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to update attendance type',
                 'message' => $this->safeExceptionMessage($e),
@@ -398,16 +413,17 @@ class UserController extends Controller
                 'error' => 'Invalid device assignment',
                 'message' => $e->getMessage(),
             ], 422);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to assign biometric device: ' . $e->getMessage());
+            Log::error('Failed to assign biometric device: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to assign device',
                 'message' => $this->safeExceptionMessage($e),
@@ -454,17 +470,19 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
         try {
             $stats = $this->userService->getUserStats();
+
             return response()->json(['stats' => $stats]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to get user stats: ' . $e->getMessage());
+            Log::error('Failed to get user stats: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to get stats',
                 'message' => $this->safeExceptionMessage($e),
@@ -480,17 +498,19 @@ class UserController extends Controller
         $this->authorize('viewAny', User::class);
         try {
             $stats = $this->userService->getEmployeeStats();
+
             return response()->json(['stats' => $stats]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to get employee stats: ' . $e->getMessage());
+            Log::error('Failed to get employee stats: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to get stats',
                 'message' => $this->safeExceptionMessage($e),
@@ -508,16 +528,17 @@ class UserController extends Controller
             $rolesData = $this->userService->getUserRoles($user);
 
             return response()->json($rolesData);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to get user roles: ' . $e->getMessage());
+            Log::error('Failed to get user roles: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to retrieve roles',
                 'message' => $this->safeExceptionMessage($e),
@@ -535,16 +556,17 @@ class UserController extends Controller
             $permsData = $this->userService->getUserPermissions($user);
 
             return response()->json($permsData);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to get user permissions: ' . $e->getMessage());
+            Log::error('Failed to get user permissions: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to retrieve permissions',
                 'message' => $this->safeExceptionMessage($e),
@@ -570,16 +592,17 @@ class UserController extends Controller
                 'message' => 'User roles updated successfully',
                 'user' => new UserResource($updatedUser),
             ]);
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to sync user roles: ' . $e->getMessage());
+            Log::error('Failed to sync user roles: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to sync roles',
                 'message' => $this->safeExceptionMessage($e),
@@ -604,16 +627,17 @@ class UserController extends Controller
             return response()->json(array_merge([
                 'message' => 'User permissions updated successfully',
             ], $result));
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to sync user permissions: ' . $e->getMessage());
+            Log::error('Failed to sync user permissions: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to sync permissions',
                 'message' => $this->safeExceptionMessage($e),
@@ -643,16 +667,17 @@ class UserController extends Controller
             return response()->json(array_merge([
                 'message' => 'Permission granted successfully',
             ], $result));
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to grant user permission: ' . $e->getMessage());
+            Log::error('Failed to grant user permission: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to grant permission',
                 'message' => $this->safeExceptionMessage($e),
@@ -682,16 +707,17 @@ class UserController extends Controller
             return response()->json(array_merge([
                 'message' => 'Permission revoked successfully',
             ], $result));
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        } catch (HttpException $e) {
             throw $e;
-        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+        } catch (AuthorizationException $e) {
             throw $e;
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
-        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+        } catch (HttpResponseException $e) {
             throw $e;
         } catch (\Exception $e) {
-            Log::error('Failed to revoke user permission: ' . $e->getMessage());
+            Log::error('Failed to revoke user permission: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to revoke permission',
                 'message' => $this->safeExceptionMessage($e),

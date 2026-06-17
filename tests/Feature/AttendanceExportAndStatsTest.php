@@ -4,13 +4,15 @@ namespace Tests\Feature;
 
 use App\Exports\AttendanceAdminExport;
 use App\Jobs\ExportAttendanceReport;
-use App\Models\User;
 use App\Models\HRM\AttendanceSetting;
-use Carbon\Carbon;
+use App\Models\HRM\AttendanceType;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class AttendanceExportAndStatsTest extends TestCase
@@ -21,12 +23,12 @@ class AttendanceExportAndStatsTest extends TestCase
     {
         parent::setUp();
 
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         Role::firstOrCreate(['name' => 'Employee']);
         Role::firstOrCreate(['name' => 'Admin']);
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'attendance.view']);
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'attendance.own.view']);
+        Permission::firstOrCreate(['name' => 'attendance.view']);
+        Permission::firstOrCreate(['name' => 'attendance.own.view']);
 
         AttendanceSetting::create([
             'office_start_time' => '09:00:00',
@@ -65,9 +67,9 @@ class AttendanceExportAndStatsTest extends TestCase
     {
         Storage::fake('public');
 
-        $export = new AttendanceAdminExport();
+        $export = new AttendanceAdminExport;
         $filename = 'test_export.xlsx';
-        $filePath = 'exports/' . $filename;
+        $filePath = 'exports/'.$filename;
 
         $export->saveToDisk('2026-06', $filePath, 'public');
 
@@ -103,7 +105,7 @@ class AttendanceExportAndStatsTest extends TestCase
         $admin->givePermissionTo('attendance.view');
 
         // Create AttendanceType config
-        \App\Models\HRM\AttendanceType::create([
+        AttendanceType::create([
             'name' => 'Geofence Test',
             'slug' => 'geo_polygon_1',
             'config' => ['polygon' => []],

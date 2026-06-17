@@ -2,8 +2,8 @@
 
 namespace App\Models\HRM;
 
-use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 
 class BiometricDownloadSession extends Model
 {
@@ -23,7 +23,7 @@ class BiometricDownloadSession extends Model
     ];
 
     protected $casts = [
-        'started_at'   => 'datetime',
+        'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
 
@@ -45,7 +45,7 @@ class BiometricDownloadSession extends Model
     public function markInProgress(): void
     {
         $this->update([
-            'status'     => 'in_progress',
+            'status' => 'in_progress',
             'started_at' => now(),
         ]);
     }
@@ -53,33 +53,33 @@ class BiometricDownloadSession extends Model
     public function markCompleted(array $stats = []): void
     {
         $this->update([
-            'status'          => 'completed',
-            'total_records'   => $stats['total_records'] ?? $this->total_records,
+            'status' => 'completed',
+            'total_records' => $stats['total_records'] ?? $this->total_records,
             'processed_count' => $stats['processed_count'] ?? $this->processed_count,
             'duplicate_count' => $stats['duplicate_count'] ?? $this->duplicate_count,
-            'failed_count'    => $stats['failed_count'] ?? $this->failed_count,
-            'completed_at'    => now(),
+            'failed_count' => $stats['failed_count'] ?? $this->failed_count,
+            'completed_at' => now(),
         ]);
     }
 
     public function markFailed(string $message): void
     {
         $this->update([
-            'status'        => 'failed',
+            'status' => 'failed',
             'error_message' => $message,
-            'completed_at'  => now(),
+            'completed_at' => now(),
         ]);
     }
 
     public function markPartial(array $stats = []): void
     {
         $this->update([
-            'status'          => 'partial',
-            'total_records'   => $stats['total_records'] ?? $this->total_records,
+            'status' => 'partial',
+            'total_records' => $stats['total_records'] ?? $this->total_records,
             'processed_count' => $stats['processed_count'] ?? $this->processed_count,
             'duplicate_count' => $stats['duplicate_count'] ?? $this->duplicate_count,
-            'failed_count'    => $stats['failed_count'] ?? $this->failed_count,
-            'completed_at'    => now(),
+            'failed_count' => $stats['failed_count'] ?? $this->failed_count,
+            'completed_at' => now(),
         ]);
     }
 

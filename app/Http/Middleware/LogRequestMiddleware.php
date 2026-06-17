@@ -13,7 +13,7 @@ class LogRequestMiddleware
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -47,7 +47,7 @@ class LogRequestMiddleware
             ]);
         } catch (\Exception $e) {
             // Log the error but don't break the application
-            \Log::error('RequestLogMiddleware error: ' . $e->getMessage(), [
+            \Log::error('RequestLogMiddleware error: '.$e->getMessage(), [
                 'exception' => $e,
                 'url' => $request->fullUrl(),
             ]);
@@ -144,7 +144,7 @@ class LogRequestMiddleware
     /**
      * Sanitize request body to remove sensitive information.
      */
-    private function sanitizeRequestBody(Request $request): array|null
+    private function sanitizeRequestBody(Request $request): ?array
     {
         if (! $request->isMethod('POST') && ! $request->isMethod('PUT') && ! $request->isMethod('PATCH')) {
             return null;

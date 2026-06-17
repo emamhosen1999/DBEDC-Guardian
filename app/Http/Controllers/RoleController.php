@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Responses\ApiResponse;
-use App\Traits\HandlesApiExceptions;
 use App\Models\User;
 use App\Services\Role\RolePermissionService;
+use App\Traits\HandlesApiExceptions;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -19,7 +19,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Permission; // added
-use Spatie\Permission\Models\Role; // added
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+
+ // added
 
 /**
  * Enterprise Role Controller
@@ -31,9 +34,8 @@ use Spatie\Permission\Models\Role; // added
 class RoleController extends BaseController
 {
     use ApiResponse;
-    use HandlesApiExceptions;
-
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
+    use HandlesApiExceptions;
 
     private RolePermissionService $rolePermissionService;
 
@@ -329,7 +331,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             return $this->successResponse(
                 ['role' => $role->fresh('permissions')],
@@ -411,7 +413,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             return $this->successResponse(
                 ['role' => $role->fresh('permissions')],
@@ -476,7 +478,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             return $this->successResponse(null, 'Role deleted successfully');
 
@@ -579,7 +581,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             return response()->json([
                 'message' => 'Module permissions updated successfully',
@@ -652,7 +654,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache and refresh cache for live server
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
             Cache::forget(config('permission.cache.key', 'spatie.permission.cache'));
 
             // Fresh pivot data for client sync
@@ -746,7 +748,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Enhanced cache clearing for live server compatibility
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             // Clear additional caches that might affect live servers
             if (app()->environment('production')) {
@@ -919,7 +921,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             return response()->json([
                 'message' => 'Bulk operation completed',
@@ -999,7 +1001,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             return response()->json([
                 'message' => 'Role cloned successfully',
@@ -1343,7 +1345,7 @@ class RoleController extends BaseController
             DB::commit();
 
             // Clear Spatie Permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             return $this->successResponse(
                 ['role' => $role->fresh('permissions')],
@@ -1381,7 +1383,7 @@ class RoleController extends BaseController
     /**
      * Batch update role permissions (add/remove arrays) with optimistic concurrency.
      */
-    public function batchUpdatePermissions(\Illuminate\Http\Request $request, int $roleId)
+    public function batchUpdatePermissions(Request $request, int $roleId)
     {
         $data = $request->validate([
             'add' => 'array',
@@ -1391,7 +1393,7 @@ class RoleController extends BaseController
             'version' => 'nullable|string',
         ]);
 
-        $role = \Spatie\Permission\Models\Role::findById($roleId);
+        $role = Role::findById($roleId);
         if (! $role) {
             return $this->notFoundResponse('Role not found');
         }

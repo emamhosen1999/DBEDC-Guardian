@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceValidatorFactory;
 use Carbon\Carbon;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -416,7 +417,7 @@ class DataSyncService
 
         $requiresApproval = (bool) ($leaveType->requires_approval ?? true);
         $autoApprove = (bool) ($leaveType->auto_approve ?? false);
-        $status = (! $requiresApproval || $autoApprove) ? 'Approved' : 'New';
+        $status = (! $requiresApproval || $autoApprove) ? 'approved' : 'new';
 
         $insertPayload = [
             'leave_type' => (int) $leaveType->id,
@@ -443,7 +444,7 @@ class DataSyncService
             $insertPayload['submitted_at'] = now();
         }
 
-        if ($status === 'Approved' && Schema::hasColumn('leaves', 'approved_at')) {
+        if ($status === 'approved' && Schema::hasColumn('leaves', 'approved_at')) {
             $insertPayload['approved_at'] = now();
         }
 
@@ -944,7 +945,7 @@ class DataSyncService
     //  Query builders
     // ──────────────────────────────────────────────
 
-    private function baseLeavesQuery(User $user): \Illuminate\Database\Query\Builder
+    private function baseLeavesQuery(User $user): Builder
     {
         $userColumn = $this->resolveLeavesUserColumn();
 

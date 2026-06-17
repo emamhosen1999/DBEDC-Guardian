@@ -5,7 +5,6 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Holiday;
-use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -295,7 +294,7 @@ class AttendanceReportService
                 if ($record->punchin) {
                     $punchIn = Carbon::parse($record->punchin);
                     $dateStr = $punchIn->format('Y-m-d');
-                    $threshold = Carbon::parse("$dateStr " . $officeStart->format('H:i:s'))->addMinutes($lateGraceMins);
+                    $threshold = Carbon::parse("$dateStr ".$officeStart->format('H:i:s'))->addMinutes($lateGraceMins);
                     if ($punchIn->gt($threshold)) {
                         $totalLateArrivals++;
                     }

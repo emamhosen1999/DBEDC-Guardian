@@ -22,7 +22,7 @@ return new class extends Migration
             $table->date('closed_date')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
-            
+
             $table->index('user_id');
             $table->index('status');
         });

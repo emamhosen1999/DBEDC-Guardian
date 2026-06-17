@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -29,24 +30,25 @@ class AttendancePunchService
             $existingAttendance = $this->getExistingAttendance($user->id, $punchDate);
 
             $isOutPunch = in_array($checkType, ['out', 'break_out', 'ot_out']);
-            $isInPunch  = in_array($checkType, ['in',  'break_in',  'ot_in']);
+            $isInPunch = in_array($checkType, ['in',  'break_in',  'ot_in']);
 
             if ($isOutPunch) {
                 if ($existingAttendance && ! $existingAttendance->punchout) {
                     return $this->punchOut($existingAttendance, $request, $user, $punchTime);
                 }
+
                 return [
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'No open attendance record to punch out from.',
-                    'code'    => 422,
+                    'code' => 422,
                 ];
             }
 
             if ($isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
                 return [
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => 'Already punched in for this period.',
-                    'code'    => 422,
+                    'code' => 422,
                 ];
             }
 
@@ -55,7 +57,10 @@ class AttendancePunchService
                 return $this->punchOut($existingAttendance, $request, $user, $punchTime);
             }
 
-            return $this->punchIn($user, $punchDate, $request, $punchTime);
+            // Run punch-in logic inside a transaction to avoid races
+            return DB::transaction(function () use ($user, $request) {
+                return $this->processPunchInTransaction($user, $request);
+            }, 5);
 
         } catch (\Exception $e) {
             Log::error('Attendance punch error: '.$e->getMessage(), [
@@ -138,7 +143,6 @@ class AttendancePunchService
         }
 
         try {
-            // Check if user's attendance type requires photo (polygon or route)
             $attendanceType = $user->attendanceType;
             if (! $attendanceType) {
                 return;
@@ -149,46 +153,90 @@ class AttendancePunchService
                 return;
             }
 
-            // Decode base64 image
-            if (preg_match('/^data:image\/(\w+);base64,/', $photoData, $matches)) {
-                $extension = $matches[1];
-                $photoData = substr($photoData, strpos($photoData, ',') + 1);
-                $photoData = base64_decode($photoData);
+            if (! preg_match('/^data:image\/(\w+);base64,/', $photoData, $matches)) {
+                return;
+            }
 
-                if ($photoData === false) {
-                    Log::warning('Failed to decode base64 photo data');
+            $extension = $matches[1];
+            $photoDataPart = substr($photoData, strpos($photoData, ',') + 1);
+            $bytes = base64_decode($photoDataPart);
 
-                    return;
-                }
+            if ($bytes === false) {
+                Log::warning('Failed to decode base64 photo data');
 
-                // Generate unique filename
-                $filename = 'attendance_'.$attendance->id.'_'.$collection.'_'.time().'.'.$extension;
-                $tempPath = storage_path('app/temp/'.$filename);
+                return;
+            }
 
-                // Ensure temp directory exists
-                if (! file_exists(storage_path('app/temp'))) {
-                    mkdir(storage_path('app/temp'), 0755, true);
-                }
+            $filename = 'attendance_'.$attendance->id.'_'.$collection.'_'.time().'.'.$extension;
+            $tempDir = storage_path('app/temp');
+            if (! file_exists($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
 
-                // Save temporarily
-                file_put_contents($tempPath, $photoData);
+            $tempPath = $tempDir.DIRECTORY_SEPARATOR.$filename;
+            file_put_contents($tempPath, $bytes);
 
-                // Add to media collection
+            if (method_exists($attendance, 'addMedia')) {
                 $attendance->addMedia($tempPath)
                     ->usingFileName($filename)
                     ->toMediaCollection($collection);
-
-                Log::info('Photo uploaded successfully', [
-                    'attendance_id' => $attendance->id,
-                    'collection' => $collection,
-                ]);
             }
+
+            @unlink($tempPath);
         } catch (\Exception $e) {
             Log::error('Photo upload failed: '.$e->getMessage(), [
                 'attendance_id' => $attendance->id,
                 'collection' => $collection,
             ]);
         }
+    }
+
+    private function processPunchInTransaction($user, Request $request): array
+    {
+        // Always use server time for all attendance punches
+        $punchTime = Carbon::now();
+        $punchDate = $punchTime->copy()->startOfDay();
+
+        // Honour explicit check_type sent by biometric devices (ZKTeco: in/out/break_*).
+        // Absent check_type falls back to the original toggle behaviour (for manual punches).
+        $checkType = $request->input('check_type');
+
+        // Fetch existing attendance row with FOR UPDATE to prevent concurrent modifications
+        $existingAttendance = Attendance::where('user_id', $user->id)
+            ->whereDate('date', $punchDate)
+            ->lockForUpdate()
+            ->latest()
+            ->first();
+
+        $isOutPunch = in_array($checkType, ['out', 'break_out', 'ot_out']);
+        $isInPunch = in_array($checkType, ['in',  'break_in',  'ot_in']);
+
+        if ($isOutPunch) {
+            if ($existingAttendance && ! $existingAttendance->punchout) {
+                return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+            }
+
+            return [
+                'status' => 'error',
+                'message' => 'No open attendance record to punch out from.',
+                'code' => 422,
+            ];
+        }
+
+        if ($isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
+            return [
+                'status' => 'error',
+                'message' => 'Already punched in for this period.',
+                'code' => 422,
+            ];
+        }
+
+        // No explicit check_type (manual toggle) or explicit 'in': decide by existing record.
+        if (! $isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
+            return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+        }
+
+        return $this->punchIn($user, $punchDate, $request, $punchTime);
     }
 
     /**

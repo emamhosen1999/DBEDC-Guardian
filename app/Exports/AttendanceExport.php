@@ -13,6 +13,7 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, WithHeadings
 {
@@ -248,7 +249,7 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
                 // ====== Style the headers ======
                 $sheet->getStyle('A4:M4')->getFont()->setBold(true);
                 $sheet->getStyle('A4:M4')->getFill()
-                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setARGB('E3F2FD');
                 $sheet->getStyle('A4:M4')->getAlignment()->setHorizontal('center');
 

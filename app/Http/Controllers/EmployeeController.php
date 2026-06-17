@@ -5,27 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
+use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\User;
 use App\Services\EmployeeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class EmployeeController extends Controller
 {
-    /**
-     * @var EmployeeService
-     */
     protected EmployeeService $employeeService;
 
     /**
      * Create a new controller instance
-     *
-     * @param EmployeeService $employeeService
      */
     public function __construct(EmployeeService $employeeService)
     {
@@ -74,7 +70,7 @@ class EmployeeController extends Controller
 
             // Create employee_attendance_types row if AT was set
             if ($employee->attendance_type_id) {
-                \App\Models\HRM\EmployeeAttendanceType::create([
+                EmployeeAttendanceType::create([
                     'user_id' => $employee->id,
                     'attendance_type_id' => $employee->attendance_type_id,
                 ]);
@@ -392,12 +388,12 @@ class EmployeeController extends Controller
             $attendanceTypeIds = $employees->pluck('attendance_type_id')->filter()->unique()->values()->toArray();
             $atDeviceMap = [];
             if (! empty($attendanceTypeIds)) {
-                $types = \App\Models\HRM\AttendanceType::with(['biometricDevices:id,name,serial_number,location'])
+                $types = AttendanceType::with(['biometricDevices:id,name,serial_number,location'])
                     ->whereIn('id', $attendanceTypeIds)
                     ->get();
                 foreach ($types as $type) {
                     $atDeviceMap[$type->id] = $type->biometricDevices
-                        ->map(fn($d) => ['id' => $d->id, 'name' => $d->name, 'serial_number' => $d->serial_number, 'location' => $d->location])
+                        ->map(fn ($d) => ['id' => $d->id, 'name' => $d->name, 'serial_number' => $d->serial_number, 'location' => $d->location])
                         ->values()
                         ->toArray();
                 }

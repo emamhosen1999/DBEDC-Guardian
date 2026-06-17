@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class CleanupDuplicatePermissions extends Command
 {
@@ -53,7 +54,7 @@ class CleanupDuplicatePermissions extends Command
             DB::commit();
 
             // Clear permission cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             $this->newLine();
             $this->info('✅ Cleanup completed successfully!');

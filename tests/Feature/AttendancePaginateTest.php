@@ -6,7 +6,9 @@ use App\Models\HRM\Attendance;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class AttendancePaginateTest extends TestCase
@@ -18,12 +20,12 @@ class AttendancePaginateTest extends TestCase
         parent::setUp();
 
         // Reset cached roles and permissions
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         // Create roles and permissions
         Role::firstOrCreate(['name' => 'Employee']);
         Role::firstOrCreate(['name' => 'Admin']);
-        \Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'attendance.view']);
+        Permission::firstOrCreate(['name' => 'attendance.view']);
     }
 
     public function test_paginate_handles_null_punchout_gracefully(): void
@@ -127,4 +129,3 @@ class AttendancePaginateTest extends TestCase
         $response->assertJsonMissing(['error']);
     }
 }
-

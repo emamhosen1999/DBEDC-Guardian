@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\ServiceProvider;
 
 class CacheServiceProvider extends ServiceProvider
 {
@@ -45,6 +45,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(['users', "user:{$userId}"])->remember("user:{$userId}", $ttl, $callback);
             }
+
             return Cache::remember("user:{$userId}", $ttl, $callback);
         });
 
@@ -52,6 +53,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(['attendance', "attendance:{$date}"])->remember("attendance:{$date}", $ttl, $callback);
             }
+
             return Cache::remember("attendance:{$date}", $ttl, $callback);
         });
 
@@ -59,6 +61,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(['daily-works', "daily-works:{$date}"])->remember("daily-works:{$date}", $ttl, $callback);
             }
+
             return Cache::remember("daily-works:{$date}", $ttl, $callback);
         });
 
@@ -66,6 +69,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(['leaves', "leaves:user:{$userId}", "leaves:year:{$year}"])->remember("leaves:user:{$userId}:year:{$year}", $ttl, $callback);
             }
+
             return Cache::remember("leaves:user:{$userId}:year:{$year}", $ttl, $callback);
         });
 
@@ -73,6 +77,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(["user:{$userId}"])->flush();
             }
+
             return Cache::forget("user:{$userId}");
         });
 
@@ -80,6 +85,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(["attendance:{$date}"])->flush();
             }
+
             return Cache::forget("attendance:{$date}");
         });
 
@@ -87,6 +93,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(["daily-works:{$date}"])->flush();
             }
+
             return Cache::forget("daily-works:{$date}");
         });
 
@@ -94,6 +101,7 @@ class CacheServiceProvider extends ServiceProvider
             if (method_exists(Cache::getStore(), 'tags')) {
                 return Cache::tags(["leaves:user:{$userId}", "leaves:year:{$year}"])->flush();
             }
+
             return Cache::forget("leaves:user:{$userId}:year:{$year}");
         });
     }

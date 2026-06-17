@@ -7,10 +7,11 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class JurisdictionController extends Controller
 {
-    public function index(): \Inertia\Response
+    public function index(): Response
     {
         return Inertia::render('WorkLocations/WorkLocations', [
             'title' => 'Work Locations',
@@ -19,7 +20,7 @@ class JurisdictionController extends Controller
         ]);
     }
 
-    public function showWorkLocations(): \Inertia\Response
+    public function showWorkLocations(): Response
     {
         return Inertia::render('WorkLocations/WorkLocations', [
             'title' => 'Work Locations Management',

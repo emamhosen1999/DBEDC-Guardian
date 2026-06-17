@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 
 class Department extends Model
 {
@@ -16,15 +17,15 @@ class Department extends Model
         parent::boot();
 
         static::saved(function ($department) {
-            \Illuminate\Support\Facades\Cache::forget('active_departments_list');
+            Cache::forget('active_departments_list');
         });
 
         static::deleted(function ($department) {
-            \Illuminate\Support\Facades\Cache::forget('active_departments_list');
+            Cache::forget('active_departments_list');
         });
 
         static::restored(function ($department) {
-            \Illuminate\Support\Facades\Cache::forget('active_departments_list');
+            Cache::forget('active_departments_list');
         });
     }
 

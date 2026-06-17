@@ -27,6 +27,7 @@ class AttendanceController extends Controller
     use ApiResponse;
 
     protected AttendanceRepository $attendanceRepository;
+
     protected AttendanceQueryService $attendanceQueryService;
 
     public function __construct(
@@ -43,9 +44,11 @@ class AttendanceController extends Controller
 
         try {
             $todayData = $this->attendanceQueryService->getTodayAttendance($currentUser->id);
+
             return $this->successResponse($todayData);
         } catch (\Throwable $exception) {
             report($exception);
+
             return $this->errorResponse('An error occurred while retrieving attendance data.', 'INTERNAL_SERVER_ERROR', 500);
         }
     }
@@ -79,6 +82,7 @@ class AttendanceController extends Controller
             return $this->successResponse($historyData);
         } catch (\Throwable $exception) {
             report($exception);
+
             return $this->errorResponse('Failed to fetch attendance history.', 'INTERNAL_SERVER_ERROR', 500);
         }
     }

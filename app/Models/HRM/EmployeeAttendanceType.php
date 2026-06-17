@@ -17,8 +17,8 @@ class EmployeeAttendanceType extends Model
     ];
 
     protected $casts = [
-        'user_id'             => 'integer',
-        'attendance_type_id'  => 'integer',
+        'user_id' => 'integer',
+        'attendance_type_id' => 'integer',
         'biometric_device_id' => 'integer',
     ];
 

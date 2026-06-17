@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\SendAttendanceReminder;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\User;
+use App\Services\Notification\FcmNotificationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -134,7 +135,7 @@ class SendAttendanceReminders extends Command
 
         foreach ($users as $user) {
             $job = new SendAttendanceReminder($user, $attendanceSetting);
-            $job->handle(app()->make(\App\Services\Notification\FcmNotificationService::class));
+            $job->handle(app()->make(FcmNotificationService::class));
 
             $this->info("✅ Test notification sent to: {$user->email}");
         }

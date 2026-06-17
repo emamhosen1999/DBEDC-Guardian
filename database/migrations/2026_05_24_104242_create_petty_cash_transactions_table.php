@@ -20,7 +20,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->date('transaction_date');
             $table->timestamps();
-            
+
             $table->index('petty_cash_loan_id');
             $table->index('type');
             $table->index('category');

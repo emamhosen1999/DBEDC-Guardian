@@ -291,4 +291,3 @@ class MobileLeaveApprovalApiTest extends TestCase
         return (int) DB::table('leaves')->insertGetId($payload);
     }
 }
-

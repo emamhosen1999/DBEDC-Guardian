@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class LeaveResource extends JsonResource
@@ -10,7 +11,7 @@ class LeaveResource extends JsonResource
     /**
      * Transform the resource into an array.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  Request  $request
      * @return array
      */
     public function toArray($request)
@@ -27,7 +28,7 @@ class LeaveResource extends JsonResource
             'approved_by' => $this->approved_by,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            
+
             // Approval workflow fields
             'approval_chain' => $this->approval_chain,
             'current_approval_level' => $this->current_approval_level,

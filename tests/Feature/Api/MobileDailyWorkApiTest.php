@@ -898,5 +898,3 @@ class MobileDailyWorkApiTest extends TestCase
         ])->id;
     }
 }
-
-

@@ -686,4 +686,3 @@ class MobileSyncApiTest extends TestCase
         $user->assignRole('Project Manager');
     }
 }
-

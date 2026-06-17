@@ -3,15 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\HRM\Holiday;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class HolidayController extends Controller
 {
-    public function index(): \Inertia\Response
+    public function index(): Response
     {
         $holidays = Cache::remember('active_holidays_list', now()->addDay(), function () {
             return Holiday::active()
@@ -22,6 +24,7 @@ class HolidayController extends Controller
         // Get statistics for the dashboard
         $stats = Cache::remember('holiday_stats', now()->addDay(), function () {
             $currentYearHolidays = Holiday::active()->currentYear()->get();
+
             return [
                 'total_holidays' => Holiday::active()->count(),
                 'upcoming_holidays' => Holiday::active()->upcoming()->count(),
@@ -60,11 +63,31 @@ class HolidayController extends Controller
         }
 
         try {
+            $fromDate = $request->input('fromDate');
+            $toDate = $request->input('toDate');
+            $holidayId = $request->input('id');
+
+            // Check for overlapping holidays (exclude current id on update)
+            $overlapQuery = Holiday::where(function ($q) use ($fromDate, $toDate) {
+                $q->whereBetween('from_date', [$fromDate, $toDate])
+                    ->orWhereBetween('to_date', [$fromDate, $toDate])
+                    ->orWhere(function ($q) use ($fromDate, $toDate) {
+                        $q->where('from_date', '<=', $fromDate)
+                            ->where('to_date', '>=', $toDate);
+                    });
+            });
+            if ($holidayId) {
+                $overlapQuery->where('id', '!=', $holidayId);
+            }
+            if ($overlapQuery->exists()) {
+                return response()->json(['errors' => ['fromDate' => ['Date range overlaps with an existing holiday.']]], 422);
+            }
+
             $data = [
                 'title' => $request->input('title'),
                 'description' => $request->input('description'),
-                'from_date' => $request->input('fromDate'),
-                'to_date' => $request->input('toDate'),
+                'from_date' => $fromDate,
+                'to_date' => $toDate,
                 'type' => $request->input('type', 'company'),
                 'is_recurring' => $request->boolean('is_recurring', false),
                 'is_active' => $request->boolean('is_active', true),
@@ -72,9 +95,9 @@ class HolidayController extends Controller
                 'updated_by' => Auth::id(),
             ];
 
-            if ($request->has('id')) {
+            if ($holidayId) {
                 // Update existing holiday record
-                $holiday = Holiday::find($request->input('id'));
+                $holiday = Holiday::findOrFail($holidayId);
 
                 $holiday->update($data);
 
@@ -101,7 +124,7 @@ class HolidayController extends Controller
         }
     }
 
-    public function delete(Request $request): \Illuminate\Http\JsonResponse
+    public function delete(Request $request): JsonResponse
     {
         try {
             // Validate the incoming request

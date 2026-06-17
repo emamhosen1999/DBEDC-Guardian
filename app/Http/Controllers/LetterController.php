@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Letter;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Inertia\Inertia;
 
 class LetterController extends Controller
@@ -47,7 +49,7 @@ class LetterController extends Controller
         return response()->json($paginatedLetters);
     }
 
-    public function update(Request $request): \Illuminate\Http\JsonResponse
+    public function update(Request $request): JsonResponse
     {
         try {
             // Find task by ID
@@ -150,7 +152,7 @@ class LetterController extends Controller
             // Validation failed, return error response
             return response()->json(['errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            if ($e instanceof \Illuminate\Session\TokenMismatchException) {
+            if ($e instanceof TokenMismatchException) {
                 return response()->json(['error' => 'CSRF token mismatch'], 419);
             }
 

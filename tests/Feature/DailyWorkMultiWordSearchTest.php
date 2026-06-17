@@ -6,6 +6,7 @@ use App\Models\DailyWork;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -230,7 +231,7 @@ class DailyWorkMultiWordSearchTest extends TestCase
     private function createAuthorizedUser(): User
     {
         $user = User::factory()->create();
-        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Administrator']);
+        Role::firstOrCreate(['name' => 'Administrator']);
         $user->assignRole('Administrator');
         $user->givePermissionTo('daily-works.view');
 
@@ -261,4 +262,3 @@ class DailyWorkMultiWordSearchTest extends TestCase
         ]);
     }
 }
-

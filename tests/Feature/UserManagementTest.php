@@ -80,9 +80,9 @@ class UserManagementTest extends TestCase
         ]);
 
         $response = $this->withHeaders([
-                'Precognition-Validate-Only' => 'email',
-                'Accept' => 'application/json',
-            ])
+            'Precognition-Validate-Only' => 'email',
+            'Accept' => 'application/json',
+        ])
             ->withPrecognition()
             ->post(route('users.store'), [
                 'email' => 'existing@example.com',
@@ -96,9 +96,9 @@ class UserManagementTest extends TestCase
     public function precognitive_validation_passes_for_unique_email(): void
     {
         $response = $this->withHeaders([
-                'Precognition-Validate-Only' => 'email',
-                'Accept' => 'application/json',
-            ])
+            'Precognition-Validate-Only' => 'email',
+            'Accept' => 'application/json',
+        ])
             ->withPrecognition()
             ->post(route('users.store'), [
                 'email' => 'unique@example.com',
@@ -175,8 +175,6 @@ class UserManagementTest extends TestCase
         $user = User::where('email', 'john@example.com')->first();
         $this->assertNotNull($user->getFirstMedia('profile_images'));
     }
-
-
 
     /** @test */
     public function authorized_user_can_update_user_roles(): void
@@ -297,4 +295,3 @@ class UserManagementTest extends TestCase
         $response->assertSessionHasErrors(['profile_image']);
     }
 }
-

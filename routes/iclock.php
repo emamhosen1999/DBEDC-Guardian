@@ -25,14 +25,14 @@ use App\Http\Controllers\Api\BiometricWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('throttle:300,1')->group(function () {
-    Route::get('/iclock/cdata',      [BiometricWebhookController::class, 'admsHandshake'])
+    Route::get('/iclock/cdata', [BiometricWebhookController::class, 'admsHandshake'])
         ->name('biometric.adms.handshake');
-    Route::post('/iclock/cdata',     [BiometricWebhookController::class, 'admsPush'])
+    Route::post('/iclock/cdata', [BiometricWebhookController::class, 'admsPush'])
         ->name('biometric.adms.push');
     Route::get('/iclock/getrequest', [BiometricWebhookController::class, 'admsGetRequest'])
         ->name('biometric.adms.getrequest');
     Route::post('/iclock/devicecmd', [BiometricWebhookController::class, 'admsDeviceCmd'])
         ->name('biometric.adms.devicecmd');
-    Route::get('/iclock/test',       [BiometricWebhookController::class, 'admsTest'])
+    Route::get('/iclock/test', [BiometricWebhookController::class, 'admsTest'])
         ->name('biometric.adms.test');
 });

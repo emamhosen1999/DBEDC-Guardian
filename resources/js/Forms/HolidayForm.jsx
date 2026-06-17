@@ -96,7 +96,7 @@ const HolidayForm = ({ open, closeModal, setHolidaysData, currentHoliday }) => {
                 is_active: formData.is_active,
             };
             if (currentHoliday) submitData.id = currentHoliday.id;
-            const response = await axios.post(route('holidays-add'), submitData);
+            const response = await axios.post(route('holiday-add'), submitData);
             if (response.status === 200) {
                 setHolidaysData(response.data.holidays);
                 showToast.success(response.data.message || 'Holiday saved successfully!');

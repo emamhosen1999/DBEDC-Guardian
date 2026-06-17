@@ -17,7 +17,9 @@ class ExportPettyCashTransactions implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected int $loanId;
+
     protected int $userId;
+
     protected string $filename;
 
     /**
@@ -39,7 +41,7 @@ class ExportPettyCashTransactions implements ShouldQueue
             Log::info("ExportPettyCashTransactions started: LoanId={$this->loanId}, File={$this->filename}");
 
             // Ensure exports directory exists
-            if (!Storage::disk('public')->exists('exports')) {
+            if (! Storage::disk('public')->exists('exports')) {
                 Storage::disk('public')->makeDirectory('exports');
             }
 
@@ -48,12 +50,12 @@ class ExportPettyCashTransactions implements ShouldQueue
             // Fetch transaction history
             $transactions = $pettyCashService->getTransactionHistory($loan, 1, 10000); // Higher limit for background task
 
-            $filePath = Storage::disk('public')->path('exports/' . $this->filename);
+            $filePath = Storage::disk('public')->path('exports/'.$this->filename);
 
             $file = fopen($filePath, 'w');
 
             // Add UTF-8 BOM for Excel compatibility
-            fputs($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fwrite($file, chr(0xEF).chr(0xBB).chr(0xBF));
 
             // Write CSV headers
             fputcsv($file, [
@@ -81,10 +83,10 @@ class ExportPettyCashTransactions implements ShouldQueue
 
             Log::info("ExportPettyCashTransactions completed: File={$this->filename}");
         } catch (\Exception $e) {
-            Log::error("ExportPettyCashTransactions failed: " . $e->getMessage(), [
+            Log::error('ExportPettyCashTransactions failed: '.$e->getMessage(), [
                 'loan_id' => $this->loanId,
                 'file' => $this->filename,
-                'exception' => $e
+                'exception' => $e,
             ]);
             throw $e;
         }

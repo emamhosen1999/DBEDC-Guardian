@@ -15,7 +15,7 @@ return new class extends Migration
             // Drop the unique constraint on number column
             // This allows resubmissions to update existing RFI numbers
             $table->dropUnique(['number']);
-            
+
             // Add a regular index instead for performance
             $table->index('number');
         });

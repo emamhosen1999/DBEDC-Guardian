@@ -2,17 +2,18 @@
 
 namespace App\Http\Responses;
 
+use Illuminate\Http\JsonResponse;
+
 trait ApiResponse
 {
     /**
      * Return a successful JSON response
      *
-     * @param mixed $data The response data
-     * @param string|null $message Optional success message
-     * @param int $statusCode HTTP status code
-     * @return \Illuminate\Http\JsonResponse
+     * @param  mixed  $data  The response data
+     * @param  string|null  $message  Optional success message
+     * @param  int  $statusCode  HTTP status code
      */
-    protected function successResponse($data = null, ?string $message = null, int $statusCode = 200): \Illuminate\Http\JsonResponse
+    protected function successResponse($data = null, ?string $message = null, int $statusCode = 200): JsonResponse
     {
         $response = [
             'success' => true,
@@ -29,13 +30,12 @@ trait ApiResponse
     /**
      * Return an error JSON response
      *
-     * @param string $message Error message
-     * @param string|null $errorCode Specific error code
-     * @param int $statusCode HTTP status code
-     * @param array|null $errors Validation errors or additional error details
-     * @return \Illuminate\Http\JsonResponse
+     * @param  string  $message  Error message
+     * @param  string|null  $errorCode  Specific error code
+     * @param  int  $statusCode  HTTP status code
+     * @param  array|null  $errors  Validation errors or additional error details
      */
-    protected function errorResponse(string $message, ?string $errorCode = null, int $statusCode = 400, ?array $errors = null): \Illuminate\Http\JsonResponse
+    protected function errorResponse(string $message, ?string $errorCode = null, int $statusCode = 400, ?array $errors = null): JsonResponse
     {
         $response = [
             'success' => false,
@@ -56,12 +56,11 @@ trait ApiResponse
     /**
      * Return a paginated JSON response
      *
-     * @param mixed $data The response data
-     * @param array $pagination Pagination metadata
-     * @param string|null $message Optional success message
-     * @return \Illuminate\Http\JsonResponse
+     * @param  mixed  $data  The response data
+     * @param  array  $pagination  Pagination metadata
+     * @param  string|null  $message  Optional success message
      */
-    protected function paginatedResponse($data, array $pagination, ?string $message = null): \Illuminate\Http\JsonResponse
+    protected function paginatedResponse($data, array $pagination, ?string $message = null): JsonResponse
     {
         $response = [
             'success' => true,
@@ -86,10 +85,9 @@ trait ApiResponse
     /**
      * Return a not found response
      *
-     * @param string $message Error message
-     * @return \Illuminate\Http\JsonResponse
+     * @param  string  $message  Error message
      */
-    protected function notFoundResponse(string $message = 'Resource not found'): \Illuminate\Http\JsonResponse
+    protected function notFoundResponse(string $message = 'Resource not found'): JsonResponse
     {
         return $this->errorResponse($message, 'NOT_FOUND', 404);
     }
@@ -97,11 +95,10 @@ trait ApiResponse
     /**
      * Return a validation error response
      *
-     * @param array $errors Validation errors
-     * @param string $message Error message
-     * @return \Illuminate\Http\JsonResponse
+     * @param  array  $errors  Validation errors
+     * @param  string  $message  Error message
      */
-    protected function validationErrorResponse(array $errors, string $message = 'Validation failed'): \Illuminate\Http\JsonResponse
+    protected function validationErrorResponse(array $errors, string $message = 'Validation failed'): JsonResponse
     {
         return $this->errorResponse($message, 'VALIDATION_ERROR', 422, $errors);
     }
@@ -109,10 +106,9 @@ trait ApiResponse
     /**
      * Return an unauthorized response
      *
-     * @param string $message Error message
-     * @return \Illuminate\Http\JsonResponse
+     * @param  string  $message  Error message
      */
-    protected function unauthorizedResponse(string $message = 'Unauthorized'): \Illuminate\Http\JsonResponse
+    protected function unauthorizedResponse(string $message = 'Unauthorized'): JsonResponse
     {
         return $this->errorResponse($message, 'UNAUTHORIZED', 401);
     }
@@ -120,10 +116,9 @@ trait ApiResponse
     /**
      * Return a forbidden response
      *
-     * @param string $message Error message
-     * @return \Illuminate\Http\JsonResponse
+     * @param  string  $message  Error message
      */
-    protected function forbiddenResponse(string $message = 'Forbidden'): \Illuminate\Http\JsonResponse
+    protected function forbiddenResponse(string $message = 'Forbidden'): JsonResponse
     {
         return $this->errorResponse($message, 'FORBIDDEN', 403);
     }

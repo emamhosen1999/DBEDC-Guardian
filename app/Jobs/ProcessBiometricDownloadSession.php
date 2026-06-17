@@ -8,13 +8,13 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
 class ProcessBiometricDownloadSession implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $timeout = 360;
 
     protected BiometricDownloadSession $session;
@@ -42,10 +42,11 @@ class ProcessBiometricDownloadSession implements ShouldQueue
 
         // If it's been more than 5 minutes since the session was created, time out
         if ($this->session->created_at->addMinutes(5)->isPast()) {
-            $this->session->markFailed("Timeout: The device did not respond within 5 minutes.");
+            $this->session->markFailed('Timeout: The device did not respond within 5 minutes.');
             if ($this->session->command) {
-                $this->session->command->markAsFailed("Timeout: Device did not request this command within 5 minutes.");
+                $this->session->command->markAsFailed('Timeout: Device did not request this command within 5 minutes.');
             }
+
             return;
         }
 
@@ -55,6 +56,7 @@ class ProcessBiometricDownloadSession implements ShouldQueue
             if ($command->status === 'pending') {
                 // Device hasn't connected to pick it up yet. Let's release the job to check again in 15 seconds.
                 $this->release(15);
+
                 return;
             }
 
@@ -65,11 +67,13 @@ class ProcessBiometricDownloadSession implements ShouldQueue
                 }
                 // Release to check again in 15 seconds.
                 $this->release(15);
+
                 return;
             }
 
             if ($command->status === 'failed') {
-                $this->session->markFailed("Device failed to execute the download command: " . ($command->error_message ?? 'Unknown device error'));
+                $this->session->markFailed('Device failed to execute the download command: '.($command->error_message ?? 'Unknown device error'));
+
                 return;
             }
 
@@ -78,17 +82,18 @@ class ProcessBiometricDownloadSession implements ShouldQueue
                 if ($this->session->status === 'in_progress' || $this->session->status === 'pending') {
                     if ($this->session->failed_count > 0 && $this->session->processed_count > 0) {
                         $this->session->markPartial();
-                    } else if ($this->session->failed_count > 0 && $this->session->processed_count == 0 && $this->session->total_records > 0) {
-                        $this->session->markFailed("Completed with errors. No records were processed successfully.");
+                    } elseif ($this->session->failed_count > 0 && $this->session->processed_count == 0 && $this->session->total_records > 0) {
+                        $this->session->markFailed('Completed with errors. No records were processed successfully.');
                     } else {
                         $this->session->markCompleted();
                     }
                 }
+
                 return;
             }
         } else {
             // No command linked? Something went wrong
-            $this->session->markFailed("No active command linked to this session.");
+            $this->session->markFailed('No active command linked to this session.');
         }
     }
 }

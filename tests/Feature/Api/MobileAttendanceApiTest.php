@@ -35,7 +35,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_non_manager_cannot_access_mobile_daily_timesheet_endpoints(): void
     {
         $user = User::factory()->create([
-            ]);
+        ]);
 
         Sanctum::actingAs($user);
 
@@ -78,7 +78,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_authenticated_user_can_fetch_mobile_attendance_today_summary(): void
     {
         $user = User::factory()->create([
-            ]);
+        ]);
 
         Attendance::query()->create([
             'user_id' => $user->id,
@@ -101,7 +101,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_authenticated_user_today_summary_reflects_leave_status(): void
     {
         $user = User::factory()->create([
-            ]);
+        ]);
 
         $leaveTypeId = $this->createLeaveType();
         $this->insertLeaveForUser($user->id, $leaveTypeId, [
@@ -279,10 +279,10 @@ class MobileAttendanceApiTest extends TestCase
 
         try {
             $user = User::factory()->create([
-                ]);
+            ]);
 
             $otherUser = User::factory()->create([
-                ]);
+            ]);
 
             Attendance::query()->create([
                 'user_id' => $user->id,
@@ -343,7 +343,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_monthly_attendance_summary_validates_month_range(): void
     {
         $user = User::factory()->create([
-            ]);
+        ]);
 
         Sanctum::actingAs($user);
 
@@ -356,7 +356,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_daily_timesheet_payload(): void
     {
         $manager = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($manager, 'Project Manager');
 
         $presentEmployee = User::factory()->create([
@@ -415,7 +415,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_team_locations_payload(): void
     {
         $manager = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($manager, 'Project Manager');
 
         $attendanceType = AttendanceType::factory()->create([
@@ -465,7 +465,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_present_users_payload(): void
     {
         $manager = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($manager, 'Project Manager');
 
         $employee = User::factory()->create([
@@ -502,7 +502,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_absent_users_payload(): void
     {
         $manager = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($manager, 'Project Manager');
 
         $presentEmployee = User::factory()->create([
@@ -547,7 +547,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_fetch_mobile_locations_today_payload(): void
     {
         $manager = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($manager, 'Project Manager');
 
         $attendanceType = AttendanceType::factory()->create([
@@ -594,11 +594,11 @@ class MobileAttendanceApiTest extends TestCase
     public function test_manager_can_check_mobile_attendance_update_status(): void
     {
         $manager = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($manager, 'Project Manager');
 
         $employee = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($employee, 'Employee');
 
         Attendance::query()->create([
@@ -631,7 +631,7 @@ class MobileAttendanceApiTest extends TestCase
     public function test_mobile_attendance_update_status_validates_date_format_for_manager(): void
     {
         $manager = User::factory()->create([
-            ]);
+        ]);
         $this->assignRole($manager, 'Project Manager');
 
         Sanctum::actingAs($manager);
@@ -746,4 +746,3 @@ class MobileAttendanceApiTest extends TestCase
         return (int) DB::table('holidays')->insertGetId($payload);
     }
 }
-

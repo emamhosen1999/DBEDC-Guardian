@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\MobileLoginRequest;
-use App\Http\Responses\ApiResponse;
 use App\Http\Resources\UserResource;
+use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Services\DeviceAuthService;
 use Illuminate\Http\JsonResponse;
