@@ -120,7 +120,7 @@ class AttendanceSettingController extends Controller
             ]);
 
             $type->update([
-                'config' => $data['config'],
+                'config' => $request->input('config'),
             ]);
 
             return response()->json([
