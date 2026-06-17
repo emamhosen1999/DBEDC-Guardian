@@ -879,7 +879,7 @@
     "src": "public/assets/images/logo.png"
   },
   "resources/css/app.css": {
-    "file": "assets/css/app-DRHMd_D6.css",
+    "file": "assets/css/app-KlZv5c9T.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -2038,7 +2038,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-DIigYwCp.js",
+    "file": "assets/js/app-DGuf7eU4.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2111,7 +2111,7 @@
       "resources/js/Pages/WorkLocations/WorkLocations.jsx"
     ],
     "css": [
-      "assets/css/app-DRHMd_D6.css"
+      "assets/css/app-KlZv5c9T.css"
     ],
     "assets": [
       "assets/woff2/roboto-cyrillic-ext-300-normal-DIxttMbC.woff2",
