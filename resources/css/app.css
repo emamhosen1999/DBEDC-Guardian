@@ -167,3 +167,10 @@ font[style] {
     display: none !important;
   }
 }
+
+/* Hide Leaflet Routing Machine itinerary/container tiles */
+.leaflet-routing-container,
+.leaflet-routing-error {
+  display: none !important;
+}
+
