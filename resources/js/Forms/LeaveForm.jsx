@@ -150,12 +150,12 @@ const LeaveForm = ({
 
                                 <Box>
                                     <Text size="2" weight="medium" mb="1" display="block">From</Text>
-                                    <TextField.Root type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+                                    <TextField.Root type="date" value={data.fromDate} onChange={e => setData('fromDate', e.target.value)} />
                                 </Box>
 
                                 <Box>
                                     <Text size="2" weight="medium" mb="1" display="block">To</Text>
-                                    <TextField.Root type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
+                                    <TextField.Root type="date" value={data.toDate} onChange={e => setData('toDate', e.target.value)} />
                                 </Box>
 
                                 {route().current('leaves*') && (

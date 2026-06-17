@@ -107,7 +107,7 @@ class AttendanceAdminExport
 
         $row = 5;
         foreach ($users as $index => $user) {
-            $attendanceRecord = app('App\\Http\\Controllers\\AttendanceController')->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
+            $attendanceRecord = app(\App\Services\Attendance\AttendanceReportService::class)->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
 
             $sheet->setCellValue("A{$row}", $index + 1);
             $sheet->setCellValue("B{$row}", $user->name);
