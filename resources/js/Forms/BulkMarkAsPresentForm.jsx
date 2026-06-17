@@ -412,7 +412,7 @@ const BulkMarkAsPresentForm = ({
                                             />
 
                                             {/* Reason */}
-                                            <Textarea
+                                            <TextArea
                                                 label="Reason (Optional)"
                                                 placeholder="Reason for bulk marking employees as present..."
                                                 value={formData.reason}
