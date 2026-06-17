@@ -34,8 +34,8 @@
       "_index-waYSsIoM.js"
     ]
   },
-  "_BulkDeleteModal-DZyWtjkq.js": {
-    "file": "assets/js/BulkDeleteModal-DZyWtjkq.js",
+  "_BulkDeleteModal-Bsi0Dvzq.js": {
+    "file": "assets/js/BulkDeleteModal-Bsi0Dvzq.js",
     "name": "BulkDeleteModal",
     "imports": [
       "_vendor-radix-W2H-9_hK.js",
@@ -2038,7 +2038,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-1NYjEFkf.js",
+    "file": "assets/js/app-B_AlzJvz.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
