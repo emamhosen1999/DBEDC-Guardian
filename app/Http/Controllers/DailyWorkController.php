@@ -7,18 +7,22 @@ use App\Http\Requests\DailyWork\UpdateInspectionDetailsRequest;
 use App\Models\DailyWork;
 use App\Models\Jurisdiction;
 use App\Models\Report;
+use App\Models\RfiSubmissionOverrideLog;
 use App\Models\User;
 use App\Services\DailyWork\DailyWorkCrudService;
 use App\Services\DailyWork\DailyWorkFileService;
 use App\Services\DailyWork\DailyWorkImportService;
 use App\Services\DailyWork\DailyWorkPaginationService;
-use App\Services\Project\DailyWorkService;
 use App\Services\Project\DailyWorkExportService;
+use App\Services\Project\DailyWorkService;
 use App\Traits\DailyWorkFilterable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DailyWorkController extends Controller
 {
@@ -125,7 +129,7 @@ class DailyWorkController extends Controller
                     : []
                 )
             );
-        
+
         $reports = Report::all();
         $reports_with_daily_works = Report::with('daily_works')->has('daily_works')->get();
         $users = User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with(['roles', 'designation', 'media'])->get();
@@ -151,10 +155,10 @@ class DailyWorkController extends Controller
 
         // Get summary data for initial load
         $summaryQuery = DailyWork::with(['inchargeUser', 'assignedUser']);
-        
-        if (!$isAdmin && in_array('Employee', $user->roles->pluck('name')->toArray())) {
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
-            
+
+        if (! $isAdmin && in_array('Employee', $user->roles->pluck('name')->toArray())) {
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
+
             if ($hasJurisdiction) {
                 $summaryQuery->where('incharge', $user->id);
             } elseif ($user->report_to) {
@@ -206,7 +210,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function all(Request $request): \Illuminate\Http\JsonResponse
+    public function all(Request $request): JsonResponse
     {
         try {
             $result = $this->paginationService->getAllDailyWorks($request);
@@ -249,9 +253,12 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function update(Request $request): \Illuminate\Http\JsonResponse
+    public function update(Request $request): JsonResponse
     {
         try {
+            $dailyWork = DailyWork::findOrFail($request->input('id'));
+            $this->authorize('update', $dailyWork);
+
             $result = $this->crudService->update($request);
 
             return response()->json($result);
@@ -262,9 +269,12 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function delete(Request $request): \Illuminate\Http\JsonResponse
+    public function delete(Request $request): JsonResponse
     {
         try {
+            $dailyWork = DailyWork::findOrFail($request->input('id'));
+            $this->authorize('delete', $dailyWork);
+
             $result = $this->crudService->delete($request);
 
             return response()->json($result);
@@ -273,7 +283,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function export(Request $request): \Illuminate\Http\JsonResponse
+    public function export(Request $request): JsonResponse
     {
         try {
             $user = User::with(['designation', 'roles'])->find(Auth::id());
@@ -304,7 +314,7 @@ class DailyWorkController extends Controller
     /**
      * Export only RFIs with active objections along with objection details.
      */
-    public function exportObjectedRfis(Request $request): \Illuminate\Http\JsonResponse
+    public function exportObjectedRfis(Request $request): JsonResponse
     {
         try {
             $user = User::with('designation')->find(Auth::id());
@@ -325,7 +335,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function updateStatus(UpdateDailyWorkStatusRequest $request): \Illuminate\Http\JsonResponse
+    public function updateStatus(UpdateDailyWorkStatusRequest $request): JsonResponse
     {
         try {
             $dailyWork = DailyWork::findOrFail($request->id);
@@ -346,7 +356,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function updateCompletionTime(Request $request): \Illuminate\Http\JsonResponse
+    public function updateCompletionTime(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -369,7 +379,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function updateSubmissionTime(Request $request): \Illuminate\Http\JsonResponse
+    public function updateSubmissionTime(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -430,7 +440,7 @@ class DailyWorkController extends Controller
     /**
      * Bulk submit RFIs with objection warnings.
      */
-    public function bulkSubmit(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkSubmit(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -452,7 +462,7 @@ class DailyWorkController extends Controller
                 authorizeCallback: fn ($work) => $this->authorize('updateSubmissionTime', $work)
             );
 
-            if (!empty($result['requires_decision'])) {
+            if (! empty($result['requires_decision'])) {
                 return response()->json([
                     'requires_decision' => true,
                     'total_count' => $result['total_count'],
@@ -501,7 +511,7 @@ class DailyWorkController extends Controller
      * Import RFI submission dates from Excel file.
      * Excel should have two columns: RFI Number and Submission Date.
      */
-    public function bulkImportSubmit(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkImportSubmit(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -517,7 +527,7 @@ class DailyWorkController extends Controller
 
             // Read the Excel file
             $file = $request->file('file');
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            $spreadsheet = IOFactory::load($file->getRealPath());
             $worksheet = $spreadsheet->getActiveSheet();
             $rows = $worksheet->toArray();
 
@@ -769,7 +779,7 @@ class DailyWorkController extends Controller
     /**
      * Download template for bulk import submission.
      */
-    public function downloadBulkImportTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function downloadBulkImportTemplate(): BinaryFileResponse
     {
         $tempFile = $this->dailyWorkExportService->generateBulkImportTemplate();
 
@@ -778,7 +788,7 @@ class DailyWorkController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
-    public function updateInspectionDetails(UpdateInspectionDetailsRequest $request): \Illuminate\Http\JsonResponse
+    public function updateInspectionDetails(UpdateInspectionDetailsRequest $request): JsonResponse
     {
         try {
             $dailyWork = DailyWork::findOrFail($request->id);
@@ -799,7 +809,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function updateIncharge(Request $request): \Illuminate\Http\JsonResponse
+    public function updateIncharge(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -822,7 +832,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function updateAssigned(Request $request): \Illuminate\Http\JsonResponse
+    public function updateAssigned(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -845,7 +855,7 @@ class DailyWorkController extends Controller
         }
     }
 
-    public function assignWork(Request $request): \Illuminate\Http\JsonResponse
+    public function assignWork(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -1048,7 +1058,7 @@ class DailyWorkController extends Controller
     /**
      * Bulk update RFI response status with objection warnings.
      */
-    public function bulkResponseStatusUpdate(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkResponseStatusUpdate(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -1071,7 +1081,7 @@ class DailyWorkController extends Controller
                 overrideReason: $request->override_reason
             );
 
-            if (!empty($result['requires_decision'])) {
+            if (! empty($result['requires_decision'])) {
                 return response()->json([
                     'requires_decision' => true,
                     'total_count' => $result['total_count'],
@@ -1129,7 +1139,7 @@ class DailyWorkController extends Controller
      * Import RFI response statuses from Excel file.
      * Excel should have three columns: RFI Number, Response Status, and Response Date.
      */
-    public function bulkImportResponseStatus(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkImportResponseStatus(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -1145,7 +1155,7 @@ class DailyWorkController extends Controller
 
             // Load the Excel file
             $file = $request->file('file');
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $spreadsheet = IOFactory::load($file->getPathname());
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray();
 
@@ -1232,8 +1242,9 @@ class DailyWorkController extends Controller
                 $parsedDate = null;
                 if ($dateValue) {
                     $parsedDate = $this->dailyWorkExportService->parseExcelDate($dateValue);
-                    if (!$parsedDate) {
+                    if (! $parsedDate) {
                         $validationErrors[] = "Row {$rowNum}: Could not parse date '{$dateValue}'";
+
                         continue;
                     }
                 } else {
@@ -1344,7 +1355,7 @@ class DailyWorkController extends Controller
 
                 if ($overrideObjected) {
                     try {
-                        \App\Models\RfiSubmissionOverrideLog::logOverride(
+                        RfiSubmissionOverrideLog::logOverride(
                             dailyWorkId: $data['work']->id,
                             oldDate: $data['work']->rfi_response_date?->format('Y-m-d'),
                             newDate: $data['date'],
@@ -1397,7 +1408,7 @@ class DailyWorkController extends Controller
     /**
      * Download template for bulk import response status.
      */
-    public function downloadResponseStatusTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function downloadResponseStatusTemplate(): BinaryFileResponse
     {
         $tempFile = $this->dailyWorkExportService->generateResponseStatusTemplate();
 

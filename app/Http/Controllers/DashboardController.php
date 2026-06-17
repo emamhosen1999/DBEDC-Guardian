@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\DailyWork;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -98,13 +98,13 @@ class DashboardController extends Controller
         $todayLeaves = [];
         $upcomingLeaves = [];
 
-        if ($user->can('leaves.view') || $user->can('leaves.own.view')) {
+        if ($user->can('leaves.view') || $user->can('leave.own.view')) {
             $leaveQuery = DB::table('leaves')
                 ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
                 ->select('leaves.*', 'leave_settings.type as leave_type');
 
             // If user can only view own leaves, filter accordingly
-            if (! $user->can('leaves.view') && $user->can('leaves.own.view')) {
+            if (! $user->can('leaves.view') && $user->can('leave.own.view')) {
                 $leaveQuery->where('leaves.user_id', $user->id);
             }
 

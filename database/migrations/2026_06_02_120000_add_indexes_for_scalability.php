@@ -16,9 +16,11 @@ return new class extends Migration
             Schema::table('attendances', function (Blueprint $table) {
                 $table->index(['user_id', 'date'], 'attendances_user_id_date_index');
             });
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Ignore duplicate key error
-            if (!str_contains($e->getMessage(), 'Duplicate key') && !str_contains($e->getMessage(), 'already exists') && !str_contains($e->getMessage(), 'too long')) throw $e;
+            if (! str_contains($e->getMessage(), 'Duplicate key') && ! str_contains($e->getMessage(), 'already exists') && ! str_contains($e->getMessage(), 'too long')) {
+                throw $e;
+            }
         }
 
         try {
@@ -27,8 +29,10 @@ return new class extends Migration
             Schema::table('leaves', function (Blueprint $table) {
                 $table->index(['user_id', 'from_date', 'to_date'], 'leaves_user_date_index');
             });
-        } catch (\Exception $e) {
-            if (!str_contains($e->getMessage(), 'Duplicate key') && !str_contains($e->getMessage(), 'already exists') && !str_contains($e->getMessage(), 'too long')) throw $e;
+        } catch (Exception $e) {
+            if (! str_contains($e->getMessage(), 'Duplicate key') && ! str_contains($e->getMessage(), 'already exists') && ! str_contains($e->getMessage(), 'too long')) {
+                throw $e;
+            }
         }
 
         try {
@@ -36,8 +40,10 @@ return new class extends Migration
             Schema::table('petty_cash_loans', function (Blueprint $table) {
                 $table->index(['user_id'], 'loans_user_index');
             });
-        } catch (\Exception $e) {
-            if (!str_contains($e->getMessage(), 'Duplicate key') && !str_contains($e->getMessage(), 'already exists') && !str_contains($e->getMessage(), 'too long')) throw $e;
+        } catch (Exception $e) {
+            if (! str_contains($e->getMessage(), 'Duplicate key') && ! str_contains($e->getMessage(), 'already exists') && ! str_contains($e->getMessage(), 'too long')) {
+                throw $e;
+            }
         }
 
         try {
@@ -46,8 +52,10 @@ return new class extends Migration
                 $table->index(['incharge', 'date'], 'works_incharge_date_index');
                 $table->index(['assigned', 'date'], 'works_assigned_date_index');
             });
-        } catch (\Exception $e) {
-            if (!str_contains($e->getMessage(), 'Duplicate key') && !str_contains($e->getMessage(), 'already exists') && !str_contains($e->getMessage(), 'too long')) throw $e;
+        } catch (Exception $e) {
+            if (! str_contains($e->getMessage(), 'Duplicate key') && ! str_contains($e->getMessage(), 'already exists') && ! str_contains($e->getMessage(), 'too long')) {
+                throw $e;
+            }
         }
     }
 

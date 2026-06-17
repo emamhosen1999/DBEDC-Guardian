@@ -25,10 +25,10 @@ class BiometricDevice extends Model
     ];
 
     protected $casts = [
-        'is_active'            => 'boolean',
-        'last_heartbeat_at'    => 'datetime',
+        'is_active' => 'boolean',
+        'last_heartbeat_at' => 'datetime',
         'last_log_download_at' => 'datetime',
-        'config'               => 'array',
+        'config' => 'array',
     ];
 
     protected static function booted(): void
@@ -49,6 +49,7 @@ class BiometricDevice extends Model
     {
         $token = Str::random(48);
         $this->update(['auth_token' => $token]);
+
         return $token;
     }
 

@@ -3,9 +3,14 @@
 namespace App\Services\Project;
 
 use App\Models\DailyWork;
+use App\Models\RfiObjection;
 use App\Models\User;
 use App\Traits\DailyWorkFilterable;
 use Carbon\Carbon;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class DailyWorkExportService
 {
@@ -39,7 +44,7 @@ class DailyWorkExportService
         }
 
         // Apply filters from request
-        if (!empty($filters['startDate']) && !empty($filters['endDate'])) {
+        if (! empty($filters['startDate']) && ! empty($filters['endDate'])) {
             $query->whereBetween('date', [$filters['startDate'], $filters['endDate']]);
         }
 
@@ -48,15 +53,15 @@ class DailyWorkExportService
 
         $this->applyInchargeJurisdictionFilters($query, $inchargeFilter, $jurisdictionFilter);
 
-        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+        if (! empty($filters['status']) && $filters['status'] !== 'all') {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['type']) && $filters['type'] !== 'all') {
+        if (! empty($filters['type']) && $filters['type'] !== 'all') {
             $query->where('type', $filters['type']);
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             // Split search into words (handle multiple spaces)
             $words = array_filter(preg_split('/\s+/', trim($search)));
@@ -80,7 +85,7 @@ class DailyWorkExportService
         }
 
         // Filter to only RFIs with active objections if requested
-        if (!empty($filters['only_with_objections']) && $filters['only_with_objections'] === true) {
+        if (! empty($filters['only_with_objections']) && $filters['only_with_objections'] === true) {
             $query->has('objections', '>=', 1, 'and', function ($q) {
                 $q->whereIn('status', ['draft', 'submitted', 'under_review']);
             });
@@ -89,7 +94,7 @@ class DailyWorkExportService
         $dailyWorks = $query->get();
 
         // Load objection details if needed
-        if (!empty($filters['include_objection_details']) && $filters['include_objection_details'] === true) {
+        if (! empty($filters['include_objection_details']) && $filters['include_objection_details'] === true) {
             $dailyWorks->load(['objections' => function ($q) {
                 $q->whereIn('status', ['draft', 'submitted', 'under_review'])
                     ->select('rfi_objections.id', 'title', 'category', 'status', 'chainage_from', 'chainage_to');
@@ -188,7 +193,7 @@ class DailyWorkExportService
         }
 
         // Apply filters
-        if (!empty($filters['startDate']) && !empty($filters['endDate'])) {
+        if (! empty($filters['startDate']) && ! empty($filters['endDate'])) {
             $query->whereBetween('date', [$filters['startDate'], $filters['endDate']]);
         }
 
@@ -196,7 +201,7 @@ class DailyWorkExportService
         $jurisdictionFilter = $this->normalizeIdFilter($filters['jurisdiction'] ?? null);
         $this->applyInchargeJurisdictionFilters($query, $inchargeFilter, $jurisdictionFilter);
 
-        if (!empty($filters['type']) && $filters['type'] !== 'all') {
+        if (! empty($filters['type']) && $filters['type'] !== 'all') {
             $query->where('type', $filters['type']);
         }
 
@@ -205,8 +210,8 @@ class DailyWorkExportService
         // Build export data - one row per RFI with all objection info combined
         $exportData = $dailyWorks->map(function ($work) {
             $objectionSummary = $work->objections->map(function ($obj) {
-                $categoryLabel = \App\Models\RfiObjection::$categoryLabels[$obj->category] ?? $obj->category;
-                $statusLabel = \App\Models\RfiObjection::$statusLabels[$obj->status] ?? $obj->status;
+                $categoryLabel = RfiObjection::$categoryLabels[$obj->category] ?? $obj->category;
+                $statusLabel = RfiObjection::$statusLabels[$obj->status] ?? $obj->status;
 
                 return "{$obj->title} [{$categoryLabel}] - {$statusLabel}";
             })->join(' | ');
@@ -233,7 +238,7 @@ class DailyWorkExportService
      */
     public function generateBulkImportTemplate(): string
     {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Set headers
@@ -244,7 +249,7 @@ class DailyWorkExportService
         $headerStyle = [
             'font' => ['bold' => true],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'E0E0E0'],
             ],
         ];
@@ -263,7 +268,7 @@ class DailyWorkExportService
 
         // Create temp file
         $tempFile = tempnam(sys_get_temp_dir(), 'rfi_import_');
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer = new Xlsx($spreadsheet);
         $writer->save($tempFile);
 
         return $tempFile;
@@ -274,7 +279,7 @@ class DailyWorkExportService
      */
     public function generateResponseStatusTemplate(): string
     {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet;
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Set headers
@@ -286,7 +291,7 @@ class DailyWorkExportService
         $headerStyle = [
             'font' => ['bold' => true],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'E0E0E0'],
             ],
         ];
@@ -331,7 +336,7 @@ class DailyWorkExportService
 
         // Create temp file
         $tempFile = tempnam(sys_get_temp_dir(), 'rfi_response_');
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer = new Xlsx($spreadsheet);
         $writer->save($tempFile);
 
         return $tempFile;
@@ -350,7 +355,8 @@ class DailyWorkExportService
         if (is_numeric($dateValue)) {
             try {
                 // Excel dates: use timezone-safe parsing
-                $dateObj = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateValue);
+                $dateObj = Date::excelToDateTimeObject($dateValue);
+
                 return Carbon::instance($dateObj)->startOfDay()->format('Y-m-d');
             } catch (\Exception $e) {
                 return null;
@@ -378,6 +384,7 @@ class DailyWorkExportService
                 // Fallback to Carbon::parse but with startOfDay to avoid timezone shifts
                 $parsed_date = Carbon::parse($dateStr)->startOfDay();
             }
+
             return $parsed_date->format('Y-m-d');
         } catch (\Exception $e) {
             return null;

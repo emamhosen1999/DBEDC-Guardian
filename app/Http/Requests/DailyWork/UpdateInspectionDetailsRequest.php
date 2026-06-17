@@ -3,6 +3,7 @@
 namespace App\Http\Requests\DailyWork;
 
 use App\Models\DailyWork;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateInspectionDetailsRequest extends FormRequest
@@ -24,7 +25,7 @@ class UpdateInspectionDetailsRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {

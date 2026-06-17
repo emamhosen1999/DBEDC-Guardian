@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Enterprise Role Permission Service
@@ -579,7 +580,7 @@ class RolePermissionService
     {
         try {
             // Clear Spatie permission cache
-            app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
 
             // Clear all permission-related cache keys
             $cacheKeys = [
@@ -834,11 +835,11 @@ class RolePermissionService
      */
     public function snapshotHash(): string
     {
-        $maxRoleUpdated = \Spatie\Permission\Models\Role::max('updated_at');
-        $maxPermUpdated = \Spatie\Permission\Models\Permission::max('updated_at');
+        $maxRoleUpdated = Role::max('updated_at');
+        $maxPermUpdated = Permission::max('updated_at');
         $counts = [
-            'r' => \Spatie\Permission\Models\Role::count(),
-            'p' => \Spatie\Permission\Models\Permission::count(),
+            'r' => Role::count(),
+            'p' => Permission::count(),
             'rp' => DB::table('role_has_permissions')->count(),
             'ru' => $maxRoleUpdated?->timestamp ?? 0,
             'pu' => $maxPermUpdated?->timestamp ?? 0,

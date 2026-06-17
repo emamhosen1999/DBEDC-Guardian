@@ -21,8 +21,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Create a new repository instance
-     *
-     * @param User $model
      */
     public function __construct(User $model)
     {
@@ -31,9 +29,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Get all employees with basic relations
-     *
-     * @param array $filters
-     * @return Collection
      */
     public function all(array $filters = []): Collection
     {
@@ -45,10 +40,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Get paginated employees
-     *
-     * @param int $perPage
-     * @param array $filters
-     * @return LengthAwarePaginator
      */
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
@@ -60,9 +51,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Find employee by ID with full relations
-     *
-     * @param int $id
-     * @return User|null
      */
     public function findWithFullRelations(int $id): ?User
     {
@@ -71,9 +59,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Find employee by employee_id
-     *
-     * @param string $employeeId
-     * @return User|null
      */
     public function findByEmployeeId(string $employeeId): ?User
     {
@@ -82,9 +67,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Get employees by department
-     *
-     * @param int $departmentId
-     * @return Collection
      */
     public function getByDepartment(int $departmentId): Collection
     {
@@ -93,9 +75,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Get employees by designation
-     *
-     * @param int $designationId
-     * @return Collection
      */
     public function getByDesignation(int $designationId): Collection
     {
@@ -104,9 +83,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Get active employees (not soft deleted)
-     *
-     * @param array $filters
-     * @return Collection
      */
     public function getActive(array $filters = []): Collection
     {
@@ -118,9 +94,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Get direct reports for a manager
-     *
-     * @param int $managerId
-     * @return Collection
      */
     public function getDirectReports(int $managerId): Collection
     {
@@ -132,10 +105,6 @@ class EmployeeRepository extends BaseRepository
 
     /**
      * Apply filters to query
-     *
-     * @param Builder $query
-     * @param array $filters
-     * @return Builder
      */
     public function applyFilters(Builder $query, array $filters): Builder
     {

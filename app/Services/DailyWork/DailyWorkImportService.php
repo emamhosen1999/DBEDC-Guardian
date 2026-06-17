@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
@@ -274,6 +275,7 @@ class DailyWorkImportService
                 // Carry the existing/auto incharge for display only
                 $workEntry['auto_incharge'] = $autoInchargeId ?? $existingDailyWork->incharge;
                 $skippedList[] = $workEntry;
+
                 continue;
             }
 
@@ -424,6 +426,7 @@ class DailyWorkImportService
         $inChargeUser = User::find($inCharge);
         if (! $inChargeUser) {
             Log::warning('Resolved incharge user not found: '.$inCharge.' for RFI '.$rfi);
+
             return ['processed' => false, 'summary' => $inChargeSummary];
         }
 
@@ -481,6 +484,7 @@ class DailyWorkImportService
         if ($existingDailyWork->status === DailyWork::STATUS_COMPLETED &&
             in_array($existingDailyWork->inspection_result, ['pass', 'fail'])) {
             Log::info('Skipping update for completed work with pass/fail: '.$existingDailyWork->number);
+
             return;
         }
 
@@ -595,7 +599,7 @@ class DailyWorkImportService
         }
 
         // Create Excel file with template data
-        Excel::store(new class($templateData) implements \Maatwebsite\Excel\Concerns\FromArray
+        Excel::store(new class($templateData) implements FromArray
         {
             private $data;
 

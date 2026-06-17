@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\DeviceAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -63,7 +64,7 @@ class DeviceAuthenticationTest extends TestCase
         $deviceId = $this->faker->uuid;
 
         // Register device
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -90,7 +91,7 @@ class DeviceAuthenticationTest extends TestCase
         $deviceId2 = $this->faker->uuid;
 
         // Register first device
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -114,7 +115,7 @@ class DeviceAuthenticationTest extends TestCase
         $deviceId = $this->faker->uuid;
 
         // Register device
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -141,7 +142,7 @@ class DeviceAuthenticationTest extends TestCase
         $deviceId2 = $this->faker->uuid;
 
         // Register first device
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -166,7 +167,7 @@ class DeviceAuthenticationTest extends TestCase
         $deviceId2 = $this->faker->uuid;
 
         // Register first device
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -189,7 +190,7 @@ class DeviceAuthenticationTest extends TestCase
         $user = User::factory()->create();
         $deviceId = $this->faker->uuid;
 
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -209,7 +210,7 @@ class DeviceAuthenticationTest extends TestCase
         $user = User::factory()->create();
         $deviceId = $this->faker->uuid;
 
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'okhttp/4.12.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -241,7 +242,7 @@ class DeviceAuthenticationTest extends TestCase
             'single_device_login_enabled' => true,
         ]);
 
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -435,7 +436,7 @@ class DeviceAuthenticationTest extends TestCase
         $user2 = User::factory()->create();
         $deviceId = $this->faker->uuid;
 
-        $request = \Illuminate\Http\Request::create('/', 'GET');
+        $request = Request::create('/', 'GET');
         $request->server->set('HTTP_USER_AGENT', 'Mozilla/5.0');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
 
@@ -464,4 +465,3 @@ class DeviceAuthenticationTest extends TestCase
         ]);
     }
 }
-

@@ -7,7 +7,7 @@ use App\Models\UserDevice;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\UserDevice>
+ * @extends Factory<UserDevice>
  */
 class UserDeviceFactory extends Factory
 {

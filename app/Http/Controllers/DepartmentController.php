@@ -4,20 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Models\HRM\Department;
 use App\Models\User;
+use App\Traits\HandlesApiExceptions;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use App\Traits\HandlesApiExceptions;
+use Inertia\Response;
 
 class DepartmentController extends Controller
 {
     use HandlesApiExceptions;
+
     /**
      * Display a listing of departments
      */
-    public function index(Request $request): \Inertia\Response
+    public function index(Request $request): Response
     {
         $query = Department::with(['parent', 'manager', 'children']);
 
@@ -68,7 +73,7 @@ class DepartmentController extends Controller
     /**
      * Store a newly created department
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function store(Request $request)
     {
@@ -90,14 +95,15 @@ class DepartmentController extends Controller
             }
 
             // Create new department
-            $department = Department::create($request->all());
+            $department = Department::create($validator->validated());
 
             return response()->json([
                 'message' => 'Department created successfully',
                 'department' => $department,
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Failed to create department: ' . $e->getMessage());
+            Log::error('Failed to create department: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to create department',
                 'message' => $this->safeExceptionMessage($e),
@@ -109,7 +115,7 @@ class DepartmentController extends Controller
      * Display the specified department
      *
      * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function show($id)
     {
@@ -119,7 +125,8 @@ class DepartmentController extends Controller
 
             return response()->json($department);
         } catch (\Exception $e) {
-            Log::error('Failed to get department: ' . $e->getMessage());
+            Log::error('Failed to get department: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to get department',
                 'message' => $this->safeExceptionMessage($e),
@@ -131,7 +138,7 @@ class DepartmentController extends Controller
      * Update the specified department
      *
      * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function update(Request $request, $id)
     {
@@ -160,14 +167,15 @@ class DepartmentController extends Controller
             }
 
             // Update department
-            $department->update($request->all());
+            $department->update($validator->validated());
 
             return response()->json([
                 'message' => 'Department updated successfully',
                 'department' => $department,
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to update department: ' . $e->getMessage());
+            Log::error('Failed to update department: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to update department',
                 'message' => $this->safeExceptionMessage($e),
@@ -179,7 +187,7 @@ class DepartmentController extends Controller
      * Remove the specified department (soft delete)
      *
      * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function destroy($id)
     {
@@ -201,7 +209,8 @@ class DepartmentController extends Controller
                 'message' => 'Department deleted successfully',
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to delete department: ' . $e->getMessage());
+            Log::error('Failed to delete department: '.$e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to delete department',
                 'message' => $this->safeExceptionMessage($e),
@@ -213,7 +222,7 @@ class DepartmentController extends Controller
      * Update a user's department
      *
      * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function updateUserDepartment(Request $request, $id)
     {
@@ -251,14 +260,14 @@ class DepartmentController extends Controller
                 'messages' => ['Department updated successfully'],
                 'user' => $user, // Optional: return updated user info
             ], 200);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             Log::error('Validation error on updateUserDepartment', [
                 'errors' => $e->errors(),
                 'request' => $request->all(),
             ]);
 
             return response()->json(['errors' => $e->errors()], 422);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             Log::error('User not found during updateUserDepartment', [
                 'user_id' => $id,
             ]);
@@ -285,7 +294,7 @@ class DepartmentController extends Controller
     /**
      * Get department statistics
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function getStats()
     {
@@ -304,7 +313,7 @@ class DepartmentController extends Controller
     /**
      * Get departments data for API requests
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function getDepartments(Request $request)
     {

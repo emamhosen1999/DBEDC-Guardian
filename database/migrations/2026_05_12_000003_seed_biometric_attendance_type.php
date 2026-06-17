@@ -10,18 +10,18 @@ return new class extends Migration
         $exists = DB::table('attendance_types')->where('slug', 'biometric')->exists();
         if (! $exists) {
             DB::table('attendance_types')->insert([
-                'name'                 => 'Biometric Device',
-                'slug'                 => 'biometric',
-                'description'          => 'ZKTeco biometric device attendance via push webhook.',
-                'icon'                 => 'fingerprint',
-                'is_active'            => true,
-                'priority'             => 10,
-                'config'               => json_encode([
+                'name' => 'Biometric Device',
+                'slug' => 'biometric',
+                'description' => 'ZKTeco biometric device attendance via push webhook.',
+                'icon' => 'fingerprint',
+                'is_active' => true,
+                'priority' => 10,
+                'config' => json_encode([
                     'validation_mode' => 'any',
                 ]),
                 'required_permissions' => json_encode([]),
-                'created_at'           => now(),
-                'updated_at'           => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
     }

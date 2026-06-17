@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\CompanySetting;
+use App\Models\User;
 use App\Services\Module\ModulePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -41,7 +42,7 @@ class HandleInertiaRequests extends Middleware
         }
 
         $user = $request->user();
-        $userWithRelations = $user ? \App\Models\User::with([
+        $userWithRelations = $user ? User::with([
             'designation',
             'attendanceType.biometricDevices:id,name',
             'employeeAttendanceType.biometricDevice:id,name',
@@ -64,7 +65,7 @@ class HandleInertiaRequests extends Middleware
                     ] : null,
                     'attendance_type_devices' => $userWithRelations->attendanceType
                         ?->biometricDevices
-                        ?->map(fn($d) => ['id' => $d->id, 'name' => $d->name])
+                        ?->map(fn ($d) => ['id' => $d->id, 'name' => $d->name])
                         ->values()->toArray() ?? [],
                     'biometric_device_name' => $userWithRelations->employeeAttendanceType?->biometricDevice?->name,
                 ] : null,

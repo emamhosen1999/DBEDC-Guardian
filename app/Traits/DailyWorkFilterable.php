@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Models\Jurisdiction;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Trait for common Daily Work filtering functionality.
@@ -38,7 +39,7 @@ trait DailyWorkFilterable
      * If incharge is provided, filter by incharge directly.
      * If only jurisdiction is provided, find incharges for those jurisdictions.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query  The query builder
+     * @param  Builder  $query  The query builder
      * @param  array<int>  $inchargeFilter  Array of incharge user IDs
      * @param  array<int>  $jurisdictionFilter  Array of jurisdiction IDs
      */
@@ -77,7 +78,7 @@ trait DailyWorkFilterable
     /**
      * Apply date range filter to a query.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query  The query builder
+     * @param  Builder  $query  The query builder
      * @param  string|null  $startDate  Start date (Y-m-d format)
      * @param  string|null  $endDate  End date (Y-m-d format)
      */
@@ -100,7 +101,7 @@ trait DailyWorkFilterable
     /**
      * Apply month filter to a query.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query  The query builder
+     * @param  Builder  $query  The query builder
      * @param  string|null  $month  Month in Y-m format
      */
     protected function applyMonthFilter($query, ?string $month): void
@@ -115,7 +116,7 @@ trait DailyWorkFilterable
     /**
      * Apply status filter to a query.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query  The query builder
+     * @param  Builder  $query  The query builder
      * @param  string|null  $status  Status value
      */
     protected function applyStatusFilter($query, ?string $status): void
@@ -129,7 +130,7 @@ trait DailyWorkFilterable
      * Apply search filter to a query.
      * Searches in number, location, and description fields.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query  The query builder
+     * @param  Builder  $query  The query builder
      * @param  string|null  $search  Search term
      */
     protected function applySearchFilter($query, ?string $search): void
@@ -146,7 +147,7 @@ trait DailyWorkFilterable
     /**
      * Apply type filter to a query.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query  The query builder
+     * @param  Builder  $query  The query builder
      * @param  string|null  $type  Type value
      */
     protected function applyTypeFilter($query, ?string $type): void

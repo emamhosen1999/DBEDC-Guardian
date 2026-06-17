@@ -5,6 +5,7 @@ namespace App\Services\Api\V1;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -66,7 +67,7 @@ class LeaveApiService
     }
 
     /**
-     * @return array{leaves: \Illuminate\Support\Collection, pagination: array<string, int>}
+     * @return array{leaves: Collection, pagination: array<string, int>}
      */
     public function listLeavesForUser(User $user, array $filters, int $page = 1, int $perPage = 10): array
     {
@@ -77,7 +78,7 @@ class LeaveApiService
         $userColumn = $this->resolveLeavesUserColumn();
 
         if (! $userColumn) {
-            throw new \RuntimeException('Leave schema is misconfigured.');
+            throw new RuntimeException('Leave schema is misconfigured.');
         }
 
         $perPage = max(1, $perPage);
@@ -88,7 +89,8 @@ class LeaveApiService
             ->where("leaves.{$userColumn}", $user->id);
 
         if (! empty($filters['status'])) {
-            $query->where('leaves.status', $filters['status']);
+            $status = strtolower((string) $filters['status']);
+            $query->whereRaw('LOWER(leaves.status) = ?', [$status]);
         }
 
         if (! empty($filters['year'])) {
@@ -717,7 +719,7 @@ class LeaveApiService
             throw new RuntimeException('Selected dates overlap with a holiday.', 422);
         }
 
-        $status = (! $leaveType->requires_approval || $leaveType->auto_approve) ? 'Approved' : 'New';
+        $status = (! $leaveType->requires_approval || $leaveType->auto_approve) ? 'approved' : 'new';
 
         $payload = [
             'leave_type' => $leaveType->id,
@@ -744,7 +746,7 @@ class LeaveApiService
             $payload['submitted_at'] = now();
         }
 
-        if ($status === 'Approved' && Schema::hasColumn('leaves', 'approved_at')) {
+        if ($status === 'approved' && Schema::hasColumn('leaves', 'approved_at')) {
             $payload['approved_at'] = now();
         }
 
@@ -808,7 +810,7 @@ class LeaveApiService
             throw new RuntimeException('Selected dates overlap with a holiday.', 422);
         }
 
-        $status = (! $leaveType->requires_approval || $leaveType->auto_approve) ? 'Approved' : 'New';
+        $status = (! $leaveType->requires_approval || $leaveType->auto_approve) ? 'approved' : 'new';
 
         $updatePayload = [
             'leave_type' => $leaveType->id,
@@ -825,7 +827,7 @@ class LeaveApiService
         }
 
         if (Schema::hasColumn('leaves', 'approved_at')) {
-            $updatePayload['approved_at'] = $status === 'Approved' ? now() : null;
+            $updatePayload['approved_at'] = $status === 'approved' ? now() : null;
         }
 
         DB::table('leaves')->where('id', $leaveId)->update($updatePayload);
@@ -871,7 +873,7 @@ class LeaveApiService
     }
 
     /**
-     * @return array{leaves: \Illuminate\Support\Collection, pagination: array<string, int>}
+     * @return array{leaves: Collection, pagination: array<string, int>}
      */
     public function emptyLeaveList(int $perPage = 10): array
     {
@@ -889,7 +891,7 @@ class LeaveApiService
     }
 
     /**
-     * @return array<int, string|\Illuminate\Contracts\Database\Query\Expression>
+     * @return array<int, string|Expression>
      */
     private function leaveSelectColumns(string $userColumn): array
     {
@@ -923,7 +925,7 @@ class LeaveApiService
     }
 
     /**
-     * @return array<int, string|\Illuminate\Contracts\Database\Query\Expression>
+     * @return array<int, string|Expression>
      */
     private function leaveDetailSelectColumns(string $userColumn): array
     {

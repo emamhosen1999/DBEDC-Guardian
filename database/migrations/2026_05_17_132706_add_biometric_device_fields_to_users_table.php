@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->unsignedBigInteger('biometric_device_id')->nullable()->after('locale')->index();
             $table->string('biometric_device_name')->nullable()->after('biometric_device_id');
-            
+
             $table->foreign('biometric_device_id')->nullable()->references('id')->on('biometric_devices')->nullOnDelete();
         });
     }

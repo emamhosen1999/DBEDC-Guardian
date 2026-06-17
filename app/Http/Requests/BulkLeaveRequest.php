@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 
 class BulkLeaveRequest extends FormRequest
@@ -94,8 +95,8 @@ class BulkLeaveRequest extends FormRequest
                 $maxDate = max($dates);
 
                 try {
-                    $minCarbon = \Carbon\Carbon::parse($minDate);
-                    $maxCarbon = \Carbon\Carbon::parse($maxDate);
+                    $minCarbon = Carbon::parse($minDate);
+                    $maxCarbon = Carbon::parse($maxDate);
 
                     // Check if date range is more than 1 year
                     if ($maxCarbon->diffInDays($minCarbon) > 365) {
@@ -105,7 +106,7 @@ class BulkLeaveRequest extends FormRequest
                     // Check if any date is more than 1 year in the future
                     $oneYearFromNow = now()->addYear();
                     foreach ($dates as $date) {
-                        $carbonDate = \Carbon\Carbon::parse($date);
+                        $carbonDate = Carbon::parse($date);
                         if ($carbonDate->isAfter($oneYearFromNow)) {
                             $validator->errors()->add('dates', 'Cannot apply leave more than one year in advance.');
                             break;

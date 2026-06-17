@@ -4,22 +4,19 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Repositories\EmployeeRepository;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Spatie\Permission\Models\Role;
 
 class EmployeeService
 {
-    /**
-     * @var EmployeeRepository
-     */
     protected EmployeeRepository $employeeRepository;
 
     /**
      * Create a new service instance
-     *
-     * @param EmployeeRepository $employeeRepository
      */
     public function __construct(EmployeeRepository $employeeRepository)
     {
@@ -29,8 +26,7 @@ class EmployeeService
     /**
      * Get all employees with optional filters
      *
-     * @param array $filters
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @return Collection
      */
     public function getAllEmployees(array $filters = [])
     {
@@ -40,9 +36,7 @@ class EmployeeService
     /**
      * Get paginated employees
      *
-     * @param int $perPage
-     * @param array $filters
-     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     * @return LengthAwarePaginator
      */
     public function getPaginatedEmployees(int $perPage = 15, array $filters = [])
     {
@@ -51,9 +45,6 @@ class EmployeeService
 
     /**
      * Get employee by ID with full relations
-     *
-     * @param int $id
-     * @return User|null
      */
     public function getEmployeeById(int $id): ?User
     {
@@ -63,8 +54,6 @@ class EmployeeService
     /**
      * Create a new employee
      *
-     * @param array $data
-     * @return User
      * @throws \Exception
      */
     public function createEmployee(array $data): User
@@ -96,9 +85,6 @@ class EmployeeService
     /**
      * Update an existing employee
      *
-     * @param int $id
-     * @param array $data
-     * @return User
      * @throws \Exception
      */
     public function updateEmployee(int $id, array $data): User
@@ -132,8 +118,6 @@ class EmployeeService
     /**
      * Delete an employee (soft delete)
      *
-     * @param int $id
-     * @return bool
      * @throws \Exception
      */
     public function deleteEmployee(int $id): bool
@@ -160,8 +144,6 @@ class EmployeeService
     /**
      * Permanently delete an employee
      *
-     * @param int $id
-     * @return bool
      * @throws \Exception
      */
     public function forceDeleteEmployee(int $id): bool
@@ -182,9 +164,6 @@ class EmployeeService
 
     /**
      * Restore a soft-deleted employee
-     *
-     * @param int $id
-     * @return bool
      */
     public function restoreEmployee(int $id): bool
     {
@@ -201,12 +180,8 @@ class EmployeeService
 
     /**
      * Update employee's department
-     *
-     * @param int $employeeId
-     * @param int $departmentId
-     * @return \Illuminate\Database\Eloquent\Model
      */
-    public function updateDepartment(int $employeeId, int $departmentId): \Illuminate\Database\Eloquent\Model
+    public function updateDepartment(int $employeeId, int $departmentId): Model
     {
         $employee = $this->employeeRepository->findOrFail($employeeId);
         $employee->update(['department_id' => $departmentId]);
@@ -222,11 +197,8 @@ class EmployeeService
 
     /**
      * Check if employee has active records (leaves, attendance, etc.)
-     *
-     * @param \Illuminate\Database\Eloquent\Model $employee
-     * @return bool
      */
-    protected function hasActiveRecords(\Illuminate\Database\Eloquent\Model $employee): bool
+    protected function hasActiveRecords(Model $employee): bool
     {
         // Check for active leaves
         if ($employee->leaves()->where('status', 'approved')->exists()) {
@@ -250,8 +222,6 @@ class EmployeeService
 
     /**
      * Get employee statistics
-     *
-     * @return array
      */
     public function getStatistics(): array
     {

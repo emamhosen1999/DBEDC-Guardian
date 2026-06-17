@@ -1,11 +1,13 @@
 <?php
+
 require 'vendor/autoload.php';
 $app = require_once 'bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$app->make(Kernel::class)->bootstrap();
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Http\Request;
 
 // Start session to generate CSRF token
 $request = Request::create('/settings/attendance-type', 'POST');
@@ -30,14 +32,14 @@ $payload = [
                 'name' => 'Primary Office',
                 'allowed_ips' => ['192.168.1.1'],
                 'allowed_ranges' => [],
-                'is_active' => true
-            ]
+                'is_active' => true,
+            ],
         ],
         'validation_mode' => 'any',
-        'allow_without_network' => false
+        'allow_without_network' => false,
     ],
     'slug' => 'wifi_ip',
-    'icon' => '📶'
+    'icon' => '📶',
 ];
 
 $request = Request::create('/settings/attendance-type', 'POST', $payload);
@@ -49,5 +51,5 @@ $request->headers->set('X-CSRF-TOKEN', $csrfToken);
 $response = $kernel->handle($request);
 $kernel->terminate($request, $response);
 
-echo "Response status: " . $response->getStatusCode() . "\n";
-echo "Response body: " . $response->getContent() . "\n";
+echo 'Response status: '.$response->getStatusCode()."\n";
+echo 'Response body: '.$response->getContent()."\n";

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DailyWork;
 use App\Models\RfiObjection;
+use App\Models\User;
 use App\Notifications\RfiObjectionNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -704,7 +705,7 @@ class RfiObjectionController extends Controller
 
             // For submitted events, also notify managers/admins
             if ($event === 'submitted') {
-                $managers = \App\Models\User::role(['Super Admin', 'Admin', 'Project Manager', 'Consultant'])
+                $managers = User::role(['Super Admin', 'Admin', 'Project Manager', 'Consultant'])
                     ->whereNull('deleted_at')
                     ->get();
                 $usersToNotify = $usersToNotify->merge($managers);

@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
 
 class RfiObjectionNotification extends Notification implements ShouldQueue
 {
@@ -56,7 +57,7 @@ class RfiObjectionNotification extends Notification implements ShouldQueue
                     ->line("Title: {$this->objection->title}")
                     ->line("Category: {$this->objection->category_label}")
                     ->line("Raised by: {$creator->name}")
-                    ->line('Description: '.\Illuminate\Support\Str::limit($this->objection->description, 200))
+                    ->line('Description: '.Str::limit($this->objection->description, 200))
                     ->line('')
                     ->line('**RFI Details:**')
                     ->line("Location: {$dailyWork->location}")

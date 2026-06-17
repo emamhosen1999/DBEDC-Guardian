@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\DailyWork;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Spatie\MediaLibrary\Support\PathGenerator\PathGenerator;
 
@@ -41,7 +42,7 @@ class DailyWorkRfiPathGenerator implements PathGenerator
         $model = $media->model;
 
         // Only apply custom path for DailyWork model with rfi_files collection
-        if ($media->collection_name !== 'rfi_files' || ! ($model instanceof \App\Models\DailyWork)) {
+        if ($media->collection_name !== 'rfi_files' || ! ($model instanceof DailyWork)) {
             // Default path for other collections
             return $media->id;
         }

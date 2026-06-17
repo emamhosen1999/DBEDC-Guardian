@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class NotificationController extends Controller
 {
-    public function storeToken(Request $request): \Illuminate\Http\JsonResponse
+    public function storeToken(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'fcm_token' => ['required', 'string', 'max:2048'],
@@ -34,7 +35,7 @@ class NotificationController extends Controller
         ]);
     }
 
-    public function sendPushNotification($token, $title, $body): \Illuminate\Http\JsonResponse
+    public function sendPushNotification($token, $title, $body): JsonResponse
     {
 
         // Obtain an OAuth 2.0 access token

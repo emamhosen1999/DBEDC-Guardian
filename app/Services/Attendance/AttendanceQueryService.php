@@ -3,20 +3,17 @@
 namespace App\Services\Attendance;
 
 use App\Models\HRM\Attendance;
+use App\Models\HRM\Leave;
 use App\Repositories\AttendanceRepository;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class AttendanceQueryService
 {
-    /**
-     * @var AttendanceRepository
-     */
     private AttendanceRepository $attendanceRepository;
 
     /**
      * Create a new service instance
-     *
-     * @param AttendanceRepository $attendanceRepository
      */
     public function __construct(AttendanceRepository $attendanceRepository)
     {
@@ -25,14 +22,11 @@ class AttendanceQueryService
 
     /**
      * Get today's attendance for a user
-     *
-     * @param int $userId
-     * @return array
      */
     public function getTodayAttendance(int $userId): array
     {
         $attendances = $this->attendanceRepository->getTodayAttendance($userId);
-        
+
         $totalProductionTime = 0;
         $punches = $attendances->map(function (Attendance $attendance) use (&$totalProductionTime) {
             $punchInTime = Carbon::parse($attendance->punchin);
@@ -57,12 +51,12 @@ class AttendanceQueryService
 
         // Check if user is on leave today
         $isUserOnLeave = false;
-        if (\Illuminate\Support\Facades\Schema::hasTable('leaves')) {
-            $isUserOnLeave = \App\Models\HRM\Leave::query()
+        if (Schema::hasTable('leaves')) {
+            $isUserOnLeave = Leave::query()
                 ->where('user_id', $userId)
                 ->whereDate('from_date', '<=', Carbon::today())
                 ->whereDate('to_date', '>=', Carbon::today())
-                ->whereIn('status', ['Approved', 'approved'])
+                ->whereRaw('LOWER(status) = ?', ['approved'])
                 ->exists();
         }
 
@@ -75,10 +69,6 @@ class AttendanceQueryService
 
     /**
      * Get attendance history with pagination
-     *
-     * @param int $userId
-     * @param array $filters
-     * @return array
      */
     public function getAttendanceHistory(int $userId, array $filters = []): array
     {
@@ -108,11 +98,6 @@ class AttendanceQueryService
 
     /**
      * Get monthly attendance summary
-     *
-     * @param int $userId
-     * @param int $month
-     * @param int $year
-     * @return array
      */
     public function getMonthlySummary(int $userId, int $month, int $year): array
     {
@@ -127,15 +112,11 @@ class AttendanceQueryService
 
     /**
      * Get present users for a specific date
-     *
-     * @param string $date
-     * @param array $filters
-     * @return array
      */
     public function getPresentUsersForDate(string $date, array $filters = []): array
     {
         $attendances = $this->attendanceRepository->getPresentUsersForDate($date, $filters);
-        
+
         return $attendances->map(function ($attendance) {
             return [
                 'id' => $attendance->id,
@@ -154,15 +135,11 @@ class AttendanceQueryService
 
     /**
      * Get absent users for a specific date
-     *
-     * @param string $date
-     * @param array $filters
-     * @return array
      */
     public function getAbsentUsersForDate(string $date, array $filters = []): array
     {
         $attendances = $this->attendanceRepository->getAbsentUsersForDate($date, $filters);
-        
+
         return $attendances->map(function ($attendance) {
             return [
                 'id' => $attendance->id,
@@ -178,10 +155,6 @@ class AttendanceQueryService
 
     /**
      * Get user locations for a specific date
-     *
-     * @param string $date
-     * @param array $filters
-     * @return array
      */
     public function getUserLocationsForDate(string $date, array $filters = []): array
     {
@@ -189,7 +162,7 @@ class AttendanceQueryService
             'date' => $date,
             'with' => ['user.designation'],
         ]);
-        
+
         return $attendances->filter(function ($attendance) {
             return $attendance->punchin_location_array !== null;
         })->map(function ($attendance) {
@@ -210,10 +183,6 @@ class AttendanceQueryService
 
     /**
      * Get daily timesheet data
-     *
-     * @param string $date
-     * @param array $filters
-     * @return array
      */
     public function getDailyTimesheet(string $date, array $filters = []): array
     {

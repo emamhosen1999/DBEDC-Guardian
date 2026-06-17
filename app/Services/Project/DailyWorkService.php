@@ -3,7 +3,9 @@
 namespace App\Services\Project;
 
 use App\Models\DailyWork;
+use App\Models\Jurisdiction;
 use App\Models\RfiObjection;
+use App\Models\RfiSubmissionOverrideLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -67,7 +69,7 @@ class DailyWorkService
             ->count();
 
         if ($activeObjectionsCount > 0 && $overrideReason) {
-            \App\Models\RfiSubmissionOverrideLog::logOverride(
+            RfiSubmissionOverrideLog::logOverride(
                 dailyWorkId: $dailyWork->id,
                 oldDate: $dailyWork->rfi_submission_date?->format('Y-m-d'),
                 newDate: $submissionDate,
@@ -154,6 +156,7 @@ class DailyWorkService
                     'number' => $work->number,
                     'active_objections_count' => $work->active_objections_count,
                 ];
+
                 continue;
             }
 
@@ -164,7 +167,7 @@ class DailyWorkService
                     }
 
                     // Log the override
-                    \App\Models\RfiSubmissionOverrideLog::logOverride(
+                    RfiSubmissionOverrideLog::logOverride(
                         dailyWorkId: $work->id,
                         oldDate: $work->rfi_submission_date?->format('Y-m-d'),
                         newDate: $submissionDate,
@@ -270,13 +273,14 @@ class DailyWorkService
                     'number' => $work->number,
                     'active_objections_count' => $work->active_objections_count,
                 ];
+
                 continue;
             }
 
             if ($overrideObjected) {
                 try {
                     // Log the override
-                    \App\Models\RfiSubmissionOverrideLog::logOverride(
+                    RfiSubmissionOverrideLog::logOverride(
                         dailyWorkId: $work->id,
                         oldDate: $work->rfi_response_date?->format('Y-m-d'),
                         newDate: $responseDate,
@@ -528,23 +532,23 @@ class DailyWorkService
             }
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['type'])) {
+        if (! empty($filters['type'])) {
             $query->where('type', $filters['type']);
         }
 
-        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
+        if (! empty($filters['date_from']) && ! empty($filters['date_to'])) {
             $query->whereBetween('date', [$filters['date_from'], $filters['date_to']]);
-        } elseif (!empty($filters['date_from'])) {
+        } elseif (! empty($filters['date_from'])) {
             $query->whereDate('date', '>=', $filters['date_from']);
-        } elseif (!empty($filters['date_to'])) {
+        } elseif (! empty($filters['date_to'])) {
             $query->whereDate('date', '<=', $filters['date_to']);
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = (string) $filters['search'];
             $words = array_values(array_filter(explode(' ', $search)));
 
@@ -563,7 +567,7 @@ class DailyWorkService
             }
         }
 
-        if (!empty($filters['only_with_objections']) && $filters['only_with_objections'] === true) {
+        if (! empty($filters['only_with_objections']) && $filters['only_with_objections'] === true) {
             $query->whereHas('objections', function ($objectionQuery) {
                 $objectionQuery->whereIn('rfi_objections.status', RfiObjection::$activeStatuses);
             });
@@ -617,7 +621,7 @@ class DailyWorkService
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
             // Check if user is incharge of any jurisdiction
-            $hasJurisdiction = \App\Models\Jurisdiction::where('incharge', $user->id)->exists();
+            $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
                 // Employee has jurisdiction (is incharge of a jurisdiction): can view works where they are incharge
@@ -627,6 +631,7 @@ class DailyWorkService
                 if ($user->report_to) {
                     return (int) $dailyWork->incharge === (int) $user->report_to;
                 }
+
                 // No jurisdiction and no manager: can view own works
                 return (int) $dailyWork->incharge === (int) $user->id;
             }

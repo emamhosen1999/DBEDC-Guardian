@@ -145,7 +145,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
             <Card style={{ padding: '16px' }}>
                 <Flex direction="column" gap="4">
                     <Flex align="center" gap="2">
-                        <TrendUpIcon style={{ width: 20, height: 20 }} />
+                        <ArrowUpIcon style={{ width: 20, height: 20 }} />
                         <Text size="4" weight="bold">MONTHLY TRENDS</Text>
                     </Flex>
 

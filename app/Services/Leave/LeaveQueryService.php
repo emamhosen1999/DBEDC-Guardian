@@ -73,8 +73,8 @@ class LeaveQueryService
             ->get()
             ->flatMap(function ($holiday) {
                 $dates = [];
-                $startDate = \Carbon\Carbon::parse($holiday->from_date);
-                $endDate = \Carbon\Carbon::parse($holiday->to_date);
+                $startDate = Carbon::parse($holiday->from_date);
+                $endDate = Carbon::parse($holiday->to_date);
 
                 while ($startDate->lte($endDate)) {
                     $dates[] = $startDate->format('Y-m-d');
@@ -196,47 +196,48 @@ class LeaveQueryService
      */
     private function applyStatusFilter($query, $status): void
     {
-        if (! empty($status)) {
-            if (is_array($status)) {
-                // Flatten all mapped statuses for all selected keys
-                $statusMap = [
-                    'pending' => ['New', 'Pending'],
-                    'approved' => ['Approved'],
-                    'rejected' => ['Declined', 'Rejected'],
-                    'new' => ['New'],
-                ];
+        if (empty($status)) {
+            return;
+        }
 
-                $mappedStatuses = [];
+        // Map common keys to possible status text values (all handled lowercase)
+        $statusMap = [
+            'pending' => ['new', 'pending'],
+            'approved' => ['approved'],
+            'rejected' => ['declined', 'rejected'],
+            'new' => ['new'],
+        ];
 
-                foreach ($status as $stat) {
-                    if (isset($statusMap[$stat])) {
-                        $mappedStatuses = array_merge($mappedStatuses, $statusMap[$stat]);
-                    } else {
-                        $mappedStatuses[] = ucfirst($stat);
-                    }
-                }
-
-                $mappedStatuses = array_unique($mappedStatuses);
-
-                $query->whereIn('leaves.status', $mappedStatuses);
-            } else {
-                // Previous single string logic
-                if ($status !== 'all') {
-                    $statusMap = [
-                        'pending' => ['New', 'Pending'],
-                        'approved' => ['Approved'],
-                        'rejected' => ['Declined', 'Rejected'],
-                        'new' => ['New'],
-                    ];
-
-                    if (isset($statusMap[$status])) {
-                        $query->whereIn('leaves.status', $statusMap[$status]);
-                    } else {
-                        $query->where('leaves.status', ucfirst($status));
-                    }
+        if (is_array($status)) {
+            $normalized = [];
+            foreach ($status as $s) {
+                $key = strtolower((string) $s);
+                if (isset($statusMap[$key])) {
+                    $normalized = array_merge($normalized, $statusMap[$key]);
+                } else {
+                    $normalized[] = $key;
                 }
             }
+
+            $normalized = array_values(array_unique($normalized));
+            $placeholders = implode(',', array_fill(0, count($normalized), '?'));
+            $query->whereRaw("LOWER(leaves.status) IN ($placeholders)", $normalized);
+
+            return;
         }
+
+        // Single status string
+        $lower = strtolower((string) $status);
+        if (isset($statusMap[$lower])) {
+            $mapped = $statusMap[$lower];
+            $placeholders = implode(',', array_fill(0, count($mapped), '?'));
+            $lowered = array_map(fn ($s) => strtolower((string) $s), $mapped);
+            $query->whereRaw("LOWER(leaves.status) IN ($placeholders)", $lowered);
+
+            return;
+        }
+
+        $query->whereRaw('LOWER(leaves.status) = ?', [$lower]);
     }
 
     /**
@@ -435,9 +436,9 @@ class LeaveQueryService
 
         // Get status counts
         $stats = [
-            'pending' => (clone $query)->whereIn('leaves.status', ['New', 'Pending'])->count(),
-            'approved' => (clone $query)->where('leaves.status', 'Approved')->count(),
-            'rejected' => (clone $query)->whereIn('leaves.status', ['Declined', 'Rejected'])->count(),
+            'pending' => (clone $query)->whereRaw('LOWER(leaves.status) IN (?, ?)', ['new', 'pending'])->count(),
+            'approved' => (clone $query)->whereRaw('LOWER(leaves.status) = ?', ['approved'])->count(),
+            'rejected' => (clone $query)->whereRaw('LOWER(leaves.status) IN (?, ?)', ['declined', 'rejected'])->count(),
             'total' => (clone $query)->count(),
         ];
 

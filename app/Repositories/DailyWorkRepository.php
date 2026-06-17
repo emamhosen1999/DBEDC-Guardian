@@ -11,8 +11,6 @@ class DailyWorkRepository extends BaseRepository
 {
     /**
      * Create a new repository instance
-     *
-     * @param DailyWork $model
      */
     public function __construct(DailyWork $model)
     {
@@ -21,10 +19,6 @@ class DailyWorkRepository extends BaseRepository
 
     /**
      * Apply filters to query
-     *
-     * @param Builder $query
-     * @param array $filters
-     * @return Builder
      */
     public function applyFilters(Builder $query, array $filters): Builder
     {
@@ -112,74 +106,58 @@ class DailyWorkRepository extends BaseRepository
 
     /**
      * Get daily works for a specific user
-     *
-     * @param int $userId
-     * @param array $filters
-     * @return Collection
      */
     public function getUserDailyWorks(int $userId, array $filters = []): Collection
     {
         $filters['user_id'] = $userId;
+
         return $this->all($filters);
     }
 
     /**
      * Get daily works for a specific date
      *
-     * @param string|Carbon $date
-     * @param array $filters
-     * @return Collection
+     * @param  string|Carbon  $date
      */
     public function getDailyWorksForDate($date, array $filters = []): Collection
     {
         $filters['date'] = $date;
+
         return $this->all($filters);
     }
 
     /**
      * Get daily works assigned to a user
-     *
-     * @param int $assignedId
-     * @param array $filters
-     * @return Collection
      */
     public function getAssignedDailyWorks(int $assignedId, array $filters = []): Collection
     {
         $filters['assigned_id'] = $assignedId;
+
         return $this->all($filters);
     }
 
     /**
      * Get daily works under a user's supervision
-     *
-     * @param int $inchargeId
-     * @param array $filters
-     * @return Collection
      */
     public function getInchargeDailyWorks(int $inchargeId, array $filters = []): Collection
     {
         $filters['incharge_id'] = $inchargeId;
+
         return $this->all($filters);
     }
 
     /**
      * Get daily works by status
-     *
-     * @param string $status
-     * @param array $filters
-     * @return Collection
      */
     public function getDailyWorksByStatus(string $status, array $filters = []): Collection
     {
         $filters['status'] = $status;
+
         return $this->all($filters);
     }
 
     /**
      * Get selectable dates for daily works
-     *
-     * @param array $filters
-     * @return Collection
      */
     public function getSelectableDates(array $filters = []): Collection
     {
@@ -205,9 +183,6 @@ class DailyWorkRepository extends BaseRepository
 
     /**
      * Get daily works summary statistics
-     *
-     * @param array $filters
-     * @return array
      */
     public function getStatistics(array $filters = []): array
     {
@@ -235,67 +210,52 @@ class DailyWorkRepository extends BaseRepository
 
     /**
      * Update daily work status
-     *
-     * @param int $dailyWorkId
-     * @param string $status
-     * @return DailyWork
      */
     public function updateStatus(int $dailyWorkId, string $status): DailyWork
     {
         $dailyWork = $this->findOrFail($dailyWorkId);
         $dailyWork->status = $status;
         $dailyWork->save();
+
         return $dailyWork->fresh();
     }
 
     /**
      * Update daily work incharge
-     *
-     * @param int $dailyWorkId
-     * @param int|null $inchargeId
-     * @return DailyWork
      */
     public function updateIncharge(int $dailyWorkId, ?int $inchargeId): DailyWork
     {
         $dailyWork = $this->findOrFail($dailyWorkId);
         $dailyWork->incharge_id = $inchargeId;
         $dailyWork->save();
+
         return $dailyWork->fresh();
     }
 
     /**
      * Update daily work assigned user
-     *
-     * @param int $dailyWorkId
-     * @param int|null $assignedId
-     * @return DailyWork
      */
     public function updateAssigned(int $dailyWorkId, ?int $assignedId): DailyWork
     {
         $dailyWork = $this->findOrFail($dailyWorkId);
         $dailyWork->assigned_id = $assignedId;
         $dailyWork->save();
+
         return $dailyWork->fresh();
     }
 
     /**
      * Get daily works with objections
-     *
-     * @param array $filters
-     * @return Collection
      */
     public function getDailyWorksWithObjections(array $filters = []): Collection
     {
         $filters['has_objection'] = true;
+
         return $this->all($filters);
     }
 
     /**
      * Get recent daily works for a user
-     *
-     * @param int $userId
-     * @param int $limit
-     * @return Collection
      */
     public function getRecentDailyWorks(int $userId, int $limit = 10): Collection
     {

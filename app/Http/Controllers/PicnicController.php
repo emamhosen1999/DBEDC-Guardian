@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\PicnicParticipant;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class PicnicController extends Controller
 {
-    public function index(): \Inertia\Response
+    public function index(): Response
     {
         $participants = PicnicParticipant::all();
 

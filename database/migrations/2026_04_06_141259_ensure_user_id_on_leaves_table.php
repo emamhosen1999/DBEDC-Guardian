@@ -41,7 +41,7 @@ return new class extends Migration
                 Schema::table('leaves', function (Blueprint $table) {
                     $table->index('user_id');
                 });
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 // Ignore index creation errors for existing indexes.
             }
         }

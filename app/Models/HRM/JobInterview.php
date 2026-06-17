@@ -3,6 +3,7 @@
 namespace App\Models\HRM;
 
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -122,6 +123,6 @@ class JobInterview extends Model
             return null;
         }
 
-        return now()->diffForHumans($this->scheduled_at, ['syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]);
+        return now()->diffForHumans($this->scheduled_at, ['syntax' => CarbonInterface::DIFF_ABSOLUTE]);
     }
 }

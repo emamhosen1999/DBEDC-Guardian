@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class AssignUserRoles extends Command
 {
@@ -45,7 +46,7 @@ class AssignUserRoles extends Command
             \DB::table('model_has_roles')->truncate();
             $this->info('Cleared all role assignments from model_has_roles table.');
             // Reset permissions cache
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
         }
 
         // Get all users
@@ -93,7 +94,7 @@ class AssignUserRoles extends Command
         }
 
         // Reset permissions cache again
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         $this->info('Done! Please clear all application caches for changes to take effect:');
         $this->info('php artisan cache:clear');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Middleware\Authenticate as Middleware;
 use Illuminate\Http\Request;
 
@@ -49,7 +50,7 @@ class Authenticate extends Middleware
         }
 
         // For regular web requests, redirect to login
-        throw new \Illuminate\Auth\AuthenticationException(
+        throw new AuthenticationException(
             'Unauthenticated.', $guards, $this->redirectTo($request)
         );
     }

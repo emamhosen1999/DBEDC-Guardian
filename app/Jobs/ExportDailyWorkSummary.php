@@ -4,9 +4,9 @@ namespace App\Jobs;
 
 use App\Exports\DailyWorkSummaryExport;
 use App\Models\DailyWork;
-use App\Models\User;
-use App\Models\Jurisdiction;
 use App\Models\DailyWorkSummary;
+use App\Models\Jurisdiction;
+use App\Models\User;
 use App\Traits\DailyWorkFilterable;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -16,17 +16,20 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ExportDailyWorkSummary implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, DailyWorkFilterable;
+    use DailyWorkFilterable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected string $type;
+
     protected array $filters;
+
     protected int $userId;
+
     protected string $filename;
 
     /**
@@ -49,11 +52,11 @@ class ExportDailyWorkSummary implements ShouldQueue
             Log::info("ExportDailyWorkSummary started: Type={$this->type}, File={$this->filename}");
 
             // Ensure exports directory exists
-            if (!Storage::disk('public')->exists('exports')) {
+            if (! Storage::disk('public')->exists('exports')) {
                 Storage::disk('public')->makeDirectory('exports');
             }
 
-            $filePath = 'exports/' . $this->filename;
+            $filePath = 'exports/'.$this->filename;
 
             // Load user with roles and designation to determine permissions
             $user = User::with(['designation', 'roles'])->findOrFail($this->userId);
@@ -113,13 +116,13 @@ class ExportDailyWorkSummary implements ShouldQueue
                 $endDate = $this->filters['endDate'] ?? null;
 
                 $chartImages = [];
-                if (!empty($analytics['dailyTrend'])) {
+                if (! empty($analytics['dailyTrend'])) {
                     $chartImages['daily_trend'] = $this->generateDailyTrendChart($analytics['dailyTrend']);
                 }
-                if (!empty($analytics['typeBreakdown'])) {
+                if (! empty($analytics['typeBreakdown'])) {
                     $chartImages['work_type'] = $this->generatePieChart($analytics['typeBreakdown'], 'Work Type Distribution');
                 }
-                if (!empty($analytics['statusBreakdown'])) {
+                if (! empty($analytics['statusBreakdown'])) {
                     $chartImages['status'] = $this->generatePieChart($analytics['statusBreakdown'], 'Status Distribution');
                 }
 
@@ -127,7 +130,7 @@ class ExportDailyWorkSummary implements ShouldQueue
                     'title' => 'Daily Work Summary Report',
                     'generatedOn' => Carbon::now()->format('F d, Y h:i A'),
                     'periodLabel' => $startDate && $endDate
-                        ? Carbon::parse($startDate)->format('M d, Y') . ' - ' . Carbon::parse($endDate)->format('M d, Y')
+                        ? Carbon::parse($startDate)->format('M d, Y').' - '.Carbon::parse($endDate)->format('M d, Y')
                         : 'All Time',
                     'summaries' => $summaries,
                     'analytics' => $analytics,
@@ -139,11 +142,11 @@ class ExportDailyWorkSummary implements ShouldQueue
 
             Log::info("ExportDailyWorkSummary completed: File={$this->filename}");
         } catch (\Exception $e) {
-            Log::error("ExportDailyWorkSummary failed: " . $e->getMessage(), [
+            Log::error('ExportDailyWorkSummary failed: '.$e->getMessage(), [
                 'type' => $this->type,
                 'filters' => $this->filters,
                 'file' => $this->filename,
-                'exception' => $e
+                'exception' => $e,
             ]);
             throw $e;
         }
@@ -172,14 +175,14 @@ class ExportDailyWorkSummary implements ShouldQueue
             $importSummaries = Schema::hasTable('daily_work_summaries')
                 ? DailyWorkSummary::where('date', $date)->get()
                 : collect();
-            
+
             $importSnapshot = $importSummaries->isEmpty() ? null : [
                 'totalDailyWorks' => $importSummaries->sum('totalDailyWorks'),
                 'resubmissions' => $importSummaries->sum('resubmissions'),
                 'embankment' => $importSummaries->sum('embankment'),
                 'structure' => $importSummaries->sum('structure'),
                 'pavement' => $importSummaries->sum('pavement'),
-                'incharges' => $importSummaries->map(fn($s) => [
+                'incharges' => $importSummaries->map(fn ($s) => [
                     'incharge' => $s->incharge,
                     'totalDailyWorks' => $s->totalDailyWorks,
                     'resubmissions' => $s->resubmissions,
@@ -220,7 +223,8 @@ class ExportDailyWorkSummary implements ShouldQueue
             ];
         }
 
-        usort($summaries, fn($a, $b) => strtotime($b['date']) - strtotime($a['date']));
+        usort($summaries, fn ($a, $b) => strtotime($b['date']) - strtotime($a['date']));
+
         return $summaries;
     }
 
@@ -241,7 +245,7 @@ class ExportDailyWorkSummary implements ShouldQueue
         $completionRate = $totalWorks > 0 ? round(($completed / $totalWorks) * 100, 1) : 0;
         $rfiRate = $totalWorks > 0 ? round(($rfiSubmissions / $totalWorks) * 100, 1) : 0;
 
-        $byDate = $works->groupBy(fn($w) => $w->date instanceof \DateTimeInterface ? $w->date->format('Y-m-d') : (string) $w->date);
+        $byDate = $works->groupBy(fn ($w) => $w->date instanceof \DateTimeInterface ? $w->date->format('Y-m-d') : (string) $w->date);
         $dailyTrend = $byDate->map(function ($dayWorks, $date) use ($isCompleted) {
             $total = $dayWorks->count();
             $done = $dayWorks->filter($isCompleted)->count();
@@ -293,12 +297,16 @@ class ExportDailyWorkSummary implements ShouldQueue
 
     private function generateDailyTrendChart($dailyTrend)
     {
-        if (empty($dailyTrend)) return null;
-        $width = 800; $height = 300; $padding = 40;
+        if (empty($dailyTrend)) {
+            return null;
+        }
+        $width = 800;
+        $height = 300;
+        $padding = 40;
         $maxValue = max(array_column($dailyTrend, 'total')) ?: 1;
         $maxValue = ceil($maxValue * 1.1);
-        $svg = '<svg width="' . $width . '" height="' . $height . '" xmlns="http://www.w3.org/2000/svg">';
-        $svg .= '<rect width="' . $width . '" height="' . $height . '" fill="#ffffff"/>';
+        $svg = '<svg width="'.$width.'" height="'.$height.'" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<rect width="'.$width.'" height="'.$height.'" fill="#ffffff"/>';
         $points = [];
         foreach ($dailyTrend as $i => $day) {
             $x = $padding + ($i * ($width - 2 * $padding) / max(1, count($dailyTrend) - 1));
@@ -306,33 +314,45 @@ class ExportDailyWorkSummary implements ShouldQueue
             $points[] = "{$x},{$y}";
         }
         if (count($points) > 1) {
-            $svg .= '<polyline points="' . implode(' ', $points) . '" fill="none" stroke="#0070F0" stroke-width="2"/>';
+            $svg .= '<polyline points="'.implode(' ', $points).'" fill="none" stroke="#0070F0" stroke-width="2"/>';
         }
         $svg .= '</svg>';
-        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 
     private function generatePieChart($data, $title)
     {
-        if (empty($data)) return null;
-        $width = 400; $height = 300; $cx = $width / 2; $cy = $height / 2; $radius = 100;
+        if (empty($data)) {
+            return null;
+        }
+        $width = 400;
+        $height = 300;
+        $cx = $width / 2;
+        $cy = $height / 2;
+        $radius = 100;
         $total = array_sum(array_column($data, 'value'));
-        if ($total == 0) return null;
+        if ($total == 0) {
+            return null;
+        }
         $colors = ['#0070F0', '#17C964', '#F5A524', '#F31260', '#9333EA'];
-        $svg = '<svg width="' . $width . '" height="' . $height . '" xmlns="http://www.w3.org/2000/svg">';
-        $svg .= '<rect width="' . $width . '" height="' . $height . '" fill="#ffffff"/>';
+        $svg = '<svg width="'.$width.'" height="'.$height.'" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<rect width="'.$width.'" height="'.$height.'" fill="#ffffff"/>';
         $startAngle = 0;
         foreach ($data as $i => $item) {
             $sliceAngle = ($item['value'] / $total) * 2 * M_PI;
             $endAngle = $startAngle + $sliceAngle;
-            $x1 = $cx + $radius * cos($startAngle); $y1 = $cy + $radius * sin($startAngle);
-            $x2 = $cx + $radius * cos($endAngle); $y2 = $cy + $radius * sin($endAngle);
+            $x1 = $cx + $radius * cos($startAngle);
+            $y1 = $cy + $radius * sin($startAngle);
+            $x2 = $cx + $radius * cos($endAngle);
+            $y2 = $cy + $radius * sin($endAngle);
             $largeArc = $sliceAngle > M_PI ? 1 : 0;
             $color = $colors[$i % count($colors)];
-            $svg .= '<path d="M ' . $cx . ' ' . $cy . ' L ' . $x1 . ' ' . $y1 . ' A ' . $radius . ' ' . $radius . ' 0 ' . $largeArc . ' 1 ' . $x2 . ' ' . $y2 . ' Z" fill="' . $color . '"/>';
+            $svg .= '<path d="M '.$cx.' '.$cy.' L '.$x1.' '.$y1.' A '.$radius.' '.$radius.' 0 '.$largeArc.' 1 '.$x2.' '.$y2.' Z" fill="'.$color.'"/>';
             $startAngle = $endAngle;
         }
         $svg .= '</svg>';
-        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 }

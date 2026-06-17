@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Monitoring\SystemHealthService;
+use App\Services\Logging\ApplicationLogger;
 use App\Services\Monitoring\DatabaseAnalyticsService;
-use App\Services\Monitoring\SecurityMonitoringService;
 use App\Services\Monitoring\LogParserService;
+use App\Services\Monitoring\SecurityMonitoringService;
+use App\Services\Monitoring\SystemHealthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -18,8 +19,11 @@ use Inertia\Inertia;
 class SystemMonitoringController extends Controller
 {
     protected SystemHealthService $systemHealthService;
+
     protected DatabaseAnalyticsService $databaseAnalyticsService;
+
     protected SecurityMonitoringService $securityMonitoringService;
+
     protected LogParserService $logParserService;
 
     public function __construct(
@@ -40,7 +44,7 @@ class SystemMonitoringController extends Controller
     public function index()
     {
         try {
-            $logger = new \App\Services\Logging\ApplicationLogger;
+            $logger = new ApplicationLogger;
             $logger->logUserAction('System Monitoring Dashboard Accessed');
         } catch (\Exception $e) {
             Log::info('System Monitoring Dashboard Accessed');

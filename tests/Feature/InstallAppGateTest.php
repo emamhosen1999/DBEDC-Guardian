@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Storage;
@@ -21,7 +22,7 @@ class InstallAppGateTest extends TestCase
     /** @test */
     public function authenticated_user_is_redirected_to_install_app_from_root()
     {
-        $user = \App\Models\User::factory()->create();
+        $user = User::factory()->create();
         $response = $this->actingAs($user)->withHeader('User-Agent', 'Android')->get('/');
         $response->assertRedirect('/install-app');
     }
@@ -65,4 +66,3 @@ class InstallAppGateTest extends TestCase
         $response->assertStatus(404);
     }
 }
-

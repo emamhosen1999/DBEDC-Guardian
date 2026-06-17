@@ -593,7 +593,7 @@ class SystemHealthService
         try {
             $driver = DB::connection()->getDriverName();
             if ($driver === 'sqlite') {
-                $dbSize = (object)['size_mb' => 0.1];
+                $dbSize = (object) ['size_mb' => 0.1];
             } else {
                 $dbSize = DB::selectOne('
                     SELECT ROUND(SUM(DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as size_mb
@@ -689,7 +689,7 @@ class SystemHealthService
             return PHP_INT_MAX;
         }
         $last = strtolower($value[strlen($value) - 1]);
-        $val = (int)$value;
+        $val = (int) $value;
         switch ($last) {
             case 'g':
                 $val *= 1024;
@@ -698,6 +698,7 @@ class SystemHealthService
             case 'k':
                 $val *= 1024;
         }
+
         return $val;
     }
 
@@ -900,4 +901,3 @@ class SystemHealthService
         return $analysis;
     }
 }
-

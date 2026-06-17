@@ -6,6 +6,7 @@ use App\Models\Module;
 use App\Models\ModuleComponent;
 use App\Models\ModulePermission;
 use App\Models\SubModule;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -533,7 +534,7 @@ class ModulePermissionService
         Cache::forget('module_permission_structure');
 
         // Clear user-specific caches
-        $users = \App\Models\User::select('id')->get();
+        $users = User::select('id')->get();
         foreach ($users as $user) {
             Cache::forget('user_accessible_modules_'.$user->id);
         }

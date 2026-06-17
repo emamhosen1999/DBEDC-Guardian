@@ -6,6 +6,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Leave extends Model
 {
@@ -45,7 +46,7 @@ class Leave extends Model
     ];
 
     // Relationships
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
@@ -71,22 +72,22 @@ class Leave extends Model
         return $array;
     }
 
-    public function employee(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function employee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function leaveSetting(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function leaveSetting(): BelongsTo
     {
         return $this->belongsTo(LeaveSetting::class, 'leave_type');
     }
 
-    public function approver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function rejectedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function rejectedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rejected_by');
     }

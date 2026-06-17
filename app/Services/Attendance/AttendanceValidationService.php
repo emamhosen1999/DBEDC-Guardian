@@ -8,9 +8,6 @@ class AttendanceValidationService
 {
     /**
      * Validate punch attendance data
-     *
-     * @param array $data
-     * @return \Illuminate\Validation\Validator
      */
     public function validatePunch(array $data): \Illuminate\Validation\Validator
     {
@@ -26,9 +23,6 @@ class AttendanceValidationService
 
     /**
      * Validate time correction data
-     *
-     * @param array $data
-     * @return \Illuminate\Validation\Validator
      */
     public function validateTimeCorrection(array $data): \Illuminate\Validation\Validator
     {
@@ -41,9 +35,6 @@ class AttendanceValidationService
 
     /**
      * Validate mark as present data
-     *
-     * @param array $data
-     * @return \Illuminate\Validation\Validator
      */
     public function validateMarkAsPresent(array $data): \Illuminate\Validation\Validator
     {
@@ -58,9 +49,6 @@ class AttendanceValidationService
 
     /**
      * Validate attendance history filters
-     *
-     * @param array $data
-     * @return \Illuminate\Validation\Validator
      */
     public function validateHistoryFilters(array $data): \Illuminate\Validation\Validator
     {
@@ -76,9 +64,6 @@ class AttendanceValidationService
 
     /**
      * Validate monthly summary filters
-     *
-     * @param array $data
-     * @return \Illuminate\Validation\Validator
      */
     public function validateMonthlySummaryFilters(array $data): \Illuminate\Validation\Validator
     {

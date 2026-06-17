@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\HRM\AttendanceType;
 use Illuminate\Database\Migrations\Migration;
 
 /**
@@ -19,7 +20,7 @@ return new class extends Migration
     public function up(): void
     {
         // Migrate existing attendance type configs to new multi-config structure
-        $types = \App\Models\HRM\AttendanceType::all();
+        $types = AttendanceType::all();
 
         foreach ($types as $type) {
             $config = $type->config ?? [];
@@ -155,7 +156,7 @@ return new class extends Migration
     public function down(): void
     {
         // Revert to single configuration format
-        $types = \App\Models\HRM\AttendanceType::all();
+        $types = AttendanceType::all();
 
         foreach ($types as $type) {
             $config = $type->config ?? [];

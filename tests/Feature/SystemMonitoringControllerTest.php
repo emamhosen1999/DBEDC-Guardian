@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class SystemMonitoringControllerTest extends TestCase
@@ -16,7 +18,7 @@ class SystemMonitoringControllerTest extends TestCase
         parent::setUp();
 
         // Clear Spatie cached permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Ensure default roles exist
         Role::findOrCreate('Super Administrator');
@@ -77,7 +79,7 @@ class SystemMonitoringControllerTest extends TestCase
 
         $response = $this->get(route('api.system-monitoring.overview'));
         $response->assertStatus(200);
-        
+
         // Assert JSON structure returned from system overview
         $response->assertJsonStructure([
             'performance_summary',
@@ -103,7 +105,7 @@ class SystemMonitoringControllerTest extends TestCase
         $this->actingAs($user);
 
         // Seed some performance metrics
-        \Illuminate\Support\Facades\DB::table('performance_metrics')->insert([
+        DB::table('performance_metrics')->insert([
             [
                 'metric_type' => 'api_response',
                 'identifier' => 'test-api',
@@ -115,7 +117,7 @@ class SystemMonitoringControllerTest extends TestCase
                 'identifier' => 'test-page',
                 'execution_time_ms' => 250,
                 'created_at' => now(),
-            ]
+            ],
         ]);
 
         // Test Default/Overview
@@ -138,17 +140,17 @@ class SystemMonitoringControllerTest extends TestCase
                         'hour',
                         'metric_type',
                         'avg_time',
-                        'request_count'
-                    ]
+                        'request_count',
+                    ],
                 ],
                 'page_load' => [
                     '*' => [
                         'hour',
                         'metric_type',
                         'avg_time',
-                        'request_count'
-                    ]
-                ]
+                        'request_count',
+                    ],
+                ],
             ]);
 
         // Test errors
@@ -199,4 +201,3 @@ class SystemMonitoringControllerTest extends TestCase
         ]);
     }
 }
-

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
 
@@ -59,7 +60,7 @@ class SetupSeeder extends Seeder
     {
         $this->command->info('Ensuring admin user exists...');
 
-        $userModel = app(\App\Models\User::class);
+        $userModel = app(User::class);
         $adminExists = $userModel::where('email', 'admin@example.com')->exists();
 
         if (! $adminExists) {

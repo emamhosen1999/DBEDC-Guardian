@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Imports;
+
 use App\Models\DailyWork;
 use Maatwebsite\Excel\Concerns\ToModel;
 

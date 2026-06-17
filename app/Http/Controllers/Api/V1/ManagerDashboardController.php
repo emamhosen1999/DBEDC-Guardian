@@ -24,7 +24,9 @@ class ManagerDashboardController extends Controller
     use ApiResponse;
 
     protected AttendanceRepository $attendanceRepository;
+
     protected DailyWorkRepository $dailyWorkRepository;
+
     protected LeaveRepository $leaveRepository;
 
     public function __construct(

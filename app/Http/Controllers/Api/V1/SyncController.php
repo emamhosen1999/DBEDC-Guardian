@@ -10,7 +10,6 @@ use App\Http\Responses\ApiResponse;
 use App\Services\Sync\DataSyncService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request as HttpRequest;
 
 class SyncController extends Controller
 {
@@ -35,11 +34,13 @@ class SyncController extends Controller
         foreach ($modules as $module) {
             if ($module === 'attendance') {
                 $moduleData['attendance'] = $this->syncService->bootstrapAttendance($user, $limit);
+
                 continue;
             }
 
             if ($module === 'leaves') {
                 $moduleData['leaves'] = $this->syncService->bootstrapLeaves($user, $limit);
+
                 continue;
             }
 
@@ -74,6 +75,7 @@ class SyncController extends Controller
                 $records = $this->syncService->pullAttendance($user, $cursor, $limit);
                 $changes['attendance'] = $records;
                 $counts['attendance'] = count($records);
+
                 continue;
             }
 
@@ -81,6 +83,7 @@ class SyncController extends Controller
                 $records = $this->syncService->pullLeaves($user, $cursor, $limit);
                 $changes['leaves'] = $records;
                 $counts['leaves'] = count($records);
+
                 continue;
             }
 

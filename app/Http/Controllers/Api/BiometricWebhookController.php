@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\BiometricDeviceConnected;
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessBiometricDownloadSession;
 use App\Models\HRM\BiometricDevice;
 use App\Services\Biometric\BiometricProcessingService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Handles push events from ZKTeco biometric devices.
@@ -24,10 +28,10 @@ class BiometricWebhookController extends Controller
 
     public function handle(Request $request)
     {
-        $authToken    = $request->header('X-Device-Token') ?? $request->input('auth_token');
+        $authToken = $request->header('X-Device-Token') ?? $request->input('auth_token');
         $serialNumber = $request->input('device_serial');
         $deviceUserId = $request->input('device_user_id');
-        $punchTime    = $request->input('punch_time');
+        $punchTime = $request->input('punch_time');
 
         if (! $authToken || ! $serialNumber || ! $deviceUserId) {
             return response()->json(['message' => 'Missing required parameters.'], 422);
@@ -40,6 +44,7 @@ class BiometricWebhookController extends Controller
             Log::warning('Biometric webhook: unknown device or bad token', [
                 'serial' => $serialNumber,
             ]);
+
             return response()->json(['message' => 'Unauthorized device.'], 401);
         }
 
@@ -50,7 +55,7 @@ class BiometricWebhookController extends Controller
         // 2. Update heartbeat
         $this->biometricService->updateHeartbeat($device);
 
-        $resolvedPunchTime = $punchTime ? \Carbon\Carbon::parse($punchTime) : now();
+        $resolvedPunchTime = $punchTime ? Carbon::parse($punchTime) : now();
 
         // Parse check_type
         $verifyCode = $request->input('verify_code');
@@ -59,16 +64,16 @@ class BiometricWebhookController extends Controller
         // 3. Create an ATTLOG record immediately
         $attLog = $this->biometricService->createAttLog([
             'biometric_device_id' => $device->id,
-            'serial_number'       => $serialNumber,
-            'user_pin'            => $deviceUserId,
-            'user_id'             => null,
-            'punch_time'          => $resolvedPunchTime,
-            'occurred_at'         => now(),
-            'check_type'          => $checkType,
-            'verify_code'         => $verifyCode,
-            'work_code'           => $request->input('work_code'),
-            'raw_data'            => $request->getContent() ?: null,
-            'punch_status'        => 'failed',
+            'serial_number' => $serialNumber,
+            'user_pin' => $deviceUserId,
+            'user_id' => null,
+            'punch_time' => $resolvedPunchTime,
+            'occurred_at' => now(),
+            'check_type' => $checkType,
+            'verify_code' => $verifyCode,
+            'work_code' => $request->input('work_code'),
+            'raw_data' => $request->getContent() ?: null,
+            'punch_status' => 'failed',
             'punch_status_reason' => 'Pending processing',
         ]);
 
@@ -78,21 +83,21 @@ class BiometricWebhookController extends Controller
 
         if ($resolved['is_new']) {
             $attLog->update([
-                'user_id'             => $user->id,
-                'punch_status'        => 'unknown_user',
+                'user_id' => $user->id,
+                'punch_status' => 'unknown_user',
                 'punch_status_reason' => 'Auto-created as inactive placeholder. Assign attendance type to activate.',
             ]);
 
             Log::warning('Biometric webhook: unknown user auto-created', [
-                'employee_id'   => $deviceUserId,
-                'new_user_id'   => $user->id,
+                'employee_id' => $deviceUserId,
+                'new_user_id' => $user->id,
                 'device_serial' => $serialNumber,
             ]);
 
             return response()->json([
-                'message'  => 'User auto-created as inactive. Assign attendance type to enable punching.',
-                'user_id'  => $user->id,
-                'log_id'   => $attLog->id,
+                'message' => 'User auto-created as inactive. Assign attendance type to enable punching.',
+                'user_id' => $user->id,
+                'log_id' => $attLog->id,
             ], 202);
         }
 
@@ -105,20 +110,22 @@ class BiometricWebhookController extends Controller
         if (! $eligibility['valid']) {
             $punchStatus = ($eligibility['reason'] === 'Device not in attendance zone') ? 'wrong_device' : 'failed';
             $attLog->update([
-                'punch_status'        => $punchStatus,
+                'punch_status' => $punchStatus,
                 'punch_status_reason' => $eligibility['reason'],
             ]);
             Log::warning('Biometric webhook: attendance validation failed', [
-                'user_id' => $user->id, 'device_serial' => $serialNumber, 'reason' => $eligibility['reason']
+                'user_id' => $user->id, 'device_serial' => $serialNumber, 'reason' => $eligibility['reason'],
             ]);
 
             $statusCode = ($punchStatus === 'wrong_device') ? 403 : 422;
+
             return response()->json(['message' => $eligibility['reason']], $statusCode);
         }
 
         // 6. Idempotency check
         if ($this->biometricService->isDuplicatePunch($user->id, $resolvedPunchTime)) {
             $attLog->update(['punch_status' => 'duplicate']);
+
             return response()->json(['message' => 'Duplicate punch — already recorded.'], 200);
         }
 
@@ -135,28 +142,28 @@ class BiometricWebhookController extends Controller
             $result = $this->biometricService->processPunch($user, $syntheticRequest);
 
             $attLog->update([
-                'punch_status'        => $result['status'] === 'success' ? 'processed' : 'failed',
+                'punch_status' => $result['status'] === 'success' ? 'processed' : 'failed',
                 'punch_status_reason' => $result['status'] === 'success' ? null : ($result['message'] ?? null),
             ]);
 
             Log::info('Biometric punch processed', [
-                'user_id'       => $user->id,
+                'user_id' => $user->id,
                 'device_serial' => $serialNumber,
                 'result_status' => $result['status'],
-                'log_id'        => $attLog->id,
+                'log_id' => $attLog->id,
             ]);
 
             return response()->json($result, $result['status'] === 'error' ? ($result['code'] ?? 422) : 200);
         } catch (\Exception $e) {
             $attLog->update([
-                'punch_status'        => 'failed',
+                'punch_status' => 'failed',
                 'punch_status_reason' => $e->getMessage(),
             ]);
 
-            Log::error('Biometric webhook punch error: ' . $e->getMessage(), [
-                'user_id'       => $user->id,
+            Log::error('Biometric webhook punch error: '.$e->getMessage(), [
+                'user_id' => $user->id,
                 'device_serial' => $serialNumber,
-                'log_id'        => $attLog->id,
+                'log_id' => $attLog->id,
             ]);
 
             return response()->json(['message' => 'Failed to process punch.'], 500);
@@ -168,17 +175,17 @@ class BiometricWebhookController extends Controller
      */
     public function attLogs(Request $request)
     {
-        $perPage  = (int) $request->input('perPage', 25);
-        $page     = (int) $request->input('page', 1);
-        $search   = $request->input('search');
-        $status   = $request->input('status');
+        $perPage = (int) $request->input('perPage', 25);
+        $page = (int) $request->input('page', 1);
+        $search = $request->input('search');
+        $status = $request->input('status');
         $deviceId = $request->input('device_id');
 
         $logs = $this->biometricService->queryAttLogs($search, $status, $deviceId, $perPage, $page);
         $stats = $this->biometricService->getAttLogStats();
 
         return response()->json([
-            'logs'  => $logs,
+            'logs' => $logs,
             'stats' => $stats,
         ]);
     }
@@ -188,7 +195,7 @@ class BiometricWebhookController extends Controller
      */
     public function heartbeat(Request $request)
     {
-        $authToken    = $request->header('X-Device-Token') ?? $request->input('auth_token');
+        $authToken = $request->header('X-Device-Token') ?? $request->input('auth_token');
         $serialNumber = $request->input('device_serial');
 
         if (! $authToken || ! $serialNumber) {
@@ -221,6 +228,7 @@ class BiometricWebhookController extends Controller
 
         if (! $serialNumber) {
             Log::warning('ADMS handshake: missing serial number');
+
             return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
@@ -228,11 +236,13 @@ class BiometricWebhookController extends Controller
 
         if (! $device) {
             Log::warning('ADMS handshake: unknown device', ['serial' => $serialNumber]);
+
             return response('ERROR', 404)->header('Content-Type', 'text/plain');
         }
 
         if (! $device->is_active) {
             Log::warning('ADMS handshake: inactive device', ['serial' => $serialNumber]);
+
             return response('ERROR', 403)->header('Content-Type', 'text/plain');
         }
 
@@ -257,7 +267,7 @@ class BiometricWebhookController extends Controller
                 'command_type' => $command->command_type,
             ]);
 
-            return new \Symfony\Component\HttpFoundation\Response(
+            return new Response(
                 $command->toAdmsString(),
                 200,
                 [
@@ -274,7 +284,7 @@ class BiometricWebhookController extends Controller
 
         $responseBody = $this->biometricService->buildHandshakeOptionsBody($serialNumber);
 
-        return new \Symfony\Component\HttpFoundation\Response(
+        return new Response(
             $responseBody,
             200,
             [
@@ -302,6 +312,7 @@ class BiometricWebhookController extends Controller
 
         if (! $serialNumber) {
             Log::warning('ADMS push: missing serial number');
+
             return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
@@ -309,42 +320,47 @@ class BiometricWebhookController extends Controller
 
         if (! $device || ! $device->is_active) {
             Log::warning('ADMS push: unknown or inactive device', ['serial' => $serialNumber]);
+
             return response('ERROR', 401)->header('Content-Type', 'text/plain');
         }
 
         // Handle Biometric Template Uploads (Roaming)
         if ($table === 'templatev10' || $table === 'facetmpv10') {
             $result = $this->biometricService->processTemplateUpload($rawData, $table, $serialNumber, $device);
+
             return $result['success']
-                ? new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain'])
+                ? new Response('OK', 200, ['Content-Type' => 'text/plain'])
                 : response('ERROR', $result['reason'] === 'invalid_format' ? 400 : 500)->header('Content-Type', 'text/plain');
         }
 
         // Handle User Enrollment from Device
         if ($table === 'USERINFO') {
             $result = $this->biometricService->processUserEnrollment($rawData, $serialNumber, $device);
+
             return $result['success']
-                ? new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain'])
+                ? new Response('OK', 200, ['Content-Type' => 'text/plain'])
                 : response('ERROR', $result['reason'] === 'invalid_format' ? 400 : 500)->header('Content-Type', 'text/plain');
         }
 
         // OPERLOG
         if ($table === 'OPERLOG') {
             $this->biometricService->storeOperLog($rawData, $serialNumber, $device);
-            return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
+
+            return new Response('OK', 200, ['Content-Type' => 'text/plain']);
         }
 
         // Command Acknowledgment
         if ($this->biometricService->isCommandAcknowledgment($rawData)) {
             $this->biometricService->processInlineAcknowledgment($rawData, $request);
-            return new \Symfony\Component\HttpFoundation\Response("OK", 200, ['Content-Type' => 'text/plain']);
+
+            return new Response('OK', 200, ['Content-Type' => 'text/plain']);
         }
 
         // Default: Handle Attendance Logs push
         $result = $this->biometricService->processAttendanceLogs($rawData, $device, $serialNumber);
 
-        return new \Symfony\Component\HttpFoundation\Response(
-            "OK",
+        return new Response(
+            'OK',
             200,
             ['Content-Type' => 'text/plain']
         );
@@ -382,7 +398,7 @@ class BiometricWebhookController extends Controller
 
             if ($session) {
                 // Also dispatch the monitoring job to prevent stuck sessions
-                \App\Jobs\ProcessBiometricDownloadSession::dispatch($session);
+                ProcessBiometricDownloadSession::dispatch($session);
                 $command = $session->command;
             } else {
                 return response()->json(['message' => 'Failed to initiate log download session.'], 500);
@@ -424,7 +440,7 @@ class BiometricWebhookController extends Controller
      */
     public function getLogs(Request $request, $deviceId = null)
     {
-        $query = \Illuminate\Support\Facades\DB::table('biometric_oper_logs')
+        $query = DB::table('biometric_oper_logs')
             ->orderBy('occurred_at', 'desc')
             ->limit(100);
 
@@ -434,14 +450,14 @@ class BiometricWebhookController extends Controller
 
         $logs = $query->get()->map(function ($log) {
             return [
-                'id'             => $log->id,
-                'level'          => 'info',
-                'serial_number'  => $log->serial_number,
+                'id' => $log->id,
+                'level' => 'info',
+                'serial_number' => $log->serial_number,
                 'operation_type' => $log->operation_type,
-                'user_pin'       => $log->user_pin,
-                'raw_data'       => $log->raw_data,
-                'context'        => json_decode($log->context ?? '[]', true),
-                'created_at'     => $log->occurred_at,
+                'user_pin' => $log->user_pin,
+                'raw_data' => $log->raw_data,
+                'context' => json_decode($log->context ?? '[]', true),
+                'created_at' => $log->occurred_at,
             ];
         });
 
@@ -457,6 +473,7 @@ class BiometricWebhookController extends Controller
 
         if (! $serialNumber) {
             Log::warning('ADMS getrequest: missing serial number');
+
             return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
@@ -464,11 +481,13 @@ class BiometricWebhookController extends Controller
 
         if (! $device) {
             Log::warning('ADMS getrequest: unknown device', ['serial' => $serialNumber]);
+
             return response('ERROR', 404)->header('Content-Type', 'text/plain');
         }
 
         if (! $device->is_active) {
             Log::warning('ADMS getrequest: inactive device', ['serial' => $serialNumber]);
+
             return response('ERROR', 403)->header('Content-Type', 'text/plain');
         }
 
@@ -485,7 +504,7 @@ class BiometricWebhookController extends Controller
                 'command_type' => $command->command_type,
             ]);
 
-            return new \Symfony\Component\HttpFoundation\Response(
+            return new Response(
                 $command->toAdmsString(),
                 200,
                 ['Content-Type' => 'text/plain']
@@ -494,8 +513,8 @@ class BiometricWebhookController extends Controller
 
         Log::info('ADMS getrequest: no pending commands', ['serial' => $serialNumber]);
 
-        return new \Symfony\Component\HttpFoundation\Response(
-            "OK",
+        return new Response(
+            'OK',
             200,
             ['Content-Type' => 'text/plain']
         );
@@ -511,6 +530,7 @@ class BiometricWebhookController extends Controller
 
         if (! $serialNumber) {
             Log::warning('ADMS devicecmd: missing serial number');
+
             return response('ERROR', 400)->header('Content-Type', 'text/plain');
         }
 
@@ -518,6 +538,7 @@ class BiometricWebhookController extends Controller
 
         if (! $device) {
             Log::warning('ADMS devicecmd: unknown device', ['serial' => $serialNumber]);
+
             return response('ERROR', 404)->header('Content-Type', 'text/plain');
         }
 
@@ -525,8 +546,8 @@ class BiometricWebhookController extends Controller
 
         $this->biometricService->updateHeartbeat($device);
 
-        return new \Symfony\Component\HttpFoundation\Response(
-            "OK",
+        return new Response(
+            'OK',
             200,
             ['Content-Type' => 'text/plain']
         );
@@ -541,8 +562,8 @@ class BiometricWebhookController extends Controller
 
         Log::info('ADMS test endpoint hit', ['serial' => $serialNumber]);
 
-        return new \Symfony\Component\HttpFoundation\Response(
-            "OK",
+        return new Response(
+            'OK',
             200,
             ['Content-Type' => 'text/plain']
         );

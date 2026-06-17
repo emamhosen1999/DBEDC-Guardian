@@ -8,7 +8,10 @@ use App\Models\DocumentCategory;
 use App\Models\HRM\AttendanceType;
 use App\Models\SafetyTraining;
 use App\Models\Skill;
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class CombinedSeeder extends Seeder
 {
@@ -20,7 +23,7 @@ class CombinedSeeder extends Seeder
         $this->command->info('🚀 Starting combined database seeding...');
 
         // Clear permission cache
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Create comprehensive roles and permissions
         $this->createRolesAndPermissions();
@@ -503,7 +506,7 @@ class CombinedSeeder extends Seeder
         $this->command->info('Creating admin user...');
 
         // Get the User model
-        $userModel = app(\App\Models\User::class);
+        $userModel = app(User::class);
 
         // Check if any user exists
         $user = $userModel::first();
@@ -521,7 +524,7 @@ class CombinedSeeder extends Seeder
         }
 
         // Get the Super Administrator role
-        $superAdminRole = \Spatie\Permission\Models\Role::where('name', 'Super Administrator')->first();
+        $superAdminRole = Role::where('name', 'Super Administrator')->first();
 
         if ($superAdminRole) {
             // Check if the user already has the role

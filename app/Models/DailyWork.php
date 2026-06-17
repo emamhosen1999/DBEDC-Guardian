@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -435,7 +436,7 @@ class DailyWork extends Model implements HasMedia
         });
 
         static::saved(function ($dailyWork) {
-            \Illuminate\Support\Facades\Cache::forever('daily_works_cache_version', time());
+            Cache::forever('daily_works_cache_version', time());
         });
 
         // Detach all objections when soft-deleting to prevent orphan pivot entries
@@ -444,11 +445,11 @@ class DailyWork extends Model implements HasMedia
         });
 
         static::deleted(function ($dailyWork) {
-            \Illuminate\Support\Facades\Cache::forever('daily_works_cache_version', time());
+            Cache::forever('daily_works_cache_version', time());
         });
 
         static::restored(function ($dailyWork) {
-            \Illuminate\Support\Facades\Cache::forever('daily_works_cache_version', time());
+            Cache::forever('daily_works_cache_version', time());
         });
     }
 }

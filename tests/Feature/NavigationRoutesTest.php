@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\CompanySetting;
+use App\Models\HRM\AttendanceSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class NavigationRoutesTest extends TestCase
@@ -17,7 +20,7 @@ class NavigationRoutesTest extends TestCase
         parent::setUp();
 
         // Clear Spatie cached permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Ensure default roles exist
         Role::findOrCreate('Super Administrator');
@@ -106,7 +109,7 @@ class NavigationRoutesTest extends TestCase
     {
         $user = $this->createUserWithPermission('attendance.view');
         // Ensure AttendanceSetting and AttendanceType exist for the page render
-        \App\Models\HRM\AttendanceSetting::create();
+        AttendanceSetting::create();
         $response = $this->actingAs($user)->get(route('attendance.unified'));
         $response->assertStatus(200);
     }
@@ -150,7 +153,7 @@ class NavigationRoutesTest extends TestCase
     {
         $user = $this->createUserWithPermission('company.settings');
         // Ensure CompanySetting exists for the page render
-        \App\Models\CompanySetting::create([
+        CompanySetting::create([
             'companyName' => 'Aero Corp',
             'country' => 'Bangladesh',
             'city' => 'Dhaka',
@@ -167,7 +170,7 @@ class NavigationRoutesTest extends TestCase
         $user = $this->createUserWithPermission('request_logs.view');
         Permission::findOrCreate('attendance.settings');
         $user->givePermissionTo('attendance.settings');
-        
+
         $response = $this->actingAs($user)->get(route('request-logs.index'));
         $response->assertStatus(200);
     }
@@ -188,7 +191,7 @@ class NavigationRoutesTest extends TestCase
         $user = User::factory()->create();
         Permission::findOrCreate($permission);
         $user->givePermissionTo($permission);
+
         return $user;
     }
 }
-

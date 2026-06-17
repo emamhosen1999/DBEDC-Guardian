@@ -1,11 +1,13 @@
 <?php
+
 require __DIR__.'/vendor/autoload.php';
 $app = require_once __DIR__.'/bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-use Illuminate\Support\Facades\DB;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 // Remove the migration record so it runs again
@@ -27,7 +29,7 @@ $tablesToDrop = [
     'project_tasks',
     'project_milestones',
     'project_resources',
-    'tasks'
+    'tasks',
 ];
 
 DB::statement('SET FOREIGN_KEY_CHECKS=0;');
@@ -45,6 +47,6 @@ try {
     $exitCode = Artisan::call('migrate');
     echo "Migration completed with exit code: {$exitCode}\n";
     echo Artisan::output();
-} catch (\Exception $e) {
-    echo "Migration failed with exception: " . $e->getMessage() . "\n";
+} catch (Exception $e) {
+    echo 'Migration failed with exception: '.$e->getMessage()."\n";
 }

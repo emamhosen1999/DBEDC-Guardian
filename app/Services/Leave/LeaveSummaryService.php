@@ -92,9 +92,9 @@ class LeaveSummaryService
                     fn ($leave) => Carbon::parse($leave->from_date)->month == $num
                 );
 
-                $approvedDays = $monthLeaves->where('status', 'Approved')->sum('no_of_days');
-                $pendingDays = $monthLeaves->where('status', 'Pending')->sum('no_of_days');
-                $rejectedDays = $monthLeaves->where('status', 'Declined')->sum('no_of_days');
+                $approvedDays = $monthLeaves->filter(fn ($l) => strtolower((string) ($l->status ?? '')) === 'approved')->sum('no_of_days');
+                $pendingDays = $monthLeaves->filter(fn ($l) => strtolower((string) ($l->status ?? '')) === 'pending')->sum('no_of_days');
+                $rejectedDays = $monthLeaves->filter(fn ($l) => in_array(strtolower((string) ($l->status ?? '')), ['declined', 'rejected'], true))->sum('no_of_days');
 
                 $row[$label] = $approvedDays > 0 ? $approvedDays : '';
                 $row[$label.'_pending'] = $pendingDays > 0 ? $pendingDays : '';
@@ -106,7 +106,7 @@ class LeaveSummaryService
             }
 
             // Calculate leave type totals (approved only)
-            foreach ($userLeaves->where('status', 'Approved') as $leave) {
+            foreach ($userLeaves->filter(fn ($l) => strtolower((string) ($l->status ?? '')) === 'approved') as $leave) {
                 $type = $leave->leaveSetting->type ?? '';
                 if (isset($leaveTypeTotals[$type])) {
                     $leaveTypeTotals[$type] += $leave->no_of_days;
@@ -193,7 +193,7 @@ class LeaveSummaryService
 
         foreach ($leaveTypes as $leaveType) {
             $used = $userLeaves->where('leave_type', $leaveType->id)
-                ->where('status', 'Approved')
+                ->filter(fn ($l) => strtolower((string) ($l->status ?? '')) === 'approved')
                 ->sum('no_of_days');
             $allocated = $leaveType->days ?? 0;
 
@@ -217,7 +217,7 @@ class LeaveSummaryService
 
         foreach ($leaveTypes as $leaveType) {
             $used = $userLeaves->where('leave_type', $leaveType->id)
-                ->where('status', 'Approved')
+                ->filter(fn ($l) => strtolower((string) ($l->status ?? '')) === 'approved')
                 ->sum('no_of_days');
             $allocated = $leaveType->days ?? 0;
             $remaining = max(0, $allocated - $used);

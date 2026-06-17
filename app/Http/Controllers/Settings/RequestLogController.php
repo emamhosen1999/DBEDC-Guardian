@@ -4,9 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\RequestLog;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class RequestLogController extends Controller
@@ -24,7 +22,7 @@ class RequestLogController extends Controller
 
         // Filters
         if ($request->has('ip_address') && $request->ip_address) {
-            $query->where('ip_address', 'like', '%' . $request->ip_address . '%');
+            $query->where('ip_address', 'like', '%'.$request->ip_address.'%');
         }
 
         if ($request->has('user_id') && $request->user_id) {
@@ -40,7 +38,7 @@ class RequestLogController extends Controller
         }
 
         if ($request->has('search') && $request->search) {
-            $query->where('url', 'like', '%' . $request->search . '%');
+            $query->where('url', 'like', '%'.$request->search.'%');
         }
 
         if ($request->has('start_date') && $request->start_date) {
@@ -48,7 +46,7 @@ class RequestLogController extends Controller
         }
 
         if ($request->has('end_date') && $request->end_date) {
-            $query->where('created_at', '<=', $request->end_date . ' 23:59:59');
+            $query->where('created_at', '<=', $request->end_date.' 23:59:59');
         }
 
         $logs = $query->orderBy('created_at', 'desc')
@@ -111,7 +109,7 @@ class RequestLogController extends Controller
 
         // Apply same filters as list method
         if ($request->has('ip_address') && $request->ip_address) {
-            $query->where('ip_address', 'like', '%' . $request->ip_address . '%');
+            $query->where('ip_address', 'like', '%'.$request->ip_address.'%');
         }
 
         if ($request->has('user_id') && $request->user_id) {
@@ -127,7 +125,7 @@ class RequestLogController extends Controller
         }
 
         if ($request->has('search') && $request->search) {
-            $query->where('url', 'like', '%' . $request->search . '%');
+            $query->where('url', 'like', '%'.$request->search.'%');
         }
 
         if ($request->has('start_date') && $request->start_date) {
@@ -135,7 +133,7 @@ class RequestLogController extends Controller
         }
 
         if ($request->has('end_date') && $request->end_date) {
-            $query->where('created_at', '<=', $request->end_date . ' 23:59:59');
+            $query->where('created_at', '<=', $request->end_date.' 23:59:59');
         }
 
         $logs = $query->orderBy('created_at', 'desc')
@@ -165,6 +163,6 @@ class RequestLogController extends Controller
 
         return response($csvContent)
             ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', 'attachment; filename="request_logs_' . date('Y-m-d_H-i-s') . '.csv"');
+            ->header('Content-Disposition', 'attachment; filename="request_logs_'.date('Y-m-d_H-i-s').'.csv"');
     }
 }

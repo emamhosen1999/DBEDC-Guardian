@@ -163,7 +163,7 @@ class ResetAnnualLeaves extends Command
         // Days used (approved leaves only)
         $daysUsed = Leave::where('user_id', $user->id)
             ->where('leave_type', $leaveType->id)
-            ->where('status', 'Approved')
+            ->whereRaw('LOWER(status) = ?', ['approved'])
             ->whereYear('from_date', $year)
             ->sum('no_of_days');
 

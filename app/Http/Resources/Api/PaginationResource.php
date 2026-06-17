@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api;
 
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -10,8 +11,7 @@ class PaginationResource extends JsonResource
     /**
      * Transform the resource into an array
      *
-     * @param \Illuminate\Http\Request $request
-     * @return array
+     * @param  Request  $request
      */
     public function toArray($request): array
     {

@@ -3,7 +3,6 @@
 namespace App\Models\HRM;
 
 use App\Models\User;
-use App\Models\HRM\BiometricDevice;
 use Database\Factories\AttendanceTypeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

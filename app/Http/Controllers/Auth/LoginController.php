@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\UserDevice;
 use App\Services\DeviceAuthService;
 use App\Services\ModernAuthenticationService;
 use Illuminate\Http\Request;
@@ -238,7 +239,7 @@ class LoginController extends Controller
                 ?? $request->session()->get('device_id');
 
             if ($deviceId) {
-                \App\Models\UserDevice::where('user_id', $user->id)
+                UserDevice::where('user_id', $user->id)
                     ->where('device_id', $deviceId)
                     ->update([
                         'last_used_at' => now(),

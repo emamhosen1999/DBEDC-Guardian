@@ -7,10 +7,10 @@ use App\Repositories\Contracts\AttendanceSettingRepositoryInterface;
 use App\Repositories\Contracts\CompanySettingRepositoryInterface;
 use App\Repositories\Eloquent\AttendanceSettingRepository;
 use App\Repositories\Eloquent\CompanySettingRepository;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 

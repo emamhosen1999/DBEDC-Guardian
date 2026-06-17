@@ -79,8 +79,6 @@ class MobileAuthApiTest extends TestCase
             ->assertJsonPath('message', 'The provided credentials are incorrect.');
     }
 
-
-
     public function test_mobile_auth_me_and_logout_require_token_and_work_with_valid_token(): void
     {
         $user = User::factory()->create([
@@ -164,4 +162,3 @@ class MobileAuthApiTest extends TestCase
             ->assertJsonPath('data.blocked_device_info.device_name', 'Samsung S24');
     }
 }
-

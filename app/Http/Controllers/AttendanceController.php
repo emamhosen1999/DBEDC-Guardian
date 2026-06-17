@@ -2,29 +2,37 @@
 
 namespace App\Http\Controllers;
 
-use App\Traits\HandlesApiExceptions;
-use App\Exports\AttendanceAdminExport;
-use App\Exports\AttendanceExport;
+use App\Jobs\ExportAttendanceReport;
 use App\Models\HRM\Attendance;
+use App\Models\HRM\AttendanceSetting;
+use App\Models\HRM\AttendanceType;
+use App\Models\HRM\Department;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
 use App\Services\Attendance\AttendanceReportService;
-use Barryvdh\DomPDF\Facade\Pdf as PDF;
+use App\Services\Attendance\AttendanceValidatorFactory;
+use App\Traits\HandlesApiExceptions;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
-use App\Jobs\ExportAttendanceReport;
+use Inertia\Response;
 
 class AttendanceController extends Controller
 {
     use HandlesApiExceptions;
 
     protected AttendanceReportService $attendanceReportService;
+
     protected AttendancePunchService $attendancePunchService;
+
     protected AttendanceQueryService $attendanceQueryService;
 
     public function __construct(
@@ -37,34 +45,34 @@ class AttendanceController extends Controller
         $this->attendanceQueryService = $attendanceQueryService;
     }
 
-    public function indexUnified(): \Inertia\Response
+    public function indexUnified(): Response
     {
         return Inertia::render('Attendance/AttendancePage', [
-            'title'            => 'Attendance',
-            'attendanceSettings' => \App\Models\HRM\AttendanceSetting::first(),
-            'attendanceTypes'    => \App\Models\HRM\AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get(),
-            'departments'        => \App\Models\HRM\Department::active()->get(['id', 'name']),
+            'title' => 'Attendance',
+            'attendanceSettings' => AttendanceSetting::first(),
+            'attendanceTypes' => AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get(),
+            'departments' => Department::active()->get(['id', 'name']),
         ]);
     }
 
-    public function index1(): \Inertia\Response
+    public function index1(): Response
     {
         return $this->indexUnified();
     }
 
-    public function index2(): \Inertia\Response
+    public function index2(): Response
     {
         return Inertia::render('AttendanceEmployee', [
             'title' => 'My Attendance',
         ]);
     }
 
-    public function index3(): \Inertia\Response
+    public function index3(): Response
     {
         return $this->indexUnified();
     }
 
-    public function paginate(Request $request): \Illuminate\Http\JsonResponse
+    public function paginate(Request $request): JsonResponse
     {
         try {
             $perPage = (int) $request->get('perPage', 20);
@@ -105,6 +113,7 @@ class AttendanceController extends Controller
                 'last_page' => $lastPage,
                 'leaveTypes' => $leaveTypes,
                 'leaveCounts' => $leaveCountsArray,
+                'settings' => AttendanceSetting::first(),
             ]);
         } catch (\Exception $e) {
             Log::error('Error in paginate method: '.$e->getMessage());
@@ -113,7 +122,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function updateAttendance(Request $request): \Illuminate\Http\JsonResponse
+    public function updateAttendance(Request $request): JsonResponse
     {
         try {
             // Validate the incoming request data
@@ -182,7 +191,7 @@ class AttendanceController extends Controller
     private function validateAttendanceType($attendanceType, Request $request)
     {
         try {
-            $validator = \App\Services\Attendance\AttendanceValidatorFactory::create($attendanceType, $request);
+            $validator = AttendanceValidatorFactory::create($attendanceType, $request);
 
             return $validator->validate();
         } catch (\InvalidArgumentException $e) {
@@ -202,13 +211,13 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getUserLocationsForDate(Request $request): \Illuminate\Http\JsonResponse
+    public function getUserLocationsForDate(Request $request): JsonResponse
     {
         try {
             $selectedDate = Carbon::parse($request->query('date'))->format('Y-m-d');
             $locations = $this->attendanceQueryService->getUserLocationsForDate($selectedDate);
 
-            $attendanceTypeConfigs = \App\Models\HRM\AttendanceType::all()->map(function ($type) {
+            $attendanceTypeConfigs = AttendanceType::all()->map(function ($type) {
                 return [
                     'id' => $type->id,
                     'name' => $type->name,
@@ -230,7 +239,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getCurrentUserPunch(): \Illuminate\Http\JsonResponse
+    public function getCurrentUserPunch(): JsonResponse
     {
         try {
             $userId = (int) Auth::id();
@@ -244,7 +253,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getAllUsersAttendanceForDate(Request $request): \Illuminate\Http\JsonResponse
+    public function getAllUsersAttendanceForDate(Request $request): JsonResponse
     {
         try {
             $selectedDate = $request->query('date', now()->toDateString());
@@ -366,15 +375,30 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getCurrentUserAttendanceForDate(Request $request): \Illuminate\Http\JsonResponse
+    public function getCurrentUserAttendanceForDate(Request $request): JsonResponse
     {
         try {
             $date = $request->query('date', now()->toDateString());
             $userId = (int) Auth::id();
-            $attendance = Attendance::where('user_id', $userId)->whereDate('date', $date)->first();
+
+            $page = (int) $request->query('page', 1);
+            $perPage = (int) $request->query('perPage', 10);
+
+            $filters = [
+                'page' => $page,
+                'per_page' => $perPage,
+                'date' => $date,
+                'scope' => 'self',
+            ];
+
+            $result = $this->attendanceQueryService->getAttendanceHistory($userId, $filters);
 
             return response()->json([
-                'attendance' => $attendance,
+                'attendances' => $result['attendances'] ?? [],
+                'total' => $result['pagination']['total'] ?? count($result['attendances'] ?? []),
+                'current_page' => $result['pagination']['current_page'] ?? $page,
+                'last_page' => $result['pagination']['last_page'] ?? 1,
+                'per_page' => $result['pagination']['per_page'] ?? $perPage,
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to get current user attendance for date: '.$e->getMessage());
@@ -383,14 +407,14 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getClientIp(Request $request): \Illuminate\Http\JsonResponse
+    public function getClientIp(Request $request): JsonResponse
     {
         return response()->json([
             'ip' => $request->ip(),
         ]);
     }
 
-    public function getPresentUsersForDate(Request $request): \Illuminate\Http\JsonResponse
+    public function getPresentUsersForDate(Request $request): JsonResponse
     {
         try {
             $date = $request->query('date', now()->toDateString());
@@ -407,7 +431,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getAbsentUsersForDate(Request $request): \Illuminate\Http\JsonResponse
+    public function getAbsentUsersForDate(Request $request): JsonResponse
     {
         try {
             $date = $request->query('date', now()->toDateString());
@@ -444,9 +468,9 @@ class AttendanceController extends Controller
             $absentUserIds = $absentUsers->pluck('id')->all();
 
             $leaveUserColumn = null;
-            if (\Illuminate\Support\Facades\Schema::hasColumn('leaves', 'user_id')) {
+            if (Schema::hasColumn('leaves', 'user_id')) {
                 $leaveUserColumn = 'user_id';
-            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('leaves', 'employee_id')) {
+            } elseif (Schema::hasColumn('leaves', 'employee_id')) {
                 $leaveUserColumn = 'employee_id';
             }
 
@@ -454,10 +478,10 @@ class AttendanceController extends Controller
             if (
                 $absentUserIds !== []
                 && $leaveUserColumn
-                && \Illuminate\Support\Facades\Schema::hasTable('leaves')
-                && \Illuminate\Support\Facades\Schema::hasTable('leave_settings')
+                && Schema::hasTable('leaves')
+                && Schema::hasTable('leave_settings')
             ) {
-                $leaves = \Illuminate\Support\Facades\DB::table('leaves')
+                $leaves = DB::table('leaves')
                     ->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
                     ->select(
                         'leaves.id',
@@ -512,14 +536,14 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getMonthlyAttendanceStats(Request $request): \Illuminate\Http\JsonResponse
+    public function getMonthlyAttendanceStats(Request $request): JsonResponse
     {
         try {
             $currentMonth = (int) $request->get('currentMonth', now()->month);
             $currentYear = (int) $request->get('currentYear', now()->year);
             $userId = $request->get('userId') ? (int) $request->get('userId') : null;
             $routeName = $request->route()?->getName();
-            if ($routeName === 'attendance.myMonthlyStats' || !Auth::user()->can('attendance.view')) {
+            if ($routeName === 'attendance.myMonthlyStats' || ! Auth::user()->can('attendance.view')) {
                 $userId = Auth::id();
             }
             $isGlobalScope = $userId === null;
@@ -537,13 +561,15 @@ class AttendanceController extends Controller
         }
     }
 
-    public function getDailyOverviewStats(Request $request): \Illuminate\Http\JsonResponse
+    public function getDailyOverviewStats(Request $request): JsonResponse
     {
         try {
             $date = $request->query('date', now()->toDateString());
             $departmentId = $request->query('department_id') ? (int) $request->query('department_id') : null;
 
-            $totalEmployeesQuery = User::query()->whereHas('roles', function ($q) { $q->where('name', 'Employee'); });
+            $totalEmployeesQuery = User::query()->whereHas('roles', function ($q) {
+                $q->where('name', 'Employee');
+            });
             if ($departmentId) {
                 $totalEmployeesQuery->where('department_id', $departmentId);
             }
@@ -555,19 +581,19 @@ class AttendanceController extends Controller
                 ->unique();
 
             $presentCount = $presentUsersIds->count();
-            
+
             $lateCount = Attendance::whereDate('date', $date)
                 ->whereNotNull('punchin')
                 ->whereRaw('TIME(punchin) > "09:00:00"')
                 ->count();
-            
+
             $onLeaveCount = 0;
-            if (\Illuminate\Support\Facades\Schema::hasTable('leaves')) {
-                $leaveUserColumn = \Illuminate\Support\Facades\Schema::hasColumn('leaves', 'user_id') ? 'user_id' : 'employee_id';
-                $onLeaveCount = \Illuminate\Support\Facades\DB::table('leaves')
+            if (Schema::hasTable('leaves')) {
+                $leaveUserColumn = Schema::hasColumn('leaves', 'user_id') ? 'user_id' : 'employee_id';
+                $onLeaveCount = DB::table('leaves')
                     ->whereDate('from_date', '<=', $date)
                     ->whereDate('to_date', '>=', $date)
-                    ->where('status', 'Approved')
+                    ->whereRaw('LOWER(status) = ?', ['approved'])
                     ->pluck($leaveUserColumn)
                     ->unique()
                     ->count();
@@ -580,10 +606,11 @@ class AttendanceController extends Controller
                 'absent' => $absentCount,
                 'late' => $lateCount,
                 'on_leave' => $onLeaveCount,
-                'total' => $totalEmployees
+                'total' => $totalEmployees,
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to get daily overview stats: '.$e->getMessage());
+
             return response()->json(['error' => 'Failed to calculate daily statistics.'], 500);
         }
     }
@@ -609,7 +636,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function markAsPresent(Request $request): \Illuminate\Http\JsonResponse
+    public function markAsPresent(Request $request): JsonResponse
     {
         try {
             $validated = $request->validate([
@@ -634,7 +661,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function bulkMarkAsPresent(Request $request): \Illuminate\Http\JsonResponse
+    public function bulkMarkAsPresent(Request $request): JsonResponse
     {
         try {
             $validated = $request->validate([
@@ -724,10 +751,11 @@ class AttendanceController extends Controller
 
     public function checkExportStatus($filename)
     {
-        $exists = \Illuminate\Support\Facades\Storage::disk('public')->exists('exports/' . $filename);
+        $exists = Storage::disk('public')->exists('exports/'.$filename);
         if ($exists) {
-            return response()->json(['status' => 'ready', 'url' => asset('storage/exports/' . $filename)]);
+            return response()->json(['status' => 'ready', 'url' => asset('storage/exports/'.$filename)]);
         }
+
         return response()->json(['status' => 'processing'], 202);
     }
 
@@ -743,7 +771,7 @@ class AttendanceController extends Controller
                 'success' => true,
                 'queued' => true,
                 'filename' => $filename,
-                'download_url' => asset('storage/exports/' . $filename),
+                'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
@@ -766,7 +794,7 @@ class AttendanceController extends Controller
                 'success' => true,
                 'queued' => true,
                 'filename' => $filename,
-                'download_url' => asset('storage/exports/' . $filename),
+                'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
@@ -789,7 +817,7 @@ class AttendanceController extends Controller
                 'success' => true,
                 'queued' => true,
                 'filename' => $filename,
-                'download_url' => asset('storage/exports/' . $filename),
+                'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
@@ -814,7 +842,7 @@ class AttendanceController extends Controller
                 'success' => true,
                 'queued' => true,
                 'filename' => $filename,
-                'download_url' => asset('storage/exports/' . $filename),
+                'download_url' => asset('storage/exports/'.$filename),
                 'message' => 'Export job has been dispatched.',
             ]);
         } catch (\Exception $e) {
@@ -825,7 +853,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function updateAttendanceRecord(Request $request, $id): \Illuminate\Http\JsonResponse
+    public function updateAttendanceRecord(Request $request, $id): JsonResponse
     {
         $this->authorize('attendance.correct');
 
@@ -837,7 +865,7 @@ class AttendanceController extends Controller
                 'punchout' => 'nullable|date_format:Y-m-d H:i:s',
             ]);
 
-            if (!empty($validated['punchin']) && !empty($validated['punchout'])) {
+            if (! empty($validated['punchin']) && ! empty($validated['punchout'])) {
                 $punchin = Carbon::parse($validated['punchin']);
                 $punchout = Carbon::parse($validated['punchout']);
                 if ($punchin->gte($punchout)) {
@@ -866,7 +894,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function addAttendanceRecord(Request $request): \Illuminate\Http\JsonResponse
+    public function addAttendanceRecord(Request $request): JsonResponse
     {
         $this->authorize('attendance.correct');
 
@@ -880,7 +908,7 @@ class AttendanceController extends Controller
                 'punchout_location' => 'nullable|array',
             ]);
 
-            if (!empty($validated['punchin']) && !empty($validated['punchout'])) {
+            if (! empty($validated['punchin']) && ! empty($validated['punchout'])) {
                 $punchin = Carbon::parse($validated['punchin']);
                 $punchout = Carbon::parse($validated['punchout']);
                 if ($punchin->gte($punchout)) {
@@ -916,7 +944,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function deleteAttendanceRecord($id): \Illuminate\Http\JsonResponse
+    public function deleteAttendanceRecord($id): JsonResponse
     {
         $this->authorize('attendance.correct');
 
@@ -940,7 +968,7 @@ class AttendanceController extends Controller
         }
     }
 
-    public function updateAttendanceStatus(Request $request, $id): \Illuminate\Http\JsonResponse
+    public function updateAttendanceStatus(Request $request, $id): JsonResponse
     {
         $this->authorize('attendance.correct');
 

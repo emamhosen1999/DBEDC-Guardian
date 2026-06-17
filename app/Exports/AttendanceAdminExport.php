@@ -5,13 +5,14 @@ namespace App\Exports;
 use App\Models\HRM\Holiday;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Attendance\AttendanceReportService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use Illuminate\Support\Facades\Storage;
 
 class AttendanceAdminExport
 {
@@ -42,7 +43,7 @@ class AttendanceAdminExport
             $writer->save($tempFile);
 
             // Ensure exports directory exists
-            if (!Storage::disk($disk)->exists('exports')) {
+            if (! Storage::disk($disk)->exists('exports')) {
                 Storage::disk($disk)->makeDirectory('exports');
             }
 
@@ -107,7 +108,7 @@ class AttendanceAdminExport
 
         $row = 5;
         foreach ($users as $index => $user) {
-            $attendanceRecord = app(\App\Services\Attendance\AttendanceReportService::class)->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
+            $attendanceRecord = app(AttendanceReportService::class)->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
 
             $sheet->setCellValue("A{$row}", $index + 1);
             $sheet->setCellValue("B{$row}", $user->name);

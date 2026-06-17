@@ -1,4 +1,5 @@
 <?php
+
 $files = scandir(__DIR__.'/database/migrations');
 foreach ($files as $file) {
     if (str_ends_with($file, '.php')) {

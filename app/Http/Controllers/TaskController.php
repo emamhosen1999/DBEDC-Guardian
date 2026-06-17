@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DailyWork;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\Task\TaskCrudService;
@@ -57,7 +58,7 @@ class TaskController extends Controller
 
     public function getLatestTimestamp()
     {
-        $latestTimestamp = \App\Models\DailyWork::max('updated_at');
+        $latestTimestamp = DailyWork::max('updated_at');
 
         return response()->json(['timestamp' => $latestTimestamp]);
     }

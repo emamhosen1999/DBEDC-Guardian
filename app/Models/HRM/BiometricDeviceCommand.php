@@ -48,7 +48,7 @@ class BiometricDeviceCommand extends Model
 
         switch ($this->command_type) {
             case 'REBOOT':
-                $command .= "REBOOT";
+                $command .= 'REBOOT';
                 break;
 
             case 'SET_TIME':
@@ -58,31 +58,31 @@ class BiometricDeviceCommand extends Model
 
             case 'ADD_USER':
             case 'UPDATE_USER':
-                $command .= "DATA UPDATE USERINFO";
-                $command .= " PIN=" . ($payload['pin'] ?? '');
-                $command .= " Name=" . ($payload['name'] ?? '');
+                $command .= 'DATA UPDATE USERINFO';
+                $command .= ' PIN='.($payload['pin'] ?? '');
+                $command .= ' Name='.($payload['name'] ?? '');
                 if (isset($payload['card'])) {
-                    $command .= " Card=" . $payload['card'];
+                    $command .= ' Card='.$payload['card'];
                 }
                 if (isset($payload['privilege'])) {
-                    $command .= " Pri=" . $payload['privilege'];
+                    $command .= ' Pri='.$payload['privilege'];
                 }
                 break;
 
             case 'DELETE_USER':
-                $command .= "DATA DELETE USERINFO PIN=" . ($payload['pin'] ?? '');
+                $command .= 'DATA DELETE USERINFO PIN='.($payload['pin'] ?? '');
                 break;
 
             case 'CLEAR_LOG':
-                $command .= "CLEAR LOG";
+                $command .= 'CLEAR LOG';
                 break;
 
             case 'CLEAR_DATA':
-                $command .= "CLEAR DATA";
+                $command .= 'CLEAR DATA';
                 break;
 
             case 'GET_USERINFO':
-                $command .= "GET USERINFO";
+                $command .= 'GET USERINFO';
                 break;
 
             case 'CHECK_ATTLOG':
@@ -92,7 +92,7 @@ class BiometricDeviceCommand extends Model
                 break;
 
             default:
-                $command .= "UNKNOWN";
+                $command .= 'UNKNOWN';
                 break;
         }
 
@@ -174,7 +174,7 @@ class BiometricDeviceCommand extends Model
      */
     public function isScheduled(): bool
     {
-        return !is_null($this->scheduled_at);
+        return ! is_null($this->scheduled_at);
     }
 
     /**

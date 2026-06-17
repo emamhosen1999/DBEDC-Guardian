@@ -475,5 +475,3 @@ class AttendanceMultiConfigTest extends TestCase
         $this->assertStringContainsString('No polygon boundaries configured', $result['message']);
     }
 }
-
-

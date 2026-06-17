@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, WithHeadings
 {
@@ -161,7 +162,7 @@ class LeaveSummaryExport implements FromCollection, ShouldAutoSize, WithEvents, 
                 // ====== Style the headers ======
                 $sheet->getStyle("A4:{$lastColumn}4")->getFont()->setBold(true);
                 $sheet->getStyle("A4:{$lastColumn}4")->getFill()
-                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setARGB('E3F2FD');
                 $sheet->getStyle("A4:{$lastColumn}4")->getAlignment()->setHorizontal('center');
 

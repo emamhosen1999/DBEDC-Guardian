@@ -2,8 +2,8 @@
 
 namespace App\Services\Attendance;
 
-use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricDevice;
 use App\Models\User;
 
 /**
@@ -41,7 +41,7 @@ class BiometricValidator extends BaseAttendanceValidator
         $user = User::with('employeeAttendanceType')->where('employee_id', $deviceUserId)->first();
 
         if (! $user) {
-            return $this->errorResponse('User not found with employee_id: ' . $deviceUserId, 404);
+            return $this->errorResponse('User not found with employee_id: '.$deviceUserId, 404);
         }
 
         if (! $user->attendance_type_id) {
@@ -76,7 +76,7 @@ class BiometricValidator extends BaseAttendanceValidator
 
         return $this->successResponse('Biometric validation successful.', [
             'device_id' => $device->id,
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
         ]);
     }
 }

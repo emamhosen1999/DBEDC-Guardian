@@ -178,7 +178,7 @@ class BulkLeaveService
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Bulk leave creation failed: ' . $e->getMessage(),
+                'message' => 'Bulk leave creation failed: '.$e->getMessage(),
                 'created_leaves' => [],
                 'failed_dates' => $failedDates,
                 'summary' => [

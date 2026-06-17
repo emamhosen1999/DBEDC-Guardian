@@ -247,4 +247,3 @@ class MobileManagerDashboardApiTest extends TestCase
         return $objectionId;
     }
 }
-

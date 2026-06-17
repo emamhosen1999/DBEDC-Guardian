@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class DiagnoseRolePermissions extends Command
 {
@@ -276,16 +277,16 @@ class DiagnoseRolePermissions extends Command
             $permissionModel = config('permission.models.permission');
             $roleModel = config('permission.models.role');
 
-            if ($permissionModel !== \Spatie\Permission\Models\Permission::class) {
+            if ($permissionModel !== Permission::class) {
                 $issues[] = "Unexpected permission model: {$permissionModel}";
             }
 
-            if ($roleModel !== \Spatie\Permission\Models\Role::class) {
+            if ($roleModel !== Role::class) {
                 $issues[] = "Unexpected role model: {$roleModel}";
             }
 
             // Test permission registrar
-            $registrar = app(\Spatie\Permission\PermissionRegistrar::class);
+            $registrar = app(PermissionRegistrar::class);
             $this->line('  Permission registrar class: '.get_class($registrar));
 
             // Test if User model has HasRoles trait
@@ -356,7 +357,7 @@ class DiagnoseRolePermissions extends Command
     private function clearAllCaches(): void
     {
         // Clear Spatie permission cache
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         // Clear general caches
         Cache::flush();

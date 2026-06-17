@@ -56,14 +56,25 @@ const LeavesEmployee = ({ title, allUsers }) => {
     year: filters.year
   });
 
-  // Derived state from React Query data
-  const leaves = leavesResponse?.data || [];
-  const pagination = useMemo(() => ({
+  // Local state for leaves and pagination to support optimistic updates
+  const [leaves, setLeaves] = useState(leavesResponse?.data || []);
+  const [pagination, setPagination] = useState({
     page: leavesResponse?.current_page || 1,
     perPage: leavesResponse?.per_page || 30,
     total: leavesResponse?.total || 0,
-    lastPage: leavesResponse?.last_page || 1
-  }), [leavesResponse]);
+    lastPage: leavesResponse?.last_page || 1,
+  });
+
+  // Keep local state in sync with server responses
+  useEffect(() => {
+    setLeaves(leavesResponse?.data || []);
+    setPagination({
+      page: leavesResponse?.current_page || 1,
+      perPage: leavesResponse?.per_page || 30,
+      total: leavesResponse?.total || 0,
+      lastPage: leavesResponse?.last_page || 1,
+    });
+  }, [leavesResponse]);
 
   // Function to update pagination metadata
   const updatePaginationMetadata = useCallback((metadata) => {

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -71,36 +72,36 @@ class MobileLeaveApiTest extends TestCase
         ]);
 
         $this->insertLeaveForUser($user->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 1, 10)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 1, 12)->toDateString(),
+            'from_date' => Carbon::create($year, 1, 10)->toDateString(),
+            'to_date' => Carbon::create($year, 1, 12)->toDateString(),
             'no_of_days' => 3,
             'status' => 'Approved',
         ]);
 
         $this->insertLeaveForUser($user->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 1, 20)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 1, 21)->toDateString(),
+            'from_date' => Carbon::create($year, 1, 20)->toDateString(),
+            'to_date' => Carbon::create($year, 1, 21)->toDateString(),
             'no_of_days' => 2,
             'status' => 'New',
         ]);
 
         $this->insertLeaveForUser($user->id, $sickLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 2, 5)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 2, 5)->toDateString(),
+            'from_date' => Carbon::create($year, 2, 5)->toDateString(),
+            'to_date' => Carbon::create($year, 2, 5)->toDateString(),
             'no_of_days' => 1,
             'status' => 'Declined',
         ]);
 
         $this->insertLeaveForUser($user->id, $sickLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 3, 3)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 3, 6)->toDateString(),
+            'from_date' => Carbon::create($year, 3, 3)->toDateString(),
+            'to_date' => Carbon::create($year, 3, 6)->toDateString(),
             'no_of_days' => 4,
             'status' => 'Approved',
         ]);
 
         $this->insertLeaveForUser($otherUser->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 1, 24)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 1, 29)->toDateString(),
+            'from_date' => Carbon::create($year, 1, 24)->toDateString(),
+            'to_date' => Carbon::create($year, 1, 29)->toDateString(),
             'no_of_days' => 6,
             'status' => 'Approved',
         ]);
@@ -157,22 +158,22 @@ class MobileLeaveApiTest extends TestCase
         ]);
 
         $this->insertLeaveForUser($user->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 1, 10)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 1, 12)->toDateString(),
+            'from_date' => Carbon::create($year, 1, 10)->toDateString(),
+            'to_date' => Carbon::create($year, 1, 12)->toDateString(),
             'no_of_days' => 3,
             'status' => 'Approved',
         ]);
 
         $this->insertLeaveForUser($user->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 1, 20)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 1, 21)->toDateString(),
+            'from_date' => Carbon::create($year, 1, 20)->toDateString(),
+            'to_date' => Carbon::create($year, 1, 21)->toDateString(),
             'no_of_days' => 2,
             'status' => 'New',
         ]);
 
         $this->insertLeaveForUser($user->id, $sickLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, 3, 3)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, 3, 6)->toDateString(),
+            'from_date' => Carbon::create($year, 3, 3)->toDateString(),
+            'to_date' => Carbon::create($year, 3, 6)->toDateString(),
             'no_of_days' => 4,
             'status' => 'Approved',
         ]);
@@ -214,29 +215,29 @@ class MobileLeaveApiTest extends TestCase
         ]);
 
         $approvedLeaveId = $this->insertLeaveForUser($user->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, $month, 5)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, $month, 7)->toDateString(),
+            'from_date' => Carbon::create($year, $month, 5)->toDateString(),
+            'to_date' => Carbon::create($year, $month, 7)->toDateString(),
             'no_of_days' => 3,
             'status' => 'Approved',
         ]);
 
         $pendingLeaveId = $this->insertLeaveForUser($user->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, $month, 10)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, $month, 11)->toDateString(),
+            'from_date' => Carbon::create($year, $month, 10)->toDateString(),
+            'to_date' => Carbon::create($year, $month, 11)->toDateString(),
             'no_of_days' => 2,
             'status' => 'New',
         ]);
 
         $rejectedLeaveId = $this->insertLeaveForUser($user->id, $sickLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, $month, 15)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, $month, 15)->toDateString(),
+            'from_date' => Carbon::create($year, $month, 15)->toDateString(),
+            'to_date' => Carbon::create($year, $month, 15)->toDateString(),
             'no_of_days' => 1,
             'status' => 'Declined',
         ]);
 
         $this->insertLeaveForUser($otherUser->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, $month, 20)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, $month, 24)->toDateString(),
+            'from_date' => Carbon::create($year, $month, 20)->toDateString(),
+            'to_date' => Carbon::create($year, $month, 24)->toDateString(),
             'no_of_days' => 5,
             'status' => 'Approved',
         ]);
@@ -244,14 +245,14 @@ class MobileLeaveApiTest extends TestCase
         if (Schema::hasTable('holidays')) {
             $this->insertHoliday([
                 'title' => 'Holiday One',
-                'from_date' => \Carbon\Carbon::create($year, $month, 8)->toDateString(),
-                'to_date' => \Carbon\Carbon::create($year, $month, 9)->toDateString(),
+                'from_date' => Carbon::create($year, $month, 8)->toDateString(),
+                'to_date' => Carbon::create($year, $month, 9)->toDateString(),
             ]);
 
             $this->insertHoliday([
                 'title' => 'Holiday Two',
-                'from_date' => \Carbon\Carbon::create($year, $month, 25)->toDateString(),
-                'to_date' => \Carbon\Carbon::create($year, $month, 25)->toDateString(),
+                'from_date' => Carbon::create($year, $month, 25)->toDateString(),
+                'to_date' => Carbon::create($year, $month, 25)->toDateString(),
             ]);
         }
 
@@ -303,15 +304,15 @@ class MobileLeaveApiTest extends TestCase
         ]);
 
         $this->insertLeaveForUser($user->id, $casualLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, $month, 5)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, $month, 6)->toDateString(),
+            'from_date' => Carbon::create($year, $month, 5)->toDateString(),
+            'to_date' => Carbon::create($year, $month, 6)->toDateString(),
             'no_of_days' => 2,
             'status' => 'Approved',
         ]);
 
         $this->insertLeaveForUser($user->id, $sickLeaveTypeId, [
-            'from_date' => \Carbon\Carbon::create($year, $month, 8)->toDateString(),
-            'to_date' => \Carbon\Carbon::create($year, $month, 9)->toDateString(),
+            'from_date' => Carbon::create($year, $month, 8)->toDateString(),
+            'to_date' => Carbon::create($year, $month, 9)->toDateString(),
             'no_of_days' => 2,
             'status' => 'New',
         ]);
@@ -552,7 +553,7 @@ class MobileLeaveApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'Leave request submitted successfully.')
             ->assertJsonPath('data.leave_type', $leaveTypeId)
-            ->assertJsonPath('data.status', 'New');
+            ->assertJsonPath('data.status', 'new');
 
         $leaveId = $response->json('data.id');
         $this->assertNotNull($leaveId);
@@ -560,7 +561,7 @@ class MobileLeaveApiTest extends TestCase
         $this->assertDatabaseHas('leaves', [
             'id' => $leaveId,
             'leave_type' => $leaveTypeId,
-            'status' => 'New',
+            'status' => 'new',
         ]);
 
         $this->assertDatabaseHas('leaves', [
@@ -609,7 +610,7 @@ class MobileLeaveApiTest extends TestCase
         $this->assertDatabaseHas('leaves', [
             'id' => $leaveId,
             'reason' => 'Updated leave reason from mobile app.',
-            'status' => 'New',
+            'status' => 'new',
         ]);
     }
 
@@ -870,4 +871,3 @@ class MobileLeaveApiTest extends TestCase
         return Schema::hasColumn('leaves', 'user_id') ? 'user_id' : 'user';
     }
 }
-

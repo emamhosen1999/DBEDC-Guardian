@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Services\Logging\ApplicationLogger;
 use Closure;
 use Illuminate\Http\Request;
@@ -96,7 +97,7 @@ class EnhancedRateLimit
                 return ['requests_per_minute' => 150];
             }
 
-            $userWithDesignation = \App\Models\User::with('designation')->find($user->id);
+            $userWithDesignation = User::with('designation')->find($user->id);
             $userDesignationTitle = $userWithDesignation->designation?->title;
 
             if ($userDesignationTitle === 'Supervision Engineer') {

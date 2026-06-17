@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Responses\ApiResponse;
 use App\Http\Requests\Api\V1\ApproveLeaveRequest;
 use App\Http\Requests\Api\V1\BulkApproveLeavesRequest;
 use App\Http\Requests\Api\V1\BulkRejectLeavesRequest;
@@ -14,15 +13,14 @@ use App\Http\Requests\Api\V1\ListLeavesRequest;
 use App\Http\Requests\Api\V1\RejectLeaveRequest;
 use App\Http\Requests\Api\V1\StoreLeaveRequest;
 use App\Http\Requests\Api\V1\UpdateLeaveRequest;
+use App\Http\Responses\ApiResponse;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Services\Api\V1\LeaveApiService;
 use App\Services\Leave\LeaveApprovalService;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class LeaveController extends Controller
@@ -31,8 +29,7 @@ class LeaveController extends Controller
 
     public function __construct(
         protected LeaveApiService $leaveApiService
-    ) {
-    }
+    ) {}
 
     public function types(): JsonResponse
     {
