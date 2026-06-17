@@ -19,11 +19,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
+            \App\Http\Middleware\SetLocale::class,
+            \App\Http\Middleware\DeviceAuthMiddleware::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
             \App\Http\Middleware\TrackSecurityActivity::class,
             \App\Http\Middleware\CheckSessionExpiry::class, // Add session expiry check
         ]);
+
+        $middleware->append(\App\Http\Middleware\LogRequestMiddleware::class);
 
         // Register custom middleware aliases
         $middleware->alias([

@@ -31,27 +31,39 @@ const getClient = () => {
  * @param {string} [options.responseType] - axios responseType (e.g. 'blob')
  */
 export async function requestJson(method, url, options = {}) {
-    const {
-        params,
-        data,
-        unwrap = true,
-        responseType,
-        headers,
-        ...rest
-    } = options;
+    const normalizedMethod = String(method || 'get').toLowerCase();
+    
+    const isConfigObject = options && typeof options === 'object' && !(options instanceof FormData) && !(options instanceof Array) && (
+        'data' in options || 
+        'params' in options || 
+        'headers' in options || 
+        'responseType' in options || 
+        'unwrap' in options
+    );
+
+    let clientConfig = {};
+    let unwrap = true;
+
+    if (isConfigObject) {
+        const { params, data, unwrap: userUnwrap = true, responseType, headers, ...rest } = options;
+        clientConfig = { params, data, responseType, headers, ...rest };
+        unwrap = userUnwrap;
+    } else {
+        const isGetOrDelete = normalizedMethod === 'get' || normalizedMethod === 'delete';
+        clientConfig = {
+            params: isGetOrDelete ? options : undefined,
+            data: !isGetOrDelete ? options : undefined,
+        };
+        unwrap = true;
+    }
 
     const client = getClient();
-    const normalizedMethod = String(method || 'get').toLowerCase();
 
     try {
         const response = await client.request({
             url,
             method: normalizedMethod,
-            params,
-            data,
-            responseType,
-            headers,
-            ...rest,
+            ...clientConfig,
         });
 
         if (responseType === 'blob') {

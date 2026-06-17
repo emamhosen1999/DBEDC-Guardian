@@ -1530,7 +1530,7 @@ const AttendanceSettings = () => {
                                             }}
                                         />
                                         
-                                        <Textarea
+                                        <TextArea
                                             key={`description-${editingType?.id}`}
                                             label="Description"
                                             name="description"

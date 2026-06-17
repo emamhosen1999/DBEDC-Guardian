@@ -423,7 +423,7 @@ const TrainingForm = ({
 
                             {/* Description */}
                             <div className="md:col-span-2">
-                                <Textarea
+                                <TextArea
                                     label="Description"
                                     placeholder="Enter training program description and objectives"
                                     value={formData.description}
@@ -440,7 +440,7 @@ const TrainingForm = ({
 
                             {/* Notes */}
                             <div className="md:col-span-2">
-                                <Textarea
+                                <TextArea
                                     label="Notes"
                                     placeholder="Additional notes or requirements"
                                     value={formData.notes}

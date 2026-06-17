@@ -311,8 +311,8 @@
       "_vendor-inertia-B_jPe_ra.js"
     ]
   },
-  "_client-CFe2EJ1h.js": {
-    "file": "assets/js/client-CFe2EJ1h.js",
+  "_client-DFoUewxW.js": {
+    "file": "assets/js/client-DFoUewxW.js",
     "name": "client",
     "imports": [
       "_vendor-utils-D6Wd6ilh.js"
@@ -414,14 +414,14 @@
       "_vendor-inertia-B_jPe_ra.js"
     ]
   },
-  "_useAttendanceQuery-D25srFwl.js": {
-    "file": "assets/js/useAttendanceQuery-D25srFwl.js",
+  "_useAttendanceQuery-CQgVdpwQ.js": {
+    "file": "assets/js/useAttendanceQuery-CQgVdpwQ.js",
     "name": "useAttendanceQuery",
     "imports": [
       "_useQuery-BdR4yhVR.js",
       "_QueryClientProvider-C_dOSkra.js",
       "_useMutation-CLV3Au9a.js",
-      "_client-CFe2EJ1h.js"
+      "_client-DFoUewxW.js"
     ]
   },
   "_useDepartmentsQuery-BRLJrlaU.js": {
@@ -1036,7 +1036,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-yhnmanxu.js",
+    "file": "assets/js/AttendancePage-B1y3N3yL.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1062,11 +1062,11 @@
       "_TileLayer-OsRTXKLT.js",
       "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx",
       "_TablePagination-Dht1Rjv7.js",
-      "_useAttendanceQuery-D25srFwl.js",
+      "_useAttendanceQuery-CQgVdpwQ.js",
       "_useQuery-BdR4yhVR.js",
       "_QueryClientProvider-C_dOSkra.js",
       "_useMutation-CLV3Au9a.js",
-      "_client-CFe2EJ1h.js"
+      "_client-DFoUewxW.js"
     ],
     "dynamicImports": [
       "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx",
@@ -1124,7 +1124,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab-vDeAzR6D.js",
+    "file": "assets/js/SettingsTab-B7DZVccn.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -1133,7 +1133,7 @@
       "_vendor-inertia-B_jPe_ra.js",
       "_react-icons.esm-BZz3CXXS.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "_useAttendanceQuery-D25srFwl.js",
+      "_useAttendanceQuery-CQgVdpwQ.js",
       "_leaflet-CpeWTaXg.js",
       "_TileLayer-OsRTXKLT.js",
       "_Marker-CyTy_h8R.js",
@@ -1141,11 +1141,11 @@
       "_useQuery-BdR4yhVR.js",
       "_QueryClientProvider-C_dOSkra.js",
       "_useMutation-CLV3Au9a.js",
-      "_client-CFe2EJ1h.js"
+      "_client-DFoUewxW.js"
     ]
   },
   "resources/js/Pages/AttendanceEmployee.jsx": {
-    "file": "assets/js/AttendanceEmployee-Dbl2fX9C.js",
+    "file": "assets/js/AttendanceEmployee-DdzYUjHo.js",
     "name": "AttendanceEmployee",
     "src": "resources/js/Pages/AttendanceEmployee.jsx",
     "isDynamicEntry": true,
@@ -1159,7 +1159,7 @@
       "_react-icons.esm-BZz3CXXS.js",
       "_ErrorBoundary-Cjt5z8KV.js",
       "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx",
-      "_useAttendanceQuery-D25srFwl.js",
+      "_useAttendanceQuery-CQgVdpwQ.js",
       "_vendor-utils-D6Wd6ilh.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_RadixThemeContext-CH4m0ZlT.js",
@@ -1169,7 +1169,7 @@
       "_useQuery-BdR4yhVR.js",
       "_QueryClientProvider-C_dOSkra.js",
       "_useMutation-CLV3Au9a.js",
-      "_client-CFe2EJ1h.js"
+      "_client-DFoUewxW.js"
     ]
   },
   "resources/js/Pages/Auth/ForgotPassword.jsx": {
@@ -1741,7 +1741,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-B82_aAW7.js",
+    "file": "assets/js/Index-D9l_x57f.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isDynamicEntry": true,
@@ -1764,7 +1764,7 @@
       "_RadixThemeContext-CH4m0ZlT.js",
       "_QueryClientProvider-C_dOSkra.js",
       "_useMutation-CLV3Au9a.js",
-      "_client-CFe2EJ1h.js",
+      "_client-DFoUewxW.js",
       "_useDisclosure-8BQ-qjUc.js",
       "_ShieldExclamationIcon-hiqp5JC-.js",
       "_XMarkIcon-CHdQB58D.js",
@@ -1884,7 +1884,7 @@
     ]
   },
   "resources/js/Pages/Settings/AttendanceSettings.jsx": {
-    "file": "assets/js/AttendanceSettings-DQvi0cEJ.js",
+    "file": "assets/js/AttendanceSettings-BOfWlesp.js",
     "name": "AttendanceSettings",
     "src": "resources/js/Pages/Settings/AttendanceSettings.jsx",
     "isDynamicEntry": true,
@@ -1896,7 +1896,7 @@
       "resources/js/Pages/UserDevices.jsx",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_vendor-utils-D6Wd6ilh.js",
-      "_useAttendanceQuery-D25srFwl.js",
+      "_useAttendanceQuery-CQgVdpwQ.js",
       "_leaflet-CpeWTaXg.js",
       "_leaflet-routing-machine-CqCZn3Dx.js",
       "_vendor-framer-D7rCJgbu.js",
@@ -1919,7 +1919,7 @@
       "_useQuery-BdR4yhVR.js",
       "_QueryClientProvider-C_dOSkra.js",
       "_useMutation-CLV3Au9a.js",
-      "_client-CFe2EJ1h.js"
+      "_client-DFoUewxW.js"
     ]
   },
   "resources/js/Pages/Settings/CompanySettings.jsx": {
@@ -2031,7 +2031,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-B-qBi7hY.js",
+    "file": "assets/js/app-BNM5VyBC.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
