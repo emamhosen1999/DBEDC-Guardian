@@ -646,22 +646,24 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
             ) : (
               <>
                 <div className="hidden lg:block">
-                  <Table removeWrapper aria-label="Detailed device history table">
-                    <TableHeader>
-                      <TableColumn>DEVICE</TableColumn>
-                      <TableColumn>FINGERPRINT</TableColumn>
-                      <TableColumn>NETWORK</TableColumn>
-                      <TableColumn>APP / OS</TableColumn>
-                      <TableColumn>STATUS & HISTORY</TableColumn>
-                      <TableColumn>ACTIONS</TableColumn>
-                    </TableHeader>
-                    <TableBody>
+                  <Table.Root variant="surface">
+                    <Table.Header>
+                      <Table.Row>
+                        <Table.ColumnHeaderCell>DEVICE</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>FINGERPRINT</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>NETWORK</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>APP / OS</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>STATUS & HISTORY</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>ACTIONS</Table.ColumnHeaderCell>
+                      </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
                       {filteredDevices.map((device) => {
                         const details = getDeviceDetails(device);
 
                         return (
-                          <TableRow key={device.id}>
-                            <TableCell>
+                          <Table.Row key={device.id}>
+                            <Table.Cell>
                               <div className="flex items-start gap-3">
                                 {getDeviceIcon(device)}
                                 <div>
@@ -674,9 +676,9 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                                   </p>
                                 </div>
                               </div>
-                            </TableCell>
+                            </Table.Cell>
 
-                            <TableCell>
+                            <Table.Cell>
                               <div className="space-y-1 text-xs">
                                 <p>
                                   HW: <span className="font-mono">{getShortText(details.hardwareId, 18)}</span>
@@ -692,26 +694,26 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                                   </p>
                                 </Tooltip>
                               </div>
-                            </TableCell>
+                            </Table.Cell>
 
-                            <TableCell>
+                            <Table.Cell>
                               <div className="space-y-1 text-xs">
                                 <p>IP: {getSafeText(device.ip_address)}</p>
                                 <Tooltip content={getSafeText(device.user_agent, 'No user agent recorded')}>
                                   <p className="max-w-[220px] truncate">UA: {getSafeText(device.user_agent, 'No user agent')}</p>
                                 </Tooltip>
                               </div>
-                            </TableCell>
+                            </Table.Cell>
 
-                            <TableCell>
+                            <Table.Cell>
                               <div className="space-y-1 text-xs">
                                 <p>OS: {details.osVersion}</p>
                                 <p>App: {details.appVersion}</p>
                                 <p>Build: {details.buildVersion}</p>
                               </div>
-                            </TableCell>
+                            </Table.Cell>
 
-                            <TableCell>
+                            <Table.Cell>
                               <div className="space-y-2">
                                 <div className="flex flex-wrap gap-2">
                                   <Badge
@@ -743,9 +745,9 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                                   <p>Registered: {formatRelative(device.created_at)}</p>
                                 </div>
                               </div>
-                            </TableCell>
+                            </Table.Cell>
 
-                            <TableCell>
+                            <Table.Cell>
                               <div className="flex flex-wrap gap-2">
                                 <Button
                                   size="sm"
@@ -769,12 +771,12 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                                   Deactivate
                                 </Button>
                               </div>
-                            </TableCell>
-                          </TableRow>
+                            </Table.Cell>
+                          </Table.Row>
                         );
                       })}
-                    </TableBody>
-                  </Table>
+                    </Table.Body>
+                  </Table.Root>
                 </div>
 
                 <div className="space-y-3 lg:hidden">
