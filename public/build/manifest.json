@@ -34,15 +34,15 @@
       "_index-waYSsIoM.js"
     ]
   },
-  "_BulkDeleteModal-Bsi0Dvzq.js": {
-    "file": "assets/js/BulkDeleteModal-Bsi0Dvzq.js",
+  "_BulkDeleteModal-Q_CTJWT6.js": {
+    "file": "assets/js/BulkDeleteModal-Q_CTJWT6.js",
     "name": "BulkDeleteModal",
     "imports": [
       "_vendor-radix-W2H-9_hK.js",
       "_vendor-inertia-B_jPe_ra.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "_react-icons.esm-BZz3CXXS.js",
-      "_vendor-utils-D6Wd6ilh.js"
+      "_vendor-utils-D6Wd6ilh.js",
+      "_react-icons.esm-BZz3CXXS.js"
     ]
   },
   "_ChartBarIcon-2Yzpa4Ut.js": {
@@ -2038,7 +2038,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-B_AlzJvz.js",
+    "file": "assets/js/app-BadIUm-I.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
