@@ -11,6 +11,7 @@ import { useForm } from '@inertiajs/react';
 import { showToast } from "@/utils/toastUtils";
 import DepartmentEmployeeSelector from "@/Components/DepartmentEmployeeSelector.jsx";
 import { usePage } from "@inertiajs/react";
+import axios from 'axios';
 
 const LeaveForm = ({
     open,
@@ -41,7 +42,10 @@ const LeaveForm = ({
     const [daysCount, setDaysCount] = useState(currentLeave?.no_of_days || '');
     const [remainingLeaves, setRemainingLeaves] = useState('');
 
-    const { data, setData, processing, errors, post, reset } = useForm({
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const processing = isSubmitting;
+
+    const { data, setData, errors, setError, clearErrors, reset } = useForm({
         leaveType: currentLeave?.leave_type || "",
         fromDate: currentLeave?.from_date ? currentLeave.from_date.split('T')[0] : '',
         toDate: currentLeave?.to_date ? currentLeave.to_date.split('T')[0] : '',
@@ -78,8 +82,10 @@ const LeaveForm = ({
         setRemainingLeaves(remaining);
     }, [data.leaveType, leaveTypes, leaveCounts]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
+        clearErrors();
 
         const payload = { 
             user_id, 
@@ -92,26 +98,40 @@ const LeaveForm = ({
         };
         if (currentLeave) payload.id = currentLeave.id;
 
-        const options = {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: (response) => {
-                setLeavesData(response.props.leavesData);
+        try {
+            const response = await axios.post(
+                route(currentLeave ? 'leave-update' : 'leave-add'), 
+                payload
+            );
+            if (response.status === 200 || response.status === 201) {
+                setLeavesData(response.data.leavesData);
                 
-                if (currentLeave && updateLeaveOptimized) updateLeaveOptimized(response.props.leave);
-                else if (addLeaveOptimized) addLeaveOptimized(response.props.leave);
+                if (currentLeave && updateLeaveOptimized) {
+                    updateLeaveOptimized(response.data.leave);
+                } else if (addLeaveOptimized) {
+                    addLeaveOptimized(response.data.leave);
+                }
                 
                 fetchLeavesStats();
-                showToast.success(response.props.message || 'Leave submitted successfully');
+                showToast.success(response.data.message || 'Leave submitted successfully');
                 closeModal();
                 reset();
-            },
-            onError: (errors) => {
-                showToast.error('Failed to submit application');
             }
-        };
-
-        post(route('leave-add'), payload, options);
+        } catch (error) {
+            if (error.response?.status === 422) {
+                const validationErrors = error.response.data.errors || {};
+                const flatErrors = {};
+                Object.keys(validationErrors).forEach(key => {
+                    flatErrors[key] = validationErrors[key][0];
+                });
+                setError(flatErrors);
+                showToast.error(error.response.data.message || 'Please check the form for errors');
+            } else {
+                showToast.error(error.response?.data?.message || 'Failed to submit application');
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
