@@ -383,79 +383,9 @@ RoutingMachine.displayName = 'RoutingMachine';
 
 
 // Enhanced User Markers Component
-const UserMarkers = React.memo(({ selectedDate, onUsersLoad, theme, lastUpdate, users, setUsers, setLoading, setError, setAttendanceTypeConfigs }) => {
+const UserMarkers = React.memo(({ selectedDate, theme, users }) => {
 
     const map = useMap();
-    const prevLocationsRef = useRef([]);
-
-    const fetchUserLocations = useCallback(async () => {
-        if (!selectedDate) {
-            setLoading(false);
-            setUsers([]);
-            setAttendanceTypeConfigs?.([]);
-            onUsersLoad?.([]);
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-
-        try {
-            const endpoint = route('getUserLocationsForDate', {
-                date: selectedDate,
-                _t: Date.now()
-            });
-
-            const response = await axios.get(endpoint);
-
-            const data = response.data;
-            if (!data.success || !Array.isArray(data.locations)) {
-                throw new Error('Unexpected response format from server.');
-            }
-
-            const locations = data.locations;
-            const typeConfigs = data.attendance_type_configs || [];
-
-            const hasChanges =
-                JSON.stringify(locations) !== JSON.stringify(prevLocationsRef.current);
-
-            if (hasChanges) {
-                setUsers(locations);
-                prevLocationsRef.current = locations;
-            }
-            
-            // Always update attendance type configs
-            setAttendanceTypeConfigs?.(typeConfigs);
-
-            onUsersLoad?.(locations);
-        } catch (error) {
-            let errorMsg = 'Error fetching user locations.';
-
-            if (error.response) {
-                errorMsg += ` Server error (${error.response.status}): ${error.response.statusText}`;
-                if (typeof error.response.data === 'object') {
-                    errorMsg += `\nDetails: ${JSON.stringify(error.response.data)}`;
-                }
-            } else if (error.request) {
-                errorMsg += ' No response received from server.';
-            } else if (error.message) {
-                errorMsg += ` ${error.message}`;
-            }
-
-            console.error(errorMsg, error);
-            setError(errorMsg);
-            setUsers([]);
-            onUsersLoad?.([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [selectedDate, onUsersLoad, lastUpdate]);
-
- // Add lastUpdate to dependencies
-
-    useEffect(() => {
-        fetchUserLocations();
-    }, [fetchUserLocations]);
 
     // Utility functions
     const getAdjustedPosition = useCallback((position, index) => {
@@ -1071,6 +1001,7 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
                 setMapKey(prev => prev + 1);
                 setLastChecked(new Date());
                 setLastUpdate(new Date());
+                setLoadingInitialized(true);
                 return;
             }
             const response = await fetch(endpoint);
@@ -1086,11 +1017,13 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
             setMapKey(prev => prev + 1);
             setLastChecked(new Date());
             setLastUpdate(new Date());
+            setLoadingInitialized(true);
         } catch (error) {
             console.error('Error refreshing map:', error);
             setUsers([]);
             setAttendanceTypeConfigs([]);
             prevUsersRef.current = [];
+            setLoadingInitialized(true);
         } finally {
             setLoading(false);
         }
@@ -1148,6 +1081,11 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
             console.error('Error checking for updates:', error);
             setLoading(false); // Ensure loading is set to false in case of error
         }
+    }, [selectedDate, handleRefresh]);
+
+    // Initial fetch when selectedDate changes
+    useEffect(() => {
+        handleRefresh();
     }, [selectedDate, handleRefresh]);
 
     // Set up polling for updates
@@ -1300,13 +1238,7 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
                                 />
                                 <UserMarkers
                                     users={users}
-                                    setUsers={setUsers}
-                                    setLoading={setLoading}
-                                    setError={setError}
-                                    setAttendanceTypeConfigs={setAttendanceTypeConfigs}
-                                    lastUpdate={lastUpdate}
                                     selectedDate={selectedDate}
-                                    onUsersLoad={handleUsersLoad}
                                     theme={null}
                                 />
                             </MapContainer>

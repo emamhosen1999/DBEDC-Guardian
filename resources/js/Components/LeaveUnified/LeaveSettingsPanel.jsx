@@ -19,6 +19,7 @@ import {
     CalendarIcon, PersonIcon, GearIcon,
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
+import { router } from '@inertiajs/react';
 import axios from 'axios';
 
 /* ── Confirm Modal ───────────────────────── */
@@ -131,8 +132,17 @@ export default function LeaveSettingsPanel({
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [deleteModal,   setDeleteModal]   = useState({ open: false, candidate: null });
     const [search,        setSearch]        = useState('');
+    const [isLoading,     setIsLoading]     = useState(false);
 
     useEffect(() => { setLeaveTypes(initialTypes); }, [initialTypes]);
+
+    const refetch = useCallback(() => {
+        setIsLoading(true);
+        router.reload({
+            only: ['leaveTypes'],
+            onFinish: () => setIsLoading(false),
+        });
+    }, []);
 
     /* Header Actions */
     useEffect(() => {
