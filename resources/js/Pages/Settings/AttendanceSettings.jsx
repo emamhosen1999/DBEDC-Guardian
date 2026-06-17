@@ -7,7 +7,7 @@ import {
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import useDisclosure from '@/Hooks/useDisclosure';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { Head, usePage } from "@inertiajs/react";
+import { Head, usePage, router } from "@inertiajs/react";
 import App from "@/Layouts/App";
 import { motion } from "framer-motion";
 
@@ -302,6 +302,19 @@ const AttendanceSettings = () => {
     // State management
     const [settings, setSettings] = useState(initialSettings || {});
     const [types, setTypes] = useState(initialTypes || []);
+
+    // Sync state with Inertia props when they change
+    useEffect(() => {
+        if (initialTypes) {
+            setTypes(initialTypes);
+        }
+    }, [initialTypes]);
+
+    useEffect(() => {
+        if (initialSettings) {
+            setSettings(initialSettings);
+        }
+    }, [initialSettings]);
     const [isMutating, setisMutating] = useState(false);
     const [typeisMutating, setTypeisMutating] = useState(false);
     const [editingType, setEditingType] = useState(null);
@@ -624,10 +637,19 @@ const AttendanceSettings = () => {
                     icon: editingType?.icon,
                 });
                 
-                const createdType = response?.attendanceType ?? response?.data?.attendanceType;
+                const createdType = response?.attendanceType ?? response?.data?.attendanceType ?? (response?.id ? response : null);
                 if (createdType) {
-                    setTypes(prev => [...prev, createdType]);
+                    setTypes(prev => {
+                        if (prev.some(t => t.id === createdType.id)) {
+                            return prev.map(t => t.id === createdType.id ? createdType : t);
+                        }
+                        return [...prev, createdType];
+                    });
+                    showToast.success(response?.message || response?.data?.message || 'Attendance type created successfully');
+                } else {
+                    console.warn('Created type not found in response payload:', response);
                     showToast.success(response?.message || 'Attendance type created successfully');
+                    router.reload({ only: ['attendanceTypes'] });
                 }
             }
             
