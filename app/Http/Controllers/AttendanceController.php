@@ -590,10 +590,23 @@ class AttendanceController extends Controller
 
     public function checkForLocationUpdates($date)
     {
-        return response()->json([
-            'updated' => false,
-            'timestamp' => now()->timestamp,
-        ]);
+        try {
+            $lastUpdate = Attendance::whereDate('date', $date)->max('updated_at');
+            $lastUpdateTime = $lastUpdate ? Carbon::parse($lastUpdate) : null;
+
+            return response()->json([
+                'success' => true,
+                'has_updates' => $lastUpdate !== null,
+                'last_updated' => $lastUpdateTime?->toIso8601String(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to check for location updates: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check for location updates.',
+            ], 500);
+        }
     }
 
     public function markAsPresent(Request $request): \Illuminate\Http\JsonResponse
@@ -655,10 +668,36 @@ class AttendanceController extends Controller
 
     public function checkTimesheetUpdates($date, $month = null)
     {
-        return response()->json([
-            'updated' => false,
-            'timestamp' => now()->timestamp,
-        ]);
+        try {
+            $query = Attendance::query()->whereDate('date', $date);
+
+            if ($month) {
+                $year = (int) substr($month, 0, 4);
+                $monthNumber = (int) substr($month, 5, 2);
+
+                $query->orWhere(function ($orQuery) use ($year, $monthNumber) {
+                    $orQuery->whereYear('date', $year)
+                        ->whereMonth('date', $monthNumber);
+                });
+            }
+
+            $lastUpdate = $query->max('updated_at');
+            $hasRecords = Attendance::query()->whereDate('date', $date)->exists();
+
+            return response()->json([
+                'success' => true,
+                'has_updates' => $lastUpdate !== null,
+                'has_records' => $hasRecords,
+                'last_updated' => $lastUpdate ? Carbon::parse($lastUpdate)->toIso8601String() : null,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to check for timesheet updates: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check for timesheet updates.',
+            ], 500);
+        }
     }
 
     public function exportDailyTimesheet(Request $request)
