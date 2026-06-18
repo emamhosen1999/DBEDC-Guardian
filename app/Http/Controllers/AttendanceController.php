@@ -389,6 +389,9 @@ class AttendanceController extends Controller
                 'per_page' => $perPage,
                 'date' => $date,
                 'scope' => 'self',
+                'currentMonth' => $request->query('currentMonth'),
+                'currentYear' => $request->query('currentYear'),
+                'employee' => $request->query('employee'),
             ];
 
             $result = $this->attendanceQueryService->getAttendanceHistory($userId, $filters);
