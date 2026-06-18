@@ -21,6 +21,7 @@ class Attendance extends Model implements HasMedia
         'punchout',
         'punchin_location',
         'punchout_location',
+        'symbol',
     ];
 
     protected $casts = [

@@ -473,6 +473,8 @@ class AttendanceController extends Controller
             $leaveUserColumn = null;
             if (Schema::hasColumn('leaves', 'user_id')) {
                 $leaveUserColumn = 'user_id';
+            } elseif (Schema::hasColumn('leaves', 'user')) {
+                $leaveUserColumn = 'user';
             } elseif (Schema::hasColumn('leaves', 'employee_id')) {
                 $leaveUserColumn = 'employee_id';
             }
