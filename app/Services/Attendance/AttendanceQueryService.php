@@ -64,6 +64,7 @@ class AttendanceQueryService
             'punches' => $punches,
             'total_production_time' => gmdate('H:i:s', $totalProductionTime),
             'isUserOnLeave' => $isUserOnLeave,
+            'is_user_on_leave' => $isUserOnLeave,
         ];
     }
 
@@ -81,10 +82,81 @@ class AttendanceQueryService
         $perPage = $filters['per_page'] ?? 10;
         $page = $filters['page'] ?? 1;
 
-        $paginator = $this->attendanceRepository->paginate($perPage, $filters);
+        $isTeam = ($filters['scope'] ?? 'self') === 'team';
+
+        $query = $this->attendanceRepository->query();
+        $query = $this->attendanceRepository->applyFilters($query, $filters);
+
+        // Remove ordering from query for counting/grouping to prevent SQL errors in some SQL modes/engines.
+        $query->getQuery()->orders = null;
+
+        if (!$isTeam) {
+            // Self scope: group by date
+            $paginator = $query->select('date')
+                ->groupBy('date')
+                ->orderBy('date', 'desc')
+                ->paginate($perPage);
+
+            $dates = collect($paginator->items())->pluck('date')->map(function ($d) {
+                return Carbon::parse($d)->toDateString();
+            })->all();
+
+            if (empty($dates)) {
+                $attendances = [];
+            } else {
+                $records = Attendance::query()
+                    ->with(['user.designation'])
+                    ->where('user_id', $userId)
+                    ->whereIn('date', $dates)
+                    ->orderBy('date', 'desc')
+                    ->orderBy('punchin', 'asc')
+                    ->get();
+
+                $attendances = $records->groupBy(function ($r) {
+                    return Carbon::parse($r->date)->toDateString();
+                })->map(function ($dayRecords, $dateStr) {
+                    return $this->formatGroupedAttendance($dayRecords, $dateStr);
+                })->values()->all();
+            }
+        } else {
+            // Team scope: group by user_id and date
+            $paginator = $query->select('user_id', 'date')
+                ->groupBy('user_id', 'date')
+                ->orderBy('date', 'desc')
+                ->orderBy('user_id', 'asc')
+                ->paginate($perPage);
+
+            $items = $paginator->items();
+            if (empty($items)) {
+                $attendances = [];
+            } else {
+                $recordsQuery = Attendance::query()->with(['user.designation']);
+                $recordsQuery->where(function ($q) use ($items) {
+                    foreach ($items as $item) {
+                        $q->orWhere(function ($sub) use ($item) {
+                            $dateStr = Carbon::parse($item->date)->toDateString();
+                            $sub->where('user_id', $item->user_id)
+                                ->where('date', $dateStr);
+                        });
+                    }
+                });
+                $records = $recordsQuery->orderBy('date', 'desc')
+                    ->orderBy('user_id', 'asc')
+                    ->orderBy('punchin', 'asc')
+                    ->get();
+
+                $attendances = $records->groupBy(function ($r) {
+                    return $r->user_id . '_' . Carbon::parse($r->date)->toDateString();
+                })->map(function ($userDayRecords) {
+                    $first = $userDayRecords->first();
+                    $dateStr = Carbon::parse($first->date)->toDateString();
+                    return $this->formatGroupedAttendance($userDayRecords, $dateStr);
+                })->values()->all();
+            }
+        }
 
         return [
-            'attendances' => $paginator->items(),
+            'attendances' => $attendances,
             'pagination' => [
                 'current_page' => $paginator->currentPage(),
                 'last_page' => $paginator->lastPage(),
@@ -93,6 +165,83 @@ class AttendanceQueryService
                 'from' => $paginator->firstItem(),
                 'to' => $paginator->lastItem(),
             ],
+        ];
+    }
+
+    /**
+     * Format grouped attendance records for a single day/user
+     */
+    private function formatGroupedAttendance($records, string $dateStr): array
+    {
+        $firstRecord = $records->first();
+        $user = $firstRecord?->user;
+        $sortedPunches = $records->sortBy('punchin')->values();
+
+        $totalWorkMinutes = 0;
+        $completePunches = 0;
+        $hasIncompletePunch = false;
+
+        $punches = $sortedPunches->map(function (Attendance $record) use (&$totalWorkMinutes, &$completePunches, &$hasIncompletePunch) {
+            $duration = null;
+            if ($record->punchin && $record->punchout) {
+                $punchIn = Carbon::parse($record->punchin);
+                $punchOut = Carbon::parse($record->punchout);
+
+                if ($punchOut->lt($punchIn)) {
+                    $punchOut->addDay();
+                }
+
+                $minutes = $punchIn->diffInMinutes($punchOut);
+                $totalWorkMinutes += $minutes;
+
+                $diffSeconds = $punchIn->diffInSeconds($punchOut);
+                $duration = gmdate('H:i:s', $diffSeconds);
+
+                $completePunches++;
+            } elseif ($record->punchin && ! $record->punchout) {
+                $hasIncompletePunch = true;
+            }
+
+            return [
+                'id' => $record->id,
+                'date' => $record->date instanceof Carbon ? $record->date->toDateString() : (string) $record->date,
+                'punch_in' => $record->punchin ? Carbon::parse($record->punchin)->format('H:i:s') : null,
+                'punch_out' => $record->punchout ? Carbon::parse($record->punchout)->format('H:i:s') : null,
+                'punchin_location' => $record->punchin_location_array,
+                'punchout_location' => $record->punchout_location_array,
+                'duration' => $duration,
+            ];
+        })->values();
+
+        $firstPunch = $sortedPunches->first();
+        $lastCompletePunch = $sortedPunches->whereNotNull('punchout')->last();
+
+        return [
+            'id' => $firstRecord?->id,
+            'user_id' => (int) ($user?->id ?? 0),
+            'user' => [
+                'id' => (int) ($user?->id ?? 0),
+                'name' => $user?->name,
+                'employee_id' => $user?->employee_id,
+                'phone' => $user?->phone,
+                'profile_image' => $user?->profile_image,
+                'profile_image_url' => $user?->profile_image_url,
+                'designation' => $user?->designation?->title,
+            ],
+            'date' => $dateStr,
+            'punchin_time' => $firstPunch?->punchin ? Carbon::parse($firstPunch->punchin)->format('H:i:s') : null,
+            'punchin_id' => $firstPunch?->id,
+            'punchout_time' => $lastCompletePunch?->punchout ? Carbon::parse($lastCompletePunch->punchout)->format('H:i:s') : null,
+            'punchout_id' => $sortedPunches->last()?->id,
+            'punchin_location' => $firstPunch?->punchin_location_array,
+            'punchout_location' => $lastCompletePunch?->punchout_location_array,
+            'total_work_minutes' => round($totalWorkMinutes, 2),
+            'punch_count' => $records->count(),
+            'complete_punches' => $completePunches,
+            'has_incomplete_punch' => $hasIncompletePunch,
+            'first_punch_date' => $firstRecord?->date instanceof Carbon ? $firstRecord->date->toDateString() : (string) $firstRecord?->date,
+            'last_punch_date' => $sortedPunches->last()?->date instanceof Carbon ? $sortedPunches->last()->date->toDateString() : (string) $sortedPunches->last()?->date,
+            'punches' => $punches,
         ];
     }
 

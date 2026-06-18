@@ -44,8 +44,11 @@ class AttendanceRepository extends BaseRepository
             $query->where('date', '<=', $filters['to_date']);
         }
 
-        // Filter by specific date
-        if (isset($filters['date'])) {
+        // Filter by month and year, prioritizing them over date parameter
+        if (!empty($filters['currentMonth']) && !empty($filters['currentYear'])) {
+            $query->whereYear('date', $filters['currentYear'])
+                  ->whereMonth('date', $filters['currentMonth']);
+        } elseif (isset($filters['date'])) {
             $query->where('date', $filters['date']);
         }
 
@@ -70,11 +73,6 @@ class AttendanceRepository extends BaseRepository
             } elseif ($filters['status'] === 'absent') {
                 $query->whereNull('punchin');
             }
-        }
-
-        // Filter by late arrival
-        if (isset($filters['is_late'])) {
-            $query->where('is_late', $filters['is_late']);
         }
 
         // Apply relationships
@@ -161,7 +159,34 @@ class AttendanceRepository extends BaseRepository
         $totalDays = $attendances->count();
         $presentDays = $attendances->whereNotNull('punchin')->count();
         $absentDays = $totalDays - $presentDays;
-        $lateDays = $attendances->where('is_late', true)->count();
+
+        $officeStartTime = '09:00:00';
+        $lateGraceMinutes = 15;
+        if (\Illuminate\Support\Facades\Schema::hasTable('attendance_settings')) {
+            $settings = \Illuminate\Support\Facades\DB::table('attendance_settings')
+                ->select('office_start_time', 'late_mark_after')
+                ->first();
+            if ($settings) {
+                $officeStartTime = $settings->office_start_time ?: $officeStartTime;
+                $lateGraceMinutes = is_numeric($settings->late_mark_after)
+                    ? (int) $settings->late_mark_after
+                    : $lateGraceMinutes;
+            }
+        }
+
+        $lateDays = 0;
+        $grouped = $attendances->groupBy('date');
+        foreach ($grouped as $date => $dayRecords) {
+            $firstPunch = $dayRecords->sortBy('punchin')->first();
+            if ($firstPunch && $firstPunch->punchin) {
+                $punchInTime = Carbon::parse($firstPunch->punchin)->format('H:i:s');
+                $lateThreshold = Carbon::parse($date . ' ' . $officeStartTime)->addMinutes($lateGraceMinutes);
+                $punchInAt = Carbon::parse($date . ' ' . $punchInTime);
+                if ($punchInAt->gt($lateThreshold)) {
+                    $lateDays++;
+                }
+            }
+        }
 
         return [
             'total_days' => $totalDays,
