@@ -213,16 +213,12 @@ class AttendanceReportService
         bool $isGlobalScope,
         ?int $userId
     ): array {
-        // TODO(attendance-phase-2): This still derives late/OT/working-days from the GLOBAL
-        // AttendanceSetting (office_start_time, hardcoded 480-min OT, global weekend_days),
-        // NOT the shift-aware AttendanceStatusService/ScheduleResolver. Monthly stats will
-        // diverge from the shift-aware Daily Overview once non-default shifts are in use.
-        // Migrate this to ScheduleResolver + AttendanceStatusService (see getDailyOverviewStats).
+        // Shift-aware engine services
+        $resolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
+        $statusEngine = app(\App\Services\Attendance\AttendanceStatusService::class);
 
         // SETTINGS & DATES
         $settings = AttendanceSetting::first();
-        $officeStart = Carbon::parse($settings->office_start_time ?? '09:00:00');
-        $lateGraceMins = $settings->late_mark_after ?? 15;
         $weekendDays = $settings->weekend_days ?? ['saturday', 'sunday'];
 
         $startOfMonth = Carbon::create($currentYear, $currentMonth, 1)->startOfDay();
@@ -299,30 +295,17 @@ class AttendanceReportService
                 $usersWithPerfectAttendance++;
             }
 
-            // Calculate Lates & Hours
-            foreach ($userRecords as $record) {
-                // Late Check
-                if ($record->punchin) {
-                    $punchIn = Carbon::parse($record->punchin);
-                    $dateStr = $punchIn->format('Y-m-d');
-                    $threshold = Carbon::parse("$dateStr ".$officeStart->format('H:i:s'))->addMinutes($lateGraceMins);
-                    if ($punchIn->gt($threshold)) {
-                        $totalLateArrivals++;
-                    }
-                }
+            // Calculate Lates & Hours using shift-aware engine
+            $byDay = $userRecords->groupBy(fn ($r) => Carbon::parse($r->date)->toDateString());
+            foreach ($byDay as $dayStr => $dayRecords) {
+                $shift = $resolver->resolve((int) $uId, Carbon::parse($dayStr));
+                $day = $statusEngine->resolve($dayRecords, $shift);
 
-                // Hours Calculation
-                if ($record->punchin && $record->punchout) {
-                    $in = Carbon::parse($record->punchin);
-                    $out = Carbon::parse($record->punchout);
-                    $minutes = $in->diffInMinutes($out);
-                    $totalWorkMinutes += $minutes;
-
-                    // Daily Overtime (> 8 hours)
-                    if ($minutes > 480) {
-                        $totalOvertimeMinutes += ($minutes - 480);
-                    }
+                if ($day->late_minutes > 0) {
+                    $totalLateArrivals++;
                 }
+                $totalWorkMinutes += $day->worked_minutes;
+                $totalOvertimeMinutes += $day->ot_minutes;
             }
         }
 
