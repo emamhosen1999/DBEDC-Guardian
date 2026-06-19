@@ -74,10 +74,11 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $user ? $user->roles->pluck('name')->toArray() : [],
                 'permissions' => $user ? $user->getAllPermissions()->pluck('name')->toArray() : [],
                 'designation' => $userWithRelations?->designation?->title,
-                // Module-based navigation from Module Permission Registry
-                'accessibleModules' => fn () => $user
-                    ? app(ModulePermissionService::class)->getNavigationForUser($user)
-                    : [],
+                // Navigation is built client-side from resources/js/Props/pages.jsx (see Layouts/App.jsx).
+                // The legacy DB-driven Module Permission Registry nav is disabled: as a bare Inertia v2
+                // closure it was evaluated eagerly on every request, causing a LazyLoadingViolation in dev
+                // (SubModule->module) and an N+1 over the module tree in prod. Kept as [] for consumers.
+                'accessibleModules' => [],
             ],
 
             // Company Settings

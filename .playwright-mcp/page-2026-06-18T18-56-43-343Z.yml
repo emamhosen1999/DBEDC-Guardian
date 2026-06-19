@@ -1,0 +1,467 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e61]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e63]:
+      - generic [ref=e64]:
+        - img "DBEDC" [ref=e66]
+        - generic [ref=e67]:
+          - generic [ref=e68]: DBEDC
+          - generic [ref=e69]: DBEDC Guardian
+      - generic [ref=e71]:
+        - textbox "Search navigation…" [ref=e72]
+        - img [ref=e74]
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - img [ref=e81]
+          - generic [ref=e83]: Main
+        - link "Dashboard" [ref=e86] [cursor=pointer]:
+          - /url: http://localhost:8000/dashboard
+          - generic [ref=e87]:
+            - img [ref=e89]
+            - generic [ref=e91]: Dashboard
+        - generic [ref=e92]:
+          - button "Workspace 4" [ref=e93] [cursor=pointer]:
+            - img [ref=e95]
+            - generic [ref=e97]: Workspace
+            - generic [ref=e98]: "4"
+            - img [ref=e99]
+          - generic [ref=e103]:
+            - link "Daily Works" [ref=e105] [cursor=pointer]:
+              - /url: http://localhost:8000/daily-works-unified
+              - generic [ref=e106]:
+                - img [ref=e108]
+                - generic [ref=e110]: Daily Works
+            - link "My Attendance" [ref=e112] [cursor=pointer]:
+              - /url: http://localhost:8000/attendance-employee
+              - generic [ref=e113]:
+                - img [ref=e115]
+                - generic [ref=e117]: My Attendance
+            - link "My Leaves" [ref=e119] [cursor=pointer]:
+              - /url: http://localhost:8000/leaves-employee
+              - generic [ref=e120]:
+                - img [ref=e122]
+                - generic [ref=e124]: My Leaves
+            - link "Petty Cash" [ref=e126] [cursor=pointer]:
+              - /url: http://localhost:8000/petty-cash
+              - generic [ref=e127]:
+                - img [ref=e129]
+                - generic [ref=e131]: Petty Cash
+        - generic [ref=e132]:
+          - button "Workforce 2" [ref=e134] [cursor=pointer]:
+            - img [ref=e136]
+            - generic [ref=e138]: Workforce
+            - generic [ref=e139]: "2"
+            - img [ref=e140]
+          - generic [ref=e144]:
+            - link "Organization" [ref=e146] [cursor=pointer]:
+              - /url: http://localhost:8000/organization
+              - generic [ref=e147]:
+                - img [ref=e149]
+                - generic [ref=e151]: Organization
+            - generic [ref=e152]:
+              - button "Time/Attendance 3" [ref=e154] [cursor=pointer]:
+                - img [ref=e156]
+                - generic [ref=e158]: Time/Attendance
+                - generic [ref=e159]: "3"
+                - img [ref=e160]
+              - generic [ref=e164]:
+                - link "Attendances" [ref=e167] [cursor=pointer]:
+                  - /url: http://localhost:8000/attendance
+                  - generic [ref=e168]:
+                    - img [ref=e170]
+                    - generic [ref=e172]: Attendances
+                - link "Holidays" [ref=e174] [cursor=pointer]:
+                  - /url: http://localhost:8000/holidays
+                  - generic [ref=e175]:
+                    - img [ref=e177]
+                    - generic [ref=e179]: Holidays
+                - link "Leave Management" [ref=e181] [cursor=pointer]:
+                  - /url: http://localhost:8000/leaves
+                  - generic [ref=e182]:
+                    - img [ref=e184]
+                    - generic [ref=e186]: Leave Management
+        - generic [ref=e187]:
+          - button "Admin 4" [ref=e188] [cursor=pointer]:
+            - img [ref=e190]
+            - generic [ref=e193]: Admin
+            - generic [ref=e194]: "4"
+            - img [ref=e195]
+          - generic [ref=e197]:
+            - link "Users/Roles" [ref=e199] [cursor=pointer]:
+              - /url: http://localhost:8000/users
+              - generic [ref=e200]:
+                - img [ref=e202]
+                - generic [ref=e204]: Users/Roles
+            - link "Company Details" [ref=e206] [cursor=pointer]:
+              - /url: http://localhost:8000/company-settings
+              - generic [ref=e207]:
+                - img [ref=e209]
+                - generic [ref=e211]: Company Details
+            - link "Request Logs" [ref=e213] [cursor=pointer]:
+              - /url: http://localhost:8000/settings/request-logs
+              - generic [ref=e214]:
+                - img [ref=e216]
+                - generic [ref=e218]: Request Logs
+            - link "Monitoring" [ref=e220] [cursor=pointer]:
+              - /url: http://localhost:8000/admin/system-monitoring
+              - generic [ref=e221]:
+                - img [ref=e223]
+                - generic [ref=e225]: Monitoring
+      - generic [ref=e227]:
+        - generic [ref=e230]: E
+        - generic [ref=e232]:
+          - generic [ref=e233]: Emam Hosen
+          - generic [ref=e234]: Monitoring Center Manager
+        - generic [ref=e235]: 4.0.9
+    - generic [ref=e236]:
+      - generic [ref=e237]:
+        - button "Toggle sidebar" [ref=e238]:
+          - img [ref=e239]
+        - generic [ref=e242]: Attendance
+        - button "Open search" [ref=e244]:
+          - img [ref=e245]
+          - generic [ref=e247]: Search…
+          - generic [ref=e248]: Ctrl+K
+        - generic [ref=e249]:
+          - button "Toggle appearance" [ref=e250]:
+            - img [ref=e251]
+          - button "Theme settings" [ref=e253]:
+            - img [ref=e254]
+          - button "Change language" [ref=e256]
+          - button "Notifications" [ref=e259]:
+            - img [ref=e260]
+          - button "User menu" [ref=e262] [cursor=pointer]:
+            - generic [ref=e265]: E
+            - generic [ref=e267]:
+              - generic [ref=e268]: Good morning
+              - generic [ref=e269]: Emam Hosen
+      - navigation "Breadcrumb" [ref=e270]:
+        - generic [ref=e271]:
+          - generic [ref=e272]:
+            - img [ref=e274]
+            - link "Home" [ref=e276] [cursor=pointer]:
+              - /url: http://localhost:8000/dashboard
+          - generic [ref=e277]: /
+          - generic [ref=e278]:
+            - img [ref=e280]
+            - generic [ref=e282]: Workforce
+          - generic [ref=e283]: /
+          - generic [ref=e284]:
+            - img [ref=e286]
+            - generic [ref=e288]: Time/Attendance
+          - generic [ref=e289]: /
+          - generic [ref=e290]:
+            - img [ref=e292]
+            - generic [ref=e294]: Attendances
+      - main "Main content" [ref=e295]:
+        - generic [ref=e299]:
+          - generic [ref=e302]:
+            - img [ref=e304]
+            - generic [ref=e306]:
+              - generic [ref=e307]: Attendance
+              - generic [ref=e308]: Daily timesheet, monthly calendar and settings
+          - generic [ref=e315]:
+            - generic [ref=e317]:
+              - generic [ref=e318]:
+                - img [ref=e320]
+                - heading "Present" [level=1] [ref=e322]
+              - generic [ref=e510]: "16"
+            - generic [ref=e326]:
+              - generic [ref=e327]:
+                - img [ref=e329]
+                - heading "Absent" [level=1] [ref=e331]
+              - generic [ref=e512]: "11"
+            - generic [ref=e335]:
+              - generic [ref=e336]:
+                - img [ref=e338]
+                - heading "Late (After 9AM)" [level=1] [ref=e340]
+              - generic [ref=e514]: "13"
+            - generic [ref=e344]:
+              - generic [ref=e345]:
+                - img [ref=e347]
+                - heading "On Leave" [level=1] [ref=e349]
+              - generic [ref=e516]: "1"
+          - generic [ref=e353]:
+            - tablist [ref=e354]:
+              - tab "Daily Timesheet" [ref=e355]:
+                - generic [ref=e357]:
+                  - img [ref=e358]
+                  - generic [ref=e360]: Daily Timesheet
+              - tab "Monthly Calendar" [ref=e361]:
+                - generic [ref=e363]:
+                  - img [ref=e364]
+                  - generic [ref=e366]: Monthly Calendar
+              - tab "Settings" [active] [selected] [ref=e367]:
+                - generic [ref=e369]:
+                  - img [ref=e370]
+                  - generic [ref=e372]: Settings
+            - tabpanel "Settings" [ref=e621]:
+              - generic [ref=e622]:
+                - generic [ref=e623]:
+                  - generic [ref=e624]:
+                    - img [ref=e625]
+                    - generic [ref=e627]: General Settings
+                  - generic [ref=e629]:
+                    - generic [ref=e630]:
+                      - generic [ref=e631]:
+                        - img [ref=e632]
+                        - generic [ref=e634]: Office Timing
+                      - generic [ref=e635]:
+                        - generic [ref=e636]:
+                          - generic [ref=e637]: Start Time
+                          - textbox [ref=e639]: 09:00
+                        - generic [ref=e640]:
+                          - generic [ref=e641]: End Time
+                          - textbox [ref=e643]: 17:00
+                        - generic [ref=e644]:
+                          - generic [ref=e645]: Break Duration (min)
+                          - spinbutton [ref=e647]: "60"
+                    - generic [ref=e648]:
+                      - generic [ref=e649]:
+                        - img [ref=e650]
+                        - generic [ref=e652]: Attendance Policies
+                      - generic [ref=e653]:
+                        - generic [ref=e654]:
+                          - generic [ref=e655]:
+                            - generic [ref=e656]: Late Mark After (min)
+                            - spinbutton [ref=e658]: "30"
+                          - generic [ref=e659]:
+                            - generic [ref=e660]: Early Leave Before (min)
+                            - spinbutton [ref=e662]: "30"
+                          - generic [ref=e663]:
+                            - generic [ref=e664]: Overtime After (min)
+                            - spinbutton [ref=e666]: "30"
+                        - generic [ref=e668] [cursor=pointer]:
+                          - checkbox [ref=e669]
+                          - checkbox
+                          - generic [ref=e670]: Enable Auto Punch Out
+                    - generic [ref=e671]:
+                      - generic [ref=e672]:
+                        - img [ref=e673]
+                        - generic [ref=e675]: Weekend Days
+                      - generic [ref=e676]:
+                        - generic [ref=e677] [cursor=pointer]:
+                          - checkbox [checked] [ref=e678]:
+                            - img
+                          - checkbox [checked]
+                          - generic [ref=e679]: friday
+                        - generic [ref=e680] [cursor=pointer]:
+                          - checkbox [ref=e681]
+                          - checkbox
+                          - generic [ref=e682]: saturday
+                        - generic [ref=e683] [cursor=pointer]:
+                          - checkbox [ref=e684]
+                          - checkbox
+                          - generic [ref=e685]: sunday
+                    - button "Save Settings" [ref=e687]
+                - generic [ref=e689]:
+                  - generic [ref=e690]:
+                    - generic [ref=e691]:
+                      - img [ref=e692]
+                      - generic [ref=e694]: Attendance Types
+                    - generic [ref=e695]:
+                      - textbox "Search types…" [ref=e696]
+                      - img [ref=e698]
+                  - generic [ref=e700]:
+                    - generic [ref=e701]:
+                      - generic [ref=e702] [cursor=pointer]:
+                        - generic [ref=e703]:
+                          - img [ref=e705]
+                          - generic [ref=e710]:
+                            - text: Geo Polygon
+                            - generic [ref=e711]:
+                              - generic [ref=e712]: 2 configs
+                              - generic [ref=e713]: 2 active
+                        - generic [ref=e714]:
+                          - button "Add" [ref=e715]:
+                            - img [ref=e716]
+                            - text: Add
+                          - generic [ref=e718]: ▲
+                      - table [ref=e725]:
+                        - rowgroup [ref=e726]:
+                          - row "Name Description Status Actions" [ref=e727]:
+                            - columnheader "Name" [ref=e728]
+                            - columnheader "Description" [ref=e729]
+                            - columnheader "Status" [ref=e730]
+                            - columnheader "Actions" [ref=e731]
+                        - rowgroup [ref=e732]:
+                          - row "K26 Office - Geo — Active" [ref=e733]:
+                            - cell "K26 Office - Geo" [ref=e734]
+                            - cell "—" [ref=e735]
+                            - cell "Active" [ref=e736]:
+                              - generic [ref=e737]:
+                                - img [ref=e738]
+                                - text: Active
+                            - cell [ref=e740]:
+                              - generic [ref=e741]:
+                                - button [ref=e742]:
+                                  - img [ref=e743]
+                                - button [ref=e745]:
+                                  - img [ref=e746]
+                                - button [ref=e751]:
+                                  - img [ref=e752]
+                          - row "K1 - 48 Geo — Active" [ref=e754]:
+                            - cell "K1 - 48 Geo" [ref=e755]
+                            - cell "—" [ref=e756]
+                            - cell "Active" [ref=e757]:
+                              - generic [ref=e758]:
+                                - img [ref=e759]
+                                - text: Active
+                            - cell [ref=e761]:
+                              - generic [ref=e762]:
+                                - button [ref=e763]:
+                                  - img [ref=e764]
+                                - button [ref=e766]:
+                                  - img [ref=e767]
+                                - button [ref=e772]:
+                                  - img [ref=e773]
+                    - generic [ref=e775]:
+                      - generic [ref=e776] [cursor=pointer]:
+                        - generic [ref=e777]:
+                          - img [ref=e779]
+                          - generic [ref=e781]:
+                            - text: WiFi / IP
+                            - generic [ref=e782]:
+                              - generic [ref=e783]: 3 configs
+                              - generic [ref=e784]: 3 active
+                        - generic [ref=e785]:
+                          - button "Add" [ref=e786]:
+                            - img [ref=e787]
+                            - text: Add
+                          - generic [ref=e789]: ▲
+                      - table [ref=e796]:
+                        - rowgroup [ref=e797]:
+                          - row "Name Description Status Actions" [ref=e798]:
+                            - columnheader "Name" [ref=e799]
+                            - columnheader "Description" [ref=e800]
+                            - columnheader "Status" [ref=e801]
+                            - columnheader "Actions" [ref=e802]
+                        - rowgroup [ref=e803]:
+                          - row "K-26 Office - IP — Active" [ref=e804]:
+                            - cell "K-26 Office - IP" [ref=e805]
+                            - cell "—" [ref=e806]
+                            - cell "Active" [ref=e807]:
+                              - generic [ref=e808]:
+                                - img [ref=e809]
+                                - text: Active
+                            - cell [ref=e811]:
+                              - generic [ref=e812]:
+                                - button [ref=e813]:
+                                  - img [ref=e814]
+                                - button [ref=e816]:
+                                  - img [ref=e817]
+                          - row "Dhaka Office Dhaka office IP in Baridhar Active" [ref=e819]:
+                            - cell "Dhaka Office" [ref=e820]
+                            - cell "Dhaka office IP in Baridhar" [ref=e821]
+                            - cell "Active" [ref=e822]:
+                              - generic [ref=e823]:
+                                - img [ref=e824]
+                                - text: Active
+                            - cell [ref=e826]:
+                              - generic [ref=e827]:
+                                - button [ref=e828]:
+                                  - img [ref=e829]
+                                - button [ref=e831]:
+                                  - img [ref=e832]
+                          - row "Monitoring Center - IP — Active" [ref=e834]:
+                            - cell "Monitoring Center - IP" [ref=e835]
+                            - cell "—" [ref=e836]
+                            - cell "Active" [ref=e837]:
+                              - generic [ref=e838]:
+                                - img [ref=e839]
+                                - text: Active
+                            - cell [ref=e841]:
+                              - generic [ref=e842]:
+                                - button [ref=e843]:
+                                  - img [ref=e844]
+                                - button [ref=e846]:
+                                  - img [ref=e847]
+                    - generic [ref=e849]:
+                      - generic [ref=e850] [cursor=pointer]:
+                        - generic [ref=e851]:
+                          - img [ref=e853]
+                          - generic [ref=e855]:
+                            - text: Route Waypoint
+                            - generic [ref=e856]:
+                              - generic [ref=e857]: 1 config
+                              - generic [ref=e858]: 1 active
+                        - generic [ref=e859]:
+                          - button "Add" [ref=e860]:
+                            - img [ref=e861]
+                            - text: Add
+                          - generic [ref=e863]: ▲
+                      - table [ref=e870]:
+                        - rowgroup [ref=e871]:
+                          - row "Name Description Status Actions" [ref=e872]:
+                            - columnheader "Name" [ref=e873]
+                            - columnheader "Description" [ref=e874]
+                            - columnheader "Status" [ref=e875]
+                            - columnheader "Actions" [ref=e876]
+                        - rowgroup [ref=e877]:
+                          - row "K0-48 - Route — Active" [ref=e878]:
+                            - cell "K0-48 - Route" [ref=e879]
+                            - cell "—" [ref=e880]
+                            - cell "Active" [ref=e881]:
+                              - generic [ref=e882]:
+                                - img [ref=e883]
+                                - text: Active
+                            - cell [ref=e885]:
+                              - generic [ref=e886]:
+                                - button [ref=e887]:
+                                  - img [ref=e888]
+                                - button [ref=e890]:
+                                  - img [ref=e891]
+                                - button [ref=e893]:
+                                  - img [ref=e894]
+                    - generic [ref=e896]:
+                      - generic [ref=e897] [cursor=pointer]:
+                        - generic [ref=e898]:
+                          - img [ref=e900]
+                          - generic [ref=e902]:
+                            - text: QR Code
+                            - generic [ref=e903]:
+                              - generic [ref=e904]: 0 configs
+                              - generic [ref=e905]: 0 active
+                        - generic [ref=e906]:
+                          - button "Add" [ref=e907]:
+                            - img [ref=e908]
+                            - text: Add
+                          - generic [ref=e910]: ▲
+                      - generic [ref=e913]:
+                        - generic [ref=e914]: No qr code types yet.
+                        - generic [ref=e915]: Click Add above to create one.
+                    - generic [ref=e916]:
+                      - generic [ref=e917] [cursor=pointer]:
+                        - generic [ref=e918]:
+                          - img [ref=e920]
+                          - generic [ref=e922]:
+                            - text: Biometric
+                            - generic [ref=e923]:
+                              - generic [ref=e924]: 1 config
+                              - generic [ref=e925]: 1 active
+                              - generic [ref=e926]: read-only
+                        - generic [ref=e928]: ▲
+                      - generic [ref=e929]:
+                        - paragraph [ref=e931]: Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.
+                        - table [ref=e936]:
+                          - rowgroup [ref=e937]:
+                            - row "Name Status Assigned Devices" [ref=e938]:
+                              - columnheader "Name" [ref=e939]
+                              - columnheader "Status" [ref=e940]
+                              - columnheader "Assigned Devices" [ref=e941]
+                          - rowgroup [ref=e942]:
+                            - row "Biometric Device ZKTeco biometric device attendance via push webhook. Active K26 Office - MB460 — 4th Floor" [ref=e943]:
+                              - cell "Biometric Device ZKTeco biometric device attendance via push webhook." [ref=e944]:
+                                - text: Biometric Device
+                                - generic [ref=e945]: ZKTeco biometric device attendance via push webhook.
+                              - cell "Active" [ref=e946]:
+                                - generic [ref=e947]:
+                                  - img [ref=e948]
+                                  - text: Active
+                              - cell "K26 Office - MB460 — 4th Floor" [ref=e950]:
+                                - generic [ref=e952]: K26 Office - MB460 — 4th Floor
+    - button "Open theme settings" [ref=e506]:
+      - img [ref=e507]

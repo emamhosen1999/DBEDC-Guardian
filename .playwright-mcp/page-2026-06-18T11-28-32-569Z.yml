@@ -1,0 +1,289 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img [ref=e8]
+        - generic [ref=e10]: Internal Server Error
+      - button [ref=e13] [cursor=pointer]:
+        - img [ref=e14]
+  - main [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e21]: Illuminate\Database\LazyLoadingViolationException
+          - generic [ref=e22]: Attempted to lazy load [module] on model [App\Models\SubModule] but lazy loading is disabled.
+        - generic [ref=e23]:
+          - generic [ref=e25]: GET localhost:8000
+          - generic [ref=e26]: PHP 8.3.30 — Laravel 11.51.0
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e33]: C:\laragon\www\Aero-Enterprise-Suite\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Concerns\HasAttributes.php :595
+          - code [ref=e36]:
+            - table [ref=e37]:
+              - rowgroup [ref=e38]:
+                - row "590" [ref=e39]:
+                  - cell "590" [ref=e40]:
+                    - generic [ref=e41]: "590"
+                  - cell [ref=e42]
+                - 'row "591 if (! $this->exists || $this->wasRecentlyCreated) {" [ref=e43]':
+                  - cell "591" [ref=e44]:
+                    - generic [ref=e45]: "591"
+                  - 'cell "if (! $this->exists || $this->wasRecentlyCreated) {" [ref=e46]'
+                - row "592 return;" [ref=e47]:
+                  - cell "592" [ref=e48]:
+                    - generic [ref=e49]: "592"
+                  - cell "return;" [ref=e50]
+                - 'row "593 }" [ref=e51]':
+                  - cell "593" [ref=e52]:
+                    - generic [ref=e53]: "593"
+                  - 'cell "}" [ref=e54]'
+                - row "594" [ref=e55]:
+                  - cell "594" [ref=e56]:
+                    - generic [ref=e57]: "594"
+                  - cell [ref=e58]
+                - row "595 throw new LazyLoadingViolationException($this, $key);" [ref=e59]:
+                  - cell "595" [ref=e60]:
+                    - generic [ref=e61]: "595"
+                  - cell "throw new LazyLoadingViolationException($this, $key);" [ref=e62]
+                - 'row "596 }" [ref=e63]':
+                  - cell "596" [ref=e64]:
+                    - generic [ref=e65]: "596"
+                  - 'cell "}" [ref=e66]'
+                - row "597" [ref=e67]:
+                  - cell "597" [ref=e68]:
+                    - generic [ref=e69]: "597"
+                  - cell [ref=e70]
+                - row "598 /**" [ref=e71]:
+                  - cell "598" [ref=e72]:
+                    - generic [ref=e73]: "598"
+                  - cell "/**" [ref=e74]:
+                    - generic [ref=e75]: /**
+                - row "599 * Get a relationship value from a method." [ref=e76]:
+                  - cell "599" [ref=e77]:
+                    - generic [ref=e78]: "599"
+                  - cell "* Get a relationship value from a method." [ref=e79]
+                - row "600 *" [ref=e80]:
+                  - cell "600" [ref=e81]:
+                    - generic [ref=e82]: "600"
+                  - cell "*" [ref=e83]
+                - row "601 * @param string $method" [ref=e84]:
+                  - cell "601" [ref=e85]:
+                    - generic [ref=e86]: "601"
+                  - cell "* @param string $method" [ref=e87]:
+                    - generic [ref=e88]: "* @param string $method"
+                - row "602 * @return mixed" [ref=e89]:
+                  - cell "602" [ref=e90]:
+                    - generic [ref=e91]: "602"
+                  - cell "* @return mixed" [ref=e92]:
+                    - generic [ref=e93]: "* @return mixed"
+                - row "603 *" [ref=e94]:
+                  - cell "603" [ref=e95]:
+                    - generic [ref=e96]: "603"
+                  - cell "*" [ref=e97]
+                - row "604 * @throws \\LogicException" [ref=e98]:
+                  - cell "604" [ref=e99]:
+                    - generic [ref=e100]: "604"
+                  - cell "* @throws \\LogicException" [ref=e101]:
+                    - generic [ref=e102]: "* @throws \\LogicException"
+                - row "605 */" [ref=e103]:
+                  - cell "605" [ref=e104]:
+                    - generic [ref=e105]: "605"
+                  - cell "*/" [ref=e106]
+                - row "606 protected function getRelationshipFromMethod($method)" [ref=e107]:
+                  - cell "606" [ref=e108]:
+                    - generic [ref=e109]: "606"
+                  - cell "protected function getRelationshipFromMethod($method)" [ref=e110]:
+                    - text: protected
+                    - generic [ref=e111]:
+                      - text: function getRelationshipFromMethod(
+                      - generic [ref=e112]: $method
+                      - text: )
+                - row "607" [ref=e113]:
+                  - cell "607" [ref=e114]:
+                    - generic [ref=e115]: "607"
+                  - cell [ref=e116]
+        - text: 549 550 551 552 553 554 555 556 557 558 559 560 561 562 563 564 565 566 480 481 482 483 484 485 486 487 488 489 490 491 492 493 494 495 496 2255 2256 2257 2258 2259 2260 2261 2262 2263 2264 2265 2266 2267 2268 2269 2270 2271 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 925 926 927 928 929 930 931 932 933 934 935 936 937 938 939 940 941 394 395 396 397 398 399 400 401 402 403 404 405 406 407 408 409 410 411 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 604 605 606 607 608 609 610 611 612 613 614 615 616 617 618 619 620 621 794 795 796 797 798 799 800 801 802 803 804 805 806 807 808 809 810 811 383 384 385 386 387 388 389 390 391 392 393 394 395 396 397 398 399 400 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 353 354 355 356 357 358 359 360 361 362 363 364 365 366 367 368 369 422 423 424 425 426 427 428 429 430 431 432 433 434 435 436 437 438 439 448 449 450 451 452 453 454 455 356 357 358 359 360 361 362 363 352 353 354 355 356 357 358 359 360 361 362 363 364 365 366 367 368 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 691 692 693 694 695 696 697 698 699 700 701 702 703 704 705 706 707 708 356 357 358 359 360 361 362 363 343 344 345 346 347 348 349 350 351 352 353 354 355 356 357 358 359 351 352 353 354 355 356 357 358 359 360 361 362 363 364 365 366 367 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 897 898 899 900 901 902 903 904 905 906 907 908 909 910 911 912 913 882 883 884 885 886 887 888 889 890 891 892 893 894 895 896 897 898 802 803 804 805 806 807 808 809 810 811 812 813 814 815 816 817 818 819 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 36 37 38 39 40 41 42 43 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 15 16 17 18 19 20 21 22 23 24 25 26 27 28 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 46 47 48 49 50 51 52 53 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 44 45 46 47 48 49 50 51 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 32 33 34 35 36 37 38 39 40 41 42 43 44 45 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 802 803 804 805 806 807 808 809 810 811 812 813 814 815 816 817 818 819 781 782 783 784 785 786 787 788 789 790 791 792 793 794 795 796 797 798 745 746 747 748 749 750 751 752 753 754 755 756 757 758 759 760 761 734 735 736 737 738 739 740 741 742 743 744 745 746 747 748 749 750 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 46 47 48 49 50 51 52 53 54 55 18 19 20 21 22 23
+      - generic [ref=e117]:
+        - generic [ref=e118]: Request
+        - generic [ref=e119]: GET /settings/attendance
+        - generic [ref=e120]: Headers
+        - generic [ref=e121]:
+          - generic [ref=e122]:
+            - generic [ref=e123] [cursor=pointer]: host
+            - code [ref=e126]: localhost:8000
+          - generic [ref=e127]:
+            - generic [ref=e128] [cursor=pointer]: connection
+            - code [ref=e131]: keep-alive
+          - generic [ref=e132]:
+            - generic [ref=e133] [cursor=pointer]: sec-ch-ua
+            - code [ref=e136]: "\"Google Chrome\";v=\"149\", \"Chromium\";v=\"149\", \"Not)A;Brand\";v=\"24\""
+          - generic [ref=e137]:
+            - generic [ref=e138] [cursor=pointer]: sec-ch-ua-mobile
+            - code [ref=e141]: "?0"
+          - generic [ref=e142]:
+            - generic [ref=e143] [cursor=pointer]: sec-ch-ua-platform
+            - code [ref=e146]: "\"Windows\""
+          - generic [ref=e147]:
+            - generic [ref=e148] [cursor=pointer]: upgrade-insecure-requests
+            - code [ref=e151]: "1"
+          - generic [ref=e152]:
+            - generic [ref=e153] [cursor=pointer]: user-agent
+            - code [ref=e156]: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
+          - generic [ref=e157]:
+            - generic [ref=e158] [cursor=pointer]: accept
+            - code [ref=e161]: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+          - generic [ref=e162]:
+            - generic [ref=e163] [cursor=pointer]: sec-fetch-site
+            - code [ref=e166]: none
+          - generic [ref=e167]:
+            - generic [ref=e168] [cursor=pointer]: sec-fetch-mode
+            - code [ref=e171]: navigate
+          - generic [ref=e172]:
+            - generic [ref=e173] [cursor=pointer]: sec-fetch-user
+            - code [ref=e176]: "?1"
+          - generic [ref=e177]:
+            - generic [ref=e178] [cursor=pointer]: sec-fetch-dest
+            - code [ref=e181]: document
+          - generic [ref=e182]:
+            - generic [ref=e183] [cursor=pointer]: accept-encoding
+            - code [ref=e186]: gzip, deflate, br, zstd
+          - generic [ref=e187]:
+            - generic [ref=e188] [cursor=pointer]: accept-language
+            - code [ref=e191]: en-US,en;q=0.9
+          - generic [ref=e192]:
+            - generic [ref=e193] [cursor=pointer]: cookie
+            - code [ref=e196]: XSRF-TOKEN=eyJpdiI6IjlQbGNxOUp0cWhSRzgyMjluU2pSYVE9PSIsInZhbHVlIjoiTGt4eWwzZ0dacWdqUDgrcUdBRWgvRkg3ZGsyYmhsT3JkZ25SbjRIMytKS1VtZUNVa044eHJ4MnJsUG9jR1Y4K2pZTHIybzVnWWNLbHdVTkRlK0RFTnZ4eXlhbm14RFhiYVE5blBSRmtyWVhIUmRyZEdIb3U3dWViNzVwRVpYYnQiLCJtYWMiOiJjOTAwMThhNzY3MTY4OTQ4MjllYjRiZmMxZDg5YjY5OWY5MjBjNjcwNjdlZmUxNmI5YTk2MTUxNWNiNDUyYWZhIiwidGFnIjoiIn0%3D; dbedc_guardian_session=eyJpdiI6IkFnaFVqZVprZDhzNXZwQkhMMHEwVlE9PSIsInZhbHVlIjoiQ3Z0cSt5NmM1bU1HeHdpUWNIR1E4bFcvK05jamE3NXovb3RrT2psTkI0L0hHVDdFWXR6MkpTbnp3c3NVbHpJd2NzV0tBRkxXWE1WM29ROG5pNzhYMzJmUVpMM0J5WkpYVFFKT0xkdmY2aE54c2tMOWNiUW9MN2R1b2c1RXFxZ0MiLCJtYWMiOiI0YmI4OTgwZDUxMDllZTllOWQwMzNhOWY3YzNmYmRmOGRiYTcyZmVkMmY3NDFiNWEyMDRhM2FhNGY0NjQ0MWM2IiwidGFnIjoiIn0%3D
+        - generic [ref=e197]: Body
+        - code [ref=e202]: No body data
+      - generic [ref=e203]:
+        - generic [ref=e204]: Application
+        - generic [ref=e205]: Routing
+        - generic [ref=e206]:
+          - generic [ref=e207]:
+            - generic [ref=e208] [cursor=pointer]: controller
+            - code [ref=e211]: App\Http\Controllers\Settings\AttendanceSettingController@index
+          - generic [ref=e212]:
+            - generic [ref=e213] [cursor=pointer]: route name
+            - code [ref=e216]: attendance-settings.index
+          - generic [ref=e217]:
+            - generic [ref=e218] [cursor=pointer]: middleware
+            - code [ref=e221]: web, auth, verified, permission:attendance.settings
+        - generic [ref=e222]: Database Queries
+        - generic [ref=e223]:
+          - generic [ref=e224]:
+            - generic [ref=e225]: mysql
+            - code [ref=e228]: "select * from `sessions` where `id` = '2Z4yZneASn1aOoYpO3IvZrfMeTqlv4Y5HAOxLBVw' limit 1"
+          - generic [ref=e229]:
+            - generic [ref=e230]: mysql
+            - code [ref=e233]: "select * from `users` where `id` = 18 and `users`.`deleted_at` is null limit 1"
+          - generic [ref=e234]:
+            - generic [ref=e235]: mysql
+            - code [ref=e238]: "select * from `users` where `users`.`id` = 18 and `users`.`deleted_at` is null limit 1"
+          - generic [ref=e239]:
+            - generic [ref=e240]: mysql
+            - code [ref=e243]: "select * from `designations` where `designations`.`id` in (33) and `designations`.`deleted_at` is null"
+          - generic [ref=e244]:
+            - generic [ref=e245]: mysql
+            - code [ref=e248]: "select * from `attendance_types` where `attendance_types`.`id` in (15)"
+          - generic [ref=e249]:
+            - generic [ref=e250]: mysql
+            - code [ref=e253]: "select `biometric_devices`.`id`, `biometric_devices`.`name`, `attendance_type_biometric_device`.`attendance_type_id` as `pivot_attendance_type_id`, `attendance_type_biometric_device`.`biometric_device_id` as `pivot_biometric_device_id`, `attendance_type_biometric_device`.`created_at` as `pivot_created_at` from `biometric_devices` inner join `attendance_type_biometric_device` on `biometric_devices`.`id` = `attendance_type_biometric_device`.`biometric_device_id` where `attendance_type_biometric_device`.`attendance_type_id` in (15)"
+          - generic [ref=e254]:
+            - generic [ref=e255]: mysql
+            - code [ref=e258]: "select * from `employee_attendance_types` where `employee_attendance_types`.`user_id` in (18)"
+          - generic [ref=e259]:
+            - generic [ref=e260]: mysql
+            - code [ref=e263]: "select * from `company_settings` limit 1"
+          - generic [ref=e264]:
+            - generic [ref=e265]: mysql
+            - code [ref=e268]: "select * from `media` where `media`.`model_id` in (18) and `media`.`model_type` = 'App\\Models\\User'"
+          - generic [ref=e269]:
+            - generic [ref=e270]: mysql
+            - code [ref=e273]: "select * from `departments` where `departments`.`id` = 21 and `departments`.`deleted_at` is null limit 1"
+          - generic [ref=e274]:
+            - generic [ref=e275]: mysql
+            - code [ref=e278]: "select count(*) as aggregate from `users` where `users`.`designation_id` = 33 and `users`.`designation_id` is not null and `users`.`deleted_at` is null"
+          - generic [ref=e279]:
+            - generic [ref=e280]: mysql
+            - code [ref=e283]: "select `roles`.*, `model_has_roles`.`model_id` as `pivot_model_id`, `model_has_roles`.`role_id` as `pivot_role_id`, `model_has_roles`.`model_type` as `pivot_model_type` from `roles` inner join `model_has_roles` on `roles`.`id` = `model_has_roles`.`role_id` where `model_has_roles`.`model_id` = 18 and `model_has_roles`.`model_type` = 'App\\Models\\User'"
+          - generic [ref=e284]:
+            - generic [ref=e285]: mysql
+            - code [ref=e288]: "select `permissions`.*, `model_has_permissions`.`model_id` as `pivot_model_id`, `model_has_permissions`.`permission_id` as `pivot_permission_id`, `model_has_permissions`.`model_type` as `pivot_model_type` from `permissions` inner join `model_has_permissions` on `permissions`.`id` = `model_has_permissions`.`permission_id` where `model_has_permissions`.`model_id` = 18 and `model_has_permissions`.`model_type` = 'App\\Models\\User'"
+          - generic [ref=e289]:
+            - generic [ref=e290]: mysql
+            - code [ref=e293]: "select `permissions`.*, `role_has_permissions`.`role_id` as `pivot_role_id`, `role_has_permissions`.`permission_id` as `pivot_permission_id` from `permissions` inner join `role_has_permissions` on `permissions`.`id` = `role_has_permissions`.`permission_id` where `role_has_permissions`.`role_id` in (1, 8)"
+          - generic [ref=e294]:
+            - generic [ref=e295]: mysql
+            - code [ref=e298]: "select * from `cache` where `key` in ('spatie.permission.cache')"
+          - generic [ref=e299]:
+            - generic [ref=e300]: mysql
+            - code [ref=e303]: "select * from `attendance_settings` limit 1"
+          - generic [ref=e304]:
+            - generic [ref=e305]: mysql
+            - code [ref=e308]: "select * from `attendance_types`"
+          - generic [ref=e309]:
+            - generic [ref=e310]: mysql
+            - code [ref=e313]: "select `biometric_devices`.`id`, `biometric_devices`.`name`, `biometric_devices`.`serial_number`, `biometric_devices`.`location`, `attendance_type_biometric_device`.`attendance_type_id` as `pivot_attendance_type_id`, `attendance_type_biometric_device`.`biometric_device_id` as `pivot_biometric_device_id`, `attendance_type_biometric_device`.`created_at` as `pivot_created_at` from `biometric_devices` inner join `attendance_type_biometric_device` on `biometric_devices`.`id` = `attendance_type_biometric_device`.`biometric_device_id` where `attendance_type_biometric_device`.`attendance_type_id` in (5, 7, 8, 10, 11, 12, 15)"
+          - generic [ref=e314]:
+            - generic [ref=e315]: mysql
+            - code [ref=e318]: "select * from `cache` where `key` in ('user_navigation_18')"
+          - generic [ref=e319]:
+            - generic [ref=e320]: mysql
+            - code [ref=e323]: "select * from `modules` where `is_active` = 1 and `modules`.`deleted_at` is null order by `priority` asc, `name` asc"
+          - generic [ref=e324]:
+            - generic [ref=e325]: mysql
+            - code [ref=e328]: "select * from `sub_modules` where `sub_modules`.`module_id` in (1, 2, 3, 4, 5, 10) and `is_active` = 1 and `sub_modules`.`deleted_at` is null order by `priority` asc, `priority` asc, `name` asc"
+          - generic [ref=e329]:
+            - generic [ref=e330]: mysql
+            - code [ref=e333]: "select * from `module_components` where `module_components`.`sub_module_id` in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 32, 33, 34, 35, 36, 37) and `is_active` = 1 order by `id` asc"
+          - generic [ref=e334]:
+            - generic [ref=e335]: mysql
+            - code [ref=e338]: "select * from `module_permission_requirements` where `module_permission_requirements`.`sub_module_id` in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 32, 33, 34, 35, 36, 37)"
+          - generic [ref=e339]:
+            - generic [ref=e340]: mysql
+            - code [ref=e343]: "select * from `permissions` where `permissions`.`id` in (1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 222, 223, 224, 225, 226, 227, 228, 229, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 393, 394, 395, 396)"
+          - generic [ref=e344]:
+            - generic [ref=e345]: mysql
+            - code [ref=e348]: "select * from `module_components` where `module_components`.`module_id` in (1, 2, 3, 4, 5, 10) and `is_active` = 1 order by `id` asc"
+          - generic [ref=e349]:
+            - generic [ref=e350]: mysql
+            - code [ref=e353]: "select * from `module_permission_requirements` where `module_permission_requirements`.`module_id` in (1, 2, 3, 4, 5, 10)"
+          - generic [ref=e354]:
+            - generic [ref=e355]: mysql
+            - code [ref=e358]: "select * from `permissions` where `permissions`.`id` in (1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 222, 223, 224, 225, 226, 227, 228, 229, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 393, 394, 395, 396)"
+          - generic [ref=e359]:
+            - generic [ref=e360]: mysql
+            - code [ref=e363]: "select * from `module_permission_requirements` where `module_id` = 1 and `sub_module_id` is null and `component_id` is null and `is_active` = 1"
+          - generic [ref=e364]:
+            - generic [ref=e365]: mysql
+            - code [ref=e368]: "select * from `permissions` where `permissions`.`id` in (1, 2, 3)"
+          - generic [ref=e369]:
+            - generic [ref=e370]: mysql
+            - code [ref=e373]: "select * from `module_permission_requirements` where `module_id` = 2 and `sub_module_id` is null and `component_id` is null and `is_active` = 1"
+          - generic [ref=e374]:
+            - generic [ref=e375]: mysql
+            - code [ref=e378]: "select * from `permissions` where `permissions`.`id` in (4, 6, 11)"
+          - generic [ref=e379]:
+            - generic [ref=e380]: mysql
+            - code [ref=e383]: "select * from `module_permission_requirements` where `module_id` = 3 and `sub_module_id` is null and `component_id` is null and `is_active` = 1"
+          - generic [ref=e384]:
+            - generic [ref=e385]: mysql
+            - code [ref=e388]: "select * from `permissions` where `permissions`.`id` in (14, 20, 28, 38)"
+          - generic [ref=e389]:
+            - generic [ref=e390]: mysql
+            - code [ref=e393]: "select * from `module_permission_requirements` where `module_id` = 4 and `sub_module_id` is null and `component_id` is null and `is_active` = 1"
+          - generic [ref=e394]:
+            - generic [ref=e395]: mysql
+            - code [ref=e398]: "select * from `permissions` where `permissions`.`id` in (139, 145, 146, 151)"
+          - generic [ref=e399]:
+            - generic [ref=e400]: mysql
+            - code [ref=e403]: "select * from `module_permission_requirements` where `module_id` = 5 and `sub_module_id` is null and `component_id` is null and `is_active` = 1"
+          - generic [ref=e404]:
+            - generic [ref=e405]: mysql
+            - code [ref=e408]: "select * from `permissions` where `permissions`.`id` in (222, 226)"
+          - generic [ref=e409]:
+            - generic [ref=e410]: mysql
+            - code [ref=e413]: "select * from `module_permission_requirements` where `module_id` = 10 and `sub_module_id` is null and `component_id` is null and `is_active` = 1"
+          - generic [ref=e414]:
+            - generic [ref=e415]: mysql
+            - code [ref=e418]: "select * from `permissions` where `permissions`.`id` in (269, 274, 279, 393)"

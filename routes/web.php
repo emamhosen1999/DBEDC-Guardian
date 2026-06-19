@@ -493,7 +493,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware(['permission:attendance.settings'])->group(function () {
-        Route::get('/settings/attendance', [AttendanceSettingController::class, 'index'])->name('attendance-settings.index');
+        // Deprecated standalone Attendance Settings page removed; the canonical UI is the
+        // unified /attendance page's in-page Settings tab. The update/type/config routes below
+        // remain in use by that tab.
         Route::post('/settings/attendance', [AttendanceSettingController::class, 'updateSettings'])->name('attendance-settings.update');
         Route::post('settings/attendance-type', [AttendanceSettingController::class, 'storeType'])->name('attendance-types.store');
         Route::put('settings/attendance-type/{id}', [AttendanceSettingController::class, 'updateType'])->name('attendance-types.update');

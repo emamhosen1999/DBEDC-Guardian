@@ -383,6 +383,18 @@ class User extends Authenticatable implements HasMedia
         ];
     }
 
+    protected static function booted()
+    {
+        static::saved(function ($user) {
+            if ($user->isDirty('attendance_type_id')) {
+                EmployeeAttendanceType::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['attendance_type_id' => $user->attendance_type_id]
+                );
+            }
+        });
+    }
+
     /**
      * Register media collections for the user.
      * Defines the profile_images collection with singleFile() to ensure only one profile image per user.

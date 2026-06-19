@@ -33,20 +33,40 @@ const StatCard = ({ title, value, icon: Icon, color, loading }) => (
     </Card>
 );
 
-export default function AttendanceOverview({ date }) {
+export default function AttendanceOverview({ date, mode = 'daily', month, scope = 'all' }) {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    const isMonthly = mode === 'monthly';
+    const isSelf = scope === 'self';
 
     useEffect(() => {
         let isMounted = true;
         setLoading(true);
 
-        axios.get(route('attendance.dailyOverview', { date }))
+        const request = isMonthly
+            ? (() => {
+                const [year, m] = (month || '').split('-');
+                const params = {
+                    currentMonth: parseInt(m, 10) || (new Date().getMonth() + 1),
+                    currentYear: parseInt(year, 10) || new Date().getFullYear(),
+                };
+                // self scope → the current user's own monthly stats; otherwise org-wide
+                return isSelf
+                    ? axios.get('/attendance/my-monthly-stats', { params })
+                    : axios.get(route('attendance.monthlyStats', params));
+            })()
+            : axios.get(route('attendance.dailyOverview', { date }));
+
+        request
             .then(res => {
-                if (isMounted) {
+                if (!isMounted) return;
+                if (isMonthly) {
+                    const a = res.data?.stats?.attendance || res.data?.data?.attendance || {};
+                    setStats({ present: a.present, absent: a.absent, late: a.lateArrivals, on_leave: a.leaves });
+                } else {
                     setStats(res.data);
-                    setLoading(false);
                 }
+                setLoading(false);
             })
             .catch(err => {
                 console.error('Failed to fetch attendance overview:', err);
@@ -54,7 +74,7 @@ export default function AttendanceOverview({ date }) {
             });
 
         return () => { isMounted = false; };
-    }, [date]);
+    }, [date, mode, month, isMonthly, isSelf]);
 
     return (
         <Box mb="5">
@@ -73,11 +93,11 @@ export default function AttendanceOverview({ date }) {
                     color="red" 
                     loading={loading}
                 />
-                <StatCard 
-                    title="Late (After 9AM)" 
-                    value={stats?.late} 
-                    icon={ExclamationTriangleIcon} 
-                    color="amber" 
+                <StatCard
+                    title={isMonthly ? 'Late Arrivals' : 'Late (After 9AM)'}
+                    value={stats?.late}
+                    icon={ExclamationTriangleIcon}
+                    color="amber"
                     loading={loading}
                 />
                 <StatCard 

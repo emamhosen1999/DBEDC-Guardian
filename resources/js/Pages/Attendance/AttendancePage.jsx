@@ -134,7 +134,13 @@ const AttendancePage = ({ title, departments = [] }) => {
                             </Flex>
                         </Box>
 
-                        <AttendanceOverview date={selectedDate} />
+                        {activeTab !== 'settings' && (
+                            <AttendanceOverview
+                                date={selectedDate}
+                                mode={activeTab === 'monthly' ? 'monthly' : 'daily'}
+                                month={selectedMonth}
+                            />
+                        )}
 
                         <Separator size="4" mb="4" />
 

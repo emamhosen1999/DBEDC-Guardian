@@ -44,6 +44,8 @@ class AttendanceSettingController extends Controller
             'overtime_after' => 'required|integer|min:0',
             'weekend_days' => 'array',
             'weekend_days.*' => 'string|in:saturday,sunday,monday,tuesday,wednesday,thursday,friday',
+            'auto_punch_out' => 'required|boolean',
+            'auto_punch_out_time' => 'nullable|date_format:H:i',
         ]);
 
         $settings = AttendanceSetting::first();
@@ -368,10 +370,20 @@ class AttendanceSettingController extends Controller
     {
         $type = AttendanceType::findOrFail($id);
 
-        // Optionally check if this type is in use before deletion
-        // For now, we'll allow deletion
+        // Prevent orphaning employees / pivot rows that reference this type.
+        $inUse = \App\Models\User::where('attendance_type_id', $type->id)->exists()
+            || \App\Models\HRM\EmployeeAttendanceType::where('attendance_type_id', $type->id)->exists();
 
-        $type->delete();
+        if ($inUse) {
+            return response()->json([
+                'message' => 'This attendance type is assigned to employees and cannot be deleted. Reassign them first.',
+            ], 422);
+        }
+
+        \DB::transaction(function () use ($type) {
+            $type->biometricDevices()->detach();
+            $type->delete();
+        });
 
         return response()->json([
             'message' => 'Attendance type deleted successfully.',

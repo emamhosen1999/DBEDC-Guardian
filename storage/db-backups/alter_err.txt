@@ -1,0 +1,1 @@
+ERROR 1063 (42000) at line 100: Incorrect column specifier for column 'id'
