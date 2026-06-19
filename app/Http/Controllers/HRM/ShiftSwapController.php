@@ -55,4 +55,16 @@ class ShiftSwapController extends Controller
 
         return response()->json(['message' => 'Swap approved and applied.', 'swap' => $swap->fresh()]);
     }
+
+    public function reject(Request $request, int $id): JsonResponse
+    {
+        $swap = ShiftSwapRequest::findOrFail($id);
+
+        $swap->update([
+            'status' => 'rejected',
+            'approved_by' => $request->user()->id,
+        ]);
+
+        return response()->json(['message' => 'Swap rejected.', 'swap' => $swap->fresh()]);
+    }
 }

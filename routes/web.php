@@ -558,6 +558,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Swap management routes (admin)
         Route::get('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
         Route::post('/attendance/swaps/{id}/approve', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');
+        Route::post('/attendance/swaps/{id}/reject', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'reject'])->name('attendance.swaps.reject');
     });
 
     // Task management routes
