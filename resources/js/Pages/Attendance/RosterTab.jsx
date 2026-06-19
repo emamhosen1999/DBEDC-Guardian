@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import RosterCalendar from './Components/RosterCalendar';
+import SwapApprovals from './Components/SwapApprovals';
 
 export default function RosterTab({ month, departments = [], isActive = true }) {
     const qc = useQueryClient();
@@ -94,6 +95,8 @@ export default function RosterTab({ month, departments = [], isActive = true }) 
                         onCellClick={handleCellClick}
                     />
                 )}
+
+            <SwapApprovals />
         </Card>
     );
 }
