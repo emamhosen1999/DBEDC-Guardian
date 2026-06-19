@@ -43,6 +43,7 @@ class ShiftSwapController extends Controller
     public function approve(Request $request, int $id): JsonResponse
     {
         $swap = ShiftSwapRequest::findOrFail($id);
+        abort_if($swap->status !== 'pending', 409, 'This swap request has already been decided.');
 
         DB::transaction(function () use ($swap, $request) {
             $swap->update([
@@ -59,6 +60,7 @@ class ShiftSwapController extends Controller
     public function reject(Request $request, int $id): JsonResponse
     {
         $swap = ShiftSwapRequest::findOrFail($id);
+        abort_if($swap->status !== 'pending', 409, 'This swap request has already been decided.');
 
         $swap->update([
             'status' => 'rejected',

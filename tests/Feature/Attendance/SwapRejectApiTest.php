@@ -42,4 +42,40 @@ class SwapRejectApiTest extends TestCase
         $this->assertSame($admin->id, $swap->fresh()->approved_by);
         $this->assertSame(0, RosterDay::count()); // applySwap NOT called
     }
+
+    public function test_cannot_reject_an_already_approved_swap(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.settings');
+        $requester = User::factory()->create();
+
+        $swap = ShiftSwapRequest::create([
+            'requester_id' => $requester->id, 'requester_date' => '2026-06-20', 'status' => 'approved',
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('attendance.swaps.reject', $swap->id))
+            ->assertStatus(409);
+
+        $this->assertSame('approved', $swap->fresh()->status);
+    }
+
+    public function test_cannot_approve_an_already_rejected_swap(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.settings');
+        $requester = User::factory()->create();
+
+        $swap = ShiftSwapRequest::create([
+            'requester_id' => $requester->id, 'requester_date' => '2026-06-20', 'status' => 'rejected',
+        ]);
+
+        $this->actingAs($admin)
+            ->postJson(route('attendance.swaps.approve', $swap->id))
+            ->assertStatus(409);
+
+        $this->assertSame('rejected', $swap->fresh()->status);
+    }
 }

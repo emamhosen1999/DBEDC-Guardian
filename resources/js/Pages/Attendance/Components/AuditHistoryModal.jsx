@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog, Flex, Table, Text, Badge, Code } from '@radix-ui/themes';
+import { Dialog, Table, Text, Badge, Code } from '@radix-ui/themes';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 
