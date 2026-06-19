@@ -10,4 +10,5 @@ return [
     TenancyServiceProvider::class,
     CacheServiceProvider::class,
     PermissionServiceProvider::class,
+    App\Providers\AttendanceServiceProvider::class,
 ];
