@@ -121,6 +121,8 @@ class MobileAttendanceApiTest extends TestCase
 
     public function test_authenticated_user_can_punch_in_and_out_from_mobile_api(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-06-19 09:00:00'));
+
         $attendanceType = AttendanceType::factory()->wifiIp()->create([
             'is_active' => true,
             'config' => [
@@ -143,6 +145,9 @@ class MobileAttendanceApiTest extends TestCase
             ->assertJsonPath('status', 'success')
             ->assertJsonPath('action', 'punch_in');
 
+        // Advance past the 30-second dedupe window before punching out.
+        Carbon::setTestNow(Carbon::parse('2026-06-19 09:01:00'));
+
         $secondPunchResponse = $this->postJson('/api/v1/attendance/punch', []);
 
         $secondPunchResponse->assertOk()
@@ -158,6 +163,8 @@ class MobileAttendanceApiTest extends TestCase
         $this->assertNotNull($attendance);
         $this->assertNotNull($attendance->punchin);
         $this->assertNotNull($attendance->punchout);
+
+        Carbon::setTestNow();
     }
 
     public function test_mobile_punch_requires_active_attendance_type(): void
