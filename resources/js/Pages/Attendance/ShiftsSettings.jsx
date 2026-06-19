@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Box, Flex, Table, Button, Badge, Text, IconButton } from '@radix-ui/themes';
+import { Box, Flex, Table, Button, Badge, Text, IconButton, Separator } from '@radix-ui/themes';
 import { Pencil1Icon, TrashIcon, PlusIcon, LayersIcon, SymbolIcon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import ShiftForm from '@/Forms/ShiftForm';
 import RotationPatternForm from '@/Forms/RotationPatternForm';
+import AssignmentManager from '@/Pages/Attendance/Components/AssignmentManager';
 
 export default function ShiftsSettings() {
+    const { employees = [], departments = [], designations = [] } = usePage().props;
     const qc = useQueryClient();
     const [editing, setEditing] = useState(null);
     const [open, setOpen] = useState(false);
@@ -105,6 +108,14 @@ export default function ShiftsSettings() {
 
             <ShiftForm open={open} onOpenChange={setOpen} initial={editing} onSaved={refresh} />
             <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} onSaved={refresh} />
+
+            <Separator size="4" my="5" />
+
+            <AssignmentManager
+                employees={employees}
+                departments={departments}
+                designations={designations}
+            />
         </Box>
     );
 }
