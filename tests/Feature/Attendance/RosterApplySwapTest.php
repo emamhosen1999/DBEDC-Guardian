@@ -40,4 +40,34 @@ class RosterApplySwapTest extends TestCase
         $this->assertSame($shiftA->id, $bDay->shift_id);
         $this->assertTrue($aDay->locked);
     }
+
+    public function test_non_approved_swap_is_a_no_op(): void
+    {
+        $a = User::factory()->create();
+        $b = User::factory()->create();
+        $shiftA = Shift::factory()->create(['code' => 'AAA']);
+        $shiftB = Shift::factory()->create(['code' => 'BBB']);
+
+        RosterDay::create(['user_id' => $a->id, 'date' => '2026-06-19', 'shift_id' => $shiftA->id, 'source' => 'pattern']);
+        RosterDay::create(['user_id' => $b->id, 'date' => '2026-06-20', 'shift_id' => $shiftB->id, 'source' => 'pattern']);
+
+        $swap = ShiftSwapRequest::create([
+            'requester_id' => $a->id, 'requester_date' => '2026-06-19',
+            'counterparty_id' => $b->id, 'counterparty_date' => '2026-06-20',
+            'status' => 'pending',
+        ]);
+
+        app(RosterService::class)->applySwap($swap);
+
+        $aDay = RosterDay::where('user_id', $a->id)->whereDate('date', '2026-06-19')->first();
+        $bDay = RosterDay::where('user_id', $b->id)->whereDate('date', '2026-06-20')->first();
+
+        $this->assertSame('pattern', $aDay->source);
+        $this->assertSame($shiftA->id, $aDay->shift_id);
+        $this->assertFalse((bool) $aDay->locked);
+
+        $this->assertSame('pattern', $bDay->source);
+        $this->assertSame($shiftB->id, $bDay->shift_id);
+        $this->assertFalse((bool) $bDay->locked);
+    }
 }

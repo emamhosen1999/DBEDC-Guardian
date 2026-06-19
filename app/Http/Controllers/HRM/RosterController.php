@@ -28,7 +28,33 @@ class RosterController extends Controller
             ))
             ->get();
 
-        $roster = $rows->groupBy('user_id')->map(function ($userRows) {
+        return response()->json(['roster' => $this->formatRoster($rows)]);
+    }
+
+    /**
+     * Scope the roster to the requesting user only (avoids leaking all employees' rosters).
+     */
+    public function myRoster(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'from' => 'required|date',
+            'to' => 'required|date|after_or_equal:from',
+        ]);
+
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name'])
+            ->where('user_id', $request->user()->id)
+            ->whereBetween('date', [$data['from'], $data['to']])
+            ->get();
+
+        return response()->json(['roster' => $this->formatRoster($rows)]);
+    }
+
+    /**
+     * Group roster rows by user and shape them into the standard roster payload.
+     */
+    private function formatRoster($rows)
+    {
+        return $rows->groupBy('user_id')->map(function ($userRows) {
             $first = $userRows->first();
 
             return [
@@ -41,8 +67,6 @@ class RosterController extends Controller
                     ]),
             ];
         });
-
-        return response()->json(['roster' => $roster]);
     }
 
     public function generate(Request $request): JsonResponse

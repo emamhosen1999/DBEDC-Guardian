@@ -26,6 +26,28 @@ class AttendanceAuditEnforcementTest extends TestCase
         }
     }
 
+    public function test_marking_a_user_present_writes_an_audit_row(): void
+    {
+        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.manage');
+
+        $user = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->postJson(route('attendance.mark-as-present'), [
+                'user_id' => $user->id,
+                'date' => '2026-06-19',
+            ])
+            ->assertOk();
+
+        $attendance = Attendance::where('user_id', $user->id)->where('date', '2026-06-19')->first();
+        $this->assertNotNull($attendance);
+
+        $log = AttendanceAuditLog::where('attendance_id', $attendance->id)->where('action', 'mark_present')->first();
+        $this->assertNotNull($log);
+        $this->assertSame($admin->id, $log->actor_id);
+    }
+
     public function test_correcting_a_record_writes_an_audit_row(): void
     {
         $admin = User::factory()->create(); $admin->assignRole('Admin');
