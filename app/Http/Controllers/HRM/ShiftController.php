@@ -119,4 +119,32 @@ class ShiftController extends Controller
 
         return response()->json(['message' => 'Assignment created.', 'assignment' => $assignment], 201);
     }
+
+    public function assignmentsIndex(): JsonResponse
+    {
+        $assignments = \App\Models\HRM\ShiftAssignment::with(['shift:id,code,name', 'rotationPattern:id,name'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'scope_type' => $a->scope_type,
+                'scope_id' => $a->scope_id,
+                'shift' => $a->shift ? ['id' => $a->shift->id, 'code' => $a->shift->code, 'name' => $a->shift->name] : null,
+                'rotation_pattern' => $a->rotationPattern ? ['id' => $a->rotationPattern->id, 'name' => $a->rotationPattern->name] : null,
+                'anchor_date' => $a->anchor_date?->toDateString(),
+                'effective_from' => $a->effective_from?->toDateString(),
+                'effective_to' => $a->effective_to?->toDateString(),
+                'priority' => $a->priority,
+            ]);
+
+        return response()->json(['assignments' => $assignments]);
+    }
+
+    public function destroyAssignment(int $id): JsonResponse
+    {
+        $assignment = \App\Models\HRM\ShiftAssignment::findOrFail($id);
+        DB::transaction(fn () => $assignment->delete());
+
+        return response()->json(['message' => 'Assignment deleted.']);
+    }
 }

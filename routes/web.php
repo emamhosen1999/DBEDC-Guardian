@@ -547,6 +547,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
         Route::post('/attendance/rotation-patterns', [\App\Http\Controllers\HRM\ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
         Route::post('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
+        Route::get('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'assignmentsIndex'])->name('attendance.assignments.index');
+        Route::delete('/attendance/shift-assignments/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroyAssignment'])->name('attendance.assignments.destroy');
 
         // Roster management routes
         Route::get('/attendance/roster', [\App\Http\Controllers\HRM\RosterController::class, 'index'])->name('attendance.roster.index');
