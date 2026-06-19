@@ -13,6 +13,7 @@ import {
 import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
+import ShiftsSettings from './ShiftsSettings';
 
 /* ── map imports (Leaflet — untouched) ───────────────────── */
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -1023,6 +1024,11 @@ const SettingsTab = () => {
                     })}
                 </Flex>
             </Box>
+
+            <Separator size="4" my="5" />
+
+            {/* ── Shifts ─────────────────────────────────────────── */}
+            <ShiftsSettings />
 
             {/* ── modals ─────────────────────────────────────────── */}
             <TypeModal
