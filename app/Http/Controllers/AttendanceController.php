@@ -666,9 +666,12 @@ class AttendanceController extends Controller
             $attendance = null;
 
             DB::transaction(function () use ($validated, $audit, $request, &$attendance) {
+                $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
+                    ->resolve((int) $validated['user_id'], \Carbon\Carbon::parse($validated['date']));
+                $punchin = $shift->start;
                 $attendance = Attendance::updateOrCreate(
                     ['user_id' => $validated['user_id'], 'date' => $validated['date']],
-                    ['symbol' => '√', 'punchin' => Carbon::parse($validated['date'])->setHour(9)->setMinute(0)->setSecond(0)]
+                    ['symbol' => '√', 'punchin' => $punchin]
                 );
                 $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
             });
@@ -695,12 +698,14 @@ class AttendanceController extends Controller
             ]);
 
             $date = Carbon::parse($validated['date'])->format('Y-m-d');
-            $punchin = Carbon::parse($validated['date'])->setHour(9)->setMinute(0)->setSecond(0);
             $audit = app(AttendanceAuditService::class);
 
             $attendances = [];
-            DB::transaction(function () use ($validated, $date, $punchin, $audit, $request, &$attendances) {
+            DB::transaction(function () use ($validated, $date, $audit, $request, &$attendances) {
                 foreach ($validated['user_ids'] as $userId) {
+                    $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
+                        ->resolve((int) $userId, \Carbon\Carbon::parse($date));
+                    $punchin = $shift->start;
                     $attendance = Attendance::updateOrCreate(
                         ['user_id' => $userId, 'date' => $date],
                         ['symbol' => '√', 'punchin' => $punchin]
