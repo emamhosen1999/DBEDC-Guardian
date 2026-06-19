@@ -31,8 +31,12 @@ class RosterGenerateTest extends TestCase
         ]);
 
         $svc = app(RosterService::class);
-        $svc->generateRoster([$user->id], '2026-06-01', '2026-06-03');
-        $svc->generateRoster([$user->id], '2026-06-01', '2026-06-03'); // idempotent re-run
+        $first = $svc->generateRoster([$user->id], '2026-06-01', '2026-06-03');
+        $second = $svc->generateRoster([$user->id], '2026-06-01', '2026-06-03'); // idempotent re-run
+
+        // Both calls write/update the 2 pattern days; manual+locked day is skipped
+        $this->assertSame(2, $first);
+        $this->assertSame(2, $second);
 
         $this->assertSame(3, RosterDay::where('user_id', $user->id)->count());
         $manual = RosterDay::where('user_id', $user->id)->whereDate('date', '2026-06-02')->first();
