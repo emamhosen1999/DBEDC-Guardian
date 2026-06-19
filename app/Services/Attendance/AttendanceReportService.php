@@ -113,11 +113,6 @@ class AttendanceReportService
      */
     public function getUserAttendanceData($user, int $year, int $month, $holidays, $leaveTypes): array
     {
-        // TODO(attendance-phase-2): This still derives late/OT/working-days from the GLOBAL
-        // AttendanceSetting (office_start_time, hardcoded 480-min OT, global weekend_days),
-        // NOT the shift-aware AttendanceStatusService/ScheduleResolver. Monthly stats will
-        // diverge from the shift-aware Daily Overview once non-default shifts are in use.
-        // Migrate this to ScheduleResolver + AttendanceStatusService (see getDailyOverviewStats).
         $daysInMonth = Carbon::create($year, $month)->daysInMonth;
         $attendanceData = [
             'user_id' => $user->id,
@@ -126,9 +121,13 @@ class AttendanceReportService
             'profile_image_url' => $user->profile_image_url,
         ];
 
+        $resolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
+
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $date = Carbon::create($year, $month, $day);
             $dateString = $date->toDateString();
+
+            $schedule = $resolver->resolve($user->id, $date);
 
             $attendancesForDate = $user->attendances
                 ->filter(fn ($a) => Carbon::parse($a->date)->isSameDay($date))
@@ -145,11 +144,11 @@ class AttendanceReportService
                 ));
 
             // Defaults
-            $symbol = '▼';
+            $symbol = ! $schedule->isWorkingDay ? '▽' : '▼';
             $punchIn = null;
             $punchOut = null;
             $totalWorkHours = '00:00';
-            $remarks = 'Absent';
+            $remarks = ! $schedule->isWorkingDay ? 'Day Off' : 'Absent';
 
             if ($holiday && ! $leave) {
                 if ($attendancesForDate->isNotEmpty()) {
