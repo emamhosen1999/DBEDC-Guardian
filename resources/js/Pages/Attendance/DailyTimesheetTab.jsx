@@ -7,13 +7,14 @@ import {
     MagnifyingGlassIcon, CalendarIcon, ClockIcon, PersonIcon,
     ExclamationTriangleIcon, CheckCircledIcon, DownloadIcon,
     MobileIcon,
-    ReloadIcon, UpdateIcon, TrashIcon,
+    ReloadIcon, UpdateIcon, TrashIcon, CounterClockwiseClockIcon,
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { showToast } from '@/utils/toastUtils';
 import { handleExportResponse } from '@/utils/exportUtils';
 import AbsentSidebar from './AbsentSidebar';
+import AuditHistoryModal from './Components/AuditHistoryModal';
 import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
 import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
 import TablePagination from '@/Components/TablePagination.jsx';
@@ -39,7 +40,7 @@ const formatTime = (timeString, date) => {
 
 /* ── table cell renderer ─────────────────────────────────────── */
 
-const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStartEdit, onCancelEdit, onSaveTime, onDelete }) => {
+const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStartEdit, onCancelEdit, onSaveTime, onDelete, onHistory }) => {
     const isToday = dayjs(attendance.date).isSame(dayjs(), 'day');
 
     switch (colUid) {
@@ -247,31 +248,57 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
                     <Flex gap="2" align="center">
                         {attendance.punches && attendance.punches.length > 0 ? (
                             attendance.punches.map((p, idx) => (
-                                <Tooltip content={`Delete Punch ${idx + 1}`} key={p.id}>
-                                    <Button
-                                        size="1"
-                                        variant="ghost"
-                                        color="red"
-                                        style={{ cursor: 'pointer' }}
-                                        onClick={() => onDelete(p.id)}
-                                    >
-                                        <TrashIcon style={{ width: 14, height: 14 }} />
-                                    </Button>
-                                </Tooltip>
+                                <Flex key={p.id} gap="1" align="center">
+                                    <Tooltip content={`History Punch ${idx + 1}`}>
+                                        <Button
+                                            size="1"
+                                            variant="ghost"
+                                            color="gray"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => onHistory(p.id)}
+                                        >
+                                            <CounterClockwiseClockIcon style={{ width: 14, height: 14 }} />
+                                        </Button>
+                                    </Tooltip>
+                                    <Tooltip content={`Delete Punch ${idx + 1}`}>
+                                        <Button
+                                            size="1"
+                                            variant="ghost"
+                                            color="red"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => onDelete(p.id)}
+                                        >
+                                            <TrashIcon style={{ width: 14, height: 14 }} />
+                                        </Button>
+                                    </Tooltip>
+                                </Flex>
                             ))
                         ) : (
                             attendance.id && !String(attendance.id).startsWith('user-') && (
-                                <Tooltip content="Delete Record">
-                                    <Button
-                                        size="1"
-                                        variant="ghost"
-                                        color="red"
-                                        style={{ cursor: 'pointer' }}
-                                        onClick={() => onDelete(attendance.id)}
-                                    >
-                                        <TrashIcon style={{ width: 14, height: 14 }} />
-                                    </Button>
-                                </Tooltip>
+                                <Flex gap="1" align="center">
+                                    <Tooltip content="History">
+                                        <Button
+                                            size="1"
+                                            variant="ghost"
+                                            color="gray"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => onHistory(attendance.id)}
+                                        >
+                                            <CounterClockwiseClockIcon style={{ width: 14, height: 14 }} />
+                                        </Button>
+                                    </Tooltip>
+                                    <Tooltip content="Delete Record">
+                                        <Button
+                                            size="1"
+                                            variant="ghost"
+                                            color="red"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => onDelete(attendance.id)}
+                                        >
+                                            <TrashIcon style={{ width: 14, height: 14 }} />
+                                        </Button>
+                                    </Tooltip>
+                                </Flex>
                             )
                         )}
                     </Flex>
@@ -470,6 +497,9 @@ const DailyTimesheetTab = ({
         setEditingCell(null);
     };
 
+    /* audit history modal */
+    const [historyId, setHistoryId] = useState(null);
+
     /* mark as present */
     const [markingId, setMarkingId] = useState(null);
     const handleMarkAsPresent = useCallback(async (user, date) => {
@@ -658,10 +688,10 @@ const DailyTimesheetTab = ({
                                             : attendances.map(a => (
                                                 <Table.Row key={a.id || a.user_id}>
                                                     {columns.map(c => (
-                                                        <Cell 
-                                                            key={c.uid} 
-                                                            attendance={a} 
-                                                            colUid={c.uid} 
+                                                        <Cell
+                                                            key={c.uid}
+                                                            attendance={a}
+                                                            colUid={c.uid}
                                                             isAdminView={isAdminView}
                                                             canCorrect={canCorrect}
                                                             editingCell={editingCell}
@@ -669,6 +699,7 @@ const DailyTimesheetTab = ({
                                                             onCancelEdit={cancelEdit}
                                                             onSaveTime={handleTimeSave}
                                                             onDelete={handleDeleteAttendance}
+                                                            onHistory={setHistoryId}
                                                         />
                                                     ))}
                                                 </Table.Row>
@@ -714,6 +745,12 @@ const DailyTimesheetTab = ({
                     </ErrorBoundary>
                 </Box>
             )}
+
+            <AuditHistoryModal
+                open={!!historyId}
+                attendanceId={historyId}
+                onOpenChange={() => setHistoryId(null)}
+            />
         </Box>
     );
 };
