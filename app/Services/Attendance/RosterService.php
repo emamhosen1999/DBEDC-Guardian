@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftAssignment;
+use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -74,6 +75,46 @@ class RosterService
         $entry = $pattern->definition[$phase] ?? 'off';
 
         return $entry === 'off' ? null : Shift::find($entry);
+    }
+
+    public function applySwap(ShiftSwapRequest $swap): void
+    {
+        if ($swap->status !== 'approved') {
+            return;
+        }
+
+        DB::transaction(function () use ($swap) {
+            $requesterShiftId = $this->resolveScheduledShiftId($swap->requester_id, $swap->requester_date->toDateString());
+
+            if ($swap->counterparty_id && $swap->counterparty_date) {
+                $counterpartyShiftId = $this->resolveScheduledShiftId($swap->counterparty_id, $swap->counterparty_date->toDateString());
+
+                $this->writeSwapDay($swap->requester_id, $swap->requester_date->toDateString(), $counterpartyShiftId);
+                $this->writeSwapDay($swap->counterparty_id, $swap->counterparty_date->toDateString(), $requesterShiftId);
+            } else {
+                // One-sided swap to a specific requested shift.
+                $this->writeSwapDay($swap->requester_id, $swap->requester_date->toDateString(), $swap->requested_shift_id);
+            }
+        });
+    }
+
+    /** Resolve the shift_id for a user on a date from existing roster_days (any source) or via assignment. */
+    private function resolveScheduledShiftId(int $userId, string $date): ?int
+    {
+        $rosterDay = RosterDay::where('user_id', $userId)->whereDate('date', $date)->first();
+        if ($rosterDay) {
+            return $rosterDay->shift_id;
+        }
+
+        return $this->resolveShift($userId, \Carbon\Carbon::parse($date))?->id;
+    }
+
+    private function writeSwapDay(int $userId, string $date, ?int $shiftId): void
+    {
+        RosterDay::updateOrCreate(
+            ['user_id' => $userId, 'date' => $date],
+            ['shift_id' => $shiftId, 'source' => 'swap', 'locked' => true],
+        );
     }
 
     public function resolveAssignment(int $userId, CarbonInterface $date): ?ShiftAssignment
