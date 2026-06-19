@@ -9,6 +9,7 @@ use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Attendance\AttendanceAuditService;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
 use App\Services\Attendance\AttendanceReportService;
@@ -661,10 +662,16 @@ class AttendanceController extends Controller
                 'date' => 'required|date',
             ]);
 
-            $attendance = Attendance::updateOrCreate(
-                ['user_id' => $validated['user_id'], 'date' => $validated['date']],
-                ['symbol' => '√', 'punchin' => Carbon::parse($validated['date'])->setHour(9)->setMinute(0)->setSecond(0)]
-            );
+            $audit = app(AttendanceAuditService::class);
+            $attendance = null;
+
+            DB::transaction(function () use ($validated, $audit, $request, &$attendance) {
+                $attendance = Attendance::updateOrCreate(
+                    ['user_id' => $validated['user_id'], 'date' => $validated['date']],
+                    ['symbol' => '√', 'punchin' => Carbon::parse($validated['date'])->setHour(9)->setMinute(0)->setSecond(0)]
+                );
+                $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
+            });
 
             return response()->json([
                 'success' => true,
@@ -689,14 +696,19 @@ class AttendanceController extends Controller
 
             $date = Carbon::parse($validated['date'])->format('Y-m-d');
             $punchin = Carbon::parse($validated['date'])->setHour(9)->setMinute(0)->setSecond(0);
+            $audit = app(AttendanceAuditService::class);
 
             $attendances = [];
-            foreach ($validated['user_ids'] as $userId) {
-                $attendances[] = Attendance::updateOrCreate(
-                    ['user_id' => $userId, 'date' => $date],
-                    ['symbol' => '√', 'punchin' => $punchin]
-                );
-            }
+            DB::transaction(function () use ($validated, $date, $punchin, $audit, $request, &$attendances) {
+                foreach ($validated['user_ids'] as $userId) {
+                    $attendance = Attendance::updateOrCreate(
+                        ['user_id' => $userId, 'date' => $date],
+                        ['symbol' => '√', 'punchin' => $punchin]
+                    );
+                    $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
+                    $attendances[] = $attendance;
+                }
+            });
 
             return response()->json([
                 'success' => true,
@@ -892,7 +904,13 @@ class AttendanceController extends Controller
                 }
             }
 
-            $attendance->update($validated);
+            $audit = app(AttendanceAuditService::class);
+            $before = $attendance->only(['punchin', 'punchout', 'symbol', 'date']);
+
+            DB::transaction(function () use ($attendance, $validated, $audit, $before, $id, $request) {
+                $attendance->update($validated);
+                $audit->record('update', (int) $id, $before, $attendance->only(['punchin', 'punchout', 'symbol', 'date']), $request->input('reason'), $request);
+            });
 
             return response()->json([
                 'success' => true,
@@ -935,14 +953,20 @@ class AttendanceController extends Controller
                 }
             }
 
-            $attendance = Attendance::create([
-                'user_id' => $validated['user_id'],
-                'date' => $validated['date'],
-                'punchin' => $validated['punchin'],
-                'punchout' => $validated['punchout'],
-                'punchin_location' => isset($validated['punchin_location']) ? json_encode($validated['punchin_location']) : null,
-                'punchout_location' => isset($validated['punchout_location']) ? json_encode($validated['punchout_location']) : null,
-            ]);
+            $audit = app(AttendanceAuditService::class);
+            $attendance = null;
+
+            DB::transaction(function () use ($validated, $audit, $request, &$attendance) {
+                $attendance = Attendance::create([
+                    'user_id' => $validated['user_id'],
+                    'date' => $validated['date'],
+                    'punchin' => $validated['punchin'],
+                    'punchout' => $validated['punchout'],
+                    'punchin_location' => isset($validated['punchin_location']) ? json_encode($validated['punchin_location']) : null,
+                    'punchout_location' => isset($validated['punchout_location']) ? json_encode($validated['punchout_location']) : null,
+                ]);
+                $audit->record('create', $attendance->id, null, $attendance->only(['punchin', 'punchout', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
+            });
 
             return response()->json([
                 'success' => true,
@@ -961,13 +985,19 @@ class AttendanceController extends Controller
         }
     }
 
-    public function deleteAttendanceRecord($id): JsonResponse
+    public function deleteAttendanceRecord(Request $request, $id): JsonResponse
     {
         $this->authorize('attendance.correct');
 
         try {
             $attendance = Attendance::findOrFail($id);
-            $attendance->delete();
+            $audit = app(AttendanceAuditService::class);
+            $before = $attendance->only(['punchin', 'punchout', 'symbol', 'date', 'user_id']);
+
+            DB::transaction(function () use ($attendance, $audit, $before, $id, $request) {
+                $attendance->delete();
+                $audit->record('delete', (int) $id, $before, null, $request->input('reason'), $request);
+            });
 
             return response()->json([
                 'success' => true,
@@ -996,8 +1026,14 @@ class AttendanceController extends Controller
                 'symbol' => 'required|string|max:10',
             ]);
 
-            $attendance->symbol = $validated['symbol'];
-            $attendance->save();
+            $audit = app(AttendanceAuditService::class);
+            $before = $attendance->only(['symbol', 'date', 'user_id']);
+
+            DB::transaction(function () use ($attendance, $validated, $audit, $before, $id, $request) {
+                $attendance->symbol = $validated['symbol'];
+                $attendance->save();
+                $audit->record('status', (int) $id, $before, $attendance->only(['symbol', 'date', 'user_id']), $request->input('reason'), $request);
+            });
 
             return response()->json([
                 'success' => true,
