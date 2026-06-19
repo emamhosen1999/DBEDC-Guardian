@@ -17,11 +17,13 @@ class RosterScheduleResolver implements ScheduleResolver
     public function resolve(int $userId, CarbonInterface $date): ShiftSchedule
     {
         $hasRoster = RosterDay::where('user_id', $userId)->whereDate('date', $date->toDateString())->exists();
-        $assignment = $this->roster->resolveAssignment($userId, $date);
 
-        // No roster coverage at all → preserve legacy behaviour via settings.
-        if (! $hasRoster && ! $assignment) {
-            return $this->fallback->resolve($userId, $date);
+        // No roster row → check assignment; if neither, preserve legacy behaviour via settings.
+        if (! $hasRoster) {
+            $assignment = $this->roster->resolveAssignment($userId, $date);
+            if (! $assignment) {
+                return $this->fallback->resolve($userId, $date);
+            }
         }
 
         $shift = $this->roster->resolveShift($userId, $date);
