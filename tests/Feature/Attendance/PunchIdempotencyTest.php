@@ -14,6 +14,12 @@ class PunchIdempotencyTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_rejects_a_second_punch_in_within_the_dedupe_window(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-19 09:00:00'));
@@ -26,10 +32,9 @@ class PunchIdempotencyTest extends TestCase
         // Same instant, the just-created row was closed? No — it's open. A second 'in' must reject.
         $second = $svc->processPunch($user, Request::create('/', 'POST', ['check_type' => 'in']));
         $this->assertSame('error', $second['status']);
+        $this->assertSame(422, $second['code']);
 
         $this->assertSame(1, Attendance::where('user_id', $user->id)->count());
-
-        Carbon::setTestNow();
     }
 
     public function test_rejects_rapid_duplicate_toggle_punch(): void
@@ -45,7 +50,5 @@ class PunchIdempotencyTest extends TestCase
 
         $this->assertSame('error', $dup['status']);
         $this->assertSame(429, $dup['code']);
-
-        Carbon::setTestNow();
     }
 }

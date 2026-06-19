@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Log;
  */
 class AttendancePunchService
 {
+    private const DEDUPE_WINDOW_SECONDS = 30;
+
     /**
      * Process punch in/out for a user
      */
@@ -54,9 +56,8 @@ class AttendancePunchService
 
             // No explicit check_type (manual toggle) or explicit 'in': decide by existing record.
             if (! $isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
-                $dedupeSeconds = 30;
                 $lastEvent = $existingAttendance->punchout ?? $existingAttendance->punchin;
-                if ($lastEvent && Carbon::parse($lastEvent)->diffInSeconds($punchTime) < $dedupeSeconds) {
+                if ($lastEvent && Carbon::parse($lastEvent)->diffInSeconds($punchTime) < self::DEDUPE_WINDOW_SECONDS) {
                     return [
                         'status' => 'error',
                         'message' => 'Duplicate punch ignored. Please wait a moment and try again.',
@@ -218,18 +219,6 @@ class AttendancePunchService
             ->latest()
             ->first();
 
-        $dedupeSeconds = 30;
-        if ($existingAttendance) {
-            $lastEvent = $existingAttendance->punchout ?? $existingAttendance->punchin;
-            if ($lastEvent && Carbon::parse($lastEvent)->diffInSeconds($punchTime) < $dedupeSeconds) {
-                return [
-                    'status' => 'error',
-                    'message' => 'Duplicate punch ignored. Please wait a moment and try again.',
-                    'code' => 429,
-                ];
-            }
-        }
-
         $isOutPunch = in_array($checkType, ['out', 'break_out', 'ot_out']);
         $isInPunch = in_array($checkType, ['in',  'break_in',  'ot_in']);
 
@@ -255,6 +244,17 @@ class AttendancePunchService
 
         // No explicit check_type (manual toggle) or explicit 'in': decide by existing record.
         if (! $isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
+            if (! $checkType) {
+                $lastEvent = $existingAttendance->punchout ?? $existingAttendance->punchin;
+                if ($lastEvent && Carbon::parse($lastEvent)->diffInSeconds($punchTime) < self::DEDUPE_WINDOW_SECONDS) {
+                    return [
+                        'status' => 'error',
+                        'message' => 'Duplicate punch ignored. Please wait a moment and try again.',
+                        'code' => 429,
+                    ];
+                }
+            }
+
             return $this->punchOut($existingAttendance, $request, $user, $punchTime);
         }
 
