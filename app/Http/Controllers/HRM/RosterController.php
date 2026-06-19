@@ -20,12 +20,29 @@ class RosterController extends Controller
             'department_id' => 'nullable|integer',
         ]);
 
-        $rows = RosterDay::with('shift:id,code,color,name')
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name'])
             ->whereBetween('date', [$data['from'], $data['to']])
-            ->get()
-            ->groupBy('user_id');
+            ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(
+                'user',
+                fn ($uq) => $uq->where('department_id', $departmentId)
+            ))
+            ->get();
 
-        return response()->json(['roster' => $rows]);
+        $roster = $rows->groupBy('user_id')->map(function ($userRows) {
+            $first = $userRows->first();
+
+            return [
+                'name' => $first->user?->name,
+                'days' => $userRows->keyBy(fn ($row) => $row->date->format('Y-m-d'))
+                    ->map(fn ($row) => [
+                        'code' => $row->shift?->code,
+                        'color' => $row->shift?->color,
+                        'off' => $row->shift_id === null,
+                    ]),
+            ];
+        });
+
+        return response()->json(['roster' => $roster]);
     }
 
     public function generate(Request $request): JsonResponse

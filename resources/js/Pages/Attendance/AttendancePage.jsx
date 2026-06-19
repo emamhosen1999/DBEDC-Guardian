@@ -5,13 +5,14 @@ import {
     Box, Flex, Text, Card, Tabs, Separator, Skeleton,
 } from '@radix-ui/themes';
 import {
-    ClockIcon, CalendarIcon, GearIcon,
+    ClockIcon, CalendarIcon, GearIcon, LayersIcon,
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
 
 import DailyTimesheetTab  from './DailyTimesheetTab';
 const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
+const RosterTab          = lazy(() => import('./RosterTab'));
 const SettingsTab        = lazy(() => import('./SettingsTab'));
 import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 import AttendanceOverview from './Components/AttendanceOverview';
@@ -48,6 +49,10 @@ const AttendancePage = ({ title, departments = [] }) => {
     const tabs = [
         { value: 'timesheet', label: 'Daily Timesheet', icon: <ClockIcon />    },
         { value: 'monthly',   label: 'Monthly Calendar', icon: <CalendarIcon /> },
+        ...(canSettings
+            ? [{ value: 'roster',   label: 'Roster',   icon: <LayersIcon /> }]
+            : []
+        ),
         ...(canSettings
             ? [{ value: 'settings', label: 'Settings', icon: <GearIcon /> }]
             : []
@@ -199,6 +204,23 @@ const AttendancePage = ({ title, departments = [] }) => {
                                     </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
+
+                            {/* ── Roster Tab ────────────────────────────── */}
+                            {canSettings && (
+                                <Tabs.Content value="roster">
+                                    <Box mt="4">
+                                        <ErrorBoundary>
+                                            <Suspense fallback={<Skeleton height="400px" />}>
+                                                <RosterTab
+                                                    departments={departments}
+                                                    month={selectedMonth}
+                                                    isActive={activeTab === 'roster'}
+                                                />
+                                            </Suspense>
+                                        </ErrorBoundary>
+                                    </Box>
+                                </Tabs.Content>
+                            )}
 
                             {/* ── Settings Tab ──────────────────────────── */}
                             {canSettings && (
