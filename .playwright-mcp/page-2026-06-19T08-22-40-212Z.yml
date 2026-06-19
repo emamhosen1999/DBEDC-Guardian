@@ -1,0 +1,443 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e14]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - img "DBEDC" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e21]: DBEDC
+          - generic [ref=e22]: DBEDC Guardian
+      - generic [ref=e24]:
+        - textbox "Search navigation…" [ref=e25]
+        - img [ref=e27]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e36]: Main
+        - link "Dashboard" [ref=e39] [cursor=pointer]:
+          - /url: http://localhost:8000/dashboard
+          - generic [ref=e40]:
+            - img [ref=e42]
+            - generic [ref=e44]: Dashboard
+        - generic [ref=e45]:
+          - button "Workspace 4" [ref=e47] [cursor=pointer]:
+            - img [ref=e49]
+            - generic [ref=e51]: Workspace
+            - generic [ref=e52]: "4"
+            - img [ref=e53]
+          - generic [ref=e57]:
+            - link "Daily Works" [ref=e59] [cursor=pointer]:
+              - /url: http://localhost:8000/daily-works-unified
+              - generic [ref=e60]:
+                - img [ref=e62]
+                - generic [ref=e64]: Daily Works
+            - link "My Attendance" [ref=e67] [cursor=pointer]:
+              - /url: http://localhost:8000/attendance-employee
+              - generic [ref=e68]:
+                - img [ref=e70]
+                - generic [ref=e72]: My Attendance
+            - link "My Leaves" [ref=e74] [cursor=pointer]:
+              - /url: http://localhost:8000/leaves-employee
+              - generic [ref=e75]:
+                - img [ref=e77]
+                - generic [ref=e79]: My Leaves
+            - link "Petty Cash" [ref=e81] [cursor=pointer]:
+              - /url: http://localhost:8000/petty-cash
+              - generic [ref=e82]:
+                - img [ref=e84]
+                - generic [ref=e86]: Petty Cash
+        - generic [ref=e87]:
+          - button "Workforce 2" [ref=e88] [cursor=pointer]:
+            - img [ref=e90]
+            - generic [ref=e92]: Workforce
+            - generic [ref=e93]: "2"
+            - img [ref=e94]
+          - generic [ref=e98]:
+            - link "Organization" [ref=e100] [cursor=pointer]:
+              - /url: http://localhost:8000/organization
+              - generic [ref=e101]:
+                - img [ref=e103]
+                - generic [ref=e105]: Organization
+            - generic [ref=e106]:
+              - button "Time/Attendance 3" [ref=e107] [cursor=pointer]:
+                - img [ref=e109]
+                - generic [ref=e111]: Time/Attendance
+                - generic [ref=e112]: "3"
+                - img [ref=e113]
+              - generic [ref=e117]:
+                - link "Attendances" [ref=e119] [cursor=pointer]:
+                  - /url: http://localhost:8000/attendance
+                  - generic [ref=e120]:
+                    - img [ref=e122]
+                    - generic [ref=e124]: Attendances
+                - link "Holidays" [ref=e126] [cursor=pointer]:
+                  - /url: http://localhost:8000/holidays
+                  - generic [ref=e127]:
+                    - img [ref=e129]
+                    - generic [ref=e131]: Holidays
+                - link "Leave Management" [ref=e133] [cursor=pointer]:
+                  - /url: http://localhost:8000/leaves
+                  - generic [ref=e134]:
+                    - img [ref=e136]
+                    - generic [ref=e138]: Leave Management
+        - generic [ref=e139]:
+          - button "Admin 4" [ref=e140] [cursor=pointer]:
+            - img [ref=e142]
+            - generic [ref=e145]: Admin
+            - generic [ref=e146]: "4"
+            - img [ref=e147]
+          - generic [ref=e151]:
+            - link "Users/Roles" [ref=e153] [cursor=pointer]:
+              - /url: http://localhost:8000/users
+              - generic [ref=e154]:
+                - img [ref=e156]
+                - generic [ref=e158]: Users/Roles
+            - link "Company Details" [ref=e160] [cursor=pointer]:
+              - /url: http://localhost:8000/company-settings
+              - generic [ref=e161]:
+                - img [ref=e163]
+                - generic [ref=e165]: Company Details
+            - link "Request Logs" [ref=e167] [cursor=pointer]:
+              - /url: http://localhost:8000/settings/request-logs
+              - generic [ref=e168]:
+                - img [ref=e170]
+                - generic [ref=e172]: Request Logs
+            - link "Monitoring" [ref=e174] [cursor=pointer]:
+              - /url: http://localhost:8000/admin/system-monitoring
+              - generic [ref=e175]:
+                - img [ref=e177]
+                - generic [ref=e179]: Monitoring
+      - generic [ref=e181]:
+        - generic [ref=e370]: E
+        - generic [ref=e186]:
+          - generic [ref=e187]: Emam Hosen
+          - generic [ref=e188]: Monitoring Center Manager
+        - generic [ref=e189]: 4.0.9
+    - generic [ref=e190]:
+      - generic [ref=e191]:
+        - button "Toggle sidebar" [ref=e192]:
+          - img [ref=e193]
+        - generic [ref=e196]: My Attendance
+        - button "Open search" [ref=e198]:
+          - img [ref=e199]
+          - generic [ref=e201]: Search…
+          - generic [ref=e202]: Ctrl+K
+        - generic [ref=e203]:
+          - button "Toggle appearance" [ref=e204]:
+            - img [ref=e205]
+          - button "Theme settings" [ref=e207]:
+            - img [ref=e208]
+          - button "Change language" [ref=e210]
+          - button "Notifications" [ref=e213]:
+            - img [ref=e214]
+          - button "User menu" [ref=e216] [cursor=pointer]:
+            - generic [ref=e371]: E
+            - generic [ref=e221]:
+              - generic [ref=e222]: Good afternoon
+              - generic [ref=e223]: Emam Hosen
+      - navigation "Breadcrumb" [ref=e224]:
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - img [ref=e228]
+            - link "Home" [ref=e230] [cursor=pointer]:
+              - /url: http://localhost:8000/dashboard
+          - generic [ref=e231]: /
+          - generic [ref=e232]:
+            - img [ref=e234]
+            - generic [ref=e236]: Workspace
+          - generic [ref=e237]: /
+          - generic [ref=e238]:
+            - img [ref=e240]
+            - generic [ref=e242]: My Attendance
+      - main "Main content" [ref=e243]:
+        - main "My Attendance Management" [ref=e245]:
+          - generic [ref=e249]:
+            - generic [ref=e254]:
+              - img [ref=e256]
+              - generic [ref=e258]:
+                - heading "My Attendance" [level=4] [ref=e259]
+                - paragraph [ref=e260]: View your attendance records and timesheet details
+            - generic [ref=e261]:
+              - generic [ref=e262]:
+                - generic [ref=e263]:
+                  - generic [ref=e264]:
+                    - generic [ref=e265]: Working Days
+                    - img [ref=e267]
+                  - generic [ref=e269]:
+                    - generic [ref=e270]: "27"
+                    - generic [ref=e271]: "Calendar: June 2026"
+                - generic [ref=e272]:
+                  - generic [ref=e273]:
+                    - generic [ref=e274]: Present
+                    - img [ref=e276]
+                  - generic [ref=e278]:
+                    - generic [ref=e279]: "7"
+                    - generic [ref=e280]: 25.9% Attendance Rate
+                - generic [ref=e281]:
+                  - generic [ref=e282]:
+                    - generic [ref=e283]: Absent
+                    - img [ref=e285]
+                  - generic [ref=e287]:
+                    - generic [ref=e288]: "3"
+                    - generic [ref=e289]: Unexcused absences
+                - generic [ref=e290]:
+                  - generic [ref=e291]:
+                    - generic [ref=e292]: On Leave
+                    - img [ref=e294]
+                  - generic [ref=e296]:
+                    - generic [ref=e297]: "4"
+                    - generic [ref=e298]: Approved leaves
+                - generic [ref=e299]:
+                  - generic [ref=e300]:
+                    - generic [ref=e301]: Late Arrivals
+                    - img [ref=e303]
+                  - generic [ref=e305]:
+                    - generic [ref=e306]: "7"
+                    - generic [ref=e307]: After grace period
+                - generic [ref=e308]:
+                  - generic [ref=e309]:
+                    - generic [ref=e310]: Total Hours
+                    - img [ref=e312]
+                  - generic [ref=e314]:
+                    - generic [ref=e315]: 22.6h
+                    - generic [ref=e316]: Total production time
+                - generic [ref=e317]:
+                  - generic [ref=e318]:
+                    - generic [ref=e319]: Daily Avg
+                    - img [ref=e321]
+                  - generic [ref=e323]:
+                    - generic [ref=e324]: 3.2h
+                    - generic [ref=e325]: "Target: 8.0h"
+                - generic [ref=e326]:
+                  - generic [ref=e327]:
+                    - generic [ref=e328]: Overtime
+                    - img [ref=e330]
+                  - generic [ref=e332]:
+                    - generic [ref=e333]: 0.1h
+                    - generic [ref=e334]: Extra hours logged
+              - generic [ref=e338]:
+                - textbox "Select month and year for attendance" [ref=e339]: 2026-06
+                - img [ref=e341]
+              - generic [ref=e343]:
+                - generic [ref=e345]:
+                  - img [ref=e347]
+                  - heading "My Attendance Records" [level=1] [ref=e349]
+                - region "Attendance data table" [ref=e352]:
+                  - table [ref=e376]:
+                    - rowgroup [ref=e377]:
+                      - row "Date Clock In Clock Out Work Hours Punches" [ref=e378]:
+                        - columnheader "Date" [ref=e379]:
+                          - generic [ref=e380]:
+                            - img [ref=e381]
+                            - generic [ref=e383]: Date
+                        - columnheader "Clock In" [ref=e384]:
+                          - generic [ref=e385]:
+                            - img [ref=e386]
+                            - generic [ref=e388]: Clock In
+                        - columnheader "Clock Out" [ref=e389]:
+                          - generic [ref=e390]:
+                            - img [ref=e391]
+                            - generic [ref=e393]: Clock Out
+                        - columnheader "Work Hours" [ref=e394]:
+                          - generic [ref=e395]:
+                            - img [ref=e396]
+                            - generic [ref=e398]: Work Hours
+                        - columnheader "Punches" [ref=e399]:
+                          - generic [ref=e400]:
+                            - img [ref=e401]
+                            - generic [ref=e403]: Punches
+                    - rowgroup [ref=e404]:
+                      - row "Jun 9, 2026 1. 9:52 AM 1. No punch out Incomplete punchMissing punch out 1 punch0 complete" [ref=e405]:
+                        - cell "Jun 9, 2026" [ref=e406]:
+                          - generic [ref=e407]:
+                            - img [ref=e408]
+                            - generic [ref=e410]: Jun 9, 2026
+                        - cell "1. 9:52 AM" [ref=e411]:
+                          - generic [ref=e412]:
+                            - img [ref=e413]
+                            - generic [ref=e416]:
+                              - generic [ref=e417]: "1."
+                              - text: 9:52 AM
+                        - cell "1. No punch out" [ref=e418]:
+                          - generic [ref=e419]:
+                            - img [ref=e420]
+                            - generic [ref=e423]:
+                              - generic [ref=e424]: "1."
+                              - text: No punch out
+                        - cell "Incomplete punchMissing punch out" [ref=e425]:
+                          - generic [ref=e426]:
+                            - img [ref=e427]
+                            - generic [ref=e429]: Incomplete punchMissing punch out
+                        - cell "1 punch0 complete" [ref=e430]:
+                          - generic [ref=e431]:
+                            - img [ref=e432]
+                            - generic [ref=e434]:
+                              - generic [ref=e435]: 1 punch
+                              - generic [ref=e436]: 0 complete
+                      - row "Jun 8, 2026 1. 10:00 AM 1. 5:15 PM 7h 15mTotal worked time 1 punchAll complete" [ref=e437]:
+                        - cell "Jun 8, 2026" [ref=e438]:
+                          - generic [ref=e439]:
+                            - img [ref=e440]
+                            - generic [ref=e442]: Jun 8, 2026
+                        - cell "1. 10:00 AM" [ref=e443]:
+                          - generic [ref=e444]:
+                            - img [ref=e445]
+                            - generic [ref=e448]:
+                              - generic [ref=e449]: "1."
+                              - text: 10:00 AM
+                        - cell "1. 5:15 PM" [ref=e450]:
+                          - generic [ref=e451]:
+                            - img [ref=e452]
+                            - generic [ref=e455]:
+                              - generic [ref=e456]: "1."
+                              - text: 5:15 PM
+                        - cell "7h 15mTotal worked time" [ref=e457]:
+                          - generic [ref=e458]:
+                            - img [ref=e459]
+                            - generic [ref=e461]: 7h 15mTotal worked time
+                        - cell "1 punchAll complete" [ref=e462]:
+                          - generic [ref=e463]:
+                            - img [ref=e464]
+                            - generic [ref=e466]:
+                              - generic [ref=e467]: 1 punch
+                              - text: All complete
+                      - row "Jun 6, 2026 1. 10:16 AM 1. No punch out Incomplete punchMissing punch out 1 punch0 complete" [ref=e468]:
+                        - cell "Jun 6, 2026" [ref=e469]:
+                          - generic [ref=e470]:
+                            - img [ref=e471]
+                            - generic [ref=e473]: Jun 6, 2026
+                        - cell "1. 10:16 AM" [ref=e474]:
+                          - generic [ref=e475]:
+                            - img [ref=e476]
+                            - generic [ref=e479]:
+                              - generic [ref=e480]: "1."
+                              - text: 10:16 AM
+                        - cell "1. No punch out" [ref=e481]:
+                          - generic [ref=e482]:
+                            - img [ref=e483]
+                            - generic [ref=e486]:
+                              - generic [ref=e487]: "1."
+                              - text: No punch out
+                        - cell "Incomplete punchMissing punch out" [ref=e488]:
+                          - generic [ref=e489]:
+                            - img [ref=e490]
+                            - generic [ref=e492]: Incomplete punchMissing punch out
+                        - cell "1 punch0 complete" [ref=e493]:
+                          - generic [ref=e494]:
+                            - img [ref=e495]
+                            - generic [ref=e497]:
+                              - generic [ref=e498]: 1 punch
+                              - generic [ref=e499]: 0 complete
+                      - row "Jun 4, 2026 1. 9:40 AM 1. 5:46 PM 8h 6mTotal worked time 1 punchAll complete" [ref=e500]:
+                        - cell "Jun 4, 2026" [ref=e501]:
+                          - generic [ref=e502]:
+                            - img [ref=e503]
+                            - generic [ref=e505]: Jun 4, 2026
+                        - cell "1. 9:40 AM" [ref=e506]:
+                          - generic [ref=e507]:
+                            - img [ref=e508]
+                            - generic [ref=e511]:
+                              - generic [ref=e512]: "1."
+                              - text: 9:40 AM
+                        - cell "1. 5:46 PM" [ref=e513]:
+                          - generic [ref=e514]:
+                            - img [ref=e515]
+                            - generic [ref=e518]:
+                              - generic [ref=e519]: "1."
+                              - text: 5:46 PM
+                        - cell "8h 6mTotal worked time" [ref=e520]:
+                          - generic [ref=e521]:
+                            - img [ref=e522]
+                            - generic [ref=e524]: 8h 6mTotal worked time
+                        - cell "1 punchAll complete" [ref=e525]:
+                          - generic [ref=e526]:
+                            - img [ref=e527]
+                            - generic [ref=e529]:
+                              - generic [ref=e530]: 1 punch
+                              - text: All complete
+                      - row "Jun 3, 2026 1. 12:47 PM 1. No punch out Incomplete punchMissing punch out 1 punch0 complete" [ref=e531]:
+                        - cell "Jun 3, 2026" [ref=e532]:
+                          - generic [ref=e533]:
+                            - img [ref=e534]
+                            - generic [ref=e536]: Jun 3, 2026
+                        - cell "1. 12:47 PM" [ref=e537]:
+                          - generic [ref=e538]:
+                            - img [ref=e539]
+                            - generic [ref=e542]:
+                              - generic [ref=e543]: "1."
+                              - text: 12:47 PM
+                        - cell "1. No punch out" [ref=e544]:
+                          - generic [ref=e545]:
+                            - img [ref=e546]
+                            - generic [ref=e549]:
+                              - generic [ref=e550]: "1."
+                              - text: No punch out
+                        - cell "Incomplete punchMissing punch out" [ref=e551]:
+                          - generic [ref=e552]:
+                            - img [ref=e553]
+                            - generic [ref=e555]: Incomplete punchMissing punch out
+                        - cell "1 punch0 complete" [ref=e556]:
+                          - generic [ref=e557]:
+                            - img [ref=e558]
+                            - generic [ref=e560]:
+                              - generic [ref=e561]: 1 punch
+                              - generic [ref=e562]: 0 complete
+                      - row "Jun 2, 2026 1. 10:09 AM 1. No punch out Incomplete punchMissing punch out 1 punch0 complete" [ref=e563]:
+                        - cell "Jun 2, 2026" [ref=e564]:
+                          - generic [ref=e565]:
+                            - img [ref=e566]
+                            - generic [ref=e568]: Jun 2, 2026
+                        - cell "1. 10:09 AM" [ref=e569]:
+                          - generic [ref=e570]:
+                            - img [ref=e571]
+                            - generic [ref=e574]:
+                              - generic [ref=e575]: "1."
+                              - text: 10:09 AM
+                        - cell "1. No punch out" [ref=e576]:
+                          - generic [ref=e577]:
+                            - img [ref=e578]
+                            - generic [ref=e581]:
+                              - generic [ref=e582]: "1."
+                              - text: No punch out
+                        - cell "Incomplete punchMissing punch out" [ref=e583]:
+                          - generic [ref=e584]:
+                            - img [ref=e585]
+                            - generic [ref=e587]: Incomplete punchMissing punch out
+                        - cell "1 punch0 complete" [ref=e588]:
+                          - generic [ref=e589]:
+                            - img [ref=e590]
+                            - generic [ref=e592]:
+                              - generic [ref=e593]: 1 punch
+                              - generic [ref=e594]: 0 complete
+                      - row "Jun 1, 2026 1. 10:02 AM 1. 5:16 PM 7h 14mTotal worked time 1 punchAll complete" [ref=e595]:
+                        - cell "Jun 1, 2026" [ref=e596]:
+                          - generic [ref=e597]:
+                            - img [ref=e598]
+                            - generic [ref=e600]: Jun 1, 2026
+                        - cell "1. 10:02 AM" [ref=e601]:
+                          - generic [ref=e602]:
+                            - img [ref=e603]
+                            - generic [ref=e606]:
+                              - generic [ref=e607]: "1."
+                              - text: 10:02 AM
+                        - cell "1. 5:16 PM" [ref=e608]:
+                          - generic [ref=e609]:
+                            - img [ref=e610]
+                            - generic [ref=e613]:
+                              - generic [ref=e614]: "1."
+                              - text: 5:16 PM
+                        - cell "7h 14mTotal worked time" [ref=e615]:
+                          - generic [ref=e616]:
+                            - img [ref=e617]
+                            - generic [ref=e619]: 7h 14mTotal worked time
+                        - cell "1 punchAll complete" [ref=e620]:
+                          - generic [ref=e621]:
+                            - img [ref=e622]
+                            - generic [ref=e624]:
+                              - generic [ref=e625]: 1 punch
+                              - text: All complete
+    - button "Open theme settings" [ref=e367]:
+      - img [ref=e368]

@@ -1,0 +1,234 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic "Loading application" [ref=e3]:
+    - generic [ref=e4]:
+      - img "Logo" [ref=e6]
+      - status "Loading" [ref=e7]
+      - generic [ref=e8]: Initializing
+      - generic [ref=e9]: Setting up components...
+  - generic [ref=e14]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - img "DBEDC" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e21]: DBEDC
+          - generic [ref=e22]: DBEDC Guardian
+      - generic [ref=e24]:
+        - textbox "Search navigation…" [ref=e25]
+        - img [ref=e27]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e36]: Main
+        - link "Dashboard" [ref=e39] [cursor=pointer]:
+          - /url: http://localhost:8000/dashboard
+          - generic [ref=e40]:
+            - img [ref=e42]
+            - generic [ref=e44]: Dashboard
+        - generic [ref=e45]:
+          - button "Workspace 4" [ref=e47] [cursor=pointer]:
+            - img [ref=e49]
+            - generic [ref=e51]: Workspace
+            - generic [ref=e52]: "4"
+            - img [ref=e53]
+          - generic [ref=e57]:
+            - link "Daily Works" [ref=e59] [cursor=pointer]:
+              - /url: http://localhost:8000/daily-works-unified
+              - generic [ref=e60]:
+                - img [ref=e62]
+                - generic [ref=e64]: Daily Works
+            - link "My Attendance" [ref=e67] [cursor=pointer]:
+              - /url: http://localhost:8000/attendance-employee
+              - generic [ref=e68]:
+                - img [ref=e70]
+                - generic [ref=e72]: My Attendance
+            - link "My Leaves" [ref=e74] [cursor=pointer]:
+              - /url: http://localhost:8000/leaves-employee
+              - generic [ref=e75]:
+                - img [ref=e77]
+                - generic [ref=e79]: My Leaves
+            - link "Petty Cash" [ref=e81] [cursor=pointer]:
+              - /url: http://localhost:8000/petty-cash
+              - generic [ref=e82]:
+                - img [ref=e84]
+                - generic [ref=e86]: Petty Cash
+        - generic [ref=e87]:
+          - button "Workforce 2" [ref=e88] [cursor=pointer]:
+            - img [ref=e90]
+            - generic [ref=e92]: Workforce
+            - generic [ref=e93]: "2"
+            - img [ref=e94]
+          - generic [ref=e98]:
+            - link "Organization" [ref=e100] [cursor=pointer]:
+              - /url: http://localhost:8000/organization
+              - generic [ref=e101]:
+                - img [ref=e103]
+                - generic [ref=e105]: Organization
+            - generic [ref=e106]:
+              - button "Time/Attendance 3" [ref=e107] [cursor=pointer]:
+                - img [ref=e109]
+                - generic [ref=e111]: Time/Attendance
+                - generic [ref=e112]: "3"
+                - img [ref=e113]
+              - generic [ref=e117]:
+                - link "Attendances" [ref=e119] [cursor=pointer]:
+                  - /url: http://localhost:8000/attendance
+                  - generic [ref=e120]:
+                    - img [ref=e122]
+                    - generic [ref=e124]: Attendances
+                - link "Holidays" [ref=e126] [cursor=pointer]:
+                  - /url: http://localhost:8000/holidays
+                  - generic [ref=e127]:
+                    - img [ref=e129]
+                    - generic [ref=e131]: Holidays
+                - link "Leave Management" [ref=e133] [cursor=pointer]:
+                  - /url: http://localhost:8000/leaves
+                  - generic [ref=e134]:
+                    - img [ref=e136]
+                    - generic [ref=e138]: Leave Management
+        - generic [ref=e139]:
+          - button "Admin 4" [ref=e140] [cursor=pointer]:
+            - img [ref=e142]
+            - generic [ref=e145]: Admin
+            - generic [ref=e146]: "4"
+            - img [ref=e147]
+          - generic [ref=e149]:
+            - link "Users/Roles" [ref=e151] [cursor=pointer]:
+              - /url: http://localhost:8000/users
+              - generic [ref=e152]:
+                - img [ref=e154]
+                - generic [ref=e156]: Users/Roles
+            - link "Company Details" [ref=e158] [cursor=pointer]:
+              - /url: http://localhost:8000/company-settings
+              - generic [ref=e159]:
+                - img [ref=e161]
+                - generic [ref=e163]: Company Details
+            - link "Request Logs" [ref=e165] [cursor=pointer]:
+              - /url: http://localhost:8000/settings/request-logs
+              - generic [ref=e166]:
+                - img [ref=e168]
+                - generic [ref=e170]: Request Logs
+            - link "Monitoring" [ref=e172] [cursor=pointer]:
+              - /url: http://localhost:8000/admin/system-monitoring
+              - generic [ref=e173]:
+                - img [ref=e175]
+                - generic [ref=e177]: Monitoring
+      - generic [ref=e179]:
+        - generic [ref=e184]:
+          - generic [ref=e185]: Emam Hosen
+          - generic [ref=e186]: Monitoring Center Manager
+        - generic [ref=e187]: 4.0.9
+    - generic [ref=e188]:
+      - generic [ref=e189]:
+        - button "Toggle sidebar" [ref=e190]:
+          - img [ref=e191]
+        - generic [ref=e194]: My Attendance
+        - button "Open search" [ref=e196]:
+          - img [ref=e197]
+          - generic [ref=e199]: Search…
+          - generic [ref=e200]: Ctrl+K
+        - generic [ref=e201]:
+          - button "Toggle appearance" [ref=e202]:
+            - img [ref=e203]
+          - button "Theme settings" [ref=e205]:
+            - img [ref=e206]
+          - button "Change language" [ref=e208]
+          - button "Notifications" [ref=e211]:
+            - img [ref=e212]
+          - button "User menu" [ref=e214] [cursor=pointer]:
+            - generic [ref=e219]:
+              - generic [ref=e220]: Good morning
+              - generic [ref=e221]: Emam Hosen
+      - navigation "Breadcrumb" [ref=e222]:
+        - generic [ref=e223]:
+          - generic [ref=e224]:
+            - img [ref=e226]
+            - link "Home" [ref=e228] [cursor=pointer]:
+              - /url: http://localhost:8000/dashboard
+          - generic [ref=e229]: /
+          - generic [ref=e230]:
+            - img [ref=e232]
+            - generic [ref=e234]: Workspace
+          - generic [ref=e235]: /
+          - generic [ref=e236]:
+            - img [ref=e238]
+            - generic [ref=e240]: My Attendance
+      - main "Main content" [ref=e241]:
+        - main "My Attendance Management" [ref=e243]:
+          - generic [ref=e247]:
+            - generic [ref=e252]:
+              - img [ref=e254]
+              - generic [ref=e256]:
+                - heading "My Attendance" [level=4] [ref=e257]
+                - paragraph [ref=e258]: View your attendance records and timesheet details
+            - generic [ref=e259]:
+              - generic [ref=e260]:
+                - generic [ref=e261]:
+                  - generic [ref=e262]:
+                    - generic [ref=e263]: Working Days
+                    - img [ref=e265]
+                  - generic [ref=e267]:
+                    - generic [ref=e268]: "0"
+                    - generic [ref=e269]: "Calendar:"
+                - generic [ref=e270]:
+                  - generic [ref=e271]:
+                    - generic [ref=e272]: Present
+                    - img [ref=e274]
+                  - generic [ref=e276]:
+                    - generic [ref=e277]: "0"
+                    - generic [ref=e278]: 0% Attendance Rate
+                - generic [ref=e279]:
+                  - generic [ref=e280]:
+                    - generic [ref=e281]: Absent
+                    - img [ref=e283]
+                  - generic [ref=e285]:
+                    - generic [ref=e286]: "0"
+                    - generic [ref=e287]: Unexcused absences
+                - generic [ref=e288]:
+                  - generic [ref=e289]:
+                    - generic [ref=e290]: On Leave
+                    - img [ref=e292]
+                  - generic [ref=e294]:
+                    - generic [ref=e295]: "0"
+                    - generic [ref=e296]: Approved leaves
+                - generic [ref=e297]:
+                  - generic [ref=e298]:
+                    - generic [ref=e299]: Late Arrivals
+                    - img [ref=e301]
+                  - generic [ref=e303]:
+                    - generic [ref=e304]: "0"
+                    - generic [ref=e305]: After grace period
+                - generic [ref=e306]:
+                  - generic [ref=e307]:
+                    - generic [ref=e308]: Total Hours
+                    - img [ref=e310]
+                  - generic [ref=e312]:
+                    - generic [ref=e313]: 0h
+                    - generic [ref=e314]: Total production time
+                - generic [ref=e315]:
+                  - generic [ref=e316]:
+                    - generic [ref=e317]: Daily Avg
+                    - img [ref=e319]
+                  - generic [ref=e321]:
+                    - generic [ref=e322]: 0h
+                    - generic [ref=e323]: "Target: 8.0h"
+                - generic [ref=e324]:
+                  - generic [ref=e325]:
+                    - generic [ref=e326]: Overtime
+                    - img [ref=e328]
+                  - generic [ref=e330]:
+                    - generic [ref=e331]: 0h
+                    - generic [ref=e332]: Extra hours logged
+              - generic [ref=e336]:
+                - textbox "Select month and year for attendance" [ref=e337]: 2026-06
+                - img [ref=e339]
+              - generic [ref=e341]:
+                - generic [ref=e343]:
+                  - img [ref=e345]
+                  - heading "My Attendance Records" [level=1] [ref=e347]
+                - region "Attendance data table" [ref=e350]
+    - button "Open theme settings" [ref=e365]:
+      - img [ref=e366]

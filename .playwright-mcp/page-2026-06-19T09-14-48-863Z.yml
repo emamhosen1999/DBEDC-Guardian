@@ -1,0 +1,184 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic "Loading application" [ref=e3]:
+    - generic [ref=e4]:
+      - img "Logo" [ref=e6]
+      - status "Loading" [ref=e7]
+      - generic [ref=e8]: Initializing
+      - generic [ref=e9]: Setting up components...
+  - generic [ref=e14]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - img "DBEDC" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e21]: DBEDC
+          - generic [ref=e22]: DBEDC Guardian
+      - generic [ref=e24]:
+        - textbox "Search navigation…" [ref=e25]
+        - img [ref=e27]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e36]: Main
+        - link "Dashboard" [ref=e39] [cursor=pointer]:
+          - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e40]:
+            - img [ref=e42]
+            - generic [ref=e44]: Dashboard
+        - generic [ref=e45]:
+          - button "Workspace 4" [ref=e47] [cursor=pointer]:
+            - img [ref=e49]
+            - generic [ref=e51]: Workspace
+            - generic [ref=e52]: "4"
+            - img [ref=e53]
+          - generic [ref=e57]:
+            - link "Daily Works" [ref=e59] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/daily-works-unified
+              - generic [ref=e60]:
+                - img [ref=e62]
+                - generic [ref=e64]: Daily Works
+            - link "My Attendance" [ref=e67] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/attendance-employee
+              - generic [ref=e68]:
+                - img [ref=e70]
+                - generic [ref=e72]: My Attendance
+            - link "My Leaves" [ref=e74] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/leaves-employee
+              - generic [ref=e75]:
+                - img [ref=e77]
+                - generic [ref=e79]: My Leaves
+            - link "Petty Cash" [ref=e81] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/petty-cash
+              - generic [ref=e82]:
+                - img [ref=e84]
+                - generic [ref=e86]: Petty Cash
+        - generic [ref=e87]:
+          - button "Workforce 2" [ref=e88] [cursor=pointer]:
+            - img [ref=e90]
+            - generic [ref=e92]: Workforce
+            - generic [ref=e93]: "2"
+            - img [ref=e94]
+          - generic [ref=e98]:
+            - link "Organization" [ref=e100] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/organization
+              - generic [ref=e101]:
+                - img [ref=e103]
+                - generic [ref=e105]: Organization
+            - generic [ref=e106]:
+              - button "Time/Attendance 3" [ref=e107] [cursor=pointer]:
+                - img [ref=e109]
+                - generic [ref=e111]: Time/Attendance
+                - generic [ref=e112]: "3"
+                - img [ref=e113]
+              - generic [ref=e117]:
+                - link "Attendances" [ref=e119] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/attendance
+                  - generic [ref=e120]:
+                    - img [ref=e122]
+                    - generic [ref=e124]: Attendances
+                - link "Holidays" [ref=e126] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/holidays
+                  - generic [ref=e127]:
+                    - img [ref=e129]
+                    - generic [ref=e131]: Holidays
+                - link "Leave Management" [ref=e133] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/leaves
+                  - generic [ref=e134]:
+                    - img [ref=e136]
+                    - generic [ref=e138]: Leave Management
+        - generic [ref=e139]:
+          - button "Admin 4" [ref=e140] [cursor=pointer]:
+            - img [ref=e142]
+            - generic [ref=e145]: Admin
+            - generic [ref=e146]: "4"
+            - img [ref=e147]
+          - generic [ref=e149]:
+            - link "Users/Roles" [ref=e151] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/users
+              - generic [ref=e152]:
+                - img [ref=e154]
+                - generic [ref=e156]: Users/Roles
+            - link "Company Details" [ref=e158] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/company-settings
+              - generic [ref=e159]:
+                - img [ref=e161]
+                - generic [ref=e163]: Company Details
+            - link "Request Logs" [ref=e165] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/settings/request-logs
+              - generic [ref=e166]:
+                - img [ref=e168]
+                - generic [ref=e170]: Request Logs
+            - link "Monitoring" [ref=e172] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/admin/system-monitoring
+              - generic [ref=e173]:
+                - img [ref=e175]
+                - generic [ref=e177]: Monitoring
+      - generic [ref=e179]:
+        - generic [ref=e184]:
+          - generic [ref=e185]: Emam Hosen
+          - generic [ref=e186]: Monitoring Center Manager
+        - generic [ref=e187]: 4.0.9
+    - generic [ref=e188]:
+      - generic [ref=e189]:
+        - button "Toggle sidebar" [ref=e190]:
+          - img [ref=e191]
+        - generic [ref=e194]: My Attendance
+        - button "Open search" [ref=e196]:
+          - img [ref=e197]
+          - generic [ref=e199]: Search…
+          - generic [ref=e200]: Ctrl+K
+        - generic [ref=e201]:
+          - button "Toggle appearance" [ref=e202]:
+            - img [ref=e203]
+          - button "Theme settings" [ref=e205]:
+            - img [ref=e206]
+          - button "Change language" [ref=e208]
+          - button "Notifications" [ref=e211]:
+            - img [ref=e212]
+          - button "User menu" [ref=e214] [cursor=pointer]:
+            - generic [ref=e219]:
+              - generic [ref=e220]: Good afternoon
+              - generic [ref=e221]: Emam Hosen
+      - navigation "Breadcrumb" [ref=e222]:
+        - generic [ref=e223]:
+          - generic [ref=e224]:
+            - img [ref=e226]
+            - link "Home" [ref=e228] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e229]: /
+          - generic [ref=e230]:
+            - img [ref=e232]
+            - generic [ref=e234]: Workspace
+          - generic [ref=e235]: /
+          - generic [ref=e236]:
+            - img [ref=e238]
+            - generic [ref=e240]: My Attendance
+      - main "Main content" [ref=e241]:
+        - generic [ref=e245]:
+          - generic [ref=e247]:
+            - generic [ref=e248]:
+              - img [ref=e250]
+              - generic [ref=e252]:
+                - generic [ref=e253]: My Attendance
+                - generic [ref=e254]: View your attendance records and timesheet details
+            - generic [ref=e256]:
+              - textbox [ref=e257]: 2026-06
+              - img [ref=e259]
+          - generic [ref=e262]:
+            - generic [ref=e265]:
+              - img [ref=e267]
+              - heading "Present" [level=1] [ref=e269]
+            - generic [ref=e272]:
+              - img [ref=e274]
+              - heading "Absent" [level=1] [ref=e276]
+            - generic [ref=e279]:
+              - img [ref=e281]
+              - heading "Late Arrivals" [level=1] [ref=e283]
+            - generic [ref=e286]:
+              - img [ref=e288]
+              - heading "On Leave" [level=1] [ref=e290]
+    - button "Open theme settings" [ref=e308]:
+      - img [ref=e309]

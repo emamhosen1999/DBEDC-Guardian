@@ -434,7 +434,7 @@ const TypeModal = ({ open, onClose, editingType, onSave }) => {
             const payload = { name: form.name, description: form.description, is_active: form.is_active, config: finalConfig };
             let res;
             if (editingType?.id) {
-                res = await updateAttendanceType.mutateAsync({ id: editingType.id, config: payload });
+                res = await updateAttendanceType.mutateAsync({ id: editingType.id, ...payload });
             } else {
                 res = await createAttendanceType.mutateAsync({ ...payload, slug: editingType?.slug });
             }
@@ -586,6 +586,7 @@ const SettingsTab = () => {
     const [settings,   setSettings]   = useState(initSettings || {});
     const [types,      setTypes]      = useState(initTypes    || []);
     const [search,     setSearch]     = useState('');
+    const [autoPunchOut, setAutoPunchOut] = useState(initSettings?.auto_punch_out || false);
 
     // React Query mutations
     const updateAttendanceType = useAttendanceQuery.useUpdateAttendanceType();
@@ -610,6 +611,25 @@ const SettingsTab = () => {
         sunday:   (initSettings?.weekend_days || []).includes('sunday'),
     });
 
+    // Sync state with Inertia props when they change
+    useEffect(() => {
+        if (initTypes) {
+            setTypes(initTypes);
+        }
+    }, [initTypes]);
+
+    useEffect(() => {
+        if (initSettings) {
+            setSettings(initSettings);
+            setAutoPunchOut(initSettings.auto_punch_out || false);
+            setWeekends({
+                friday:   (initSettings.weekend_days || []).includes('friday'),
+                saturday: (initSettings.weekend_days || []).includes('saturday'),
+                sunday:   (initSettings.weekend_days || []).includes('sunday'),
+            });
+        }
+    }, [initSettings]);
+
     /* grouped types */
     const grouped = useMemo(() => {
         const filtered = search
@@ -631,7 +651,6 @@ const SettingsTab = () => {
     /* save general settings */
     const handleGeneralSave = async e => {
         e.preventDefault();
-        setisMutating(true);
         try {
             const fd = new FormData(e.target);
             const data = Object.fromEntries(fd.entries());
@@ -643,13 +662,15 @@ const SettingsTab = () => {
                 late_mark_after:     parseInt(data.late_mark_after)     || 0,
                 early_leave_before:  parseInt(data.early_leave_before)  || 0,
                 overtime_after:      parseInt(data.overtime_after)       || 0,
+                auto_punch_out:      autoPunchOut,
+                auto_punch_out_time: autoPunchOut ? data.auto_punch_out_time : null,
             };
             const res = await updateAttendanceSettings.mutateAsync(payload);
             setSettings(res.attendanceSettings);
             showToast.success(res.message || 'Settings saved.');
         } catch (e) {
             showToast.error(e.response?.data?.message || 'Failed to save settings.');
-        } finally { setisMutating(false); }
+        }
     };
 
     /* type CRUD callbacks */
@@ -719,31 +740,53 @@ const SettingsTab = () => {
                                 <GearIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                 <Text size="3" weight="bold">Attendance Policies</Text>
                             </Flex>
-                            <Flex gap="4" wrap="wrap">
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="2" weight="medium" as="div" mb="1">Late Mark After (min)</Text>
-                                    <TextField.Root
-                                        type="number" size="2" name="late_mark_after"
-                                        min="0" max="120"
-                                        defaultValue={settings?.late_mark_after || 15}
-                                    />
-                                </Box>
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="2" weight="medium" as="div" mb="1">Early Leave Before (min)</Text>
-                                    <TextField.Root
-                                        type="number" size="2" name="early_leave_before"
-                                        min="0" max="120"
-                                        defaultValue={settings?.early_leave_before || 30}
-                                    />
-                                </Box>
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="2" weight="medium" as="div" mb="1">Overtime After (min)</Text>
-                                    <TextField.Root
-                                        type="number" size="2" name="overtime_after"
-                                        min="0" max="480"
-                                        defaultValue={settings?.overtime_after || 30}
-                                    />
-                                </Box>
+                            <Flex direction="column" gap="4">
+                                <Flex gap="4" wrap="wrap">
+                                    <Box style={{ flex: '1 1 180px' }}>
+                                        <Text size="2" weight="medium" as="div" mb="1">Late Mark After (min)</Text>
+                                        <TextField.Root
+                                            type="number" size="2" name="late_mark_after"
+                                            min="0" max="120"
+                                            defaultValue={settings?.late_mark_after || 15}
+                                        />
+                                    </Box>
+                                    <Box style={{ flex: '1 1 180px' }}>
+                                        <Text size="2" weight="medium" as="div" mb="1">Early Leave Before (min)</Text>
+                                        <TextField.Root
+                                            type="number" size="2" name="early_leave_before"
+                                            min="0" max="120"
+                                            defaultValue={settings?.early_leave_before || 30}
+                                        />
+                                    </Box>
+                                    <Box style={{ flex: '1 1 180px' }}>
+                                        <Text size="2" weight="medium" as="div" mb="1">Overtime After (min)</Text>
+                                        <TextField.Root
+                                            type="number" size="2" name="overtime_after"
+                                            min="0" max="480"
+                                            defaultValue={settings?.overtime_after || 30}
+                                        />
+                                    </Box>
+                                </Flex>
+
+                                <Flex gap="4" wrap="wrap" align="center">
+                                    <Flex align="center" gap="2" style={{ cursor: 'pointer', height: '100%', minHeight: 32 }}>
+                                        <Checkbox
+                                            size="2"
+                                            checked={autoPunchOut}
+                                            onCheckedChange={v => setAutoPunchOut(!!v)}
+                                        />
+                                        <Text size="2">Enable Auto Punch Out</Text>
+                                    </Flex>
+                                    {autoPunchOut && (
+                                        <Box style={{ flex: '1 1 180px' }}>
+                                            <Text size="2" weight="medium" as="div" mb="1">Auto Punch Out Time</Text>
+                                            <TextField.Root
+                                                type="time" size="2" name="auto_punch_out_time"
+                                                defaultValue={settings?.auto_punch_out_time || '18:00'}
+                                            />
+                                        </Box>
+                                    )}
+                                </Flex>
                             </Flex>
                         </Card>
 

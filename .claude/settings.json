@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_playwright_playwright__browser_network_request",
+      "Bash(npm run *)",
+      "Bash(tail -15 \"C:/Users/Emam Hosen/AppData/Local/Temp/claude/c--laragon-www-Aero-Enterprise-Suite/c12915c0-b66b-48d9-adff-d0a1a1195cd9/tasks/b577pc2w3.output\")",
+      "Bash(cat public/hot)",
+      "Bash(curl -sk -o /dev/null -w \"https aero-enterprise-suite.test -> %{http_code}\\\\n\" --max-time 8 https://aero-enterprise-suite.test/login)",
+      "Bash(curl -sk -o /dev/null -w \"https vite 5173 -> %{http_code}\\\\n\" --max-time 8 https://aero-enterprise-suite.test:5173/@vite/client)",
+      "Bash(curl -sk \"https://aero-enterprise-suite.test:5173/resources/js/Pages/AttendanceEmployee.jsx\")",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\" https://aero-enterprise-suite.test/)",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\" https://aero-enterprise-suite.test:5173/)",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\" https://aero-enterprise-suite.test:5173/@vite/client)",
+      "Bash(git rev-parse *)",
+      "Bash(cat \"$\\(git rev-parse --git-path sdd\\)/progress.md\")",
+      "Bash(git status *)",
+      "Bash(awk '{print $1}')",
+      "Bash(git commit -q -m ' *)"
+    ]
+  }
+}

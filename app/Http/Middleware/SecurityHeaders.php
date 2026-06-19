@@ -19,16 +19,19 @@ class SecurityHeaders
     {
         $response = $next($request);
 
-        // Content Security Policy
-        $response->headers->set('Content-Security-Policy',
-            "default-src 'self'; ".
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com; ".
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; ".
-            "font-src 'self' https://fonts.gstatic.com; ".
-            "img-src 'self' data: https:; ".
-            "connect-src 'self' https://api.erp.dhakabypass.com; ".
-            "frame-ancestors 'none';"
-        );
+        // Content Security Policy — only in production. In local/dev the strict policy
+        // blocks the Vite dev server (separate origin localhost:5173 + HMR websocket).
+        if (app()->environment('production')) {
+            $response->headers->set('Content-Security-Policy',
+                "default-src 'self'; ".
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com; ".
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; ".
+                "font-src 'self' https://fonts.gstatic.com; ".
+                "img-src 'self' data: https:; ".
+                "connect-src 'self' https://api.erp.dhakabypass.com; ".
+                "frame-ancestors 'none';"
+            );
+        }
 
         // Additional security headers
         $response->headers->set('X-Frame-Options', 'DENY');

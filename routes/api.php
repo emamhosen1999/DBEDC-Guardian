@@ -36,8 +36,8 @@ Route::post('/biometric/heartbeat', [BiometricWebhookController::class, 'heartbe
 // ZKTeco ADMS routes are in routes/iclock.php (registered without /api prefix
 // via bootstrap/app.php → then callback). The MB460 hardcodes /iclock/cdata.
 
-// Device command management (requires authentication)
-Route::middleware(['web', 'auth', 'throttle:api'])->prefix('biometric-devices')->group(function () {
+// Device command management (requires authentication + device-management permission)
+Route::middleware(['web', 'auth', 'permission:attendance.settings', 'throttle:api'])->prefix('biometric-devices')->group(function () {
     Route::post('/{deviceId}/commands', [BiometricWebhookController::class, 'queueCommand'])
         ->name('api.biometric-devices.commands.queue');
     Route::get('/{deviceId}/commands', [BiometricWebhookController::class, 'getCommands'])

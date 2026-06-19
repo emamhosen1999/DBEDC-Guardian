@@ -1,0 +1,9 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic "Loading application" [ref=e3]:
+    - generic [ref=e4]:
+      - img "Logo" [ref=e6]
+      - status "Loading" [ref=e7]
+      - generic [ref=e8]: Initializing
+      - generic [ref=e9]: Setting up components...

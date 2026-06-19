@@ -17,6 +17,8 @@ class AttendanceSetting extends Model
         'early_leave_before',
         'overtime_after',
         'weekend_days',
+        'auto_punch_out',
+        'auto_punch_out_time',
     ];
 
     protected $casts = [
@@ -28,6 +30,8 @@ class AttendanceSetting extends Model
         'early_leave_before' => 'integer',
         'overtime_after' => 'integer',
         'break_time_duration' => 'integer',
+        'auto_punch_out' => 'boolean',
+        'auto_punch_out_time' => 'date:H:i',
 
     ];
 

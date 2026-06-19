@@ -21,8 +21,13 @@
 | Attendances (Admin) | 1 | 4 | 5 | 4 |
 | Holidays | 1 | 4 | 5 | 4 |
 | Leave Management (Admin) | 2 | 4 | 4 | 3 |
+| Users / Roles | 3 | 3 | 4 | 3 |
+| Company Details | 1 | 0 | 2 | 4 |
+| Request Logs | 2 | 3 | 4 | 4 |
+| System Monitoring | 0 | 2 | 2 | 4 |
+| **TOTAL** | **19** | **39** | **55** | **44** |
 
-> Table updated as remaining waves complete.
+**157 findings across 13 features.** Authorization/IDOR and broken FE↔BE contracts dominate the Critical/High tier.
 
 ---
 
@@ -377,3 +382,156 @@
 **Summary:** 2 Critical, 4 High, 4 Medium, 3 Low.
 
 ---
+
+## Users / Roles
+
+**Files audited:** `AdminUnified.jsx`, `Components/AdminUnified/UsersPanel.jsx`, `UserController.php`, `RoleController.php`, `PermissionController.php`, `Services/Admin/UserManagementService.php`, `Requests/{StoreUser,UpdateUser,UpdateUserRole}Request.php`, `Policies/UserPolicy.php`, `Providers/AuthServiceProvider.php`, `Models/User.php`, `Resources/UserResource.php`, `routes/web.php`, `routes/api.php`.
+
+### Findings
+
+- **[Critical][Security/Priv-esc] API user role/permission endpoints have NO authorization** — `routes/api.php:165-175` group is only `['web','auth','throttle:api']`; `UserController::syncUserRoles/syncUserPermissions/giveUserPermission/revokeUserPermission` (`:580,616,651,691`) only `validate()` then mutate. Any logged-in user can POST `/api/users/{own-id}/roles` `{"roles":["Super Administrator"]}`. Fix: add `permission:users.update` + per-method authorize/super-admin guard.
+
+- **[Critical][Security/Priv-esc] API role & permission CRUD lack route-level authorization** — `routes/api.php:140-163`; `RoleController::apiIndex/apiShow` (`:1249,1278`) expose full role/permission matrix to any authenticated user; several role-mutation methods rely only on `canManageRole`. Fix: wrap api `roles`/`permissions` groups in `permission:` middleware mirroring web.
+
+- **[Critical][Security/Auth-bypass] `changePassword` resets any user's password, no authorization** — `UserController.php:215-252` (`findOrFail($id)->update(['password'=>bcrypt(...)])`, no authorize, no current-password check). Currently unrouted but latent account-takeover. Fix: delete or authorize + scope.
+
+- **[High][Security/Priv-esc] "Edit Roles" dialog offers Super Administrator to non-super admins** — `UserManagementService.php:43` returns all roles unfiltered → `UsersPanel.jsx:681-699`; `UserPolicy::updateRoles` lets any Administrator assign Super Administrator. Fix: forbid assigning Super Admin unless actor is Super Admin; filter the role out for non-super.
+
+- **[High][Security/Mass-assignment] `password` & `email_verified_at` in User `$fillable`** — `User.php:106,114`. Raw-input paths could forge verification. Fix: remove `email_verified_at` from fillable; set explicitly.
+
+- **[High][Integration/Broken-route] `users.bulk.role` & `users.bulk.delete` point to non-existent controller methods** — `routes/web.php:419,424` reference `UserController::bulkAssignRole/bulkDelete` (only the service has them). Runtime 500. Fix: implement the controller methods (authorize + transaction).
+
+- **[Medium][Security] Role-change self/escalation guard applied inconsistently across web FormRequest vs plain `syncUserRoles`** — `UserController.php:257-288` + service `:691`. Fix: centralize authorization.
+
+- **[Medium][Security/Availability] `togglePermission` runs `Cache::flush()` + `Artisan::call('cache:clear'/'config:clear')` in prod on every toggle** — `RoleController.php:754-758`. Severe perf/availability hit. Fix: only `forgetCachedPermissions()`.
+
+- **[Medium][Security/Logic] `view-salary` ability referenced but never defined** — `UserResource.php:43`; no `Gate::define('view-salary')`. Salary hidden from legitimate HR/admin. Fix: define the gate/permission.
+
+- **[Medium][Security/Brute-force] No throttle on web user-management mutation routes** — `routes/web.php:400-427`. Fix: add `throttle:`.
+
+- **[Low][Frontend/Validation] Role dialog allows saving empty role set; BE requires `min:1`, error swallowed** — `UsersPanel.jsx:84-100` vs `UpdateUserRoleRequest.php:29`. Generic toast. Fix: disable Save when empty / surface server message.
+
+- **[Low][Backend/Perf] `getAdminUnifiedPageData` dumps all roles+permissions+users into Inertia props unpaginated** — `UserManagementService.php:39-61`.
+
+- **[Low][Security/Info-leak] Error paths return raw `$e->getMessage()` to browser** — `RoleController.php:266-277` + `togglePermission`. Fix: gate behind local env.
+
+**Summary:** 3 Critical, 3 High, 4 Medium, 3 Low.
+
+---
+
+## Company Details
+
+**Files audited:** `Settings/CompanySettings.jsx`, `Forms/CompanyInformationForm.jsx`, `Props/countries.jsx`, `Settings/CompanySettingController.php`, `Models/CompanySetting.php`, company_settings migration, `routes/web.php`.
+
+> Authorization is correct here (route under `permission:company.settings`, nav gate matches). No logo/file upload exists in this feature, so file-upload vulns are N/A. Mass-assignment is bounded (only `$validatedData` persisted).
+
+### Findings
+
+- **[Critical][Integration/Logic] State field is permanently disabled but BE requires it — settings cannot be saved** — `Props/countries.jsx:1-8` (no country has a `states` array) + `CompanyInformationForm.jsx:42-45,129-133` (`disabled={states.length===0}`, always disabled) vs controller `:31` (`state` required). Fresh install can never save; State uneditable on update. Fix: add states data (or make `state` optional/free-text) and don't disable when no list.
+
+- **[Medium][Integration] State always `required` server-side but uncollectable on FE** — same root; only failure path is server 422. Fix: align FE/BE.
+
+- **[Medium][Validation] `postalCode` capped `max:10` server-side vs `string(255)` column, no FE limit** — controller `:32` vs migration `:22`. Rejects valid long postal codes. Fix: raise to ~20, mirror on FE.
+
+- **[Low][Frontend/State] Country change clears state list but not selected `state` value** — `CompanyInformationForm.jsx:37-45` (latent once states added). Fix: reset `state` on country change.
+
+- **[Low][Frontend] Framer-Motion props on a plain `<div>` are inert + cause React warnings** — `CompanySettings.jsx:17-21`. Fix: use `motion.div` or remove.
+
+- **[Low][Backend/Error] Update returns raw `$e->getMessage()` on 500** — `CompanySettingController.php:54-60`. Fix: log + generic message.
+
+- **[Low][Frontend/Feedback] 422 toast reads `data.error` (Laravel sends `message`/`errors`) → always generic** — `CompanyInformationForm.jsx:63-65`. Fix: read `data.message`.
+
+**Summary:** 1 Critical, 0 High, 2 Medium, 4 Low.
+
+---
+
+## Request Logs
+
+**Files audited:** `Settings/RequestLogs.jsx`, `api/queries/useRequestLogsQuery.js`, `api/client.js`, `Settings/RequestLogController.php`, `Models/RequestLog.php`, `Middleware/LogRequestMiddleware.php`, `routes/web.php`, request_logs migration.
+
+### Findings
+
+- **[Critical][Integration] API URLs miss the `settings/` prefix — every request 404s** — `useRequestLogsQuery.js:15,25,37,49,59,70` call `/request-logs/*` but routes are `settings/request-logs/*` (`routes/web.php:531-537`), no axios baseURL rewrite. Entire feature non-functional. Fix: prefix `/settings` or use `route()`.
+
+- **[Critical][Frontend] `setLogs` is undefined — delete/clear throw ReferenceError** — `RequestLogs.jsx:141,149,161,170,178,187` (`logs` is a derived const at `:76`). Fix: drop optimistic `setLogs`, use `invalidateQueries`/`refetch`.
+
+- **[High][Frontend] `viewDetails` calls a `useQuery` hook imperatively (Rules of Hooks violation)** — `RequestLogs.jsx:211-218` (`await useRequestLogsQuery.useLogDetails(id)`). Detail dialog broken. Fix: direct `requestJson` or enabled query.
+
+- **[High][Security] No real authorization — gated by unrelated `attendance.settings` permission** — `routes/web.php:495-538` group; no controller authorize. Logs hold URLs, bodies, headers, identity. Fix: dedicated `system-logs.view/manage` permission for admins.
+
+- **[High][Security] Sensitive-data exposure: header/body sanitization misses keys; broad response capture** — `LogRequestMiddleware.php:92-170` (denylist only top-level exact keys; misses `x-csrf-token`, `set-cookie`, nested `access_token`/`client_secret`/PII; stores response bodies up to 10k). Tokens/PII persisted cleartext. Fix: recursive redactor + default-deny response logging.
+
+- **[Medium][Security] `clearAll` uses `truncate()` — irreversible, bypasses transactions/events** — `RequestLogController.php:101`. Fix: `delete()` + retention/soft-delete + dedicated permission.
+
+- **[Medium][Perf] Unindexed filter/search columns** — `RequestLogController.php:25,32,41` (`method` no index; `url` text leading-wildcard LIKE; `ip_address` LIKE unusable) vs migration `:28-31`. Full scans on high-growth table. Fix: index `method`; exact/prefix/fulltext for url/ip; cap date range.
+
+- **[Medium][Perf] Export effectively unbounded (10k rows, all columns, in-memory `php://temp`)** — `RequestLogController.php:139-162`. Memory spikes; silent truncation. Fix: stream/cursor; surface limit.
+
+- **[Medium][Backend] No FormRequest/date validation on filters** — `RequestLogController.php:44-50` (params bound raw; parameterized so not injection but can throw/empty). Fix: validate `date`/`method`/status.
+
+- **[Low][Frontend] Delete success toasts unreachable (setLogs crash) + native `confirm()`** — `RequestLogs.jsx:137,156`.
+
+- **[Low][Frontend] Redundant `refetch()` on mount + per filter/page change; stale-key refetch** — `RequestLogs.jsx:92-94,102,115,618`.
+
+- **[Low][Frontend] Effect on `paginationData` object identity causes redundant renders** — `RequestLogs.jsx:80-86`.
+
+- **[Low][Integration] Export mutation double-nests params → active filters dropped on export** — `RequestLogs.jsx:194` vs hook signature.
+
+**Summary:** 2 Critical, 3 High, 4 Medium, 4 Low.
+
+---
+
+## System Monitoring
+
+**Files audited:** `Administration/SystemMonitoringEnhanced.jsx`, `api/queries/useSystemMonitoringQuery.js`, `api/client.js`, `SystemMonitoringController.php`, `Services/Monitoring/{SystemHealth,DatabaseAnalytics,SecurityMonitoring,LogParser}Service.php`, `routes/web.php`, `routes/api.php`.
+
+> Authorization is correctly enforced: web (`routes/web.php:654`, `role:Super Administrator`), API (`routes/api.php:125`, same), and nav gate (`pages.jsx:150`) all match. No auth desync.
+
+### Findings
+
+- **[High][Integration/UX] "Export report" route maps to a non-existent controller method** — `routes/web.php:657` → `SystemMonitoringController::exportReport` (undefined); `useSystemMonitoringQuery.js:23` wraps the error HTML into a `.pdf`. A 200 redirect yields a corrupt file + false success toast. Fix: implement `exportReport()` or remove route+button.
+
+- **[High][Integration] Tab `type` values don't match controller `getMetrics` switch** — `SystemMonitoringEnhanced.jsx:70,136-176` sends `overview|database|performance|security|compliance`; controller `:83-100` handles `performance|errors|users|system|default`. `database`/`security`/`compliance` fall to `default` (full expensive overview); `performance` returns grouped data but UI reads `data.performance_summary` (absent) → always "No performance metrics." Fix: align cases + payload shapes.
+
+- **[Medium][Backend/Perf] Unbounded `information_schema.TABLES` query serialized + cached** — `DatabaseAnalyticsService.php:77-93` (no LIMIT; UI only shows `slice(0,50)`); plus all-table index analysis `:116-139`. Fix: LIMIT/paginate server-side.
+
+- **[Medium][Backend/Security] `getSystemOverview` is a single global-keyed cache also exposed as its own GET route** — `SystemMonitoringController.php:62-78`, `routes/api.php:127`; broad infra disclosure (schema, backup filenames, connection counts). Role-gated but no scoping. Fix: confirm role sufficiency; consider not exposing raw overview standalone.
+
+- **[Low][Backend/Security] `shell_exec` for health metrics (`nproc`, `ps aux | grep`)** — `SystemHealthService.php:183,245`. No user input (not injectable) but fragile. Fix: native PHP + `function_exists` guard.
+
+- **[Low][Backend/Security] Path-traversal-prone log helpers (currently unreferenced)** — `LogParserService.php:120-157` (`storage_path('logs/'.$filename)` no `basename`). Latent. Fix: `basename()` + `.log` whitelist before any exposure.
+
+- **[Low][Frontend/UX] Double polling: React Query `refetchInterval:30000` + manual `setInterval`; "Auto refresh" toggle doesn't stop RQ polling** — `SystemMonitoringEnhanced.jsx:87-92`, `useSystemMonitoringQuery.js:14`. Fix: drive `refetchInterval` from state; drop manual timer.
+
+- **[Low][Frontend/UX] Last-updated falls back to `new Date()`, masking up-to-5-min stale cache** — `SystemMonitoringEnhanced.jsx:305`. Fix: show "Unknown"/cached timestamp.
+
+- **[Low][Frontend/UX] Performance/Security/Compliance tabs are raw `JSON.stringify` dumps** — `SystemMonitoringEnhanced.jsx:171-176`.
+
+**Summary:** 0 Critical, 2 High, 2 Medium, 4 Low.
+
+---
+
+## Executive summary & cross-cutting patterns
+
+The same root causes recur across features — fixing them as **patterns** will clear most of the Critical/High tier:
+
+1. **Authorization enforced at the nav/route layer but not the controller (IDOR / privilege escalation).** The most dangerous class. Confirmed in: Users/Roles API (self-grant Super Admin — *worst*), My Leaves (CRUD/approve others' leaves), Leave Management (approve with read-only permission), Daily Works (edit/delete any record), Holidays (create/update with view-only), Attendances admin (ungated PII/export endpoints), Request Logs (wrong permission), Organization (`organization.index` ungated). **Pattern fix:** every mutating/owned-resource endpoint needs a policy/`authorize()` call or a correct `permission:` middleware that matches the UI gate — never rely on hidden buttons.
+
+2. **Frontend↔backend contract breaks that silently disable whole features.** Petty Cash (`activeLoan.id` missing → tabs dead; missing icon import → Analytics crash), My Attendance (table reads `attendances`, BE sends `attendance`), Request Logs (missing `settings/` URL prefix → all 404; `setLogs` undefined), My Leaves (`setLeaves`/`fetchLeavesStats` undefined), Leave Management (`exists:leave_applications` — wrong table), Company Details (uneditable required State field), System Monitoring (missing `exportReport`, tab `type` mismatch). **Pattern fix:** a contract/smoke pass per feature; these are mostly one-line fixes with outsized impact.
+
+3. **Money/state mutations without DB transactions or row locks (race conditions).** Petty Cash, attendance punch in/out, leave create, bulk approve, dept reassignment. **Pattern fix:** wrap read-decide-write in `DB::transaction` + `lockForUpdate`, add unique constraints.
+
+4. **Missing business-rule enforcement server-side.** Leave balance (overdraft), petty-cash over-withdrawal, holiday/leave overlap on update, leave `days` negative. Client `disabled` is the only guard. **Pattern fix:** re-validate every rule server-side.
+
+5. **Over-fetching + missing indexes + leftover debug logging.** All-users-into-props, `whereDate`/leading-wildcard `LIKE` on unindexed columns, `Log::info($request->all())` with PII. Performance + info-disclosure.
+
+### Suggested remediation order
+1. **Users/Roles API authorization** (Critical — trivial self-escalation to Super Admin).
+2. Remaining IDOR/authorization gaps (Leaves, Daily Works, Holidays, Attendances exports, Request Logs permission).
+3. Contract breaks that disable features (Petty Cash, My Attendance, Request Logs, My Leaves, Leave Management, Company Details, System Monitoring export).
+4. Transactions/locks on money + attendance + leave + bulk ops.
+5. Server-side business-rule validation.
+6. Performance/index/logging cleanup.
+
+### Method caveats
+This was a **static read**, so `[RUNTIME]`-tagged items (dark-mode contrast, CLS, double-submit windows, timezone off-by-one, status casing) need live confirmation. Pure UI runtime classes from the taxonomy (stuck hover on touch, keyboard traps, focus rings, screen-reader behavior, true responsive breakage) were largely **not** assessable without driving the running app — recommend a follow-up Playwright pass if those matter.

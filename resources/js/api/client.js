@@ -66,7 +66,7 @@ export async function requestJson(method, url, options = {}) {
             ...clientConfig,
         });
 
-        if (responseType === 'blob') {
+        if (clientConfig.responseType === 'blob') {
             return response.data;
         }
 

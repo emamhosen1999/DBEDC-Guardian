@@ -1,0 +1,36 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic "Loading application" [ref=e3]:
+    - generic [ref=e4]:
+      - img "Logo" [ref=e6]
+      - status "Loading" [ref=e7]
+      - generic [ref=e8]: Initializing
+      - generic [ref=e9]: Setting up components...
+  - generic [ref=e13]:
+    - img [ref=e15]
+    - paragraph [ref=e17]: Oops! Something went wrong
+    - paragraph [ref=e18]: We encountered an unexpected error. Our team has been notified and will investigate this issue.
+    - generic [ref=e20]:
+      - paragraph [ref=e21]:
+        - strong [ref=e22]: "Error ID:"
+        - code [ref=e23]: mqjf6x9l6n1s3j6suae
+      - paragraph [ref=e24]: Please provide this ID when contacting support.
+    - generic [ref=e25]:
+      - button "Try Again" [ref=e26]:
+        - img [ref=e27]
+        - text: Try Again
+      - button "Go to Dashboard" [ref=e29]:
+        - img [ref=e30]
+        - text: Go to Dashboard
+      - button "Recover" [ref=e32]:
+        - img [ref=e33]
+        - text: Recover
+    - group [ref=e36]:
+      - generic "Technical Details" [ref=e37] [cursor=pointer]
+    - generic [ref=e39]:
+      - paragraph [ref=e40]: Need Help?
+      - paragraph [ref=e41]:
+        - text: If this problem persists, contact our support team at
+        - strong [ref=e42]: support@dbedc.com
+        - text: with the error ID.

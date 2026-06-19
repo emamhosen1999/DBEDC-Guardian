@@ -157,7 +157,7 @@ export const useUpdateAttendanceType = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, config }) => requestJson('put', `/settings/attendance-type/${id}`, { config }),
+    mutationFn: ({ id, ...data }) => requestJson('put', `/settings/attendance-type/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance-types'] });
     },

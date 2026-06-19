@@ -1,0 +1,41 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic "Loading application" [ref=e3]:
+    - generic [ref=e4]:
+      - img "Logo" [ref=e6]
+      - status "Loading" [ref=e7]
+      - generic [ref=e8]: Initializing
+      - generic [ref=e9]: Setting up components...
+  - generic [ref=e12]:
+    - generic:
+      - img
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - img "Logo" [ref=e17]
+        - heading "Welcome back" [level=1] [ref=e18]
+        - generic [ref=e19]: Sign in to your account
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - generic [ref=e23]: Email address
+          - generic [ref=e24]:
+            - textbox "your@email.com" [active] [ref=e25]
+            - img [ref=e27]
+        - generic [ref=e29]:
+          - generic [ref=e30]: Password
+          - generic [ref=e31]:
+            - textbox "••••••••" [ref=e32]
+            - img [ref=e34]
+            - button "Toggle password" [ref=e37]:
+              - img [ref=e38]
+        - generic [ref=e40]:
+          - generic [ref=e42]:
+            - checkbox "Remember me" [ref=e43]
+            - checkbox
+            - text: Remember me
+          - link "Forgot password?" [ref=e44] [cursor=pointer]:
+            - /url: http://127.0.0.1:8000/forgot-password
+        - button "Sign In" [ref=e45]:
+          - img [ref=e46]
+          - text: Sign In
+      - generic [ref=e49]: © 2025 Emam Hosen. All rights reserved.
