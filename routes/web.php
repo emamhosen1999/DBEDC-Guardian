@@ -119,6 +119,8 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/attendance-employee', [AttendanceController::class, 'index2'])->name('attendance-employee');
         Route::get('/attendance/attendance-today', [AttendanceController::class, 'getCurrentUserPunch'])->name('attendance.current-user-punch');
         Route::get('/get-current-user-attendance-for-date', [AttendanceController::class, 'getCurrentUserAttendanceForDate'])->name('getCurrentUserAttendanceForDate');
+        Route::get('/attendance/my-roster', [\App\Http\Controllers\HRM\RosterController::class, 'index'])->name('attendance.myRoster');
+        Route::post('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'store'])->name('attendance.swaps.store');
     });
 
     // Punch route - unified validated flow only
@@ -537,6 +539,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/request-logs/bulk-delete', [RequestLogController::class, 'bulkDelete'])->name('request-logs.bulk-delete');
         Route::post('settings/request-logs/clear-all', [RequestLogController::class, 'clearAll'])->name('request-logs.clear-all');
         Route::get('settings/request-logs/export', [RequestLogController::class, 'export'])->name('request-logs.export');
+
+        // Shift management routes
+        Route::get('/attendance/shifts', [\App\Http\Controllers\HRM\ShiftController::class, 'index'])->name('attendance.shifts.index');
+        Route::post('/attendance/shifts', [\App\Http\Controllers\HRM\ShiftController::class, 'store'])->name('attendance.shifts.store');
+        Route::put('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'update'])->name('attendance.shifts.update');
+        Route::delete('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
+        Route::post('/attendance/rotation-patterns', [\App\Http\Controllers\HRM\ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
+        Route::post('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
+
+        // Roster management routes
+        Route::get('/attendance/roster', [\App\Http\Controllers\HRM\RosterController::class, 'index'])->name('attendance.roster.index');
+        Route::post('/attendance/roster/generate', [\App\Http\Controllers\HRM\RosterController::class, 'generate'])->name('attendance.roster.generate');
+        Route::put('/attendance/roster/cell', [\App\Http\Controllers\HRM\RosterController::class, 'updateCell'])->name('attendance.roster.cell');
+
+        // Swap management routes (admin)
+        Route::get('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
+        Route::post('/attendance/swaps/{id}/approve', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');
     });
 
     // Task management routes

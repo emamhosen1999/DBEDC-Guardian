@@ -1,0 +1,122 @@
+<?php
+
+namespace App\Http\Controllers\HRM;
+
+use App\Http\Controllers\Controller;
+use App\Models\HRM\Shift;
+use App\Models\HRM\ShiftRotationPattern;
+use App\Services\Attendance\ShiftService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+
+class ShiftController extends Controller
+{
+    public function __construct(private readonly ShiftService $shifts) {}
+
+    public function index(): JsonResponse
+    {
+        return response()->json(['shifts' => Shift::orderBy('name')->get()]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'code' => 'required|string|max:20|unique:shifts,code',
+            'type' => 'required|in:fixed,flexible,open',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'crosses_midnight' => 'boolean',
+            'break_minutes' => 'integer|min:0',
+            'grace_in_minutes' => 'integer|min:0',
+            'grace_out_minutes' => 'integer|min:0',
+            'full_day_minutes' => 'integer|min:0',
+            'half_day_minutes' => 'integer|min:0',
+            'min_present_minutes' => 'integer|min:0',
+            'core_start_time' => 'nullable|date_format:H:i',
+            'core_end_time' => 'nullable|date_format:H:i',
+            'color' => 'nullable|string|max:20',
+            'is_active' => 'boolean',
+        ]);
+
+        $shift = DB::transaction(fn () => Shift::create($data));
+
+        return response()->json(['message' => 'Shift created.', 'shift' => $shift], 201);
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $shift = Shift::findOrFail($id);
+
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:100',
+            'code' => 'sometimes|string|max:20|unique:shifts,code,' . $id,
+            'type' => 'sometimes|in:fixed,flexible,open',
+            'start_time' => 'sometimes|date_format:H:i',
+            'end_time' => 'sometimes|date_format:H:i',
+            'crosses_midnight' => 'sometimes|boolean',
+            'break_minutes' => 'sometimes|integer|min:0',
+            'grace_in_minutes' => 'sometimes|integer|min:0',
+            'grace_out_minutes' => 'sometimes|integer|min:0',
+            'full_day_minutes' => 'sometimes|integer|min:0',
+            'half_day_minutes' => 'sometimes|integer|min:0',
+            'min_present_minutes' => 'sometimes|integer|min:0',
+            'core_start_time' => 'sometimes|nullable|date_format:H:i',
+            'core_end_time' => 'sometimes|nullable|date_format:H:i',
+            'color' => 'sometimes|nullable|string|max:20',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        DB::transaction(fn () => $shift->update($data));
+
+        return response()->json(['message' => 'Shift updated.', 'shift' => $shift->fresh()]);
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $shift = Shift::findOrFail($id);
+        DB::transaction(fn () => $shift->delete());
+
+        return response()->json(['message' => 'Shift deleted.']);
+    }
+
+    public function storePattern(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'code' => 'required|string|max:20|unique:shift_rotation_patterns,code',
+            'cycle_length_days' => 'required|integer|min:1',
+            'definition' => 'required|array',
+            'is_active' => 'boolean',
+        ]);
+
+        $pattern = DB::transaction(fn () => ShiftRotationPattern::create($data));
+
+        return response()->json(['message' => 'Pattern created.', 'pattern' => $pattern], 201);
+    }
+
+    public function storeAssignment(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'scope_type' => 'required|in:user,designation,department,org',
+            'scope_id' => 'nullable|integer',
+            'shift_id' => 'nullable|integer|exists:shifts,id',
+            'rotation_pattern_id' => 'nullable|integer|exists:shift_rotation_patterns,id',
+            'anchor_date' => 'required|date',
+            'effective_from' => 'required|date',
+            'effective_to' => 'nullable|date|after_or_equal:effective_from',
+            'priority' => 'integer|min:0',
+            'assigned_by' => 'nullable|integer|exists:users,id',
+        ]);
+
+        try {
+            $assignment = DB::transaction(fn () => $this->shifts->createAssignment($data));
+        } catch (InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['message' => 'Assignment created.', 'assignment' => $assignment], 201);
+    }
+}
