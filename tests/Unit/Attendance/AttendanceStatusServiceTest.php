@@ -133,4 +133,14 @@ class AttendanceStatusServiceTest extends TestCase
         );
         $this->assertSame(DayAttendance::PRESENT, $r->status);
     }
+
+    public function test_early_leave_minutes_when_punch_out_before_shift_end(): void
+    {
+        // Shift 09:00-17:00, grace-out 0 → leaving at 16:00 is 60 minutes early.
+        $r = (new AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-19 09:00', '2026-06-19 16:00')]),
+            $this->shift('2026-06-19', '09:00', '17:00', ['graceOutMinutes' => 0]),
+        );
+        $this->assertSame(60, $r->early_leave_minutes);
+    }
 }

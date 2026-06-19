@@ -113,6 +113,11 @@ class AttendanceReportService
      */
     public function getUserAttendanceData($user, int $year, int $month, $holidays, $leaveTypes): array
     {
+        // TODO(attendance-phase-2): This still derives late/OT/working-days from the GLOBAL
+        // AttendanceSetting (office_start_time, hardcoded 480-min OT, global weekend_days),
+        // NOT the shift-aware AttendanceStatusService/ScheduleResolver. Monthly stats will
+        // diverge from the shift-aware Daily Overview once non-default shifts are in use.
+        // Migrate this to ScheduleResolver + AttendanceStatusService (see getDailyOverviewStats).
         $daysInMonth = Carbon::create($year, $month)->daysInMonth;
         $attendanceData = [
             'user_id' => $user->id,
@@ -208,6 +213,12 @@ class AttendanceReportService
         bool $isGlobalScope,
         ?int $userId
     ): array {
+        // TODO(attendance-phase-2): This still derives late/OT/working-days from the GLOBAL
+        // AttendanceSetting (office_start_time, hardcoded 480-min OT, global weekend_days),
+        // NOT the shift-aware AttendanceStatusService/ScheduleResolver. Monthly stats will
+        // diverge from the shift-aware Daily Overview once non-default shifts are in use.
+        // Migrate this to ScheduleResolver + AttendanceStatusService (see getDailyOverviewStats).
+
         // SETTINGS & DATES
         $settings = AttendanceSetting::first();
         $officeStart = Carbon::parse($settings->office_start_time ?? '09:00:00');

@@ -10,9 +10,13 @@ use Carbon\CarbonInterface;
 
 class DefaultScheduleResolver implements ScheduleResolver
 {
+    private ?AttendanceSetting $settings = null;
+
+    private bool $settingsLoaded = false;
+
     public function resolve(int $userId, CarbonInterface $date): ShiftSchedule
     {
-        $settings = AttendanceSetting::first();
+        $settings = $this->getSettings();
 
         $startTime = $settings?->office_start_time ?? '09:00';
         $endTime = $settings?->office_end_time ?? '17:00';
@@ -44,5 +48,19 @@ class DefaultScheduleResolver implements ScheduleResolver
             breakMinutes: (int) ($settings?->break_time_duration ?? 0),
             isWorkingDay: true,
         );
+    }
+
+    /**
+     * Memoize AttendanceSetting::first() on the instance so the daily-overview
+     * per-user loop doesn't re-query it for every user/day.
+     */
+    private function getSettings(): ?AttendanceSetting
+    {
+        if (! $this->settingsLoaded) {
+            $this->settings = AttendanceSetting::first();
+            $this->settingsLoaded = true;
+        }
+
+        return $this->settings;
     }
 }
