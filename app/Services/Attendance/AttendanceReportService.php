@@ -449,9 +449,6 @@ class AttendanceReportService
             if ($attendance->punchin && $attendance->punchout) {
                 $in = Carbon::parse($attendance->punchin);
                 $out = Carbon::parse($attendance->punchout);
-                if ($out->lt($in)) {
-                    $out->addDay();
-                }
                 $totalMinutes += $in->diffInMinutes($out);
             }
         }
