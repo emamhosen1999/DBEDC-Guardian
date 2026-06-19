@@ -59,7 +59,7 @@ class RosterService
         ];
 
         foreach ($scopes as $scope) {
-            if ($scope['type'] !== 'org' && $scope['type'] !== 'user' && $scope['id'] === null) {
+            if ($scope['id'] === null && $scope['type'] !== 'org') {
                 continue;
             }
 
