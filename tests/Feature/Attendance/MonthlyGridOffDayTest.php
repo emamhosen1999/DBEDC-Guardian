@@ -37,6 +37,6 @@ class MonthlyGridOffDayTest extends TestCase
 
         // 06-02 is an OFF day in the rotation, no punches -> Day Off, not Absent.
         $this->assertSame('Day Off', $data['2026-06-02']['remarks']);
-        $this->assertSame('Absent', $data['2026-06-01'] === null ? 'Absent' : $data['2026-06-01']['remarks'] ?? 'Absent');
+        $this->assertSame('Absent', $data['2026-06-01']['remarks']);
     }
 }
