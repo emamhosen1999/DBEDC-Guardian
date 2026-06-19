@@ -587,10 +587,22 @@ class AttendanceController extends Controller
 
             $presentCount = $presentUsersIds->count();
 
-            $lateCount = Attendance::whereDate('date', $date)
+            $statusService = app(\App\Services\Attendance\AttendanceStatusService::class);
+            $resolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
+
+            $dayPunches = Attendance::whereDate('date', $date)
                 ->whereNotNull('punchin')
-                ->whereRaw('TIME(punchin) > "09:00:00"')
-                ->count();
+                ->get()
+                ->groupBy('user_id');
+
+            $lateCount = 0;
+            foreach ($dayPunches as $userId => $punches) {
+                $shift = $resolver->resolve((int) $userId, \Carbon\Carbon::parse($date));
+                $day = $statusService->resolve($punches, $shift);
+                if ($day->late_minutes > 0) {
+                    $lateCount++;
+                }
+            }
 
             $onLeaveCount = 0;
             if (Schema::hasTable('leaves')) {
