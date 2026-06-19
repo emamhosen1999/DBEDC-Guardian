@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Attendance;
 
+use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftAssignment;
 use App\Models\User;
@@ -30,11 +31,31 @@ class RosterScheduleResolverTest extends TestCase
         $this->assertSame('10:00', $sched->start->format('H:i'));
     }
 
+    public function test_no_roster_falls_back_to_default(): void
+    {
+        $user = User::factory()->create();
+        // No assignment, no roster → falls back to DefaultScheduleResolver.
+        // 2026-06-19 is a Friday (weekday). With no AttendanceSetting row, defaults apply:
+        // start=09:00, weekend=saturday/sunday, so Friday is a working day.
+        $sched = app(ScheduleResolver::class)->resolve($user->id, Carbon::parse('2026-06-19'));
+        $this->assertTrue($sched->isWorkingDay);
+        $this->assertSame('09:00', $sched->start->format('H:i'));
+    }
+
     public function test_off_day_is_non_working(): void
     {
         $user = User::factory()->create();
-        // No assignment, no roster → falls back to default resolver (settings). With no settings, default working window.
+        // RosterDay with null shift_id = manual off-day override.
+        // resolveShift returns null → ShiftSchedule::nonWorking() → never marked absent.
+        RosterDay::create([
+            'user_id'  => $user->id,
+            'date'     => '2026-06-19',
+            'shift_id' => null,
+            'source'   => 'manual',
+            'locked'   => true,
+        ]);
+
         $sched = app(ScheduleResolver::class)->resolve($user->id, Carbon::parse('2026-06-19'));
-        $this->assertNotNull($sched);
+        $this->assertFalse($sched->isWorkingDay);
     }
 }
