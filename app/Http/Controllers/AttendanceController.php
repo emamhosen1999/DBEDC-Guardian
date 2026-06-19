@@ -1056,4 +1056,25 @@ class AttendanceController extends Controller
             ], 500);
         }
     }
+
+    public function auditHistory(int $id): JsonResponse
+    {
+        $logs = \App\Models\HRM\AttendanceAuditLog::with('actor:id,name')
+            ->where('attendance_id', $id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'before' => $log->before,
+                'after' => $log->after,
+                'reason' => $log->reason,
+                'ip' => $log->ip,
+                'actor' => $log->actor ? ['id' => $log->actor->id, 'name' => $log->actor->name] : null,
+                'created_at' => $log->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['logs' => $logs]);
+    }
 }

@@ -464,6 +464,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('admin.getAbsentUsersForDate');
         Route::get('/attendance/monthly-stats', [AttendanceController::class, 'getMonthlyAttendanceStats'])->name('attendance.monthlyStats');
         Route::get('/attendance/daily-overview', [AttendanceController::class, 'getDailyOverviewStats'])->name('attendance.dailyOverview');
+        Route::get('/attendance/{id}/audit', [AttendanceController::class, 'auditHistory'])->whereNumber('id')->name('attendance.audit.history');
         // Location and timesheet update check routes
         Route::get('check-user-locations-updates/{date}', [AttendanceController::class, 'checkForLocationUpdates'])
             ->name('check-user-locations-updates');
