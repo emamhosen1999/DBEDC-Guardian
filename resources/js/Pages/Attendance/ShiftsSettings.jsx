@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { Box, Flex, Table, Button, Badge, Text, IconButton } from '@radix-ui/themes';
-import { Pencil1Icon, TrashIcon, PlusIcon, LayersIcon } from '@radix-ui/react-icons';
+import { Pencil1Icon, TrashIcon, PlusIcon, LayersIcon, SymbolIcon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import ShiftForm from '@/Forms/ShiftForm';
+import RotationPatternForm from '@/Forms/RotationPatternForm';
 
 export default function ShiftsSettings() {
     const qc = useQueryClient();
     const [editing, setEditing] = useState(null);
     const [open, setOpen] = useState(false);
+    const [patternOpen, setPatternOpen] = useState(false);
 
     const { data, isLoading } = useQuery({
         queryKey: ['shifts'],
@@ -38,9 +40,14 @@ export default function ShiftsSettings() {
                     <LayersIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
                     <Text size="4" weight="bold">Shifts</Text>
                 </Flex>
-                <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
-                    <PlusIcon /> Add shift
-                </Button>
+                <Flex align="center" gap="2">
+                    <Button size="2" variant="soft" onClick={() => setPatternOpen(true)}>
+                        <SymbolIcon /> Rotation patterns
+                    </Button>
+                    <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
+                        <PlusIcon /> Add shift
+                    </Button>
+                </Flex>
             </Flex>
 
             {isLoading ? (
@@ -97,6 +104,7 @@ export default function ShiftsSettings() {
             )}
 
             <ShiftForm open={open} onOpenChange={setOpen} initial={editing} onSaved={refresh} />
+            <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} onSaved={refresh} />
         </Box>
     );
 }
