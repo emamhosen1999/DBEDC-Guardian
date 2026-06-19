@@ -14,6 +14,11 @@ class Attendance extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
+    protected static function newFactory(): \Database\Factories\HRM\AttendanceFactory
+    {
+        return \Database\Factories\HRM\AttendanceFactory::new();
+    }
+
     protected $fillable = [
         'user_id',
         'date',
