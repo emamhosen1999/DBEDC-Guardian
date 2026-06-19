@@ -32,10 +32,6 @@ class AttendanceQueryService
             $punchInTime = Carbon::parse($attendance->punchin);
             $punchOutTime = $attendance->punchout ? Carbon::parse($attendance->punchout) : Carbon::now();
 
-            if ($punchOutTime->lt($punchInTime)) {
-                $punchOutTime->addDay();
-            }
-
             $duration = $punchInTime->diffInSeconds($punchOutTime);
             $totalProductionTime += $duration;
 
@@ -186,10 +182,6 @@ class AttendanceQueryService
             if ($record->punchin && $record->punchout) {
                 $punchIn = Carbon::parse($record->punchin);
                 $punchOut = Carbon::parse($record->punchout);
-
-                if ($punchOut->lt($punchIn)) {
-                    $punchOut->addDay();
-                }
 
                 $minutes = $punchIn->diffInMinutes($punchOut);
                 $totalWorkMinutes += $minutes;
