@@ -7,6 +7,7 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
+use App\Models\HRM\Designation;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Attendance\AttendanceAuditService;
@@ -53,6 +54,11 @@ class AttendanceController extends Controller
             'attendanceSettings' => AttendanceSetting::first(),
             'attendanceTypes' => AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get(),
             'departments' => Department::active()->get(['id', 'name']),
+            'employees' => User::role('Employee')
+                ->select('id', 'name', 'department_id', 'designation_id')
+                ->orderBy('name')
+                ->get(),
+            'designations' => Designation::select('id', 'title')->orderBy('title')->get(),
         ]);
     }
 
