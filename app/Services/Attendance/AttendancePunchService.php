@@ -54,6 +54,16 @@ class AttendancePunchService
 
             // No explicit check_type (manual toggle) or explicit 'in': decide by existing record.
             if (! $isInPunch && $existingAttendance && ! $existingAttendance->punchout) {
+                $dedupeSeconds = 30;
+                $lastEvent = $existingAttendance->punchout ?? $existingAttendance->punchin;
+                if ($lastEvent && Carbon::parse($lastEvent)->diffInSeconds($punchTime) < $dedupeSeconds) {
+                    return [
+                        'status' => 'error',
+                        'message' => 'Duplicate punch ignored. Please wait a moment and try again.',
+                        'code' => 429,
+                    ];
+                }
+
                 return $this->punchOut($existingAttendance, $request, $user, $punchTime);
             }
 
@@ -207,6 +217,18 @@ class AttendancePunchService
             ->lockForUpdate()
             ->latest()
             ->first();
+
+        $dedupeSeconds = 30;
+        if ($existingAttendance) {
+            $lastEvent = $existingAttendance->punchout ?? $existingAttendance->punchin;
+            if ($lastEvent && Carbon::parse($lastEvent)->diffInSeconds($punchTime) < $dedupeSeconds) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Duplicate punch ignored. Please wait a moment and try again.',
+                    'code' => 429,
+                ];
+            }
+        }
 
         $isOutPunch = in_array($checkType, ['out', 'break_out', 'ot_out']);
         $isInPunch = in_array($checkType, ['in',  'break_in',  'ot_in']);
