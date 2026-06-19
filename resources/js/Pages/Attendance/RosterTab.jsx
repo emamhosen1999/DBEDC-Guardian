@@ -75,6 +75,7 @@ export default function RosterTab({ month, departments = [], isActive = true }) 
         if (!selectedCell) return;
         setPopoverOpen(false);
         updateCell.mutate({ userId: selectedCell.userId, date: selectedCell.date, shiftId });
+        setSelectedCell(null);
     };
 
     return (
