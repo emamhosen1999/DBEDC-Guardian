@@ -4,6 +4,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -38,10 +39,18 @@ return new class extends Migration
                 // Old value may be "HH:MM:SS" (TIME) — combine with date.
                 // If it already parses as a full datetime, keep it.
                 $raw = (string) $row->$col;
-                $time = preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $raw)
-                    ? $raw
-                    : Carbon::parse($raw)->format('H:i:s');
-                $update[$col] = $date.' '.$time;
+                try {
+                    $time = preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $raw)
+                        ? $raw
+                        : Carbon::parse($raw)->format('H:i:s');
+                    $update[$col] = $date.' '.$time;
+                } catch (\Exception $e) {
+                    // Unparseable legacy value; skip this column (leave null) and log.
+                    Log::warning("Attendance punch backfill: unparseable {$col} value", [
+                        'attendance_id' => $row->id,
+                        'raw_value' => $raw,
+                    ]);
+                }
             }
 
             if ($update) {
