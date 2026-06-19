@@ -7,9 +7,40 @@ use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftAssignment;
 use App\Models\User;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 
 class RosterService
 {
+    public function generateRoster(array $userIds, string $fromDate, string $toDate): int
+    {
+        $from = \Carbon\Carbon::parse($fromDate)->startOfDay();
+        $to = \Carbon\Carbon::parse($toDate)->startOfDay();
+        $written = 0;
+
+        DB::transaction(function () use ($userIds, $from, $to, &$written) {
+            foreach ($userIds as $userId) {
+                for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+                    $existing = RosterDay::where('user_id', $userId)->whereDate('date', $d->toDateString())->first();
+
+                    // Never overwrite locked / manual / swap rows.
+                    if ($existing && ($existing->locked || in_array($existing->source, ['manual', 'swap'], true))) {
+                        continue;
+                    }
+
+                    $shift = $this->resolveShift($userId, $d);
+
+                    RosterDay::updateOrCreate(
+                        ['user_id' => $userId, 'date' => $d->toDateString()],
+                        ['shift_id' => $shift?->id, 'source' => 'pattern'],
+                    );
+                    $written++;
+                }
+            }
+        });
+
+        return $written;
+    }
+
     public function resolveShift(int $userId, CarbonInterface $date): ?Shift
     {
         $dateStr = $date->copy()->startOfDay()->toDateString();
