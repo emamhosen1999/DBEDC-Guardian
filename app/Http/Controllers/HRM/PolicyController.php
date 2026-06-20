@@ -91,6 +91,8 @@ class PolicyController extends Controller
     {
         $policy = AttendancePolicy::findOrFail($id);
 
+        abort_unless($policy->status === 'draft', 422, 'Only draft policies can be edited.');
+
         $data = $request->validate($this->policyRules());
 
         $policy->update($data);
