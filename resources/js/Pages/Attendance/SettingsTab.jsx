@@ -14,6 +14,7 @@ import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import ShiftsSettings from './ShiftsSettings';
+import PoliciesManager from './Components/PoliciesManager';
 
 /* ── map imports (Leaflet — untouched) ───────────────────── */
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -1029,6 +1030,11 @@ const SettingsTab = () => {
 
             {/* ── Shifts ─────────────────────────────────────────── */}
             <ShiftsSettings />
+
+            <Separator size="4" my="5" />
+
+            {/* ── Policies ───────────────────────────────────────── */}
+            <PoliciesManager />
 
             {/* ── modals ─────────────────────────────────────────── */}
             <TypeModal
