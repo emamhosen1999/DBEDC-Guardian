@@ -42,6 +42,8 @@ class DbPolicyResolver implements PolicyResolver
             outsideWindowMinutes: $match->outside_window_minutes,
             graceTiers: $match->grace_tiers,
             rounding: $match->rounding,
+            breaks: $match->rule_overrides['breaks'] ?? null,
+            overtime: $match->rule_overrides['overtime'] ?? null,
         );
     }
 }
