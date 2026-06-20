@@ -1,0 +1,33 @@
+{
+  "models": [
+    {
+      "title": "GLM-4-Plus",
+      "provider": "openai",
+      "model": "glm-4-plus",
+      "apiKey": "your_zhipu_api_key",
+      "apiBase": "https://open.bigmodel.cn/api/paas/v4/"
+    },
+    {
+      "title": "GLM-4-Flash (Fast)",
+      "provider": "openai",
+      "model": "glm-4-flash",
+      "apiKey": "your_zhipu_api_key",
+      "apiBase": "https://open.bigmodel.cn/api/paas/v4/"
+    },
+    {
+      "title": "GLM-4V (Vision)",
+      "provider": "openai",
+      "model": "glm-4v",
+      "apiKey": "your_zhipu_api_key",
+      "apiBase": "https://open.bigmodel.cn/api/paas/v4/"
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "GLM-4-Flash",
+    "provider": "openai",
+    "model": "glm-4-flash",
+    "apiKey": "your_zhipu_api_key",
+    "apiBase": "https://open.bigmodel.cn/api/paas/v4/"
+  },
+  "allowAnonymousTelemetry": false
+}
