@@ -1,0 +1,502 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e6]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - img "DBEDC" [ref=e11]
+        - generic [ref=e12]:
+          - generic [ref=e13]: DBEDC
+          - generic [ref=e14]: DBEDC Guardian
+      - generic [ref=e16]:
+        - textbox "Search navigation…" [ref=e17]
+        - img [ref=e19]
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - img [ref=e26]
+          - generic [ref=e28]: Main
+        - link "Dashboard" [ref=e31] [cursor=pointer]:
+          - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e32]:
+            - img [ref=e34]
+            - generic [ref=e36]: Dashboard
+        - generic [ref=e37]:
+          - button "Workspace 4" [ref=e38] [cursor=pointer]:
+            - img [ref=e40]
+            - generic [ref=e42]: Workspace
+            - generic [ref=e43]: "4"
+            - img [ref=e44]
+          - generic [ref=e48]:
+            - link "Daily Works" [ref=e50] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/daily-works-unified
+              - generic [ref=e51]:
+                - img [ref=e53]
+                - generic [ref=e55]: Daily Works
+            - link "My Attendance" [ref=e57] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/attendance-employee
+              - generic [ref=e58]:
+                - img [ref=e60]
+                - generic [ref=e62]: My Attendance
+            - link "My Leaves" [ref=e64] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/leaves-employee
+              - generic [ref=e65]:
+                - img [ref=e67]
+                - generic [ref=e69]: My Leaves
+            - link "Petty Cash" [ref=e71] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/petty-cash
+              - generic [ref=e72]:
+                - img [ref=e74]
+                - generic [ref=e76]: Petty Cash
+        - generic [ref=e77]:
+          - button "Workforce 2" [ref=e79] [cursor=pointer]:
+            - img [ref=e81]
+            - generic [ref=e83]: Workforce
+            - generic [ref=e84]: "2"
+            - img [ref=e85]
+          - generic [ref=e89]:
+            - link "Organization" [ref=e91] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/organization
+              - generic [ref=e92]:
+                - img [ref=e94]
+                - generic [ref=e96]: Organization
+            - generic [ref=e97]:
+              - button "Time/Attendance 3" [ref=e99] [cursor=pointer]:
+                - img [ref=e101]
+                - generic [ref=e103]: Time/Attendance
+                - generic [ref=e104]: "3"
+                - img [ref=e105]
+              - generic [ref=e109]:
+                - link "Attendances" [ref=e112] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/attendance
+                  - generic [ref=e113]:
+                    - img [ref=e115]
+                    - generic [ref=e117]: Attendances
+                - link "Holidays" [ref=e119] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/holidays
+                  - generic [ref=e120]:
+                    - img [ref=e122]
+                    - generic [ref=e124]: Holidays
+                - link "Leave Management" [ref=e126] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/leaves
+                  - generic [ref=e127]:
+                    - img [ref=e129]
+                    - generic [ref=e131]: Leave Management
+        - generic [ref=e132]:
+          - button "Admin 4" [ref=e133] [cursor=pointer]:
+            - img [ref=e135]
+            - generic [ref=e138]: Admin
+            - generic [ref=e139]: "4"
+            - img [ref=e140]
+          - generic [ref=e144]:
+            - link "Users/Roles" [ref=e146] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/users
+              - generic [ref=e147]:
+                - img [ref=e149]
+                - generic [ref=e151]: Users/Roles
+            - link "Company Details" [ref=e153] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/company-settings
+              - generic [ref=e154]:
+                - img [ref=e156]
+                - generic [ref=e158]: Company Details
+            - link "Request Logs" [ref=e160] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/settings/request-logs
+              - generic [ref=e161]:
+                - img [ref=e163]
+                - generic [ref=e165]: Request Logs
+            - link "Monitoring" [ref=e167] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/admin/system-monitoring
+              - generic [ref=e168]:
+                - img [ref=e170]
+                - generic [ref=e172]: Monitoring
+      - generic [ref=e174]:
+        - generic [ref=e177]: E
+        - generic [ref=e179]:
+          - generic [ref=e180]: Emam Hosen
+          - generic [ref=e181]: Monitoring Center Manager
+        - generic [ref=e182]: 4.0.9
+    - generic [ref=e183]:
+      - generic [ref=e184]:
+        - button "Toggle sidebar" [ref=e185]:
+          - img [ref=e186]
+        - generic [ref=e189]: Attendance
+        - button "Open search" [ref=e191]:
+          - img [ref=e192]
+          - generic [ref=e194]: Search…
+          - generic [ref=e195]: Ctrl+K
+        - generic [ref=e196]:
+          - button "Toggle appearance" [ref=e197]:
+            - img [ref=e198]
+          - button "Theme settings" [ref=e200]:
+            - img [ref=e201]
+          - button "Change language" [ref=e203]
+          - button "Notifications" [ref=e206]:
+            - img [ref=e207]
+          - button "User menu" [ref=e209] [cursor=pointer]:
+            - generic [ref=e212]: E
+            - generic [ref=e214]:
+              - generic [ref=e215]: Good morning
+              - generic [ref=e216]: Emam Hosen
+      - navigation "Breadcrumb" [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]:
+            - img [ref=e221]
+            - link "Home" [ref=e223] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e224]: /
+          - generic [ref=e225]:
+            - img [ref=e227]
+            - generic [ref=e229]: Workforce
+          - generic [ref=e230]: /
+          - generic [ref=e231]:
+            - img [ref=e233]
+            - generic [ref=e235]: Time/Attendance
+          - generic [ref=e236]: /
+          - generic [ref=e237]:
+            - img [ref=e239]
+            - generic [ref=e241]: Attendances
+      - main "Main content" [ref=e242]:
+        - generic [ref=e246]:
+          - generic [ref=e249]:
+            - img [ref=e251]
+            - generic [ref=e253]:
+              - generic [ref=e254]: Attendance
+              - generic [ref=e255]: Daily timesheet, monthly calendar and settings
+          - generic [ref=e300]:
+            - tablist [ref=e301]:
+              - tab "Daily Timesheet" [ref=e302]:
+                - generic [ref=e304]:
+                  - img [ref=e305]
+                  - generic [ref=e307]: Daily Timesheet
+              - tab "Monthly Calendar" [ref=e308]:
+                - generic [ref=e310]:
+                  - img [ref=e311]
+                  - generic [ref=e313]: Monthly Calendar
+              - tab "Roster" [ref=e314]:
+                - generic [ref=e316]:
+                  - img [ref=e317]
+                  - generic [ref=e319]: Roster
+              - tab "Settings" [active] [selected] [ref=e320]:
+                - generic [ref=e322]:
+                  - img [ref=e323]
+                  - generic [ref=e325]: Settings
+            - tabpanel "Settings" [ref=e358]:
+              - generic [ref=e359]:
+                - generic [ref=e360]:
+                  - generic [ref=e361]:
+                    - img [ref=e362]
+                    - generic [ref=e364]: General Settings
+                  - generic [ref=e366]:
+                    - generic [ref=e367]:
+                      - generic [ref=e368]:
+                        - img [ref=e369]
+                        - generic [ref=e371]: Office Timing
+                      - generic [ref=e372]:
+                        - generic [ref=e373]:
+                          - generic [ref=e374]: Start Time
+                          - textbox [ref=e376]: 09:00
+                        - generic [ref=e377]:
+                          - generic [ref=e378]: End Time
+                          - textbox [ref=e380]: 17:00
+                        - generic [ref=e381]:
+                          - generic [ref=e382]: Break Duration (min)
+                          - spinbutton [ref=e384]: "60"
+                    - generic [ref=e385]:
+                      - generic [ref=e386]:
+                        - img [ref=e387]
+                        - generic [ref=e389]: Attendance Policies
+                      - generic [ref=e390]:
+                        - generic [ref=e391]:
+                          - generic [ref=e392]:
+                            - generic [ref=e393]: Late Mark After (min)
+                            - spinbutton [ref=e395]: "30"
+                          - generic [ref=e396]:
+                            - generic [ref=e397]: Early Leave Before (min)
+                            - spinbutton [ref=e399]: "30"
+                          - generic [ref=e400]:
+                            - generic [ref=e401]: Overtime After (min)
+                            - spinbutton [ref=e403]: "30"
+                        - generic [ref=e405] [cursor=pointer]:
+                          - checkbox [ref=e406]
+                          - checkbox
+                          - generic [ref=e407]: Enable Auto Punch Out
+                    - generic [ref=e408]:
+                      - generic [ref=e409]:
+                        - img [ref=e410]
+                        - generic [ref=e412]: Weekend Days
+                      - generic [ref=e413]:
+                        - generic [ref=e414] [cursor=pointer]:
+                          - checkbox [checked] [ref=e415]:
+                            - img
+                          - checkbox [checked]
+                          - generic [ref=e416]: friday
+                        - generic [ref=e417] [cursor=pointer]:
+                          - checkbox [ref=e418]
+                          - checkbox
+                          - generic [ref=e419]: saturday
+                        - generic [ref=e420] [cursor=pointer]:
+                          - checkbox [ref=e421]
+                          - checkbox
+                          - generic [ref=e422]: sunday
+                    - button "Save Settings" [ref=e424]
+                - generic [ref=e426]:
+                  - generic [ref=e427]:
+                    - generic [ref=e428]:
+                      - img [ref=e429]
+                      - generic [ref=e431]: Attendance Types
+                    - generic [ref=e432]:
+                      - textbox "Search types…" [ref=e433]
+                      - img [ref=e435]
+                  - generic [ref=e437]:
+                    - generic [ref=e438]:
+                      - generic [ref=e439] [cursor=pointer]:
+                        - generic [ref=e440]:
+                          - img [ref=e442]
+                          - generic [ref=e447]:
+                            - text: Geo Polygon
+                            - generic [ref=e448]:
+                              - generic [ref=e449]: 2 configs
+                              - generic [ref=e450]: 2 active
+                        - generic [ref=e451]:
+                          - button "Add" [ref=e452]:
+                            - img [ref=e453]
+                            - text: Add
+                          - generic [ref=e455]: ▲
+                      - table [ref=e462]:
+                        - rowgroup [ref=e463]:
+                          - row "Name Description Status Actions" [ref=e464]:
+                            - columnheader "Name" [ref=e465]
+                            - columnheader "Description" [ref=e466]
+                            - columnheader "Status" [ref=e467]
+                            - columnheader "Actions" [ref=e468]
+                        - rowgroup [ref=e469]:
+                          - row "K26 Office - Geo — Active" [ref=e470]:
+                            - cell "K26 Office - Geo" [ref=e471]
+                            - cell "—" [ref=e472]
+                            - cell "Active" [ref=e473]:
+                              - generic [ref=e474]:
+                                - img [ref=e475]
+                                - text: Active
+                            - cell [ref=e477]:
+                              - generic [ref=e478]:
+                                - button [ref=e479]:
+                                  - img [ref=e480]
+                                - button [ref=e482]:
+                                  - img [ref=e483]
+                                - button [ref=e488]:
+                                  - img [ref=e489]
+                          - row "K1 - 48 Geo — Active" [ref=e491]:
+                            - cell "K1 - 48 Geo" [ref=e492]
+                            - cell "—" [ref=e493]
+                            - cell "Active" [ref=e494]:
+                              - generic [ref=e495]:
+                                - img [ref=e496]
+                                - text: Active
+                            - cell [ref=e498]:
+                              - generic [ref=e499]:
+                                - button [ref=e500]:
+                                  - img [ref=e501]
+                                - button [ref=e503]:
+                                  - img [ref=e504]
+                                - button [ref=e509]:
+                                  - img [ref=e510]
+                    - generic [ref=e512]:
+                      - generic [ref=e513] [cursor=pointer]:
+                        - generic [ref=e514]:
+                          - img [ref=e516]
+                          - generic [ref=e518]:
+                            - text: WiFi / IP
+                            - generic [ref=e519]:
+                              - generic [ref=e520]: 3 configs
+                              - generic [ref=e521]: 3 active
+                        - generic [ref=e522]:
+                          - button "Add" [ref=e523]:
+                            - img [ref=e524]
+                            - text: Add
+                          - generic [ref=e526]: ▲
+                      - table [ref=e533]:
+                        - rowgroup [ref=e534]:
+                          - row "Name Description Status Actions" [ref=e535]:
+                            - columnheader "Name" [ref=e536]
+                            - columnheader "Description" [ref=e537]
+                            - columnheader "Status" [ref=e538]
+                            - columnheader "Actions" [ref=e539]
+                        - rowgroup [ref=e540]:
+                          - row "K-26 Office - IP — Active" [ref=e541]:
+                            - cell "K-26 Office - IP" [ref=e542]
+                            - cell "—" [ref=e543]
+                            - cell "Active" [ref=e544]:
+                              - generic [ref=e545]:
+                                - img [ref=e546]
+                                - text: Active
+                            - cell [ref=e548]:
+                              - generic [ref=e549]:
+                                - button [ref=e550]:
+                                  - img [ref=e551]
+                                - button [ref=e553]:
+                                  - img [ref=e554]
+                          - row "Dhaka Office Dhaka office IP in Baridhar Active" [ref=e556]:
+                            - cell "Dhaka Office" [ref=e557]
+                            - cell "Dhaka office IP in Baridhar" [ref=e558]
+                            - cell "Active" [ref=e559]:
+                              - generic [ref=e560]:
+                                - img [ref=e561]
+                                - text: Active
+                            - cell [ref=e563]:
+                              - generic [ref=e564]:
+                                - button [ref=e565]:
+                                  - img [ref=e566]
+                                - button [ref=e568]:
+                                  - img [ref=e569]
+                          - row "Monitoring Center - IP — Active" [ref=e571]:
+                            - cell "Monitoring Center - IP" [ref=e572]
+                            - cell "—" [ref=e573]
+                            - cell "Active" [ref=e574]:
+                              - generic [ref=e575]:
+                                - img [ref=e576]
+                                - text: Active
+                            - cell [ref=e578]:
+                              - generic [ref=e579]:
+                                - button [ref=e580]:
+                                  - img [ref=e581]
+                                - button [ref=e583]:
+                                  - img [ref=e584]
+                    - generic [ref=e586]:
+                      - generic [ref=e587] [cursor=pointer]:
+                        - generic [ref=e588]:
+                          - img [ref=e590]
+                          - generic [ref=e592]:
+                            - text: Route Waypoint
+                            - generic [ref=e593]:
+                              - generic [ref=e594]: 1 config
+                              - generic [ref=e595]: 1 active
+                        - generic [ref=e596]:
+                          - button "Add" [ref=e597]:
+                            - img [ref=e598]
+                            - text: Add
+                          - generic [ref=e600]: ▲
+                      - table [ref=e607]:
+                        - rowgroup [ref=e608]:
+                          - row "Name Description Status Actions" [ref=e609]:
+                            - columnheader "Name" [ref=e610]
+                            - columnheader "Description" [ref=e611]
+                            - columnheader "Status" [ref=e612]
+                            - columnheader "Actions" [ref=e613]
+                        - rowgroup [ref=e614]:
+                          - row "K0-48 - Route — Active" [ref=e615]:
+                            - cell "K0-48 - Route" [ref=e616]
+                            - cell "—" [ref=e617]
+                            - cell "Active" [ref=e618]:
+                              - generic [ref=e619]:
+                                - img [ref=e620]
+                                - text: Active
+                            - cell [ref=e622]:
+                              - generic [ref=e623]:
+                                - button [ref=e624]:
+                                  - img [ref=e625]
+                                - button [ref=e627]:
+                                  - img [ref=e628]
+                                - button [ref=e630]:
+                                  - img [ref=e631]
+                    - generic [ref=e633]:
+                      - generic [ref=e634] [cursor=pointer]:
+                        - generic [ref=e635]:
+                          - img [ref=e637]
+                          - generic [ref=e639]:
+                            - text: QR Code
+                            - generic [ref=e640]:
+                              - generic [ref=e641]: 0 configs
+                              - generic [ref=e642]: 0 active
+                        - generic [ref=e643]:
+                          - button "Add" [ref=e644]:
+                            - img [ref=e645]
+                            - text: Add
+                          - generic [ref=e647]: ▲
+                      - generic [ref=e650]:
+                        - generic [ref=e651]: No qr code types yet.
+                        - generic [ref=e652]: Click Add above to create one.
+                    - generic [ref=e653]:
+                      - generic [ref=e654] [cursor=pointer]:
+                        - generic [ref=e655]:
+                          - img [ref=e657]
+                          - generic [ref=e659]:
+                            - text: Biometric
+                            - generic [ref=e660]:
+                              - generic [ref=e661]: 1 config
+                              - generic [ref=e662]: 1 active
+                              - generic [ref=e663]: read-only
+                        - generic [ref=e665]: ▲
+                      - generic [ref=e666]:
+                        - paragraph [ref=e668]: Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.
+                        - table [ref=e673]:
+                          - rowgroup [ref=e674]:
+                            - row "Name Status Assigned Devices" [ref=e675]:
+                              - columnheader "Name" [ref=e676]
+                              - columnheader "Status" [ref=e677]
+                              - columnheader "Assigned Devices" [ref=e678]
+                          - rowgroup [ref=e679]:
+                            - row "Biometric Device ZKTeco biometric device attendance via push webhook. Active K26 Office - MB460 — 4th Floor" [ref=e680]:
+                              - cell "Biometric Device ZKTeco biometric device attendance via push webhook." [ref=e681]:
+                                - text: Biometric Device
+                                - generic [ref=e682]: ZKTeco biometric device attendance via push webhook.
+                              - cell "Active" [ref=e683]:
+                                - generic [ref=e684]:
+                                  - img [ref=e685]
+                                  - text: Active
+                              - cell "K26 Office - MB460 — 4th Floor" [ref=e687]:
+                                - generic [ref=e689]: K26 Office - MB460 — 4th Floor
+                - generic [ref=e691]:
+                  - generic [ref=e692]:
+                    - generic [ref=e693]:
+                      - img [ref=e694]
+                      - generic [ref=e696]: Shifts
+                    - generic [ref=e697]:
+                      - button "Rotation patterns" [ref=e698]:
+                        - img [ref=e699]
+                        - text: Rotation patterns
+                      - button "Add shift" [ref=e701]:
+                        - img [ref=e702]
+                        - text: Add shift
+                  - table [ref=e708]:
+                    - rowgroup [ref=e709]:
+                      - row "Name Code Window Status Actions" [ref=e710]:
+                        - columnheader "Name" [ref=e711]
+                        - columnheader "Code" [ref=e712]
+                        - columnheader "Window" [ref=e713]
+                        - columnheader "Status" [ref=e714]
+                        - columnheader "Actions" [ref=e715]
+                    - rowgroup [ref=e716]:
+                      - row "Morning UI UIMORN 09:00:00–17:30:00 Active" [ref=e717]:
+                        - cell "Morning UI" [ref=e718]
+                        - cell "UIMORN" [ref=e719]:
+                          - generic [ref=e720]: UIMORN
+                        - cell "09:00:00–17:30:00" [ref=e721]:
+                          - generic [ref=e722]: 09:00:00–17:30:00
+                        - cell "Active" [ref=e723]:
+                          - generic [ref=e724]: Active
+                        - cell [ref=e725]:
+                          - generic [ref=e726]:
+                            - button [ref=e727]:
+                              - img [ref=e728]
+                            - button [ref=e730]:
+                              - img [ref=e731]
+                  - generic [ref=e734]:
+                    - generic [ref=e735]:
+                      - generic [ref=e736]: Shift Assignments
+                      - button "Assign shift" [ref=e737]:
+                        - img [ref=e738]
+                        - text: Assign shift
+                    - table [ref=e744]:
+                      - rowgroup [ref=e745]:
+                        - row "Scope Shift Effective Priority" [ref=e746]:
+                          - columnheader "Scope" [ref=e747]
+                          - columnheader "Shift" [ref=e748]
+                          - columnheader "Effective" [ref=e749]
+                          - columnheader "Priority" [ref=e750]
+                          - columnheader [ref=e751]
+                      - rowgroup [ref=e752]:
+                        - row "No assignments yet." [ref=e753]:
+                          - cell "No assignments yet." [ref=e754]
+    - button "Open theme settings" [ref=e355]:
+      - img [ref=e356]

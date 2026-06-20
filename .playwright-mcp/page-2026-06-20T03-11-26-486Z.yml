@@ -1,0 +1,319 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic "Loading application" [ref=e3]:
+    - generic [ref=e4]:
+      - img "Logo" [ref=e6]
+      - status "Loading" [ref=e7]
+      - generic [ref=e8]: Initializing
+      - generic [ref=e9]: Setting up components...
+  - generic [ref=e14]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - img "DBEDC" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e21]: DBEDC
+          - generic [ref=e22]: DBEDC Guardian
+      - generic [ref=e24]:
+        - textbox "Search navigation…" [ref=e25]
+        - img [ref=e27]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e36]: Main
+        - link "Dashboard" [ref=e39] [cursor=pointer]:
+          - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e40]:
+            - img [ref=e42]
+            - generic [ref=e44]: Dashboard
+        - generic [ref=e45]:
+          - button "Workspace 4" [ref=e46] [cursor=pointer]:
+            - img [ref=e48]
+            - generic [ref=e50]: Workspace
+            - generic [ref=e51]: "4"
+            - img [ref=e52]
+          - generic [ref=e56]:
+            - link "Daily Works" [ref=e58] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/daily-works-unified
+              - generic [ref=e59]:
+                - img [ref=e61]
+                - generic [ref=e63]: Daily Works
+            - link "My Attendance" [ref=e65] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/attendance-employee
+              - generic [ref=e66]:
+                - img [ref=e68]
+                - generic [ref=e70]: My Attendance
+            - link "My Leaves" [ref=e72] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/leaves-employee
+              - generic [ref=e73]:
+                - img [ref=e75]
+                - generic [ref=e77]: My Leaves
+            - link "Petty Cash" [ref=e79] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/petty-cash
+              - generic [ref=e80]:
+                - img [ref=e82]
+                - generic [ref=e84]: Petty Cash
+        - generic [ref=e85]:
+          - button "Workforce 2" [ref=e87] [cursor=pointer]:
+            - img [ref=e89]
+            - generic [ref=e91]: Workforce
+            - generic [ref=e92]: "2"
+            - img [ref=e93]
+          - generic [ref=e97]:
+            - link "Organization" [ref=e99] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/organization
+              - generic [ref=e100]:
+                - img [ref=e102]
+                - generic [ref=e104]: Organization
+            - generic [ref=e105]:
+              - button "Time/Attendance 3" [ref=e107] [cursor=pointer]:
+                - img [ref=e109]
+                - generic [ref=e111]: Time/Attendance
+                - generic [ref=e112]: "3"
+                - img [ref=e113]
+              - generic [ref=e117]:
+                - link "Attendances" [ref=e120] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/attendance
+                  - generic [ref=e121]:
+                    - img [ref=e123]
+                    - generic [ref=e125]: Attendances
+                - link "Holidays" [ref=e127] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/holidays
+                  - generic [ref=e128]:
+                    - img [ref=e130]
+                    - generic [ref=e132]: Holidays
+                - link "Leave Management" [ref=e134] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/leaves
+                  - generic [ref=e135]:
+                    - img [ref=e137]
+                    - generic [ref=e139]: Leave Management
+        - generic [ref=e140]:
+          - button "Admin 4" [ref=e141] [cursor=pointer]:
+            - img [ref=e143]
+            - generic [ref=e146]: Admin
+            - generic [ref=e147]: "4"
+            - img [ref=e148]
+          - generic [ref=e152]:
+            - link "Users/Roles" [ref=e154] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/users
+              - generic [ref=e155]:
+                - img [ref=e157]
+                - generic [ref=e159]: Users/Roles
+            - link "Company Details" [ref=e161] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/company-settings
+              - generic [ref=e162]:
+                - img [ref=e164]
+                - generic [ref=e166]: Company Details
+            - link "Request Logs" [ref=e168] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/settings/request-logs
+              - generic [ref=e169]:
+                - img [ref=e171]
+                - generic [ref=e173]: Request Logs
+            - link "Monitoring" [ref=e175] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/admin/system-monitoring
+              - generic [ref=e176]:
+                - img [ref=e178]
+                - generic [ref=e180]: Monitoring
+      - generic [ref=e182]:
+        - generic [ref=e187]:
+          - generic [ref=e188]: Emam Hosen
+          - generic [ref=e189]: Monitoring Center Manager
+        - generic [ref=e190]: 4.0.9
+    - generic [ref=e191]:
+      - generic [ref=e192]:
+        - button "Toggle sidebar" [ref=e193]:
+          - img [ref=e194]
+        - generic [ref=e197]: Attendance
+        - button "Open search" [ref=e199]:
+          - img [ref=e200]
+          - generic [ref=e202]: Search…
+          - generic [ref=e203]: Ctrl+K
+        - generic [ref=e204]:
+          - button "Toggle appearance" [ref=e205]:
+            - img [ref=e206]
+          - button "Theme settings" [ref=e208]:
+            - img [ref=e209]
+          - button "Change language" [ref=e211]
+          - button "Notifications" [ref=e214]:
+            - img [ref=e215]
+          - button "User menu" [ref=e217] [cursor=pointer]:
+            - generic [ref=e222]:
+              - generic [ref=e223]: Good morning
+              - generic [ref=e224]: Emam Hosen
+      - navigation "Breadcrumb" [ref=e225]:
+        - generic [ref=e226]:
+          - generic [ref=e227]:
+            - img [ref=e229]
+            - link "Home" [ref=e231] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e232]: /
+          - generic [ref=e233]:
+            - img [ref=e235]
+            - generic [ref=e237]: Workforce
+          - generic [ref=e238]: /
+          - generic [ref=e239]:
+            - img [ref=e241]
+            - generic [ref=e243]: Time/Attendance
+          - generic [ref=e244]: /
+          - generic [ref=e245]:
+            - img [ref=e247]
+            - generic [ref=e249]: Attendances
+      - main "Main content" [ref=e250]:
+        - generic [ref=e254]:
+          - generic [ref=e256]:
+            - generic [ref=e257]:
+              - img [ref=e259]
+              - generic [ref=e261]:
+                - generic [ref=e262]: Attendance
+                - generic [ref=e263]: Daily timesheet, monthly calendar and settings
+            - generic [ref=e265]:
+              - img [ref=e266]
+              - generic [ref=e268]: Jun 20, 2026
+          - generic [ref=e270]:
+            - generic [ref=e273]:
+              - img [ref=e275]
+              - heading "Present" [level=1] [ref=e277]
+            - generic [ref=e280]:
+              - img [ref=e282]
+              - heading "Absent" [level=1] [ref=e284]
+            - generic [ref=e287]:
+              - img [ref=e289]
+              - heading "Late (After 9AM)" [level=1] [ref=e291]
+            - generic [ref=e294]:
+              - img [ref=e296]
+              - heading "On Leave" [level=1] [ref=e298]
+          - generic [ref=e300]:
+            - tablist [ref=e301]:
+              - tab "Daily Timesheet" [selected] [ref=e302]:
+                - generic [ref=e304]:
+                  - img [ref=e305]
+                  - generic [ref=e307]: Daily Timesheet
+              - tab "Monthly Calendar" [ref=e308]:
+                - generic [ref=e310]:
+                  - img [ref=e311]
+                  - generic [ref=e313]: Monthly Calendar
+              - tab "Roster" [ref=e314]:
+                - generic [ref=e316]:
+                  - img [ref=e317]
+                  - generic [ref=e319]: Roster
+              - tab "Settings" [ref=e320]:
+                - generic [ref=e322]:
+                  - img [ref=e323]
+                  - generic [ref=e325]: Settings
+            - tabpanel "Daily Timesheet" [ref=e326]:
+              - generic [ref=e328]:
+                - generic [ref=e329]:
+                  - generic [ref=e330]:
+                    - generic [ref=e331]:
+                      - textbox [ref=e332]: 2026-06-20
+                      - img [ref=e334]
+                    - generic [ref=e336]:
+                      - textbox "Search employee…" [ref=e337]
+                      - img [ref=e339]
+                    - combobox [ref=e341]:
+                      - generic [ref=e342]:
+                        - generic: 25 / page
+                      - img [ref=e343]
+                  - generic [ref=e345]:
+                    - button [ref=e346]:
+                      - img [ref=e347]
+                    - button "Excel" [disabled] [ref=e349]:
+                      - img [ref=e350]
+                      - text: Excel
+                    - button "PDF" [disabled] [ref=e352]:
+                      - img [ref=e353]
+                      - text: PDF
+                - generic [ref=e355]:
+                  - generic [ref=e356]:
+                    - img [ref=e357]
+                    - generic [ref=e359]: "Present: …"
+                  - generic [ref=e360]:
+                    - img [ref=e361]
+                    - generic [ref=e363]: "Absent: …"
+                  - generic [ref=e364]:
+                    - img [ref=e365]
+                    - generic [ref=e367]: "Total: …"
+                - generic [ref=e368]:
+                  - table [ref=e377]:
+                    - rowgroup [ref=e378]:
+                      - row "Employee Clock In Clock Out Work Hours Punches Actions" [ref=e379]:
+                        - columnheader "Employee" [ref=e380]
+                        - columnheader "Clock In" [ref=e381]
+                        - columnheader "Clock Out" [ref=e382]
+                        - columnheader "Work Hours" [ref=e383]
+                        - columnheader "Punches" [ref=e384]
+                        - columnheader "Actions" [ref=e385]
+                    - rowgroup [ref=e386]:
+                      - row [ref=e387]:
+                        - cell [ref=e388]
+                        - cell [ref=e389]
+                        - cell [ref=e390]
+                        - cell [ref=e391]
+                        - cell [ref=e392]
+                        - cell [ref=e393]
+                      - row [ref=e394]:
+                        - cell [ref=e395]
+                        - cell [ref=e396]
+                        - cell [ref=e397]
+                        - cell [ref=e398]
+                        - cell [ref=e399]
+                        - cell [ref=e400]
+                      - row [ref=e401]:
+                        - cell [ref=e402]
+                        - cell [ref=e403]
+                        - cell [ref=e404]
+                        - cell [ref=e405]
+                        - cell [ref=e406]
+                        - cell [ref=e407]
+                      - row [ref=e408]:
+                        - cell [ref=e409]
+                        - cell [ref=e410]
+                        - cell [ref=e411]
+                        - cell [ref=e412]
+                        - cell [ref=e413]
+                        - cell [ref=e414]
+                      - row [ref=e415]:
+                        - cell [ref=e416]
+                        - cell [ref=e417]
+                        - cell [ref=e418]
+                        - cell [ref=e419]
+                        - cell [ref=e420]
+                        - cell [ref=e421]
+                      - row [ref=e422]:
+                        - cell [ref=e423]
+                        - cell [ref=e424]
+                        - cell [ref=e425]
+                        - cell [ref=e426]
+                        - cell [ref=e427]
+                        - cell [ref=e428]
+                  - generic [ref=e431]:
+                    - generic [ref=e432]:
+                      - img [ref=e433]
+                      - generic [ref=e435]: Absent
+                    - generic [ref=e436]: …
+                - generic [ref=e454]:
+                  - generic [ref=e456]:
+                    - generic [ref=e457]:
+                      - img [ref=e459]
+                      - generic [ref=e464]:
+                        - heading "Team Locations" [level=1] [ref=e465]
+                        - text: Saturday, June 20, 2026
+                    - generic [ref=e466]: "Updated: 09:11:26 AM"
+                  - generic [ref=e468]:
+                    - generic [ref=e470]:
+                      - img [ref=e471]
+                      - generic [ref=e473]: "0"
+                      - generic [ref=e474]: Total
+                    - generic [ref=e476]:
+                      - img [ref=e477]
+                      - generic [ref=e479]: "0"
+                      - generic [ref=e480]: Active
+                    - generic [ref=e482]:
+                      - img [ref=e483]
+                      - generic [ref=e485]: "0"
+                      - generic [ref=e486]: Completed
+                  - generic [ref=e499]: Loading locations...
+    - button "Open theme settings" [ref=e501]:
+      - img [ref=e502]
