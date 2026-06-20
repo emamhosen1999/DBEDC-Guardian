@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Flex, Table, Button, Badge, Text, Checkbox } from '@radix-ui/themes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
+import PunchExceptions from './PunchExceptions';
 
 const statusColor = { pending: 'amber', approved: 'green', rejected: 'red', cancelled: 'gray' };
 
@@ -226,6 +227,9 @@ export default function ApprovalsInbox() {
                     </Table.Body>
                 </Table.Root>
             </Box>
+
+            {/* ── Punch Exceptions section ────────────────── */}
+            <PunchExceptions />
         </Box>
     );
 }
