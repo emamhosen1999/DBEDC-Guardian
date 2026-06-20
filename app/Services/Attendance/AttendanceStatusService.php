@@ -14,6 +14,8 @@ use Illuminate\Support\Collection;
  */
 class AttendanceStatusService
 {
+    private const OUTSIDE_WINDOW_MINUTES = 120;
+
     public function resolve(
         Collection $punches,
         ShiftSchedule $shift,
@@ -93,6 +95,22 @@ class AttendanceStatusService
 
             if ($shift->fullDayMinutes > 0 && $workedMinutes > $shift->fullDayMinutes) {
                 $otMinutes = $workedMinutes - $shift->fullDayMinutes;
+            }
+        }
+
+        // Out-of-schedule detection (interpretation only; never blocks capture).
+        if (! $shift->isWorkingDay) {
+            $flags[] = 'worked_on_off_day';
+            $otMinutes = $workedMinutes;            // all hours on a day off are OT-eligible
+        }
+        if (! $shift->isScheduled) {
+            $flags[] = 'unscheduled';
+        }
+        if ($shift->isWorkingDay && $firstIn) {
+            $windowStart = $shift->start->copy()->subMinutes(self::OUTSIDE_WINDOW_MINUTES);
+            $windowEnd = $shift->end->copy()->addMinutes(self::OUTSIDE_WINDOW_MINUTES);
+            if ($firstIn->lessThan($windowStart) || ($lastOut && $lastOut->greaterThan($windowEnd))) {
+                $flags[] = 'outside_shift_window';
             }
         }
 

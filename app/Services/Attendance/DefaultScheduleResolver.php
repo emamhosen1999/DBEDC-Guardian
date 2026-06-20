@@ -51,6 +51,7 @@ class DefaultScheduleResolver implements ScheduleResolver
             minPresentMinutes: 0,
             breakMinutes: $breakMinutes,
             isWorkingDay: true,
+            isScheduled: false,
         );
     }
 
