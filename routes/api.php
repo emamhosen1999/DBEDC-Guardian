@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\BiometricWebhookController;
 use App\Http\Controllers\Api\LocaleController;
 use App\Http\Controllers\Api\V1\AttendanceController as MobileAttendanceController;
+use App\Http\Controllers\Api\V1\AttendanceRequestController as MobileAttendanceRequestController;
 use App\Http\Controllers\Api\V1\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\V1\DailyWorkController as MobileDailyWorkController;
 use App\Http\Controllers\Api\V1\LeaveController as MobileLeaveController;
@@ -199,6 +200,12 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::get('/attendance/monthly-summary', [MobileAttendanceController::class, 'monthlySummary'])->name('api.v1.attendance.monthly-summary');
     Route::get('/attendance/history', [MobileAttendanceController::class, 'history'])->name('api.v1.attendance.history');
     Route::post('/attendance/punch', [MobileAttendanceController::class, 'punch'])->middleware('throttle:20,1')->name('api.v1.attendance.punch');
+    Route::get('/attendance/my-roster', [MobileAttendanceRequestController::class, 'myRoster'])->name('api.v1.attendance.my-roster');
+    Route::post('/attendance/regularizations', [MobileAttendanceRequestController::class, 'storeRegularization'])->name('api.v1.attendance.regularizations.store');
+    Route::get('/attendance/regularizations/mine', [MobileAttendanceRequestController::class, 'myRegularizations'])->name('api.v1.attendance.regularizations.mine');
+    Route::post('/attendance/overtime', [MobileAttendanceRequestController::class, 'storeOvertime'])->name('api.v1.attendance.overtime.store');
+    Route::get('/attendance/overtime/mine', [MobileAttendanceRequestController::class, 'myOvertime'])->name('api.v1.attendance.overtime.mine');
+    Route::get('/attendance/comp-off/mine', [MobileAttendanceRequestController::class, 'myCompOff'])->name('api.v1.attendance.compoff.mine');
     Route::get('/leave-types', [MobileLeaveController::class, 'types'])->name('api.v1.leave-types.index');
     Route::get('/leaves', [MobileLeaveController::class, 'index'])->name('api.v1.leaves.index');
     Route::get('/leaves/summary', [MobileLeaveController::class, 'summary'])->name('api.v1.leaves.summary');
