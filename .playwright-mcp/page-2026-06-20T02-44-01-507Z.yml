@@ -1,0 +1,646 @@
+- generic:
+  - link:
+    - /url: "#main-content"
+    - text: Skip to main content
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - list
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - img
+                - generic:
+                  - generic: DBEDC
+                  - generic: DBEDC Guardian
+              - generic:
+                - generic:
+                  - textbox:
+                    - /placeholder: Search navigation…
+                  - generic:
+                    - img
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                        - generic: Main
+                      - generic:
+                        - link:
+                          - /url: https://aero-enterprise-suite.test/dashboard
+                          - generic:
+                            - generic:
+                              - img
+                            - generic: Dashboard
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                          - generic: Workspace
+                          - generic: "4"
+                          - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/daily-works-unified
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: Daily Works
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/attendance-employee
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: My Attendance
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/leaves-employee
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: My Leaves
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/petty-cash
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: Petty Cash
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                          - generic: Workforce
+                          - generic: "2"
+                          - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/organization
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: Organization
+                              - generic:
+                                - button:
+                                  - generic:
+                                    - img
+                                  - generic: Time/Attendance
+                                  - generic: "3"
+                                  - img
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - link:
+                                          - /url: https://aero-enterprise-suite.test/attendance
+                                          - generic:
+                                            - generic:
+                                              - img
+                                            - generic: Attendances
+                                      - generic:
+                                        - link:
+                                          - /url: https://aero-enterprise-suite.test/holidays
+                                          - generic:
+                                            - generic:
+                                              - img
+                                            - generic: Holidays
+                                      - generic:
+                                        - link:
+                                          - /url: https://aero-enterprise-suite.test/leaves
+                                          - generic:
+                                            - generic:
+                                              - img
+                                            - generic: Leave Management
+                      - generic:
+                        - button:
+                          - generic:
+                            - img
+                          - generic: Admin
+                          - generic: "4"
+                          - img
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/users
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: Users/Roles
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/company-settings
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: Company Details
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/settings/request-logs
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: Request Logs
+                              - generic:
+                                - link:
+                                  - /url: https://aero-enterprise-suite.test/admin/system-monitoring
+                                  - generic:
+                                    - generic:
+                                      - img
+                                    - generic: Monitoring
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: E
+                  - generic:
+                    - generic: Emam Hosen
+                    - generic: Monitoring Center Manager
+                  - generic: 4.0.9
+          - generic:
+            - generic:
+              - button:
+                - img
+              - generic:
+                - generic: Attendance
+              - generic:
+                - button:
+                  - img
+                  - generic: Search…
+                  - generic: Ctrl+K
+              - generic:
+                - button:
+                  - img
+                - button:
+                  - img
+                - button
+                - generic:
+                  - button:
+                    - img
+                - button:
+                  - generic:
+                    - generic:
+                      - generic: E
+                  - generic:
+                    - generic: Good morning
+                    - generic: Emam Hosen
+            - navigation:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                  - link:
+                    - /url: https://aero-enterprise-suite.test/dashboard
+                    - text: Home
+                - generic: /
+                - generic:
+                  - generic:
+                    - img
+                  - generic: Workforce
+                - generic: /
+                - generic:
+                  - generic:
+                    - img
+                  - generic: Time/Attendance
+                - generic: /
+                - generic:
+                  - generic:
+                    - img
+                  - generic: Attendances
+            - main:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - img
+                            - generic:
+                              - generic: Attendance
+                              - generic: Daily timesheet, monthly calendar and settings
+                      - generic:
+                        - tablist:
+                          - tab:
+                            - generic:
+                              - generic:
+                                - img
+                                - generic: Daily Timesheet
+                          - tab:
+                            - generic:
+                              - generic:
+                                - img
+                                - generic: Monthly Calendar
+                          - tab:
+                            - generic:
+                              - generic:
+                                - img
+                                - generic: Roster
+                          - tab [selected]:
+                            - generic:
+                              - generic:
+                                - img
+                                - generic: Settings
+                        - tabpanel:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - img
+                                - generic: General Settings
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: Office Timing
+                                    - generic:
+                                      - generic:
+                                        - generic: Start Time
+                                        - generic:
+                                          - textbox: 09:00
+                                      - generic:
+                                        - generic: End Time
+                                        - generic:
+                                          - textbox: 17:00
+                                      - generic:
+                                        - generic: Break Duration (min)
+                                        - generic:
+                                          - spinbutton: "60"
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: Attendance Policies
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - generic: Late Mark After (min)
+                                          - generic:
+                                            - spinbutton: "30"
+                                        - generic:
+                                          - generic: Early Leave Before (min)
+                                          - generic:
+                                            - spinbutton: "30"
+                                        - generic:
+                                          - generic: Overtime After (min)
+                                          - generic:
+                                            - spinbutton: "30"
+                                      - generic:
+                                        - generic:
+                                          - checkbox
+                                          - checkbox
+                                          - generic: Enable Auto Punch Out
+                                  - generic:
+                                    - generic:
+                                      - img
+                                      - generic: Weekend Days
+                                    - generic:
+                                      - generic:
+                                        - checkbox [checked]:
+                                          - img
+                                        - checkbox [checked]
+                                        - generic: friday
+                                      - generic:
+                                        - checkbox
+                                        - checkbox
+                                        - generic: saturday
+                                      - generic:
+                                        - checkbox
+                                        - checkbox
+                                        - generic: sunday
+                                  - generic:
+                                    - button: Save Settings
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Attendance Types
+                                - generic:
+                                  - textbox:
+                                    - /placeholder: Search types…
+                                  - generic:
+                                    - img
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - img
+                                      - generic:
+                                        - text: Geo Polygon
+                                        - generic:
+                                          - generic: 2 configs
+                                          - generic: 2 active
+                                    - generic:
+                                      - button:
+                                        - img
+                                        - text: Add
+                                      - generic: ▲
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - table:
+                                              - rowgroup:
+                                                - row:
+                                                  - columnheader: Name
+                                                  - columnheader: Description
+                                                  - columnheader: Status
+                                                  - columnheader: Actions
+                                              - rowgroup:
+                                                - row:
+                                                  - cell: K26 Office - Geo
+                                                  - cell: —
+                                                  - cell:
+                                                    - generic:
+                                                      - img
+                                                      - text: Active
+                                                  - cell:
+                                                    - generic:
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                                - row:
+                                                  - cell: K1 - 48 Geo
+                                                  - cell: —
+                                                  - cell:
+                                                    - generic:
+                                                      - img
+                                                      - text: Active
+                                                  - cell:
+                                                    - generic:
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - img
+                                      - generic:
+                                        - text: WiFi / IP
+                                        - generic:
+                                          - generic: 3 configs
+                                          - generic: 3 active
+                                    - generic:
+                                      - button:
+                                        - img
+                                        - text: Add
+                                      - generic: ▲
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - table:
+                                              - rowgroup:
+                                                - row:
+                                                  - columnheader: Name
+                                                  - columnheader: Description
+                                                  - columnheader: Status
+                                                  - columnheader: Actions
+                                              - rowgroup:
+                                                - row:
+                                                  - cell: K-26 Office - IP
+                                                  - cell: —
+                                                  - cell:
+                                                    - generic:
+                                                      - img
+                                                      - text: Active
+                                                  - cell:
+                                                    - generic:
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                                - row:
+                                                  - cell: Dhaka Office
+                                                  - cell: Dhaka office IP in Baridhar
+                                                  - cell:
+                                                    - generic:
+                                                      - img
+                                                      - text: Active
+                                                  - cell:
+                                                    - generic:
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                                - row:
+                                                  - cell: Monitoring Center - IP
+                                                  - cell: —
+                                                  - cell:
+                                                    - generic:
+                                                      - img
+                                                      - text: Active
+                                                  - cell:
+                                                    - generic:
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - img
+                                      - generic:
+                                        - text: Route Waypoint
+                                        - generic:
+                                          - generic: 1 config
+                                          - generic: 1 active
+                                    - generic:
+                                      - button:
+                                        - img
+                                        - text: Add
+                                      - generic: ▲
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - table:
+                                              - rowgroup:
+                                                - row:
+                                                  - columnheader: Name
+                                                  - columnheader: Description
+                                                  - columnheader: Status
+                                                  - columnheader: Actions
+                                              - rowgroup:
+                                                - row:
+                                                  - cell: K0-48 - Route
+                                                  - cell: —
+                                                  - cell:
+                                                    - generic:
+                                                      - img
+                                                      - text: Active
+                                                  - cell:
+                                                    - generic:
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                                      - button:
+                                                        - img
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - img
+                                      - generic:
+                                        - text: QR Code
+                                        - generic:
+                                          - generic: 0 configs
+                                          - generic: 0 active
+                                    - generic:
+                                      - button:
+                                        - img
+                                        - text: Add
+                                      - generic: ▲
+                                  - generic:
+                                    - generic:
+                                      - generic: No qr code types yet.
+                                      - generic: Click Add above to create one.
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - img
+                                      - generic:
+                                        - text: Biometric
+                                        - generic:
+                                          - generic: 1 config
+                                          - generic: 1 active
+                                          - generic: read-only
+                                    - generic:
+                                      - generic: ▲
+                                  - generic:
+                                    - paragraph: Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.
+                                    - generic:
+                                      - generic:
+                                        - generic:
+                                          - generic:
+                                            - table:
+                                              - rowgroup:
+                                                - row:
+                                                  - columnheader: Name
+                                                  - columnheader: Status
+                                                  - columnheader: Assigned Devices
+                                              - rowgroup:
+                                                - row:
+                                                  - cell:
+                                                    - text: Biometric Device
+                                                    - generic: ZKTeco biometric device attendance via push webhook.
+                                                  - cell:
+                                                    - generic:
+                                                      - img
+                                                      - text: Active
+                                                  - cell:
+                                                    - generic:
+                                                      - generic: K26 Office - MB460 — 4th Floor
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - img
+                                  - generic: Shifts
+                                - generic:
+                                  - button:
+                                    - img
+                                    - text: Rotation patterns
+                                  - button:
+                                    - img
+                                    - text: Add shift
+                              - generic:
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - table:
+                                        - rowgroup:
+                                          - row:
+                                            - columnheader: Name
+                                            - columnheader: Code
+                                            - columnheader: Window
+                                            - columnheader: Status
+                                            - columnheader: Actions
+                                        - rowgroup:
+                                          - row:
+                                            - cell: Morning UI
+                                            - cell:
+                                              - generic: UIMORN
+                                            - cell:
+                                              - generic: 09:00:00–17:30:00
+                                            - cell:
+                                              - generic: Active
+                                            - cell:
+                                              - generic:
+                                                - button:
+                                                  - img
+                                                - button:
+                                                  - img
+                              - generic:
+                                - generic:
+                                  - generic: Shift Assignments
+                                  - button:
+                                    - img
+                                    - text: Assign shift
+                                - generic:
+                                  - generic:
+                                    - generic:
+                                      - generic:
+                                        - table:
+                                          - rowgroup:
+                                            - row:
+                                              - columnheader: Scope
+                                              - columnheader: Shift
+                                              - columnheader: Effective
+                                              - columnheader: Priority
+                                              - columnheader
+                                          - rowgroup:
+                                            - row:
+                                              - cell: No assignments yet.
+          - generic:
+            - button:
+              - img
+  - dialog "Assign Shift" [ref=e758]:
+    - heading "Assign Shift" [level=1] [ref=e759]
+    - generic [ref=e760]:
+      - combobox [active] [ref=e761]:
+        - generic [ref=e762]: Whole organization
+        - img [ref=e763]
+      - combobox [ref=e765]:
+        - generic [ref=e766]: Select shift
+        - img [ref=e767]
+      - generic [ref=e769]:
+        - generic [ref=e770]:
+          - generic [ref=e771]: Anchor date
+          - textbox [ref=e773]
+        - generic [ref=e774]:
+          - generic [ref=e775]: Effective from *
+          - textbox [ref=e777]
+        - generic [ref=e778]:
+          - generic [ref=e779]: Effective to
+          - textbox [ref=e781]
+      - generic [ref=e782]:
+        - generic [ref=e783]: Priority
+        - spinbutton [ref=e785]: "0"
+      - generic [ref=e786]:
+        - button "Cancel" [ref=e787]
+        - button "Save" [disabled] [ref=e788]

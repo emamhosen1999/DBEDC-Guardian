@@ -1,0 +1,33 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e12]:
+    - generic:
+      - img
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - img "Logo" [ref=e17]
+        - heading "Welcome back" [level=1] [ref=e18]
+        - generic [ref=e19]: Sign in to your account
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: Email address
+          - generic [ref=e29]:
+            - textbox "your@email.com" [ref=e30]: emam@dhakabypass.com
+            - img [ref=e32]
+        - generic [ref=e34]:
+          - generic [ref=e35]: Password
+          - generic [ref=e36]:
+            - textbox "••••••••" [ref=e37]: "123456789"
+            - img [ref=e39]
+            - button "Toggle password" [ref=e42]:
+              - img [ref=e43]
+        - generic [ref=e45]:
+          - generic [ref=e47]:
+            - checkbox "Remember me" [ref=e48]
+            - checkbox
+            - text: Remember me
+          - link "Forgot password?" [ref=e49] [cursor=pointer]:
+            - /url: https://aero-enterprise-suite.test/forgot-password
+        - button "Signing in…" [disabled] [ref=e55]: Signing in…
+      - generic [ref=e54]: © 2025 Emam Hosen. All rights reserved.

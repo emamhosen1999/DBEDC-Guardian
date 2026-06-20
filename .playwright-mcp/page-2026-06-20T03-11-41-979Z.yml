@@ -1,0 +1,442 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e14]:
+    - region "Notifications (F8)":
+      - list
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - img "DBEDC" [ref=e19]
+        - generic [ref=e20]:
+          - generic [ref=e21]: DBEDC
+          - generic [ref=e22]: DBEDC Guardian
+      - generic [ref=e24]:
+        - textbox "Search navigation…" [ref=e25]
+        - img [ref=e27]
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e36]: Main
+        - link "Dashboard" [ref=e39] [cursor=pointer]:
+          - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e40]:
+            - img [ref=e42]
+            - generic [ref=e44]: Dashboard
+        - generic [ref=e45]:
+          - button "Workspace 4" [ref=e46] [cursor=pointer]:
+            - img [ref=e48]
+            - generic [ref=e50]: Workspace
+            - generic [ref=e51]: "4"
+            - img [ref=e52]
+          - generic [ref=e56]:
+            - link "Daily Works" [ref=e58] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/daily-works-unified
+              - generic [ref=e59]:
+                - img [ref=e61]
+                - generic [ref=e63]: Daily Works
+            - link "My Attendance" [ref=e65] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/attendance-employee
+              - generic [ref=e66]:
+                - img [ref=e68]
+                - generic [ref=e70]: My Attendance
+            - link "My Leaves" [ref=e72] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/leaves-employee
+              - generic [ref=e73]:
+                - img [ref=e75]
+                - generic [ref=e77]: My Leaves
+            - link "Petty Cash" [ref=e79] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/petty-cash
+              - generic [ref=e80]:
+                - img [ref=e82]
+                - generic [ref=e84]: Petty Cash
+        - generic [ref=e85]:
+          - button "Workforce 2" [ref=e87] [cursor=pointer]:
+            - img [ref=e89]
+            - generic [ref=e91]: Workforce
+            - generic [ref=e92]: "2"
+            - img [ref=e93]
+          - generic [ref=e97]:
+            - link "Organization" [ref=e99] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/organization
+              - generic [ref=e100]:
+                - img [ref=e102]
+                - generic [ref=e104]: Organization
+            - generic [ref=e105]:
+              - button "Time/Attendance 3" [ref=e107] [cursor=pointer]:
+                - img [ref=e109]
+                - generic [ref=e111]: Time/Attendance
+                - generic [ref=e112]: "3"
+                - img [ref=e113]
+              - generic [ref=e117]:
+                - link "Attendances" [ref=e120] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/attendance
+                  - generic [ref=e121]:
+                    - img [ref=e123]
+                    - generic [ref=e125]: Attendances
+                - link "Holidays" [ref=e127] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/holidays
+                  - generic [ref=e128]:
+                    - img [ref=e130]
+                    - generic [ref=e132]: Holidays
+                - link "Leave Management" [ref=e134] [cursor=pointer]:
+                  - /url: https://aero-enterprise-suite.test/leaves
+                  - generic [ref=e135]:
+                    - img [ref=e137]
+                    - generic [ref=e139]: Leave Management
+        - generic [ref=e140]:
+          - button "Admin 4" [ref=e141] [cursor=pointer]:
+            - img [ref=e143]
+            - generic [ref=e146]: Admin
+            - generic [ref=e147]: "4"
+            - img [ref=e148]
+          - generic [ref=e152]:
+            - link "Users/Roles" [ref=e154] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/users
+              - generic [ref=e155]:
+                - img [ref=e157]
+                - generic [ref=e159]: Users/Roles
+            - link "Company Details" [ref=e161] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/company-settings
+              - generic [ref=e162]:
+                - img [ref=e164]
+                - generic [ref=e166]: Company Details
+            - link "Request Logs" [ref=e168] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/settings/request-logs
+              - generic [ref=e169]:
+                - img [ref=e171]
+                - generic [ref=e173]: Request Logs
+            - link "Monitoring" [ref=e175] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/admin/system-monitoring
+              - generic [ref=e176]:
+                - img [ref=e178]
+                - generic [ref=e180]: Monitoring
+      - generic [ref=e182]:
+        - generic [ref=e504]: E
+        - generic [ref=e187]:
+          - generic [ref=e188]: Emam Hosen
+          - generic [ref=e189]: Monitoring Center Manager
+        - generic [ref=e190]: 4.0.9
+    - generic [ref=e191]:
+      - generic [ref=e192]:
+        - button "Toggle sidebar" [ref=e193]:
+          - img [ref=e194]
+        - generic [ref=e197]: Attendance
+        - button "Open search" [ref=e199]:
+          - img [ref=e200]
+          - generic [ref=e202]: Search…
+          - generic [ref=e203]: Ctrl+K
+        - generic [ref=e204]:
+          - button "Toggle appearance" [ref=e205]:
+            - img [ref=e206]
+          - button "Theme settings" [ref=e208]:
+            - img [ref=e209]
+          - button "Change language" [ref=e211]
+          - button "Notifications" [ref=e214]:
+            - img [ref=e215]
+          - button "User menu" [ref=e217] [cursor=pointer]:
+            - generic [ref=e505]: E
+            - generic [ref=e222]:
+              - generic [ref=e223]: Good morning
+              - generic [ref=e224]: Emam Hosen
+      - navigation "Breadcrumb" [ref=e225]:
+        - generic [ref=e226]:
+          - generic [ref=e227]:
+            - img [ref=e229]
+            - link "Home" [ref=e231] [cursor=pointer]:
+              - /url: https://aero-enterprise-suite.test/dashboard
+          - generic [ref=e232]: /
+          - generic [ref=e233]:
+            - img [ref=e235]
+            - generic [ref=e237]: Workforce
+          - generic [ref=e238]: /
+          - generic [ref=e239]:
+            - img [ref=e241]
+            - generic [ref=e243]: Time/Attendance
+          - generic [ref=e244]: /
+          - generic [ref=e245]:
+            - img [ref=e247]
+            - generic [ref=e249]: Attendances
+      - main "Main content" [ref=e250]:
+        - generic [ref=e254]:
+          - generic [ref=e256]:
+            - generic [ref=e257]:
+              - img [ref=e259]
+              - generic [ref=e261]:
+                - generic [ref=e262]: Attendance
+                - generic [ref=e263]: Daily timesheet, monthly calendar and settings
+            - generic [ref=e265]:
+              - img [ref=e266]
+              - generic [ref=e268]: Jun 20, 2026
+          - generic [ref=e270]:
+            - generic [ref=e272]:
+              - generic [ref=e273]:
+                - img [ref=e275]
+                - heading "Present" [level=1] [ref=e277]
+              - generic [ref=e507]: "0"
+            - generic [ref=e279]:
+              - generic [ref=e280]:
+                - img [ref=e282]
+                - heading "Absent" [level=1] [ref=e284]
+              - generic [ref=e509]: "28"
+            - generic [ref=e286]:
+              - generic [ref=e287]:
+                - img [ref=e289]
+                - heading "Late (After 9AM)" [level=1] [ref=e291]
+              - generic [ref=e511]: "0"
+            - generic [ref=e293]:
+              - generic [ref=e294]:
+                - img [ref=e296]
+                - heading "On Leave" [level=1] [ref=e298]
+              - generic [ref=e513]: "1"
+          - generic [ref=e300]:
+            - tablist [ref=e301]:
+              - tab "Daily Timesheet" [ref=e302]:
+                - generic [ref=e304]:
+                  - img [ref=e305]
+                  - generic [ref=e307]: Daily Timesheet
+              - tab "Monthly Calendar" [ref=e308]:
+                - generic [ref=e310]:
+                  - img [ref=e311]
+                  - generic [ref=e313]: Monthly Calendar
+              - tab "Roster" [active] [selected] [ref=e314]:
+                - generic [ref=e316]:
+                  - img [ref=e317]
+                  - generic [ref=e319]: Roster
+              - tab "Settings" [ref=e320]:
+                - generic [ref=e322]:
+                  - img [ref=e323]
+                  - generic [ref=e325]: Settings
+            - tabpanel "Roster" [ref=e514]:
+              - generic [ref=e516]:
+                - generic [ref=e517]:
+                  - generic [ref=e518]: Roster — June 2026
+                  - generic [ref=e519]:
+                    - button "Refresh" [ref=e520]:
+                      - img [ref=e521]
+                      - text: Refresh
+                    - button "Generate roster" [ref=e523]
+                - generic [ref=e525]:
+                  - generic [ref=e526]:
+                    - generic [ref=e528]: Employee
+                    - generic [ref=e529]:
+                      - generic [ref=e530]: "1"
+                      - generic [ref=e531]: Mo
+                    - generic [ref=e532]:
+                      - generic [ref=e533]: "2"
+                      - generic [ref=e534]: Tu
+                    - generic [ref=e535]:
+                      - generic [ref=e536]: "3"
+                      - generic [ref=e537]: We
+                    - generic [ref=e538]:
+                      - generic [ref=e539]: "4"
+                      - generic [ref=e540]: Th
+                    - generic [ref=e541]:
+                      - generic [ref=e542]: "5"
+                      - generic [ref=e543]: Fr
+                    - generic [ref=e544]:
+                      - generic [ref=e545]: "6"
+                      - generic [ref=e546]: Sa
+                    - generic [ref=e547]:
+                      - generic [ref=e548]: "7"
+                      - generic [ref=e549]: Su
+                    - generic [ref=e550]:
+                      - generic [ref=e551]: "8"
+                      - generic [ref=e552]: Mo
+                    - generic [ref=e553]:
+                      - generic [ref=e554]: "9"
+                      - generic [ref=e555]: Tu
+                    - generic [ref=e556]:
+                      - generic [ref=e557]: "10"
+                      - generic [ref=e558]: We
+                    - generic [ref=e559]:
+                      - generic [ref=e560]: "11"
+                      - generic [ref=e561]: Th
+                    - generic [ref=e562]:
+                      - generic [ref=e563]: "12"
+                      - generic [ref=e564]: Fr
+                    - generic [ref=e565]:
+                      - generic [ref=e566]: "13"
+                      - generic [ref=e567]: Sa
+                    - generic [ref=e568]:
+                      - generic [ref=e569]: "14"
+                      - generic [ref=e570]: Su
+                    - generic [ref=e571]:
+                      - generic [ref=e572]: "15"
+                      - generic [ref=e573]: Mo
+                    - generic [ref=e574]:
+                      - generic [ref=e575]: "16"
+                      - generic [ref=e576]: Tu
+                    - generic [ref=e577]:
+                      - generic [ref=e578]: "17"
+                      - generic [ref=e579]: We
+                    - generic [ref=e580]:
+                      - generic [ref=e581]: "18"
+                      - generic [ref=e582]: Th
+                    - generic [ref=e583]:
+                      - generic [ref=e584]: "19"
+                      - generic [ref=e585]: Fr
+                    - generic [ref=e586]:
+                      - generic [ref=e587]: "20"
+                      - generic [ref=e588]: Sa
+                    - generic [ref=e589]:
+                      - generic [ref=e590]: "21"
+                      - generic [ref=e591]: Su
+                    - generic [ref=e592]:
+                      - generic [ref=e593]: "22"
+                      - generic [ref=e594]: Mo
+                    - generic [ref=e595]:
+                      - generic [ref=e596]: "23"
+                      - generic [ref=e597]: Tu
+                    - generic [ref=e598]:
+                      - generic [ref=e599]: "24"
+                      - generic [ref=e600]: We
+                    - generic [ref=e601]:
+                      - generic [ref=e602]: "25"
+                      - generic [ref=e603]: Th
+                    - generic [ref=e604]:
+                      - generic [ref=e605]: "26"
+                      - generic [ref=e606]: Fr
+                    - generic [ref=e607]:
+                      - generic [ref=e608]: "27"
+                      - generic [ref=e609]: Sa
+                    - generic [ref=e610]:
+                      - generic [ref=e611]: "28"
+                      - generic [ref=e612]: Su
+                    - generic [ref=e613]:
+                      - generic [ref=e614]: "29"
+                      - generic [ref=e615]: Mo
+                    - generic [ref=e616]:
+                      - generic [ref=e617]: "30"
+                      - generic [ref=e618]: Tu
+                  - generic [ref=e619]:
+                    - generic [ref=e621]: Md. Elias
+                    - generic [ref=e625] [cursor=pointer]: DAY
+                    - generic [ref=e627] [cursor=pointer]: DAY
+                    - generic [ref=e629] [cursor=pointer]: NIGHT
+                    - generic [ref=e631] [cursor=pointer]: NIGHT
+                    - generic [ref=e633] [cursor=pointer]: NIGHT
+                    - generic [ref=e639] [cursor=pointer]: DAY
+                    - generic [ref=e641] [cursor=pointer]: DAY
+                    - generic [ref=e643] [cursor=pointer]: NIGHT
+                    - generic [ref=e645] [cursor=pointer]: NIGHT
+                    - generic [ref=e647] [cursor=pointer]: NIGHT
+                    - generic [ref=e653] [cursor=pointer]: DAY
+                    - generic [ref=e655] [cursor=pointer]: DAY
+                    - generic [ref=e657] [cursor=pointer]: NIGHT
+                    - generic [ref=e659] [cursor=pointer]: NIGHT
+                    - generic [ref=e661] [cursor=pointer]: NIGHT
+                    - generic [ref=e667] [cursor=pointer]: DAY
+                    - generic [ref=e669] [cursor=pointer]: DAY
+                    - generic [ref=e671] [cursor=pointer]: NIGHT
+                    - generic [ref=e673] [cursor=pointer]: NIGHT
+                    - generic [ref=e675] [cursor=pointer]: NIGHT
+                    - generic [ref=e681] [cursor=pointer]: DAY
+                  - generic [ref=e682]:
+                    - generic [ref=e684]: Tanvir Mahmud Saif
+                    - generic [ref=e686] [cursor=pointer]: DAY
+                    - generic [ref=e688] [cursor=pointer]: DAY
+                    - generic [ref=e690] [cursor=pointer]: NIGHT
+                    - generic [ref=e692] [cursor=pointer]: NIGHT
+                    - generic [ref=e698] [cursor=pointer]: DAY
+                    - generic [ref=e700] [cursor=pointer]: DAY
+                    - generic [ref=e702] [cursor=pointer]: DAY
+                    - generic [ref=e704] [cursor=pointer]: NIGHT
+                    - generic [ref=e706] [cursor=pointer]: NIGHT
+                    - generic [ref=e712] [cursor=pointer]: DAY
+                    - generic [ref=e714] [cursor=pointer]: DAY
+                    - generic [ref=e716] [cursor=pointer]: DAY
+                    - generic [ref=e718] [cursor=pointer]: NIGHT
+                    - generic [ref=e720] [cursor=pointer]: NIGHT
+                    - generic [ref=e726] [cursor=pointer]: DAY
+                    - generic [ref=e728] [cursor=pointer]: DAY
+                    - generic [ref=e730] [cursor=pointer]: DAY
+                    - generic [ref=e732] [cursor=pointer]: NIGHT
+                    - generic [ref=e734] [cursor=pointer]: NIGHT
+                    - generic [ref=e740] [cursor=pointer]: DAY
+                    - generic [ref=e742] [cursor=pointer]: DAY
+                    - generic [ref=e744] [cursor=pointer]: DAY
+                  - generic [ref=e745]:
+                    - generic [ref=e747]: Shahadat Hossain
+                    - generic [ref=e749] [cursor=pointer]: NIGHT
+                    - generic [ref=e751] [cursor=pointer]: NIGHT
+                    - generic [ref=e757] [cursor=pointer]: DAY
+                    - generic [ref=e759] [cursor=pointer]: DAY
+                    - generic [ref=e761] [cursor=pointer]: NIGHT
+                    - generic [ref=e763] [cursor=pointer]: NIGHT
+                    - generic [ref=e765] [cursor=pointer]: NIGHT
+                    - generic [ref=e771] [cursor=pointer]: DAY
+                    - generic [ref=e773] [cursor=pointer]: DAY
+                    - generic [ref=e775] [cursor=pointer]: NIGHT
+                    - generic [ref=e777] [cursor=pointer]: NIGHT
+                    - generic [ref=e779] [cursor=pointer]: NIGHT
+                    - generic [ref=e785] [cursor=pointer]: DAY
+                    - generic [ref=e787] [cursor=pointer]: DAY
+                    - generic [ref=e789] [cursor=pointer]: NIGHT
+                    - generic [ref=e791] [cursor=pointer]: NIGHT
+                    - generic [ref=e793] [cursor=pointer]: NIGHT
+                    - generic [ref=e799] [cursor=pointer]: DAY
+                    - generic [ref=e801] [cursor=pointer]: DAY
+                    - generic [ref=e803] [cursor=pointer]: NIGHT
+                    - generic [ref=e805] [cursor=pointer]: NIGHT
+                    - generic [ref=e807] [cursor=pointer]: NIGHT
+                  - generic [ref=e808]:
+                    - generic [ref=e810]: Zidan Ul Azim
+                    - generic [ref=e812] [cursor=pointer]: NIGHT
+                    - generic [ref=e814] [cursor=pointer]: NIGHT
+                    - generic [ref=e816] [cursor=pointer]: NIGHT
+                    - generic [ref=e822] [cursor=pointer]: DAY
+                    - generic [ref=e824] [cursor=pointer]: DAY
+                    - generic [ref=e826] [cursor=pointer]: NIGHT
+                    - generic [ref=e828] [cursor=pointer]: NIGHT
+                    - generic [ref=e830] [cursor=pointer]: NIGHT
+                    - generic [ref=e836] [cursor=pointer]: DAY
+                    - generic [ref=e838] [cursor=pointer]: DAY
+                    - generic [ref=e840] [cursor=pointer]: NIGHT
+                    - generic [ref=e842] [cursor=pointer]: NIGHT
+                    - generic [ref=e844] [cursor=pointer]: NIGHT
+                    - generic [ref=e850] [cursor=pointer]: DAY
+                    - generic [ref=e852] [cursor=pointer]: DAY
+                    - generic [ref=e854] [cursor=pointer]: NIGHT
+                    - generic [ref=e856] [cursor=pointer]: NIGHT
+                    - generic [ref=e858] [cursor=pointer]: NIGHT
+                    - generic [ref=e864] [cursor=pointer]: DAY
+                    - generic [ref=e866] [cursor=pointer]: DAY
+                    - generic [ref=e868] [cursor=pointer]: NIGHT
+                    - generic [ref=e870] [cursor=pointer]: NIGHT
+                  - generic [ref=e871]:
+                    - generic [ref=e873]: Liton Das
+                    - generic [ref=e879] [cursor=pointer]: DAY
+                    - generic [ref=e881] [cursor=pointer]: DAY
+                    - generic [ref=e883] [cursor=pointer]: NIGHT
+                    - generic [ref=e885] [cursor=pointer]: NIGHT
+                    - generic [ref=e887] [cursor=pointer]: NIGHT
+                    - generic [ref=e893] [cursor=pointer]: DAY
+                    - generic [ref=e895] [cursor=pointer]: DAY
+                    - generic [ref=e897] [cursor=pointer]: NIGHT
+                    - generic [ref=e899] [cursor=pointer]: NIGHT
+                    - generic [ref=e901] [cursor=pointer]: NIGHT
+                    - generic [ref=e907] [cursor=pointer]: DAY
+                    - generic [ref=e909] [cursor=pointer]: DAY
+                    - generic [ref=e911] [cursor=pointer]: NIGHT
+                    - generic [ref=e913] [cursor=pointer]: NIGHT
+                    - generic [ref=e915] [cursor=pointer]: NIGHT
+                    - generic [ref=e921] [cursor=pointer]: DAY
+                    - generic [ref=e923] [cursor=pointer]: DAY
+                    - generic [ref=e925] [cursor=pointer]: NIGHT
+                    - generic [ref=e927] [cursor=pointer]: NIGHT
+                    - generic [ref=e929] [cursor=pointer]: NIGHT
+                - generic [ref=e934]:
+                  - text: Swap Requests
+                  - table [ref=e939]:
+                    - rowgroup [ref=e940]:
+                      - row "Requester Requester date Counterparty Status" [ref=e941]:
+                        - columnheader "Requester" [ref=e942]
+                        - columnheader "Requester date" [ref=e943]
+                        - columnheader "Counterparty" [ref=e944]
+                        - columnheader "Status" [ref=e945]
+                        - columnheader [ref=e946]
+                    - rowgroup [ref=e947]:
+                      - row "No swap requests." [ref=e948]:
+                        - cell "No swap requests." [ref=e949]
+    - button "Open theme settings" [ref=e501]:
+      - img [ref=e502]
