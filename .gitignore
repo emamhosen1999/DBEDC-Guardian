@@ -74,3 +74,4 @@ check_users_keys.php
 public/test.php
 .playwright-mcp/
 roster-june-2026*.png
+prod-roster-*.png
