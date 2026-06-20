@@ -34,7 +34,8 @@ class AttendanceReportService
             ->with([
                 'attendances' => function ($query) use ($year, $month) {
                     $query->whereYear('date', $year)
-                        ->whereMonth('date', $month);
+                        ->whereMonth('date', $month)
+                        ->where('policy_status', '!=', 'rejected');
                 },
                 'leaves' => function ($query) use ($year, $month) {
                     $query->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
@@ -242,7 +243,8 @@ class AttendanceReportService
         // FETCH DATA (Scoped)
         // A. Attendance
         $attendanceQuery = Attendance::whereBetween('date', [$startOfMonth, $endOfMonth])
-            ->whereNotNull('punchin');
+            ->whereNotNull('punchin')
+            ->where('policy_status', '!=', 'rejected');
 
         if (! $isGlobalScope) {
             $attendanceQuery->where('user_id', $userId);

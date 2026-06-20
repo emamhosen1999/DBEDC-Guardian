@@ -489,6 +489,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/regularizations/pending', [\App\Http\Controllers\HRM\RegularizationController::class, 'pending'])->name('attendance.regularizations.pending');
         Route::post('/attendance/regularizations/{id}/approve', [\App\Http\Controllers\HRM\RegularizationController::class, 'approve'])->name('attendance.regularizations.approve');
         Route::post('/attendance/regularizations/{id}/reject', [\App\Http\Controllers\HRM\RegularizationController::class, 'reject'])->name('attendance.regularizations.reject');
+        Route::get('/attendance/punch-exceptions/pending', [\App\Http\Controllers\HRM\PunchExceptionController::class, 'pending'])->name('attendance.punch-exceptions.pending');
+        Route::post('/attendance/punch-exceptions/{id}/approve', [\App\Http\Controllers\HRM\PunchExceptionController::class, 'approve'])->name('attendance.punch-exceptions.approve');
+        Route::post('/attendance/punch-exceptions/{id}/reject', [\App\Http\Controllers\HRM\PunchExceptionController::class, 'reject'])->name('attendance.punch-exceptions.reject');
         Route::get('/attendance/overtime/pending', [\App\Http\Controllers\HRM\OvertimeController::class, 'pending'])->name('attendance.overtime.pending');
         Route::post('/attendance/overtime/{id}/approve', [\App\Http\Controllers\HRM\OvertimeController::class, 'approve'])->name('attendance.overtime.approve');
         Route::post('/attendance/overtime/{id}/reject', [\App\Http\Controllers\HRM\OvertimeController::class, 'reject'])->name('attendance.overtime.reject');
