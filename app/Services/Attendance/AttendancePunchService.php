@@ -15,6 +15,8 @@ class AttendancePunchService
 {
     private const DEDUPE_WINDOW_SECONDS = 30;
 
+    private const MAX_OVERNIGHT_HOURS = 18;
+
     /**
      * Process punch in/out for a user
      */
@@ -35,8 +37,9 @@ class AttendancePunchService
             $isInPunch = in_array($checkType, ['in',  'break_in',  'ot_in']);
 
             if ($isOutPunch) {
-                if ($existingAttendance && ! $existingAttendance->punchout) {
-                    return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+                $openRow = $this->findOpenAttendanceToClose($user->id, $punchTime);
+                if ($openRow) {
+                    return $this->punchOut($openRow, $request, $user, $punchTime);
                 }
 
                 return [
@@ -65,7 +68,9 @@ class AttendancePunchService
                     ];
                 }
 
-                return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+                $openRow = $this->findOpenAttendanceToClose($user->id, $punchTime) ?? $existingAttendance;
+
+                return $this->punchOut($openRow, $request, $user, $punchTime);
             }
 
             // Run punch-in logic inside a transaction to avoid races
@@ -96,6 +101,49 @@ class AttendancePunchService
             ->whereDate('date', $date)
             ->latest()
             ->first();
+    }
+
+    /**
+     * Resolve the open attendance row that an OUT punch should close.
+     *
+     * Returns today's open row (existing behavior) OR, if none, the previous
+     * day's open row when (a) the resolved shift for the open row's punch-in
+     * crosses midnight AND (b) the out-punch is within MAX_OVERNIGHT_HOURS of
+     * that punch-in. This only changes WHICH open row an out-punch closes —
+     * it never blocks capture.
+     */
+    private function findOpenAttendanceToClose(int $userId, \Carbon\CarbonInterface $punchMoment, bool $lock = false): ?Attendance
+    {
+        // 1) Today's open row — existing behavior.
+        $todayQuery = Attendance::where('user_id', $userId)
+            ->whereDate('date', $punchMoment->copy()->startOfDay())
+            ->whereNull('punchout');
+        if ($lock) {
+            $todayQuery->lockForUpdate();
+        }
+        $today = $todayQuery->latest()->first();
+        if ($today) {
+            return $today;
+        }
+
+        // 2) Overnight: prior-day open row whose shift crosses midnight, within the bounded window.
+        $priorQuery = Attendance::where('user_id', $userId)
+            ->whereDate('date', $punchMoment->copy()->subDay()->startOfDay())
+            ->whereNull('punchout');
+        if ($lock) {
+            $priorQuery->lockForUpdate();
+        }
+        $prior = $priorQuery->latest()->first();
+        if (! $prior || ! $prior->punchin) {
+            return null;
+        }
+        $in = Carbon::parse($prior->punchin);
+        if ($in->diffInHours($punchMoment) > self::MAX_OVERNIGHT_HOURS) {
+            return null;
+        }
+        $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)->resolve($userId, $in);
+
+        return $shift->crossesMidnight ? $prior : null;
     }
 
     /**
@@ -248,8 +296,9 @@ class AttendancePunchService
         $isInPunch = in_array($checkType, ['in',  'break_in',  'ot_in']);
 
         if ($isOutPunch) {
-            if ($existingAttendance && ! $existingAttendance->punchout) {
-                return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+            $openRow = $this->findOpenAttendanceToClose($user->id, $punchTime, lock: true);
+            if ($openRow) {
+                return $this->punchOut($openRow, $request, $user, $punchTime);
             }
 
             return [
@@ -280,7 +329,9 @@ class AttendancePunchService
                 }
             }
 
-            return $this->punchOut($existingAttendance, $request, $user, $punchTime);
+            $openRow = $this->findOpenAttendanceToClose($user->id, $punchTime, lock: true) ?? $existingAttendance;
+
+            return $this->punchOut($openRow, $request, $user, $punchTime);
         }
 
         return $this->punchIn($user, $punchDate, $request, $punchTime);
