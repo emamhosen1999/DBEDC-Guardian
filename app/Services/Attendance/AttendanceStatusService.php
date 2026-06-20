@@ -82,14 +82,27 @@ class AttendanceStatusService
 
         $policy ??= PolicyProfile::neutral();
         if (! $policy->isNeutral()) {
+            $originalFirstIn = $firstIn;
+            $originalLastOut = $lastOut;
             $ctx = new DayContext($firstIn, $lastOut, $workedMinutes, $flags, $shift, $policy);
             (new RuleEngine(new RoundingEvaluator, new GraceTiersEvaluator))->apply($ctx);
             $firstIn = $ctx->firstIn;
             $lastOut = $ctx->lastOut;
             $flags = $ctx->flags;
-            // Recompute worked minutes if rounding changed the boundaries.
+            // Rounding shifts only the outer boundaries; adjust the per-segment worked sum
+            // by those shifts so interior break gaps are never re-counted.
             if ($policy->rounding()) {
-                $workedMinutes = $firstIn && $lastOut ? max(0, (int) round($firstIn->diffInMinutes($lastOut))) : $workedMinutes;
+                if ($originalFirstIn && $firstIn) {
+                    // $firstIn->diffInMinutes($originalFirstIn, false) = originalFirstIn − firstIn
+                    // positive when firstIn rounded earlier (segment grew) → add to worked minutes.
+                    $workedMinutes += (int) round($firstIn->diffInMinutes($originalFirstIn, false));
+                }
+                if ($originalLastOut && $lastOut) {
+                    // $originalLastOut->diffInMinutes($lastOut, false) = lastOut − originalLastOut
+                    // positive when lastOut rounded later (segment grew) → add to worked minutes.
+                    $workedMinutes += (int) round($originalLastOut->diffInMinutes($lastOut, false));
+                }
+                $workedMinutes = max(0, $workedMinutes);
             }
         }
 

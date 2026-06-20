@@ -62,4 +62,32 @@ class GraceTiersEvaluatorTest extends TestCase
         $this->assertSame($a->status, $b->status);
         $this->assertSame(DayAttendance::PRESENT, $b->status);
     }
+
+    public function test_rounding_multi_punch_excludes_interior_gap(): void
+    {
+        // Two punch pairs: 09:07–12:00 (173 min) + 13:00–17:08 (248 min) = 421 min segment sum.
+        // Quarter-hour nearest rounding: firstIn 09:07→09:00 (+7 min), lastOut 17:08→17:15 (+7 min).
+        // Correct worked_minutes = 421 + 7 + 7 = 435.
+        // Buggy span method (firstIn→lastOut after rounding): 09:00→17:15 = 495 — 60-min gap re-counted.
+        $policy = new PolicyProfile(rounding: ['strategy' => 'quarter_hour', 'unit_minutes' => 15, 'direction' => 'nearest']);
+        $shift = new \App\Services\Attendance\DTO\ShiftSchedule(
+            start: Carbon::parse('2026-06-19 09:00'),
+            end: Carbon::parse('2026-06-19 17:00'),
+            crossesMidnight: false,
+            graceInMinutes: 0,
+            graceOutMinutes: 0,
+            fullDayMinutes: 0,
+            halfDayMinutes: 0,
+            minPresentMinutes: 0,
+            breakMinutes: 0,
+            isWorkingDay: true,
+        );
+        $punches = collect([
+            $this->punch('2026-06-19 09:07', '2026-06-19 12:00'),
+            $this->punch('2026-06-19 13:00', '2026-06-19 17:08'),
+        ]);
+        $r = (new AttendanceStatusService)->resolve($punches, $shift, policy: $policy);
+        // Assert boundary-delta fix: 421 + 7 + 7 = 435 (not the buggy span 495).
+        $this->assertSame(435, $r->worked_minutes);
+    }
 }
