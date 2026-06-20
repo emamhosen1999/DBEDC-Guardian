@@ -302,6 +302,7 @@ class AttendanceController extends Controller
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
                     $query->whereNotNull('punchin')
+                        ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $selectedDate);
                 });
 
@@ -319,6 +320,7 @@ class AttendanceController extends Controller
             $attendanceRecords = Attendance::query()
                 ->with(['user.designation'])
                 ->whereNotNull('punchin')
+                ->where('policy_status', '!=', 'rejected')
                 ->whereDate('date', $selectedDate)
                 ->whereIn('user_id', $userIds)
                 ->orderBy('user_id')
@@ -495,6 +497,7 @@ class AttendanceController extends Controller
                 })
                 ->whereHas('attendances', function ($query) use ($date) {
                     $query->whereNotNull('punchin')
+                        ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $date);
                 })
                 ->pluck('id');
@@ -617,6 +620,7 @@ class AttendanceController extends Controller
 
             $presentUsersIds = Attendance::whereDate('date', $date)
                 ->whereNotNull('punchin')
+                ->where('policy_status', '!=', 'rejected')
                 ->pluck('user_id')
                 ->unique();
 
