@@ -123,6 +123,8 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'store'])->name('attendance.swaps.store');
         Route::post('/attendance/regularizations', [\App\Http\Controllers\HRM\RegularizationController::class, 'store'])->name('attendance.regularizations.store');
         Route::get('/attendance/regularizations/mine', [\App\Http\Controllers\HRM\RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
+        Route::post('/attendance/overtime', [\App\Http\Controllers\HRM\OvertimeController::class, 'store'])->name('attendance.overtime.store');
+        Route::get('/attendance/overtime/mine', [\App\Http\Controllers\HRM\OvertimeController::class, 'mine'])->name('attendance.overtime.mine');
     });
 
     // Punch route - unified validated flow only
@@ -486,6 +488,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/regularizations/pending', [\App\Http\Controllers\HRM\RegularizationController::class, 'pending'])->name('attendance.regularizations.pending');
         Route::post('/attendance/regularizations/{id}/approve', [\App\Http\Controllers\HRM\RegularizationController::class, 'approve'])->name('attendance.regularizations.approve');
         Route::post('/attendance/regularizations/{id}/reject', [\App\Http\Controllers\HRM\RegularizationController::class, 'reject'])->name('attendance.regularizations.reject');
+        Route::get('/attendance/overtime/pending', [\App\Http\Controllers\HRM\OvertimeController::class, 'pending'])->name('attendance.overtime.pending');
+        Route::post('/attendance/overtime/{id}/approve', [\App\Http\Controllers\HRM\OvertimeController::class, 'approve'])->name('attendance.overtime.approve');
+        Route::post('/attendance/overtime/{id}/reject', [\App\Http\Controllers\HRM\OvertimeController::class, 'reject'])->name('attendance.overtime.reject');
     });
 
     // Attendance correction routes
