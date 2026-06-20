@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\Leave;
 use App\Repositories\AttendanceRepository;
+use App\Services\Attendance\Contracts\ScheduleResolver;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 
@@ -26,6 +27,11 @@ class AttendanceQueryService
     public function getTodayAttendance(int $userId): array
     {
         $attendances = $this->attendanceRepository->getTodayAttendance($userId);
+        if (! $attendances->contains(fn ($a) => $a->punchout === null)) {
+            if ($overnight = $this->openOvernightSession($userId)) {
+                $attendances = collect([$overnight])->concat($attendances);
+            }
+        }
 
         $totalProductionTime = 0;
         $punches = $attendances->map(function (Attendance $attendance) use (&$totalProductionTime) {
@@ -162,6 +168,29 @@ class AttendanceQueryService
                 'to' => $paginator->lastItem(),
             ],
         ];
+    }
+
+    /**
+     * Return an open prior-day Attendance row if the resolved shift crosses midnight
+     * and the punch-in is within 18 hours of now (bounded overnight rule for live display).
+     * Returns null for day shifts or stale rows.
+     */
+    private function openOvernightSession(int $userId): ?Attendance
+    {
+        $now = Carbon::now();
+        $prior = $this->attendanceRepository
+            ->getUserAttendanceForDate($userId, $now->copy()->subDay())
+            ->firstWhere('punchout', null);
+        if (! $prior || ! $prior->punchin) {
+            return null;
+        }
+        $in = Carbon::parse($prior->punchin);
+        if ($in->diffInHours($now) > 18) {
+            return null;
+        }
+        $shift = app(ScheduleResolver::class)->resolve($userId, $in);
+
+        return $shift->crossesMidnight ? $prior : null;
     }
 
     /**
