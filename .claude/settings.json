@@ -168,7 +168,9 @@
       "Bash(git show *)",
       "Bash(curl -sS -X POST https://erp.dhakabypass.com/api/v1/auth/login -H \"Accept: application/json\" -H \"Content-Type: application/json\" -d '{\"email\":\"nobody@example.com\",\"password\":\"x\",\"device_id\":\"7b25d7a4-6ee2-4e8d-98d0-3eb4bfef2f90\",\"device_signature\":{\"signature\":\"fnv1a-9b71d224\",\"platform\":\"android\"}}' -w \"\\\\nHTTP %{http_code}\\\\n\")",
       "Bash(grep -E 'protected \\\\$fillable' -A6 app/Models/HRM/Attendance.php)",
-      "Bash(node -e \"const es=require\\('esbuild'\\); es.transformSync\\(require\\('fs'\\).readFileSync\\('resources/js/Components/AdminUnified/UsersPanel.jsx','utf8'\\),{loader:'jsx'}\\); console.log\\('UsersPanel.jsx: JSX OK'\\);\")"
+      "Bash(node -e \"const es=require\\('esbuild'\\); es.transformSync\\(require\\('fs'\\).readFileSync\\('resources/js/Components/AdminUnified/UsersPanel.jsx','utf8'\\),{loader:'jsx'}\\); console.log\\('UsersPanel.jsx: JSX OK'\\);\")",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\('build:', s.build\\); console.log\\('build:auto:', s['build:auto']||'\\(none\\)'\\); Object.keys\\(s\\).filter\\(k=>k.includes\\('build'\\)||k.includes\\('deploy'\\)\\).forEach\\(k=>console.log\\(k,'=>',s[k]\\)\\);\")",
+      "Bash(grep -c 'addMinutes\\($idleTimeout\\)' app/Http/Controllers/Api/V1/AuthController.php)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd"
