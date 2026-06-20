@@ -148,7 +148,9 @@
       "Bash(pdftotext -layout Roster_Final_With_Individual_Calendar.pdf /tmp/roster.txt)",
       "Bash(sed -i 's/$offStart = strpos\\($header, '\\\\''WEEKLY HOLIDAY'\\\\''\\);/$offStart = strpos\\($header, '\\\\''WEEKLY HOLIDAY'\\\\''\\) - 1;/' storage/app/parse_roster.php)",
       "Bash(php storage/app/parse_roster.php)",
-      "Bash(grep -vE \"Psy|>>>|^\\\\s*$|INFO\")"
+      "Bash(grep -vE \"Psy|>>>|^\\\\s*$|INFO\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git stash *)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd"
