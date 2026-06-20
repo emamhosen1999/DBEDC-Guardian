@@ -5,7 +5,7 @@ import {
     Box, Flex, Text, Card, Tabs, Separator, Skeleton,
 } from '@radix-ui/themes';
 import {
-    ClockIcon, CalendarIcon, GearIcon, LayersIcon,
+    ClockIcon, CalendarIcon, GearIcon, LayersIcon, CheckCircledIcon,
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
@@ -14,6 +14,7 @@ import DailyTimesheetTab  from './DailyTimesheetTab';
 const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
 const RosterTab          = lazy(() => import('./RosterTab'));
 const SettingsTab        = lazy(() => import('./SettingsTab'));
+const ApprovalsInbox     = lazy(() => import('./Components/ApprovalsInbox'));
 import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 import AttendanceOverview from './Components/AttendanceOverview';
 
@@ -44,11 +45,16 @@ const AttendancePage = ({ title, departments = [] }) => {
 
     /* permissions */
     const canSettings = auth.permissions?.includes('attendance.settings') || false;
+    const canManage   = auth.permissions?.includes('attendance.manage')   || false;
 
     /* tab definitions */
     const tabs = [
         { value: 'timesheet', label: 'Daily Timesheet', icon: <ClockIcon />    },
         { value: 'monthly',   label: 'Monthly Calendar', icon: <CalendarIcon /> },
+        ...(canManage
+            ? [{ value: 'approvals', label: 'Approvals', icon: <CheckCircledIcon /> }]
+            : []
+        ),
         ...(canSettings
             ? [{ value: 'roster',   label: 'Roster',   icon: <LayersIcon /> }]
             : []
@@ -204,6 +210,19 @@ const AttendancePage = ({ title, departments = [] }) => {
                                     </ErrorBoundary>
                                 </Box>
                             </Tabs.Content>
+
+                            {/* ── Approvals Tab ─────────────────────────── */}
+                            {canManage && (
+                                <Tabs.Content value="approvals">
+                                    <Box mt="4">
+                                        <ErrorBoundary>
+                                            <Suspense fallback={<Skeleton height="400px" />}>
+                                                <ApprovalsInbox />
+                                            </Suspense>
+                                        </ErrorBoundary>
+                                    </Box>
+                                </Tabs.Content>
+                            )}
 
                             {/* ── Roster Tab ────────────────────────────── */}
                             {canSettings && (
