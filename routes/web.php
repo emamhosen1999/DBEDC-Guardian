@@ -575,6 +575,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
         Route::post('/attendance/swaps/{id}/approve', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');
         Route::post('/attendance/swaps/{id}/reject', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'reject'])->name('attendance.swaps.reject');
+
+        // Attendance Policy CRUD + activation + simulation
+        Route::get('/attendance/policies', [\App\Http\Controllers\HRM\PolicyController::class, 'index'])->name('attendance.policies.index');
+        Route::post('/attendance/policies/simulate', [\App\Http\Controllers\HRM\PolicyController::class, 'simulate'])->name('attendance.policies.simulate');
+        Route::post('/attendance/policies', [\App\Http\Controllers\HRM\PolicyController::class, 'store'])->name('attendance.policies.store');
+        Route::put('/attendance/policies/{id}', [\App\Http\Controllers\HRM\PolicyController::class, 'update'])->name('attendance.policies.update');
+        Route::post('/attendance/policies/{id}/activate', [\App\Http\Controllers\HRM\PolicyController::class, 'activate'])->name('attendance.policies.activate');
     });
 
     // Task management routes
