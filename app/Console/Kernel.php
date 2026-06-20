@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Console\Commands\AttendanceAutoPunchOut;
 use App\Console\Commands\ProcessScheduledBiometricCommands;
 use App\Console\Commands\ScheduledBiometricLogDownload;
 use App\Console\Commands\SendAttendanceReminders;
@@ -18,6 +19,7 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
+        AttendanceAutoPunchOut::class,
         SendAttendanceReminders::class,
         ProcessScheduledBiometricCommands::class,
         ScheduledBiometricLogDownload::class,
@@ -109,6 +111,9 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/biometric-log-download.log'));
+
+        // Close forgotten open punches at their resolved shift end
+        $schedule->command('attendance:auto-punch-out')->hourly();
     }
 
     /**
