@@ -143,7 +143,13 @@ class AttendancePunchService
             ])->save();
             $warning = $assessment['warning'] ?? null;
         } catch (\Throwable $e) {
-            Log::error('Punch policy assessment failed: '.$e->getMessage(), ['user_id' => $user->id, 'attendance_id' => $attendance->id]);
+            try {
+                Log::error('Punch policy assessment failed: '.$e->getMessage(), ['user_id' => $user->id, 'attendance_id' => $attendance->id]);
+            } catch (\Throwable) {
+                // Swallow logging failures too: a log driver/disk failure must never
+                // propagate into the surrounding DB::transaction and roll back the
+                // just-created Attendance row. Capture is never blocked.
+            }
             $warning = null; // capture is never blocked: degrade to accepted defaults
         }
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Flex, Table, Button, Badge, Text } from '@radix-ui/themes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
+import { showToast } from '@/utils/toastUtils';
 
 const statusColor = { provisional: 'amber', accepted: 'green', rejected: 'red' };
 
@@ -20,11 +21,13 @@ export default function PunchExceptions() {
     const approve = useMutation({
         mutationFn: (id) => requestJson('post', `/attendance/punch-exceptions/${id}/approve`),
         onSuccess: invalidate,
+        onError: (err) => showToast.error(err?.message || 'Action failed'),
     });
 
     const reject = useMutation({
         mutationFn: ({ id, reason }) => requestJson('post', `/attendance/punch-exceptions/${id}/reject`, { data: { reason } }),
         onSuccess: invalidate,
+        onError: (err) => showToast.error(err?.message || 'Action failed'),
     });
 
     const handleReject = (id) => {
