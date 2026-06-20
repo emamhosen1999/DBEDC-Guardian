@@ -121,6 +121,8 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/get-current-user-attendance-for-date', [AttendanceController::class, 'getCurrentUserAttendanceForDate'])->name('getCurrentUserAttendanceForDate');
         Route::get('/attendance/my-roster', [\App\Http\Controllers\HRM\RosterController::class, 'myRoster'])->name('attendance.myRoster');
         Route::post('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'store'])->name('attendance.swaps.store');
+        Route::post('/attendance/regularizations', [\App\Http\Controllers\HRM\RegularizationController::class, 'store'])->name('attendance.regularizations.store');
+        Route::get('/attendance/regularizations/mine', [\App\Http\Controllers\HRM\RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
     });
 
     // Punch route - unified validated flow only
@@ -412,6 +414,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware(['precognitive'])
             ->name('users.update');
         Route::post('/users/{id}/roles', [UserController::class, 'updateUserRole'])->name('users.updateRole');
+        Route::post('/users/{id}/change-password', [UserController::class, 'changePassword'])->name('users.changePassword');
         Route::post('/users/{id}/restore', [UserController::class, 'restore'])->name('users.restore');
         Route::post('/users/{userId}/attendance-type', [UserController::class, 'updateAttendanceType'])->name('users.updateAttendanceType');
         Route::post('/users/{id}/biometric-device', [UserController::class, 'assignBiometricDevice'])->name('users.updateBiometricDevice');
@@ -480,6 +483,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:attendance.manage'])->group(function () {
         Route::post('/attendance/mark-as-present', [AttendanceController::class, 'markAsPresent'])->name('attendance.mark-as-present');
         Route::post('/attendance/bulk-mark-as-present', [AttendanceController::class, 'bulkMarkAsPresent'])->name('attendance.bulk-mark-as-present');
+        Route::get('/attendance/regularizations/pending', [\App\Http\Controllers\HRM\RegularizationController::class, 'pending'])->name('attendance.regularizations.pending');
+        Route::post('/attendance/regularizations/{id}/approve', [\App\Http\Controllers\HRM\RegularizationController::class, 'approve'])->name('attendance.regularizations.approve');
+        Route::post('/attendance/regularizations/{id}/reject', [\App\Http\Controllers\HRM\RegularizationController::class, 'reject'])->name('attendance.regularizations.reject');
     });
 
     // Attendance correction routes
