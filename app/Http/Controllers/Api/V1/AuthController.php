@@ -79,7 +79,13 @@ class AuthController extends Controller
         }
 
         $tokenName = $deviceName !== '' ? $deviceName : ($device->device_name ?: 'mobile-app');
-        $newAccessToken = $user->createToken($tokenName);
+
+        // Idle-timeout parity with web sessions: issue the token with a sliding
+        // expires_at equal to the unified idle window (config('session.lifetime')).
+        // The SlideTokenExpiration middleware extends it on each authenticated
+        // request, so an actively-used app stays logged in and an idle one expires.
+        $idleTimeout = (int) config('session.lifetime');
+        $newAccessToken = $user->createToken($tokenName, ['*'], now()->addMinutes($idleTimeout));
         $token = $newAccessToken->plainTextToken;
         $currentTokenId = $newAccessToken->accessToken?->id;
 

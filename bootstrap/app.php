@@ -3,7 +3,6 @@
 use App\Http\Middleware\ApiSecurityMiddleware;
 use App\Http\Middleware\AttendanceRateLimit;
 use App\Http\Middleware\CheckPermission;
-use App\Http\Middleware\CheckSessionExpiry;
 use App\Http\Middleware\DeviceAuthMiddleware;
 use App\Http\Middleware\EnhancedRateLimit;
 use App\Http\Middleware\EnsureRolePermissionSync;
@@ -52,7 +51,12 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             TrackSecurityActivity::class,
-            CheckSessionExpiry::class, // Add session expiry check
+            // NOTE: The custom CheckSessionExpiry sliding-window middleware was
+            // removed. It duplicated Laravel's native database-session idle
+            // lifetime (config('session.lifetime')) using a separate payload key,
+            // creating a second, competing web-only expiry timer. Native session
+            // lifetime is now the single source of truth for web idle timeout,
+            // matching the mobile token sliding window. See docs/session-expiry-policy.md.
         ]);
 
         $middleware->append(LogRequestMiddleware::class);
@@ -69,7 +73,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'attendance.rate_limit' => AttendanceRateLimit::class,
             'role_permission_sync' => EnsureRolePermissionSync::class,
             'track_security' => TrackSecurityActivity::class,
-            'session_expiry' => CheckSessionExpiry::class, // Register alias
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

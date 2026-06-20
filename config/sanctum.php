@@ -48,6 +48,15 @@ return [
     | considered expired. This will override any values set in the token's
     | "expires_at" attribute, but first-party sessions are not affected.
     |
+    | Kept NULL on purpose. This global value is an ABSOLUTE lifetime measured
+    | from the token's created_at, which would force a re-login a fixed time
+    | after login regardless of activity. Instead we enforce a SLIDING idle
+    | window (matching config('session.lifetime')) via each token's per-token
+    | "expires_at": set at login in App\Http\Controllers\Api\V1\AuthController and
+    | extended on every authenticated request by the SlideTokenExpiration
+    | middleware. This gives mobile the SAME idle-timeout semantics as web.
+    | See docs/session-expiry-policy.md.
+    |
     */
 
     'expiration' => null,

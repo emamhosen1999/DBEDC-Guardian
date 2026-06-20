@@ -32,9 +32,15 @@ return [
     |
     */
 
-    'lifetime' => env('SESSION_LIFETIME', 60),
+    // Unified idle-timeout window (minutes) for the WHOLE app. This single value
+    // is the source of truth for both web session expiry AND mobile Sanctum token
+    // expiry (see App\Http\Controllers\Api\V1\AuthController + SlideTokenExpiration
+    // middleware). Default 480 = 8h idle. See docs/session-expiry-policy.md.
+    'lifetime' => env('SESSION_LIFETIME', 480),
 
-    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', true),
+    // Default false: closing the browser/tab must NOT log a web user out (mobile
+    // tokens have no such behavior, so leaving this true was a web-only divergence).
+    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -199,7 +205,11 @@ return [
     |
     */
 
-    'same_site' => env('SESSION_SAME_SITE', 'strict'),
+    // Default 'lax' (not 'strict'): 'strict' drops the session cookie on cross-site
+    // top-level navigations (links from email, OAuth/payment redirects), which web
+    // users experience as an unpredictable logout. 'lax' is correct for first-party
+    // web auth and still mitigates CSRF. Mobile uses bearer tokens, so it is unaffected.
+    'same_site' => env('SESSION_SAME_SITE', 'lax'),
 
     /*
     |--------------------------------------------------------------------------

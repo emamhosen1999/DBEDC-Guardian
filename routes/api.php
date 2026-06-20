@@ -181,7 +181,7 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::post('/auth/login', [MobileAuthController::class, 'login'])->name('api.v1.auth.login');
 });
 
-Route::prefix('v1')->middleware(['auth:sanctum', ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
+Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
     Route::get('/auth/me', [MobileAuthController::class, 'me'])->name('api.v1.auth.me');
     Route::post('/auth/logout', [MobileAuthController::class, 'logout'])->name('api.v1.auth.logout');
     Route::get('/profile', [MobileProfileController::class, 'show'])->name('api.v1.profile.show');
