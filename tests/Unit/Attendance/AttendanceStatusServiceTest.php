@@ -143,4 +143,39 @@ class AttendanceStatusServiceTest extends TestCase
         );
         $this->assertSame(60, $r->early_leave_minutes);
     }
+
+    public function test_off_day_work_is_flagged_and_all_overtime(): void
+    {
+        $r = (new AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-20 10:00', '2026-06-20 16:00')]),     // 6h on a day off
+            ShiftSchedule::nonWorking(Carbon::parse('2026-06-20')),
+        );
+        $this->assertSame(DayAttendance::PRESENT, $r->status);
+        $this->assertContains('worked_on_off_day', $r->flags);
+        $this->assertSame(360, $r->ot_minutes); // all 6h are OT on an off day
+    }
+
+    public function test_unscheduled_flag_when_schedule_not_explicit(): void
+    {
+        // a working window but not explicitly rostered/assigned (isScheduled=false)
+        $shift = new ShiftSchedule(
+            start: Carbon::parse('2026-06-19 09:00'), end: Carbon::parse('2026-06-19 17:00'),
+            crossesMidnight: false, graceInMinutes: 15, graceOutMinutes: 0, fullDayMinutes: 0, halfDayMinutes: 0,
+            minPresentMinutes: 0, breakMinutes: 0, isWorkingDay: true, isScheduled: false,
+        );
+        $r = (new AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-19 09:05', '2026-06-19 17:30')]), $shift,
+        );
+        $this->assertContains('unscheduled', $r->flags);
+    }
+
+    public function test_outside_shift_window_flag(): void
+    {
+        // shift 09:00-17:00; punched in 06:30 (> 120 min early)
+        $r = (new AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-19 06:30', '2026-06-19 17:00')]),
+            $this->shift('2026-06-19', '09:00', '17:00'),
+        );
+        $this->assertContains('outside_shift_window', $r->flags);
+    }
 }

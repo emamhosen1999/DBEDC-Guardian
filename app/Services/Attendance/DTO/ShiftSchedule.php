@@ -18,6 +18,7 @@ final class ShiftSchedule
         public readonly int $minPresentMinutes,
         public readonly int $breakMinutes,
         public readonly bool $isWorkingDay,
+        public readonly bool $isScheduled = true,
     ) {}
 
     public static function nonWorking(CarbonInterface $date): self
@@ -35,6 +36,7 @@ final class ShiftSchedule
             minPresentMinutes: 0,
             breakMinutes: 0,
             isWorkingDay: false,
+            isScheduled: false,
         );
     }
 }
