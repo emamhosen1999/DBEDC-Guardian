@@ -26,7 +26,7 @@ class AttendanceApprovalService
                 ->orderBy('designation_id')
                 ->first();
             if ($head) {
-                $chain[] = $this->entry(2, $head->id, $head->name);
+                $chain[] = $this->entry(count($chain) + 1, $head->id, $head->name);
             }
         }
 

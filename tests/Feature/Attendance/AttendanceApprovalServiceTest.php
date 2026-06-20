@@ -3,6 +3,8 @@
 namespace Tests\Feature\Attendance;
 
 use App\Models\HRM\AttendanceRegularization;
+use App\Models\HRM\Department;
+use App\Models\HRM\Designation;
 use App\Models\User;
 use App\Services\Attendance\AttendanceApprovalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,5 +57,33 @@ class AttendanceApprovalServiceTest extends TestCase
 
         $this->assertFalse($svc->canApprove($m->fresh(), $other));
         $this->assertFalse($svc->approve($m->fresh(), $other)['success']);
+    }
+
+    public function test_managerless_requester_with_department_head_is_not_stranded(): void
+    {
+        $department = Department::factory()->create();
+        $designation = Designation::factory()->create(['department_id' => $department->id]);
+        $deptHead = User::factory()->create(['department_id' => $department->id, 'designation_id' => $designation->id]);
+        $emp = User::factory()->create(['report_to' => null, 'department_id' => $department->id]);
+        $svc = app(AttendanceApprovalService::class);
+
+        $chain = $svc->buildChain($emp);
+        $this->assertCount(1, $chain);
+        $this->assertSame(1, $chain[0]['level']);
+        $this->assertSame($deptHead->id, $chain[0]['approver_id']);
+
+        $m = AttendanceRegularization::create([
+            'user_id' => $emp->id, 'date' => '2026-06-18', 'type' => 'missing_punchout',
+            'requested_punchout' => '2026-06-18 18:00:00', 'reason' => 'forgot',
+        ]);
+        $svc->submit($m);
+
+        $this->assertSame(1, $m->fresh()->current_approval_level);
+        $this->assertSame('pending', $m->fresh()->status);
+        $this->assertTrue($svc->canApprove($m->fresh(), $deptHead));
+
+        $res = $svc->approve($m->fresh(), $deptHead, 'ok');
+        $this->assertTrue($res['success']);
+        $this->assertSame('approved', $m->fresh()->status);
     }
 }

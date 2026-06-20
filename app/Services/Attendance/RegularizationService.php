@@ -5,7 +5,6 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceRegularization;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class RegularizationService
