@@ -36,16 +36,20 @@ class DefaultScheduleResolver implements ScheduleResolver
             $end->addDay();
         }
 
+        $breakMinutes = (int) ($settings?->break_time_duration ?? 0);
+        $fullDayMinutes = max(0, $start->diffInMinutes($end) - $breakMinutes);
+        $halfDayMinutes = intdiv($fullDayMinutes, 2);
+
         return new ShiftSchedule(
             start: $start,
             end: $end,
             crossesMidnight: $crosses,
             graceInMinutes: (int) ($settings?->late_mark_after ?? 15),
             graceOutMinutes: (int) ($settings?->early_leave_before ?? 0),
-            fullDayMinutes: 0,
-            halfDayMinutes: 0,
+            fullDayMinutes: $fullDayMinutes,
+            halfDayMinutes: $halfDayMinutes,
             minPresentMinutes: 0,
-            breakMinutes: (int) ($settings?->break_time_duration ?? 0),
+            breakMinutes: $breakMinutes,
             isWorkingDay: true,
         );
     }
