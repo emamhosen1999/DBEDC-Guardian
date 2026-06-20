@@ -125,6 +125,7 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/attendance/regularizations/mine', [\App\Http\Controllers\HRM\RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
         Route::post('/attendance/overtime', [\App\Http\Controllers\HRM\OvertimeController::class, 'store'])->name('attendance.overtime.store');
         Route::get('/attendance/overtime/mine', [\App\Http\Controllers\HRM\OvertimeController::class, 'mine'])->name('attendance.overtime.mine');
+        Route::get('/attendance/comp-off/mine', [\App\Http\Controllers\HRM\CompOffController::class, 'mine'])->name('attendance.compoff.mine');
     });
 
     // Punch route - unified validated flow only

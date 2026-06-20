@@ -14,6 +14,9 @@ import AttendanceOverview from './Attendance/Components/AttendanceOverview';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { requestJson } from '@/api/client';
 import SwapRequestForm from '@/Forms/SwapRequestForm';
+import RegularizationForm from '@/Forms/RegularizationForm';
+import OvertimeRequestForm from '@/Forms/OvertimeRequestForm';
+import MyRequests from './Attendance/Components/MyRequests';
 
 const MyRosterCard = () => {
   const { auth } = usePage().props;
@@ -71,6 +74,42 @@ const MyRosterCard = () => {
       </Card>
 
       <SwapRequestForm open={swapOpen} onOpenChange={setSwapOpen} onSaved={refetch} />
+    </>
+  );
+};
+
+const RequestsCard = () => {
+  const [regOpen, setRegOpen]   = useState(false);
+  const [otOpen, setOtOpen]     = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleSaved = () => setRefreshKey(k => k + 1);
+
+  return (
+    <>
+      <Card>
+        <Flex justify="between" align="center" mb="3" wrap="wrap" gap="2">
+          <Flex align="center" gap="2">
+            <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
+            <Text size="3" weight="bold">My Requests</Text>
+          </Flex>
+          <Flex gap="2" wrap="wrap">
+            <Button size="2" variant="soft" onClick={() => setRegOpen(true)}>
+              Regularize a day
+            </Button>
+            <Button size="2" variant="soft" onClick={() => setOtOpen(true)}>
+              Request overtime
+            </Button>
+          </Flex>
+        </Flex>
+
+        <ErrorBoundary>
+          <MyRequests key={refreshKey} />
+        </ErrorBoundary>
+      </Card>
+
+      <RegularizationForm open={regOpen} onOpenChange={setRegOpen} onSaved={handleSaved} />
+      <OvertimeRequestForm open={otOpen} onOpenChange={setOtOpen} onSaved={handleSaved} />
     </>
   );
 };
@@ -181,6 +220,13 @@ const AttendanceEmployee = React.memo(({ title }) => {
             {/* ── My Roster ── */}
             <ErrorBoundary>
               <MyRosterCard />
+            </ErrorBoundary>
+
+            <Separator size="4" mb="4" mt="4" />
+
+            {/* ── Requests + My Requests ── */}
+            <ErrorBoundary>
+              <RequestsCard />
             </ErrorBoundary>
 
             <Separator size="4" mb="4" mt="4" />
