@@ -131,15 +131,28 @@ class AttendancePunchService
             'punchin_location' => $this->formatLocation($request),
         ]);
 
+        $assessment = app(\App\Services\Attendance\PunchPolicyGuard::class)->assess($user->id, $punchTime);
+        $attendance->forceFill([
+            'policy_status' => $assessment['policy_status'],
+            'needs_approval' => $assessment['needs_approval'],
+            'policy_exception_reason' => $assessment['reason'],
+        ])->save();
+
         // Handle photo upload for polygon/route types
         $this->handlePhotoUpload($attendance, $request, 'punchin_photo', $user);
 
-        return [
+        $result = [
             'status' => 'success',
             'message' => 'Successfully punched in!',
             'action' => 'punch_in',
             'attendance_id' => $attendance->id,
         ];
+
+        if ($assessment['warning'] !== null) {
+            $result['warning'] = $assessment['warning'];
+        }
+
+        return $result;
     }
 
     /**
