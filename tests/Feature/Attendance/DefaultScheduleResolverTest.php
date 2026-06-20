@@ -31,6 +31,9 @@ class DefaultScheduleResolverTest extends TestCase
         $this->assertTrue($weekday->isWorkingDay);
         $this->assertSame('09:00', $weekday->start->format('H:i'));
         $this->assertSame(20, $weekday->graceInMinutes);
+        $this->assertSame(420, $weekday->fullDayMinutes);
+        $this->assertSame(210, $weekday->halfDayMinutes);
+        $this->assertSame(0, $weekday->minPresentMinutes);
 
         $friday = $resolver->resolve(1, Carbon::parse('2026-06-19')); // Friday = weekend
         $this->assertFalse($friday->isWorkingDay);
