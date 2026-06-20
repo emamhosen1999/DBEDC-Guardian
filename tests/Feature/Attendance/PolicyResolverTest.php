@@ -65,4 +65,34 @@ class PolicyResolverTest extends TestCase
         $p = app(PolicyResolver::class)->resolve($u->id, Carbon::parse('2026-06-20'));
         $this->assertTrue($p->isNeutral()); // draft does not resolve
     }
+
+    public function test_resolves_breaks_and_overtime_from_rule_overrides(): void
+    {
+        $u = User::factory()->create();
+        AttendancePolicy::factory()->create([
+            'scope_type' => 'org', 'scope_id' => null, 'version_group_id' => 50,
+            'effective_from' => '2026-01-01',
+            'rule_overrides' => [
+                'breaks' => ['unpaid_meal_minutes' => 30, 'meal_threshold_minutes' => 360],
+                'overtime' => ['daily_threshold_minutes' => 480, 'daily_multiplier' => 1.5],
+            ],
+        ]);
+        $p = app(\App\Services\Attendance\Contracts\PolicyResolver::class)->resolve($u->id, \Carbon\Carbon::parse('2026-06-20'));
+        $this->assertSame(30, $p->breaks()['unpaid_meal_minutes']);
+        $this->assertSame(480, $p->overtime()['daily_threshold_minutes']);
+        $this->assertFalse($p->isNeutral());
+    }
+
+    public function test_policy_with_only_rule_overrides_is_not_neutral_but_grace_rounding_absent(): void
+    {
+        $u = User::factory()->create();
+        AttendancePolicy::factory()->create([
+            'scope_type' => 'org', 'scope_id' => null, 'version_group_id' => 51,
+            'effective_from' => '2026-01-01', 'punch_strictness' => 'warn',
+            'rule_overrides' => ['overtime' => ['daily_threshold_minutes' => 480, 'daily_multiplier' => 1.5]],
+        ]);
+        $p = app(\App\Services\Attendance\Contracts\PolicyResolver::class)->resolve($u->id, \Carbon\Carbon::parse('2026-06-20'));
+        $this->assertFalse($p->isNeutral()); // overtime config makes it non-neutral
+        $this->assertNull($p->graceTiers());
+    }
 }
