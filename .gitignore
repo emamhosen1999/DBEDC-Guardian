@@ -72,3 +72,5 @@ check_users_keys.php
 *.bak
 .phpunit.result.cache
 public/test.php
+.playwright-mcp/
+roster-june-2026*.png
