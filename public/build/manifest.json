@@ -1010,7 +1010,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-oMm_DzVO.js",
+    "file": "assets/js/AttendancePage-C67APler.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1051,13 +1051,14 @@
     ]
   },
   "resources/js/Pages/Attendance/Components/ApprovalsInbox.jsx": {
-    "file": "assets/js/ApprovalsInbox-CPvLGM16.js",
+    "file": "assets/js/ApprovalsInbox-DICR33so.js",
     "name": "ApprovalsInbox",
     "src": "resources/js/Pages/Attendance/Components/ApprovalsInbox.jsx",
     "isEntry": true,
     "imports": [
       "_vendor-radix-Cw4jjhFa.js",
       "_vendor-inertia-B_jPe_ra.js",
+      "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_vendor-utils-D6Wd6ilh.js"
     ]
   },
@@ -1104,6 +1105,30 @@
       "_vendor-radix-Cw4jjhFa.js",
       "_vendor-inertia-B_jPe_ra.js",
       "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
+      "_vendor-utils-D6Wd6ilh.js"
+    ]
+  },
+  "resources/js/Pages/Attendance/Components/PoliciesManager.jsx": {
+    "file": "assets/js/PoliciesManager-DICR33so.js",
+    "name": "PoliciesManager",
+    "src": "resources/js/Pages/Attendance/Components/PoliciesManager.jsx",
+    "isEntry": true,
+    "imports": [
+      "_vendor-radix-Cw4jjhFa.js",
+      "_vendor-inertia-B_jPe_ra.js",
+      "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
+      "_vendor-utils-D6Wd6ilh.js"
+    ]
+  },
+  "resources/js/Pages/Attendance/Components/PunchExceptions.jsx": {
+    "file": "assets/js/PunchExceptions-DICR33so.js",
+    "name": "PunchExceptions",
+    "src": "resources/js/Pages/Attendance/Components/PunchExceptions.jsx",
+    "isEntry": true,
+    "imports": [
+      "_vendor-radix-Cw4jjhFa.js",
+      "_vendor-inertia-B_jPe_ra.js",
+      "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_vendor-utils-D6Wd6ilh.js"
     ]
   },
@@ -1201,7 +1226,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab-BghKuqvj.js",
+    "file": "assets/js/SettingsTab-DI422Zqb.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -1212,6 +1237,7 @@
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_useAttendanceQuery-MMK42qAe.js",
       "resources/js/Pages/Attendance/ShiftsSettings.jsx",
+      "resources/js/Pages/Attendance/Components/PoliciesManager.jsx",
       "_leaflet-CpeWTaXg.js",
       "_TileLayer-OsRTXKLT.js",
       "_vendor-utils-D6Wd6ilh.js",
@@ -2084,7 +2110,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-BFKYEgtl.js",
+    "file": "assets/js/app-CCQFwOZH.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2109,6 +2135,8 @@
       "resources/js/Pages/Attendance/Components/AttendanceOverview.jsx",
       "resources/js/Pages/Attendance/Components/AuditHistoryModal.jsx",
       "resources/js/Pages/Attendance/Components/MyRequests.jsx",
+      "resources/js/Pages/Attendance/Components/PoliciesManager.jsx",
+      "resources/js/Pages/Attendance/Components/PunchExceptions.jsx",
       "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
       "resources/js/Pages/Attendance/Components/RosterCellPopover.jsx",
       "resources/js/Pages/Attendance/Components/SwapApprovals.jsx",
