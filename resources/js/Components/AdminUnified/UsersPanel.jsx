@@ -12,7 +12,8 @@ import {
 } from '@radix-ui/themes';
 import {
     BackpackIcon, ChevronLeftIcon, ChevronRightIcon, Cross2Icon,
-    DotsVerticalIcon, EnvelopeClosedIcon, HomeIcon, LockClosedIcon,
+    DotsVerticalIcon, EnvelopeClosedIcon, EyeNoneIcon, EyeOpenIcon,
+    HomeIcon, LockClosedIcon,
     LockOpen1Icon, MagnifyingGlassIcon, MobileIcon, Pencil1Icon,
     PersonIcon, PlusIcon, ReloadIcon, ResetIcon, TrashIcon, CheckIcon,
 } from '@radix-ui/react-icons';
@@ -71,6 +72,54 @@ export default function UsersPanel({
     const [roleDialogUser, setRoleDialogUser] = useState(null);
     const [roleDialogSelected, setRoleDialogSelected] = useState(new Set());
     const [roleSaving, setRoleSaving] = useState(false);
+
+    /* ── reset-password dialog ── */
+    const [pwUser, setPwUser]       = useState(null);
+    const [pwValues, setPwValues]   = useState({ password: '', password_confirmation: '' });
+    const [pwVisible, setPwVisible] = useState(false);
+    const [pwError, setPwError]     = useState('');
+    const [pwLoading, setPwLoading] = useState(false);
+
+    const openPwDialog = (user) => {
+        setPwValues({ password: '', password_confirmation: '' });
+        setPwError('');
+        setPwVisible(false);
+        setPwUser(user);
+    };
+
+    const submitPasswordReset = async () => {
+        if (!pwUser) return;
+        const { password, password_confirmation } = pwValues;
+
+        // Mirror the server rules (min:8|confirmed) so the admin gets instant feedback.
+        if (password.length < 8) {
+            setPwError('Password must be at least 8 characters.');
+            return;
+        }
+        if (password !== password_confirmation) {
+            setPwError('Passwords do not match.');
+            return;
+        }
+
+        setPwLoading(true);
+        setPwError('');
+        try {
+            await axios.post(route('users.changePassword', { id: pwUser.id }), {
+                password,
+                password_confirmation,
+            });
+            showToast.success(`Password reset for ${pwUser.name}.`);
+            setPwUser(null);
+        } catch (e) {
+            const msg = e.response?.data?.message
+                || e.response?.data?.error
+                || 'Failed to reset password.';
+            setPwError(msg);
+            showToast.error(msg);
+        } finally {
+            setPwLoading(false);
+        }
+    };
 
     const openRoleDialog = (user) => {
         // Always key by name — reliable regardless of whether API returns role IDs
@@ -621,6 +670,11 @@ export default function UsersPanel({
                                                                 <Pencil1Icon /> Edit User
                                                             </Flex>
                                                         </DropdownMenu.Item>
+                                                        <DropdownMenu.Item onSelect={() => openPwDialog(user)}>
+                                                            <Flex align="center" gap="2">
+                                                                <LockClosedIcon /> Reset Password
+                                                            </Flex>
+                                                        </DropdownMenu.Item>
                                                         <DropdownMenu.Item asChild>
                                                             <Link href={route('profile', { user: user.id })}>
                                                                 <Flex align="center" gap="2">
@@ -702,6 +756,58 @@ export default function UsersPanel({
                         <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
                         <Button onClick={saveRoles} disabled={roleSaving}>
                             {roleSaving ? <><Spinner size="1" /> Saving…</> : 'Save'}
+                        </Button>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
+
+            {/* ── Reset Password Dialog ── */}
+            <Dialog.Root open={!!pwUser} onOpenChange={o => { if (!o && !pwLoading) setPwUser(null); }}>
+                <Dialog.Content style={{ maxWidth: 420 }}>
+                    <Dialog.Title>Reset Password — {pwUser?.name}</Dialog.Title>
+                    <Dialog.Description size="2" color="gray">
+                        Set a new password for this user. They can sign in with it immediately on web and mobile.
+                    </Dialog.Description>
+
+                    <Flex direction="column" gap="3" mt="4">
+                        <Box>
+                            <Text size="2" weight="medium" as="div" mb="1">New password</Text>
+                            <TextField.Root
+                                type={pwVisible ? 'text' : 'password'}
+                                value={pwValues.password}
+                                placeholder="At least 8 characters"
+                                autoComplete="new-password"
+                                onChange={e => { setPwValues(v => ({ ...v, password: e.target.value })); setPwError(''); }}
+                            >
+                                <TextField.Slot side="right">
+                                    <IconButton size="1" variant="ghost" color="gray" type="button"
+                                        aria-label={pwVisible ? 'Hide password' : 'Show password'}
+                                        onClick={() => setPwVisible(v => !v)}>
+                                        {pwVisible ? <EyeNoneIcon /> : <EyeOpenIcon />}
+                                    </IconButton>
+                                </TextField.Slot>
+                            </TextField.Root>
+                        </Box>
+                        <Box>
+                            <Text size="2" weight="medium" as="div" mb="1">Confirm password</Text>
+                            <TextField.Root
+                                type={pwVisible ? 'text' : 'password'}
+                                value={pwValues.password_confirmation}
+                                placeholder="Re-enter the new password"
+                                autoComplete="new-password"
+                                onChange={e => { setPwValues(v => ({ ...v, password_confirmation: e.target.value })); setPwError(''); }}
+                                onKeyDown={e => { if (e.key === 'Enter' && !pwLoading) submitPasswordReset(); }}
+                            />
+                        </Box>
+                        {pwError && <Text size="1" color="red">{pwError}</Text>}
+                    </Flex>
+
+                    <Flex gap="3" mt="5" justify="end">
+                        <Dialog.Close>
+                            <Button variant="soft" color="gray" disabled={pwLoading}>Cancel</Button>
+                        </Dialog.Close>
+                        <Button onClick={submitPasswordReset} disabled={pwLoading}>
+                            {pwLoading ? <><Spinner size="1" /> Saving…</> : <><LockClosedIcon /> Reset Password</>}
                         </Button>
                     </Flex>
                 </Dialog.Content>

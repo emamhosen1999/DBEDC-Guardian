@@ -109,20 +109,59 @@ SESSION_SAME_SITE=lax            # not 'strict' (cross-site top-level nav keeps 
 SESSION_SECURE_COOKIE=true       # REQUIRED on HTTPS
 SESSION_ENCRYPT=true
 SESSION_PATH=/
-SESSION_DOMAIN=.example.com      # root domain covering web + any subdomain hosts
-SANCTUM_STATEFUL_DOMAINS=app.example.com   # only the first-party WEB host(s); native
-                                           # mobile uses bearer tokens, not stateful cookies
+SESSION_DOMAIN=                            # EMPTY = host-only. Do NOT set the bare host.
+SANCTUM_STATEFUL_DOMAINS=erp.dhakabypass.com   # first-party WEB host only; native mobile
+                                               # uses bearer tokens, not stateful cookies
 # SANCTUM token expiry is handled per-token (sliding), so do NOT set a global expiration.
 ```
 
-Replace `example.com` / `app.example.com` with the real production hosts. **Please
-paste the current production `SESSION_*` / `SANCTUM_*` values** so this block can be
-diffed against what is live (e.g. confirm `SESSION_DOMAIN` and the mobile API host).
+Production host is **erp.dhakabypass.com** (HTTPS), a single host serving both the web
+app and the `/api` endpoints the native mobile app calls. **Leave `SESSION_DOMAIN`
+empty** (host-only cookie). Set a leading-dot value (`.dhakabypass.com`) **only** if the
+session cookie must be shared with another subdomain — and if you do, bump
+`SESSION_COOKIE` at the same time (see below).
+
+## Troubleshooting: "419 / session expired" on the LOGIN page
+
+Symptom: login fails with 419 in an existing/normal browser, but works in incognito.
+
+This is **not** a timeout — it is a **CSRF cookie mismatch from duplicate cookies**.
+Inertia/axios sends the `XSRF-TOKEN` cookie as the CSRF token (no meta tag involved;
+Inertia handles this internally). A cookie with **no `Domain` attribute** (host-only)
+and one **with `Domain=erp.dhakabypass.com`** are two *different* cookies with the same
+name (RFC 6265). Setting `SESSION_DOMAIN` to the bare host forks the session/XSRF
+cookies in already-visited browsers; the browser sends both, the server reads the stale
+one, and CSRF validation fails → 419. Incognito has no stale cookie, so it works.
+
+Confirm: DevTools → Application → Cookies → two `dbedc_guardian_session` (and two
+`XSRF-TOKEN`) rows, one with Domain `erp.dhakabypass.com`, one host-only/blank.
+
+Fix:
+1. `SESSION_DOMAIN=` (empty) — stop forking; host-only is correct for one host.
+2. Bump `SESSION_COOKIE` once (e.g. `dbedc_guardian_session_v2`) — flushes the stale
+   *session* cookie. **Caveat:** this does NOT flush the `XSRF-TOKEN` cookie, whose
+   name is fixed by Laravel and cannot be bumped. The forked **domain-scoped
+   `XSRF-TOKEN`** is the actual 419 cause, and it survives the session rename.
+3. `php artisan optimize:clear && php artisan config:cache`.
+4. Clear the stale `XSRF-TOKEN` per browser. Each affected user is fixed by clearing
+   site data / a hard reload, or it self-heals when the domain-scoped `XSRF-TOKEN`
+   expires (≤ `SESSION_LIFETIME` minutes after their last visit during the bad window,
+   since the server no longer refreshes it). For an immediate fleet-wide fix, add a
+   short-lived middleware that force-expires the domain-scoped cookies:
+   `cookie()->forget('XSRF-TOKEN', '/', $request->getHost())` (and the old session
+   cookie name) on web responses for the transition window, then remove it.
 
 ## Deploy notes
 
 1. Set the `.env` values above on **every** app server (identical).
-2. `php artisan config:clear && php artisan config:cache`.
+2. **Rebuild the config cache** — editing `.env` does nothing until you do:
+   ```bash
+   php artisan optimize:clear
+   php artisan config:cache
+   ```
+   ⚠️ Do **not** run `php artisan route:cache` (nor bare `php artisan optimize`, which
+   includes it): `routes/api.php` has closure routes (`/user`, `/log-error`,
+   `/log-performance`) and route caching fails on closures. Cache config/views only.
 3. `SESSION_DRIVER=database` — ensure the `sessions` table is on the **shared**
    DB (not per-server), and the load balancer need not use sticky sessions.
 4. Changing `SESSION_LIFETIME` / `expire_on_close` / `SameSite` changes the session

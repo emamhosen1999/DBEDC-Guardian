@@ -2,9 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add request/approval workflows to attendance: **regularization** (employee fixes a missed/wrong punch with approval), **overtime requests**, and a **comp-off (TOIL) ledger** — all using the same multi-level approval chain the Leave module already uses.
+**Goal:** Make the roster *affect the numbers and trigger workflows* (Task 0: status-engine surfaces out-of-schedule work — off-day, unscheduled, outside-window — and earns overtime for it), then add request/approval workflows: **regularization** (fix a missed/wrong punch), **overtime requests**, and a **comp-off (TOIL) ledger** — all using the same multi-level approval chain the Leave module already uses, with engine-flagged exception days surfaced in the approvals inbox.
 
-**Architecture:** A reusable `AttendanceApprovalService` builds and advances a multi-level `approval_chain` (json) exactly like `App\Services\Leave\LeaveApprovalService` (Level 1 = `reportsTo`, Level 2 = department head, Level 3 = HR for escalations). Request-type services (`RegularizationService`, `OvertimeService`) own creation + the on-final-approval side effect (regularization writes the corrected `Attendance` + an `attendance_audit_logs` row via the existing `AttendanceAuditService`; overtime credits the comp-off ledger). Controllers stay thin; UI mirrors the existing Roster/Swap patterns.
+**Architecture:** Task 0 enriches the pure `AttendanceStatusService` so out-of-schedule work is detected (flags) and off-day/over-threshold hours become overtime — this is the *detection* the workflows act on. A reusable `AttendanceApprovalService` then builds and advances a multi-level `approval_chain` (json) exactly like `App\Services\Leave\LeaveApprovalService` (Level 1 = `reportsTo`, Level 2 = department head, Level 3 = HR for escalations). Request-type services (`RegularizationService`, `OvertimeService`) own creation + the on-final-approval side effect (regularization writes the corrected `Attendance` + an `attendance_audit_logs` row via the existing `AttendanceAuditService`; overtime credits the comp-off ledger). Controllers stay thin; UI mirrors the existing Roster/Swap patterns.
+
+**Out of scope (deferred to Phase 3 — Policy engine):** the *punch-strictness toggle* (warn-but-allow [current default] / flag-and-require-approval / restrict-punch-to-shift-window), per-dept/designation/employee policy rules, and grace tiers. Phase 2 keeps **capture permissive** (employees can always punch) and only adds **detection + interpretation + approval** — it never blocks a punch.
 
 **Tech Stack:** PHP 8.3, Laravel 11, Inertia v2, React 18 + Radix Themes, MySQL (prod) / sqlite `:memory:` (tests), PHPUnit 11, Vite, `@tanstack/react-query`, dayjs.
 
@@ -44,6 +46,109 @@
 **Frontend — modified**
 - `resources/js/Pages/AttendanceEmployee.jsx` — mount `<MyRequests/>` + request buttons.
 - `resources/js/Pages/Attendance/AttendancePage.jsx` — add an "Approvals" tab (gated by `attendance.manage`) hosting `<ApprovalsInbox/>`.
+
+---
+
+### Task 0: Status engine — detect out-of-schedule work + off-day overtime
+
+**Files:**
+- Modify: `app/Services/Attendance/DTO/ShiftSchedule.php` (add a trailing `bool $isScheduled = true` constructor arg; `nonWorking()` sets it false)
+- Modify: `app/Services/Attendance/DefaultScheduleResolver.php` (pass `isScheduled: false` — the global-default fallback means "no explicit roster/shift")
+- Modify: `app/Services/Attendance/AttendanceStatusService.php` (new flags + off-day OT)
+- Test: `tests/Unit/Attendance/AttendanceStatusServiceTest.php` (extend)
+
+**Interfaces:**
+- Consumes: `ShiftSchedule` (now carries `isScheduled`), the day's punches.
+- Produces: `DayAttendance.flags` may include `worked_on_off_day` (punches on a non-working day), `unscheduled` (punches while `isScheduled=false`, i.e. no roster/assignment — scored against the global default), `outside_shift_window` (first-in earlier than `start − OUTSIDE_WINDOW_MINUTES` or last-out later than `end + OUTSIDE_WINDOW_MINUTES`, `OUTSIDE_WINDOW_MINUTES = 120`). And: **off-day work earns overtime** — when `! isWorkingDay` and there are punches, `ot_minutes = worked_minutes` (all hours on a day off are OT-eligible). Capture is unchanged — this is interpretation only; nothing blocks a punch.
+
+- [ ] **Step 1: Extend the failing tests** (add to `AttendanceStatusServiceTest`)
+
+```php
+    public function test_off_day_work_is_flagged_and_all_overtime(): void
+    {
+        $r = (new \App\Services\Attendance\AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-20 10:00', '2026-06-20 16:00')]),     // 6h on a day off
+            \App\Services\Attendance\DTO\ShiftSchedule::nonWorking(\Carbon\Carbon::parse('2026-06-20')),
+        );
+        $this->assertSame(\App\Services\Attendance\DTO\DayAttendance::PRESENT, $r->status);
+        $this->assertContains('worked_on_off_day', $r->flags);
+        $this->assertSame(360, $r->ot_minutes); // all 6h are OT on an off day
+    }
+
+    public function test_unscheduled_flag_when_schedule_not_explicit(): void
+    {
+        // a working window but not explicitly rostered/assigned (isScheduled=false)
+        $shift = new \App\Services\Attendance\DTO\ShiftSchedule(
+            start: \Carbon\Carbon::parse('2026-06-19 09:00'), end: \Carbon\Carbon::parse('2026-06-19 17:00'),
+            crossesMidnight: false, graceInMinutes: 15, graceOutMinutes: 0, fullDayMinutes: 0, halfDayMinutes: 0,
+            minPresentMinutes: 0, breakMinutes: 0, isWorkingDay: true, isScheduled: false,
+        );
+        $r = (new \App\Services\Attendance\AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-19 09:05', '2026-06-19 17:30')]), $shift,
+        );
+        $this->assertContains('unscheduled', $r->flags);
+    }
+
+    public function test_outside_shift_window_flag(): void
+    {
+        // shift 09:00-17:00; punched in 06:30 (> 120 min early)
+        $r = (new \App\Services\Attendance\AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-19 06:30', '2026-06-19 17:00')]),
+            $this->shift('2026-06-19', '09:00', '17:00'),
+        );
+        $this->assertContains('outside_shift_window', $r->flags);
+    }
+```
+(`$this->shift(...)`/`$this->punch(...)` helpers already exist in the test file. The default `shift()` helper builds a schedule with `isScheduled` defaulting to true.)
+
+- [ ] **Step 2: Run to verify they fail**
+
+Run: `php artisan test --filter=AttendanceStatusServiceTest`
+Expected: FAIL — flags absent, off-day ot_minutes is 0, `isScheduled` arg unknown.
+
+- [ ] **Step 3: Add `isScheduled` to `ShiftSchedule`**
+
+Append a trailing promoted arg `public readonly bool $isScheduled = true,` to the constructor; in `nonWorking()` pass `isScheduled: false`. (Default `true` keeps every existing caller compiling.)
+
+- [ ] **Step 4: Default resolver marks itself non-explicit**
+
+In `DefaultScheduleResolver::resolve`, when building the working-day `ShiftSchedule`, pass `isScheduled: false` (the global default = no explicit roster/shift). Leave `nonWorking` as-is (already false).
+
+- [ ] **Step 5: Engine — flags + off-day OT**
+
+In `AttendanceStatusService::resolve`, after computing `firstIn`/`lastOut`/`workedMinutes` for the has-punches branch:
+```php
+        // out-of-schedule detection (interpretation only; never blocks capture)
+        if (! $shift->isWorkingDay) {
+            $flags[] = 'worked_on_off_day';
+            $otMinutes = $workedMinutes;            // all hours on a day off are OT-eligible
+        }
+        if (! $shift->isScheduled) {
+            $flags[] = 'unscheduled';
+        }
+        if ($shift->isWorkingDay && $firstIn) {
+            $windowStart = $shift->start->copy()->subMinutes(self::OUTSIDE_WINDOW_MINUTES);
+            $windowEnd = $shift->end->copy()->addMinutes(self::OUTSIDE_WINDOW_MINUTES);
+            if ($firstIn->lessThan($windowStart) || ($lastOut && $lastOut->greaterThan($windowEnd))) {
+                $flags[] = 'outside_shift_window';
+            }
+        }
+```
+Add the const `private const OUTSIDE_WINDOW_MINUTES = 120;`. Ensure `$otMinutes` set here is not overwritten by the existing working-day OT block (that block already only runs when `isWorkingDay`, so the off-day branch is exclusive — verify). Keep `array_values(array_unique($flags))` at the end.
+
+- [ ] **Step 6: Run to verify they pass**
+
+Run: `php artisan test --filter=AttendanceStatusServiceTest`
+Expected: PASS (existing + 3 new). Then `php artisan test --filter=Attendance` (no regressions — the daily/monthly/resolver tests still pass; only new flags/off-day-OT added).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add app/Services/Attendance/DTO/ShiftSchedule.php app/Services/Attendance/DefaultScheduleResolver.php app/Services/Attendance/AttendanceStatusService.php tests/Unit/Attendance/AttendanceStatusServiceTest.php
+git commit -m "feat(attendance): engine flags out-of-schedule work + off-day overtime"
+```
+
+> The approvals inbox (Task 8) should surface days carrying `worked_on_off_day`/`unscheduled`/`outside_shift_window` (from the daily/monthly engine output) as suggested OT/regularization items, so managers act on real exceptions. The OvertimeService (Task 6) can pre-fill `requested_minutes` from a flagged day's `ot_minutes`.
 
 ---
 

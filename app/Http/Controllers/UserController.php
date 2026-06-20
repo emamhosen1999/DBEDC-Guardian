@@ -220,6 +220,13 @@ class UserController extends Controller
 
         try {
             $user = User::findOrFail($id);
+
+            // Privilege-escalation guard: only someone who can manage super admins
+            // (i.e. a Super Administrator) may reset a Super Administrator's password.
+            if ($user->hasRole('Super Administrator') && ! auth()->user()->can('manage super admin')) {
+                abort(403, 'You are not allowed to reset a Super Administrator password.');
+            }
+
             $user->update([
                 'password' => bcrypt($request->input('password')),
             ]);
