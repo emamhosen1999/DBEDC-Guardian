@@ -94,7 +94,7 @@ export default function AttendanceOverview({ date, mode = 'daily', month, scope 
                     loading={loading}
                 />
                 <StatCard
-                    title={isMonthly ? 'Late Arrivals' : 'Late (After 9AM)'}
+                    title="Late Arrivals"
                     value={stats?.late}
                     icon={ExclamationTriangleIcon}
                     color="amber"
