@@ -156,7 +156,7 @@ class AttendanceStatusService
             $status = DayAttendance::SHORT;
         } elseif ($shift->halfDayMinutes > 0 && $workedMinutes < $shift->halfDayMinutes) {
             $status = DayAttendance::HALF_DAY;
-        } elseif ($lateMinutes > 0) {
+        } elseif ($lateMinutes > 0 && ! in_array('tier_present', $flags, true)) {
             $status = DayAttendance::LATE;
         }
 

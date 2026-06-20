@@ -42,6 +42,19 @@ class PolicyResolverTest extends TestCase
         $this->assertFalse($p->isNeutral());
     }
 
+    public function test_department_scope_resolves_for_matching_user(): void
+    {
+        $department = Department::factory()->create();
+        $u = User::factory()->create(['department_id' => $department->id]);
+        AttendancePolicy::factory()->create([
+            'scope_type' => 'department', 'scope_id' => $department->id, 'version_group_id' => 5,
+            'punch_strictness' => 'flag', 'effective_from' => '2026-01-01',
+        ]);
+        $p = app(PolicyResolver::class)->resolve($u->id, Carbon::parse('2026-06-20'));
+        $this->assertSame('flag', $p->strictness());
+        $this->assertFalse($p->isNeutral());
+    }
+
     public function test_only_active_in_effective_range_resolves(): void
     {
         $u = User::factory()->create();

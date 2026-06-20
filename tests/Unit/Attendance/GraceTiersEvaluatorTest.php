@@ -63,6 +63,29 @@ class GraceTiersEvaluatorTest extends TestCase
         $this->assertSame(DayAttendance::PRESENT, $b->status);
     }
 
+    public function test_present_tier_overrides_shift_grace(): void
+    {
+        // Shift grace is only 5 min, but the policy's grace tier classifies up to 10 min late as 'present'.
+        // Punch at 09:08 is 8 min late: past the shift's 5-min grace (would trigger the LATE fallback via
+        // $lateMinutes > 0), but within the policy's 10-min 'present' tier band. The tier must win:
+        // status stays PRESENT. Without Fix 1, GraceTiersEvaluator adds no flag for 'present' outcomes,
+        // so $lateMinutes (computed independently from shift->graceInMinutes=5) would be 3 minutes (08:08
+        // vs 09:05 threshold) and the unguarded `elseif ($lateMinutes > 0)` fallback would mark this LATE.
+        $shift = new ShiftSchedule(
+            start: Carbon::parse('2026-06-19 09:00'), end: Carbon::parse('2026-06-19 17:00'),
+            crossesMidnight: false, graceInMinutes: 5, graceOutMinutes: 0, fullDayMinutes: 0,
+            halfDayMinutes: 0, minPresentMinutes: 0, breakMinutes: 0, isWorkingDay: true,
+        );
+        $policy = new PolicyProfile(graceTiers: ['late' => [
+            ['upto_minutes' => 10, 'outcome' => 'present'],
+            ['upto_minutes' => 9999, 'outcome' => 'late'],
+        ]]);
+        $r = (new AttendanceStatusService)->resolve(
+            collect([$this->punch('2026-06-19 09:08', '2026-06-19 17:00')]), $shift, policy: $policy,
+        );
+        $this->assertSame(DayAttendance::PRESENT, $r->status);
+    }
+
     public function test_rounding_multi_punch_excludes_interior_gap(): void
     {
         // Two punch pairs: 09:07–12:00 (173 min) + 13:00–17:08 (248 min) = 421 min segment sum.
