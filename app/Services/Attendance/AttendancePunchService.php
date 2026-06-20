@@ -131,15 +131,21 @@ class AttendancePunchService
             'punchin_location' => $this->formatLocation($request),
         ]);
 
-        $assessment = app(\App\Services\Attendance\PunchPolicyGuard::class)->assess($user->id, $punchTime);
-        $attendance->forceFill([
-            'policy_status' => $assessment['policy_status'],
-            'needs_approval' => $assessment['needs_approval'],
-            'policy_exception_reason' => $assessment['reason'],
-        ])->save();
-
         // Handle photo upload for polygon/route types
         $this->handlePhotoUpload($attendance, $request, 'punchin_photo', $user);
+
+        try {
+            $assessment = app(\App\Services\Attendance\PunchPolicyGuard::class)->assess($user->id, $punchTime);
+            $attendance->forceFill([
+                'policy_status' => $assessment['policy_status'],
+                'needs_approval' => $assessment['needs_approval'],
+                'policy_exception_reason' => $assessment['reason'],
+            ])->save();
+            $warning = $assessment['warning'] ?? null;
+        } catch (\Throwable $e) {
+            Log::error('Punch policy assessment failed: '.$e->getMessage(), ['user_id' => $user->id, 'attendance_id' => $attendance->id]);
+            $warning = null; // capture is never blocked: degrade to accepted defaults
+        }
 
         $result = [
             'status' => 'success',
@@ -148,8 +154,8 @@ class AttendancePunchService
             'attendance_id' => $attendance->id,
         ];
 
-        if ($assessment['warning'] !== null) {
-            $result['warning'] = $assessment['warning'];
+        if ($warning !== null) {
+            $result['warning'] = $warning;
         }
 
         return $result;

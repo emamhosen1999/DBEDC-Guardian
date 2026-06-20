@@ -36,7 +36,7 @@ class PunchPolicyGuard
                 ? ['policy_status' => 'provisional', 'needs_approval' => true, 'reason' => 'outside permitted window', 'warning' => null]
                 : $accepted,
             default => $outOfWindow
-                ? $accepted + ['warning' => 'Punch is outside your shift window.']
+                ? array_merge($accepted, ['warning' => 'Punch is outside your shift window.'])
                 : $accepted,
         };
     }
