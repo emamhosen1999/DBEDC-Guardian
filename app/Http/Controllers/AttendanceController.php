@@ -54,11 +54,25 @@ class AttendanceController extends Controller
             'attendanceSettings' => AttendanceSetting::first(),
             'attendanceTypes' => AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get(),
             'departments' => Department::active()->get(['id', 'name']),
+            // Map to plain arrays so Inertia serialization does not invoke the models'
+            // toArray() overrides/appended accessors (e.g. Designation appends department_name,
+            // which lazy-loads `department` and 500s under preventLazyLoading in dev / N+1s in prod).
             'employees' => User::role('Employee')
                 ->select('id', 'name', 'department_id', 'designation_id')
                 ->orderBy('name')
-                ->get(),
-            'designations' => Designation::select('id', 'title')->orderBy('title')->get(),
+                ->get()
+                ->map(fn ($u) => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'department_id' => $u->department_id,
+                    'designation_id' => $u->designation_id,
+                ])
+                ->values(),
+            'designations' => Designation::select('id', 'title')
+                ->orderBy('title')
+                ->get()
+                ->map(fn ($d) => ['id' => $d->id, 'title' => $d->title])
+                ->values(),
         ]);
     }
 
