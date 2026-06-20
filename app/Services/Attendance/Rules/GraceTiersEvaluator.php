@@ -30,6 +30,8 @@ class GraceTiersEvaluator implements RuleEvaluator
                     $ctx->flags[] = 'tier_late';
                 } elseif ($band['outcome'] === 'half_day') {
                     $ctx->flags[] = 'tier_half_day';
+                } elseif ($band['outcome'] === 'present') {
+                    $ctx->flags[] = 'tier_present';
                 }
 
                 return;

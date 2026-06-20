@@ -20,6 +20,7 @@ class AttendancePolicy extends Model
         'effective_from' => 'date',
         'effective_to' => 'date',
         'priority' => 'integer',
+        'scope_id' => 'integer',
         'version_group_id' => 'integer',
         'version' => 'integer',
         'outside_window_minutes' => 'integer',
