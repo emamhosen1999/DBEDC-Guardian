@@ -627,6 +627,7 @@ class AttendanceController extends Controller
 
             $dayPunches = Attendance::whereDate('date', $date)
                 ->whereNotNull('punchin')
+                ->where('policy_status', '!=', 'rejected')
                 ->get()
                 ->groupBy('user_id');
 
