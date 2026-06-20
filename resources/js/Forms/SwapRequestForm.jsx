@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, Flex, TextField, Button, Text, TextArea } from '@radix-ui/themes';
+import { Dialog, Flex, Box, Select, TextField, Button, Text, TextArea } from '@radix-ui/themes';
+import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 
 export default function SwapRequestForm({ open, onOpenChange, onSaved }) {
+    const { employees = [] } = usePage().props;
     const [requesterDate, setRequesterDate] = useState('');
     const [counterpartyId, setCounterpartyId] = useState('');
     const [counterpartyDate, setCounterpartyDate] = useState('');
@@ -49,13 +51,21 @@ export default function SwapRequestForm({ open, onOpenChange, onSaved }) {
                         <TextField.Slot><Text size="1" color="gray">Your date</Text></TextField.Slot>
                     </TextField.Root>
 
-                    <TextField.Root
-                        type="number" min="1" placeholder="Optional"
-                        value={counterpartyId}
-                        onChange={e => setCounterpartyId(e.target.value)}
-                    >
-                        <TextField.Slot><Text size="1" color="gray">Counterparty user ID</Text></TextField.Slot>
-                    </TextField.Root>
+                    <Box>
+                        <Text size="1" color="gray" as="div" mb="1">Counterparty (optional)</Text>
+                        <Select.Root
+                            value={counterpartyId || 'none'}
+                            onValueChange={v => setCounterpartyId(v === 'none' ? '' : v)}
+                        >
+                            <Select.Trigger placeholder="— None —" style={{ width: '100%' }} />
+                            <Select.Content>
+                                <Select.Item value="none">— None —</Select.Item>
+                                {employees.map(emp => (
+                                    <Select.Item key={emp.id} value={String(emp.id)}>{emp.name}</Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
+                    </Box>
 
                     <TextField.Root type="date" value={counterpartyDate} onChange={e => setCounterpartyDate(e.target.value)}>
                         <TextField.Slot><Text size="1" color="gray">Counterparty date</Text></TextField.Slot>

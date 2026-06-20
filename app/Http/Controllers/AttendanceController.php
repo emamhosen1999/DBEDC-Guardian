@@ -85,6 +85,20 @@ class AttendanceController extends Controller
     {
         return Inertia::render('AttendanceEmployee', [
             'title' => 'My Attendance',
+            // Map to plain arrays so Inertia serialization does not invoke the models'
+            // toArray() overrides/appended accessors (e.g. Designation appends department_name,
+            // which lazy-loads `department` and 500s under preventLazyLoading in dev / N+1s in prod).
+            'employees' => User::role('Employee')
+                ->select('id', 'name', 'department_id', 'designation_id')
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($u) => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'department_id' => $u->department_id,
+                    'designation_id' => $u->designation_id,
+                ])
+                ->values(),
         ]);
     }
 
