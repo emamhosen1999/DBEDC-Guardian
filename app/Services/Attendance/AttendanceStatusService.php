@@ -3,7 +3,11 @@
 namespace App\Services\Attendance;
 
 use App\Services\Attendance\DTO\DayAttendance;
+use App\Services\Attendance\DTO\DayContext;
+use App\Services\Attendance\DTO\PolicyProfile;
 use App\Services\Attendance\DTO\ShiftSchedule;
+use App\Services\Attendance\Rules\GraceTiersEvaluator;
+use App\Services\Attendance\Rules\RoundingEvaluator;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -21,7 +25,8 @@ class AttendanceStatusService
         ShiftSchedule $shift,
         bool $isHoliday = false,
         bool $isOnLeave = false,
-        ?CarbonInterface $now = null
+        ?CarbonInterface $now = null,
+        ?PolicyProfile $policy = null,
     ): DayAttendance {
         $sorted = $punches
             ->filter(fn ($p) => $p->punchin !== null)
@@ -75,6 +80,19 @@ class AttendanceStatusService
             );
         }
 
+        $policy ??= PolicyProfile::neutral();
+        if (! $policy->isNeutral()) {
+            $ctx = new DayContext($firstIn, $lastOut, $workedMinutes, $flags, $shift, $policy);
+            (new RuleEngine(new RoundingEvaluator, new GraceTiersEvaluator))->apply($ctx);
+            $firstIn = $ctx->firstIn;
+            $lastOut = $ctx->lastOut;
+            $flags = $ctx->flags;
+            // Recompute worked minutes if rounding changed the boundaries.
+            if ($policy->rounding()) {
+                $workedMinutes = $firstIn && $lastOut ? max(0, (int) round($firstIn->diffInMinutes($lastOut))) : $workedMinutes;
+            }
+        }
+
         // Has punches → derive metrics.
         $lateMinutes = 0;
         $earlyLeaveMinutes = 0;
@@ -117,7 +135,11 @@ class AttendanceStatusService
         // Status precedence among present-day outcomes.
         $status = DayAttendance::PRESENT;
 
-        if ($shift->minPresentMinutes > 0 && $workedMinutes < $shift->minPresentMinutes) {
+        if (in_array('tier_half_day', $flags, true)) {
+            $status = DayAttendance::HALF_DAY;
+        } elseif (in_array('tier_late', $flags, true)) {
+            $status = DayAttendance::LATE;
+        } elseif ($shift->minPresentMinutes > 0 && $workedMinutes < $shift->minPresentMinutes) {
             $status = DayAttendance::SHORT;
         } elseif ($shift->halfDayMinutes > 0 && $workedMinutes < $shift->halfDayMinutes) {
             $status = DayAttendance::HALF_DAY;
