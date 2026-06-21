@@ -13,5 +13,10 @@ final class DayContext
         public array $flags,
         public ShiftSchedule $shift,
         public PolicyProfile $policy,
+        public int $regularMinutes = 0,
+        public int $otMinutes = 0,
+        public int $doubleTimeMinutes = 0,
+        public int $breakDeductedMinutes = 0,
+        public array $policyEvents = [],
     ) {}
 }
