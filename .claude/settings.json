@@ -235,7 +235,8 @@
       "Bash(xargs sed -n '46,140p')",
       "Bash(grep -rnE 'protected \\\\$fillable|'\\\\''title'\\\\''|'\\\\''name'\\\\''' app/Models/HRM/Designation.php)",
       "Bash(cd \"c:\\\\laragon\\\\www\\\\Aero-Enterprise-Suite\" && rm -f /tmp/calc.php)",
-      "Bash(powershell -NoProfile -Command \"\\(Get-Date '2026-06-17'\\).DayOfWeek\")"
+      "Bash(powershell -NoProfile -Command \"\\(Get-Date '2026-06-17'\\).DayOfWeek\")",
+      "Bash(xargs cat)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",

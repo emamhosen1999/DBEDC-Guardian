@@ -110,16 +110,23 @@ class AttendanceRequestController extends Controller
             'to'   => 'required|date|after_or_equal:from',
         ]);
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name'])
+        $rows = RosterDay::with(['shift:id,code,color,name,start_time,end_time,type,crosses_midnight', 'user:id,name'])
             ->where('user_id', $request->user()->id)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->get();
 
+        $formatTime = static fn ($value) => $value ? \Illuminate\Support\Carbon::parse($value)->format('H:i') : null;
+
         $days = $rows->keyBy(fn ($row) => $row->date->format('Y-m-d'))
             ->map(fn ($row) => [
-                'code'  => $row->shift?->code,
-                'color' => $row->shift?->color,
-                'off'   => $row->shift_id === null,
+                'code'             => $row->shift?->code,
+                'name'             => $row->shift?->name,
+                'color'            => $row->shift?->color,
+                'type'             => $row->shift?->type,
+                'start'            => $formatTime($row->shift?->start_time),
+                'end'              => $formatTime($row->shift?->end_time),
+                'crosses_midnight' => (bool) ($row->shift?->crosses_midnight ?? false),
+                'off'              => $row->shift_id === null,
             ]);
 
         return $this->successResponse([
