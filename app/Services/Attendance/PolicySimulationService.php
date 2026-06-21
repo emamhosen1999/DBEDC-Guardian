@@ -39,6 +39,8 @@ class PolicySimulationService
             (int) ($draft->outside_window_minutes ?? 120),
             $draft->grace_tiers,
             $draft->rounding,
+            $draft->rule_overrides['breaks'] ?? null,
+            $draft->rule_overrides['overtime'] ?? null,
         );
 
         $period = CarbonPeriod::create($from, $to);

@@ -134,4 +134,27 @@ class AttendanceApprovalService
         return $modelClass::where('status', 'pending')->whereNotNull('approval_chain')->get()
             ->filter(fn ($m) => $this->canApprove($m, $u))->values();
     }
+
+    /**
+     * Requests this user can see in their approvals view, filtered by status.
+     * - 'pending'  → exactly pendingFor() (current actionable items).
+     * - other/'all' → requests of that status where this user appears anywhere in the
+     *   approval_chain (i.e. requests they are/were an approver on) — for history review.
+     */
+    public function forApprover(User $u, string $modelClass, string $status = 'pending'): Collection
+    {
+        if ($status === 'pending') {
+            return $this->pendingFor($u, $modelClass);
+        }
+
+        $query = $modelClass::whereNotNull('approval_chain');
+        if ($status !== 'all') {
+            $query->where('status', $status);
+        }
+
+        return $query->get()
+            ->filter(fn ($m) => collect($m->approval_chain ?? [])
+                ->contains(fn ($lvl) => ($lvl['approver_id'] ?? null) === $u->id))
+            ->values();
+    }
 }

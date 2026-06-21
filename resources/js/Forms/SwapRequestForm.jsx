@@ -3,6 +3,7 @@ import { Dialog, Flex, Box, Select, TextField, Button, Text, TextArea } from '@r
 import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 export default function SwapRequestForm({ open, onOpenChange, onSaved }) {
     const { employees = [] } = usePage().props;
@@ -47,9 +48,12 @@ export default function SwapRequestForm({ open, onOpenChange, onSaved }) {
             <Dialog.Content maxWidth="440px">
                 <Dialog.Title>Request Shift Swap</Dialog.Title>
                 <Flex direction="column" gap="3">
-                    <TextField.Root type="date" value={requesterDate} onChange={e => setRequesterDate(e.target.value)}>
-                        <TextField.Slot><Text size="1" color="gray">Your date</Text></TextField.Slot>
-                    </TextField.Root>
+                    <DateTimePicker
+                        mode="date"
+                        label="Your date"
+                        value={requesterDate}
+                        onChange={v => setRequesterDate(v)}
+                    />
 
                     <Box>
                         <Text size="1" color="gray" as="div" mb="1">Counterparty (optional)</Text>
@@ -67,9 +71,12 @@ export default function SwapRequestForm({ open, onOpenChange, onSaved }) {
                         </Select.Root>
                     </Box>
 
-                    <TextField.Root type="date" value={counterpartyDate} onChange={e => setCounterpartyDate(e.target.value)}>
-                        <TextField.Slot><Text size="1" color="gray">Counterparty date</Text></TextField.Slot>
-                    </TextField.Root>
+                    <DateTimePicker
+                        mode="date"
+                        label="Counterparty date"
+                        value={counterpartyDate}
+                        onChange={v => setCounterpartyDate(v)}
+                    />
 
                     <TextArea
                         placeholder="Reason (optional)"

@@ -26,10 +26,10 @@ class LeaveSettingController extends Controller
             ]);
         }
 
-        return Inertia::render('Settings/LeaveSettings', [
-            'title' => 'Leave Settings',
-            'leaveTypes' => $leaveSettings,
-        ]);
+        // The standalone Leave Settings page was removed — leave management is now the
+        // unified tabbed page. A browser hit redirects there; the JSON branch above still
+        // serves leave-type data (consumed by the unified panel via useLeaveTypes).
+        return redirect()->route('leaves.index');
     }
 
     public function store(Request $request)

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, Flex, Box, Select, TextField, Button, Text, TextArea } from '@radix-ui/themes';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const TYPES = [
     { value: 'missing_punchin',  label: 'Missing punch-in' },
@@ -36,8 +37,9 @@ export default function RegularizationForm({ open, onOpenChange, onSaved }) {
                 data: {
                     date,
                     type,
-                    requested_punchin:  punchin  || null,
-                    requested_punchout: punchout || null,
+                    // Punch fields are time-only; combine with the selected Date into a datetime.
+                    requested_punchin:  punchin  ? `${date} ${punchin}`  : null,
+                    requested_punchout: punchout ? `${date} ${punchout}` : null,
                     reason,
                 },
             });
@@ -59,11 +61,11 @@ export default function RegularizationForm({ open, onOpenChange, onSaved }) {
                 <Dialog.Title>Regularize Attendance</Dialog.Title>
                 <Flex direction="column" gap="3">
                     <Box>
-                        <Text size="1" color="gray" as="div" mb="1">Date</Text>
-                        <TextField.Root
-                            type="date"
+                        <DateTimePicker
+                            mode="date"
+                            label="Date"
                             value={date}
-                            onChange={e => setDate(e.target.value)}
+                            onChange={v => setDate(v)}
                         />
                     </Box>
 
@@ -80,20 +82,20 @@ export default function RegularizationForm({ open, onOpenChange, onSaved }) {
                     </Box>
 
                     <Box>
-                        <Text size="1" color="gray" as="div" mb="1">Requested punch-in (optional)</Text>
-                        <TextField.Root
-                            type="datetime-local"
+                        <DateTimePicker
+                            mode="time"
+                            label="Requested punch-in (optional)"
                             value={punchin}
-                            onChange={e => setPunchin(e.target.value)}
+                            onChange={v => setPunchin(v)}
                         />
                     </Box>
 
                     <Box>
-                        <Text size="1" color="gray" as="div" mb="1">Requested punch-out (optional)</Text>
-                        <TextField.Root
-                            type="datetime-local"
+                        <DateTimePicker
+                            mode="time"
+                            label="Requested punch-out (optional)"
                             value={punchout}
-                            onChange={e => setPunchout(e.target.value)}
+                            onChange={v => setPunchout(v)}
                         />
                     </Box>
 
