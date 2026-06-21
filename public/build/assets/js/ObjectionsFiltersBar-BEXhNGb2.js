@@ -1,0 +1,5 @@
+<<<<<<<< Updated upstream:public/build/assets/js/ObjectionsFiltersBar-DOMARllg.js
+import"./vendor-radix-DHBKrkJn.js";import"./vendor-inertia-B_jPe_ra.js";import{S as r,C as e}from"./objectionConfig-BHZJ_ztp.js";import"./vendor-utils-D6Wd6ilh.js";import"./react-icons.esm-DT2cgmzN.js";const l=Object.fromEntries(Object.entries(r).map(([t,o])=>[t,{color:o.color,icon:o.solidIcon||o.icon,label:o.label}])),a=Object.fromEntries(Object.entries(e).map(([t,o])=>[t,{label:o.label,color:o.color}]));export{a as c,l as s};
+========
+import"./vendor-radix-CKDyiK8Q.js";import"./vendor-inertia-B_jPe_ra.js";import{S as r,C as e}from"./objectionConfig-BHZJ_ztp.js";import"./vendor-utils-D6Wd6ilh.js";import"./react-icons.esm-DT2cgmzN.js";const l=Object.fromEntries(Object.entries(r).map(([t,o])=>[t,{color:o.color,icon:o.solidIcon||o.icon,label:o.label}])),a=Object.fromEntries(Object.entries(e).map(([t,o])=>[t,{label:o.label,color:o.color}]));export{a as c,l as s};
+>>>>>>>> Stashed changes:public/build/assets/js/ObjectionsFiltersBar-BEXhNGb2.js
