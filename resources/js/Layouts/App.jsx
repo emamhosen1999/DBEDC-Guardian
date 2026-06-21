@@ -23,6 +23,7 @@ import { useVersionManager } from '@/Hooks/useVersionManager.js';
 import NavigationProgress from '@/Components/NavigationProgress.jsx';
 
 import '@/utils/serviceWorkerManager.js';
+import queryClient from '@/api/reactQueryClient';
 
 const PageContent = React.memo(({ children, url }) => (
   <div key={url} className="page-enter">
@@ -95,6 +96,11 @@ const App = React.memo(({ children }) => {
       return () => clearTimeout(t);
     }
   }, [auth?.user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear React Query cache when user ID changes (prevent cache leakage between sessions)
+  useEffect(() => {
+    queryClient.clear();
+  }, [auth?.user?.id]);
 
 
   return (
