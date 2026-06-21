@@ -35,7 +35,6 @@ export default defineConfig({
                     'vendor-react': ['react', 'react-dom'],
                     'vendor-inertia': ['@inertiajs/react'],
                     'vendor-radix': ['@radix-ui/themes'],
-                    'vendor-framer': ['framer-motion'],
                     'vendor-utils': ['axios', 'lodash'],
                 },
                 chunkFileNames: 'assets/js/[name]-[hash].js',

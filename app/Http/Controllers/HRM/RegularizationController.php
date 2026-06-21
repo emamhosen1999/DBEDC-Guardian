@@ -41,10 +41,15 @@ class RegularizationController extends Controller
 
     public function pending(Request $request): JsonResponse
     {
-        $pending = $this->approvals->pendingFor($request->user(), AttendanceRegularization::class)
+        $status = $request->query('status', 'pending');
+        if (! in_array($status, ['pending', 'approved', 'rejected', 'all'], true)) {
+            $status = 'pending';
+        }
+
+        $requests = $this->approvals->forApprover($request->user(), AttendanceRegularization::class, $status)
             ->load('user:id,name');
 
-        return response()->json(['requests' => $pending->values()]);
+        return response()->json(['requests' => $requests->values()]);
     }
 
     public function approve(Request $request, int $id): JsonResponse

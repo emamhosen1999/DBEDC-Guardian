@@ -4,6 +4,7 @@ import {
     RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
     Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
 } from '@radix-ui/themes';
+import DateTimePicker from '@/Components/DateTimePicker';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePage } from '@inertiajs/react';
 import {
@@ -312,24 +313,12 @@ const MarkAsPresentForm = ({
                                             )}
 
                                             {/* Date Display */}
-                                            <TextField.Root
+                                            <DateTimePicker
+                                                mode="date"
                                                 label="Date"
-                                                type="date"
                                                 value={formData.date}
-                                                onValueChange={(value) => handleFieldChange('date', value)}
-                                                isInvalid={Boolean(errors.date)}
-                                                errorMessage={errors.date}
-                                                variant="outline"
-                                                size="sm"
-                                                radius={getThemeRadius()}
-                                                startContent={<CalendarDaysIcon className="w-4 h-4 text-default-400" />}
-                                                classNames={{
-                                                    input: "text-small",
-                                                    inputWrapper: "min-h-unit-10"
-                                                }}
-                                                style={{
-                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                }}
+                                                onChange={v => handleFieldChange('date', v)}
+                                                error={errors.date}
                                             />
                                         </div>
                                     </div>
@@ -354,46 +343,21 @@ const MarkAsPresentForm = ({
                                         
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {/* Punch In Time */}
-                                            <TextField.Root
+                                            <DateTimePicker
+                                                mode="time"
                                                 label="Punch In Time"
-                                                type="time"
                                                 value={formData.punch_in_time}
-                                                onValueChange={(value) => handleFieldChange('punch_in_time', value)}
-                                                isInvalid={Boolean(errors.punch_in_time)}
-                                                errorMessage={errors.punch_in_time}
-                                                variant="outline"
-                                                size="sm"
-                                                radius={getThemeRadius()}
-                                                startContent={<ClockIcon className="w-4 h-4 text-default-400" />}
-                                                classNames={{
-                                                    input: "text-small",
-                                                    inputWrapper: "min-h-unit-10"
-                                                }}
-                                                style={{
-                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                }}
+                                                onChange={v => handleFieldChange('punch_in_time', v)}
+                                                error={errors.punch_in_time}
                                             />
 
                                             {/* Punch Out Time */}
-                                            <TextField.Root
+                                            <DateTimePicker
+                                                mode="time"
                                                 label="Punch Out Time (Optional)"
-                                                type="time"
                                                 value={formData.punch_out_time}
-                                                onValueChange={(value) => handleFieldChange('punch_out_time', value)}
-                                                isInvalid={Boolean(errors.punch_out_time)}
-                                                errorMessage={errors.punch_out_time}
-                                                variant="outline"
-                                                size="sm"
-                                                radius={getThemeRadius()}
-                                                startContent={<ClockIcon className="w-4 h-4 text-default-400" />}
-                                                classNames={{
-                                                    input: "text-small",
-                                                    inputWrapper: "min-h-unit-10"
-                                                }}
-                                                style={{
-                                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                                }}
-                                                description="Leave empty if employee is still working"
+                                                onChange={v => handleFieldChange('punch_out_time', v)}
+                                                error={errors.punch_out_time}
                                             />
                                         </div>
                                     </div>

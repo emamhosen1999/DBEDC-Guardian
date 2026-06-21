@@ -3,10 +3,11 @@
  * Full Radix UI refactor.
  */
 import React, { useState, useEffect } from 'react';
-import { 
-    Box, Button, Dialog, Flex, Grid, Select, 
-    Spinner, Text, TextArea, TextField, Card 
+import {
+    Box, Button, Dialog, Flex, Grid, Select,
+    Spinner, Text, TextArea, TextField, Card
 } from '@radix-ui/themes';
+import DateTimePicker from '@/Components/DateTimePicker';
 import { useForm } from '@inertiajs/react';
 import { showToast } from "@/utils/toastUtils";
 import DepartmentEmployeeSelector from "@/Components/DepartmentEmployeeSelector.jsx";
@@ -168,14 +169,13 @@ const LeaveForm = ({
                                     <TextField.Root value={remainingLeaves} readOnly />
                                 </Box>
 
-                                <Box>
-                                    <Text size="2" weight="medium" mb="1" display="block">From</Text>
-                                    <TextField.Root type="date" value={data.fromDate} onChange={e => setData('fromDate', e.target.value)} />
-                                </Box>
-
-                                <Box>
-                                    <Text size="2" weight="medium" mb="1" display="block">To</Text>
-                                    <TextField.Root type="date" value={data.toDate} onChange={e => setData('toDate', e.target.value)} />
+                                <Box style={{ gridColumn: '1 / -1' }}>
+                                    <DateTimePicker
+                                        mode="dateRange"
+                                        label="Leave Period"
+                                        value={{ start: data.fromDate, end: data.toDate }}
+                                        onChange={({ start, end }) => { setData('fromDate', start); setData('toDate', end); }}
+                                    />
                                 </Box>
 
                                 {route().current('leaves*') && (

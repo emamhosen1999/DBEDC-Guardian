@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, Flex, Box, TextField, Button, Text, TextArea } from '@radix-ui/themes';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 export default function OvertimeRequestForm({ open, onOpenChange, onSaved }) {
     const [date, setDate]       = useState('');
@@ -45,11 +46,11 @@ export default function OvertimeRequestForm({ open, onOpenChange, onSaved }) {
                 <Dialog.Title>Request Overtime</Dialog.Title>
                 <Flex direction="column" gap="3">
                     <Box>
-                        <Text size="1" color="gray" as="div" mb="1">Date</Text>
-                        <TextField.Root
-                            type="date"
+                        <DateTimePicker
+                            mode="date"
+                            label="Date"
                             value={date}
-                            onChange={e => setDate(e.target.value)}
+                            onChange={v => setDate(v)}
                         />
                     </Box>
 

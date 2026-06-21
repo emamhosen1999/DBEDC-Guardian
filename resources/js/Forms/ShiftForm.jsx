@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, Flex, TextField, Select, Switch, Button, Text } from '@radix-ui/themes';
+import { Dialog, Flex, Box, TextField, Select, Switch, Button, Text } from '@radix-ui/themes';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const DEFAULT_FORM = {
     name: '', code: '', type: 'fixed', start_time: '09:00', end_time: '17:30',
@@ -58,12 +59,22 @@ export default function ShiftForm({ open, onOpenChange, onSaved, initial = null 
                     </Select.Root>
 
                     <Flex gap="3">
-                        <TextField.Root type="time" value={form.start_time} onChange={e => set('start_time', e.target.value)} style={{ flex: 1 }}>
-                            <TextField.Slot><Text size="1" color="gray">Start</Text></TextField.Slot>
-                        </TextField.Root>
-                        <TextField.Root type="time" value={form.end_time} onChange={e => set('end_time', e.target.value)} style={{ flex: 1 }}>
-                            <TextField.Slot><Text size="1" color="gray">End</Text></TextField.Slot>
-                        </TextField.Root>
+                        <Box style={{ flex: 1 }}>
+                            <DateTimePicker
+                                mode="time"
+                                label="Start"
+                                value={form.start_time}
+                                onChange={v => set('start_time', v)}
+                            />
+                        </Box>
+                        <Box style={{ flex: 1 }}>
+                            <DateTimePicker
+                                mode="time"
+                                label="End"
+                                value={form.end_time}
+                                onChange={v => set('end_time', v)}
+                            />
+                        </Box>
                     </Flex>
 
                     <Flex align="center" gap="2">

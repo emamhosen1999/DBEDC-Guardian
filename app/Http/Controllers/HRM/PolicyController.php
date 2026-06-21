@@ -164,6 +164,7 @@ class PolicyController extends Controller
             'outside_window_minutes' => 'nullable|integer|min:0|max:1440',
             'grace_tiers'            => 'nullable|array',
             'rounding'               => 'nullable|array',
+            'rule_overrides'         => 'nullable|array',
         ]);
 
         // Build a non-persisted draft policy from the request fields
@@ -177,6 +178,7 @@ class PolicyController extends Controller
             'outside_window_minutes' => $request->input('outside_window_minutes', 120),
             'grace_tiers'            => $request->input('grace_tiers'),
             'rounding'               => $request->input('rounding'),
+            'rule_overrides'         => $request->input('rule_overrides'),
         ]);
 
         $userIds = $request->input('user_ids')
