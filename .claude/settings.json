@@ -266,7 +266,10 @@
       "Bash(tail -15 \"C:/Users/Emam Hosen/AppData/Local/Temp/claude/c--laragon-www-Aero-Enterprise-Suite/d440ea43-5076-45c0-9c3f-30ef3fa243a2/tasks/b6w202mep.output\")",
       "Bash(\"C:/Users/Emam Hosen/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package\" fc214c5a^ fc214c5a)",
       "Bash(\"C:/Users/Emam Hosen/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-06-21-global-datetime-picker.md 7)",
-      "Bash(grep -nA18 \"function roster\\\\b\\\\|public function roster\" app/Http/Controllers/HRM/RosterController.php)"
+      "Bash(grep -nA18 \"function roster\\\\b\\\\|public function roster\" app/Http/Controllers/HRM/RosterController.php)",
+      "Bash(grep -nA20 \"fillable\" app/Models/HRM/ShiftSwapRequest.php)",
+      "Bash(grep -nA20 \"function applySwap\" app/Services/Attendance/RosterService.php)",
+      "Bash(grep -vE \"\\\\.png$|\\\\.superpowers|^ M \\\\.claude\")"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
