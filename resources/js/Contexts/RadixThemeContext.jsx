@@ -92,6 +92,8 @@ export const RadixThemeProvider = ({ children }) => {
 function applyFontFamily(fontFamily) {
   if (fontFamily) {
     document.documentElement.style.setProperty('--default-font-family', fontFamily);
+    document.documentElement.style.setProperty('--custom-font-family', fontFamily);
+    document.documentElement.style.setProperty('--fontFamily', fontFamily);
   }
 }
 

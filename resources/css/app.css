@@ -5,6 +5,11 @@
 @import '@fontsource/roboto/500.css';
 @import '@fontsource/roboto/700.css';
 
+.radix-themes {
+  --default-font-family: var(--custom-font-family, 'Inter', system-ui, sans-serif) !important;
+  --heading-font-family: var(--custom-font-family, 'Inter', system-ui, sans-serif) !important;
+}
+
 
 .Toastify__toast-container {
   z-index: 99999 !important;
