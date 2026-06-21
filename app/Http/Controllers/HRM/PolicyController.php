@@ -28,6 +28,7 @@ class PolicyController extends Controller
             'outside_window_minutes' => 'integer|min:0|max:1440',
             'grace_tiers'            => 'nullable|array',
             'rounding'               => 'nullable|array',
+            'rule_overrides'         => 'nullable|array',
         ];
     }
 
@@ -51,6 +52,7 @@ class PolicyController extends Controller
             'outside_window_minutes' => $p->outside_window_minutes,
             'grace_tiers'            => $p->grace_tiers,
             'rounding'               => $p->rounding,
+            'rule_overrides'         => $p->rule_overrides,
         ];
     }
 
