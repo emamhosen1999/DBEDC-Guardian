@@ -104,9 +104,12 @@ class PolicyApiTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('rule_overrides.breaks.unpaid_meal_minutes', 45)
-            ->assertJsonMissing(['rule_overrides' => ['overtime' => []]]);
+            // Updating with only `breaks` must DROP the previously-stored `overtime` axis.
+            ->assertJsonPath('rule_overrides.overtime', null);
 
-        $this->assertSame(45, $p->fresh()->rule_overrides['breaks']['unpaid_meal_minutes']);
+        $fresh = $p->fresh()->rule_overrides;
+        $this->assertSame(45, $fresh['breaks']['unpaid_meal_minutes']);
+        $this->assertArrayNotHasKey('overtime', $fresh);
     }
 
     public function test_cannot_update_a_non_draft_policy(): void
