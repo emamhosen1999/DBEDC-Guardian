@@ -3,6 +3,7 @@ import { Dialog, Flex, Box, Select, TextField, Button, Text, IconButton, Separat
 import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const emptyGraceTier = () => ({ upto_minutes: 15, outcome: 'late' });
 
@@ -193,16 +194,14 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
                         </Box>
                     )}
 
-                    <Flex gap="3" wrap="wrap">
-                        <Box style={{ flex: '1 1 160px' }}>
-                            <Text size="1" color="gray" as="div" mb="1">Effective from *</Text>
-                            <TextField.Root type="date" value={form.effective_from} onChange={e => set('effective_from', e.target.value)} />
-                        </Box>
-                        <Box style={{ flex: '1 1 160px' }}>
-                            <Text size="1" color="gray" as="div" mb="1">Effective to</Text>
-                            <TextField.Root type="date" value={form.effective_to} onChange={e => set('effective_to', e.target.value)} />
-                        </Box>
-                    </Flex>
+                    <Box>
+                        <DateTimePicker
+                            mode="dateRange"
+                            label="Effective from * → Effective to"
+                            value={{ start: form.effective_from, end: form.effective_to }}
+                            onChange={({ start, end }) => { set('effective_from', start); set('effective_to', end); }}
+                        />
+                    </Box>
 
                     <Flex gap="3" wrap="wrap">
                         <Box style={{ flex: '1 1 200px' }}>
