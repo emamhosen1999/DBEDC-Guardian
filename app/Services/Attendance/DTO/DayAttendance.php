@@ -26,6 +26,10 @@ final class DayAttendance
         public readonly ?Carbon $last_out,
         public readonly bool $is_complete,
         public readonly array $flags,
+        public readonly int $double_time_minutes = 0,
+        public readonly int $regular_minutes = 0,
+        public readonly int $break_deducted_minutes = 0,
+        public readonly array $policy_events = [],
     ) {}
 
     public function toArray(): array
@@ -40,6 +44,10 @@ final class DayAttendance
             'last_out' => $this->last_out?->format('Y-m-d H:i:s'),
             'is_complete' => $this->is_complete,
             'flags' => $this->flags,
+            'double_time_minutes' => $this->double_time_minutes,
+            'regular_minutes' => $this->regular_minutes,
+            'break_deducted_minutes' => $this->break_deducted_minutes,
+            'policy_events' => $this->policy_events,
         ];
     }
 }
