@@ -23,8 +23,7 @@ class AttendancePunchService
     public function processPunch($user, Request $request): array
     {
         try {
-            // Always use server time for all attendance punches
-            $punchTime = Carbon::now();
+            $punchTime = $this->resolvePunchTime($request);
             $punchDate = $punchTime->copy()->startOfDay();
 
             // Honour explicit check_type sent by biometric devices (ZKTeco: in/out/break_*).
@@ -101,6 +100,31 @@ class AttendancePunchService
             ->whereDate('date', $date)
             ->latest()
             ->first();
+    }
+
+    /**
+     * Resolve the authoritative punch moment.
+     *
+     * Trusted device/biometric sources carry the REAL punch time in `punch_time`
+     * (a device may push or be back-downloaded hours later) — honour it so worked
+     * minutes / late / OT / overnight detection compute on the true moment, not the
+     * server's processing time. Manual/web punches always use server time, so a user
+     * cannot back-date their own punch.
+     */
+    private function resolvePunchTime(Request $request): Carbon
+    {
+        $raw = $request->input('punch_time');
+        $source = $request->input('source');
+
+        if ($raw && in_array($source, ['biometric', 'device'], true)) {
+            try {
+                return Carbon::parse($raw);
+            } catch (\Throwable $e) {
+                // Unparseable device timestamp — fall back to server time rather than fail capture.
+            }
+        }
+
+        return Carbon::now();
     }
 
     /**
@@ -277,8 +301,7 @@ class AttendancePunchService
 
     private function processPunchInTransaction($user, Request $request): array
     {
-        // Always use server time for all attendance punches
-        $punchTime = Carbon::now();
+        $punchTime = $this->resolvePunchTime($request);
         $punchDate = $punchTime->copy()->startOfDay();
 
         // Honour explicit check_type sent by biometric devices (ZKTeco: in/out/break_*).
