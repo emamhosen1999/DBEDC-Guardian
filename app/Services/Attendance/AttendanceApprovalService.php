@@ -11,35 +11,25 @@ class AttendanceApprovalService
 {
     public function buildChain(User $requester, bool $escalate = false): array
     {
-        $chain = [];
+        // Single, REAL approver: the requester's direct manager. These requests
+        // (regularization / overtime) affect only the requester, so one authorization
+        // is enough. We deliberately do NOT add a second "department head" level — the
+        // old heuristic (first colleague by designation_id) picked an arbitrary employee
+        // with no authority and no UI access, which stranded every request.
         $managerId = $requester->report_to ?? $requester->report_to_id ?? null;
-
         if ($managerId) {
-            $chain[] = $this->entry(1, $managerId, optional($requester->reportsTo)->name ?? User::find($managerId)?->name ?? 'Manager');
+            $name = optional($requester->reportsTo)->name ?? User::find($managerId)?->name ?? 'Manager';
+
+            return [$this->entry(1, $managerId, $name)];
         }
 
-        if ($requester->department_id) {
-            $head = User::where('department_id', $requester->department_id)
-                ->where('id', '!=', $requester->id)
-                ->when($managerId, fn ($q) => $q->where('id', '!=', $managerId))
-                ->whereNotNull('designation_id')
-                ->orderBy('designation_id')
-                ->first();
-            if ($head) {
-                $chain[] = $this->entry(count($chain) + 1, $head->id, $head->name);
-            }
-        }
+        // No manager on record → route to HR / admin so the request is still actionable
+        // (instead of silently auto-approving with an empty chain).
+        $hr = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['HR Manager', 'HR Head', 'Super Administrator']))
+            ->where('id', '!=', $requester->id)
+            ->first();
 
-        if ($escalate) {
-            $hr = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['HR Manager', 'HR Head', 'Super Administrator']))
-                ->where('id', '!=', $requester->id)
-                ->first();
-            if ($hr && ! collect($chain)->pluck('approver_id')->contains($hr->id)) {
-                $chain[] = $this->entry(count($chain) + 1, $hr->id, $hr->name);
-            }
-        }
-
-        return $chain;
+        return $hr ? [$this->entry(1, $hr->id, $hr->name)] : [];
     }
 
     private function entry(int $level, int $approverId, string $name): array
