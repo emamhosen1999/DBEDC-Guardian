@@ -69,8 +69,8 @@
       "_ExclamationTriangleIcon-cq7qCi7Y.js"
     ]
   },
-  "_DeleteWorkLocationForm-DPYMKzLv.js": {
-    "file": "assets/js/DeleteWorkLocationForm-DPYMKzLv.js",
+  "_DeleteWorkLocationForm-DeAYrEUB.js": {
+    "file": "assets/js/DeleteWorkLocationForm-DeAYrEUB.js",
     "name": "DeleteWorkLocationForm",
     "imports": [
       "_vendor-radix-Cw4jjhFa.js",
@@ -851,7 +851,7 @@
     "isEntry": true
   },
   "resources/js/Components/DailyWorkSummaryAnalytics.jsx": {
-    "file": "assets/js/DailyWorkSummaryAnalytics-B_t-B4i4.js",
+    "file": "assets/js/DailyWorkSummaryAnalytics-B46Djlqv.js",
     "name": "DailyWorkSummaryAnalytics",
     "src": "resources/js/Components/DailyWorkSummaryAnalytics.jsx",
     "isDynamicEntry": true,
@@ -915,7 +915,7 @@
     ]
   },
   "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx": {
-    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-1cJ_bkte.js",
+    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-C1s6acEm.js",
     "name": "EnhancedDailyWorkSummaryExportForm",
     "src": "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx",
     "isDynamicEntry": true,
@@ -961,7 +961,7 @@
     ]
   },
   "resources/js/Pages/AdminUnified.jsx": {
-    "file": "assets/js/AdminUnified-DfSLwQMO.js",
+    "file": "assets/js/AdminUnified-CD9dQLdm.js",
     "name": "AdminUnified",
     "src": "resources/js/Pages/AdminUnified.jsx",
     "isEntry": true,
@@ -981,7 +981,7 @@
     ]
   },
   "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx": {
-    "file": "assets/js/SystemMonitoringEnhanced-diUqMnsY.js",
+    "file": "assets/js/SystemMonitoringEnhanced-C3GVkg5L.js",
     "name": "SystemMonitoringEnhanced",
     "src": "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx",
     "isEntry": true,
@@ -1010,7 +1010,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-Cn9kGRKE.js",
+    "file": "assets/js/AttendancePage-CGt2ye1U.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1262,7 +1262,7 @@
     ]
   },
   "resources/js/Pages/AttendanceEmployee.jsx": {
-    "file": "assets/js/AttendanceEmployee-Bx6hMV-T.js",
+    "file": "assets/js/AttendanceEmployee-BNPqTkIR.js",
     "name": "AttendanceEmployee",
     "src": "resources/js/Pages/AttendanceEmployee.jsx",
     "isDynamicEntry": true,
@@ -1344,7 +1344,7 @@
     ]
   },
   "resources/js/Pages/Dashboard.jsx": {
-    "file": "assets/js/Dashboard-BNKLdIdc.js",
+    "file": "assets/js/Dashboard-CgrRuVVw.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Dashboard.jsx",
     "isEntry": true,
@@ -1365,7 +1365,7 @@
     ]
   },
   "resources/js/Pages/Departments.jsx": {
-    "file": "assets/js/Departments-CLpiEN8L.js",
+    "file": "assets/js/Departments-B8U1sP5K.js",
     "name": "Departments",
     "src": "resources/js/Pages/Departments.jsx",
     "isDynamicEntry": true,
@@ -1403,7 +1403,7 @@
     ]
   },
   "resources/js/Pages/Designations.jsx": {
-    "file": "assets/js/Designations-BelG_JSH.js",
+    "file": "assets/js/Designations-BjbcYaSW.js",
     "name": "Designations",
     "src": "resources/js/Pages/Designations.jsx",
     "isEntry": true,
@@ -1421,7 +1421,7 @@
     ]
   },
   "resources/js/Pages/Employees/EmployeeList.jsx": {
-    "file": "assets/js/EmployeeList-BqU_nT0s.js",
+    "file": "assets/js/EmployeeList-Iu0J7A72.js",
     "name": "EmployeeList",
     "src": "resources/js/Pages/Employees/EmployeeList.jsx",
     "isEntry": true,
@@ -1440,7 +1440,7 @@
     ]
   },
   "resources/js/Pages/Errors/Forbidden.jsx": {
-    "file": "assets/js/Forbidden-DqdaKAe_.js",
+    "file": "assets/js/Forbidden-Bfck-K34.js",
     "name": "Forbidden",
     "src": "resources/js/Pages/Errors/Forbidden.jsx",
     "isEntry": true,
@@ -1458,7 +1458,7 @@
     ]
   },
   "resources/js/Pages/Holidays.jsx": {
-    "file": "assets/js/Holidays-BelG_JSH.js",
+    "file": "assets/js/Holidays-BjbcYaSW.js",
     "name": "Holidays",
     "src": "resources/js/Pages/Holidays.jsx",
     "isEntry": true,
@@ -1487,7 +1487,7 @@
     ]
   },
   "resources/js/Pages/LeavesEmployee.jsx": {
-    "file": "assets/js/LeavesEmployee-COM8ZvS_.js",
+    "file": "assets/js/LeavesEmployee-uF5ge7Kk.js",
     "name": "LeavesEmployee",
     "src": "resources/js/Pages/LeavesEmployee.jsx",
     "isEntry": true,
@@ -1508,7 +1508,7 @@
     ]
   },
   "resources/js/Pages/LeavesUnified.jsx": {
-    "file": "assets/js/LeavesUnified-Bhl0yRJS.js",
+    "file": "assets/js/LeavesUnified-kDm-YTVU.js",
     "name": "LeavesUnified",
     "src": "resources/js/Pages/LeavesUnified.jsx",
     "isEntry": true,
@@ -1611,7 +1611,7 @@
     ]
   },
   "resources/js/Pages/Organization/OrganizationPage.jsx": {
-    "file": "assets/js/OrganizationPage-BgDe-i9J.js",
+    "file": "assets/js/OrganizationPage-D-6Rq-bm.js",
     "name": "OrganizationPage",
     "src": "resources/js/Pages/Organization/OrganizationPage.jsx",
     "isEntry": true,
@@ -1755,7 +1755,7 @@
     ]
   },
   "resources/js/Pages/PettyCashUnified.jsx": {
-    "file": "assets/js/PettyCashUnified-BelG_JSH.js",
+    "file": "assets/js/PettyCashUnified-BjbcYaSW.js",
     "name": "PettyCashUnified",
     "src": "resources/js/Pages/PettyCashUnified.jsx",
     "isEntry": true,
@@ -1806,7 +1806,7 @@
     ]
   },
   "resources/js/Pages/Profile/UserProfile.jsx": {
-    "file": "assets/js/UserProfile-D42-H_np.js",
+    "file": "assets/js/UserProfile-DLTghlBC.js",
     "name": "UserProfile",
     "src": "resources/js/Pages/Profile/UserProfile.jsx",
     "isDynamicEntry": true,
@@ -1825,7 +1825,7 @@
     ]
   },
   "resources/js/Pages/Project/DailyWorksUnified.jsx": {
-    "file": "assets/js/DailyWorksUnified-Bk6y1Hua.js",
+    "file": "assets/js/DailyWorksUnified-D5YnXmu-.js",
     "name": "DailyWorksUnified",
     "src": "resources/js/Pages/Project/DailyWorksUnified.jsx",
     "isDynamicEntry": true,
@@ -1859,7 +1859,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-C5Gd9hFK.js",
+    "file": "assets/js/Index-CHFU_fiC.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isDynamicEntry": true,
@@ -2002,7 +2002,7 @@
     ]
   },
   "resources/js/Pages/Settings/CompanySettings.jsx": {
-    "file": "assets/js/CompanySettings-BelG_JSH.js",
+    "file": "assets/js/CompanySettings-BjbcYaSW.js",
     "name": "CompanySettings",
     "src": "resources/js/Pages/Settings/CompanySettings.jsx",
     "isEntry": true,
@@ -2020,7 +2020,7 @@
     ]
   },
   "resources/js/Pages/Settings/LeaveSettings.jsx": {
-    "file": "assets/js/LeaveSettings-diUqMnsY.js",
+    "file": "assets/js/LeaveSettings-C3GVkg5L.js",
     "name": "LeaveSettings",
     "src": "resources/js/Pages/Settings/LeaveSettings.jsx",
     "isEntry": true,
@@ -2038,7 +2038,7 @@
     ]
   },
   "resources/js/Pages/Settings/RequestLogs.jsx": {
-    "file": "assets/js/RequestLogs-DCLreTjv.js",
+    "file": "assets/js/RequestLogs-C8YGgmOG.js",
     "name": "RequestLogs",
     "src": "resources/js/Pages/Settings/RequestLogs.jsx",
     "isEntry": true,
@@ -2056,7 +2056,7 @@
     ]
   },
   "resources/js/Pages/UserDevices.jsx": {
-    "file": "assets/js/UserDevices-BkK61Bj5.js",
+    "file": "assets/js/UserDevices-DtqRVWRl.js",
     "name": "UserDevices",
     "src": "resources/js/Pages/UserDevices.jsx",
     "isEntry": true,
@@ -2079,7 +2079,7 @@
     ]
   },
   "resources/js/Pages/WorkLocations/WorkLocations.jsx": {
-    "file": "assets/js/WorkLocations-5Qjx4DJx.js",
+    "file": "assets/js/WorkLocations-C3mHHMaw.js",
     "name": "WorkLocations",
     "src": "resources/js/Pages/WorkLocations/WorkLocations.jsx",
     "isDynamicEntry": true,
@@ -2087,7 +2087,7 @@
       "_vendor-radix-Cw4jjhFa.js",
       "_vendor-inertia-B_jPe_ra.js",
       "resources/js/Pages/UserDevices.jsx",
-      "_DeleteWorkLocationForm-DPYMKzLv.js",
+      "_DeleteWorkLocationForm-DeAYrEUB.js",
       "_StatsCards-B0Buh3qT.js",
       "_useMediaQuery-DzkaZ5Od.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
@@ -2110,7 +2110,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-BImMt3x0.js",
+    "file": "assets/js/app-GFWASW-o.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

@@ -60,15 +60,7 @@ export const getPages = (roles, permissions, auth = null) => {
 
     // 2. Workspace (Self-Service)
     ...(workspaceItems.length > 0 ? (
-        isOnlyEmployee 
-          ? workspaceItems 
-          : [{
-              name: 'Workspace',
-              icon: <UserGroupIcon className="" />,
-              priority: 2,
-              module: 'self-service',
-              subMenu: workspaceItems
-            }]
+        workspaceItems
       ) : []),
 
     // 3. HR (Human Resources) - Reorganized with submodule groups

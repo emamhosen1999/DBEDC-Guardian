@@ -233,10 +233,13 @@
       "Bash(php -r \"echo date\\('l', strtotime\\('2026-06-19'\\)\\);\")",
       "Bash(grep -nE 'public function \\(show|update|uploadImage|removeImage\\)|'\\\\''[a-z_]+'\\\\'' =>|\\\\$request->|validate|->only\\\\\\(|user->[a-z_]+' app/Http/Controllers/Api/V1/ProfileController.php)",
       "Bash(xargs sed -n '46,140p')",
-      "Bash(grep -rnE 'protected \\\\$fillable|'\\\\''title'\\\\''|'\\\\''name'\\\\''' app/Models/HRM/Designation.php)"
+      "Bash(grep -rnE 'protected \\\\$fillable|'\\\\''title'\\\\''|'\\\\''name'\\\\''' app/Models/HRM/Designation.php)",
+      "Bash(cd \"c:\\\\laragon\\\\www\\\\Aero-Enterprise-Suite\" && rm -f /tmp/calc.php)",
+      "Bash(powershell -NoProfile -Command \"\\(Get-Date '2026-06-17'\\).DayOfWeek\")"
     ],
     "additionalDirectories": [
-      "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd"
+      "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
+      "\\tmp"
     ]
   }
 }
