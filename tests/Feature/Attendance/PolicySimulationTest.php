@@ -60,4 +60,25 @@ class PolicySimulationTest extends TestCase
         $this->assertSame('late', $res['samples'][0]['before_status']);
         $this->assertSame('half_day', $res['samples'][0]['after_status']);
     }
+
+    public function test_simulation_applies_breaks_overtime_from_rule_overrides(): void
+    {
+        // Guards the fix: the draft's rule_overrides (breaks/overtime) must flow into the
+        // simulated PolicyProfile. A 30-min unpaid meal deduction drops worked from 250 to
+        // 220 (< the default 240-min half-day threshold), flipping present -> half_day.
+        $u = User::factory()->create();
+        Attendance::factory()->for($u)->create([
+            'date' => '2026-06-19', 'punchin' => '2026-06-19 09:00:00', 'punchout' => '2026-06-19 13:10:00',
+        ]);
+        $draft = AttendancePolicy::factory()->make([
+            'status' => 'draft', 'punch_strictness' => 'warn',
+            'rule_overrides' => ['breaks' => ['unpaid_meal_minutes' => 30, 'meal_threshold_minutes' => 60]],
+        ]);
+
+        $res = app(PolicySimulationService::class)->simulate($draft, [$u->id], '2026-06-19', '2026-06-19');
+
+        $this->assertSame(1, $res['changed']);
+        $this->assertSame('present', $res['samples'][0]['before_status']);
+        $this->assertSame('half_day', $res['samples'][0]['after_status']);
+    }
 }

@@ -113,7 +113,7 @@ class Kernel extends ConsoleKernel
             ->appendOutputTo(storage_path('logs/biometric-log-download.log'));
 
         // Close forgotten open punches at their resolved shift end
-        $schedule->command('attendance:auto-punch-out')->hourly();
+        $schedule->command('attendance:auto-punch-out')->hourly()->withoutOverlapping();
     }
 
     /**
