@@ -7,7 +7,6 @@ import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import RosterCalendar from './Components/RosterCalendar';
 import RosterCellPopover from './Components/RosterCellPopover';
-import SwapApprovals from './Components/SwapApprovals';
 
 export default function RosterTab({ month, departments = [], isActive = true }) {
     const qc = useQueryClient();
@@ -119,8 +118,6 @@ export default function RosterTab({ month, departments = [], isActive = true }) 
                         />
                     </>
                 )}
-
-            <SwapApprovals />
         </Card>
     );
 }
