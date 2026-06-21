@@ -123,6 +123,8 @@ class AttendanceReportService
         ];
 
         $resolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
+        $policyResolver = app(\App\Services\Attendance\Contracts\PolicyResolver::class);
+        $statusEngine = app(\App\Services\Attendance\AttendanceStatusService::class);
 
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $date = Carbon::create($year, $month, $day);
@@ -190,13 +192,44 @@ class AttendanceReportService
                 $remarks = 'Holiday';
             }
 
-            $attendanceData[$dateString] = [
+            // Additive: surface policy-engine OT/break/double-time buckets for this day
+            // (Phase 3.1 Task 6) without altering any of the legacy keys above.
+            $buckets = [
+                'ot_minutes' => 0,
+                'worked_minutes' => 0,
+                'double_time_minutes' => 0,
+                'regular_minutes' => 0,
+                'break_deducted_minutes' => 0,
+                'policy_events' => [],
+            ];
+
+            if ($attendancesForDate->isNotEmpty()) {
+                $policy = $policyResolver->resolve($user->id, $date);
+                $dayResult = $statusEngine->resolve(
+                    $attendancesForDate,
+                    $schedule,
+                    isHoliday: (bool) $holiday,
+                    isOnLeave: (bool) $leave,
+                    policy: $policy,
+                );
+
+                $buckets = [
+                    'ot_minutes' => $dayResult->ot_minutes,
+                    'worked_minutes' => $dayResult->worked_minutes,
+                    'double_time_minutes' => $dayResult->double_time_minutes,
+                    'regular_minutes' => $dayResult->regular_minutes,
+                    'break_deducted_minutes' => $dayResult->break_deducted_minutes,
+                    'policy_events' => $dayResult->policy_events,
+                ];
+            }
+
+            $attendanceData[$dateString] = array_merge([
                 'status' => $symbol,
                 'punch_in' => $punchIn,
                 'punch_out' => $punchOut,
                 'total_work_hours' => $totalWorkHours,
                 'remarks' => $remarks,
-            ];
+            ], $buckets);
         }
 
         return $attendanceData;
