@@ -125,7 +125,7 @@ class QrCodeValidator extends BaseAttendanceValidator
 
             // Check if already used (one-time codes)
             $isOneTime = $globalOneTimeUse || ($code['one_time_use'] ?? false);
-            if ($isOneTime && $this->isQrCodeUsed($code['id'] ?? $qrCode)) {
+            if ($isOneTime && $this->isQrCodeUsed($code['id'] ?? $qrCode, $code['code'] ?? $qrCode)) {
                 continue;
             }
 
@@ -138,11 +138,21 @@ class QrCodeValidator extends BaseAttendanceValidator
     /**
      * Check if QR code has been used
      */
-    private function isQrCodeUsed(string $codeId): bool
+    private function isQrCodeUsed(string $codeId, string $codeVal): bool
     {
         $cacheKey = "qr_code_used:{$codeId}";
 
-        return Cache::has($cacheKey);
+        if (Cache::has($cacheKey)) {
+            return true;
+        }
+
+        // Query the database in real-time to check if this QR code has already been successfully scanned in a punch
+        return \App\Models\HRM\Attendance::where(function ($query) use ($codeId, $codeVal) {
+            $query->where('punchin_location', 'like', '%"qr_code":"' . $codeId . '"%')
+                  ->orWhere('punchout_location', 'like', '%"qr_code":"' . $codeId . '"%')
+                  ->orWhere('punchin_location', 'like', '%"qr_code":"' . $codeVal . '"%')
+                  ->orWhere('punchout_location', 'like', '%"qr_code":"' . $codeVal . '"%');
+        })->exists();
     }
 
     /**
