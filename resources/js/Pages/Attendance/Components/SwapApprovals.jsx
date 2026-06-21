@@ -5,7 +5,7 @@ import { requestJson } from '@/api/client';
 
 const statusColor = { pending: 'amber', approved: 'green', rejected: 'red', cancelled: 'gray' };
 
-export default function SwapApprovals() {
+export default function SwapApprovals({ status = 'pending' }) {
     const qc = useQueryClient();
     const { data } = useQuery({ queryKey: ['swaps'], queryFn: () => requestJson('get', '/attendance/swaps') });
 
@@ -17,7 +17,9 @@ export default function SwapApprovals() {
         },
     });
 
-    const swaps = data?.swaps || [];
+    const allSwaps = data?.swaps || [];
+    const swaps = status && status !== 'all' ? allSwaps.filter(s => s.status === status) : allSwaps;
+    const emptyLabel = status && status !== 'all' ? `${status} ` : '';
 
     return (
         <Box mt="5">
@@ -50,7 +52,7 @@ export default function SwapApprovals() {
                         </Table.Row>
                     ))}
                     {swaps.length === 0 && (
-                        <Table.Row><Table.Cell colSpan={5}><Text color="gray" size="2">No swap requests.</Text></Table.Cell></Table.Row>
+                        <Table.Row><Table.Cell colSpan={5}><Text color="gray" size="2">No {emptyLabel}swap requests.</Text></Table.Cell></Table.Row>
                     )}
                 </Table.Body>
             </Table.Root>

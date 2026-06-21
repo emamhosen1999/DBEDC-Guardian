@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Box, Flex, Table, Button, Badge, Text, Checkbox } from '@radix-ui/themes';
+import { Box, Flex, Table, Button, Badge, Text, Checkbox, SegmentedControl } from '@radix-ui/themes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import PunchExceptions from './PunchExceptions';
+import SwapApprovals from './SwapApprovals';
 
 const statusColor = { pending: 'amber', approved: 'green', rejected: 'red', cancelled: 'gray' };
 
@@ -16,22 +17,26 @@ function formatMinutes(mins) {
 export default function ApprovalsInbox() {
     const qc = useQueryClient();
 
+    /* Shared status filter across the inbox (Pending / Approved / Rejected / All). */
+    const [statusFilter, setStatusFilter] = useState('pending');
+    const emptyLabel = statusFilter === 'all' ? '' : `${statusFilter} `;
+
     /* ── Regularizations ───────────────────────────────────── */
     const { data: regData, isLoading: regLoading } = useQuery({
-        queryKey: ['regularizations', 'pending'],
-        queryFn: () => requestJson('get', '/attendance/regularizations/pending'),
+        queryKey: ['regularizations', statusFilter],
+        queryFn: () => requestJson('get', '/attendance/regularizations/pending', { params: { status: statusFilter } }),
     });
 
     const regApprove = useMutation({
         mutationFn: ({ id }) =>
             requestJson('post', `/attendance/regularizations/${id}/approve`, { data: {} }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['regularizations', 'pending'] }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['regularizations'] }),
     });
 
     const regReject = useMutation({
         mutationFn: ({ id, reason }) =>
             requestJson('post', `/attendance/regularizations/${id}/reject`, { data: { reason } }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['regularizations', 'pending'] }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['regularizations'] }),
     });
 
     const handleRegReject = (id) => {
@@ -42,20 +47,20 @@ export default function ApprovalsInbox() {
 
     /* ── Overtime ──────────────────────────────────────────── */
     const { data: otData, isLoading: otLoading } = useQuery({
-        queryKey: ['overtime', 'pending'],
-        queryFn: () => requestJson('get', '/attendance/overtime/pending'),
+        queryKey: ['overtime', statusFilter],
+        queryFn: () => requestJson('get', '/attendance/overtime/pending', { params: { status: statusFilter } }),
     });
 
     const otApprove = useMutation({
         mutationFn: ({ id, grant_comp_off }) =>
             requestJson('post', `/attendance/overtime/${id}/approve`, { data: { grant_comp_off } }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['overtime', 'pending'] }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['overtime'] }),
     });
 
     const otReject = useMutation({
         mutationFn: ({ id, reason }) =>
             requestJson('post', `/attendance/overtime/${id}/reject`, { data: { reason } }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['overtime', 'pending'] }),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['overtime'] }),
     });
 
     const handleOtReject = (id) => {
@@ -74,6 +79,17 @@ export default function ApprovalsInbox() {
     /* ── render ───────────────────────────────────────────── */
     return (
         <Box>
+            {/* ── Status filter ───────────────────────────── */}
+            <Flex align="center" gap="3" mb="4" wrap="wrap">
+                <Text size="2" weight="medium" color="gray">Show</Text>
+                <SegmentedControl.Root value={statusFilter} onValueChange={setStatusFilter} size="1">
+                    <SegmentedControl.Item value="pending">Pending</SegmentedControl.Item>
+                    <SegmentedControl.Item value="approved">Approved</SegmentedControl.Item>
+                    <SegmentedControl.Item value="rejected">Rejected</SegmentedControl.Item>
+                    <SegmentedControl.Item value="all">All</SegmentedControl.Item>
+                </SegmentedControl.Root>
+            </Flex>
+
             {/* ── Regularizations section ─────────────────── */}
             <Box mb="6">
                 <Text size="3" weight="bold">Regularization Requests</Text>
@@ -101,7 +117,7 @@ export default function ApprovalsInbox() {
                         {!regLoading && regs.length === 0 && (
                             <Table.Row>
                                 <Table.Cell colSpan={8}>
-                                    <Text color="gray" size="2">No pending regularization requests.</Text>
+                                    <Text color="gray" size="2">No {emptyLabel}regularization requests.</Text>
                                 </Table.Cell>
                             </Table.Row>
                         )}
@@ -148,7 +164,7 @@ export default function ApprovalsInbox() {
             </Box>
 
             {/* ── Overtime section ────────────────────────── */}
-            <Box>
+            <Box mb="6">
                 <Text size="3" weight="bold">Overtime Requests</Text>
                 <Table.Root variant="surface" mt="2">
                     <Table.Header>
@@ -173,7 +189,7 @@ export default function ApprovalsInbox() {
                         {!otLoading && ots.length === 0 && (
                             <Table.Row>
                                 <Table.Cell colSpan={7}>
-                                    <Text color="gray" size="2">No pending overtime requests.</Text>
+                                    <Text color="gray" size="2">No {emptyLabel}overtime requests.</Text>
                                 </Table.Cell>
                             </Table.Row>
                         )}
@@ -228,7 +244,10 @@ export default function ApprovalsInbox() {
                 </Table.Root>
             </Box>
 
-            {/* ── Punch Exceptions section ────────────────── */}
+            {/* ── Shift Swaps section (consolidated here from the Roster tab) ── */}
+            <SwapApprovals status={statusFilter} />
+
+            {/* ── Punch Exceptions section (inherently pending-only) ────────── */}
             <PunchExceptions />
         </Box>
     );
