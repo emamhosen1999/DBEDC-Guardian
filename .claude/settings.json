@@ -269,7 +269,8 @@
       "Bash(grep -nA18 \"function roster\\\\b\\\\|public function roster\" app/Http/Controllers/HRM/RosterController.php)",
       "Bash(grep -nA20 \"fillable\" app/Models/HRM/ShiftSwapRequest.php)",
       "Bash(grep -nA20 \"function applySwap\" app/Services/Attendance/RosterService.php)",
-      "Bash(grep -vE \"\\\\.png$|\\\\.superpowers|^ M \\\\.claude\")"
+      "Bash(grep -vE \"\\\\.png$|\\\\.superpowers|^ M \\\\.claude\")",
+      "Bash(grep -vE \"\\\\.png$|\\\\.superpowers|\\\\.claude/settings\")"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
