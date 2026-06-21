@@ -43,9 +43,11 @@ const AttendancePage = ({ title, departments = [] }) => {
         setSelectedMonth(val);
     }, []);
 
-    /* permissions */
-    const canSettings = auth.permissions?.includes('attendance.settings') || false;
-    const canManage   = auth.permissions?.includes('attendance.manage')   || false;
+    /* permissions — Super Administrator bypasses all gates unconditionally (matches the
+       backend Gate::before bypass), even for abilities that don't exist as permission records. */
+    const isSuperAdmin = auth.isSuperAdmin || false;
+    const canSettings = isSuperAdmin || auth.permissions?.includes('attendance.settings') || false;
+    const canManage   = isSuperAdmin || auth.permissions?.includes('attendance.manage')   || false;
 
     /* tab definitions */
     const tabs = [
