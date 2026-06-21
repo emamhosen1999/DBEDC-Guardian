@@ -1,0 +1,110 @@
+<?php
+
+namespace Tests\Feature\Attendance;
+
+use App\Models\HRM\ShiftSwapRequest;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
+
+/**
+ * Two-stage swap: the counterparty (affected coworker) consents BEFORE a manager/admin
+ * authorizes. Open swaps (no counterparty) skip the peer stage and go straight to admin.
+ */
+class SwapCounterpartyConsentTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Role::firstOrCreate(['name' => 'Super Administrator']);
+        Permission::firstOrCreate(['name' => 'attendance.own.view']);
+    }
+
+    private function employee(): User
+    {
+        $u = User::factory()->create();
+        $u->givePermissionTo('attendance.own.view'); // self-service swap routes are gated on this
+
+        return $u;
+    }
+
+    private function admin(): User
+    {
+        $a = User::factory()->create();
+        $a->assignRole('Super Administrator'); // Gate::before bypass passes attendance.manage routes
+
+        return $a;
+    }
+
+    public function test_named_swap_needs_counterparty_consent_then_admin(): void
+    {
+        $requester = $this->employee();
+        $counterparty = $this->employee();
+        $admin = $this->admin();
+
+        $this->actingAs($requester)->postJson(route('attendance.swaps.store'), [
+            'requester_date' => '2026-06-22',
+            'counterparty_id' => $counterparty->id,
+            'counterparty_date' => '2026-06-23',
+            'reason' => 'family',
+        ])->assertCreated();
+
+        $swap = ShiftSwapRequest::firstOrFail();
+        $this->assertSame('pending', $swap->counterparty_status);
+        $this->assertSame('pending', $swap->status);
+
+        // Admin cannot approve while the counterparty hasn't responded.
+        $this->actingAs($admin)->postJson(route('attendance.swaps.approve', $swap->id))->assertStatus(409);
+
+        // Only the counterparty may respond.
+        $this->actingAs($requester)->postJson(route('attendance.swaps.respond', $swap->id), ['decision' => 'accept'])->assertStatus(403);
+
+        // Counterparty sees it in their awaiting-me inbox, then accepts.
+        $this->actingAs($counterparty)->getJson(route('attendance.swaps.awaitingMe'))->assertOk()->assertJsonCount(1, 'swaps');
+        $this->actingAs($counterparty)->postJson(route('attendance.swaps.respond', $swap->id), ['decision' => 'accept'])->assertOk();
+        $this->assertSame('accepted', $swap->fresh()->counterparty_status);
+
+        // No longer awaiting the counterparty; now admin-actionable.
+        $this->actingAs($counterparty)->getJson(route('attendance.swaps.awaitingMe'))->assertOk()->assertJsonCount(0, 'swaps');
+        $this->actingAs($admin)->postJson(route('attendance.swaps.approve', $swap->id))->assertOk();
+        $this->assertSame('approved', $swap->fresh()->status);
+    }
+
+    public function test_counterparty_decline_terminates_the_swap(): void
+    {
+        $requester = $this->employee();
+        $counterparty = $this->employee();
+
+        $this->actingAs($requester)->postJson(route('attendance.swaps.store'), [
+            'requester_date' => '2026-06-22', 'counterparty_id' => $counterparty->id, 'counterparty_date' => '2026-06-23',
+        ])->assertCreated();
+        $swap = ShiftSwapRequest::firstOrFail();
+
+        $this->actingAs($counterparty)->postJson(route('attendance.swaps.respond', $swap->id), ['decision' => 'decline'])->assertOk();
+        $swap->refresh();
+        $this->assertSame('declined', $swap->counterparty_status);
+        $this->assertSame('rejected', $swap->status);
+    }
+
+    public function test_open_swap_skips_peer_stage_and_goes_to_admin(): void
+    {
+        $requester = $this->employee();
+        $admin = $this->admin();
+
+        $this->actingAs($requester)->postJson(route('attendance.swaps.store'), [
+            'requester_date' => '2026-06-22', 'reason' => 'give away',
+        ])->assertCreated();
+        $swap = ShiftSwapRequest::firstOrFail();
+        $this->assertNull($swap->counterparty_status);
+
+        // No peer step → admin can approve directly.
+        $this->actingAs($admin)->postJson(route('attendance.swaps.approve', $swap->id))->assertOk();
+        $this->assertSame('approved', $swap->fresh()->status);
+    }
+}

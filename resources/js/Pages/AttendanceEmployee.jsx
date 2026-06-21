@@ -17,6 +17,7 @@ import SwapRequestForm from '@/Forms/SwapRequestForm';
 import RegularizationForm from '@/Forms/RegularizationForm';
 import OvertimeRequestForm from '@/Forms/OvertimeRequestForm';
 import MyRequests from './Attendance/Components/MyRequests';
+import SwapResponses from './Attendance/Components/SwapResponses';
 
 const MyRosterCard = ({ month }) => {
   const { auth } = usePage().props;
@@ -223,6 +224,13 @@ const AttendanceEmployee = React.memo(({ title }) => {
             {/* ── My Roster ── */}
             <ErrorBoundary>
               <MyRosterCard month={filterData.currentMonth} />
+            </ErrorBoundary>
+
+            {/* ── Swap requests awaiting my response (counterparty consent) ── */}
+            <ErrorBoundary>
+              <Box mt="4">
+                <SwapResponses />
+              </Box>
             </ErrorBoundary>
 
             <Separator size="4" mb="4" mt="4" />
