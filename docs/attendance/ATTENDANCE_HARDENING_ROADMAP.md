@@ -71,6 +71,27 @@ Status legend: ✅ done · 🔭 planned. Severity mirrors the analysis.
   just becomes an open "Not Punched Out" row; auto-push anomalies into the approver/exception
   queue (pipeline §5) instead of relying on manual regularization.
 
+## 🟠/🟡 Phase B/C — Holiday / Leave / Weekend relationship gaps (audit findings)
+
+**Holidays ↔ attendance (model standard, integration partial):**
+- Recurrence (`is_recurring`/`recurrence_pattern`) is NEVER applied — holidays match literal
+  `from_date/to_date` year/month, so annual recurring holidays don't recur. Apply recurrence.
+- `is_active` not filtered in `getHolidaysForMonth()` — inactive holidays still count.
+- No location/department scoping — holidays are global; add per-location/calendar scoping for multi-site.
+
+**Leaves ↔ attendance (not comprehensive):**
+- Whole-day only — no half-day/hourly leave (#7); a half-day-leave + half-day-work day isn't reconciled.
+- `no_of_days` is CLIENT-supplied (`$data['daysCount']`) — compute server-side, excluding
+  weekends + holidays (standard), and stop trusting the client.
+- No paid/unpaid flag on `LeaveSetting` — payroll (#2) can't tell which leave deducts pay.
+- Link is indirect (date overlap, no FK); engine gets only `isOnLeave` (now approved-only — fixed #5).
+
+**Weekends / weekly-offs (per-roster good, reporting inconsistent):**
+- Sources: global `AttendanceSetting.weekend_days` + per-employee roster off-days (good, standard).
+- Reporting misuses it: monthly stats estimate weekends as `daysPassed*2/7` (#4); grid shading uses
+  only the GLOBAL weekend set (ignores roster off-days); leave day-counts ignore weekends.
+- No first-class weekend-work → comp-off/OT rule.
+
 ## Cross-cutting (thread through all phases)
 Immutable audit (who/what/when/IP), real-time anomaly alerts to approvers, reports==engine,
 per-site timezone+DST, idempotent replay-safe device sync.
