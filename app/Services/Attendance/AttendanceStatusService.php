@@ -158,7 +158,7 @@ class AttendanceStatusService
         $breakDeducted = 0;
         $policyEvents = [];
         if (! $policy->isNeutral()) {
-            if ($policy->overtime()) {
+            if ($policy->overtime() && $shift->isWorkingDay) {
                 $otMinutes = $ctx->otMinutes;
                 $doubleTimeMinutes = $ctx->doubleTimeMinutes;
                 $regularMinutes = $ctx->regularMinutes;

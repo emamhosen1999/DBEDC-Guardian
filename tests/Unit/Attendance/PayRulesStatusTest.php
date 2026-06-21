@@ -100,4 +100,28 @@ class PayRulesStatusTest extends TestCase
         $this->assertNotSame(572, $r->worked_minutes); // would be 572 if breaks ran against raw worked
         $this->assertSame(30, $r->break_deducted_minutes);
     }
+
+    public function test_overtime_policy_does_not_override_legacy_all_ot_on_off_day(): void
+    {
+        // Phase 3.1 overtime bucket-split must be PURELY ADDITIVE: on a non-working
+        // (off) day the legacy semantics — ALL worked minutes are OT-eligible — must
+        // be preserved even when an overtime policy is configured. The bucket-override
+        // in AttendanceStatusService must only apply on working days.
+        $policy = new PolicyProfile(
+            overtime: ['daily_threshold_minutes' => 480, 'daily_multiplier' => 1.5],
+        );
+        $shift = $this->shift(['isWorkingDay' => false]);
+        $punches = collect([(object) [
+            'punchin' => Carbon::parse('2026-06-19 09:00'),
+            'punchout' => Carbon::parse('2026-06-19 19:00'),
+        ]]);
+
+        $r = (new AttendanceStatusService)->resolve($punches, $shift, policy: $policy);
+
+        $this->assertSame(600, $r->worked_minutes);
+        $this->assertSame($r->worked_minutes, $r->ot_minutes); // all off-day hours are OT, not threshold-split
+        $this->assertSame(0, $r->double_time_minutes);
+        $this->assertSame(0, $r->regular_minutes);
+        $this->assertContains('worked_on_off_day', $r->flags);
+    }
 }
