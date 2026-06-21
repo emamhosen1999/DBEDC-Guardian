@@ -121,6 +121,8 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/get-current-user-attendance-for-date', [AttendanceController::class, 'getCurrentUserAttendanceForDate'])->name('getCurrentUserAttendanceForDate');
         Route::get('/attendance/my-roster', [\App\Http\Controllers\HRM\RosterController::class, 'myRoster'])->name('attendance.myRoster');
         Route::post('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'store'])->name('attendance.swaps.store');
+        Route::get('/attendance/swaps/awaiting-me', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'awaitingMe'])->name('attendance.swaps.awaitingMe');
+        Route::post('/attendance/swaps/{id}/respond', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'respond'])->name('attendance.swaps.respond');
         Route::post('/attendance/regularizations', [\App\Http\Controllers\HRM\RegularizationController::class, 'store'])->name('attendance.regularizations.store');
         Route::get('/attendance/regularizations/mine', [\App\Http\Controllers\HRM\RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
         Route::post('/attendance/overtime', [\App\Http\Controllers\HRM\OvertimeController::class, 'store'])->name('attendance.overtime.store');
