@@ -3,6 +3,7 @@ import { Dialog, Flex, Box, Select, TextField, Button, Text } from '@radix-ui/th
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, employees = [], departments = [], designations = [] }) {
     const empty = { scope_type: 'org', scope_id: '', shift_id: '', anchor_date: '', effective_from: '', effective_to: '', priority: 0 };
@@ -87,16 +88,28 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
 
                     <Flex gap="3" wrap="wrap">
                         <Box style={{ flex: '1 1 130px' }}>
-                            <Text size="1" color="gray" as="div" mb="1">Anchor date</Text>
-                            <TextField.Root type="date" value={form.anchor_date} onChange={e => set('anchor_date', e.target.value)} />
+                            <DateTimePicker
+                                mode="date"
+                                label="Anchor date"
+                                value={form.anchor_date}
+                                onChange={v => set('anchor_date', v)}
+                            />
                         </Box>
                         <Box style={{ flex: '1 1 130px' }}>
-                            <Text size="1" color="gray" as="div" mb="1">Effective from *</Text>
-                            <TextField.Root type="date" value={form.effective_from} onChange={e => set('effective_from', e.target.value)} />
+                            <DateTimePicker
+                                mode="date"
+                                label="Effective from *"
+                                value={form.effective_from}
+                                onChange={v => set('effective_from', v)}
+                            />
                         </Box>
                         <Box style={{ flex: '1 1 130px' }}>
-                            <Text size="1" color="gray" as="div" mb="1">Effective to</Text>
-                            <TextField.Root type="date" value={form.effective_to} onChange={e => set('effective_to', e.target.value)} />
+                            <DateTimePicker
+                                mode="date"
+                                label="Effective to"
+                                value={form.effective_to}
+                                onChange={v => set('effective_to', v)}
+                            />
                         </Box>
                     </Flex>
 

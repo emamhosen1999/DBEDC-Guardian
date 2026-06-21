@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import PolicyForm from '@/Forms/PolicyForm';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const statusColor = { draft: 'gray', active: 'green', archived: 'amber' };
 
@@ -83,12 +84,12 @@ export default function PoliciesManager() {
 
             <Flex gap="3" align="end" mb="3" wrap="wrap">
                 <Box>
-                    <Text size="1" color="gray" as="div" mb="1">Preview from</Text>
-                    <TextField.Root type="date" value={simRange.from} onChange={e => setSimRange(r => ({ ...r, from: e.target.value }))} />
-                </Box>
-                <Box>
-                    <Text size="1" color="gray" as="div" mb="1">Preview to</Text>
-                    <TextField.Root type="date" value={simRange.to} onChange={e => setSimRange(r => ({ ...r, to: e.target.value }))} />
+                    <DateTimePicker
+                        mode="dateRange"
+                        label="Preview from → Preview to"
+                        value={{ start: simRange.from, end: simRange.to }}
+                        onChange={({ start, end }) => setSimRange({ from: start, to: end })}
+                    />
                 </Box>
                 <Text size="1" color="gray">Pick a date range, then use "Preview impact" on a policy row below.</Text>
             </Flex>
