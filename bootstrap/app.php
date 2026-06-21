@@ -51,12 +51,17 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             TrackSecurityActivity::class,
+            \App\Http\Middleware\DisableCacheHeaders::class,
             // NOTE: The custom CheckSessionExpiry sliding-window middleware was
             // removed. It duplicated Laravel's native database-session idle
             // lifetime (config('session.lifetime')) using a separate payload key,
             // creating a second, competing web-only expiry timer. Native session
             // lifetime is now the single source of truth for web idle timeout,
             // matching the mobile token sliding window. See docs/session-expiry-policy.md.
+        ]);
+
+        $middleware->api(append: [
+            \App\Http\Middleware\DisableCacheHeaders::class,
         ]);
 
         $middleware->append(LogRequestMiddleware::class);
