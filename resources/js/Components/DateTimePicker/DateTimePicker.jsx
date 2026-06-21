@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Popover, TextField, Button, Flex, Text } from '@radix-ui/themes';
+import { Popover, TextField, Flex, Text } from '@radix-ui/themes';
 import { CalendarDateTime, Time } from '@internationalized/date';
 import { CalendarDays, Clock, X } from 'lucide-react';
 import {
@@ -22,7 +22,7 @@ function mergeDateTime(calDate, time, granularity) {
   return dateTimeToStr(dt, granularity);
 }
 
-function displayText(mode, value, granularity) {
+function displayText(mode, value) {
   if (RANGE_MODES.has(mode)) {
     const { start, end } = value || {};
     if (!start && !end) return '';
@@ -51,7 +51,6 @@ export default function DateTimePicker({
 }) {
   const [open, setOpen] = useState(false);
   const isRange = RANGE_MODES.has(mode);
-  const hasTime = TIME_MODES.has(mode);
   const hasDate = DATE_MODES.has(mode);
 
   const minValue = strToDate(min);
@@ -78,6 +77,7 @@ export default function DateTimePicker({
   const handleSingleDate = (calDate) => {
     if (mode === 'date') {
       onChange(dateToStr(calDate));
+      setOpen(false);
     } else if (mode === 'datetime') {
       const existing = strToDateTime(value);
       const t = existing ? new Time(existing.hour, existing.minute, existing.second) : null;
@@ -89,6 +89,7 @@ export default function DateTimePicker({
     // range.start / range.end are CalendarDate or CalendarDateTime
     if (mode === 'dateRange') {
       onChange({ start: dateToStr(range.start), end: dateToStr(range.end) });
+      setOpen(false);
     } else {
       const sExisting = strToDateTime(value?.start);
       const eExisting = strToDateTime(value?.end);
@@ -126,7 +127,7 @@ export default function DateTimePicker({
     onChange(isRange ? { start: '', end: '' } : '');
   };
 
-  const text = displayText(mode, value, granularity);
+  const text = displayText(mode, value);
   const showClear = clearable && !disabled && !readOnly &&
     (isRange ? (value?.start || value?.end) : value);
 
