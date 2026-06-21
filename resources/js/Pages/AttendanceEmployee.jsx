@@ -18,12 +18,15 @@ import RegularizationForm from '@/Forms/RegularizationForm';
 import OvertimeRequestForm from '@/Forms/OvertimeRequestForm';
 import MyRequests from './Attendance/Components/MyRequests';
 
-const MyRosterCard = () => {
+const MyRosterCard = ({ month }) => {
   const { auth } = usePage().props;
   const [swapOpen, setSwapOpen] = useState(false);
 
-  const from = dayjs().format('YYYY-MM-DD');
-  const to = dayjs().add(13, 'day').format('YYYY-MM-DD');
+  // Driven by the page's month dropdown (whole selected month), so it stays in sync
+  // with the overview + attendance table instead of a fixed rolling 14-day window.
+  const base = month ? dayjs(month + '-01') : dayjs();
+  const from = base.startOf('month').format('YYYY-MM-DD');
+  const to = base.endOf('month').format('YYYY-MM-DD');
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['my-roster', from, to],
@@ -41,7 +44,7 @@ const MyRosterCard = () => {
         <Flex justify="between" align="center" mb="3" wrap="wrap" gap="2">
           <Flex align="center" gap="2">
             <LayersIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-            <Text size="3" weight="bold">My Roster (next 14 days)</Text>
+            <Text size="3" weight="bold">My Roster — {base.format('MMMM YYYY')}</Text>
           </Flex>
           <Button size="2" variant="soft" onClick={() => setSwapOpen(true)}>
             Request swap
@@ -219,7 +222,7 @@ const AttendanceEmployee = React.memo(({ title }) => {
 
             {/* ── My Roster ── */}
             <ErrorBoundary>
-              <MyRosterCard />
+              <MyRosterCard month={filterData.currentMonth} />
             </ErrorBoundary>
 
             <Separator size="4" mb="4" mt="4" />

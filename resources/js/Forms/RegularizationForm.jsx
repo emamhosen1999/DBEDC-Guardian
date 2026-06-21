@@ -36,8 +36,9 @@ export default function RegularizationForm({ open, onOpenChange, onSaved }) {
                 data: {
                     date,
                     type,
-                    requested_punchin:  punchin  || null,
-                    requested_punchout: punchout || null,
+                    // Punch fields are time-only; combine with the selected Date into a datetime.
+                    requested_punchin:  punchin  ? `${date} ${punchin}`  : null,
+                    requested_punchout: punchout ? `${date} ${punchout}` : null,
                     reason,
                 },
             });
@@ -82,7 +83,7 @@ export default function RegularizationForm({ open, onOpenChange, onSaved }) {
                     <Box>
                         <Text size="1" color="gray" as="div" mb="1">Requested punch-in (optional)</Text>
                         <TextField.Root
-                            type="datetime-local"
+                            type="time"
                             value={punchin}
                             onChange={e => setPunchin(e.target.value)}
                         />
@@ -91,7 +92,7 @@ export default function RegularizationForm({ open, onOpenChange, onSaved }) {
                     <Box>
                         <Text size="1" color="gray" as="div" mb="1">Requested punch-out (optional)</Text>
                         <TextField.Root
-                            type="datetime-local"
+                            type="time"
                             value={punchout}
                             onChange={e => setPunchout(e.target.value)}
                         />
