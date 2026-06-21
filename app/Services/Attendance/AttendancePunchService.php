@@ -344,8 +344,9 @@ class AttendancePunchService
     {
         $lat = $request->input('lat');
         $lng = $request->input('lng');
+        $qrCode = $request->input('qr_code');
 
-        if (! $lat || ! $lng) {
+        if (! $lat && ! $lng && ! $qrCode) {
             return null;
         }
 
@@ -355,6 +356,10 @@ class AttendancePunchService
             'address' => $request->input('address', ''),
             'timestamp' => now()->toISOString(),
         ];
+
+        if ($qrCode) {
+            $locationData['qr_code'] = $qrCode;
+        }
 
         return json_encode($locationData);
     }
