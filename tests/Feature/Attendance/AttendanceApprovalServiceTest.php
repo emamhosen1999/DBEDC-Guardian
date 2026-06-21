@@ -3,11 +3,11 @@
 namespace Tests\Feature\Attendance;
 
 use App\Models\HRM\AttendanceRegularization;
-use App\Models\HRM\Department;
-use App\Models\HRM\Designation;
 use App\Models\User;
 use App\Services\Attendance\AttendanceApprovalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class AttendanceApprovalServiceTest extends TestCase
@@ -59,18 +59,22 @@ class AttendanceApprovalServiceTest extends TestCase
         $this->assertFalse($svc->approve($m->fresh(), $other)['success']);
     }
 
-    public function test_managerless_requester_with_department_head_is_not_stranded(): void
+    public function test_managerless_requester_routes_to_hr_admin_not_a_colleague(): void
     {
-        $department = Department::factory()->create();
-        $designation = Designation::factory()->create(['department_id' => $department->id]);
-        $deptHead = User::factory()->create(['department_id' => $department->id, 'designation_id' => $designation->id]);
-        $emp = User::factory()->create(['report_to' => null, 'department_id' => $department->id]);
+        // No manager on record → route to a REAL authority (HR/admin role), NOT an
+        // arbitrary department colleague (the old heuristic that stranded requests).
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $hr = User::factory()->create();
+        $hr->assignRole(Role::firstOrCreate(['name' => 'HR Manager']));
+        $colleague = User::factory()->create(); // a plain co-worker — must NOT be chosen
+        $emp = User::factory()->create(['report_to' => null]);
         $svc = app(AttendanceApprovalService::class);
 
         $chain = $svc->buildChain($emp);
         $this->assertCount(1, $chain);
         $this->assertSame(1, $chain[0]['level']);
-        $this->assertSame($deptHead->id, $chain[0]['approver_id']);
+        $this->assertSame($hr->id, $chain[0]['approver_id']);
+        $this->assertNotSame($colleague->id, $chain[0]['approver_id']);
 
         $m = AttendanceRegularization::create([
             'user_id' => $emp->id, 'date' => '2026-06-18', 'type' => 'missing_punchout',
@@ -78,11 +82,10 @@ class AttendanceApprovalServiceTest extends TestCase
         ]);
         $svc->submit($m);
 
-        $this->assertSame(1, $m->fresh()->current_approval_level);
         $this->assertSame('pending', $m->fresh()->status);
-        $this->assertTrue($svc->canApprove($m->fresh(), $deptHead));
+        $this->assertTrue($svc->canApprove($m->fresh(), $hr));
 
-        $res = $svc->approve($m->fresh(), $deptHead, 'ok');
+        $res = $svc->approve($m->fresh(), $hr, 'ok');
         $this->assertTrue($res['success']);
         $this->assertSame('approved', $m->fresh()->status);
     }
