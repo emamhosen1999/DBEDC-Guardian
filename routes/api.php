@@ -206,6 +206,10 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::post('/attendance/overtime', [MobileAttendanceRequestController::class, 'storeOvertime'])->name('api.v1.attendance.overtime.store');
     Route::get('/attendance/overtime/mine', [MobileAttendanceRequestController::class, 'myOvertime'])->name('api.v1.attendance.overtime.mine');
     Route::get('/attendance/comp-off/mine', [MobileAttendanceRequestController::class, 'myCompOff'])->name('api.v1.attendance.compoff.mine');
+    Route::post('/attendance/swaps', [MobileAttendanceRequestController::class, 'storeSwap'])->name('api.v1.attendance.swaps.store');
+    Route::get('/attendance/swaps/mine', [MobileAttendanceRequestController::class, 'mySwaps'])->name('api.v1.attendance.swaps.mine');
+    Route::get('/attendance/swaps/awaiting-me', [MobileAttendanceRequestController::class, 'swapsAwaitingMe'])->name('api.v1.attendance.swaps.awaiting-me');
+    Route::post('/attendance/swaps/{id}/respond', [MobileAttendanceRequestController::class, 'respondSwap'])->whereNumber('id')->name('api.v1.attendance.swaps.respond');
     Route::get('/leave-types', [MobileLeaveController::class, 'types'])->name('api.v1.leave-types.index');
     Route::get('/leaves', [MobileLeaveController::class, 'index'])->name('api.v1.leaves.index');
     Route::get('/leaves/summary', [MobileLeaveController::class, 'summary'])->name('api.v1.leaves.summary');

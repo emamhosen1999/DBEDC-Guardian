@@ -8,6 +8,7 @@ use App\Models\HRM\AttendanceRegularization;
 use App\Models\HRM\CompOffLedger;
 use App\Models\HRM\OvertimeRequest;
 use App\Models\HRM\RosterDay;
+use App\Models\HRM\ShiftSwapRequest;
 use App\Services\Attendance\CompOffService;
 use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
@@ -133,5 +134,75 @@ class AttendanceRequestController extends Controller
             'name' => $request->user()->name,
             'days' => $days,
         ]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Shift swaps (ESS) — request, my list, inbox (awaiting my consent), respond
+    // -------------------------------------------------------------------------
+
+    public function storeSwap(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'requester_date'     => 'required|date',
+            'counterparty_id'    => 'nullable|integer|exists:users,id',
+            'counterparty_date'  => 'nullable|date',
+            'requested_shift_id' => 'nullable|integer|exists:shifts,id',
+            'reason'             => 'nullable|string|max:500',
+        ]);
+
+        $data['requester_id'] = $request->user()->id;
+        $data['status'] = 'pending';
+        // Two-stage: a named counterparty must consent before manager review.
+        // An open/give-away swap (no counterparty) skips the peer step → admin.
+        $data['counterparty_status'] = ! empty($data['counterparty_id']) ? 'pending' : null;
+
+        $swap = ShiftSwapRequest::create($data);
+
+        $message = $data['counterparty_status'] === 'pending'
+            ? 'Swap request sent to the counterparty for confirmation.'
+            : 'Swap request submitted for approval.';
+
+        return $this->successResponse($swap->load(['counterparty:id,name']), $message, 201);
+    }
+
+    public function mySwaps(Request $request): JsonResponse
+    {
+        $swaps = ShiftSwapRequest::with(['counterparty:id,name'])
+            ->where('requester_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return $this->successResponse($swaps);
+    }
+
+    public function swapsAwaitingMe(Request $request): JsonResponse
+    {
+        $swaps = ShiftSwapRequest::with(['requester:id,name'])
+            ->where('counterparty_id', $request->user()->id)
+            ->where('counterparty_status', 'pending')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return $this->successResponse($swaps);
+    }
+
+    public function respondSwap(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate(['decision' => 'required|in:accept,decline']);
+
+        $swap = ShiftSwapRequest::findOrFail($id);
+
+        abort_unless($swap->counterparty_id === $request->user()->id, 403, 'Only the counterparty can respond to this swap.');
+        abort_if($swap->counterparty_status !== 'pending', 409, 'This swap is not awaiting your response.');
+
+        if ($data['decision'] === 'accept') {
+            $swap->update(['counterparty_status' => 'accepted']);
+
+            return $this->successResponse($swap->fresh(), 'Swap accepted; sent to your manager for final approval.');
+        }
+
+        $swap->update(['counterparty_status' => 'declined', 'status' => 'rejected']);
+
+        return $this->successResponse($swap->fresh(), 'Swap declined.');
     }
 }

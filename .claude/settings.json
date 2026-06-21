@@ -270,7 +270,12 @@
       "Bash(grep -nA20 \"fillable\" app/Models/HRM/ShiftSwapRequest.php)",
       "Bash(grep -nA20 \"function applySwap\" app/Services/Attendance/RosterService.php)",
       "Bash(grep -vE \"\\\\.png$|\\\\.superpowers|^ M \\\\.claude\")",
-      "Bash(grep -vE \"\\\\.png$|\\\\.superpowers|\\\\.claude/settings\")"
+      "Bash(grep -vE \"\\\\.png$|\\\\.superpowers|\\\\.claude/settings\")",
+      "Bash(grep -nA8 \"fillable\" app/Models/HRM/Leave.php)",
+      "Bash(grep -nA6 \"fillable\" app/Models/HRM/LeaveSetting.php)",
+      "Bash(grep -nE 'function \\(requester|counterparty|requestedShift|shift\\)|fillable|protected \\\\$casts|counterparty_status|requester_date' app/Models/HRM/ShiftSwapRequest.php)",
+      "Bash(php -l app/Http/Controllers/Api/V1/AttendanceRequestController.php)",
+      "Bash(php -l routes/api.php)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
