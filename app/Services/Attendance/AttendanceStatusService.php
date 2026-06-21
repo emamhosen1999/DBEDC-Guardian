@@ -6,6 +6,8 @@ use App\Services\Attendance\DTO\DayAttendance;
 use App\Services\Attendance\DTO\DayContext;
 use App\Services\Attendance\DTO\PolicyProfile;
 use App\Services\Attendance\DTO\ShiftSchedule;
+use App\Services\Attendance\Rules\BreaksEvaluator;
+use App\Services\Attendance\Rules\DailyOvertimeEvaluator;
 use App\Services\Attendance\Rules\GraceTiersEvaluator;
 use App\Services\Attendance\Rules\RoundingEvaluator;
 use Carbon\Carbon;
@@ -81,29 +83,33 @@ class AttendanceStatusService
         }
 
         $policy ??= PolicyProfile::neutral();
+        $ctx = null;
         if (! $policy->isNeutral()) {
             $originalFirstIn = $firstIn;
             $originalLastOut = $lastOut;
             $ctx = new DayContext($firstIn, $lastOut, $workedMinutes, $flags, $shift, $policy);
-            (new RuleEngine(new RoundingEvaluator, new GraceTiersEvaluator))->apply($ctx);
+
+            // Phase 1: rounding adjusts only the boundaries.
+            (new RuleEngine(new RoundingEvaluator))->apply($ctx);
+
+            // Recompute worked from the rounding boundary deltas (Phase 3.0 logic, now writing into $ctx).
+            if ($policy->rounding()) {
+                if ($originalFirstIn && $ctx->firstIn) {
+                    $ctx->workedMinutes += (int) round($ctx->firstIn->diffInMinutes($originalFirstIn, false));
+                }
+                if ($originalLastOut && $ctx->lastOut) {
+                    $ctx->workedMinutes += (int) round($originalLastOut->diffInMinutes($ctx->lastOut, false));
+                }
+                $ctx->workedMinutes = max(0, $ctx->workedMinutes);
+            }
+
+            // Phase 2: breaks (deduct from rounding-adjusted worked) -> graceTiers -> overtime (split post-break worked).
+            (new RuleEngine(new BreaksEvaluator, new GraceTiersEvaluator, new DailyOvertimeEvaluator))->apply($ctx);
+
             $firstIn = $ctx->firstIn;
             $lastOut = $ctx->lastOut;
             $flags = $ctx->flags;
-            // Rounding shifts only the outer boundaries; adjust the per-segment worked sum
-            // by those shifts so interior break gaps are never re-counted.
-            if ($policy->rounding()) {
-                if ($originalFirstIn && $firstIn) {
-                    // $firstIn->diffInMinutes($originalFirstIn, false) = originalFirstIn − firstIn
-                    // positive when firstIn rounded earlier (segment grew) → add to worked minutes.
-                    $workedMinutes += (int) round($firstIn->diffInMinutes($originalFirstIn, false));
-                }
-                if ($originalLastOut && $lastOut) {
-                    // $originalLastOut->diffInMinutes($lastOut, false) = lastOut − originalLastOut
-                    // positive when lastOut rounded later (segment grew) → add to worked minutes.
-                    $workedMinutes += (int) round($originalLastOut->diffInMinutes($lastOut, false));
-                }
-                $workedMinutes = max(0, $workedMinutes);
-            }
+            $workedMinutes = $ctx->workedMinutes; // includes any break deduction
         }
 
         // Has punches → derive metrics.
@@ -145,6 +151,24 @@ class AttendanceStatusService
             }
         }
 
+        // Policy-driven pay-rule overrides — gated strictly behind a non-neutral policy so
+        // the neutral path above remains byte-identical to Phase 3.0.
+        $doubleTimeMinutes = 0;
+        $regularMinutes = 0;
+        $breakDeducted = 0;
+        $policyEvents = [];
+        if (! $policy->isNeutral()) {
+            if ($policy->overtime()) {
+                $otMinutes = $ctx->otMinutes;
+                $doubleTimeMinutes = $ctx->doubleTimeMinutes;
+                $regularMinutes = $ctx->regularMinutes;
+            }
+            if ($policy->breaks()) {
+                $breakDeducted = $ctx->breakDeductedMinutes;
+            }
+            $policyEvents = $ctx->policyEvents;
+        }
+
         // Status precedence among present-day outcomes.
         $status = DayAttendance::PRESENT;
 
@@ -170,6 +194,10 @@ class AttendanceStatusService
             last_out: $lastOut,
             is_complete: $isComplete,
             flags: array_values(array_unique($flags)),
+            double_time_minutes: $doubleTimeMinutes,
+            regular_minutes: $regularMinutes,
+            break_deducted_minutes: $breakDeducted,
+            policy_events: $policyEvents,
         );
     }
 }
