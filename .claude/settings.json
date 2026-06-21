@@ -236,7 +236,11 @@
       "Bash(grep -rnE 'protected \\\\$fillable|'\\\\''title'\\\\''|'\\\\''name'\\\\''' app/Models/HRM/Designation.php)",
       "Bash(cd \"c:\\\\laragon\\\\www\\\\Aero-Enterprise-Suite\" && rm -f /tmp/calc.php)",
       "Bash(powershell -NoProfile -Command \"\\(Get-Date '2026-06-17'\\).DayOfWeek\")",
-      "Bash(xargs cat)"
+      "Bash(xargs cat)",
+      "Bash(grep -nA15 \"function store\")",
+      "Bash(grep -nA15 \"function store\" app/Http/Controllers/HRM/OvertimeController.php)",
+      "Bash(grep -nA18 \"function store\" app/Http/Controllers/HRM/ShiftSwapController.php)",
+      "Bash(grep -nA12 \"function index\" app/Http/Controllers/HRM/ShiftSwapController.php)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
