@@ -72,7 +72,18 @@ class HandleInertiaRequests extends Middleware
                 'isAuthenticated' => (bool) $user,
                 'sessionValid' => $user && $request->session()->isStarted(),
                 'roles' => $user ? $user->roles->pluck('name')->toArray() : [],
-                'permissions' => $user ? $user->getAllPermissions()->pluck('name')->toArray() : [],
+                // Super Administrator authority comes from a Gate::before bypass (AuthServiceProvider),
+                // not from explicitly-assigned permissions — so getAllPermissions() would NOT include
+                // abilities like attendance.manage for them. The frontend gates UI on
+                // permissions.includes(...), so without this a Super Admin silently loses admin UI
+                // (e.g. the attendance Approvals tab). Mirror the backend bypass: hand Super Admins
+                // the full permission list so every client-side gate matches their real authority.
+                'permissions' => $user
+                    ? ($user->hasRole('Super Administrator')
+                        ? \Spatie\Permission\Models\Permission::query()->pluck('name')->unique()->values()->toArray()
+                        : $user->getAllPermissions()->pluck('name')->toArray())
+                    : [],
+                'isSuperAdmin' => $user ? $user->hasRole('Super Administrator') : false,
                 'designation' => $userWithRelations?->designation?->title,
                 // Navigation is built client-side from resources/js/Props/pages.jsx (see Layouts/App.jsx).
                 // The legacy DB-driven Module Permission Registry nav is disabled: as a bare Inertia v2
