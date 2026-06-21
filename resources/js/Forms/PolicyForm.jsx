@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, Flex, Box, Select, TextField, Button, Text, IconButton, Separator } from '@radix-ui/themes';
+import { Dialog, Flex, Box, Select, TextField, Button, Text, IconButton, Separator, Checkbox } from '@radix-ui/themes';
 import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 
 const emptyGraceTier = () => ({ upto_minutes: 15, outcome: 'late' });
+
+const emptyBreaks = () => ({ unpaid_meal_minutes: '', meal_threshold_minutes: '' });
+const emptyOvertime = () => ({
+    daily_threshold_minutes: '',
+    daily_multiplier: '',
+    double_time_threshold_minutes: '',
+    double_time_multiplier: '',
+    require_preauthorization: false,
+});
 
 export default function PolicyForm({ open, onOpenChange, onSaved, policy = null }) {
     const empty = {
@@ -19,6 +28,8 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
     const [form, setForm] = useState(empty);
     const [graceTiers, setGraceTiers] = useState([]);
     const [rounding, setRounding] = useState({ strategy: 'none', unit_minutes: 15, direction: 'nearest' });
+    const [breaks, setBreaks] = useState(emptyBreaks());
+    const [overtime, setOvertime] = useState(emptyOvertime());
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -39,10 +50,30 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
                 });
                 setGraceTiers(policy.grace_tiers?.late || []);
                 setRounding(policy.rounding || { strategy: 'none', unit_minutes: 15, direction: 'nearest' });
+                const ro = policy.rule_overrides || {};
+                setBreaks(ro.breaks
+                    ? {
+                        unpaid_meal_minutes: ro.breaks.unpaid_meal_minutes ?? '',
+                        meal_threshold_minutes: ro.breaks.meal_threshold_minutes ?? '',
+                    }
+                    : emptyBreaks()
+                );
+                setOvertime(ro.overtime
+                    ? {
+                        daily_threshold_minutes: ro.overtime.daily_threshold_minutes ?? '',
+                        daily_multiplier: ro.overtime.daily_multiplier ?? '',
+                        double_time_threshold_minutes: ro.overtime.double_time_threshold_minutes ?? '',
+                        double_time_multiplier: ro.overtime.double_time_multiplier ?? '',
+                        require_preauthorization: ro.overtime.require_preauthorization ?? false,
+                    }
+                    : emptyOvertime()
+                );
             } else {
                 setForm(empty);
                 setGraceTiers([]);
                 setRounding({ strategy: 'none', unit_minutes: 15, direction: 'nearest' });
+                setBreaks(emptyBreaks());
+                setOvertime(emptyOvertime());
             }
             setError('');
         }
@@ -53,10 +84,48 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
     const removeGraceTier = (idx) => setGraceTiers(t => t.filter((_, i) => i !== idx));
     const updateGraceTier = (idx, key, val) => setGraceTiers(t => t.map((row, i) => i === idx ? { ...row, [key]: val } : row));
 
+    const setBreak = (k, v) => setBreaks(b => ({ ...b, [k]: v }));
+    const setOt = (k, v) => setOvertime(o => ({ ...o, [k]: v }));
+
+    // Determine if breaks group has any values filled in
+    const breaksHasData = breaks.unpaid_meal_minutes !== '' || breaks.meal_threshold_minutes !== '';
+    // Determine if overtime group has any values filled in
+    const overtimeHasData =
+        overtime.daily_threshold_minutes !== '' ||
+        overtime.daily_multiplier !== '' ||
+        overtime.double_time_threshold_minutes !== '' ||
+        overtime.double_time_multiplier !== '' ||
+        overtime.require_preauthorization === true;
+
     const save = async () => {
         setError('');
         setSaving(true);
         try {
+            // Assemble rule_overrides — omit empty groups so a policy stays neutral on that axis
+            const breaksPayload = breaksHasData
+                ? {
+                    unpaid_meal_minutes: breaks.unpaid_meal_minutes !== '' ? Number(breaks.unpaid_meal_minutes) : undefined,
+                    meal_threshold_minutes: breaks.meal_threshold_minutes !== '' ? Number(breaks.meal_threshold_minutes) : undefined,
+                }
+                : undefined;
+
+            const overtimePayload = overtimeHasData
+                ? {
+                    daily_threshold_minutes: overtime.daily_threshold_minutes !== '' ? Number(overtime.daily_threshold_minutes) : undefined,
+                    daily_multiplier: overtime.daily_multiplier !== '' ? Number(overtime.daily_multiplier) : undefined,
+                    double_time_threshold_minutes: overtime.double_time_threshold_minutes !== '' ? Number(overtime.double_time_threshold_minutes) : undefined,
+                    double_time_multiplier: overtime.double_time_multiplier !== '' ? Number(overtime.double_time_multiplier) : undefined,
+                    require_preauthorization: overtime.require_preauthorization,
+                }
+                : undefined;
+
+            const ruleOverrides = (breaksPayload || overtimePayload)
+                ? {
+                    ...(breaksPayload ? { breaks: breaksPayload } : {}),
+                    ...(overtimePayload ? { overtime: overtimePayload } : {}),
+                }
+                : null;
+
             const payload = {
                 name: form.name,
                 scope_type: form.scope_type,
@@ -71,6 +140,7 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
                 rounding: rounding.strategy !== 'none'
                     ? { strategy: rounding.strategy, unit_minutes: Number(rounding.unit_minutes) || 15, direction: rounding.direction }
                     : null,
+                rule_overrides: ruleOverrides,
             };
 
             if (isEdit) {
@@ -241,6 +311,99 @@ export default function PolicyForm({ open, onOpenChange, onSaved, policy = null 
                                 </>
                             )}
                         </Flex>
+                    </Box>
+
+                    <Separator size="4" />
+
+                    {/* Breaks sub-editor */}
+                    <Box>
+                        <Text size="2" weight="medium" as="div" mb="2">Breaks</Text>
+                        <Flex gap="3" wrap="wrap">
+                            <Box style={{ flex: '1 1 180px' }}>
+                                <Text size="1" color="gray" as="div" mb="1">Unpaid meal (minutes)</Text>
+                                <TextField.Root
+                                    type="number"
+                                    min="0"
+                                    placeholder="e.g. 30"
+                                    value={breaks.unpaid_meal_minutes}
+                                    onChange={e => setBreak('unpaid_meal_minutes', e.target.value)}
+                                />
+                            </Box>
+                            <Box style={{ flex: '1 1 180px' }}>
+                                <Text size="1" color="gray" as="div" mb="1">Meal threshold (minutes)</Text>
+                                <TextField.Root
+                                    type="number"
+                                    min="0"
+                                    placeholder="e.g. 360"
+                                    value={breaks.meal_threshold_minutes}
+                                    onChange={e => setBreak('meal_threshold_minutes', e.target.value)}
+                                />
+                            </Box>
+                        </Flex>
+                        <Text size="1" color="gray" mt="1" as="div">Leave blank to inherit defaults.</Text>
+                    </Box>
+
+                    <Separator size="4" />
+
+                    {/* Overtime sub-editor */}
+                    <Box>
+                        <Text size="2" weight="medium" as="div" mb="2">Overtime</Text>
+                        <Flex direction="column" gap="3">
+                            <Flex gap="3" wrap="wrap">
+                                <Box style={{ flex: '1 1 180px' }}>
+                                    <Text size="1" color="gray" as="div" mb="1">Daily threshold (minutes)</Text>
+                                    <TextField.Root
+                                        type="number"
+                                        min="0"
+                                        placeholder="e.g. 480"
+                                        value={overtime.daily_threshold_minutes}
+                                        onChange={e => setOt('daily_threshold_minutes', e.target.value)}
+                                    />
+                                </Box>
+                                <Box style={{ flex: '1 1 180px' }}>
+                                    <Text size="1" color="gray" as="div" mb="1">Daily multiplier</Text>
+                                    <TextField.Root
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="e.g. 1.5"
+                                        value={overtime.daily_multiplier}
+                                        onChange={e => setOt('daily_multiplier', e.target.value)}
+                                    />
+                                </Box>
+                            </Flex>
+                            <Flex gap="3" wrap="wrap">
+                                <Box style={{ flex: '1 1 180px' }}>
+                                    <Text size="1" color="gray" as="div" mb="1">Double-time threshold (minutes)</Text>
+                                    <TextField.Root
+                                        type="number"
+                                        min="0"
+                                        placeholder="e.g. 720"
+                                        value={overtime.double_time_threshold_minutes}
+                                        onChange={e => setOt('double_time_threshold_minutes', e.target.value)}
+                                    />
+                                </Box>
+                                <Box style={{ flex: '1 1 180px' }}>
+                                    <Text size="1" color="gray" as="div" mb="1">Double-time multiplier</Text>
+                                    <TextField.Root
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="e.g. 2.0"
+                                        value={overtime.double_time_multiplier}
+                                        onChange={e => setOt('double_time_multiplier', e.target.value)}
+                                    />
+                                </Box>
+                            </Flex>
+                            <Flex align="center" gap="2">
+                                <Checkbox
+                                    checked={overtime.require_preauthorization}
+                                    onCheckedChange={v => setOt('require_preauthorization', !!v)}
+                                />
+                                <Text size="2">Require pre-authorization for overtime</Text>
+                            </Flex>
+                        </Flex>
+                        <Text size="1" color="gray" mt="1" as="div">Leave blank to inherit defaults.</Text>
                     </Box>
 
                     {error && <Text color="red" size="2">{error}</Text>}

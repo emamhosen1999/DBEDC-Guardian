@@ -45,6 +45,70 @@ class PolicyApiTest extends TestCase
         $this->actingAs($emp)->getJson(route('attendance.policies.index'))->assertForbidden();
     }
 
+    public function test_rule_overrides_round_trips_on_create_and_read(): void
+    {
+        $admin = User::factory()->create();
+        $admin->givePermissionTo('attendance.settings');
+
+        $ruleOverrides = [
+            'breaks' => [
+                'unpaid_meal_minutes'    => 30,
+                'meal_threshold_minutes' => 360,
+            ],
+            'overtime' => [
+                'daily_threshold_minutes'      => 480,
+                'daily_multiplier'             => 1.5,
+                'double_time_threshold_minutes'=> 720,
+                'double_time_multiplier'       => 2.0,
+                'require_preauthorization'     => true,
+            ],
+        ];
+
+        $response = $this->actingAs($admin)->postJson(route('attendance.policies.store'), [
+            'name'                   => 'OT Policy',
+            'scope_type'             => 'org',
+            'effective_from'         => '2026-07-01',
+            'punch_strictness'       => 'warn',
+            'outside_window_minutes' => 120,
+            'rule_overrides'         => $ruleOverrides,
+        ])->assertCreated();
+
+        // Assert create response returns rule_overrides
+        $response->assertJsonPath('rule_overrides.breaks.unpaid_meal_minutes', 30);
+        $response->assertJsonPath('rule_overrides.breaks.meal_threshold_minutes', 360);
+        $response->assertJsonPath('rule_overrides.overtime.daily_threshold_minutes', 480);
+        $response->assertJsonPath('rule_overrides.overtime.daily_multiplier', 1.5);
+        $response->assertJsonPath('rule_overrides.overtime.require_preauthorization', true);
+
+        // Assert index response also returns rule_overrides
+        $p = AttendancePolicy::first();
+        $this->actingAs($admin)->getJson(route('attendance.policies.index'))
+            ->assertOk()
+            ->assertJsonPath('policies.0.rule_overrides.breaks.unpaid_meal_minutes', 30)
+            ->assertJsonPath('policies.0.rule_overrides.overtime.require_preauthorization', true);
+
+        // Assert update also round-trips rule_overrides
+        $updatedOverrides = [
+            'breaks' => [
+                'unpaid_meal_minutes'    => 45,
+                'meal_threshold_minutes' => 300,
+            ],
+        ];
+        $this->actingAs($admin)->putJson(route('attendance.policies.update', $p->id), [
+            'name'                   => 'OT Policy Updated',
+            'scope_type'             => 'org',
+            'effective_from'         => '2026-07-01',
+            'punch_strictness'       => 'warn',
+            'outside_window_minutes' => 120,
+            'rule_overrides'         => $updatedOverrides,
+        ])
+            ->assertOk()
+            ->assertJsonPath('rule_overrides.breaks.unpaid_meal_minutes', 45)
+            ->assertJsonMissing(['rule_overrides' => ['overtime' => []]]);
+
+        $this->assertSame(45, $p->fresh()->rule_overrides['breaks']['unpaid_meal_minutes']);
+    }
+
     public function test_cannot_update_a_non_draft_policy(): void
     {
         $admin = User::factory()->create();
