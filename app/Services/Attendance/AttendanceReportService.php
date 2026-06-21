@@ -40,6 +40,9 @@ class AttendanceReportService
                 'leaves' => function ($query) use ($year, $month) {
                     $query->join('leave_settings', 'leaves.leave_type', '=', 'leave_settings.id')
                         ->select('leaves.*', 'leave_settings.type as leave_type')
+                        // Only APPROVED leaves mark a day as on-leave; pending/rejected leaves must
+                        // not mask an absence in the grid (stats already count approved-only).
+                        ->where('leaves.status', 'approved')
                         ->where(function ($query) use ($year, $month) {
                             $query->whereYear('leaves.from_date', $year)
                                 ->whereMonth('leaves.from_date', $month)
