@@ -1,20 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Badge,
     Box,
     Button,
     Dialog,
     Flex,
-    Grid,
     Select,
     Switch,
     Text,
     TextArea,
     TextField,
 } from '@radix-ui/themes';
+import DateTimePicker from '@/Components/DateTimePicker';
 import { CalendarIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
-import { differenceInDays } from 'date-fns';
 import axios from 'axios';
 
 const holidayTypes = [
@@ -62,13 +60,6 @@ const HolidayForm = ({ open, closeModal, setHolidaysData, currentHoliday }) => {
         }
         setErrors({});
     }, [currentHoliday, open]);
-
-    const duration = useMemo(() => {
-        if (formData.from_date && formData.to_date) {
-            return differenceInDays(new Date(formData.to_date), new Date(formData.from_date)) + 1;
-        }
-        return 1;
-    }, [formData.from_date, formData.to_date]);
 
     const err = (key) => errors[key]?.[0] ?? errors[key];
 
@@ -156,29 +147,15 @@ const HolidayForm = ({ open, closeModal, setHolidaysData, currentHoliday }) => {
                                 </Select.Content>
                             </Select.Root>
                         </Box>
-                        <Grid columns={{ initial: '1', sm: '2' }} gap="3">
-                            <Box>
-                                <Text size="2" weight="medium" mb="1" as="div">From</Text>
-                                <TextField.Root
-                                    type="date"
-                                    value={formData.from_date}
-                                    onChange={(e) => handleFieldChange('from_date', e.target.value)}
-                                />
-                                {err('fromDate') && <Text size="1" color="red">{err('fromDate')}</Text>}
-                            </Box>
-                            <Box>
-                                <Flex justify="between" align="center" mb="1">
-                                    <Text size="2" weight="medium" as="div">To</Text>
-                                    {duration > 1 && <Badge variant="soft">{duration} days</Badge>}
-                                </Flex>
-                                <TextField.Root
-                                    type="date"
-                                    value={formData.to_date}
-                                    onChange={(e) => handleFieldChange('to_date', e.target.value)}
-                                />
-                                {err('toDate') && <Text size="1" color="red">{err('toDate')}</Text>}
-                            </Box>
-                        </Grid>
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <DateTimePicker
+                                mode="dateRange"
+                                label="Holiday Period"
+                                value={{ start: formData.from_date, end: formData.to_date }}
+                                onChange={({ start, end }) => { setFormData(f => ({ ...f, from_date: start, to_date: end })); }}
+                                error={err('fromDate') || err('toDate')}
+                            />
+                        </Box>
                         <Flex gap="4" wrap="wrap">
                             <Flex align="center" gap="2">
                                 <Switch
