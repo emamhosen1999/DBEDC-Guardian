@@ -96,11 +96,17 @@ class RosterService
             }
 
             // swap: trade two specific rostered shifts (4-cell exchange).
-            // Guard: an open/give-away swap has no counterparty_date; treat as requester-off only.
-            if (! $swap->counterparty_date || ! $swap->counterparty_id) {
+
+            if (! $swap->counterparty_id) {
+                // Genuine open/give-away: no counterparty to roster; requester-off is the full effect.
                 $this->writeSwapDay($swap->requester_id, $reqDate, null);
 
                 return;
+            }
+
+            if ($swap->type === 'swap' && ! $swap->counterparty_date) {
+                // Data error: a named counterparty but no counterparty_date on a swap.
+                throw new \LogicException("Swap #{$swap->id} is type=swap with a counterparty but no counterparty_date");
             }
 
             $cpDate = $swap->counterparty_date->toDateString();

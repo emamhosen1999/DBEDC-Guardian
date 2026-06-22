@@ -44,6 +44,8 @@ class RosterApplySwapTest extends TestCase
         $this->assertSame('swap', $aOwn->source);
         $this->assertTrue((bool) $aOwn->locked);
         $this->assertSame($shiftA->id, $bCovers->shift_id);
+        $this->assertSame('swap', $bCovers->source);
+        $this->assertTrue((bool) $bCovers->locked);
 
         // B is now OFF on their old day; A works it with B's shift.
         $this->assertNull($bOwn->shift_id);
