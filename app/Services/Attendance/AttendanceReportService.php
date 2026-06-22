@@ -43,6 +43,7 @@ class AttendanceReportService
         return $query->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
             ->orderBy('users.name')
             ->with([
+                'offboarding',
                 'attendances' => function ($query) use ($year, $month) {
                     $query->whereYear('date', $year)
                         ->whereMonth('date', $month)
@@ -251,7 +252,7 @@ class AttendanceReportService
             $userWorkingDays = 0;
 
             foreach ($dayResults as $ctx) {
-                if ($ctx['before_join']) {
+                if ($ctx['before_join'] || $ctx['after_termination']) {
                     continue;
                 }
 
@@ -422,6 +423,9 @@ class AttendanceReportService
     ): array {
         $daysInMonth = Carbon::create($year, $month)->daysInMonth;
         $joinDate = $user->date_of_joining ? Carbon::parse($user->date_of_joining)->startOfDay() : null;
+        $lastWorking = $user->offboarding && $user->offboarding->last_working_date
+            ? Carbon::parse($user->offboarding->last_working_date)->endOfDay()
+            : null;
 
         $results = [];
         for ($day = 1; $day <= $daysInMonth; $day++) {
@@ -466,6 +470,7 @@ class AttendanceReportService
                 'schedule' => $schedule,
                 'attendances' => $attendancesForDate,
                 'before_join' => $joinDate !== null && $date->copy()->startOfDay()->lessThan($joinDate),
+                'after_termination' => $lastWorking !== null && $date->copy()->startOfDay()->greaterThan($lastWorking),
             ];
         }
 
