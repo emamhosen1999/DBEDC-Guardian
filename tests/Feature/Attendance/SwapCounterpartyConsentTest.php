@@ -25,6 +25,7 @@ class SwapCounterpartyConsentTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Super Administrator']);
+        Role::firstOrCreate(['name' => 'Employee']);
         Permission::firstOrCreate(['name' => 'attendance.own.view']);
     }
 
@@ -44,6 +45,7 @@ class SwapCounterpartyConsentTest extends TestCase
     private function employee(): User
     {
         $u = User::factory()->create(['department_id' => $this->dept()->id]);
+        $u->assignRole('Employee');
         $u->givePermissionTo('attendance.own.view'); // self-service swap routes are gated on this
 
         return $u;
