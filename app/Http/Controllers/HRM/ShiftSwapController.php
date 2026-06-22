@@ -17,6 +17,34 @@ class ShiftSwapController extends Controller
 {
     public function __construct(private readonly RosterService $roster) {}
 
+    /**
+     * Roster-availability check shared by store (request time) and approve (apply time):
+     * a swap valid when requested but whose rosters changed before approval must fail
+     * loudly instead of corrupting the roster. Returns [field, message] or null.
+     */
+    private function rosterAvailabilityProblem(string $type, int $requesterId, int $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
+    {
+        if ($this->roster->effectiveShiftId($requesterId, $requesterDate) === null) {
+            return ['requester_date', 'You are not scheduled to work on that date.'];
+        }
+        if ($this->roster->effectiveShiftId($counterpartyId, $requesterDate) !== null) {
+            return ['counterparty_id', 'The counterparty is already scheduled on that date.'];
+        }
+        if ($type === 'swap') {
+            if (! $counterpartyDate) {
+                return ['counterparty_date', 'Select the shift you will take in return.'];
+            }
+            if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
+                return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
+            }
+            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
+                return ['counterparty_date', 'You are already scheduled on that date.'];
+            }
+        }
+
+        return null;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $swaps = ShiftSwapRequest::with(['requester', 'counterparty'])
@@ -47,28 +75,15 @@ class ShiftSwapController extends Controller
         if ($counterparty->department_id === null || $counterparty->department_id !== $requester->department_id) {
             $fail('counterparty_id', 'The counterparty must be in your department.');
         }
-
-        // Requester must actually be rostered to work the day they give up.
-        if ($this->roster->effectiveShiftId($requester->id, Carbon::parse($data['requester_date'])->toDateString()) === null) {
-            $fail('requester_date', 'You are not scheduled to work on that date.');
-        }
-        // Counterparty must be free that day to take the shift.
-        if ($this->roster->effectiveShiftId($counterparty->id, Carbon::parse($data['requester_date'])->toDateString()) !== null) {
-            $fail('counterparty_id', 'The counterparty is already scheduled on that date.');
+        if (! $counterparty->hasRole('Employee')) {
+            $fail('counterparty_id', 'The counterparty must be an employee.');
         }
 
-        if ($data['type'] === 'swap') {
-            if (empty($data['counterparty_date'])) {
-                $fail('counterparty_date', 'Select the shift you will take in return.');
-            }
-            $cpDate = Carbon::parse($data['counterparty_date'])->toDateString();
-            if ($this->roster->effectiveShiftId($counterparty->id, $cpDate) === null) {
-                $fail('counterparty_date', 'The counterparty is not scheduled to work on that date.');
-            }
-            if ($this->roster->effectiveShiftId($requester->id, $cpDate) !== null) {
-                $fail('counterparty_date', 'You are already scheduled on that date.');
-            }
-        } else {
+        $cpDate = ($data['counterparty_date'] ?? null) ? Carbon::parse($data['counterparty_date'])->toDateString() : null;
+        if ($problem = $this->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, Carbon::parse($data['requester_date'])->toDateString(), $cpDate)) {
+            $fail($problem[0], $problem[1]);
+        }
+        if ($data['type'] === 'cover') {
             $data['counterparty_date'] = null; // a cover has no return shift
         }
 
@@ -193,6 +208,10 @@ class ShiftSwapController extends Controller
         $swap = ShiftSwapRequest::findOrFail($id);
         abort_if($swap->status !== 'pending', 409, 'This swap request has already been decided.');
         abort_if($swap->counterparty_status === 'pending', 409, 'Awaiting the counterparty\'s confirmation before approval.');
+
+        if ($swap->counterparty_id && ($problem = $this->rosterAvailabilityProblem($swap->type, $swap->requester_id, $swap->counterparty_id, $swap->requester_date->toDateString(), $swap->counterparty_date?->toDateString()))) {
+            abort(409, 'The roster changed since this request was made: '.$problem[1].' Please ask the employee to resubmit.');
+        }
 
         DB::transaction(function () use ($swap, $request) {
             $swap->update([

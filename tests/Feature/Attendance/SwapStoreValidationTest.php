@@ -25,6 +25,7 @@ class SwapStoreValidationTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Employee']);
+        Role::firstOrCreate(['name' => 'Super Administrator']);
         Permission::firstOrCreate(['name' => 'attendance.own.view']);
         $this->dept = Department::factory()->create();
         $this->shift = Shift::factory()->create(['code' => 'DAY']);
@@ -37,6 +38,14 @@ class SwapStoreValidationTest extends TestCase
         $u->givePermissionTo('attendance.own.view');
 
         return $u;
+    }
+
+    private function admin(): User
+    {
+        $a = User::factory()->create();
+        $a->assignRole('Super Administrator');
+
+        return $a;
     }
 
     private function works(User $u, string $date): void
@@ -156,5 +165,28 @@ class SwapStoreValidationTest extends TestCase
             'counterparty_id' => $counterparty->id,
             'counterparty_date' => '2026-07-03',
         ])->assertStatus(422)->assertJsonValidationErrors('counterparty_date');
+    }
+
+    public function test_approve_rechecks_roster_and_rejects_if_counterparty_became_busy(): void
+    {
+        $requester = $this->employee();
+        $counterparty = $this->employee();
+        $admin = $this->admin();
+        $this->works($requester, '2026-07-01');
+
+        $this->actingAs($requester)->postJson(route('attendance.swaps.store'), [
+            'type' => 'cover',
+            'requester_date' => '2026-07-01',
+            'counterparty_id' => $counterparty->id,
+        ])->assertCreated();
+
+        $swap = ShiftSwapRequest::firstOrFail();
+        $this->actingAs($counterparty)->postJson(route('attendance.swaps.respond', $swap->id), ['decision' => 'accept'])->assertOk();
+
+        // Roster changes between consent and approval: counterparty is now busy on the requester's date.
+        $this->works($counterparty, '2026-07-01');
+
+        $this->actingAs($admin)->postJson(route('attendance.swaps.approve', $swap->id))->assertStatus(409);
+        $this->assertSame('pending', $swap->fresh()->status);
     }
 }
