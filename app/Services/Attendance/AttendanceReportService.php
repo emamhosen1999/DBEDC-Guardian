@@ -409,7 +409,7 @@ class AttendanceReportService
      * Pass $until (e.g. "today") to stop at a date for current-month stats; pass
      * null for the whole month (grid).
      *
-     * @return array<string, array{result: DayAttendance, holiday: ?object, leave: ?object, schedule: \App\Services\Attendance\DTO\ShiftSchedule, attendances: \Illuminate\Support\Collection, before_join: bool}>
+     * @return array<string, array{result: DayAttendance, holiday: ?object, leave: ?object, schedule: \App\Services\Attendance\DTO\ShiftSchedule, attendances: \Illuminate\Support\Collection, before_join: bool, after_termination: bool}>
      */
     private function buildMonthlyDayResults(
         $user,
