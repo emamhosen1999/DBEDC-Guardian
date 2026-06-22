@@ -203,6 +203,20 @@ class ShiftSwapController extends Controller
         return response()->json(['swaps' => $swaps]);
     }
 
+    /**
+     * Swaps THIS user initiated — the requester-side tracking list (status +
+     * counterparty consent stage), so an employee can follow their own requests.
+     */
+    public function mine(Request $request): JsonResponse
+    {
+        $swaps = ShiftSwapRequest::with(['counterparty:id,name'])
+            ->where('requester_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json(['swaps' => $swaps]);
+    }
+
     public function approve(Request $request, int $id): JsonResponse
     {
         $swap = ShiftSwapRequest::findOrFail($id);
