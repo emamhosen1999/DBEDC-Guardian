@@ -33,7 +33,9 @@ Replace the grid's legacy hours-math and ad-hoc status branching with a single e
 **Interfaces:**
 - Consumes (existing): `AttendanceStatusService::resolve(Collection $punches, ShiftSchedule $shift, bool $isHoliday, bool $isOnLeave, ?CarbonInterface $now, ?PolicyProfile $policy): DayAttendance`; `ScheduleResolver::resolve(int $userId, CarbonInterface $date): ShiftSchedule`; `PolicyResolver::resolve(int $userId, CarbonInterface $date): PolicyProfile`.
 - Produces (for Task 2):
-  `private buildMonthlyDayResults($user, int $year, int $month, $holidays, ?CarbonInterface $until, ScheduleResolver $resolver, PolicyResolver $policyResolver, AttendanceStatusService $statusEngine): array` — returns `array<string YYYY-MM-DD, array{result: DayAttendance, holiday: ?object, leave: ?object, schedule: ShiftSchedule, attendances: Collection, before_join: bool}>`. Days after `$until` (when non-null) are omitted.
+  - `private buildMonthlyDayResults($user, int $year, int $month, $holidays, ?CarbonInterface $until, ScheduleResolver $resolver, PolicyResolver $policyResolver, AttendanceStatusService $statusEngine): array` — returns `array<string YYYY-MM-DD, array{result: DayAttendance, holiday: ?object, leave: ?object, schedule: ShiftSchedule, attendances: Collection, before_join: bool}>`. Days after `$until` (when non-null) are omitted.
+  - `private classifyDay(array $ctx): string` — maps one day-result context entry to an effective `DayAttendance::*` status, applying holiday/off > leave precedence. Both the grid mapper and the stats aggregator consume it so they cannot diverge.
+  - `private mapStatusToDisplay(string $effective, $holiday, $leave, $leaveTypes, Carbon $date, int $worked): array` — `[symbol, remarks]` for a given effective status.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -136,8 +138,11 @@ class MonthlyGridEngineCollapseTest extends TestCase
         $this->assertSame('Holiday', $data['2026-06-15']['remarks']);
     }
 
-    public function test_grid_leave_day_with_real_punch_shows_present(): void
+    public function test_grid_leave_day_with_real_punch_stays_on_leave(): void
     {
+        // A punch on an approved-leave day is a conflict for the (Phase B) exceptions
+        // workflow to reconcile — NOT silently relabeled "Present" here. Capture is never
+        // blocked; the day keeps the approved intent ("On Leave") and hides hours.
         $user = User::factory()->create();
         $user->assignRole('Employee');
 
@@ -157,8 +162,11 @@ class MonthlyGridEngineCollapseTest extends TestCase
             $this->loadUser($user->id), 2026, 6, $svc->getHolidaysForMonth(2026, 6), LeaveSetting::all()
         );
 
-        $this->assertSame('√', $data['2026-06-16']['status']);
-        $this->assertSame('Present', $data['2026-06-16']['remarks']);
+        // The loader aliases leaves.leave_type to the leave-type NAME, so firstWhere('id', ...)
+        // misses and the symbol falls back to '/'. Remarks must be "On Leave"; hours hidden.
+        $this->assertSame('/', $data['2026-06-16']['status']);
+        $this->assertSame('On Leave', $data['2026-06-16']['remarks']);
+        $this->assertSame('00:00', $data['2026-06-16']['total_work_hours']);
     }
 }
 ```
@@ -166,7 +174,7 @@ class MonthlyGridEngineCollapseTest extends TestCase
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `php artisan test --filter=MonthlyGridEngineCollapseTest`
-Expected: FAILs — `test_grid_total_work_hours_reflect_break_policy_and_match_buckets` asserts `06:30` but the legacy path still returns `07:00`; the holiday/leave tests fail because the legacy `elseif ($leave)` makes leave win and a punched leave day shows "On Leave".
+Expected: 2 of 3 FAIL — `test_grid_total_work_hours_reflect_break_policy_and_match_buckets` asserts `06:30` but the legacy path returns the raw span `07:00`; `test_grid_holiday_beats_leave_on_no_punch_day` asserts `#`/"Holiday" but the legacy `elseif ($leave)` makes leave win ("On Leave"). The third, `test_grid_leave_day_with_real_punch_stays_on_leave`, is a **regression guard** for preserved behavior and already passes on the legacy code — keep it to lock the behavior through the refactor.
 
 - [ ] **Step 3: Add the `DayAttendance` import**
 
@@ -257,17 +265,48 @@ private function buildMonthlyDayResults(
 }
 
 /**
- * Map an engine DayAttendance (+ display context) to the grid's [symbol, remarks].
- * Engine status is the single determinant; holiday context only changes the
- * wording, leave context only supplies the symbol.
+ * Decide what a day MEANS (effective status) so the grid and the dashboard
+ * can't diverge — both consume this one classifier. Standard precedence:
+ * holiday and weekly-off outrank leave (leave isn't consumed on a non-working
+ * day); leave only paints a working day. A punch on an approved-leave day is a
+ * conflict left "On Leave" for the Phase B exceptions workflow to reconcile —
+ * it is NOT silently relabeled present here.
+ *
+ * @return string a DayAttendance::* constant
+ */
+private function classifyDay(array $ctx): string
+{
+    /** @var DayAttendance $result */
+    $result = $ctx['result'];
+    $hasPunch = $ctx['attendances']->isNotEmpty();
+
+    if ($ctx['holiday']) {
+        // Worked on a holiday -> present-day ("Present on Holiday"); otherwise Holiday.
+        return $hasPunch ? DayAttendance::PRESENT : DayAttendance::HOLIDAY;
+    }
+
+    if (! $ctx['schedule']->isWorkingDay) {
+        // Off/weekend: engine already returns PRESENT if punched (off-day work) else WEEKEND.
+        return $result->status;
+    }
+
+    if ($ctx['leave']) {
+        return DayAttendance::ON_LEAVE;
+    }
+
+    return $result->status; // PRESENT / LATE / HALF_DAY / SHORT / ABSENT
+}
+
+/**
+ * Map an effective status (+ display context) to the grid's [symbol, remarks].
  *
  * @return array{0: string, 1: string}
  */
-private function mapStatusToDisplay(DayAttendance $result, $holiday, $leave, $leaveTypes, Carbon $date, int $worked): array
+private function mapStatusToDisplay(string $effective, $holiday, $leave, $leaveTypes, Carbon $date, int $worked): array
 {
     $isToday = now()->toDateString() === $date->toDateString();
 
-    switch ($result->status) {
+    switch ($effective) {
         case DayAttendance::HOLIDAY:
             return ['#', 'Holiday'];
 
@@ -326,7 +365,9 @@ public function getUserAttendanceData($user, int $year, int $month, $holidays, $
         $date = Carbon::parse($dateString);
         $worked = $result->worked_minutes;
 
-        $isWorkedDay = in_array($result->status, [
+        $effective = $this->classifyDay($ctx);
+
+        $isWorkedDay = in_array($effective, [
             DayAttendance::PRESENT, DayAttendance::LATE, DayAttendance::HALF_DAY, DayAttendance::SHORT,
         ], true);
 
@@ -345,7 +386,7 @@ public function getUserAttendanceData($user, int $year, int $month, $holidays, $
         }
 
         [$symbol, $remarks] = $this->mapStatusToDisplay(
-            $result, $ctx['holiday'], $ctx['leave'], $leaveTypes, $date, $worked
+            $effective, $ctx['holiday'], $ctx['leave'], $leaveTypes, $date, $worked
         );
 
         $attendanceData[$dateString] = [
@@ -609,22 +650,23 @@ public function calculateMonthlyStats(
 
             /** @var DayAttendance $result */
             $result = $ctx['result'];
+            $effective = $this->classifyDay($ctx);
 
-            if (in_array($result->status, $workedStatuses, true)) {
+            if (in_array($effective, $workedStatuses, true)) {
                 $present++;
                 $userPresent++;
-            } elseif ($result->status === DayAttendance::ABSENT) {
+                // Hours/late only accrue on worked-effective days (a punch on a leave
+                // day is effective ON_LEAVE and contributes nothing, matching the grid).
+                $workMinutes += $result->worked_minutes;
+                $otMinutes += $result->ot_minutes;
+                if ($result->late_minutes > 0) {
+                    $lateArrivals++;
+                }
+            } elseif ($effective === DayAttendance::ABSENT) {
                 $absent++;
-            } elseif ($result->status === DayAttendance::ON_LEAVE) {
+            } elseif ($effective === DayAttendance::ON_LEAVE) {
                 $leaveDays++;
             }
-
-            if ($result->late_minutes > 0) {
-                $lateArrivals++;
-            }
-
-            $workMinutes += $result->worked_minutes;
-            $otMinutes += $result->ot_minutes;
 
             // A day this employee was actually scheduled to work (excludes off-days & holidays).
             if ($ctx['schedule']->isWorkingDay && ! $ctx['holiday']) {
@@ -750,13 +792,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Shared single-pass helper → Task 1 (`buildMonthlyDayResults`). ✓
 - Grid derives hours/status/remarks from engine, deletes `calculateTotalMinutes` → Task 1. ✓
 - Dashboard counts engine statuses; absent exact; respects `date_of_joining`/analysis window; per-employee potential/percentage/perfect → Task 2. ✓
-- Same loader/holiday/leave/policy as grid → both call `getEmployeeUsersWithAttendanceAndLeaves` + `buildMonthlyDayResults`. ✓
-- 4 intentional behavior changes (policy hours, holiday>leave, leave-with-punch present, exact absents) → covered by Task 1 + Task 2 tests. ✓
+- Same loader/holiday/leave/policy as grid + one shared `classifyDay` classifier → both call `getEmployeeUsersWithAttendanceAndLeaves` + `buildMonthlyDayResults` + `classifyDay`. ✓
+- 3 intentional behavior changes (policy-aware hours, holiday/off > leave precedence, exact per-employee absents) → covered by Task 1 + Task 2 tests. Leave-with-punch is **preserved** ("On Leave", not silently flipped) with a regression-guard test. ✓
 - Backward-compatible JSON shapes → asserted by existing OtBuckets/OffDay/ShiftAware/PunchException tests kept green (Task 1 Step 8, Task 2 Step 6). ✓
-- Out of scope (payroll, leave day-count, half-day, termination) → not touched. ✓
+- Out of scope (payroll, leave day-count, half-day, termination, worked-on-leave reconciliation) → not touched. ✓
 
 **Placeholder scan:** No TBD/TODO; all code blocks complete; live-verification JS is concrete.
 
-**Type consistency:** `buildMonthlyDayResults` signature identical in Task 1 (Produces) and Task 2 (Consumes). `mapStatusToDisplay` returns `[symbol, remarks]` consumed via list-destructuring in Task 1 Step 5. `getEmployeeUsersWithAttendanceAndLeaves` 4-arg form defined in Task 2 Step 3 and called in Task 2 Step 4. `DayAttendance` constants used consistently. Loader returns `Collection`; `->firstWhere('id', ...)`/`->count()`/`foreach` all valid on it.
+**Type consistency:** `buildMonthlyDayResults` signature identical in Task 1 (Produces) and Task 2 (Consumes). `classifyDay(array $ctx): string` defined in Task 1 Step 4, consumed in Task 1 Step 5 (grid) and Task 2 Step 4 (stats). `mapStatusToDisplay(string $effective, ...)` returns `[symbol, remarks]` consumed via list-destructuring in Task 1 Step 5. `getEmployeeUsersWithAttendanceAndLeaves` 4-arg form defined in Task 2 Step 3 and called in Task 2 Step 4. `DayAttendance` constants used consistently. Loader returns `Collection`; `->firstWhere('id', ...)`/`->count()`/`foreach` all valid on it.
 
 **Note on `date_of_joining`:** confirmed a real `User` fillable column (`app/Models/User.php`); test 2 sets it via mass-assignment.

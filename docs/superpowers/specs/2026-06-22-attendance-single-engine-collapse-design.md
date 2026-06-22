@@ -40,32 +40,46 @@ buildMonthlyDayResults(User $user, int $year, int $month, Collection $holidays, 
 
 Both consumers load users through the **same loader** the grid already uses — `getEmployeeUsersWithAttendanceAndLeaves()` (eager-loads `attendances` filtered `policy_status != rejected` and `leaves` filtered `status = approved`). This is what guarantees "same holiday/leave/policy as the grid."
 
+### 3.0 The shared day classifier (`classifyDay`)
+
+Both surfaces must agree on what a day *means*, so a single private classifier maps `{engine result, holiday, leave, schedule, has-punch}` → an **effective status** (a `DayAttendance::*` constant). It applies the standard precedence — **holiday and weekly-off outrank leave** (you don't consume leave on a non-working day), and leave only paints a *working* day:
+
+```
+classifyDay(ctx):
+  if holiday:               return hasPunch ? PRESENT : HOLIDAY      // "Present on Holiday" / "Holiday"
+  if !schedule.isWorkingDay: return result.status                    // engine: PRESENT if punched (off-day work) else WEEKEND
+  if leave:                 return ON_LEAVE                          // approved leave on a working day
+  return result.status                                               // PRESENT/LATE/HALF/SHORT/ABSENT
+```
+
+This is the single source of the status both the grid and the dashboard consume, so they cannot diverge. **Worked-on-an-approved-leave-day stays `ON_LEAVE`** (the approved intent is preserved; the conflict is a reconciliation concern deferred to the Phase B exceptions workflow — see §4) rather than being silently relabeled "Present".
+
 ### 3.1 `getUserAttendanceData()` becomes a display mapper
 
-For each day it takes the `DayAttendance` + context and maps to the cell shape. Symbol/hours/remarks now derive from the **engine result**, not `calculateTotalMinutes()`:
+For each day it takes the **effective status** (`classifyDay`) + the `DayAttendance` + context and maps to the cell shape. Symbol/hours/remarks now derive from the engine result, not `calculateTotalMinutes()`:
 
-| Engine `status` | symbol | remarks |
+| Effective status | symbol | remarks |
 |---|---|---|
-| `present` / `late` / `half_day` / `short` (a worked day) | `√` | `isHoliday` → `"Present on Holiday"` when `worked>0` else (today?`"Currently Working"`:`"Not Punched Out"`); else `worked>0` → `"Present"`, else (today?`"Currently Working"`:`"Not Punched Out"`) |
+| `present` / `late` / `half_day` / `short` (a worked day) | `√` | `worked>0` → (holiday ? `"Present on Holiday"` : `"Present"`); else (today ? `"Currently Working"` : `"Not Punched Out"`) |
 | `holiday` | `#` | `"Holiday"` |
 | `on_leave` | `leaveType.symbol ?? '/'` | `"On Leave"` |
 | `weekend` (non-working, no punch) | `▽` | `"Day Off"` |
 | `absent` | `▼` | `"Absent"` |
 
-- `total_work_hours` = `formatHHMM(result.worked_minutes)` — **the change for #3**: hours now reflect policy break/rounding (a 7h continuous punch under a 30-min unpaid-meal policy displays `06:30`, matching the `break_deducted`/`worked_minutes` buckets).
+- `total_work_hours` = `formatHHMM(result.worked_minutes)` — **the change for #3**: hours now reflect policy break/rounding (a 7h continuous punch under a 30-min unpaid-meal policy displays `06:30`, matching the `break_deducted`/`worked_minutes` buckets). Hours/punch-times are surfaced only for worked-day effective statuses (a leave/holiday/off cell shows `00:00`).
 - `punch_in`/`punch_out` from the day's attendance rows (first punchin / last row with a punchout), unchanged.
 - Buckets continue to come from the same `result` (no second engine call).
 - `calculateTotalMinutes()` is deleted.
 
 ### 3.2 `calculateMonthlyStats()` becomes a status aggregator
 
-Load employees via the shared loader (all employees for global scope; the single user for single scope), then for each employee call `buildMonthlyDayResults(..., until: analysisEndDate)` and aggregate **by counting statuses** + summing engine minutes, respecting `date_of_joining` (skip days before a user joined) and `analysisEndDate` (≤ today for current months):
+Load employees via the shared loader (all employees for global scope; the single user for single scope), then for each employee call `buildMonthlyDayResults(..., until: analysisEndDate)` and aggregate **by counting the `classifyDay` effective status** + summing engine minutes, respecting `date_of_joining` (skip days before a user joined) and `analysisEndDate` (≤ today for current months):
 
-- `present` man-days = count of `present | late | half_day | short`.
-- `absent` man-days = count of `absent` (engine already returns this only for a working, non-holiday, non-leave, non-off day with no punch — replaces the `2/7` estimate and naturally honors per-employee rosters + joiners).
-- `leaves` man-days = count of `on_leave` (engine precedence holiday > leave means a leave that lands on a holiday is **not** double-counted; weekends/off-days never count as leave).
-- `lateArrivals` = count of days with `late_minutes > 0` (unchanged semantics; keeps `MonthlyStatsShiftAwareTest` green).
-- `hours.totalWork` = Σ`worked_minutes`/60; `hours.overtime` = Σ`ot_minutes`/60 — both now **with policy** applied.
+- `present` man-days = count of effective `present | late | half_day | short`.
+- `absent` man-days = count of effective `absent` (a working, non-holiday, non-leave, non-off day with no punch — replaces the `2/7` estimate and naturally honors per-employee rosters + joiners).
+- `leaves` man-days = count of effective `on_leave` (because `classifyDay` puts holiday/weekly-off ahead of leave, a leave landing on a holiday/off day is **not** counted as leave).
+- `lateArrivals` = count of worked-effective days with `late_minutes > 0` (keeps `MonthlyStatsShiftAwareTest` green; a punch on a leave day — effective `on_leave` — is not counted late).
+- `hours.totalWork` = Σ`worked_minutes`/60; `hours.overtime` = Σ`ot_minutes`/60 over **worked-effective** days, both now **with policy** applied (a punch on a leave day contributes no hours, matching the grid hiding them).
 - `averageDaily` = totalWork / present man-days.
 - `percentage` = present / potential, where potential is now the **sum over employees of their own scheduled working days** (count of days whose resolved schedule `isWorkingDay && !holiday`, within join…analysisEndDate) — not a flat global figure.
 - `perfectCount` = employees whose present man-days ≥ their own scheduled working days so far.
@@ -76,9 +90,10 @@ Load employees via the shared loader (all employees for global scope; the single
 These follow directly from making the engine the single source; they correct existing grid/stats divergence and are the point of #3/#4:
 
 1. **Grid hours reflect policy** (break/rounding) instead of raw span. With no active policy, numbers are byte-identical to today (neutral policy path is unchanged in the engine).
-2. **Holiday > leave precedence in the grid.** Today the grid's `elseif ($leave)` makes leave win over a holiday on a no-punch day ("On Leave"); the engine (and now the grid) makes **holiday win** ("Holiday"). Correct standard — you don't consume leave on a holiday — and required for grid==stats.
-3. **A leave day where the employee actually punched shows as a worked day**, not "On Leave" (leave only paints a cell when there are no punches), matching the engine and the stats. (Half-day leave reconciliation remains out of scope → Phase B #7.)
-4. **Absent man-days are now exact per-employee**, including off-days/rosters and excluding pre-join days, instead of a `2/7` estimate.
+2. **Holiday (and weekly-off) > leave precedence.** Today the grid's `elseif ($leave)` makes leave win over a holiday on a no-punch day ("On Leave"); `classifyDay` makes the **holiday/off win** ("Holiday"/"Day Off"). This is the standard — you don't consume a leave day on a holiday or your weekly-off — and it's required for grid==stats.
+3. **Absent man-days are now exact per-employee**, including off-days/rosters and excluding pre-join days, instead of a `2/7` estimate.
+
+**Explicitly NOT changed (per review):** capture is never blocked on a leave day, and a leave day on which the employee actually punched is **kept "On Leave"** (the approved intent), *not* silently relabeled "Present". A worked-on-approved-leave day is a genuine conflict whose standard resolution is a flag/auto-cancel reconciliation — deferred to the Phase B exceptions workflow, not invented here.
 
 ## 5. Out of scope
 
@@ -91,7 +106,7 @@ PHPUnit class-style, sqlite `:memory:` + `RefreshDatabase`. New tests:
 
 - **Grid hours == buckets:** a day under an active breaks policy → `total_work_hours` equals `formatHHMM(worked_minutes)` (e.g. `06:30`, not `07:00`).
 - **Grid holiday>leave:** no-punch day that is both holiday and approved-leave → symbol `#` / `"Holiday"`.
-- **Grid leave-with-punch:** approved-leave day with punches → `√` / `"Present"` (not "On Leave").
+- **Grid leave-with-punch is preserved:** approved-leave day with punches → `"On Leave"` (NOT silently flipped to "Present"); hours hidden (`00:00`).
 - **Stats absent is exact:** controlled small month/roster → `attendance.absent` equals the hand-counted engine absents (proves the `2/7` estimate is gone), and `present`+`absent`+`leaves` reconcile against the grid for the same user/month.
 - **Stats respects joiners:** a user with `date_of_joining` mid-month accrues no absents before joining.
 - **Regression:** all four existing tests stay green.
