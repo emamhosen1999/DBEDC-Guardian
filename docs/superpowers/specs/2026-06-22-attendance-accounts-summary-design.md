@@ -64,9 +64,9 @@ private engine helpers) and counts effective statuses exactly the way `calculate
     (classifyDay returns PRESENT for these; they are *extra* days worked, not scheduled working days);
   - **Weekly-off-worked**: `!$ctx['holiday'] && !$ctx['schedule']->isWorkingDay && hasPunch` (off-day work);
   - **Working days** (scheduled, in active window): `$ctx['schedule']->isWorkingDay && !$ctx['holiday']`
-    → `workingDays++`. This yields the reconciliation identity **Present + Absent + Leave = Working days**
-    (leave consumes a scheduled working day; holiday/weekly-off-worked are tracked separately because OT
-    comes from them).
+    → `workingDays++`. Leave consumes a scheduled working day; holiday/weekly-off-worked are tracked
+    separately because OT comes from them. Since `present` also counts days worked on holidays/off-days,
+    the always-true identity is **Present + Absent + Leave = Working days + Holidays-worked + Weekly-off-worked**.
 - `attendancePercentage = workingDaysExclLeave > 0 ? round(present / workingDaysExclLeave * 100, 1) : 0`,
   where `workingDaysExclLeave = present + absent` — identical to the dashboard's `potentialManDays`
   (scheduled working, non-leave). Leave never drags the percentage down.
@@ -187,10 +187,14 @@ unchanged behavior.
 
 ## Reconciliation guarantees (why FULL columns)
 
-For any employee row: **Present + Absent + Leave = Working Days**, and **Attendance % = Present /
-(Present + Absent)**. Holidays-worked and Weekly-off-worked are reported separately (they explain OT
-hours) and are *not* part of the Working Days identity. This lets accounts cross-check every row and the
-footer totals without trusting a black box — the reason the owner chose FULL over LEAN.
+For any employee row: **Present + Absent + Leave = Working Days + Holidays-worked + Weekly-off-worked**,
+and **Attendance % = Present / (Present + Absent)**. `Present` is dashboard-consistent (single-engine
+rule) and therefore *includes* days worked on holidays / weekly-off days; those days are not scheduled
+Working Days, so they appear on the right side of the identity via Holidays-worked / Weekly-off-worked
+(which also explain the OT hours). On scheduled working days alone the relationship reduces to
+`(Present − Holidays-worked − Weekly-off-worked) + Absent + Leave = Working Days`. This lets accounts
+cross-check every row and the footer totals without trusting a black box — the reason the owner chose
+FULL over LEAN.
 
 ## Testing strategy
 
