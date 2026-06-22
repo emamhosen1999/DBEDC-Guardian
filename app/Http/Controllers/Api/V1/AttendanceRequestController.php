@@ -9,6 +9,7 @@ use App\Models\HRM\CompOffLedger;
 use App\Models\HRM\OvertimeRequest;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\ShiftSwapRequest;
+use App\Models\User;
 use App\Services\Attendance\CompOffService;
 use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
@@ -204,5 +205,20 @@ class AttendanceRequestController extends Controller
         $swap->update(['counterparty_status' => 'declined', 'status' => 'rejected']);
 
         return $this->successResponse($swap->fresh(), 'Swap declined.');
+    }
+
+    /**
+     * Employees that can be selected as a swap counterparty (mirrors the web
+     * AttendanceEmployee page's `employees` prop: role Employee, id + name).
+     */
+    public function swapEmployees(Request $request): JsonResponse
+    {
+        $employees = User::role('Employee')
+            ->where('id', '!=', $request->user()->id)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return $this->successResponse($employees);
     }
 }
