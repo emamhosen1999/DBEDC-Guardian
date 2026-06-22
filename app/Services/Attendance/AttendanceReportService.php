@@ -6,10 +6,10 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Holiday;
 use App\Models\User;
+use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\Contracts\PolicyResolver;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\DayAttendance;
-use App\Services\Attendance\AttendanceStatusService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -275,8 +275,9 @@ class AttendanceReportService
                     $leaveDays++;
                 }
 
-                // A day this employee was actually scheduled to work (excludes off-days & holidays).
-                if ($ctx['schedule']->isWorkingDay && ! $ctx['holiday']) {
+                // A day this employee was actually scheduled to work (excludes off-days, holidays,
+                // and approved-leave days — leave does not reduce attendance %).
+                if ($ctx['schedule']->isWorkingDay && ! $ctx['holiday'] && $effective !== DayAttendance::ON_LEAVE) {
                     $userWorkingDays++;
                     $potentialManDays++;
                 }
