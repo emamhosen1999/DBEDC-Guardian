@@ -19,6 +19,8 @@ Status legend: ✅ done · 🔭 planned. Severity mirrors the analysis.
   arbitrary department-colleague "level 2" heuristic is gone.
 - Two-stage **shift swap with counterparty consent** (peer accept → manager approve).
 - Super-admin frontend gate bypass; Approvals history filter; swaps consolidated.
+- **Shift swap/cover redesign (roster-driven).** Replaced the broken free-text swap: `RosterService::applySwap` now does the correct roster rewrite (2-cell **cover** / 4-cell **swap**) instead of an in-place shift-id exchange that never offloaded the requester's day; `store` requires a same-department counterparty and validates roster availability (open/anonymous path removed); new `swaps/eligible` + `swaps/counterparty-roster` endpoints feed roster-driven pickers; the request form is now Swap|Cover with shifts chosen from real rosters. Spec/plan: `docs/superpowers/{specs,plans}/2026-06-22-shift-swap-cover-redesign*`.
+  - **Follow-ups:** the **mobile app** (separate repo `dbedc-mobile-app`) swap UI must be updated to the new `type` + roster-driven endpoints before its swap screen works against this contract; an **open-shift pool/marketplace** (offer a shift to anyone, claim from a board) remains a possible future option.
 
 ---
 

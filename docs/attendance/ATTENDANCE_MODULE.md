@@ -137,7 +137,11 @@ Bind a shift **or** a rotation pattern to a scope (user / designation / departme
 
 ### 5.5 Overrides & swaps
 - **Manual override:** set a single cell to any shift or off (`source=manual, locked=true`) — survives regeneration.
-- **Swaps:** an employee requests a swap; on **approval** the system rewrites both parties' roster days (`source=swap`); on rejection nothing changes. Approve/reject are guarded to act only on `pending` requests.
+- **Swaps & covers (roster-driven):** an employee picks one of **their own rostered shifts** to give up and a **same-department coworker who is free that day** (pickers are fed from real rosters — no free-text dates). Two modes:
+  - **Cover** — the coworker takes over the requester's shift; on approval the requester's day becomes **off** and the coworker is rostered onto it (2-cell rewrite). The requester gives nothing back; a reverse cover is a separate request.
+  - **Swap** — a two-sided trade: the requester also selects one of the coworker's rostered shifts to take in return. On approval both people exchange across the two date-slots (4-cell rewrite: each is taken off their own date and rostered onto the other's), so the duty genuinely changes hands.
+
+  A named **counterparty is required** (the old anonymous give-away path is gone). Validation enforces same department, the requester actually working their date, and the counterparty free on it (and, for a swap, the counterparty working the return date and the requester free then). Flow: counterparty **consents** (accept/decline), then a manager **approves**; approve applies the roster rewrite (`source=swap`, locked), reject/decline change nothing. Approve/reject are guarded to act only on `pending` requests.
 
 ---
 
