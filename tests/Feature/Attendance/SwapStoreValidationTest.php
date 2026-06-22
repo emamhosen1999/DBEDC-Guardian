@@ -141,4 +141,20 @@ class SwapStoreValidationTest extends TestCase
             'counterparty_id' => $counterparty->id,
         ])->assertStatus(422)->assertJsonValidationErrors('counterparty_date');
     }
+
+    public function test_swap_rejected_when_requester_already_scheduled_on_return_date(): void
+    {
+        $requester = $this->employee();
+        $counterparty = $this->employee();
+        $this->works($requester, '2026-07-01');     // requester's shift to give up
+        $this->works($counterparty, '2026-07-03');  // counterparty's return-shift
+        $this->works($requester, '2026-07-03');     // BUT requester already works the return date
+
+        $this->actingAs($requester)->postJson(route('attendance.swaps.store'), [
+            'type' => 'swap',
+            'requester_date' => '2026-07-01',
+            'counterparty_id' => $counterparty->id,
+            'counterparty_date' => '2026-07-03',
+        ])->assertStatus(422)->assertJsonValidationErrors('counterparty_date');
+    }
 }
