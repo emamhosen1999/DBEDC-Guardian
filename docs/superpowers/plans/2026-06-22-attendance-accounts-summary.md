@@ -16,7 +16,7 @@
 - Whole-day leave/present model in this phase (half-days are B3) — document as a sheet caveat, do not attempt 0.5 precision.
 - Tests: PHPUnit class-style, sqlite `:memory:` + `RefreshDatabase`. Add NO new failing test. Only allowed pre-existing failures: `MobileSyncApiTest > sync push applies leave apply mutation`; `NavigationRoutesTest > any authenticated user can access organization directory`.
 - Build rules: `npm run dev` for live testing; NEVER `npm run build`. Frontend tasks commit SOURCE ONLY; one consolidated `npx vite build` + `public/build` commit at the very end (Task 8).
-- Reconciliation identity that the tests must enforce: per employee, `Present + Absent + Leave = Working Days`, and `Attendance % = Present / (Present + Absent)` (0 when denominator is 0).
+- Reconciliation identity that the tests must enforce: per employee, `Present + Absent + Leave = Working Days + Holidays-worked + Weekly-off-worked` (because `Present` is dashboard-consistent and includes days worked on holidays/off-days, which are not scheduled Working Days), and `Attendance % = Present / (Present + Absent)` (0 when denominator is 0).
 - Effective-status buckets (from `classifyDay`): worked = `[PRESENT, LATE, HALF_DAY, SHORT]`; absent = `ABSENT`; leave = `ON_LEAVE`.
 
 ---
