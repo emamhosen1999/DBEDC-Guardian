@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\AttendancePerEmployeeSummaryExport;
 use App\Jobs\ExportAttendanceReport;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
@@ -820,6 +821,24 @@ class AttendanceController extends Controller
         }
 
         return $this->exportAdminExcel($request);
+    }
+
+    public function exportMonthlySummary(Request $request)
+    {
+        try {
+            $month = $request->query('month', now()->format('Y-m'));
+            $from = Carbon::parse($month.'-01');
+            $departmentId = $request->query('department_id');
+            $departmentId = $departmentId !== null && $departmentId !== '' ? (int) $departmentId : null;
+
+            return (new AttendancePerEmployeeSummaryExport)
+                ->export($from->year, $from->month, $departmentId);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Summary export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
+            ], 500);
+        }
     }
 
     public function checkExportStatus($filename)
