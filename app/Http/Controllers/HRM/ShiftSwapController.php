@@ -4,10 +4,13 @@ namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\HRM\ShiftSwapRequest;
+use App\Models\User;
 use App\Services\Attendance\RosterService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ShiftSwapController extends Controller
 {
@@ -25,26 +28,64 @@ class ShiftSwapController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
+            'type' => 'required|in:swap,cover',
             'requester_date' => 'required|date',
-            'counterparty_id' => 'nullable|integer|exists:users,id',
+            'counterparty_id' => 'required|integer|exists:users,id',
             'counterparty_date' => 'nullable|date',
-            'requested_shift_id' => 'nullable|integer|exists:shifts,id',
             'reason' => 'nullable|string|max:500',
         ]);
 
-        $data['requester_id'] = $request->user()->id;
-        $data['status'] = 'pending';
-        // Two-stage flow: a named counterparty must consent before manager/admin review.
-        // An open/give-away swap (no counterparty) skips the peer step → straight to admin.
-        $data['counterparty_status'] = ! empty($data['counterparty_id']) ? 'pending' : null;
+        $requester = $request->user();
+        $counterparty = User::findOrFail($data['counterparty_id']);
 
-        $swap = DB::transaction(fn () => ShiftSwapRequest::create($data));
+        $fail = static fn (string $field, string $message) => throw ValidationException::withMessages([$field => $message]);
 
-        $message = $data['counterparty_status'] === 'pending'
-            ? 'Swap request sent to the counterparty for confirmation.'
-            : 'Swap request submitted for approval.';
+        if ($counterparty->id === $requester->id) {
+            $fail('counterparty_id', 'You cannot swap with yourself.');
+        }
+        if ($counterparty->department_id === null || $counterparty->department_id !== $requester->department_id) {
+            $fail('counterparty_id', 'The counterparty must be in your department.');
+        }
 
-        return response()->json(['message' => $message, 'swap' => $swap], 201);
+        // Requester must actually be rostered to work the day they give up.
+        if ($this->roster->effectiveShiftId($requester->id, Carbon::parse($data['requester_date'])->toDateString()) === null) {
+            $fail('requester_date', 'You are not scheduled to work on that date.');
+        }
+        // Counterparty must be free that day to take the shift.
+        if ($this->roster->effectiveShiftId($counterparty->id, Carbon::parse($data['requester_date'])->toDateString()) !== null) {
+            $fail('counterparty_id', 'The counterparty is already scheduled on that date.');
+        }
+
+        if ($data['type'] === 'swap') {
+            if (empty($data['counterparty_date'])) {
+                $fail('counterparty_date', 'Select the shift you will take in return.');
+            }
+            $cpDate = Carbon::parse($data['counterparty_date'])->toDateString();
+            if ($this->roster->effectiveShiftId($counterparty->id, $cpDate) === null) {
+                $fail('counterparty_date', 'The counterparty is not scheduled to work on that date.');
+            }
+            if ($this->roster->effectiveShiftId($requester->id, $cpDate) !== null) {
+                $fail('counterparty_date', 'You are already scheduled on that date.');
+            }
+        } else {
+            $data['counterparty_date'] = null; // a cover has no return shift
+        }
+
+        $swap = DB::transaction(fn () => ShiftSwapRequest::create([
+            'type' => $data['type'],
+            'requester_id' => $requester->id,
+            'requester_date' => $data['requester_date'],
+            'counterparty_id' => $counterparty->id,
+            'counterparty_date' => $data['counterparty_date'] ?? null,
+            'reason' => $data['reason'] ?? null,
+            'status' => 'pending',
+            'counterparty_status' => 'pending',
+        ]));
+
+        return response()->json([
+            'message' => 'Swap request sent to the counterparty for confirmation.',
+            'swap' => $swap,
+        ], 201);
     }
 
     /**
