@@ -23,7 +23,6 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users');
             $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
-            $table->softDeletes();
         });
 
         Schema::create('onboarding_tasks', function (Blueprint $table) {
@@ -52,7 +51,6 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users');
             $table->foreignId('updated_by')->nullable()->constrained('users');
             $table->timestamps();
-            $table->softDeletes();
         });
 
         Schema::create('offboarding_tasks', function (Blueprint $table) {
