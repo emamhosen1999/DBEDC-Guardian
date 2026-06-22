@@ -21,6 +21,16 @@ Status legend: ✅ done · 🔭 planned. Severity mirrors the analysis.
 - Super-admin frontend gate bypass; Approvals history filter; swaps consolidated.
 - **Shift swap/cover redesign (roster-driven).** Replaced the broken free-text swap: `RosterService::applySwap` now does the correct roster rewrite (2-cell **cover** / 4-cell **swap**) instead of an in-place shift-id exchange that never offloaded the requester's day; `store` requires a same-department counterparty and validates roster availability (open/anonymous path removed); new `swaps/eligible` + `swaps/counterparty-roster` endpoints feed roster-driven pickers; the request form is now Swap|Cover with shifts chosen from real rosters. Spec/plan: `docs/superpowers/{specs,plans}/2026-06-22-shift-swap-cover-redesign*`.
   - **Follow-ups:** the **mobile app** (separate repo `dbedc-mobile-app`) swap UI must be updated to the new `type` + roster-driven endpoints before its swap screen works against this contract; an **open-shift pool/marketplace** (offer a shift to anyone, claim from a board) remains a possible future option.
+- **#3/#4 Single-engine collapse (reports == engine).** `AttendanceReportService` now derives
+  EVERY displayed number from one `AttendanceStatusService` pass per employee-day via a shared
+  `buildMonthlyDayResults()` + `classifyDay()` (holiday/weekly-off > leave precedence). The grid
+  (`getUserAttendanceData`) maps that result to symbol/`total_work_hours`/remarks — legacy
+  `calculateTotalMinutes()` deleted, hours now honour policy break/rounding. The dashboard
+  (`calculateMonthlyStats`) COUNTS engine statuses per employee-day (present/absent/leave/late/OT)
+  instead of the `daysPassed*2/7` estimate, respecting per-employee rosters, `date_of_joining`,
+  and the ≤today window; approved leave no longer reduces attendance %. Spec/plan:
+  `docs/superpowers/{specs,plans}/2026-06-22-attendance-single-engine-collapse*`.
+- **#5 only APPROVED leaves mark "On Leave" in the grid** (pending/rejected no longer mask absence).
 
 ---
 
@@ -32,18 +42,8 @@ Status legend: ✅ done · 🔭 planned. Severity mirrors the analysis.
   `ot_minutes`/`double_time_minutes` reach the report API and then go nowhere. Build a
   `PayrollService` that reads LOCKED-period `DayAttendance` results and writes payroll
   inputs (present/absent/OT/double-time/leave). Gate on a locked/frozen period (pipeline §7).
-- **#3 Collapse dual "hours" math to the single engine.** `AttendanceReportService::
-  getUserAttendanceData()` computes displayed `total_work_hours`/status/remarks with its own
-  legacy `calculateTotalMinutes()` and only uses the engine for additive buckets — so the
-  grid's headline hours ignore rounding/break/grace while the buckets next to them don't.
-  Make the report derive ALL displayed numbers from `AttendanceStatusService`. (Reports == engine.)
-- **#4 Dashboard stats reconcile with the grid.** `calculateMonthlyStats()` calls the engine
-  with NO policy/holiday/leave, and estimates absent man-days with `daysPassed * 2/7` against a
-  global potential figure (ignores per-employee rosters, mid-month joiners/leavers). Recompute
-  per-employee via the engine with the same policy the grid uses.
-- **#5 Leave status filtering (in progress).** The grid marks a day "On Leave" for ANY
-  overlapping leave (pending/rejected included), masking absences, while stats count
-  approved-only. Filter the grid to APPROVED leaves. → being fixed now.
+  **This is now the only remaining Phase A item** (#3/#4/#5 done — see "Already fixed"); the
+  single engine + per-employee day results it needs are now in place via `buildMonthlyDayResults()`.
 
 ## 🟠 Phase B — High (fraud / integrity / multi-site)
 
