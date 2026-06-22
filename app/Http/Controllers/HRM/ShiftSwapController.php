@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
+use App\Models\HRM\RosterDay;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
 use App\Services\Attendance\RosterService;
@@ -86,6 +87,68 @@ class ShiftSwapController extends Controller
             'message' => 'Swap request sent to the counterparty for confirmation.',
             'swap' => $swap,
         ], 201);
+    }
+
+    /**
+     * Same-department Employees who are FREE on the given date — the swap/cover
+     * partner picker.
+     */
+    public function eligible(Request $request): JsonResponse
+    {
+        $data = $request->validate(['date' => 'required|date']);
+        $user = $request->user();
+        $date = Carbon::parse($data['date'])->toDateString();
+
+        $employees = User::role('Employee')
+            ->where('id', '!=', $user->id)
+            ->where('department_id', $user->department_id)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->filter(fn ($c) => $this->roster->effectiveShiftId($c->id, $date) === null)
+            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
+            ->values();
+
+        return response()->json(['employees' => $employees]);
+    }
+
+    /**
+     * A same-department coworker's WORKING roster days in a range — the "shift you
+     * will take" picker for a swap. Guarded to the requester's own department.
+     */
+    public function counterpartyRoster(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'counterparty_id' => 'required|integer|exists:users,id',
+            'from' => 'required|date',
+            'to' => 'required|date|after_or_equal:from',
+        ]);
+
+        $user = $request->user();
+        $counterparty = User::findOrFail($data['counterparty_id']);
+        abort_unless(
+            $counterparty->department_id !== null && $counterparty->department_id === $user->department_id,
+            403,
+            'The counterparty must be in your department.'
+        );
+
+        $fmt = static fn ($t) => $t ? Carbon::parse($t)->format('H:i') : null;
+
+        $days = RosterDay::with('shift:id,code,name,start_time,end_time')
+            ->where('user_id', $counterparty->id)
+            ->whereNotNull('shift_id')
+            ->whereBetween('date', [$data['from'], $data['to']])
+            ->orderBy('date')
+            ->get()
+            ->map(fn ($r) => [
+                'date' => $r->date->format('Y-m-d'),
+                'code' => $r->shift?->code,
+                'name' => $r->shift?->name,
+                'start' => $fmt($r->shift?->start_time),
+                'end' => $fmt($r->shift?->end_time),
+            ])
+            ->values();
+
+        return response()->json(['days' => $days]);
     }
 
     /**
