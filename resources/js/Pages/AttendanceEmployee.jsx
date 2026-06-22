@@ -4,7 +4,7 @@ import {
   Box, Flex, Text, Card, Separator, TextField, Button, Badge
 } from '@radix-ui/themes';
 import { DashboardIcon, CalendarIcon, LayersIcon } from '@radix-ui/react-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import App from "@/Layouts/App.jsx";
@@ -22,6 +22,7 @@ import SwapResponses from './Attendance/Components/SwapResponses';
 const MyRosterCard = ({ month }) => {
   const { auth } = usePage().props;
   const [swapOpen, setSwapOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   // Driven by the page's month dropdown (whole selected month), so it stays in sync
   // with the overview + attendance table instead of a fixed rolling 14-day window.
@@ -77,7 +78,16 @@ const MyRosterCard = ({ month }) => {
         )}
       </Card>
 
-      <SwapRequestForm open={swapOpen} onOpenChange={setSwapOpen} onSaved={refetch} />
+      <SwapRequestForm
+        open={swapOpen}
+        onOpenChange={setSwapOpen}
+        onSaved={() => {
+          refetch();
+          // The swap is tracked in the My Requests "Shift Swaps" list, so refresh it
+          // too (invalidation beats the 5-min staleTime that a remount would honour).
+          queryClient.invalidateQueries({ queryKey: ['my-swaps'] });
+        }}
+      />
     </>
   );
 };
@@ -85,9 +95,14 @@ const MyRosterCard = ({ month }) => {
 const RequestsCard = () => {
   const [regOpen, setRegOpen]   = useState(false);
   const [otOpen, setOtOpen]     = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const queryClient = useQueryClient();
 
-  const handleSaved = () => setRefreshKey(k => k + 1);
+  // Invalidate (not remount) so the lists refetch immediately — a key-based remount
+  // returns cached data because of the 5-minute global staleTime.
+  const handleSaved = () => {
+    ['my-regularizations', 'my-overtime', 'my-comp-off', 'my-swaps']
+      .forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+  };
 
   return (
     <>
@@ -108,7 +123,7 @@ const RequestsCard = () => {
         </Flex>
 
         <ErrorBoundary>
-          <MyRequests key={refreshKey} />
+          <MyRequests />
         </ErrorBoundary>
       </Card>
 

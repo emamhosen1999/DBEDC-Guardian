@@ -4,21 +4,18 @@ Live UI test of all employee request types on the dev site (`https://aero-enterp
 
 ## Bugs
 
-### BUG-1 (Minor, UX) — "My Requests" list does not auto-refresh after submitting
-- **Where:** `/attendance-employee` → My Requests, after submitting Overtime (and likely Regularization / Swap) via their dialogs.
-- **Observed:** Submitting an overtime request showed the success path and closed the dialog, but the **Overtime Requests** list still read "No overtime requests yet." It only appeared after a **manual page reload** (then correctly showed "18 Jun 2026 · 120 min · pending").
-- **Cause (likely):** the request form's `onSaved` does not invalidate the React-Query keys the `MyRequests` panel uses (`my-overtime`, `my-regularizations`, `my-swaps`, `my-comp-off`). The swap form passes `onSaved={refetch}` which refetches the *roster*, not these lists.
-- **Impact:** employee thinks the submit failed and may resubmit (duplicate requests).
-- **Fix:** on successful submit, `queryClient.invalidateQueries` the relevant `my-*` keys (or pass a refetch callback that targets the MyRequests queries).
+### BUG-1 (Minor, UX) — "My Requests" list did not auto-refresh after submitting — ✅ FIXED
+- **Where:** `/attendance-employee` → My Requests, after submitting Overtime / Regularization / Swap.
+- **Observed:** the new request only appeared after a manual page reload.
+- **Root cause (confirmed):** `RequestsCard` remounted `MyRequests` via `key={refreshKey}`, but the global React-Query `staleTime` is **5 minutes** (`api/reactQueryClient.js`), so a remount returned cached data instead of refetching. Separately, the swap form's `onSaved` only refetched the roster, never `my-swaps`.
+- **Fix (`resources/js/Pages/AttendanceEmployee.jsx`):** replaced the key-remount with `queryClient.invalidateQueries` for `my-regularizations` / `my-overtime` / `my-comp-off` / `my-swaps` on save; the swap form now also invalidates `my-swaps` (in addition to refetching the roster). Invalidation forces an immediate refetch regardless of `staleTime`.
+- **Verified live (UI):** submitted a 45-min OT → it appeared in the Overtime list **without a reload**.
 
-### BUG-3 (Investigate) — admin "Approvals" tab intermittently fails to switch
-- **Where:** `/attendance` (admin) → clicking the **Approvals** tab.
-- **Observed:** sometimes the panel does not switch from Daily Timesheet (took 2 clicks in one round; would not switch at all in another after 3+ clicks), accompanied by ~19 console errors. On a fresh page load it usually works.
-- **Impact:** approver can't reach the inbox reliably.
-- **Next:** capture the console errors (likely a child component throwing on this tab) — could be an ErrorBoundary swallowing a render error in `ApprovalsInbox`/a sibling. Reproduce on a clean session.
+### BUG-3 (NOT A DEFECT — test-harness race) — admin "Approvals" tab "needs multiple clicks"
+- **Re-tested with a single click + explicit wait-for-content:** the tab switches correctly on ONE click; "Swap Requests" content appears after the lazy `Suspense` skeleton. The earlier "multiple clicks" symptom was the Playwright snapshot firing during the lazy-load transition (and the Daily Timesheet's ~10s poll re-rendering between snapshots) — not a real user-facing bug. The ~19 console "errors" are benign noise (profile images pointing at `127.0.0.1:8000`, Firebase config, update-check). **No code change.**
 
-### BUG-4 (Infra/transient) — stale config cache caused a 500 ("No application encryption key")
-- A page 500'd once with `MissingAppKeyException` though `APP_KEY` is set in `.env`; `php artisan config:clear` fixed it. Likely a stale `bootstrap/cache/config.php` on the dev box (also forces `production` env label). Ensure config cache isn't committed/stale in dev.
+### BUG-4 (Infra/transient, resolved) — stale config cache caused a 500 ("No application encryption key")
+- A page 500'd once with `MissingAppKeyException` though `APP_KEY` is set in `.env`; `php artisan config:clear` fixed it (stale `bootstrap/cache/config.php` on the dev box). Environmental, not an app bug. **No code change.**
 
 ### BUG-2 (Minor, UX) — counter for Approvals tab / no submitted-confirmation
 - Not a blocker; noted: after an employee submits, there's no inline confirmation in the list (see BUG-1) and the admin Approvals tab has no pending-count badge to signal new items. Consider a count badge on the Approvals tab.
