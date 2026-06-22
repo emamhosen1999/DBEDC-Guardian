@@ -44,6 +44,7 @@ class AttendanceReportService
             ->orderBy('users.name')
             ->with([
                 'offboarding',
+                'department',
                 'attendances' => function ($query) use ($year, $month) {
                     $query->whereYear('date', $year)
                         ->whereMonth('date', $month)
@@ -319,6 +320,109 @@ class AttendanceReportService
                 'averageDaily' => $averageWorkHours,
                 'overtime' => round($otMinutes / 60, 1),
             ],
+        ];
+    }
+
+    /**
+     * Per-employee monthly totals for the accounts handoff.
+     *
+     * Reuses the SAME engine pass as the grid/dashboard (buildMonthlyDayResults + classifyDay)
+     * so the sheet cannot diverge from what the admin sees. Leave-days are engine-derived
+     * (already exclude weekends/holidays via precedence). Whole-day model until B3.
+     *
+     * @return array{meta: array, rows: array<int, array>}
+     */
+    public function getPerEmployeeMonthlySummary(int $year, int $month, ?int $departmentId = null): array
+    {
+        $resolver = app(ScheduleResolver::class);
+        $policyResolver = app(PolicyResolver::class);
+        $statusEngine = app(AttendanceStatusService::class);
+
+        $startOfMonth = Carbon::create($year, $month, 1)->startOfDay();
+        $endOfMonth = $startOfMonth->copy()->endOfMonth()->endOfDay();
+        $analysisEndDate = $endOfMonth->isFuture() ? Carbon::now()->endOfDay() : $endOfMonth;
+
+        $holidays = $this->getHolidaysForMonth($year, $month);
+        $users = $this->getEmployeeUsersWithAttendanceAndLeaves($year, $month, $departmentId);
+
+        $workedStatuses = [
+            DayAttendance::PRESENT, DayAttendance::LATE, DayAttendance::HALF_DAY, DayAttendance::SHORT,
+        ];
+
+        $rows = [];
+        foreach ($users as $user) {
+            $dayResults = $this->buildMonthlyDayResults(
+                $user, $year, $month, $holidays, $analysisEndDate,
+                $resolver, $policyResolver, $statusEngine
+            );
+
+            $present = $absent = $leave = $late = $holidaysWorked = $weeklyOffWorked = $workingDays = 0;
+            $otMinutes = 0;
+
+            foreach ($dayResults as $ctx) {
+                if ($ctx['before_join'] || $ctx['after_termination']) {
+                    continue;
+                }
+
+                /** @var DayAttendance $result */
+                $result = $ctx['result'];
+                $effective = $this->classifyDay($ctx);
+                $hasPunch = $ctx['attendances']->isNotEmpty();
+
+                if (in_array($effective, $workedStatuses, true)) {
+                    $present++;
+                    $otMinutes += $result->ot_minutes;
+                    if ($result->late_minutes > 0) {
+                        $late++;
+                    }
+                } elseif ($effective === DayAttendance::ABSENT) {
+                    $absent++;
+                } elseif ($effective === DayAttendance::ON_LEAVE) {
+                    $leave++;
+                }
+
+                if ($ctx['holiday'] && $hasPunch) {
+                    $holidaysWorked++;
+                } elseif (! $ctx['holiday'] && ! $ctx['schedule']->isWorkingDay && $hasPunch) {
+                    $weeklyOffWorked++;
+                }
+
+                // Scheduled working day (holiday/off-day excluded) -> Present + Absent + Leave.
+                if ($ctx['schedule']->isWorkingDay && ! $ctx['holiday']) {
+                    $workingDays++;
+                }
+            }
+
+            $denom = $present + $absent;
+
+            $rows[] = [
+                'employee_name'        => $user->name,
+                'employee_id'          => $user->employee_id,
+                'department'           => optional($user->department)->name ?? '—',
+                'present'              => $present,
+                'absent'               => $absent,
+                'leave'                => $leave,
+                'ot_hours'             => round($otMinutes / 60, 1),
+                'late'                 => $late,
+                'holidays_worked'      => $holidaysWorked,
+                'weekly_off_worked'    => $weeklyOffWorked,
+                'working_days'         => $workingDays,
+                'attendance_percentage' => $denom > 0 ? round($present / $denom * 100, 1) : 0.0,
+            ];
+        }
+
+        $department = $departmentId
+            ? \App\Models\HRM\Department::find($departmentId)
+            : null;
+
+        return [
+            'meta' => [
+                'month'          => $startOfMonth->format('F Y'),
+                'generatedAt'    => Carbon::now()->toIso8601String(),
+                'departmentId'   => $departmentId,
+                'departmentName' => $department?->name ?? null,
+            ],
+            'rows' => $rows,
         ];
     }
 
