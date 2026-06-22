@@ -1237,7 +1237,7 @@
     ]
   },
   "resources/js/Pages/AttendanceEmployee.jsx": {
-    "file": "assets/js/AttendanceEmployee-DMZtsa3X.js",
+    "file": "assets/js/AttendanceEmployee-BykOkAdG.js",
     "name": "AttendanceEmployee",
     "src": "resources/js/Pages/AttendanceEmployee.jsx",
     "isDynamicEntry": true,
@@ -1246,6 +1246,7 @@
       "_vendor-inertia-B_jPe_ra.js",
       "_react-icons.esm-DT2cgmzN.js",
       "_useQuery-C5k4HL4-.js",
+      "_QueryClientProvider-idk0Omse.js",
       "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
       "resources/js/Pages/UserDevices.jsx",
       "_OvertimeRequestForm-CfpdFgAp.js",
@@ -1257,7 +1258,6 @@
       "resources/js/Pages/Attendance/Components/SwapResponses.jsx",
       "_vendor-utils-D6Wd6ilh.js",
       "_reactQueryClient-BuEEaQQ2.js",
-      "_QueryClientProvider-idk0Omse.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
       "_ClockIcon-wojZnvr5.js",
       "_TablePagination-DkcVBwX2.js",
@@ -2072,7 +2072,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-C2l4Bukt.js",
+    "file": "assets/js/app-C8fHIzjs.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
