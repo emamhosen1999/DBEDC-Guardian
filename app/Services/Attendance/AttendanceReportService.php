@@ -4,6 +4,7 @@ namespace App\Services\Attendance;
 
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
+use App\Models\HRM\Department;
 use App\Models\HRM\Holiday;
 use App\Models\User;
 use App\Services\Attendance\AttendanceStatusService;
@@ -411,16 +412,18 @@ class AttendanceReportService
             ];
         }
 
-        $department = $departmentId
-            ? \App\Models\HRM\Department::find($departmentId)
-            : null;
+        $departmentName = null;
+        if ($departmentId) {
+            $departmentName = $users->first()?->department?->name
+                ?? optional(Department::find($departmentId))->name;
+        }
 
         return [
             'meta' => [
                 'month'          => $startOfMonth->format('F Y'),
                 'generatedAt'    => Carbon::now()->toIso8601String(),
                 'departmentId'   => $departmentId,
-                'departmentName' => $department?->name ?? null,
+                'departmentName' => $departmentName,
             ],
             'rows' => $rows,
         ];
