@@ -5,6 +5,7 @@ namespace Tests\Feature\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Department;
+use App\Models\HRM\Holiday;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
@@ -39,6 +40,9 @@ class PerEmployeeSummaryTest extends TestCase
      *  - emp1: fully present (Mon-Fri, no weekends; punches every working day)
      *  - emp2: one absent day (present on 2026-06-02 only; 2026-06-03 absent)
      *  - emp3: one approved leave day on 2026-06-02; no punches
+     *  - emp4: punches on a HOLIDAY (2026-06-19, Friday — seeded as a holiday) AND
+     *           on a WEEKEND/off day (2026-06-20, Saturday), plus normal weekday punches.
+     *           This exercises holidays_worked >= 1 and weekly_off_worked >= 1.
      *
      * Freeze "today" to 2026-06-30 end-of-day so the whole month is analysed.
      * Weekend = Saturday+Sunday. Window analysed: 2026-06-01..2026-06-30
@@ -107,13 +111,44 @@ class PerEmployeeSummaryTest extends TestCase
             'reason'     => 'test',
         ]);
 
-        return [$emp1, $emp2, $emp3, $deptA, $deptB];
+        // emp4: exercises holidays_worked and weekly_off_worked.
+        //   - 2026-06-19 (Friday) is declared a holiday; emp4 punches in -> holidays_worked++
+        //   - 2026-06-20 (Saturday) is a weekend off-day; emp4 punches in -> weekly_off_worked++
+        //   - 2026-06-22 (Monday) is a normal working day; emp4 punches in -> present on working day
+        Holiday::create([
+            'title'     => 'Company Day',
+            'from_date' => '2026-06-19',
+            'to_date'   => '2026-06-19',
+        ]);
+        $emp4 = User::factory()->create(['department_id' => $deptA->id]);
+        $emp4->assignRole('Employee');
+        // Punch on the holiday (Friday)
+        Attendance::factory()->for($emp4)->create([
+            'date'     => '2026-06-19',
+            'punchin'  => '2026-06-19 09:00:00',
+            'punchout' => '2026-06-19 17:00:00',
+        ]);
+        // Punch on the weekend (Saturday)
+        Attendance::factory()->for($emp4)->create([
+            'date'     => '2026-06-20',
+            'punchin'  => '2026-06-20 09:00:00',
+            'punchout' => '2026-06-20 17:00:00',
+        ]);
+        // Punch on a normal working day (Monday)
+        Attendance::factory()->for($emp4)->create([
+            'date'     => '2026-06-22',
+            'punchin'  => '2026-06-22 09:00:00',
+            'punchout' => '2026-06-22 17:00:00',
+        ]);
+
+        return [$emp1, $emp2, $emp3, $emp4, $deptA, $deptB];
     }
 
     public function test_summary_reconciles_with_dashboard_and_identity(): void
     {
-        // Arrange a fixture month with a mix of present/late/absent/leave.
-        [$emp1, $emp2, $emp3, $deptA, $deptB] = $this->seedFixtureMonth();
+        // Arrange a fixture month with a mix of present/late/absent/leave,
+        // plus an employee who punches on a holiday AND on a weekend off-day.
+        [$emp1, $emp2, $emp3, $emp4, $deptA, $deptB] = $this->seedFixtureMonth();
 
         $service = app(AttendanceReportService::class);
 
@@ -124,17 +159,30 @@ class PerEmployeeSummaryTest extends TestCase
         $this->assertArrayHasKey('meta', $summary);
         $this->assertNotEmpty($summary['rows'], 'Rows must not be empty');
 
-        // Per-row identity: Present + Absent + Leave = Working Days.
+        // Per-row identity: working_days counts scheduled working days (isWorkingDay && !holiday),
+        // which does NOT include holiday-worked or off-day-worked days. present DOES include those,
+        // so the always-true identity is:
+        //   present + absent + leave == working_days + holidays_worked + weekly_off_worked
         foreach ($summary['rows'] as $row) {
             $this->assertSame(
                 $row['present'] + $row['absent'] + $row['leave'],
-                $row['working_days'],
+                $row['working_days'] + $row['holidays_worked'] + $row['weekly_off_worked'],
                 "Row identity failed for {$row['employee_name']}"
             );
             $denom = $row['present'] + $row['absent'];
             $expectedPct = $denom > 0 ? round($row['present'] / $denom * 100, 1) : 0.0;
             $this->assertSame($expectedPct, $row['attendance_percentage']);
         }
+
+        // Verify that emp4's holiday-worked and off-day-worked coverage is actually exercised
+        // (not vacuously true due to all-zero fixture rows).
+        $emp4Row = collect($summary['rows'])->firstWhere('employee_id', $emp4->employee_id);
+        $this->assertNotNull($emp4Row, 'emp4 row must be present in summary');
+        $this->assertGreaterThan(0, $emp4Row['holidays_worked'],   'emp4 holidays_worked must be >= 1');
+        $this->assertGreaterThan(0, $emp4Row['weekly_off_worked'], 'emp4 weekly_off_worked must be >= 1');
+        // emp4 has a normal weekday punch (2026-06-22), a holiday punch (2026-06-19),
+        // and a weekend punch (2026-06-20) — all three count toward present.
+        $this->assertGreaterThanOrEqual(3, $emp4Row['present'], 'emp4 present must include workday + holiday + weekend punches');
 
         // Aggregates reconcile with the dashboard's single-engine counts.
         $this->assertSame($stats['attendance']['present'],      array_sum(array_column($summary['rows'], 'present')));
@@ -164,7 +212,7 @@ class PerEmployeeSummaryTest extends TestCase
 
     public function test_department_filter_narrows_rows(): void
     {
-        [, , , $deptA, $deptB] = $this->seedFixtureMonth();
+        [, , , , $deptA, $deptB] = $this->seedFixtureMonth();
 
         $service = app(AttendanceReportService::class);
 
