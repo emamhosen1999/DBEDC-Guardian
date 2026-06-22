@@ -85,7 +85,8 @@ class ExportAttendanceReport implements ShouldQueue
                 $to = $from->copy()->endOfMonth();
                 $monthName = $from->format('F Y');
 
-                $users = User::with(['attendances', 'leaves'])->role('Employee')->whereNull('deleted_at')->get();
+                // Shared loader applies the same approved-leave / non-rejected-punch filters as the grid.
+                $users = $attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month);
                 $leaveTypes = LeaveSetting::all();
                 $holidays = $attendanceReportService->getHolidaysForMonth($from->year, $from->month);
 

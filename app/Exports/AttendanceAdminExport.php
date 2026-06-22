@@ -60,10 +60,11 @@ class AttendanceAdminExport
         $to = $from->copy()->endOfMonth();
         $monthName = $from->format('F Y');
 
-        $users = User::with(['attendances', 'leaves'])
-            ->role('Employee')
-            ->whereNull('deleted_at')
-            ->get();
+        // Use the shared loader so the export applies the same filters as the grid/dashboard
+        // (attendances policy_status != rejected, leaves status = approved); loading the
+        // relations directly would leak pending/rejected leaves + rejected punches into the sheet.
+        $users = app(AttendanceReportService::class)
+            ->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month);
 
         $leaveTypes = LeaveSetting::all();
         $holidays = Holiday::all();
