@@ -6,7 +6,11 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Holiday;
 use App\Models\User;
+use App\Services\Attendance\Contracts\PolicyResolver;
+use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Services\Attendance\DTO\DayAttendance;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -117,7 +121,6 @@ class AttendanceReportService
      */
     public function getUserAttendanceData($user, int $year, int $month, $holidays, $leaveTypes): array
     {
-        $daysInMonth = Carbon::create($year, $month)->daysInMonth;
         $attendanceData = [
             'user_id' => $user->id,
             'employee_id' => $user->employee_id,
@@ -125,114 +128,58 @@ class AttendanceReportService
             'profile_image_url' => $user->profile_image_url,
         ];
 
-        $resolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
-        $policyResolver = app(\App\Services\Attendance\Contracts\PolicyResolver::class);
-        $statusEngine = app(\App\Services\Attendance\AttendanceStatusService::class);
+        $resolver = app(ScheduleResolver::class);
+        $policyResolver = app(PolicyResolver::class);
+        $statusEngine = app(AttendanceStatusService::class);
 
-        for ($day = 1; $day <= $daysInMonth; $day++) {
-            $date = Carbon::create($year, $month, $day);
-            $dateString = $date->toDateString();
+        $dayResults = $this->buildMonthlyDayResults(
+            $user, $year, $month, $holidays, null, $resolver, $policyResolver, $statusEngine
+        );
 
-            $schedule = $resolver->resolve($user->id, $date);
+        foreach ($dayResults as $dateString => $ctx) {
+            /** @var DayAttendance $result */
+            $result = $ctx['result'];
+            $attendancesForDate = $ctx['attendances'];
+            $date = Carbon::parse($dateString);
+            $worked = $result->worked_minutes;
 
-            $attendancesForDate = $user->attendances
-                ->filter(fn ($a) => Carbon::parse($a->date)->isSameDay($date))
-                ->sortBy('punchin');
+            $effective = $this->classifyDay($ctx);
 
-            $holiday = $holidays->first(fn ($h) => $date->between(
-                Carbon::parse($h->from_date)->startOfDay(),
-                Carbon::parse($h->to_date)->endOfDay()
-            ));
-            $leave = $user->leaves
-                ->first(fn ($l) => $date->between(
-                    Carbon::parse($l->from_date)->startOfDay(),
-                    Carbon::parse($l->to_date)->endOfDay()
-                ));
+            $isWorkedDay = in_array($effective, [
+                DayAttendance::PRESENT, DayAttendance::LATE, DayAttendance::HALF_DAY, DayAttendance::SHORT,
+            ], true);
 
-            // Defaults
-            $symbol = ! $schedule->isWorkingDay ? '▽' : '▼';
             $punchIn = null;
             $punchOut = null;
             $totalWorkHours = '00:00';
-            $remarks = ! $schedule->isWorkingDay ? 'Day Off' : 'Absent';
 
-            if ($holiday && ! $leave) {
-                if ($attendancesForDate->isNotEmpty()) {
-                    $first = $attendancesForDate->first();
-                    $last = $attendancesForDate->count() === 1 ? $first : $attendancesForDate->reverse()->first(fn ($item) => $item->punchout !== null);
-
-                    $totalMinutes = $this->calculateTotalMinutes($attendancesForDate);
-
-                    $hours = floor($totalMinutes / 60);
-                    $mins = $totalMinutes % 60;
-                    $totalWorkHours = sprintf('%02d:%02d', $hours, $mins);
-                    $symbol = '√';
-                    $remarks = $totalMinutes > 0 ? 'Present on Holiday' : ((now()->toDateString() === $date) ? 'Currently Working' : 'Not Punched Out');
-                    $punchIn = $first->punchin;
-                    $punchOut = $last ? $last->punchout : null;
-                } else {
-                    $symbol = '#';
-                    $remarks = 'Holiday';
-                }
-            } elseif ($leave) {
-                $symbol = $leaveTypes->firstWhere('id', $leave->leave_type)->symbol ?? '/';
-                $remarks = 'On Leave';
-            } elseif ($attendancesForDate->isNotEmpty()) {
+            if ($isWorkedDay && $attendancesForDate->isNotEmpty()) {
                 $first = $attendancesForDate->first();
-                $last = $attendancesForDate->count() === 1 ? $first : $attendancesForDate->reverse()->first(fn ($item) => $item->punchout !== null);
-
-                $totalMinutes = $this->calculateTotalMinutes($attendancesForDate);
-
-                $hours = floor($totalMinutes / 60);
-                $mins = $totalMinutes % 60;
-                $totalWorkHours = sprintf('%02d:%02d', $hours, $mins);
-                $symbol = '√';
-                $remarks = $totalMinutes > 0 ? 'Present' : ($date->isToday() ? 'Currently Working' : 'Not Punched Out');
+                $last = $attendancesForDate->count() === 1
+                    ? $first
+                    : $attendancesForDate->reverse()->first(fn ($item) => $item->punchout !== null);
                 $punchIn = $first->punchin;
                 $punchOut = $last ? $last->punchout : null;
-            } elseif ($holiday && ! $attendancesForDate->isNotEmpty()) {
-                $symbol = '#';
-                $remarks = 'Holiday';
+                $totalWorkHours = sprintf('%02d:%02d', intdiv($worked, 60), $worked % 60);
             }
 
-            // Additive: surface policy-engine OT/break/double-time buckets for this day
-            // (Phase 3.1 Task 6) without altering any of the legacy keys above.
-            $buckets = [
-                'ot_minutes' => 0,
-                'worked_minutes' => 0,
-                'double_time_minutes' => 0,
-                'regular_minutes' => 0,
-                'break_deducted_minutes' => 0,
-                'policy_events' => [],
-            ];
+            [$symbol, $remarks] = $this->mapStatusToDisplay(
+                $effective, $ctx['holiday'], $ctx['leave'], $leaveTypes, $date, $worked
+            );
 
-            if ($attendancesForDate->isNotEmpty()) {
-                $policy = $policyResolver->resolve($user->id, $date);
-                $dayResult = $statusEngine->resolve(
-                    $attendancesForDate,
-                    $schedule,
-                    isHoliday: (bool) $holiday,
-                    isOnLeave: (bool) $leave,
-                    policy: $policy,
-                );
-
-                $buckets = [
-                    'ot_minutes' => $dayResult->ot_minutes,
-                    'worked_minutes' => $dayResult->worked_minutes,
-                    'double_time_minutes' => $dayResult->double_time_minutes,
-                    'regular_minutes' => $dayResult->regular_minutes,
-                    'break_deducted_minutes' => $dayResult->break_deducted_minutes,
-                    'policy_events' => $dayResult->policy_events,
-                ];
-            }
-
-            $attendanceData[$dateString] = array_merge([
+            $attendanceData[$dateString] = [
                 'status' => $symbol,
                 'punch_in' => $punchIn,
                 'punch_out' => $punchOut,
                 'total_work_hours' => $totalWorkHours,
                 'remarks' => $remarks,
-            ], $buckets);
+                'ot_minutes' => $result->ot_minutes,
+                'worked_minutes' => $result->worked_minutes,
+                'double_time_minutes' => $result->double_time_minutes,
+                'regular_minutes' => $result->regular_minutes,
+                'break_deducted_minutes' => $result->break_deducted_minutes,
+                'policy_events' => $result->policy_events,
+            ];
         }
 
         return $attendanceData;
@@ -471,19 +418,145 @@ class AttendanceReportService
     }
 
     /**
-     * Calculate total worked minutes from a collection of attendance records for a single date.
+     * Resolve the engine result for every day of the month for one user.
+     *
+     * One AttendanceStatusService pass per day, fed the same schedule / holiday /
+     * leave / policy the grid uses, so every surface derives from one source.
+     * Pass $until (e.g. "today") to stop at a date for current-month stats; pass
+     * null for the whole month (grid).
+     *
+     * @return array<string, array{result: DayAttendance, holiday: ?object, leave: ?object, schedule: \App\Services\Attendance\DTO\ShiftSchedule, attendances: \Illuminate\Support\Collection, before_join: bool}>
      */
-    private function calculateTotalMinutes(Collection $attendancesForDate): int
-    {
-        $totalMinutes = 0;
-        foreach ($attendancesForDate as $attendance) {
-            if ($attendance->punchin && $attendance->punchout) {
-                $in = Carbon::parse($attendance->punchin);
-                $out = Carbon::parse($attendance->punchout);
-                $totalMinutes += $in->diffInMinutes($out);
+    private function buildMonthlyDayResults(
+        $user,
+        int $year,
+        int $month,
+        $holidays,
+        ?CarbonInterface $until,
+        ScheduleResolver $resolver,
+        PolicyResolver $policyResolver,
+        AttendanceStatusService $statusEngine
+    ): array {
+        $daysInMonth = Carbon::create($year, $month)->daysInMonth;
+        $joinDate = $user->date_of_joining ? Carbon::parse($user->date_of_joining)->startOfDay() : null;
+
+        $results = [];
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $date = Carbon::create($year, $month, $day);
+            if ($until !== null && $date->copy()->startOfDay()->greaterThan($until)) {
+                continue;
             }
+            $dateString = $date->toDateString();
+
+            $schedule = $resolver->resolve($user->id, $date);
+
+            $attendancesForDate = $user->attendances
+                ->filter(fn ($a) => Carbon::parse($a->date)->isSameDay($date))
+                ->sortBy('punchin')
+                ->values();
+
+            $holiday = $holidays->first(fn ($h) => $date->between(
+                Carbon::parse($h->from_date)->startOfDay(),
+                Carbon::parse($h->to_date)->endOfDay()
+            ));
+            $leave = $user->leaves->first(fn ($l) => $date->between(
+                Carbon::parse($l->from_date)->startOfDay(),
+                Carbon::parse($l->to_date)->endOfDay()
+            ));
+
+            $policy = $attendancesForDate->isNotEmpty()
+                ? $policyResolver->resolve($user->id, $date)
+                : null;
+
+            $result = $statusEngine->resolve(
+                $attendancesForDate,
+                $schedule,
+                isHoliday: (bool) $holiday,
+                isOnLeave: (bool) $leave,
+                policy: $policy,
+            );
+
+            $results[$dateString] = [
+                'result' => $result,
+                'holiday' => $holiday,
+                'leave' => $leave,
+                'schedule' => $schedule,
+                'attendances' => $attendancesForDate,
+                'before_join' => $joinDate !== null && $date->copy()->startOfDay()->lessThan($joinDate),
+            ];
         }
 
-        return $totalMinutes;
+        return $results;
+    }
+
+    /**
+     * Decide what a day MEANS (effective status) so the grid and the dashboard
+     * can't diverge — both consume this one classifier. Standard precedence:
+     * holiday and weekly-off outrank leave (leave isn't consumed on a non-working
+     * day); leave only paints a working day. A punch on an approved-leave day is a
+     * conflict left "On Leave" for the Phase B exceptions workflow to reconcile —
+     * it is NOT silently relabeled present here.
+     *
+     * @return string a DayAttendance::* constant
+     */
+    private function classifyDay(array $ctx): string
+    {
+        /** @var DayAttendance $result */
+        $result = $ctx['result'];
+        $hasPunch = $ctx['attendances']->isNotEmpty();
+
+        if ($ctx['holiday']) {
+            // Worked on a holiday -> present-day ("Present on Holiday"); otherwise Holiday.
+            return $hasPunch ? DayAttendance::PRESENT : DayAttendance::HOLIDAY;
+        }
+
+        if (! $ctx['schedule']->isWorkingDay) {
+            // Off/weekend: engine already returns PRESENT if punched (off-day work) else WEEKEND.
+            return $result->status;
+        }
+
+        if ($ctx['leave']) {
+            return DayAttendance::ON_LEAVE;
+        }
+
+        return $result->status; // PRESENT / LATE / HALF_DAY / SHORT / ABSENT
+    }
+
+    /**
+     * Map an effective status (+ display context) to the grid's [symbol, remarks].
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function mapStatusToDisplay(string $effective, $holiday, $leave, $leaveTypes, Carbon $date, int $worked): array
+    {
+        $isToday = now()->toDateString() === $date->toDateString();
+
+        switch ($effective) {
+            case DayAttendance::HOLIDAY:
+                return ['#', 'Holiday'];
+
+            case DayAttendance::ON_LEAVE:
+                $symbol = $leave
+                    ? ($leaveTypes->firstWhere('id', $leave->leave_type)->symbol ?? '/')
+                    : '/';
+
+                return [$symbol, 'On Leave'];
+
+            case DayAttendance::WEEKEND:
+            case DayAttendance::DAY_OFF:
+                return ['▽', 'Day Off'];
+
+            case DayAttendance::ABSENT:
+                return ['▼', 'Absent'];
+
+            default: // worked-day statuses: present / late / half_day / short
+                if ($worked > 0) {
+                    $remarks = $holiday ? 'Present on Holiday' : 'Present';
+                } else {
+                    $remarks = $isToday ? 'Currently Working' : 'Not Punched Out';
+                }
+
+                return ['√', $remarks];
+        }
     }
 }
