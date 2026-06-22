@@ -34,16 +34,47 @@ Status legend: ✅ done · 🔭 planned. Severity mirrors the analysis.
 
 ---
 
-## 🔴 Phase A — Critical correctness (do next, highest money/compliance impact)
+## ✅ Phase A — Critical correctness — DONE (payroll descoped)
 
-- **#2 Attendance → Payroll bridge (NOT IMPLEMENTED).** `Payroll` has `present_days`,
-  `absent_days`, `overtime_hours`, `overtime_amount` but nothing populates them from
-  attendance — no `PayrollService`, command, controller, or routes. The engine's
-  `ot_minutes`/`double_time_minutes` reach the report API and then go nowhere. Build a
-  `PayrollService` that reads LOCKED-period `DayAttendance` results and writes payroll
-  inputs (present/absent/OT/double-time/leave). Gate on a locked/frozen period (pipeline §7).
-  **This is now the only remaining Phase A item** (#3/#4/#5 done — see "Already fixed"); the
-  single engine + per-employee day results it needs are now in place via `buildMonthlyDayResults()`.
+- **#1 device time, #3/#4 single-engine collapse, #5 approved-leave** — all done (see "Already fixed").
+- **#2 Attendance → Payroll bridge — DESCOPED.** The owner does **not** run payroll in this app;
+  payroll is done by the **accounts** team externally. This system's job is to *capture attendance
+  correctly and hand accounts trustworthy numbers/exports*. The `Payroll`/`Payslip` models remain
+  dormant scaffolding (no routes/controllers/UI). Do NOT build the bridge unless an in-app payroll
+  module is actually commissioned. The replacement deliverable is the **per-employee summary export**
+  in Phase B1.
+
+---
+
+## 🟦 Phase B — Accounts-focused correctness & deliverable (NEXT, owner's actual need)
+
+Owner requirement: *monitor attendance and give accounts a per-employee monthly Excel*
+(present / absent / leave days / total OT hours / late count). Half-days, mid-month transfers,
+and terminations are real for this org. Sequenced B1 → B2 → B3.
+
+**B1 — Accounts deliverable + cheap capture correctness**
+- **Per-employee monthly summary report + ONE Excel**: row per employee with
+  present / absent / leave / OT hours / late (+ department; consider holiday-worked / weekly-off-worked
+  since OT comes from those). Reuses the `buildMonthlyDayResults` engine pass that powers the grid —
+  leave-days are engine-derived (already exclude weekends/holidays via precedence). This is THE artifact
+  handed to accounts. (Existing exports are a day-by-day calendar grid; this is a new summary.)
+- **Capture guards (make standard):** reject future-dated punches; bound device clock-drift
+  (biometric `resolvePunchTime`); reject out-before-in. Keeps garbage out of the numbers.
+- **Termination gate:** stop counting "Absent" after `Offboarding.last_working_date` (mirror the
+  `date_of_joining` joiner clamp already in `calculateMonthlyStats`).
+
+**B2 — Holiday correctness** (small, high impact: prevents false-absents)
+- Apply `is_active` filter in `getHolidaysForMonth` (inactive holidays currently still suppress attendance).
+- Apply `is_recurring`/`recurrence_pattern` (annual holidays don't recur today → everyone shows Absent on a
+  real recurring holiday). Optional: per-location/department holiday scoping (multi-site only).
+
+**B3 — Leave correctness for the handoff**
+- **Half-day leave** (0.5 precision): add half-day to the leave model + apply flow + engine so a half-day
+  reconciles as 0.5 leave + 0.5 present in the counts. Most important B3 item (org has half-days).
+- **Paid/unpaid flag** on `LeaveSetting` so accounts can separate LWP from paid leave. *(Confirm accounts
+  needs the split.)*
+- *(Lower)* server-side `no_of_days` excluding weekends/holidays — fixes leave-**balance** accounting
+  (the accounts summary already derives leave-days from the engine, so this is balance-module hygiene).
 
 ## 🟠 Phase B — High (fraud / integrity / multi-site)
 
