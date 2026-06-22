@@ -84,22 +84,42 @@ class RosterService
         }
 
         DB::transaction(function () use ($swap) {
-            $requesterShiftId = $this->resolveScheduledShiftId($swap->requester_id, $swap->requester_date->toDateString());
+            $reqDate = $swap->requester_date->toDateString();
+            $requesterShiftId = $this->effectiveShiftId($swap->requester_id, $reqDate);
 
-            if ($swap->counterparty_id && $swap->counterparty_date) {
-                $counterpartyShiftId = $this->resolveScheduledShiftId($swap->counterparty_id, $swap->counterparty_date->toDateString());
+            if ($swap->type === 'cover') {
+                // Counterparty takes over the requester's shift; requester gets the day off.
+                $this->writeSwapDay($swap->requester_id, $reqDate, null);
+                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
 
-                $this->writeSwapDay($swap->requester_id, $swap->requester_date->toDateString(), $counterpartyShiftId);
-                $this->writeSwapDay($swap->counterparty_id, $swap->counterparty_date->toDateString(), $requesterShiftId);
-            } else {
-                // One-sided swap to a specific requested shift.
-                $this->writeSwapDay($swap->requester_id, $swap->requester_date->toDateString(), $swap->requested_shift_id);
+                return;
             }
+
+            // swap: trade two specific rostered shifts (4-cell exchange).
+            // Guard: an open/give-away swap has no counterparty_date; treat as requester-off only.
+            if (! $swap->counterparty_date || ! $swap->counterparty_id) {
+                $this->writeSwapDay($swap->requester_id, $reqDate, null);
+
+                return;
+            }
+
+            $cpDate = $swap->counterparty_date->toDateString();
+            $counterpartyShiftId = $this->effectiveShiftId($swap->counterparty_id, $cpDate);
+
+            $this->writeSwapDay($swap->requester_id, $reqDate, null);
+            $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
+            $this->writeSwapDay($swap->counterparty_id, $cpDate, null);
+            $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId);
         });
     }
 
-    /** Resolve the shift_id for a user on a date from existing roster_days (any source) or via assignment. */
-    private function resolveScheduledShiftId(int $userId, string $date): ?int
+    /**
+     * The effective shift_id for a user on a date from the MATERIALIZED roster
+     * (roster_days of ANY source) first, else the resolved assignment/pattern.
+     * Unlike resolveShift(), this honors source=pattern rows — it is the truth
+     * the employee sees and what swaps/covers operate on. null = off / no work.
+     */
+    public function effectiveShiftId(int $userId, string $date): ?int
     {
         $rosterDay = RosterDay::where('user_id', $userId)->whereDate('date', $date)->first();
         if ($rosterDay) {
