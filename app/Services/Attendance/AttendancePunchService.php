@@ -17,6 +17,8 @@ class AttendancePunchService
 
     private const MAX_OVERNIGHT_HOURS = 18;
 
+    private const MAX_CLOCK_DRIFT_HOURS = 2;
+
     /**
      * Process punch in/out for a user
      */
@@ -118,7 +120,20 @@ class AttendancePunchService
 
         if ($raw && in_array($source, ['biometric', 'device'], true)) {
             try {
-                return Carbon::parse($raw);
+                $parsed = Carbon::parse($raw);
+                $now = Carbon::now();
+                // Reject future-dated / over-drifted device clocks: a real punch is never in the
+                // future, and a clock running fast beyond tolerance is drift, not a real moment.
+                if ($parsed->greaterThan($now->copy()->addHours(self::MAX_CLOCK_DRIFT_HOURS))) {
+                    Log::warning('Rejected future/over-drifted device punch_time; using server time', [
+                        'punch_time' => $raw,
+                        'now' => $now->toDateTimeString(),
+                    ]);
+
+                    return $now;
+                }
+
+                return $parsed;
             } catch (\Throwable $e) {
                 // Unparseable device timestamp — fall back to server time rather than fail capture.
             }
@@ -175,6 +190,14 @@ class AttendancePunchService
      */
     private function punchOut(Attendance $attendance, Request $request, $user, Carbon $punchTime): array
     {
+        if ($attendance->punchin && $punchTime->lessThanOrEqualTo(Carbon::parse($attendance->punchin))) {
+            return [
+                'status' => 'error',
+                'message' => 'Punch-out cannot be before punch-in.',
+                'code' => 422,
+            ];
+        }
+
         $attendance->update([
             'punchout' => $punchTime,
             'punchout_location' => $this->formatLocation($request),
