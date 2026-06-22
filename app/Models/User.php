@@ -9,6 +9,7 @@ use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\Leave;
+use App\Models\HRM\Offboarding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -227,6 +228,13 @@ class User extends Authenticatable implements HasMedia
     public function employeeAttendanceType(): HasOne
     {
         return $this->hasOne(EmployeeAttendanceType::class, 'user_id');
+    }
+
+    public function offboarding(): HasOne
+    {
+        return $this->hasOne(Offboarding::class, 'employee_id')
+            ->where('status', '!=', Offboarding::STATUS_CANCELLED)
+            ->orderByDesc('last_working_date');
     }
 
     public function designation(): BelongsTo
