@@ -300,7 +300,10 @@
       "Bash(sed -i 's|- Task 5: source committed \\(1124e318\\); build verifying in Task 6.|- Task 5: complete \\(commit 1124e318; npx vite build OK, controller-transcribed verbatim from plan after agent stalled on build\\).|' .superpowers/sdd/progress-swap.md)",
       "Bash(echo \"- Task 6: in progress — assets \\(1872bf7a\\) + docs \\(3c8f5635\\) committed; full suite running; live verify + final review pending.\")",
       "Bash(bash __TRACKED_VAR__/scripts/review-package 3c8f5635 HEAD)",
-      "Bash(grep -n 'casts\\\\|protected $casts\\\\|requester_date\\\\|counterparty_date' app/Models/HRM/ShiftSwapRequest.php)"
+      "Bash(grep -n 'casts\\\\|protected $casts\\\\|requester_date\\\\|counterparty_date' app/Models/HRM/ShiftSwapRequest.php)",
+      "Bash(grep -nE \"punchin|punchout|=> \\\\[|'punches'|complete|status|total|duration|location|=> \\\\\\\\\\\\$\")",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package eee8b9fe HEAD)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 33895dfe HEAD)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
