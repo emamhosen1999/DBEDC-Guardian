@@ -235,6 +235,7 @@ const AttendancePage = ({ title, departments = [] }) => {
                                                 <RosterTab
                                                     departments={departments}
                                                     month={selectedMonth}
+                                                    onMonthChange={handleMonthChange}
                                                     isActive={activeTab === 'roster'}
                                                 />
                                             </Suspense>
