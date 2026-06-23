@@ -82,6 +82,11 @@ class ShiftController extends Controller
         return response()->json(['message' => 'Shift deleted.']);
     }
 
+    public function indexPatterns(): JsonResponse
+    {
+        return response()->json(['patterns' => ShiftRotationPattern::orderBy('name')->get()]);
+    }
+
     public function storePattern(Request $request): JsonResponse
     {
         $data = $request->validate([

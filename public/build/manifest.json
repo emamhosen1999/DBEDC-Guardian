@@ -967,7 +967,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-vVsI-aRj.js",
+    "file": "assets/js/AttendancePage-DWdfK-E-.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1195,7 +1195,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab--xyqjZQJ.js",
+    "file": "assets/js/SettingsTab-D7uou3Bs.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -2072,7 +2072,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-BmLDqLOk.js",
+    "file": "assets/js/app-DomMYEpt.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

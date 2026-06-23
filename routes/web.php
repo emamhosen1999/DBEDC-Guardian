@@ -568,6 +568,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/attendance/shifts', [\App\Http\Controllers\HRM\ShiftController::class, 'store'])->name('attendance.shifts.store');
         Route::put('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'update'])->name('attendance.shifts.update');
         Route::delete('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
+        Route::get('/attendance/rotation-patterns', [\App\Http\Controllers\HRM\ShiftController::class, 'indexPatterns'])->name('attendance.patterns.index');
         Route::post('/attendance/rotation-patterns', [\App\Http\Controllers\HRM\ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
         Route::post('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
         Route::post('/attendance/shift-assignments/bulk', [\App\Http\Controllers\HRM\ShiftController::class, 'storeBulkAssignment'])->name('attendance.assignments.storeBulk');
