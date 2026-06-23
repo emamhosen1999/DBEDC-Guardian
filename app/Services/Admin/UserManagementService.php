@@ -360,8 +360,27 @@ class UserManagementService
         $department = $filters['department'] ?? null;
         $designation = $filters['designation'] ?? null;
         $attendanceType = $filters['attendanceType'] ?? null;
+        $role = $filters['role'] ?? null;
+        $status = $filters['status'] ?? null;
+        $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-        $query = User::with(['department', 'designation', 'attendanceType', 'media']);
+        $query = User::withTrashed()
+            ->with(['department', 'designation', 'attendanceType', 'media', 'roles']);
+
+        // Status / soft-delete filtering
+        if ($status && $status !== 'all') {
+            if ($status === 'active') {
+                $query->whereNull('deleted_at');
+            } elseif ($status === 'inactive' || $status === 'deleted') {
+                $query->whereNotNull('deleted_at');
+            }
+        } elseif (!$showDeleted) {
+            $query->whereNull('deleted_at');
+        }
+
+        if ($role && $role !== 'all') {
+            $query->whereHas('roles', fn ($q) => $q->where('name', $role));
+        }
 
         if (! empty($search)) {
             $query->where(function ($q) use ($search) {
@@ -411,6 +430,8 @@ class UserManagementService
                     'profile_image_url' => $employee->reportsTo->profile_image_url,
                     'designation_name' => $employee->reportsTo->designation?->title,
                 ] : null,
+                'roles' => $employee->roles->map(fn($r) => ['id' => $r->id, 'name' => $r->name]),
+                'single_device_login_enabled' => (bool)$employee->single_device_login_enabled,
                 'created_at' => $employee->created_at,
                 'updated_at' => $employee->updated_at,
             ];

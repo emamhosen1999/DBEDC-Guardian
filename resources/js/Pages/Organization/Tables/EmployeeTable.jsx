@@ -10,7 +10,7 @@ import {
     BackpackIcon, ClockIcon, DotsVerticalIcon,
     EnvelopeClosedIcon, HomeIcon, MobileIcon,
     Pencil1Icon, PersonIcon, TrashIcon, LockClosedIcon,
-    EyeOpenIcon, EyeNoneIcon
+    EyeOpenIcon, EyeNoneIcon, ReloadIcon
 } from '@radix-ui/react-icons';
 import * as useEmployeesQuery from '@/api/queries/useEmployeesQuery';
 import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
@@ -219,6 +219,16 @@ const EmployeeTable = ({
         finally { setDeleteLoading(false); }
     };
 
+    const handleRestoreClick = async (user) => {
+        try {
+            await axios.post(route('users.restore', { id: user.id }));
+            showToast.success(`${user.name} restored successfully.`);
+            updateEmployeeOptimized?.(user.id, { deleted_at: null });
+        } catch (e) {
+            showToast.error(e.response?.data?.message || 'Failed to restore employee.');
+        }
+    };
+
     const startRow = ((pagination.currentPage - 1) * pagination.perPage) + 1;
 
     return (
@@ -232,6 +242,8 @@ const EmployeeTable = ({
                             {!isMobile && <Table.ColumnHeaderCell>Contact</Table.ColumnHeaderCell>}
                             <Table.ColumnHeaderCell>Department</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Designation</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Role</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ width: 90 }}>Status</Table.ColumnHeaderCell>
                             {!isMobile && !isTablet && <Table.ColumnHeaderCell>Attendance Type</Table.ColumnHeaderCell>}
                             {!isMobile && <Table.ColumnHeaderCell>Reports To</Table.ColumnHeaderCell>}
                             <Table.ColumnHeaderCell style={{ width: 56, textAlign: 'center' }}>Actions</Table.ColumnHeaderCell>
@@ -244,7 +256,7 @@ const EmployeeTable = ({
                             const filtDesignations = designations?.filter(d => d.department_id === parseInt(user.department_id)) || [];
                             const isBiometricSelected = attendanceTypes?.find(t => t.slug === 'biometric') && parseInt(user.attendance_type_id) === attendanceTypes?.find(t => t.slug === 'biometric').id;
                             return (
-                                <Table.Row key={user.id}>
+                                <Table.Row key={user.id} style={user.deleted_at ? { opacity: 0.65 } : undefined}>
                                     <Table.Cell><Text size="1" color="gray" weight="medium">{startRow + idx}</Text></Table.Cell>
                                     <Table.Cell>
                                         <Flex align="center" gap="3">
@@ -295,6 +307,23 @@ const EmployeeTable = ({
                                                 {filtDesignations.map(desig => <DropdownMenu.Item key={desig.id} onSelect={() => handleDesignationChange(user.id, desig.id)}>{desig.title}</DropdownMenu.Item>)}
                                             </DropdownMenu.Content>
                                         </DropdownMenu.Root>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Flex gap="1" wrap="wrap" style={{ minWidth: 110 }}>
+                                            {(user.roles || []).map(r => (
+                                                <Badge key={r.id || r.name} size="1" variant="soft" color="violet" radius="full">
+                                                    {r.name}
+                                                </Badge>
+                                            ))}
+                                            {(!user.roles || user.roles.length === 0) && (
+                                                <Text size="1" color="gray">—</Text>
+                                            )}
+                                        </Flex>
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Badge size="1" variant="soft" color={!user.deleted_at ? 'green' : 'red'}>
+                                            {!user.deleted_at ? 'Active' : 'Inactive'}
+                                        </Badge>
                                     </Table.Cell>
                                     {!isMobile && !isTablet && (
                                         <Table.Cell>
@@ -365,7 +394,15 @@ const EmployeeTable = ({
                                                         </>
                                                     )}
                                                     <DropdownMenu.Separator />
-                                                    <DropdownMenu.Item color="red" onSelect={() => handleDeleteClick(user)}><Flex gap="2"><TrashIcon />Delete</Flex></DropdownMenu.Item>
+                                                    {user.deleted_at ? (
+                                                        <DropdownMenu.Item color="green" onSelect={() => handleRestoreClick(user)}>
+                                                            <Flex gap="2"><ReloadIcon />Restore</Flex>
+                                                        </DropdownMenu.Item>
+                                                    ) : (
+                                                        <DropdownMenu.Item color="red" onSelect={() => handleDeleteClick(user)}>
+                                                            <Flex gap="2"><TrashIcon />Delete</Flex>
+                                                        </DropdownMenu.Item>
+                                                    )}
                                                 </DropdownMenu.Content>
                                             </DropdownMenu.Root>
                                         </Flex>

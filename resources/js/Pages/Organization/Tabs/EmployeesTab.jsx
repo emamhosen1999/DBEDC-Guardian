@@ -4,7 +4,7 @@ import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
 import {
     Box, Flex, Text, Button, Grid, Separator,
-    TextField, Select, Badge, Spinner, IconButton
+    TextField, Select, Badge, Spinner, IconButton, Checkbox
 } from '@radix-ui/themes';
 import {
     ChevronLeftIcon, ChevronRightIcon, Cross2Icon,
@@ -89,7 +89,7 @@ const EmployeesTab = ({ isActive }) => {
     const [showFilters, setShowFilters] = useState(false);
 
     /* ── filters ── */
-    const [filters, setFilters] = useState({ search: '', department: 'all', designation: 'all', attendanceType: 'all' });
+    const [filters, setFilters] = useState({ search: '', department: 'all', designation: 'all', attendanceType: 'all', role: 'all', status: 'all', showDeleted: false });
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10, total: 0 });
 
     /* ── React Query hooks ── */
@@ -117,7 +117,7 @@ const EmployeesTab = ({ isActive }) => {
     /* ── Update local state and pagination when data changes ── */
     useEffect(() => {
         if (employeesResponse) {
-            setEmployees(employeesResponse.data?.filter(e => !e.deleted_at) || []);
+            setEmployees(employeesResponse.data || []);
             setTotalRows(employeesResponse.total || 0);
             setPagination(prev => ({ ...prev, total: employeesResponse.total || 0 }));
         }
@@ -128,13 +128,13 @@ const EmployeesTab = ({ isActive }) => {
         if (isActive) {
             refetch();
         }
-    }, [pagination.currentPage, pagination.perPage, filters.search, filters.department, filters.designation, filters.attendanceType, isActive, refetch]);
+    }, [pagination.currentPage, pagination.perPage, filters.search, filters.department, filters.designation, filters.attendanceType, filters.role, filters.status, filters.showDeleted, isActive, refetch]);
 
     /* ── filter helpers ── */
     const handleSearchChange = (value) => { setFilters(p => ({ ...p, search: value })); setPagination(p => ({ ...p, currentPage: 1 })); };
     const handleDeptChange = (value) => { setFilters(p => ({ ...p, department: value, designation: 'all' })); setPagination(p => ({ ...p, currentPage: 1 })); };
-    const clearFilters = () => { setFilters({ search: '', department: 'all', designation: 'all', attendanceType: 'all' }); setPagination(p => ({ ...p, currentPage: 1 })); };
-    const hasActiveFilters = filters.search || filters.department !== 'all' || filters.designation !== 'all' || filters.attendanceType !== 'all';
+    const clearFilters = () => { setFilters({ search: '', department: 'all', designation: 'all', attendanceType: 'all', role: 'all', status: 'all', showDeleted: false }); setPagination(p => ({ ...p, currentPage: 1 })); };
+    const hasActiveFilters = filters.search || filters.department !== 'all' || filters.designation !== 'all' || filters.attendanceType !== 'all' || filters.role !== 'all' || filters.status !== 'all' || filters.showDeleted;
 
     /* ── optimistic updates ── */
     const updateEmployeeOptimized = useCallback((id, fields) => {
@@ -205,7 +205,7 @@ const EmployeesTab = ({ isActive }) => {
             {/* Filter Panel */}
             {showFilters && (
                 <Box p="4" mb="4" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-3)', border: '1px solid var(--gray-a4)' }}>
-                    <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4" align="end">
+                    <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '6' }} gap="4" align="end">
                         <Box>
                             <Text size="2" color="gray" mb="1" as="div">Department</Text>
                             <Select.Root size="2" value={filters.department} onValueChange={handleDeptChange}>
@@ -236,9 +236,40 @@ const EmployeesTab = ({ isActive }) => {
                                 </Select.Content>
                             </Select.Root>
                         </Box>
-                        <Button size="2" variant="soft" color="red" disabled={!hasActiveFilters} onClick={clearFilters} style={{ width: '100%' }}>
-                            <Cross2Icon />Clear Filters
-                        </Button>
+                        <Box>
+                            <Text size="2" color="gray" mb="1" as="div">System Role</Text>
+                            <Select.Root size="2" value={filters.role} onValueChange={v => { setFilters(p => ({ ...p, role: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Trigger style={{ width: '100%' }} placeholder="All Roles" />
+                                <Select.Content>
+                                    <Select.Item value="all">All Roles</Select.Item>
+                                    {roles?.map(r => <Select.Item key={r.id || r.name} value={r.name}>{r.name}</Select.Item>)}
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+                        <Box>
+                            <Text size="2" color="gray" mb="1" as="div">Status</Text>
+                            <Select.Root size="2" value={filters.status} onValueChange={v => { setFilters(p => ({ ...p, status: v })); setPagination(p => ({ ...p, currentPage: 1 })); }}>
+                                <Select.Trigger style={{ width: '100%' }} placeholder="Active / Inactive" />
+                                <Select.Content>
+                                    <Select.Item value="all">All Statuses</Select.Item>
+                                    <Select.Item value="active">Active Only</Select.Item>
+                                    <Select.Item value="inactive">Inactive Only</Select.Item>
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+                        <Flex direction="column" gap="2" style={{ width: '100%' }}>
+                            <Flex align="center" gap="2" style={{ height: '36px' }}>
+                                <Checkbox 
+                                    id="showDeletedEmployees"
+                                    checked={filters.showDeleted}
+                                    onCheckedChange={checked => { setFilters(p => ({ ...p, showDeleted: !!checked })); setPagination(p => ({ ...p, currentPage: 1 })); }}
+                                />
+                                <Text size="2" color="gray" htmlFor="showDeletedEmployees" as="label" style={{ cursor: 'pointer', userSelect: 'none' }}>Include Deleted</Text>
+                            </Flex>
+                            <Button size="2" variant="soft" color="red" disabled={!hasActiveFilters} onClick={clearFilters} style={{ width: '100%' }}>
+                                <Cross2Icon />Clear
+                            </Button>
+                        </Flex>
                     </Grid>
                 </Box>
             )}

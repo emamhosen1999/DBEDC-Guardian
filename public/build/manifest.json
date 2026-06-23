@@ -102,8 +102,8 @@
       "_vendor-utils-D6Wd6ilh.js"
     ]
   },
-  "_EmployeeTable-BN3UT-i5.js": {
-    "file": "assets/js/EmployeeTable-BN3UT-i5.js",
+  "_EmployeeTable-7wmXhOpZ.js": {
+    "file": "assets/js/EmployeeTable-7wmXhOpZ.js",
     "name": "EmployeeTable",
     "isDynamicEntry": true,
     "imports": [
@@ -2040,7 +2040,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-JhUkPu9h.js",
+    "file": "assets/js/app-LAh-MGkV.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2098,7 +2098,7 @@
       "resources/js/Pages/Organization/Components/WorkLocationForm.jsx",
       "resources/js/Pages/Organization/Tables/DepartmentTable.jsx",
       "resources/js/Pages/Organization/Tables/DesignationTable.jsx",
-      "_EmployeeTable-BN3UT-i5.js",
+      "_EmployeeTable-7wmXhOpZ.js",
       "resources/js/Pages/Organization/Tables/WorkLocationsTable.jsx",
       "resources/js/Pages/Organization/Tabs/DepartmentsTab.jsx",
       "resources/js/Pages/Organization/Tabs/DesignationsTab.jsx",

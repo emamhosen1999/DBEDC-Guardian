@@ -553,7 +553,7 @@ class UserController extends Controller
     public function employees(Request $request)
     {
         $this->authorize('viewAny', User::class);
-        $filters = $request->only(['perPage', 'page', 'search', 'department', 'designation', 'attendanceType']);
+        $filters = $request->only(['perPage', 'page', 'search', 'department', 'designation', 'attendanceType', 'role', 'status', 'showDeleted']);
         $result = $this->userService->paginateEmployees($filters);
 
         return response()->json([
