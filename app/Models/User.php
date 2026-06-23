@@ -106,6 +106,7 @@ class User extends Authenticatable implements HasMedia
         'total_esi_rate',
         'email_verified_at',
         'attendance_type_id',
+        'work_location_id',
         'fcm_token',
         'preferences',
         'single_device_login_enabled',
@@ -137,6 +138,7 @@ class User extends Authenticatable implements HasMedia
         'designation_id' => 'integer',
         'department_id' => 'integer',
         'attendance_type_id' => 'integer',
+        'work_location_id' => 'integer',
         'preferences' => 'array',
         'single_device_login_enabled' => 'boolean',
         'device_reset_at' => 'datetime',
@@ -223,6 +225,33 @@ class User extends Authenticatable implements HasMedia
     public function attendanceType(): BelongsTo
     {
         return $this->belongsTo(AttendanceType::class, 'attendance_type_id');
+    }
+
+    public function workLocation(): BelongsTo
+    {
+        return $this->belongsTo(WorkLocation::class, 'work_location_id');
+    }
+
+    /**
+     * Get resolved attendance type ID (profile override or inherited from location).
+     */
+    public function getAttendanceTypeIdAttribute($value)
+    {
+        if ($value !== null) {
+            return $value;
+        }
+        return $this->workLocation?->attendance_type_id;
+    }
+
+    /**
+     * Get resolved attendance type model (profile override or inherited from location).
+     */
+    public function getAttendanceTypeAttribute()
+    {
+        if ($this->getRawOriginal('attendance_type_id') !== null) {
+            return $this->attendanceType()->getResults();
+        }
+        return $this->workLocation?->attendanceType;
     }
 
     public function employeeAttendanceType(): HasOne
@@ -394,10 +423,11 @@ class User extends Authenticatable implements HasMedia
     protected static function booted()
     {
         static::saved(function ($user) {
-            if ($user->isDirty('attendance_type_id')) {
+            if ($user->isDirty('attendance_type_id') || (!$user->getRawOriginal('attendance_type_id') && $user->isDirty('work_location_id'))) {
+                $resolvedType = $user->getRawOriginal('attendance_type_id') ?: ($user->workLocation?->attendance_type_id);
                 EmployeeAttendanceType::updateOrCreate(
                     ['user_id' => $user->id],
-                    ['attendance_type_id' => $user->attendance_type_id]
+                    ['attendance_type_id' => $resolvedType]
                 );
             }
         });

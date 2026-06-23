@@ -37,12 +37,13 @@ import {
 import { useForm } from 'laravel-precognition-react';
 import { showToast } from "@/utils/toastUtils";
 
-const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, setUsers, open, closeModal, editMode = false, onSuccess }) => {
+const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, workLocations = [], attendanceTypes = [], setUsers, open, closeModal, editMode = false, onSuccess }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [selectedImage, setSelectedImage] = useState(user?.profile_image_url || user?.profile_image || null);
     const [selectedImageFile, setSelectedImageFile] = useState(null);
     const [filteredDesignations, setFilteredDesignations] = useState(designations || []);
     const [filteredReportTo, setFilteredReportTo] = useState(allUsers || []);
+    const [hasOverride, setHasOverride] = useState(user?.has_attendance_override || false);
 
     // Initialize Precognition form with proper method and URL
     const form = useForm(
@@ -66,6 +67,8 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
             password_confirmation: '',
             roles: user?.roles?.map(r => typeof r === 'object' ? r.name : r) || [],
             single_device_login_enabled: user?.single_device_login_enabled || user?.single_device_login || false,
+            work_location_id: user?.work_location_id || '',
+            attendance_type_id: user?.has_attendance_override && user?.attendance_type_id ? String(user.attendance_type_id) : '',
             profile_image: null,
         }
     );
@@ -150,6 +153,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
         if (user?.profile_image_url || user?.profile_image) {
             setSelectedImage(user.profile_image_url || user.profile_image);
         }
+        setHasOverride(user?.has_attendance_override || false);
     }, [user]);
 
     const handleSubmit = async (e) => {
@@ -446,6 +450,67 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                     ))}
                                                 </Select.Content>
                                             </Select.Root>
+                                        </Box>
+
+                                        {/* Work Location Selection */}
+                                        <Box>
+                                            <Text as="label" size="2" weight="medium" mb="1" display="block">Work Location</Text>
+                                            <Select.Root value={form.data.work_location_id ? String(form.data.work_location_id) : 'none'} onValueChange={(value) => handleChange('work_location_id', value === 'none' ? '' : value)}>
+                                                <Select.Trigger placeholder="Select work location" style={{ width: '100%' }} />
+                                                <Select.Content>
+                                                    <Select.Item value="none">Unassigned / Remote</Select.Item>
+                                                    {workLocations?.map((loc) => (
+                                                        <Select.Item key={loc.id} value={String(loc.id)}>
+                                                            {loc.name}
+                                                        </Select.Item>
+                                                    ))}
+                                                </Select.Content>
+                                            </Select.Root>
+                                            {form.errors.work_location_id && <Text color="red" size="1" mt="1" display="block">{form.errors.work_location_id}</Text>}
+                                        </Box>
+
+                                        {/* Attendance Rule Override */}
+                                        <Box>
+                                            <Flex align="center" justify="between" mb="2" mt="1">
+                                                <Text as="label" size="2" weight="medium">Custom Attendance Override</Text>
+                                                <Switch 
+                                                    checked={hasOverride} 
+                                                    onCheckedChange={(checked) => {
+                                                        setHasOverride(checked);
+                                                        if (!checked) {
+                                                            handleChange('attendance_type_id', '');
+                                                        } else {
+                                                            handleChange('attendance_type_id', attendanceTypes?.[0]?.id ? String(attendanceTypes[0].id) : '');
+                                                        }
+                                                    }} 
+                                                />
+                                            </Flex>
+                                            
+                                            {hasOverride ? (
+                                                <Select.Root value={form.data.attendance_type_id ? String(form.data.attendance_type_id) : undefined} onValueChange={(value) => handleChange('attendance_type_id', value)}>
+                                                    <Select.Trigger placeholder="Select custom rule" style={{ width: '100%' }} />
+                                                    <Select.Content>
+                                                        {attendanceTypes?.map((type) => (
+                                                            <Select.Item key={type.id} value={String(type.id)}>
+                                                                {type.name}
+                                                            </Select.Item>
+                                                        ))}
+                                                    </Select.Content>
+                                                </Select.Root>
+                                            ) : (
+                                                <Box p="2" style={{ backgroundColor: 'var(--gray-2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-4)' }}>
+                                                    <Text size="1" color="gray" style={{ fontStyle: 'italic' }}>
+                                                        {form.data.work_location_id ? (
+                                                            `Inherits from ${workLocations?.find(w => String(w.id) === String(form.data.work_location_id))?.name || 'location'}: ${
+                                                                workLocations?.find(w => String(w.id) === String(form.data.work_location_id))?.attendance_type?.name || 'Default'
+                                                            }`
+                                                        ) : (
+                                                            'Unassigned. Uses default check-in verification.'
+                                                        )}
+                                                    </Text>
+                                                </Box>
+                                            )}
+                                            {form.errors.attendance_type_id && <Text color="red" size="1" mt="1" display="block">{form.errors.attendance_type_id}</Text>}
                                         </Box>
                                     </Grid>
                                 </Card>

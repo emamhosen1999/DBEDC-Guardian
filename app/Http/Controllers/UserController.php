@@ -58,6 +58,8 @@ class UserController extends Controller
             ->whereNull('deleted_at')
             ->get();
 
+        $workLocations = \App\Models\WorkLocation::with('attendanceType')->get();
+
         // 2. Department Tab Stats & Pagination
         $parentDepartments = $departments->whereNull('parent_id')->values();
         $departmentStats = [
@@ -122,6 +124,7 @@ class UserController extends Controller
             'designationStats' => $designationStats,
 
             // Work Locations Tab
+            'workLocations' => $workLocations,
             'users' => $activeUsers,
 
             // Roles & Permissions Tab
@@ -489,6 +492,56 @@ class UserController extends Controller
 
             return response()->json([
                 'error' => 'Failed to update attendance type',
+                'message' => $this->safeExceptionMessage($e),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update user work location.
+     */
+    public function updateWorkLocation(Request $request, $id)
+    {
+        $request->validate([
+            'jurisdiction_id' => 'nullable|exists:jurisdictions,id',
+        ]);
+
+        try {
+            $user = User::findOrFail($id);
+            $this->authorize('update', $user);
+            
+            $user->update([
+                'jurisdiction_id' => $request->input('jurisdiction_id'),
+            ]);
+
+            // Sync employee_attendance_types if user does not have a custom override
+            if (!$user->getRawOriginal('attendance_type_id')) {
+                $resolvedType = $user->workLocation?->attendance_type_id;
+                \App\Models\HRM\EmployeeAttendanceType::updateOrCreate(
+                    ['user_id' => $user->id],
+                    ['attendance_type_id' => $resolvedType]
+                );
+            }
+
+            $updatedUser = $user->fresh(['department', 'designation', 'roles', 'currentDevice', 'attendanceType', 'workLocation']);
+
+            return response()->json([
+                'message' => 'Work location updated successfully',
+                'user' => new UserResource($updatedUser),
+            ]);
+        } catch (HttpException $e) {
+            throw $e;
+        } catch (AuthorizationException $e) {
+            throw $e;
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (HttpResponseException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Failed to update work location: '.$e->getMessage());
+
+            return response()->json([
+                'error' => 'Failed to update work location',
                 'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
@@ -884,5 +937,29 @@ class UserController extends Controller
         }
 
         return $dependencies;
+    }
+
+    /**
+     * Update work location of a user.
+     */
+    public function updateWorkLocation(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'work_location_id' => 'nullable|exists:work_locations,id',
+            ]);
+
+            $user = User::findOrFail($id);
+            $user->update([
+                'work_location_id' => $request->work_location_id,
+            ]);
+
+            return response()->json([
+                'message' => 'Work location updated successfully',
+                'user' => $user->fresh(['workLocation']),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }

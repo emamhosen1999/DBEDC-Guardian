@@ -29,7 +29,7 @@ const DeleteWorkLocationForm = ({ open, handleClose, handleDelete, currentRow })
 
                 <Flex direction="column" gap="4" mb="5">
                     <Text size="2">
-                        Are you sure you want to delete <strong>{currentRow.location}</strong>? 
+                        Are you sure you want to delete <strong>{currentRow.name}</strong>? 
                         This action cannot be undone.
                     </Text>
 
