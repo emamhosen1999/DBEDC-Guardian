@@ -41,7 +41,7 @@ function hasValidConfig(type) {
 }
 
 const EmployeeTable = ({
-    employees: allUsers = [], allManagers = [], departments, designations, attendanceTypes,
+    employees: allUsers = [], allManagers = [], departments, designations, attendanceTypes, workLocations = [],
     isMobile, isTablet, pagination, totalRows = 0, loading = false,
     updateEmployeeOptimized, deleteEmployeeOptimized, onPageChange, onRowsPerPageChange,
     auth, roles,
@@ -57,6 +57,8 @@ const EmployeeTable = ({
 
     /* ── user edit state ── */
     const [editUser, setEditUser] = useState(null);
+    const [editScope, setEditScope] = useState('full');
+    const openEditDialog = (user, scope) => { setEditScope(scope); setEditUser(user); };
 
     /* ── reset-password dialog state ── */
     const [pwUser, setPwUser]       = useState(null);
@@ -126,6 +128,7 @@ const EmployeeTable = ({
     const updateAttendanceType = useEmployeesQuery.useUpdateAttendanceType();
     const updateBiometricDevice = useEmployeesQuery.useUpdateBiometricDevice();
     const updateReportTo = useEmployeesQuery.useUpdateReportTo();
+    const updateWorkLocation = useEmployeesQuery.useUpdateWorkLocation();
     const deleteEmployee = useEmployeesQuery.useDeleteEmployee();
     const isMutating = updateDepartment.isPending || updateDesignation.isPending || updateAttendanceType.isPending || updateBiometricDevice.isPending || updateReportTo.isPending || deleteEmployee.isPending;
 
@@ -176,6 +179,19 @@ const EmployeeTable = ({
             updateEmployeeOptimized?.(userId, { biometric_device_id: data.biometric_device_id ?? null, biometric_device_name: data.biometric_device_name ?? null });
             showToast.success(data.message || 'Device assigned');
         } catch (e) { showToast.error(e.response?.data?.message || 'Failed to assign device'); }
+    };
+
+    const handleWorkLocationChange = async (userId, workLocationId) => {
+        try {
+            const loc = workLocations.find(w => String(w.id) === String(workLocationId)) || null;
+            const { data } = await updateWorkLocation.mutateAsync({ id: userId, work_location_id: workLocationId || null });
+            updateEmployeeOptimized?.(userId, {
+                work_location_id: workLocationId || null,
+                work_location_name: loc?.name || null,
+                work_location_attendance_type_name: loc?.attendance_type?.name || null,
+            });
+            showToast.success(data.message || 'Work location updated');
+        } catch (e) { showToast.error(e.response?.data?.message || 'Failed to update work location'); }
     };
 
     const debouncedUpdateReportTo = useCallback((userId, reportToId) => {
@@ -244,6 +260,7 @@ const EmployeeTable = ({
                             <Table.ColumnHeaderCell>Designation</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Role</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell style={{ width: 90 }}>Status</Table.ColumnHeaderCell>
+                            {!isMobile && !isTablet && <Table.ColumnHeaderCell>Work Location</Table.ColumnHeaderCell>}
                             {!isMobile && !isTablet && <Table.ColumnHeaderCell>Attendance Type</Table.ColumnHeaderCell>}
                             {!isMobile && <Table.ColumnHeaderCell>Reports To</Table.ColumnHeaderCell>}
                             <Table.ColumnHeaderCell style={{ width: 56, textAlign: 'center' }}>Actions</Table.ColumnHeaderCell>
@@ -327,10 +344,26 @@ const EmployeeTable = ({
                                     </Table.Cell>
                                     {!isMobile && !isTablet && (
                                         <Table.Cell>
+                                            <Select.Root size="1" value={user.work_location_id ? String(user.work_location_id) : 'none'} onValueChange={(v) => handleWorkLocationChange(user.id, v === 'none' ? null : parseInt(v))}>
+                                                <Select.Trigger style={{ width: '100%', minWidth: 150 }} placeholder="Unassigned" />
+                                                <Select.Content>
+                                                    <Select.Item value="none">Unassigned / Remote</Select.Item>
+                                                    {workLocations?.map(loc => <Select.Item key={loc.id} value={String(loc.id)}>{loc.name}</Select.Item>)}
+                                                </Select.Content>
+                                            </Select.Root>
+                                            {!user.has_attendance_override && user.work_location_attendance_type_name && (
+                                                <Text size="1" color="gray" mt="1" as="div" style={{ fontStyle: 'italic' }}>
+                                                    Inherits: {user.work_location_attendance_type_name}
+                                                </Text>
+                                            )}
+                                        </Table.Cell>
+                                    )}
+                                    {!isMobile && !isTablet && (
+                                        <Table.Cell>
                                             <DropdownMenu.Root>
                                                 <DropdownMenu.Trigger>
                                                     <Button size="1" variant="surface" color="gray" style={{ width: '100%', minWidth: 160, justifyContent: 'space-between' }}>
-                                                        <Flex align="center" gap="1"><ClockIcon /><Text size="1">{user.attendance_type_name || 'Select…'}</Text></Flex>
+                                                        <Flex align="center" gap="1"><ClockIcon /><Text size="1">{user.attendance_type_name || (user.has_attendance_override ? 'Select…' : (user.work_location_attendance_type_name ? `${user.work_location_attendance_type_name} (inherited)` : 'Select…'))}</Text></Flex>
                                                     </Button>
                                                 </DropdownMenu.Trigger>
                                                 <DropdownMenu.Content size="1">
@@ -373,8 +406,11 @@ const EmployeeTable = ({
                                                     {canManageUsers && (
                                                         <>
                                                             <DropdownMenu.Separator />
-                                                            <DropdownMenu.Item onSelect={() => setEditUser(user)}>
-                                                                <Flex gap="2"><Pencil1Icon />Edit Access/Roles</Flex>
+                                                            <DropdownMenu.Item onSelect={() => openEditDialog(user, 'profile')}>
+                                                                <Flex gap="2"><Pencil1Icon />Edit Profile</Flex>
+                                                            </DropdownMenu.Item>
+                                                            <DropdownMenu.Item onSelect={() => openEditDialog(user, 'access')}>
+                                                                <Flex gap="2"><LockClosedIcon />Manage Access</Flex>
                                                             </DropdownMenu.Item>
                                                             <DropdownMenu.Item onSelect={() => openPwDialog(user)}>
                                                                 <Flex gap="2"><LockClosedIcon />Reset Password</Flex>
@@ -418,7 +454,7 @@ const EmployeeTable = ({
             <DeleteEmployeeModal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} employee={employeeToDelete} onConfirm={handleDeleteConfirm} loading={deleteLoading} />
             <ProfilePictureModal isOpen={profilePictureModal.isOpen} onClose={() => setProfilePictureModal({ isOpen: false })} employee={profilePictureModal.employee} onImageUpdate={(id, url) => updateEmployeeOptimized?.(id, { profile_image_url: url })} />
 
-            {/* ── Edit Access & Roles Modal ── */}
+            {/* ── Edit Profile / Manage Access Modal ── */}
             {editUser && (
                 <AddEditUserFormRadix
                     user={editUser}
@@ -427,8 +463,11 @@ const EmployeeTable = ({
                     departments={departments}
                     designations={designations}
                     roles={roles}
+                    workLocations={workLocations}
+                    attendanceTypes={attendanceTypes}
                     allUsers={allManagers}
                     editMode={true}
+                    scope={editScope}
                     onSuccess={(response) => {
                         setEditUser(null);
                         updateEmployeeOptimized?.(response.data.user.id, {

@@ -157,10 +157,24 @@ export const useUpdateBiometricDevice = () => {
 // Update employee report-to mutation
 export const useUpdateReportTo = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ id, report_to }) => {
       const response = await axios.post(route('users.updateReportTo', { id }), { report_to });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: employeesKeys.lists() });
+    },
+  });
+};
+
+export const useUpdateWorkLocation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, work_location_id }) => {
+      const response = await axios.put(route('users.updateWorkLocation', { id }), { work_location_id });
       return response.data;
     },
     onSuccess: () => {

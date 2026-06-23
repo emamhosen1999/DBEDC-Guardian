@@ -75,7 +75,7 @@ const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
 };
 
 const EmployeesTab = ({ isActive }) => {
-    const { auth, departments, designations, attendanceTypes, roles } = usePage().props;
+    const { auth, departments, designations, attendanceTypes, roles, workLocations } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isTablet = useMediaQuery('(max-width: 768px)');
     
@@ -315,6 +315,7 @@ const EmployeesTab = ({ isActive }) => {
                     departments={departments}
                     designations={designations}
                     attendanceTypes={attendanceTypes}
+                    workLocations={workLocations}
                     allManagers={allManagers}
                     isMobile={isMobile}
                     isTablet={isTablet}

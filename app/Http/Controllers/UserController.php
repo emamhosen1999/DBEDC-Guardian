@@ -45,6 +45,7 @@ class UserController extends Controller
         // 1. Workforce & Organization base data
         $departments = Department::select('id', 'name', 'code', 'parent_id', 'is_active')->get();
         $designations = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')
+            ->with('department:id,name') // department_name is appended in Designation::toArray(); avoid lazy-load violation
             ->orderBy('hierarchy_level', 'asc')
             ->get();
         
@@ -87,7 +88,7 @@ class UserController extends Controller
             'total_employees' => $activeUsers->count(),
             'total_departments' => $departments->count(),
             'total_designations' => $designations->count(),
-            'total_locations' => $attendanceTypes->count(),
+            'total_locations' => $workLocations->count(),
         ];
 
         // 4. Admin - Roles & Permissions data

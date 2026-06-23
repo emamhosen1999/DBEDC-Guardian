@@ -425,6 +425,7 @@ class UserManagementService
                 'attendance_type_name' => $employee->attendanceType?->name,
                 'work_location_id' => $employee->work_location_id,
                 'work_location_name' => $employee->workLocation?->name,
+                'work_location_attendance_type_name' => $employee->workLocation?->attendanceType?->name,
                 'has_attendance_override' => $employee->getRawOriginal('attendance_type_id') !== null,
                 'report_to' => $employee->report_to,
                 'reports_to' => $employee->reportsTo ? [

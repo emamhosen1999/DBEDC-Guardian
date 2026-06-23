@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Dialog, Button, Flex, Grid, Text, TextField, 
-    Select, Box, Spinner 
+import {
+    Dialog, Button, Flex, Grid, Text, TextField,
+    Select, Box, Spinner, Switch, TextArea
 } from '@radix-ui/themes';
 import { SewingPinIcon } from '@radix-ui/react-icons';
 import * as useWorkLocationsQuery from '@/api/queries/useWorkLocationsQuery';
@@ -17,6 +17,14 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
     const initialFormState = {
         location: '',
+        code: '',
+        description: '',
+        address: '',
+        latitude: '',
+        longitude: '',
+        geofence_radius: '',
+        timezone: '',
+        is_active: true,
         attendance_type_id: 'none',
     };
 
@@ -26,6 +34,14 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
         if (modalType === 'update' && currentRow) {
             setFormData({
                 location: currentRow.name || '',
+                code: currentRow.code || '',
+                description: currentRow.description || '',
+                address: currentRow.address || '',
+                latitude: currentRow.latitude ?? '',
+                longitude: currentRow.longitude ?? '',
+                geofence_radius: currentRow.geofence_radius ?? '',
+                timezone: currentRow.timezone || '',
+                is_active: currentRow.is_active ?? true,
                 attendance_type_id: currentRow.attendance_type_id ? String(currentRow.attendance_type_id) : 'none',
             });
         } else {
@@ -42,6 +58,10 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
         const payload = { ...formData };
         if (payload.attendance_type_id === 'none') payload.attendance_type_id = null;
+        // Normalise empty numeric/optional fields to null so the API stores NULL, not "".
+        ['latitude', 'longitude', 'geofence_radius', 'code', 'description', 'address', 'timezone'].forEach((f) => {
+            if (payload[f] === '' || payload[f] === undefined) payload[f] = null;
+        });
 
         try {
             if (modalType === 'update') {
@@ -64,28 +84,101 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
     return (
         <Dialog.Root open={open} onOpenChange={v => { if (!v && !isMutating) closeModal(); }}>
-            <Dialog.Content style={{ maxWidth: 450 }}>
+            <Dialog.Content style={{ maxWidth: 560 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
                         <SewingPinIcon style={{ color: 'var(--accent-9)' }} />
                         {modalType === 'update' ? 'Edit Work Location' : 'Add Work Location'}
                     </Flex>
                 </Dialog.Title>
+                <Dialog.Description size="2" color="gray" mb="2">
+                    Where employees clock in and the default attendance rule that applies there.
+                </Dialog.Description>
 
                 <form onSubmit={handleSubmit}>
-                    <Grid columns="1" gap="4" mt="4">
+                    <Grid columns={{ initial: '1', sm: '2' }} gap="4" mt="2">
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">Location Name *</Text>
-                            <TextField.Root 
-                                value={formData.location} 
-                                onChange={e => handleChange('location', e.target.value)} 
-                                disabled={isMutating} 
-                                placeholder="e.g. Site Alpha" 
+                            <TextField.Root
+                                value={formData.location}
+                                onChange={e => handleChange('location', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="e.g. Site Alpha Camp"
                             />
                             {errors.location && <Text size="1" color="red">{errors.location[0]}</Text>}
+                            {errors.name && <Text size="1" color="red">{errors.name[0]}</Text>}
                         </Box>
 
                         <Box>
+                            <Text size="2" weight="medium" mb="1" as="div">Code (Optional)</Text>
+                            <TextField.Root
+                                value={formData.code}
+                                onChange={e => handleChange('code', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="e.g. SITE-A"
+                            />
+                            {errors.code && <Text size="1" color="red">{errors.code[0]}</Text>}
+                        </Box>
+
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text size="2" weight="medium" mb="1" as="div">Address (Optional)</Text>
+                            <TextField.Root
+                                value={formData.address}
+                                onChange={e => handleChange('address', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="Street, city, region"
+                            />
+                            {errors.address && <Text size="1" color="red">{errors.address[0]}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text size="2" weight="medium" mb="1" as="div">Latitude (Optional)</Text>
+                            <TextField.Root
+                                type="number" step="any"
+                                value={formData.latitude}
+                                onChange={e => handleChange('latitude', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="e.g. 23.8103"
+                            />
+                            {errors.latitude && <Text size="1" color="red">{errors.latitude[0]}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text size="2" weight="medium" mb="1" as="div">Longitude (Optional)</Text>
+                            <TextField.Root
+                                type="number" step="any"
+                                value={formData.longitude}
+                                onChange={e => handleChange('longitude', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="e.g. 90.4125"
+                            />
+                            {errors.longitude && <Text size="1" color="red">{errors.longitude[0]}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text size="2" weight="medium" mb="1" as="div">Geofence Radius (meters)</Text>
+                            <TextField.Root
+                                type="number" min="0"
+                                value={formData.geofence_radius}
+                                onChange={e => handleChange('geofence_radius', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="e.g. 150"
+                            />
+                            {errors.geofence_radius && <Text size="1" color="red">{errors.geofence_radius[0]}</Text>}
+                        </Box>
+
+                        <Box>
+                            <Text size="2" weight="medium" mb="1" as="div">Timezone (Optional)</Text>
+                            <TextField.Root
+                                value={formData.timezone}
+                                onChange={e => handleChange('timezone', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="e.g. Asia/Dhaka"
+                            />
+                            {errors.timezone && <Text size="1" color="red">{errors.timezone[0]}</Text>}
+                        </Box>
+
+                        <Box style={{ gridColumn: '1 / -1' }}>
                             <Text size="2" weight="medium" mb="1" as="div">Default Attendance Rule (Optional)</Text>
                             <Select.Root value={formData.attendance_type_id} onValueChange={v => handleChange('attendance_type_id', v)} disabled={isMutating}>
                                 <Select.Trigger style={{ width: '100%' }} />
@@ -96,7 +189,35 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                                     ))}
                                 </Select.Content>
                             </Select.Root>
+                            <Text size="1" color="gray" mt="1" as="div">
+                                Employees here inherit this rule unless they have a personal override.
+                            </Text>
                             {errors.attendance_type_id && <Text size="1" color="red">{errors.attendance_type_id[0]}</Text>}
+                        </Box>
+
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Text size="2" weight="medium" mb="1" as="div">Description (Optional)</Text>
+                            <TextArea
+                                value={formData.description}
+                                onChange={e => handleChange('description', e.target.value)}
+                                disabled={isMutating}
+                                placeholder="Notes about this location"
+                            />
+                            {errors.description && <Text size="1" color="red">{errors.description[0]}</Text>}
+                        </Box>
+
+                        <Box style={{ gridColumn: '1 / -1' }}>
+                            <Flex align="center" justify="between">
+                                <Box>
+                                    <Text size="2" weight="medium" as="div">Active</Text>
+                                    <Text size="1" color="gray" as="div">Inactive locations can't be assigned to employees.</Text>
+                                </Box>
+                                <Switch
+                                    checked={formData.is_active}
+                                    onCheckedChange={v => handleChange('is_active', v)}
+                                    disabled={isMutating}
+                                />
+                            </Flex>
                         </Box>
                     </Grid>
 

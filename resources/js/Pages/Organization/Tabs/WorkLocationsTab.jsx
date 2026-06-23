@@ -17,6 +17,8 @@ import WorkLocationsTable from '../Tables/WorkLocationsTable.jsx';
 import WorkLocationForm from '../Components/WorkLocationForm.jsx';
 import DeleteWorkLocationForm from '../Components/DeleteWorkLocationForm.jsx';
 
+const EMPTY_ARRAY = [];
+
 const StatPill = ({ label, value, color = 'gray' }) => (
     <Badge size="2" variant="soft" color={color} radius="full">
         <Text weight="bold">{value}</Text>
@@ -32,12 +34,12 @@ const WorkLocationsTab = ({ isActive }) => {
     const [modalType, setModalType] = useState(null); // 'add', 'update', 'delete', null
     const [currentRow, setCurrentRow] = useState(null);
     const [search, setSearch] = useState('');
-    const [filteredData, setFilteredData] = useState([]);
 
-    const canCreate = auth.permissions?.includes('jurisdiction.create') || auth.roles?.includes('Super Administrator') || false;
+    const canCreate = auth.permissions?.includes('attendance.settings') || auth.roles?.includes('Super Administrator') || false;
 
-    // React Query hooks
-    const { data: allData = [], isLoading: loading, refetch } = useWorkLocationsQuery.useWorkLocationsList();
+    // React Query hooks — use a stable empty array so dependent memos don't loop
+    const { data, isLoading: loading, refetch } = useWorkLocationsQuery.useWorkLocationsList();
+    const allData = data ?? EMPTY_ARRAY;
 
     // Auto-refetch when tab becomes active
     useEffect(() => {
@@ -46,17 +48,11 @@ const WorkLocationsTab = ({ isActive }) => {
         }
     }, [isActive, refetch]);
 
-    // Client-side filtering
-    useEffect(() => {
-        if (!search) {
-            setFilteredData(allData);
-        } else {
-            const lowerSearch = search.toLowerCase();
-            const filtered = allData.filter(loc => 
-                (loc.name && loc.name.toLowerCase().includes(lowerSearch))
-            );
-            setFilteredData(filtered);
-        }
+    // Client-side filtering (derived, no state — avoids render loops)
+    const filteredData = useMemo(() => {
+        if (!search) return allData;
+        const lowerSearch = search.toLowerCase();
+        return allData.filter(loc => loc.name && loc.name.toLowerCase().includes(lowerSearch));
     }, [search, allData]);
 
     const openModal = (type, row = null) => {

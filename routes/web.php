@@ -387,7 +387,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:departments.delete'])->delete('/departments/{id}', [DepartmentController::class, 'destroy'])->name('departments.delete');
     Route::middleware(['permission:departments.update'])->put('/users/{id}/department', [DepartmentController::class, 'updateUserDepartment'])->name('users.update-department');
     Route::middleware(['permission:designations.update'])->post('/users/{id}/designation', [DesignationController::class, 'updateUserDesignation'])->name('users.updateDesignation');
-    Route::middleware(['permission:jurisdiction.update'])->put('/users/{id}/work-location', [UserController::class, 'updateWorkLocation'])->name('users.updateWorkLocation');
+    Route::middleware(['permission:employees.update'])->put('/users/{id}/work-location', [UserController::class, 'updateWorkLocation'])->name('users.updateWorkLocation');
 
     Route::middleware(['permission:jurisdiction.view'])->get('/jurisdiction', [JurisdictionController::class, 'index'])->name('jurisdiction');
 
@@ -605,15 +605,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['permission:tasks.create'])->post('/task/add', [TaskController::class, 'addTask'])->name('addTask');
 
-    // Work location routes (HR/Attendance)
-    Route::middleware(['permission:jurisdiction.view'])->group(function () {
+    // Work location routes (HR/Attendance) — gated by attendance settings, not project jurisdiction.
+    Route::middleware(['permission:employees.view'])->group(function () {
         Route::get('/work-location', [\App\Http\Controllers\WorkLocationController::class, 'showWorkLocations'])->name('showWorkLocations');
         Route::get('/work-location_json', [\App\Http\Controllers\WorkLocationController::class, 'allWorkLocations'])->name('allWorkLocations');
     });
 
-    Route::middleware(['permission:jurisdiction.create'])->post('/work-locations/add', [\App\Http\Controllers\WorkLocationController::class, 'addWorkLocation'])->name('addWorkLocation');
-    Route::middleware(['permission:jurisdiction.delete'])->post('/work-locations/delete', [\App\Http\Controllers\WorkLocationController::class, 'deleteWorkLocation'])->name('deleteWorkLocation');
-    Route::middleware(['permission:jurisdiction.update'])->post('/work-locations/update', [\App\Http\Controllers\WorkLocationController::class, 'updateWorkLocation'])->name('updateWorkLocation');
+    Route::middleware(['permission:attendance.settings'])->post('/work-locations/add', [\App\Http\Controllers\WorkLocationController::class, 'addWorkLocation'])->name('addWorkLocation');
+    Route::middleware(['permission:attendance.settings'])->post('/work-locations/delete', [\App\Http\Controllers\WorkLocationController::class, 'deleteWorkLocation'])->name('deleteWorkLocation');
+    Route::middleware(['permission:attendance.settings'])->post('/work-locations/update', [\App\Http\Controllers\WorkLocationController::class, 'updateWorkLocation'])->name('updateWorkLocation');
 
     // Jurisdiction routes (Project chainages)
     Route::middleware(['permission:jurisdiction.view'])->group(function () {

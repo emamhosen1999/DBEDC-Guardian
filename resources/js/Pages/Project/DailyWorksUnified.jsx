@@ -12,6 +12,7 @@ const ImportPreviewModalRadix = lazy(() => import("@/Forms/ImportPreviewModalRad
 import App from "@/Layouts/App.jsx";
 import DailyWorksTable from '@/Tables/DailyWorksTable.jsx';
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
+import JurisdictionsManager from '@/Pages/Project/Jurisdictions/JurisdictionsManager.jsx';
 import { showToast } from '@/utils/toastUtils';
 import { Head, router } from "@inertiajs/react";
 import {
@@ -29,6 +30,7 @@ import {
     PersonIcon,
     PlusIcon,
     ReloadIcon,
+    SewingPinIcon,
     TableIcon,
     TargetIcon,
     UploadIcon
@@ -77,8 +79,14 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
     console.log('[DailyWorksUnified Props] jurisdictions:', jurisdictions);
     console.log('[DailyWorksUnified Props] users:', users);
 
-    // Tab state
-    const [activeTab, setActiveTab] = useState('works'); // 'works' | 'summary' | 'objections'
+    // Tab state — honor ?tab= query param (e.g. redirect from /jurisdiction)
+    const initialTab = (() => {
+        if (typeof window === 'undefined') return 'works';
+        const t = new URLSearchParams(window.location.search).get('tab');
+        const allowed = ['works', 'summary', 'objections', 'jurisdictions'];
+        return allowed.includes(t) ? t : 'works';
+    })();
+    const [activeTab, setActiveTab] = useState(initialTab); // 'works' | 'summary' | 'objections' | 'jurisdictions'
 
     // Import file state for preservation when preview modal opens
     const [importFile, setImportFile] = useState(null);
@@ -1107,6 +1115,12 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                         <ExclamationTriangleIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                                         Objections
                                     </Tabs.Trigger>
+                                    {userIsAdmin && (
+                                        <Tabs.Trigger value="jurisdictions">
+                                            <SewingPinIcon style={{ width: 16, height: 16, marginRight: 8 }} />
+                                            Jurisdictions
+                                        </Tabs.Trigger>
+                                    )}
                                 </Tabs.List>
 
                                 {/* Works Tab */}
@@ -1301,6 +1315,19 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                         </Card>
                                     </Box>
                                 </Tabs.Content>
+
+                                {/* Jurisdictions Tab (admin only) */}
+                                {userIsAdmin && (
+                                    <Tabs.Content value="jurisdictions">
+                                        <Box mt="5">
+                                            <JurisdictionsManager
+                                                jurisdictions={jurisdictions}
+                                                users={users}
+                                                canManage={userIsAdmin}
+                                            />
+                                        </Box>
+                                    </Tabs.Content>
+                                )}
                             </Tabs.Root>
                         </Box>
                     </Card>

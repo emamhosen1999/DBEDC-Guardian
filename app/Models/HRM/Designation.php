@@ -108,7 +108,10 @@ class Designation extends Model
     public function toArray(): array
     {
         $array = parent::toArray();
-        $array['department_name'] = optional($this->department)->name;
+        // Only expose department_name when the relation is eager-loaded — never trigger
+        // a lazy load here, since lazy loading is disabled app-wide and this runs on
+        // every serialization (Inertia/API), regardless of which controller loaded it.
+        $array['department_name'] = $this->relationLoaded('department') ? optional($this->department)->name : null;
         $array['employee_count'] = $this->employee_count;
 
         return $array;
