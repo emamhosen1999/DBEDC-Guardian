@@ -323,7 +323,8 @@
       "Bash(grep -nE 'button \\\\[ref=e[0-9]+\\\\]:?$|button \\\\[ref' ./emp3.md)",
       "Bash(grep -o \"users.updateWorkLocation\\\\|users\\\\\\\\\\\\\\\\/.*work-location\" resources/js/ziggy.js)",
       "Bash(sed -n '/const handleWorkLocationChange/,/^    };/p' resources/js/Pages/Organization/Tables/EmployeeTable.jsx)",
-      "Bash(sed -n '/export const useUpdateWorkLocation/,/^};/p' resources/js/api/queries/useEmployeesQuery.js)"
+      "Bash(sed -n '/export const useUpdateWorkLocation/,/^};/p' resources/js/api/queries/useEmployeesQuery.js)",
+      "Bash(npx esbuild *)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",

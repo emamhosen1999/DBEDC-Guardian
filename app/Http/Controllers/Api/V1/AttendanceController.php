@@ -699,7 +699,7 @@ class AttendanceController extends Controller
 
         try {
             $attendances = Attendance::query()
-                ->with(['user.designation', 'user.attendanceType', 'media'])
+                ->with(['user.designation', 'user.attendanceType', 'user.workLocation.attendanceType', 'media'])
                 ->whereNotNull('punchin')
                 ->whereDate('date', $selectedDate)
                 ->orderBy('user_id')
@@ -710,7 +710,7 @@ class AttendanceController extends Controller
 
             $locations = $attendances->groupBy('user_id')->map(function ($userPunches) {
                 $user = $userPunches->first()?->user;
-                $attendanceType = $user?->attendanceType;
+                $attendanceType = $user?->resolvedAttendanceType();
                 $baseSlug = $attendanceType ? preg_replace('/_\d+$/', '', (string) $attendanceType->slug) : null;
                 $requiresPhoto = in_array($baseSlug, ['geo_polygon', 'route_waypoint'], true);
 
@@ -977,7 +977,8 @@ class AttendanceController extends Controller
     public function punch(PunchAttendanceRequest $request): JsonResponse
     {
         $user = $request->user();
-        $attendanceType = $user->attendanceType;
+        // Resolve effective attendance type (personal override → work-location default).
+        $attendanceType = $user->resolvedAttendanceType();
 
         if (! $attendanceType || ! $attendanceType->is_active) {
             return response()->json([
