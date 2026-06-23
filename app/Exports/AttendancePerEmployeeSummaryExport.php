@@ -2,13 +2,10 @@
 
 namespace App\Exports;
 
-use App\Services\Attendance\AttendanceReportService;
-use Carbon\Carbon;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class AttendancePerEmployeeSummaryExport
 {
@@ -17,30 +14,14 @@ class AttendancePerEmployeeSummaryExport
         'OT Hours', 'Late', 'Holidays Worked', 'Weekly-off Worked', 'Working Days', 'Attendance %',
     ];
 
-    public function export(int $year, int $month, ?int $departmentId = null)
+    /**
+     * Write the full summary layout onto the given worksheet and set its title to 'Summary'.
+     */
+    public function writeSheet(Worksheet $sheet, array $summary): void
     {
-        $summary = app(AttendanceReportService::class)
-            ->getPerEmployeeMonthlySummary($year, $month, $departmentId);
-
-        $monthName = Carbon::create($year, $month, 1)->format('F_Y');
-        $deptSuffix = $departmentId && ($summary['meta']['departmentName'] ?? null)
-            ? '_'.str_replace(' ', '_', $summary['meta']['departmentName'])
-            : '';
-        $fileName = "DBEDC_Attendance_Summary_{$monthName}{$deptSuffix}.xlsx";
-
-        $spreadsheet = $this->buildSpreadsheet($summary);
-        $writer = new Xlsx($spreadsheet);
-        $tempFile = tempnam(sys_get_temp_dir(), 'att_summary');
-        $writer->save($tempFile);
-
-        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
-    }
-
-    private function buildSpreadsheet(array $summary): Spreadsheet
-    {
-        $spreadsheet = new Spreadsheet;
-        $sheet = $spreadsheet->getActiveSheet();
         $lastColLetter = 'L'; // 12 columns
+
+        $sheet->setTitle('Summary');
 
         // Title + month + caveat.
         $sheet->setCellValue('A1', 'Dhaka Bypass Expressway Development Company Ltd. — Monthly Attendance Summary');
@@ -101,7 +82,5 @@ class AttendancePerEmployeeSummaryExport
         foreach (range('A', $lastColLetter) as $c) {
             $sheet->getColumnDimension($c)->setAutoSize(true);
         }
-
-        return $spreadsheet;
     }
 }
