@@ -74,6 +74,14 @@ class AttendanceExportAndStatsTest extends TestCase
         $export->saveToDisk('2026-06', $filePath, 'public');
 
         Storage::disk('public')->assertExists($filePath);
+
+        // Load the saved workbook and assert it has both Calendar and Summary sheets.
+        $savedPath = Storage::disk('public')->path($filePath);
+        $loaded = \PhpOffice\PhpSpreadsheet\IOFactory::load($savedPath);
+        $sheetNames = $loaded->getSheetNames();
+
+        $this->assertContains('Calendar', $sheetNames);
+        $this->assertContains('Summary', $sheetNames);
     }
 
     public function test_get_monthly_attendance_stats_enforces_auth_id_for_regular_employees(): void

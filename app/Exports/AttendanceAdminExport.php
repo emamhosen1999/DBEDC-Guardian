@@ -150,6 +150,17 @@ class AttendanceAdminExport
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
+        // Name the grid sheet and append the per-employee Summary sheet.
+        $sheet->setTitle('Calendar');
+
+        $summary = app(AttendanceReportService::class)
+            ->getPerEmployeeMonthlySummary($from->year, $from->month);
+        $summarySheet = $spreadsheet->createSheet();
+        (new \App\Exports\AttendancePerEmployeeSummaryExport)->writeSheet($summarySheet, $summary);
+
+        // Keep the Calendar grid as the first/active sheet.
+        $spreadsheet->setActiveSheetIndex(0);
+
         return $spreadsheet;
     }
 
