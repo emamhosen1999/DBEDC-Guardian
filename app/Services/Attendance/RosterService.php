@@ -67,11 +67,12 @@ class RosterService
 
         // 3. Rotation pattern → phase by anchor_date.
         $pattern = $assignment->rotationPattern;
-        if (! $pattern || empty($pattern->definition)) {
-            return null;
+        $cycleLength = (int) ($pattern->cycle_length_days ?? 0);
+        if (! $pattern || empty($pattern->definition) || $cycleLength < 1 || ! $assignment->anchor_date) {
+            return null; // misconfigured rotation (no anchor / zero-length cycle) → treat as off
         }
 
-        $phase = $assignment->anchor_date->startOfDay()->diffInDays($date->copy()->startOfDay()) % $pattern->cycle_length_days;
+        $phase = $assignment->anchor_date->startOfDay()->diffInDays($date->copy()->startOfDay()) % $cycleLength;
         $entry = $pattern->definition[$phase] ?? 'off';
 
         return $entry === 'off' ? null : Shift::find($entry);
