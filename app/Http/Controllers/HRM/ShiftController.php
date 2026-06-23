@@ -120,6 +120,63 @@ class ShiftController extends Controller
         return response()->json(['message' => 'Assignment created.', 'assignment' => $assignment], 201);
     }
 
+    /**
+     * Bulk-create shift assignments for multiple scope IDs at once.
+     * Accepts scope_ids[] (array) instead of scope_id (single).
+     */
+    public function storeBulkAssignment(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'scope_type' => 'required|in:user,designation,department,org',
+            'scope_ids' => 'required_unless:scope_type,org|array',
+            'scope_ids.*' => 'integer',
+            'shift_id' => 'nullable|integer|exists:shifts,id',
+            'rotation_pattern_id' => 'nullable|integer|exists:shift_rotation_patterns,id',
+            'anchor_date' => 'required|date',
+            'effective_from' => 'required|date',
+            'effective_to' => 'nullable|date|after_or_equal:effective_from',
+            'priority' => 'integer|min:0',
+            'assigned_by' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $scopeType = $data['scope_type'];
+        $scopeIds = $scopeType === 'org' ? [null] : ($data['scope_ids'] ?? []);
+
+        if (empty($scopeIds)) {
+            return response()->json(['message' => 'No scope items selected.'], 422);
+        }
+
+        $created = [];
+        $errors = [];
+
+        try {
+            DB::transaction(function () use ($scopeIds, $data, $scopeType, &$created, &$errors) {
+                foreach ($scopeIds as $scopeId) {
+                    $row = $data;
+                    $row['scope_id'] = $scopeId;
+                    unset($row['scope_ids']);
+
+                    try {
+                        $created[] = $this->shifts->createAssignment($row);
+                    } catch (InvalidArgumentException $e) {
+                        $errors[] = ['scope_id' => $scopeId, 'message' => $e->getMessage()];
+                    }
+                }
+            });
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $total = count($created);
+        $failed = count($errors);
+
+        return response()->json([
+            'message' => "{$total} assignment(s) created." . ($failed > 0 ? " {$failed} skipped." : ''),
+            'created_count' => $total,
+            'skipped' => $errors,
+        ], $total > 0 ? 201 : 422);
+    }
+
     public function assignmentsIndex(): JsonResponse
     {
         $assignments = \App\Models\HRM\ShiftAssignment::with(['shift:id,code,name', 'rotationPattern:id,name'])

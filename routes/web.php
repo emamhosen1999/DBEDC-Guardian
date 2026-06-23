@@ -335,6 +335,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:leaves.approve'])->group(function () {
         Route::post('/leaves/bulk-approve', [LeaveController::class, 'bulkApprove'])->name('leaves.bulk-approve');
         Route::post('/leaves/bulk-reject', [LeaveController::class, 'bulkReject'])->name('leaves.bulk-reject');
+        Route::post('/leaves/bulk-status-update', [LeaveController::class, 'bulkStatusUpdate'])->name('leaves.bulk-status-update');
 
         // Approval workflow actions
         Route::post('/leaves/{id}/approve', [LeaveController::class, 'approveLeave'])->name('leaves.approve');
@@ -569,6 +570,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/attendance/shifts/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroy'])->name('attendance.shifts.destroy');
         Route::post('/attendance/rotation-patterns', [\App\Http\Controllers\HRM\ShiftController::class, 'storePattern'])->name('attendance.patterns.store');
         Route::post('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'storeAssignment'])->name('attendance.assignments.store');
+        Route::post('/attendance/shift-assignments/bulk', [\App\Http\Controllers\HRM\ShiftController::class, 'storeBulkAssignment'])->name('attendance.assignments.storeBulk');
         Route::get('/attendance/shift-assignments', [\App\Http\Controllers\HRM\ShiftController::class, 'assignmentsIndex'])->name('attendance.assignments.index');
         Route::delete('/attendance/shift-assignments/{id}', [\App\Http\Controllers\HRM\ShiftController::class, 'destroyAssignment'])->name('attendance.assignments.destroy');
 

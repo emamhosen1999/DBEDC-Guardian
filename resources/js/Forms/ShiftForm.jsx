@@ -11,13 +11,25 @@ const DEFAULT_FORM = {
     color: '#3b82f6', is_active: true,
 };
 
+// DB returns TIME columns as "HH:mm:ss" but Laravel validates "HH:mm"
+const normalizeTime = (t) => (typeof t === 'string' && t.length > 5 ? t.slice(0, 5) : t);
+
 export default function ShiftForm({ open, onOpenChange, onSaved, initial = null }) {
     const [form, setForm] = useState(DEFAULT_FORM);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (open) {
-            setForm(initial ? { ...DEFAULT_FORM, ...initial } : DEFAULT_FORM);
+            if (initial) {
+                const normalized = { ...DEFAULT_FORM, ...initial };
+                normalized.start_time = normalizeTime(normalized.start_time);
+                normalized.end_time = normalizeTime(normalized.end_time);
+                normalized.core_start_time = normalizeTime(normalized.core_start_time);
+                normalized.core_end_time = normalizeTime(normalized.core_end_time);
+                setForm(normalized);
+            } else {
+                setForm(DEFAULT_FORM);
+            }
         }
     }, [open, initial]);
 

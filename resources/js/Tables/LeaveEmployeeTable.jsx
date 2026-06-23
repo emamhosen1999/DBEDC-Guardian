@@ -61,6 +61,7 @@ const LeaveEmployeeTable = React.forwardRef(({
     onBulkApprove,
     onBulkReject,
     onBulkDelete,
+    onBulkStatusUpdate,
     canApproveLeaves = false,
     canEditLeaves = false,
     canDeleteLeaves = false,
@@ -158,15 +159,37 @@ const LeaveEmployeeTable = React.forwardRef(({
     }), []);
 
     /* ── bulk bar ── */
-    const bulkBar = isAdminView && onBulkDelete && selectedIds.size > 0 && (
-        <Flex align="center" gap="2" mb="2">
-            <Button size="1" color="red" variant="soft" onClick={() => {
-                onBulkDelete(leaves.filter(l => selectedIds.has(l.id)));
-                setSelectedIds(new Set());
-            }}>
-                <TrashIcon /> Delete {selectedIds.size} selected
-            </Button>
-            <Text size="1" color="gray">{selectedIds.size} of {leaves.length} selected</Text>
+    const bulkBar = isAdminView && selectedIds.size > 0 && (
+        <Flex align="center" gap="2" mb="2" p="2" style={{
+            background: 'var(--accent-a2)',
+            borderRadius: 'var(--radius-2)',
+            border: '1px solid var(--accent-a5)',
+        }}>
+            <Text size="2" weight="medium" style={{ marginRight: 'auto' }}>
+                {selectedIds.size} of {leaves.length} selected
+            </Text>
+            {canApproveLeaves && onBulkStatusUpdate && (
+                <>
+                    <Button size="1" color="green" variant="soft" onClick={() =>
+                        onBulkStatusUpdate(leaves.filter(l => selectedIds.has(l.id)), 'approved')
+                    }>
+                        <CheckCircledIcon /> Approve
+                    </Button>
+                    <Button size="1" color="red" variant="soft" onClick={() =>
+                        onBulkStatusUpdate(leaves.filter(l => selectedIds.has(l.id)), 'declined')
+                    }>
+                        <CrossCircledIcon /> Reject
+                    </Button>
+                </>
+            )}
+            {onBulkDelete && (
+                <Button size="1" color="red" variant="outline" onClick={() => {
+                    onBulkDelete(leaves.filter(l => selectedIds.has(l.id)));
+                    setSelectedIds(new Set());
+                }}>
+                    <TrashIcon /> Delete
+                </Button>
+            )}
         </Flex>
     );
 

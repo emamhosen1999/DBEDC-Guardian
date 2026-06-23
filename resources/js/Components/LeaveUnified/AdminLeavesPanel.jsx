@@ -25,8 +25,9 @@ import { showToast } from '@/utils/toastUtils';
 import LeaveEmployeeTable from '@/Tables/LeaveEmployeeTable.jsx';
 import LeaveForm          from '@/Forms/LeaveForm.jsx';
 import DeleteLeaveForm    from '@/Forms/DeleteLeaveForm.jsx';
-import BulkLeaveModal     from '@/Components/BulkLeave/BulkLeaveModal.jsx';
-import BulkDeleteModal    from '@/Components/BulkDelete/BulkDeleteModal.jsx';
+import BulkLeaveModal           from '@/Components/BulkLeave/BulkLeaveModal.jsx';
+import BulkDeleteModal          from '@/Components/BulkDelete/BulkDeleteModal.jsx';
+import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdateModal.jsx';
 
 /* ── Responsive Stat Pill ── */
 function StatPill({ label, value, color = 'gray', icon: Icon, loading = false }) {
@@ -82,13 +83,16 @@ export default function AdminLeavesPanel({
 
     /* ── Modal States ── */
     const [modalStates, setModalStates] = useState({
-        addEditLeave: false,
-        deleteLeave:  false,
-        bulkLeave:    false,
-        bulkDelete:   false,
+        addEditLeave:      false,
+        deleteLeave:       false,
+        bulkLeave:         false,
+        bulkDelete:        false,
+        bulkStatusUpdate:  false,
     });
-    const [currentLeave,          setCurrentLeave]          = useState(null);
-    const [selectedForBulkDelete, setSelectedForBulkDelete] = useState([]);
+    const [currentLeave,            setCurrentLeave]            = useState(null);
+    const [selectedForBulkDelete,   setSelectedForBulkDelete]   = useState([]);
+    const [selectedForBulkStatus,   setSelectedForBulkStatus]   = useState([]);
+    const [bulkStatusTarget,        setBulkStatusTarget]        = useState('approved');
     const leaveTableRef = useRef(null);
 
     /* ── Helpers ── */
@@ -208,6 +212,12 @@ export default function AdminLeavesPanel({
     const handleBulkDelete = useCallback(fullLeaves => {
         setSelectedForBulkDelete(fullLeaves);
         openModal('bulkDelete');
+    }, [openModal]);
+
+    const handleBulkStatusUpdate = useCallback((fullLeaves, targetStatus) => {
+        setSelectedForBulkStatus(fullLeaves);
+        setBulkStatusTarget(targetStatus);
+        openModal('bulkStatusUpdate');
     }, [openModal]);
 
     /* ── Leave Type Options ── */
@@ -408,6 +418,7 @@ export default function AdminLeavesPanel({
                     onBulkApprove={handleBulkApprove}
                     onBulkReject={handleBulkReject}
                     onBulkDelete={handleBulkDelete}
+                    onBulkStatusUpdate={handleBulkStatusUpdate}
                     fetchLeavesStats={() => fetchStats()}
                     onLeaveUpdated={() => fetchLeaves(true)}
                 />
@@ -479,6 +490,26 @@ export default function AdminLeavesPanel({
                         setLeaves(prev => prev.filter(l => !deletedIds.includes(l.id)));
                         fetchStats(); 
                         closeModal('bulkDelete'); 
+                    }}
+                />
+            )}
+
+            {modalStates.bulkStatusUpdate && (
+                <BulkStatusUpdateModal
+                    open={modalStates.bulkStatusUpdate}
+                    onClose={() => closeModal('bulkStatusUpdate')}
+                    selectedLeaves={selectedForBulkStatus}
+                    targetStatus={bulkStatusTarget}
+                    onSuccess={(targetStatus) => {
+                        // Optimistic UI: map the API status to display status
+                        const displayStatus = targetStatus === 'approved' ? 'Approved'
+                            : targetStatus === 'declined' ? 'Declined'
+                            : targetStatus === 'pending' ? 'Pending' : 'New';
+                        const ids = selectedForBulkStatus.map(l => l.id);
+                        setLeaves(prev => prev.map(l =>
+                            ids.includes(l.id) ? { ...l, status: displayStatus } : l
+                        ));
+                        fetchStats();
                     }}
                 />
             )}
