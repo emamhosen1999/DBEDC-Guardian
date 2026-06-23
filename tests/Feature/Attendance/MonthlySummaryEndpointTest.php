@@ -36,6 +36,21 @@ class MonthlySummaryEndpointTest extends TestCase
         );
     }
 
+    public function test_pdf_variant_can_be_downloaded(): void
+    {
+        $admin = User::factory()->create();
+        $admin->givePermissionTo('attendance.view');
+
+        $res = $this->actingAs($admin)->get('/attendance/monthly-summary/export?month=2026-06&type=pdf');
+
+        $res->assertOk();
+        $res->assertHeader('content-disposition');
+        $this->assertStringContainsString(
+            'pdf',
+            strtolower($res->headers->get('content-type'))
+        );
+    }
+
     public function test_unauthorized_user_blocked(): void
     {
         $user = User::factory()->create();
