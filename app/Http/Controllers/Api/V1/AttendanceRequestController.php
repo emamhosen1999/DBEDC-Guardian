@@ -13,8 +13,11 @@ use App\Models\User;
 use App\Services\Attendance\CompOffService;
 use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
+use App\Services\Attendance\RosterService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AttendanceRequestController extends Controller
 {
@@ -24,6 +27,7 @@ class AttendanceRequestController extends Controller
         private readonly RegularizationService $regularization,
         private readonly OvertimeService $overtime,
         private readonly CompOffService $compOff,
+        private readonly RosterService $roster,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -141,29 +145,84 @@ class AttendanceRequestController extends Controller
     // Shift swaps (ESS) — request, my list, inbox (awaiting my consent), respond
     // -------------------------------------------------------------------------
 
+    /**
+     * Roster-availability check (mirrors the web ShiftSwapController): a swap is
+     * only valid if the requester is scheduled on their date, the counterparty is
+     * free that date, and — for a trade — the counterparty works (and the requester
+     * is free) on the return date. Returns [field, message] or null.
+     */
+    private function rosterAvailabilityProblem(string $type, int $requesterId, int $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
+    {
+        if ($this->roster->effectiveShiftId($requesterId, $requesterDate) === null) {
+            return ['requester_date', 'You are not scheduled to work on that date.'];
+        }
+        if ($this->roster->effectiveShiftId($counterpartyId, $requesterDate) !== null) {
+            return ['counterparty_id', 'The counterparty is already scheduled on that date.'];
+        }
+        if ($type === 'swap') {
+            if (! $counterpartyDate) {
+                return ['counterparty_date', 'Select the shift you will take in return.'];
+            }
+            if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
+                return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
+            }
+            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
+                return ['counterparty_date', 'You are already scheduled on that date.'];
+            }
+        }
+
+        return null;
+    }
+
     public function storeSwap(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'requester_date'     => 'required|date',
-            'counterparty_id'    => 'nullable|integer|exists:users,id',
-            'counterparty_date'  => 'nullable|date',
-            'requested_shift_id' => 'nullable|integer|exists:shifts,id',
-            'reason'             => 'nullable|string|max:500',
+            'type'              => 'required|in:swap,cover',
+            'requester_date'    => 'required|date',
+            'counterparty_id'   => 'required|integer|exists:users,id',
+            'counterparty_date' => 'nullable|date',
+            'reason'            => 'nullable|string|max:500',
         ]);
 
-        $data['requester_id'] = $request->user()->id;
-        $data['status'] = 'pending';
-        // Two-stage: a named counterparty must consent before manager review.
-        // An open/give-away swap (no counterparty) skips the peer step → admin.
-        $data['counterparty_status'] = ! empty($data['counterparty_id']) ? 'pending' : null;
+        $requester = $request->user();
+        $counterparty = User::findOrFail($data['counterparty_id']);
 
-        $swap = ShiftSwapRequest::create($data);
+        $fail = static fn (string $field, string $message) => throw ValidationException::withMessages([$field => $message]);
 
-        $message = $data['counterparty_status'] === 'pending'
-            ? 'Swap request sent to the counterparty for confirmation.'
-            : 'Swap request submitted for approval.';
+        if ($counterparty->id === $requester->id) {
+            $fail('counterparty_id', 'You cannot swap with yourself.');
+        }
+        if ($counterparty->department_id === null || $counterparty->department_id !== $requester->department_id) {
+            $fail('counterparty_id', 'The counterparty must be in your department.');
+        }
+        if (! $counterparty->hasRole('Employee')) {
+            $fail('counterparty_id', 'The counterparty must be an employee.');
+        }
 
-        return $this->successResponse($swap->load(['counterparty:id,name']), $message, 201);
+        $cpDate = ($data['counterparty_date'] ?? null) ? Carbon::parse($data['counterparty_date'])->toDateString() : null;
+        if ($problem = $this->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, Carbon::parse($data['requester_date'])->toDateString(), $cpDate)) {
+            $fail($problem[0], $problem[1]);
+        }
+        if ($data['type'] === 'cover') {
+            $data['counterparty_date'] = null; // a cover has no return shift
+        }
+
+        $swap = ShiftSwapRequest::create([
+            'type'                => $data['type'],
+            'requester_id'        => $requester->id,
+            'requester_date'      => $data['requester_date'],
+            'counterparty_id'     => $counterparty->id,
+            'counterparty_date'   => $data['counterparty_date'] ?? null,
+            'reason'              => $data['reason'] ?? null,
+            'status'              => 'pending',
+            'counterparty_status' => 'pending',
+        ]);
+
+        return $this->successResponse(
+            $swap->load(['counterparty:id,name']),
+            'Swap request sent to the counterparty for confirmation.',
+            201
+        );
     }
 
     public function mySwaps(Request $request): JsonResponse
@@ -208,17 +267,64 @@ class AttendanceRequestController extends Controller
     }
 
     /**
-     * Employees that can be selected as a swap counterparty (mirrors the web
-     * AttendanceEmployee page's `employees` prop: role Employee, id + name).
+     * Same-department Employees who are FREE on the given date — the swap/cover
+     * counterparty picker (mirrors the web ShiftSwapController@eligible).
      */
-    public function swapEmployees(Request $request): JsonResponse
+    public function swapEligible(Request $request): JsonResponse
     {
+        $data = $request->validate(['date' => 'required|date']);
+        $user = $request->user();
+        $date = Carbon::parse($data['date'])->toDateString();
+
         $employees = User::role('Employee')
-            ->where('id', '!=', $request->user()->id)
-            ->select('id', 'name')
+            ->where('id', '!=', $user->id)
+            ->where('department_id', $user->department_id)
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name'])
+            ->filter(fn ($c) => $this->roster->effectiveShiftId($c->id, $date) === null)
+            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
+            ->values();
 
         return $this->successResponse($employees);
+    }
+
+    /**
+     * A same-department coworker's WORKING roster days in a range — the "shift you
+     * will take" picker for a swap (mirrors the web ShiftSwapController@counterpartyRoster).
+     */
+    public function counterpartyRoster(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'counterparty_id' => 'required|integer|exists:users,id',
+            'from'            => 'required|date',
+            'to'              => 'required|date|after_or_equal:from',
+        ]);
+
+        $user = $request->user();
+        $counterparty = User::findOrFail($data['counterparty_id']);
+        abort_unless(
+            $counterparty->department_id !== null && $counterparty->department_id === $user->department_id,
+            403,
+            'The counterparty must be in your department.'
+        );
+
+        $fmt = static fn ($t) => $t ? Carbon::parse($t)->format('H:i') : null;
+
+        $days = RosterDay::with('shift:id,code,name,start_time,end_time')
+            ->where('user_id', $counterparty->id)
+            ->whereNotNull('shift_id')
+            ->whereBetween('date', [$data['from'], $data['to']])
+            ->orderBy('date')
+            ->get()
+            ->map(fn ($r) => [
+                'date'  => $r->date->format('Y-m-d'),
+                'code'  => $r->shift?->code,
+                'name'  => $r->shift?->name,
+                'start' => $fmt($r->shift?->start_time),
+                'end'   => $fmt($r->shift?->end_time),
+            ])
+            ->values();
+
+        return $this->successResponse($days);
     }
 }

@@ -303,7 +303,9 @@
       "Bash(grep -n 'casts\\\\|protected $casts\\\\|requester_date\\\\|counterparty_date' app/Models/HRM/ShiftSwapRequest.php)",
       "Bash(grep -nE \"punchin|punchout|=> \\\\[|'punches'|complete|status|total|duration|location|=> \\\\\\\\\\\\$\")",
       "Bash(bash __TRACKED_VAR__/scripts/review-package eee8b9fe HEAD)",
-      "Bash(bash __TRACKED_VAR__/scripts/review-package 33895dfe HEAD)"
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 33895dfe HEAD)",
+      "Bash(echo \"blade deleted: $?\")",
+      "Bash(echo \"test deleted: $?\")"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
