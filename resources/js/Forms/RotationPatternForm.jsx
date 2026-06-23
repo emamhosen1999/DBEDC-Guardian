@@ -7,7 +7,7 @@ import { showToast } from '@/utils/toastUtils';
 
 const OFF = 'off';
 
-export default function RotationPatternForm({ open, onOpenChange, onSaved }) {
+export default function RotationPatternForm({ open, onOpenChange, onSaved, initial }) {
     const [name, setName] = useState('');
     const [code, setCode] = useState('');
     const [cycleLength, setCycleLength] = useState(7);
@@ -23,12 +23,24 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved }) {
 
     useEffect(() => {
         if (open) {
-            setName('');
-            setCode('');
-            setCycleLength(7);
-            setDefinition(Array(7).fill(OFF));
+            if (initial) {
+                setName(initial.name || '');
+                setCode(initial.code || '');
+                setCycleLength(initial.cycle_length_days || 7);
+                const initialDef = initial.definition || [];
+                const def = initialDef.map(d => (d === null || d === undefined) ? OFF : String(d));
+                const len = initial.cycle_length_days || 7;
+                const paddedDef = def.slice(0, len);
+                while (paddedDef.length < len) paddedDef.push(OFF);
+                setDefinition(paddedDef);
+            } else {
+                setName('');
+                setCode('');
+                setCycleLength(7);
+                setDefinition(Array(7).fill(OFF));
+            }
         }
-    }, [open]);
+    }, [open, initial]);
 
     const setCycle = (n) => {
         const len = Math.max(1, n);
@@ -47,7 +59,9 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved }) {
     const save = async () => {
         setSaving(true);
         try {
-            await requestJson('post', '/attendance/rotation-patterns', {
+            const method = initial ? 'put' : 'post';
+            const url = initial ? `/attendance/rotation-patterns/${initial.id}` : '/attendance/rotation-patterns';
+            await requestJson(method, url, {
                 data: {
                     name,
                     code,
@@ -56,7 +70,7 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved }) {
                     is_active: true,
                 },
             });
-            showToast.success('Pattern created.');
+            showToast.success(initial ? 'Pattern updated.' : 'Pattern created.');
             onSaved?.();
             onOpenChange(false);
         } catch (err) {
@@ -69,7 +83,7 @@ export default function RotationPatternForm({ open, onOpenChange, onSaved }) {
     return (
         <Dialog.Root open={open} onOpenChange={onOpenChange}>
             <Dialog.Content maxWidth="520px">
-                <Dialog.Title>New Rotation Pattern</Dialog.Title>
+                <Dialog.Title>{initial ? 'Edit Rotation Pattern' : 'New Rotation Pattern'}</Dialog.Title>
                 <Flex direction="column" gap="3">
                     <TextField.Root placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
                     <TextField.Root placeholder="Code" value={code} onChange={e => setCode(e.target.value)} />
