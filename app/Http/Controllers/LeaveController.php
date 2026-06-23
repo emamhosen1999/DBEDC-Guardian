@@ -431,6 +431,59 @@ class LeaveController extends Controller
         }
     }
 
+    /**
+     * Bulk update leave status to any valid target status.
+     * Supports: approved, declined, pending, new
+     */
+    public function bulkStatusUpdate(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'leave_ids' => 'required|array|min:1',
+                'leave_ids.*' => 'integer|exists:leaves,id',
+                'status' => 'required|string|in:approved,declined,pending,new',
+            ]);
+
+            if (! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+                return response()->json(['error' => 'Unauthorized to bulk update leave status'], 403);
+            }
+
+            $leaveIds = $request->input('leave_ids');
+            $targetStatus = $request->input('status');
+            $updatedCount = 0;
+            $skippedCount = 0;
+
+            foreach ($leaveIds as $leaveId) {
+                $result = $this->crudService->updateLeaveStatus($leaveId, $targetStatus, Auth::id());
+                if ($result['updated']) {
+                    $updatedCount++;
+                } else {
+                    $skippedCount++;
+                }
+            }
+
+            $statusLabel = ucfirst($targetStatus === 'declined' ? 'rejected' : $targetStatus);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$updatedCount} leave(s) {$statusLabel} successfully" .
+                    ($skippedCount > 0 ? " ({$skippedCount} skipped — already {$statusLabel})" : ''),
+                'updated_count' => $updatedCount,
+                'skipped_count' => $skippedCount,
+                'total_requested' => count($leaveIds),
+                'target_status' => $targetStatus,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'An error occurred while updating leave statuses.',
+                'details' => $this->safeExceptionMessage($e),
+            ], 500);
+        }
+    }
+
     public function exportExcel(Request $request)
     {
         try {

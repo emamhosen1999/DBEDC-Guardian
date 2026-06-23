@@ -1,16 +1,34 @@
-import React, { useState, useMemo } from 'react';
-import { Dialog, Flex, Box, Select, TextField, Button, Text } from '@radix-ui/themes';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Dialog, Flex, Box, Select, TextField, Button, Text, Callout } from '@radix-ui/themes';
+import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import DateTimePicker from '@/Components/DateTimePicker';
+import SearchableMultiSelect from '@/Components/SearchableMultiSelect';
 
 export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, employees = [], departments = [], designations = [] }) {
-    const empty = { scope_type: 'org', scope_id: '', shift_id: '', anchor_date: '', effective_from: '', effective_to: '', priority: 0 };
+    const empty = {
+        scope_type: 'user',
+        scope_ids: [],
+        shift_id: '',
+        anchor_date: '',
+        effective_from: '',
+        effective_to: '',
+        priority: 0,
+    };
     const [form, setForm] = useState(empty);
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    // Reset form when dialog opens/closes
+    useEffect(() => {
+        if (open) {
+            setForm(empty);
+            setError('');
+        }
+    }, [open]);
 
     const { data: shiftsData } = useQuery({
         queryKey: ['shifts'],
@@ -20,28 +38,54 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
     const shifts = shiftsData?.shifts || [];
 
     const scopeOptions = useMemo(() => {
-        if (form.scope_type === 'department') return departments.map(d => ({ id: d.id, label: d.name }));
-        if (form.scope_type === 'designation') return designations.map(d => ({ id: d.id, label: d.title }));
-        if (form.scope_type === 'user') return employees.map(e => ({ id: e.id, label: e.name }));
+        if (form.scope_type === 'department') return departments.map(d => ({ value: d.id, label: d.name }));
+        if (form.scope_type === 'designation') return designations.map(d => ({ value: d.id, label: d.title || d.name }));
+        if (form.scope_type === 'user') return employees.map(e => ({ value: e.id, label: e.name }));
         return [];
     }, [form.scope_type, departments, designations, employees]);
+
+    const scopeLabel = form.scope_type === 'department' ? 'Departments'
+        : form.scope_type === 'designation' ? 'Designations'
+        : form.scope_type === 'user' ? 'Employees' : '';
 
     const save = async () => {
         setError('');
         setSaving(true);
         try {
-            const payload = {
-                ...form,
-                scope_id: form.scope_type === 'org' ? null : Number(form.scope_id) || null,
-                shift_id: Number(form.shift_id),
-                priority: Number(form.priority) || 0,
-                effective_to: form.effective_to || null,
-            };
-            await requestJson('post', '/attendance/shift-assignments', { data: payload });
-            showToast.success('Shift assignment saved.');
+            if (form.scope_type === 'org') {
+                // Org-wide = single assignment, use original endpoint
+                const payload = {
+                    scope_type: 'org',
+                    scope_id: null,
+                    shift_id: Number(form.shift_id),
+                    priority: Number(form.priority) || 0,
+                    anchor_date: form.anchor_date,
+                    effective_from: form.effective_from,
+                    effective_to: form.effective_to || null,
+                };
+                await requestJson('post', '/attendance/shift-assignments', { data: payload });
+                showToast.success('Organization-wide shift assignment saved.');
+            } else {
+                // Multi-select: use bulk endpoint
+                const payload = {
+                    scope_type: form.scope_type,
+                    scope_ids: form.scope_ids.map(Number),
+                    shift_id: Number(form.shift_id),
+                    priority: Number(form.priority) || 0,
+                    anchor_date: form.anchor_date,
+                    effective_from: form.effective_from,
+                    effective_to: form.effective_to || null,
+                };
+                const res = await requestJson('post', '/attendance/shift-assignments/bulk', { data: payload });
+                const msg = res?.message || `${form.scope_ids.length} assignment(s) created.`;
+                if (res?.skipped?.length > 0) {
+                    showToast.success(msg);
+                } else {
+                    showToast.success(msg);
+                }
+            }
             onSaved?.();
             onOpenChange(false);
-            setForm(empty);
         } catch (e) {
             const msg = e?.message || 'Failed to save assignment.';
             setError(msg);
@@ -51,41 +95,78 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
         }
     };
 
+    const canSave = form.shift_id
+        && form.effective_from
+        && (form.scope_type === 'org' || form.scope_ids.length > 0);
+
     return (
         <Dialog.Root open={open} onOpenChange={v => { if (!v) { setError(''); setForm(empty); } onOpenChange(v); }}>
-            <Dialog.Content maxWidth="500px">
+            <Dialog.Content maxWidth="540px">
                 <Dialog.Title>Assign Shift</Dialog.Title>
-                <Flex direction="column" gap="3">
-                    <Select.Root value={form.scope_type} onValueChange={v => { set('scope_type', v); set('scope_id', ''); }}>
-                        <Select.Trigger placeholder="Scope" />
-                        <Select.Content>
-                            <Select.Item value="org">Whole organization</Select.Item>
-                            <Select.Item value="department">Department</Select.Item>
-                            <Select.Item value="designation">Designation</Select.Item>
-                            <Select.Item value="user">Employee</Select.Item>
-                        </Select.Content>
-                    </Select.Root>
+                <Dialog.Description size="2" color="gray" mb="3">
+                    Assign a shift to one or more employees, departments, or designations.
+                </Dialog.Description>
 
-                    {form.scope_type !== 'org' && (
-                        <Select.Root value={String(form.scope_id)} onValueChange={v => set('scope_id', v)}>
-                            <Select.Trigger placeholder={`Select ${form.scope_type}`} />
+                <Flex direction="column" gap="3">
+                    {/* Scope type selector */}
+                    <Box>
+                        <Text size="1" color="gray" as="div" mb="1" weight="medium">Assign To</Text>
+                        <Select.Root value={form.scope_type} onValueChange={v => { set('scope_type', v); set('scope_ids', []); }}>
+                            <Select.Trigger style={{ width: '100%' }} />
                             <Select.Content>
-                                {scopeOptions.map(o => (
-                                    <Select.Item key={o.id} value={String(o.id)}>{o.label}</Select.Item>
+                                <Select.Item value="user">Employee(s)</Select.Item>
+                                <Select.Item value="department">Department(s)</Select.Item>
+                                <Select.Item value="designation">Designation(s)</Select.Item>
+                                <Select.Item value="org">Whole Organization</Select.Item>
+                            </Select.Content>
+                        </Select.Root>
+                    </Box>
+
+                    {/* Multi-select for scope items */}
+                    {form.scope_type !== 'org' && (
+                        <SearchableMultiSelect
+                            label={`Select ${scopeLabel}`}
+                            options={scopeOptions}
+                            selected={form.scope_ids}
+                            onChange={v => set('scope_ids', v)}
+                            placeholder={`Choose ${scopeLabel.toLowerCase()}…`}
+                            maxDisplay={4}
+                        />
+                    )}
+
+                    {form.scope_type === 'org' && (
+                        <Callout.Root color="blue" size="1">
+                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                            <Callout.Text>This assignment will apply to all employees.</Callout.Text>
+                        </Callout.Root>
+                    )}
+
+                    {/* Selection summary */}
+                    {form.scope_type !== 'org' && form.scope_ids.length > 0 && (
+                        <Callout.Root color="green" size="1">
+                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                            <Callout.Text>
+                                {form.scope_ids.length} {scopeLabel.toLowerCase()} selected — {form.scope_ids.length} assignment{form.scope_ids.length !== 1 ? 's' : ''} will be created.
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
+
+                    {/* Shift selector */}
+                    <Box>
+                        <Text size="1" color="gray" as="div" mb="1" weight="medium">Shift *</Text>
+                        <Select.Root value={String(form.shift_id)} onValueChange={v => set('shift_id', v)}>
+                            <Select.Trigger placeholder="Select shift" style={{ width: '100%' }} />
+                            <Select.Content>
+                                {shifts.map(s => (
+                                    <Select.Item key={s.id} value={String(s.id)}>
+                                        {s.name} ({s.code})
+                                    </Select.Item>
                                 ))}
                             </Select.Content>
                         </Select.Root>
-                    )}
+                    </Box>
 
-                    <Select.Root value={String(form.shift_id)} onValueChange={v => set('shift_id', v)}>
-                        <Select.Trigger placeholder="Select shift" />
-                        <Select.Content>
-                            {shifts.map(s => (
-                                <Select.Item key={s.id} value={String(s.id)}>{s.name} ({s.code})</Select.Item>
-                            ))}
-                        </Select.Content>
-                    </Select.Root>
-
+                    {/* Date pickers */}
                     <Flex gap="3" wrap="wrap">
                         <Box style={{ flex: '1 1 130px' }}>
                             <DateTimePicker
@@ -113,6 +194,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                         </Box>
                     </Flex>
 
+                    {/* Priority */}
                     <Box>
                         <Text size="1" color="gray" as="div" mb="1">Priority</Text>
                         <TextField.Root
@@ -130,8 +212,10 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                         <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>
                             Cancel
                         </Button>
-                        <Button onClick={save} disabled={saving || !form.shift_id || !form.effective_from}>
-                            {saving ? 'Saving…' : 'Save'}
+                        <Button onClick={save} disabled={saving || !canSave}>
+                            {saving ? 'Saving…' : form.scope_type !== 'org' && form.scope_ids.length > 1
+                                ? `Assign to ${form.scope_ids.length} ${scopeLabel}`
+                                : 'Save'}
                         </Button>
                     </Flex>
                 </Flex>
