@@ -95,6 +95,8 @@ class ExportAttendanceReport implements ShouldQueue
                     $attendanceData[] = $attendanceReportService->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
                 }
 
+                $summary = $attendanceReportService->getPerEmployeeMonthlySummary($from->year, $from->month);
+
                 $pdf = PDF::loadView('attendance_admin_pdf', [
                     'monthName' => $monthName,
                     'from' => $from,
@@ -102,6 +104,7 @@ class ExportAttendanceReport implements ShouldQueue
                     'users' => $users,
                     'attendanceData' => $attendanceData,
                     'leaveTypes' => $leaveTypes,
+                    'summary' => $summary,
                 ])->setPaper('a4', 'landscape');
 
                 Storage::disk('public')->put($filePath, $pdf->output());
