@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Box, Flex, Button, Text, Card } from '@radix-ui/themes';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
@@ -9,6 +10,7 @@ import RosterCalendar from './Components/RosterCalendar';
 import RosterCellPopover from './Components/RosterCellPopover';
 
 export default function RosterTab({ month, departments = [], isActive = true }) {
+    const { employees = [] } = usePage().props;
     const qc = useQueryClient();
     const [selectedCell, setSelectedCell] = useState(null); // { userId, date }
     const [popoverOpen, setPopoverOpen] = useState(false);
@@ -43,9 +45,14 @@ export default function RosterTab({ month, departments = [], isActive = true }) 
     const roster = data?.roster || {};
 
     const generate = useMutation({
-        mutationFn: () => requestJson('post', '/attendance/roster/generate', {
-            data: { user_ids: Object.keys(roster).map(Number), from, to },
-        }),
+        mutationFn: () => {
+            const userIds = employees.length > 0
+                ? employees.map(e => e.id)
+                : Object.keys(roster).map(Number);
+            return requestJson('post', '/attendance/roster/generate', {
+                data: { user_ids: userIds, from, to },
+            });
+        },
         onSuccess: () => {
             showToast.success('Roster generated.');
             qc.invalidateQueries({ queryKey: ['roster', from, to] });
@@ -93,7 +100,7 @@ export default function RosterTab({ month, departments = [], isActive = true }) 
                     <Button
                         size="2"
                         onClick={() => generate.mutate()}
-                        disabled={generate.isPending || Object.keys(roster).length === 0}
+                        disabled={generate.isPending || (employees.length === 0 && Object.keys(roster).length === 0)}
                     >
                         {generate.isPending ? 'Generating…' : 'Generate roster'}
                     </Button>
