@@ -305,7 +305,8 @@
       "Bash(bash __TRACKED_VAR__/scripts/review-package eee8b9fe HEAD)",
       "Bash(bash __TRACKED_VAR__/scripts/review-package 33895dfe HEAD)",
       "Bash(echo \"blade deleted: $?\")",
-      "Bash(echo \"test deleted: $?\")"
+      "Bash(echo \"test deleted: $?\")",
+      "Bash(php -l app/Services/Attendance/RosterService.php)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",

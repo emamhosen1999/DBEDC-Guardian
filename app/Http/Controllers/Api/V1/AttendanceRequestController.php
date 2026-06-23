@@ -281,7 +281,17 @@ class AttendanceRequestController extends Controller
             ->where('department_id', $user->department_id)
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->filter(fn ($c) => $this->roster->effectiveShiftId($c->id, $date) === null)
+            ->filter(function ($c) use ($date) {
+                // A coworker whose roster can't be resolved (e.g. misconfigured
+                // rotation) is not offered as free — never 500 the whole picker.
+                try {
+                    return $this->roster->effectiveShiftId($c->id, $date) === null;
+                } catch (\Throwable $e) {
+                    report($e);
+
+                    return false;
+                }
+            })
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
             ->values();
 
