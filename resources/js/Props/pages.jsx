@@ -82,10 +82,10 @@ export const getPages = (roles, permissions, auth = null) => {
       subMenu: [
         // Core Employee Management
         ...((permissions.includes('employees.view') || permissions.includes('departments.view') || permissions.includes('designations.view')) ? [{
-          name: 'Organization',
+          name: 'Employees',
           icon: <UserGroupIcon  />,
           category: 'core',
-          route: 'organization.index'
+          route: 'employees'
         }] : []),
         
         // Time & Attendance Management
@@ -117,12 +117,7 @@ export const getPages = (roles, permissions, auth = null) => {
       module: 'admin',
       subMenu: [
          
-          ...(permissions.includes('users.view') ? [{ 
-              name: 'Users/Roles', 
-              icon: <UsersIcon />, 
-              route: 'users',
-              description: 'Manage system users and access credentials'
-          }] : []),
+
          
           ...(permissions.includes('company.settings') ? [{
             name: 'Company Details', 

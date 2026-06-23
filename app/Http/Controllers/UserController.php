@@ -20,6 +20,12 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use App\Models\HRM\Department;
+use App\Models\HRM\Designation;
+use App\Models\HRM\AttendanceType;
+use App\Models\HRM\BiometricDevice;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 
 class UserController extends Controller
 {
@@ -32,29 +38,105 @@ class UserController extends Controller
         $this->userService = $userService;
     }
 
-    public function index1(): Response
-    {
-        $pageData = $this->userService->getEmployeeListPageData();
-
-        return Inertia::render('Employees/EmployeeList', array_merge([
-            'title' => 'Employee Management',
-        ], $pageData));
-    }
-
-    public function adminUnified(): Response
-    {
-        return $this->index2();
-    }
-
-    public function index2(): Response
+    public function index(Request $request): Response
     {
         $this->authorize('viewAny', User::class);
-        $pageData = $this->userService->getAdminUnifiedPageData();
 
-        return Inertia::render('AdminUnified', array_merge([
-            'title' => 'User/Role Management',
+        // 1. Workforce & Organization base data
+        $departments = Department::select('id', 'name', 'code', 'parent_id', 'is_active')->get();
+        $designations = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')
+            ->orderBy('hierarchy_level', 'asc')
+            ->get();
+        
+        $roles = Role::with('permissions')->get();
+
+        $attendanceTypes = AttendanceType::select('id', 'name', 'slug', 'config', 'is_active')
+            ->with(['biometricDevices:id,name,serial_number,location'])
+            ->get();
+
+        $activeUsers = User::select('id', 'name', 'email', 'department_id', 'designation_id')
+            ->whereNull('deleted_at')
+            ->get();
+
+        // 2. Department Tab Stats & Pagination
+        $parentDepartments = $departments->whereNull('parent_id')->values();
+        $departmentStats = [
+            'total' => $departments->count(),
+            'active' => $departments->where('is_active', true)->count(),
+            'inactive' => $departments->where('is_active', false)->count(),
+            'parent_departments' => $parentDepartments->count(),
+        ];
+        $initialDepartments = Department::with(['manager:id,name,email', 'parent:id,name'])
+            ->withCount('employees')
+            ->paginate(10);
+
+        // 3. Designation Tab Stats & Pagination
+        $designationStats = [
+            'total' => $designations->count(),
+            'active' => $designations->where('is_active', true)->count(),
+            'inactive' => $designations->where('is_active', false)->count(),
+            'parent_designations' => $designations->whereNull('parent_id')->count(),
+        ];
+        $initialDesignations = Designation::with('department:id,name')
+            ->withCount(['users as employee_count'])
+            ->paginate(10);
+
+        $overviewStats = [
+            'total_employees' => $activeUsers->count(),
+            'total_departments' => $departments->count(),
+            'total_designations' => $designations->count(),
+            'total_locations' => $attendanceTypes->count(),
+        ];
+
+        // 4. Admin - Roles & Permissions data
+        $permissions = Permission::all();
+        $roleHasPermissions = DB::table('role_has_permissions')->get();
+        $permissionsGrouped = Permission::all()->groupBy('module')
+            ->map(fn ($perms, $module) => [
+                'label' => $module,
+                'permissions' => $perms->values(),
+            ]);
+
+        // 5. Admin - Biometric Devices data
+        $devices = BiometricDevice::all();
+
+        return Inertia::render('Employees/EmployeesPage', [
+            'title' => 'Employees Console',
+            
+            // Shared lists
+            'departments' => $departments,
+            'designations' => $designations,
+            'attendanceTypes' => $attendanceTypes,
+            'roles' => $roles,
+            'allManagers' => $activeUsers,
+            
+            // Department Tab
+            'managers' => $activeUsers,
+            'parentDepartments' => $parentDepartments,
+            'departmentsData' => $initialDepartments,
+            'stats' => $departmentStats,
+
+            // Designation Tab
+            'allDesignations' => $designations,
+            'initialDesignations' => $initialDesignations,
+            'designationStats' => $designationStats,
+
+            // Work Locations Tab
+            'users' => $activeUsers,
+
+            // Roles & Permissions Tab
+            'permissions' => $permissions,
+            'role_has_permissions' => $roleHasPermissions,
+            'permissionsGrouped' => $permissionsGrouped,
             'can_manage_super_admin' => auth()->user()->can('manage super admin'),
-        ], $pageData));
+
+            // Biometric Tab
+            'devices' => $devices,
+            'employees' => $activeUsers,
+
+            // Page Overview Stats
+            'overviewStats' => $overviewStats,
+        ]);
     }
 
     /**
