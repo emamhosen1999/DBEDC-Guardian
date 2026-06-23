@@ -14,6 +14,8 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -144,6 +146,16 @@ class UserController extends Controller
         try {
             $user = User::withTrashed()->findOrFail($id);
             $this->authorize('delete', $user);
+
+            // Check for dependencies before deletion
+            $dependencies = $this->checkUserDependencies($user);
+            if (! empty($dependencies)) {
+                return response()->json([
+                    'error' => 'Cannot delete user with active dependencies',
+                    'dependencies' => $dependencies,
+                ], 422);
+            }
+
             $this->userService->deleteUser($user);
 
             Log::info('User deleted', [
@@ -730,5 +742,65 @@ class UserController extends Controller
                 'message' => $this->safeExceptionMessage($e),
             ], 500);
         }
+    }
+
+    /**
+     * Check for user dependencies before deletion
+     */
+    private function checkUserDependencies(User $user): array
+    {
+        $dependencies = [];
+
+        // Check for active projects (if the table exists)
+        try {
+            if (Schema::hasTable('project_members')) {
+                $activeProjects = DB::table('project_members')
+                    ->join('projects', 'project_members.project_id', '=', 'projects.id')
+                    ->where('project_members.user_id', $user->id)
+                    ->where('projects.status', 'active')
+                    ->count();
+
+                if ($activeProjects > 0) {
+                    $dependencies['active_projects'] = $activeProjects;
+                }
+            }
+        } catch (\Exception $e) {
+            // Table doesn't exist, skip this check
+        }
+
+        // Check for pending leaves
+        try {
+            if (Schema::hasTable('leaves')) {
+                $pendingLeaves = DB::table('leaves')
+                    ->where('user_id', $user->id)
+                    ->where('status', 'pending')
+                    ->count();
+
+                if ($pendingLeaves > 0) {
+                    $dependencies['pending_leaves'] = $pendingLeaves;
+                }
+            }
+        } catch (\Exception $e) {
+            // Table doesn't exist, skip this check
+        }
+
+        // Check for active trainings
+        try {
+            if (Schema::hasTable('training_enrollments')) {
+                $activeTrainings = DB::table('training_enrollments')
+                    ->join('trainings', 'training_enrollments.training_id', '=', 'trainings.id')
+                    ->where('training_enrollments.user_id', $user->id)
+                    ->where('trainings.status', 'active')
+                    ->count();
+
+                if ($activeTrainings > 0) {
+                    $dependencies['active_trainings'] = $activeTrainings;
+                }
+            }
+        } catch (\Exception $e) {
+            // Table doesn't exist, skip this check
+        }
+
+        return $dependencies;
     }
 }

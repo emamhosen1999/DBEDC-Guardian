@@ -10,7 +10,6 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EducationController;
-use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ExperienceController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\JurisdictionController;
@@ -368,9 +367,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // HR Management routes
     Route::middleware(['permission:employees.view'])->group(function () {
-        Route::get('/employees', [EmployeeController::class, 'index'])->name('employees');
-        Route::get('/employees/paginate', [EmployeeController::class, 'paginate'])->name('employees.paginate');
-        Route::get('/employees/stats', [EmployeeController::class, 'stats'])->name('employees.stats');
+        Route::get('/employees', [UserController::class, 'index1'])->name('employees');
+        Route::get('/employees/paginate', [UserController::class, 'employees'])->name('employees.paginate');
+        Route::get('/employees/stats', [UserController::class, 'employeeStats'])->name('employees.stats');
     });
 
     // The Master Organization Page
@@ -437,7 +436,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/bulk/delete', [UserController::class, 'bulkDelete'])->name('users.bulk.delete');
         // Legacy route for backward compatibility
-        Route::delete('/user/{id}', [EmployeeController::class, 'destroy'])->name('user.delete');
+        Route::delete('/user/{id}', [UserController::class, 'destroy'])->name('user.delete');
     });
 
     // SECURE DEVICE MANAGEMENT ROUTES (NEW SYSTEM)

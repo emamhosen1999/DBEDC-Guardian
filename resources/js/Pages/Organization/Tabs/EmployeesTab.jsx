@@ -17,6 +17,7 @@ import QueryState from '@/Components/Common/QueryState';
 
 import EmployeeTable from '../Tables/EmployeeTable.jsx';
 import ProfileAvatar from '../../../Components/Profile/ProfileAvatar.jsx';
+import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
 
 /* ─── stat pill component ─── */
 const StatPill = ({ label, value, color = 'gray' }) => (
@@ -74,11 +75,14 @@ const EmployeeCard = ({ user, departments, designations, attendanceTypes }) => {
 };
 
 const EmployeesTab = ({ isActive }) => {
-    const { auth, departments, designations, attendanceTypes } = usePage().props;
+    const { auth, departments, designations, attendanceTypes, roles } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isTablet = useMediaQuery('(max-width: 768px)');
     
     const canCreate = auth?.permissions?.includes('users.create') || false;
+
+    /* ── dialog state ── */
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
 
     /* ── view ── */
     const [viewMode, setViewMode] = useState('table');
@@ -191,7 +195,7 @@ const EmployeesTab = ({ isActive }) => {
                 <Flex gap="2">
                     <Button size="2" variant="soft" color="gray" onClick={() => refetch()}><ReloadIcon /></Button>
                     {canCreate && (
-                        <Button size="2" onClick={() => router.visit(route('admin.unified'))}>
+                        <Button size="2" onClick={() => setAddDialogOpen(true)}>
                             <PlusIcon />{!isMobile && 'Add Employee'}
                         </Button>
                     )}
@@ -290,6 +294,24 @@ const EmployeesTab = ({ isActive }) => {
                     deleteEmployeeOptimized={deleteEmployeeOptimized}
                     onPageChange={(page) => setPagination(p => ({ ...p, currentPage: page }))}
                     onRowsPerPageChange={(perPage) => setPagination(p => ({ ...p, perPage, currentPage: 1 }))}
+                    auth={auth}
+                    roles={roles}
+                />
+            )}
+            {addDialogOpen && (
+                <AddEditUserFormRadix
+                    open={addDialogOpen}
+                    closeModal={() => setAddDialogOpen(false)}
+                    departments={departments}
+                    designations={designations}
+                    roles={roles}
+                    allUsers={allManagers}
+                    setUsers={null}
+                    onSuccess={() => {
+                        setAddDialogOpen(false);
+                        refetch();
+                        refetchStats();
+                    }}
                 />
             )}
             </QueryState>
