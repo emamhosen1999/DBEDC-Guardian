@@ -19,6 +19,7 @@ class OrganizationController extends Controller
         // 1. Shared Base Data (Lightweight for dropdowns and mapping)
         $departments = Department::select('id', 'name', 'code', 'parent_id', 'is_active')->get();
         $designations = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')->get();
+        $roles = \Spatie\Permission\Models\Role::all();
 
         // 2. Tab-Specific Prerequisites
         $attendanceTypes = AttendanceType::select('id', 'name', 'slug', 'config', 'is_active')
@@ -70,6 +71,7 @@ class OrganizationController extends Controller
             'departments' => $departments,
             'designations' => $designations,
             'attendanceTypes' => $attendanceTypes,
+            'roles' => $roles,
 
             // Employee Tab specific
             'allManagers' => $activeUsers,
