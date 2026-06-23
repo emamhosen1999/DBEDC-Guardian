@@ -175,22 +175,25 @@ const EmployeeTable = ({
 
     const handleBiometricDeviceChange = async (userId, deviceId) => {
         try {
-            const { data } = await updateBiometricDevice.mutateAsync({ id: userId, biometric_device_id: deviceId || null });
-            updateEmployeeOptimized?.(userId, { biometric_device_id: data.biometric_device_id ?? null, biometric_device_name: data.biometric_device_name ?? null });
-            showToast.success(data.message || 'Device assigned');
+            // mutateAsync resolves to the response body, not an axios response — read fields directly.
+            const data = await updateBiometricDevice.mutateAsync({ id: userId, biometric_device_id: deviceId || null });
+            updateEmployeeOptimized?.(userId, { biometric_device_id: data?.biometric_device_id ?? null, biometric_device_name: data?.biometric_device_name ?? null });
+            showToast.success(data?.message || 'Device assigned');
         } catch (e) { showToast.error(e.response?.data?.message || 'Failed to assign device'); }
     };
 
     const handleWorkLocationChange = async (userId, workLocationId) => {
         try {
             const loc = workLocations.find(w => String(w.id) === String(workLocationId)) || null;
-            const { data } = await updateWorkLocation.mutateAsync({ id: userId, work_location_id: workLocationId || null });
+            // mutateAsync resolves to the response body ({ message, user }), not an axios response —
+            // so read fields off it directly (do NOT destructure `.data`).
+            const result = await updateWorkLocation.mutateAsync({ id: userId, work_location_id: workLocationId || null });
             updateEmployeeOptimized?.(userId, {
                 work_location_id: workLocationId || null,
                 work_location_name: loc?.name || null,
                 work_location_attendance_type_name: loc?.attendance_type?.name || null,
             });
-            showToast.success(data.message || 'Work location updated');
+            showToast.success(result?.message || 'Work location updated');
         } catch (e) { showToast.error(e.response?.data?.message || 'Failed to update work location'); }
     };
 
@@ -198,8 +201,8 @@ const EmployeeTable = ({
         if (reportToDebounceRef.current[userId]) clearTimeout(reportToDebounceRef.current[userId]);
         reportToDebounceRef.current[userId] = setTimeout(async () => {
             try {
-                const { data } = await updateReportTo.mutateAsync({ id: userId, report_to: reportToId || null });
-                updateEmployeeOptimized?.(userId, { report_to: reportToId || null, reports_to: data.user?.reports_to || null });
+                const data = await updateReportTo.mutateAsync({ id: userId, report_to: reportToId || null });
+                updateEmployeeOptimized?.(userId, { report_to: reportToId || null, reports_to: data?.user?.reports_to || null });
                 showToast.success('Manager assigned');
             } catch { showToast.error('Failed to update manager'); }
         }, 500);
