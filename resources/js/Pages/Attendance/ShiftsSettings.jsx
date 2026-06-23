@@ -15,6 +15,7 @@ export default function ShiftsSettings() {
     const [editing, setEditing] = useState(null);
     const [open, setOpen] = useState(false);
     const [patternOpen, setPatternOpen] = useState(false);
+    const [editingPattern, setEditingPattern] = useState(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['shifts'],
@@ -23,7 +24,17 @@ export default function ShiftsSettings() {
 
     const shifts = data?.shifts || [];
 
-    const refresh = () => qc.invalidateQueries({ queryKey: ['shifts'] });
+    const { data: patternsData, isLoading: patternsLoading } = useQuery({
+        queryKey: ['rotation-patterns'],
+        queryFn: () => requestJson('get', '/attendance/rotation-patterns'),
+    });
+
+    const patterns = patternsData?.patterns || [];
+
+    const refresh = () => {
+        qc.invalidateQueries({ queryKey: ['shifts'] });
+        qc.invalidateQueries({ queryKey: ['rotation-patterns'] });
+    };
 
     const remove = async (s) => {
         if (!confirm(`Delete shift "${s.name}"? This cannot be undone.`)) return;
@@ -36,6 +47,41 @@ export default function ShiftsSettings() {
         }
     };
 
+    const removePattern = async (p) => {
+        if (!confirm(`Delete rotation pattern "${p.name}"? This cannot be undone.`)) return;
+        try {
+            await requestJson('delete', `/attendance/rotation-patterns/${p.id}`);
+            showToast.success('Rotation pattern deleted.');
+            refresh();
+        } catch (err) {
+            showToast.error(err?.message || 'Failed to delete rotation pattern.');
+        }
+    };
+
+    const formatSequence = (definition) => {
+        if (!definition || !Array.isArray(definition)) return null;
+        return definition.map((day, idx) => {
+            const isLast = idx === definition.length - 1;
+            if (day === null || day === undefined) {
+                return (
+                    <Flex key={idx} align="center" style={{ display: 'inline-flex' }}>
+                        <Badge color="gray">Off</Badge>
+                        {!isLast && <Text size="1" color="gray" mx="1">→</Text>}
+                    </Flex>
+                );
+            }
+            const shiftObj = shifts.find(s => s.id === day);
+            return (
+                <Flex key={idx} align="center" style={{ display: 'inline-flex' }}>
+                    <Badge style={{ background: shiftObj?.color || undefined, color: shiftObj?.color ? '#fff' : undefined }}>
+                        {shiftObj ? shiftObj.code : `Shift #${day}`}
+                    </Badge>
+                    {!isLast && <Text size="1" color="gray" mx="1">→</Text>}
+                </Flex>
+            );
+        });
+    };
+
     return (
         <Box mt="6">
             <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
@@ -44,8 +90,8 @@ export default function ShiftsSettings() {
                     <Text size="4" weight="bold">Shifts</Text>
                 </Flex>
                 <Flex align="center" gap="2">
-                    <Button size="2" variant="soft" onClick={() => setPatternOpen(true)}>
-                        <SymbolIcon /> Rotation patterns
+                    <Button size="2" variant="soft" onClick={() => { setEditingPattern(null); setPatternOpen(true); }}>
+                        <SymbolIcon /> Add pattern
                     </Button>
                     <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
                         <PlusIcon /> Add shift
@@ -106,8 +152,70 @@ export default function ShiftsSettings() {
                 </Table.Root>
             )}
 
+            <Flex align="center" justify="between" gap="3" mt="6" mb="4" wrap="wrap">
+                <Flex align="center" gap="2">
+                    <SymbolIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
+                    <Text size="4" weight="bold">Rotation Patterns</Text>
+                </Flex>
+            </Flex>
+
+            {patternsLoading ? (
+                <Text size="2" color="gray">Loading rotation patterns…</Text>
+            ) : patterns.length === 0 ? (
+                <Flex direction="column" align="center" py="5" gap="2" style={{ border: '1px dashed var(--gray-6)', borderRadius: 'var(--radius-3)' }}>
+                    <Text size="2" color="gray">No rotation patterns yet.</Text>
+                    <Text size="1" color="gray">Click Add pattern above to create one.</Text>
+                </Flex>
+            ) : (
+                <Table.Root size="2" variant="surface">
+                    <Table.Header>
+                        <Table.Row>
+                            <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Cycle Length</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Sequence Preview</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {patterns.map(p => (
+                            <Table.Row key={p.id}>
+                                <Table.Cell>
+                                    <Text size="2" weight="medium">{p.name}</Text>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Badge color="blue">{p.code}</Badge>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Text size="2">{p.cycle_length_days} days</Text>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Flex gap="1" wrap="wrap" align="center">
+                                        {formatSequence(p.definition)}
+                                    </Flex>
+                                </Table.Cell>
+                                <Table.Cell>
+                                    {p.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
+                                </Table.Cell>
+                                <Table.Cell>
+                                    <Flex gap="1" justify="end">
+                                        <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditingPattern(p); setPatternOpen(true); }}>
+                                            <Pencil1Icon />
+                                        </IconButton>
+                                        <IconButton size="1" variant="ghost" color="red" onClick={() => removePattern(p)}>
+                                            <TrashIcon />
+                                        </IconButton>
+                                    </Flex>
+                                </Table.Cell>
+                            </Table.Row>
+                        ))}
+                    </Table.Body>
+                </Table.Root>
+            )}
+
             <ShiftForm open={open} onOpenChange={setOpen} initial={editing} onSaved={refresh} />
-            <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} onSaved={refresh} />
+            <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} initial={editingPattern} onSaved={refresh} />
 
             <Separator size="4" my="5" />
 

@@ -102,6 +102,31 @@ class ShiftController extends Controller
         return response()->json(['message' => 'Pattern created.', 'pattern' => $pattern], 201);
     }
 
+    public function updatePattern(Request $request, int $id): JsonResponse
+    {
+        $pattern = ShiftRotationPattern::findOrFail($id);
+
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:100',
+            'code' => 'sometimes|string|max:20|unique:shift_rotation_patterns,code,' . $id,
+            'cycle_length_days' => 'sometimes|integer|min:1',
+            'definition' => 'sometimes|array',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        DB::transaction(fn () => $pattern->update($data));
+
+        return response()->json(['message' => 'Pattern updated.', 'pattern' => $pattern->fresh()]);
+    }
+
+    public function destroyPattern(int $id): JsonResponse
+    {
+        $pattern = ShiftRotationPattern::findOrFail($id);
+        DB::transaction(fn () => $pattern->delete());
+
+        return response()->json(['message' => 'Pattern deleted.']);
+    }
+
     public function storeAssignment(Request $request): JsonResponse
     {
         $data = $request->validate([
