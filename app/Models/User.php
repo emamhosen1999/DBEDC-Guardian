@@ -12,6 +12,7 @@ use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -262,29 +263,64 @@ class User extends Authenticatable implements HasMedia
      * default) using explicit queries, so it works during punch validation regardless of
      * which relations are eager-loaded. This is the source of truth for attendance.
      */
-    public function resolvedAttendanceType(): ?\App\Models\HRM\AttendanceType
+    /**
+     * Employee's personal override SET of attendance methods (multi-method).
+     */
+    public function attendanceTypes(): BelongsToMany
     {
-        $rawId = $this->getRawOriginal('attendance_type_id');
-        if ($rawId !== null) {
-            // Personal override — prefer an eager-loaded relation to avoid extra queries.
-            if ($this->relationLoaded('attendanceType') && $this->attendanceType) {
-                return $this->attendanceType;
-            }
-            return \App\Models\HRM\AttendanceType::find($rawId);
-        }
-        if (! $this->work_location_id) {
-            return null;
-        }
-        $location = $this->relationLoaded('workLocation') && $this->workLocation
-            ? $this->workLocation
-            : WorkLocation::with('attendanceType')->find($this->work_location_id);
-        if (! $location) {
-            return null;
+        return $this->belongsToMany(\App\Models\HRM\AttendanceType::class, 'user_attendance_type');
+    }
+
+    /**
+     * Resolve the effective SET of allowed attendance methods for this employee.
+     * Precedence (override REPLACES inheritance):
+     *   1. Employee override set (user_attendance_type pivot)
+     *   2. Backward-compat single override FK (users.attendance_type_id)
+     *   3. Work-location set (work_location_attendance_type pivot)
+     *   4. Backward-compat single location FK (work_locations.attendance_type_id)
+     * Returns only active types. A punch is valid if ANY of these validates.
+     */
+    public function resolvedAttendanceTypes(): \Illuminate\Support\Collection
+    {
+        $active = fn ($c) => $c->filter(fn ($t) => $t && $t->is_active)->values();
+
+        // 1. Employee override set
+        $override = $this->relationLoaded('attendanceTypes') ? $this->attendanceTypes : $this->attendanceTypes()->get();
+        if ($override->isNotEmpty()) {
+            return $active($override);
         }
 
-        return $location->relationLoaded('attendanceType')
-            ? $location->attendanceType
-            : $location->attendanceType()->first();
+        // 2. Backward-compat single override FK
+        $rawId = $this->getRawOriginal('attendance_type_id');
+        if ($rawId !== null) {
+            return $active(collect([\App\Models\HRM\AttendanceType::find($rawId)]));
+        }
+
+        // 3 & 4. Inherit from work location (set, then single FK)
+        if ($this->work_location_id) {
+            $location = $this->relationLoaded('workLocation') && $this->workLocation
+                ? $this->workLocation
+                : WorkLocation::with('attendanceTypes')->find($this->work_location_id);
+            if ($location) {
+                $locSet = $location->relationLoaded('attendanceTypes') ? $location->attendanceTypes : $location->attendanceTypes()->get();
+                if ($locSet->isNotEmpty()) {
+                    return $active($locSet);
+                }
+                if ($location->attendance_type_id) {
+                    return $active(collect([$location->attendanceType()->first()]));
+                }
+            }
+        }
+
+        return collect();
+    }
+
+    /**
+     * Convenience: the primary resolved attendance type (first of the resolved set).
+     */
+    public function resolvedAttendanceType(): ?\App\Models\HRM\AttendanceType
+    {
+        return $this->resolvedAttendanceTypes()->first();
     }
 
     public function employeeAttendanceType(): HasOne

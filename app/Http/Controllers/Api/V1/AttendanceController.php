@@ -977,17 +977,17 @@ class AttendanceController extends Controller
     public function punch(PunchAttendanceRequest $request): JsonResponse
     {
         $user = $request->user();
-        // Resolve effective attendance type (personal override → work-location default).
-        $attendanceType = $user->resolvedAttendanceType();
+        // Resolve the effective SET of allowed methods (override → location); OR-validate.
+        $attendanceTypes = $user->resolvedAttendanceTypes();
 
-        if (! $attendanceType || ! $attendanceType->is_active) {
+        if ($attendanceTypes->isEmpty()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'No active attendance type assigned to user.',
             ], 422);
         }
 
-        $validation = $this->validateAttendanceType($attendanceType, $request);
+        $validation = $this->validateAnyAttendanceType($attendanceTypes, $request);
         if ($validation['status'] === 'error') {
             return response()->json($validation, $validation['code']);
         }
@@ -1134,6 +1134,32 @@ class AttendanceController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Multi-method (OR) validation: valid if ANY allowed attendance type validates.
+     */
+    private function validateAnyAttendanceType($attendanceTypes, Request $request): array
+    {
+        $errors = [];
+        foreach ($attendanceTypes as $attendanceType) {
+            if (! $attendanceType || ! $attendanceType->is_active) {
+                continue;
+            }
+            $result = $this->validateAttendanceType($attendanceType, $request);
+            if (($result['status'] ?? null) === 'success') {
+                return $result;
+            }
+            $errors[] = $result;
+        }
+
+        if (empty($errors)) {
+            return ['status' => 'error', 'message' => 'No active attendance type assigned to user.', 'code' => 422];
+        }
+
+        usort($errors, fn ($a, $b) => ($b['code'] ?? 0) <=> ($a['code'] ?? 0));
+
+        return $errors[0];
     }
 
     private function validateAttendanceType($attendanceType, Request $request): array

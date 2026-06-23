@@ -45,7 +45,7 @@ const WorkLocationsTable = ({
                 <Table.Header>
                     <Table.Row>
                         <Table.ColumnHeaderCell>Location Name</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Default Attendance Rule</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Attendance Methods</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Employees</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                         {(hasEditPermission || hasDeletePermission) && (
@@ -78,12 +78,17 @@ const WorkLocationsTable = ({
                                 </Flex>
                             </Table.Cell>
 
-                            {/* Default Rule */}
+                            {/* Attendance Methods (set) */}
                             <Table.Cell>
-                                {location.attendance_type ? (
-                                    <Badge color="violet" variant="soft" size="2">
-                                        {location.attendance_type.name}
-                                    </Badge>
+                                {(location.attendance_types?.length || location.attendance_type) ? (
+                                    <Flex gap="1" wrap="wrap">
+                                        {(location.attendance_types?.length
+                                            ? location.attendance_types
+                                            : [location.attendance_type]
+                                        ).map(t => (
+                                            <Badge key={t.id} color="violet" variant="soft" size="1">{t.name}</Badge>
+                                        ))}
+                                    </Flex>
                                 ) : (
                                     <Text color="gray" size="2" style={{ fontStyle: 'italic' }}>None (Default Validation)</Text>
                                 )}

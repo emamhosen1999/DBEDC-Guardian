@@ -38,38 +38,29 @@ class BiometricValidator extends BaseAttendanceValidator
             return $this->errorResponse('Biometric device is inactive.', 403);
         }
 
-        $user = User::with('employeeAttendanceType')->where('employee_id', $deviceUserId)->first();
+        $user = User::where('employee_id', $deviceUserId)->first();
 
         if (! $user) {
             return $this->errorResponse('User not found with employee_id: '.$deviceUserId, 404);
         }
 
-        if (! $user->attendance_type_id) {
-            return $this->errorResponse('User does not have an attendance type assigned.', 403);
+        // Multi-method: the employee's resolved methods (override → work location) must
+        // include a biometric type, and the punching device must be one of that type's
+        // linked devices (zone/group model — any registered device is valid).
+        $bioType = $user->resolvedAttendanceTypes()
+            ->first(fn ($t) => $t && str_starts_with((string) $t->slug, 'biometric'));
+
+        if (! $bioType) {
+            return $this->errorResponse("User's attendance methods do not include biometric. Device punches not allowed.", 403);
         }
 
-        $attendanceType = AttendanceType::find($user->attendance_type_id);
+        $allowedDeviceIds = $bioType->biometricDevices()->pluck('biometric_devices.id')->all();
 
-        if (! $attendanceType) {
-            return $this->errorResponse("User's attendance type not found.", 403);
-        }
-
-        if (! str_starts_with($attendanceType->slug, 'biometric')) {
-            return $this->errorResponse("User's attendance type is not biometric. Device punches not allowed.", 403);
-        }
-
-        // Employee must have a specific device assigned — no pool fallback
-        $eat = $user->employeeAttendanceType;
-        if (! $eat || ! $eat->biometric_device_id) {
+        // If devices are linked to the biometric type, the punch device must be one of them.
+        // If none are linked yet, any active registered device is accepted (pool fallback).
+        if (! empty($allowedDeviceIds) && ! in_array($device->id, $allowedDeviceIds, true)) {
             return $this->errorResponse(
-                'No biometric device assigned to this employee. Please assign a device first.',
-                403
-            );
-        }
-
-        if ($eat->biometric_device_id !== $device->id) {
-            return $this->errorResponse(
-                'Punch rejected: employee is assigned to a different device.',
+                "Punch rejected: this device is not linked to the employee's biometric method.",
                 403
             );
         }

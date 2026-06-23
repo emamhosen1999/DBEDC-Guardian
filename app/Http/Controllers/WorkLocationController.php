@@ -52,7 +52,8 @@ class WorkLocationController extends Controller
         try {
             $validatedData = $this->validatePayload($request);
 
-            WorkLocation::create($validatedData);
+            $location = WorkLocation::create($validatedData);
+            $this->syncAttendanceTypes($location, $request);
 
             return response()->json([
                 'message' => 'Work location added successfully',
@@ -73,6 +74,7 @@ class WorkLocationController extends Controller
 
             $validatedData = $this->validatePayload($request, $workLocation->id);
             $workLocation->update($validatedData);
+            $this->syncAttendanceTypes($workLocation, $request);
 
             return response()->json([
                 'message' => 'Work location updated successfully',
@@ -123,7 +125,27 @@ class WorkLocationController extends Controller
      */
     protected function locationsWithMeta()
     {
-        return WorkLocation::with('attendanceType')->withCount('employees')->get();
+        return WorkLocation::with(['attendanceType', 'attendanceTypes:id,name,slug'])->withCount('employees')->get();
+    }
+
+    /**
+     * Sync the location's multi-method attendance type set (work_location_attendance_type),
+     * and keep the legacy single attendance_type_id in sync (first selected) for back-compat.
+     */
+    protected function syncAttendanceTypes(WorkLocation $location, Request $request): void
+    {
+        if (! $request->has('attendance_type_ids')) {
+            return;
+        }
+        $ids = collect($request->input('attendance_type_ids', []))
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $location->attendanceTypes()->sync($ids->all());
+        // Keep legacy single FK pointing at the first method (or null) for back-compat.
+        $location->forceFill(['attendance_type_id' => $ids->first()])->save();
     }
 
     /**
@@ -148,6 +170,8 @@ class WorkLocationController extends Controller
             'timezone' => ['nullable', 'string', 'max:64'],
             'is_active' => ['nullable', 'boolean'],
             'attendance_type_id' => ['nullable', 'exists:attendance_types,id'],
+            'attendance_type_ids' => ['nullable', 'array'],
+            'attendance_type_ids.*' => ['integer', 'exists:attendance_types,id'],
         ], [
             'name.required' => 'Work location name is required.',
             'name.unique' => 'A work location with this name already exists.',
@@ -155,6 +179,9 @@ class WorkLocationController extends Controller
         ]);
 
         $validated['is_active'] = $request->has('is_active') ? $request->boolean('is_active') : true;
+
+        // Not a column — handled separately via the pivot in syncAttendanceTypes().
+        unset($validated['attendance_type_ids']);
 
         return $validated;
     }
