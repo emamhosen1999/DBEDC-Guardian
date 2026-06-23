@@ -402,7 +402,6 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
 
     // React Query mutation
     const exportMonthlyCalendar = useAttendanceQuery.useExportMonthlyCalendar();
-    const exportSummary = useAttendanceQuery.useExportMonthlySummary();
     const isMutating = exportMonthlyCalendar.isPending;
 
     /* responsive detection */
@@ -443,25 +442,6 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
             showToast.error(`Failed to export ${type}.`);
         } finally { setDownloading(''); }
     }, [selectedMonth, exportMonthlyCalendar]);
-
-    const exportSummaryFile = useCallback(async () => {
-        setDownloading('summary');
-        try {
-            const data = await exportSummary.mutateAsync({
-                month: selectedMonth,
-                departmentId: selectedDepartmentId !== 'all' ? parseInt(selectedDepartmentId) : null,
-            });
-            await handleExportResponse(
-                data,
-                `DBEDC_Attendance_Summary_${selectedMonth}.xlsx`,
-                undefined,
-                'xlsx'
-            );
-        } catch (err) {
-            console.error('Summary export failed:', err);
-            showToast.error('Failed to export summary.');
-        } finally { setDownloading(''); }
-    }, [selectedMonth, selectedDepartmentId, exportSummary]);
 
     /* month nav */
     const goMonth = (delta) => {
@@ -552,14 +532,6 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
                             >
                                 <DownloadIcon />
                                 {downloading === 'pdf' ? 'Exporting…' : 'PDF'}
-                            </Button>
-                            <Button
-                                size="2" variant="soft" color="blue"
-                                disabled={isLoading || downloading !== ''}
-                                onClick={exportSummaryFile}
-                            >
-                                <DownloadIcon />
-                                {downloading === 'summary' ? 'Exporting…' : 'Summary (Excel)'}
                             </Button>
                         </>
                     )}

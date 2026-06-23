@@ -485,7 +485,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Export routes (dispatchers for frontend export buttons)
         Route::get('/attendance/daily-timesheet/export', [AttendanceController::class, 'exportDailyTimesheet'])->name('attendance.dailyTimesheet.export');
         Route::get('/attendance/monthly-calendar/export', [AttendanceController::class, 'exportMonthlyCalendar'])->name('attendance.monthlyCalendar.export');
-        Route::get('/attendance/monthly-summary/export', [AttendanceController::class, 'exportMonthlySummary'])->name('attendance.monthlySummary.export');
+
     });
 
     // Attendance management routes (admin actions)
