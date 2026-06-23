@@ -74,6 +74,9 @@ const LeavesEmployee = ({ title, allUsers }) => {
       total: leavesResponse?.total || 0,
       lastPage: leavesResponse?.last_page || 1,
     });
+    if (leavesResponse?.leavesData) {
+      setLeavesData(leavesResponse.leavesData);
+    }
   }, [leavesResponse]);
 
   // Function to update pagination metadata
