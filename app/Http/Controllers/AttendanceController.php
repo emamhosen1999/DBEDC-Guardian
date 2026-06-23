@@ -17,6 +17,7 @@ use App\Services\Attendance\AttendanceQueryService;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Attendance\AttendanceValidatorFactory;
 use App\Traits\HandlesApiExceptions;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -830,6 +831,22 @@ class AttendanceController extends Controller
             $from = Carbon::parse($month.'-01');
             $departmentId = $request->query('department_id');
             $departmentId = $departmentId !== null && $departmentId !== '' ? (int) $departmentId : null;
+            $type = $request->query('type', 'excel');
+
+            if ($type === 'pdf') {
+                $summary = app(AttendanceReportService::class)
+                    ->getPerEmployeeMonthlySummary($from->year, $from->month, $departmentId);
+
+                $monthName = $from->format('F_Y');
+                $deptSuffix = $departmentId && ($summary['meta']['departmentName'] ?? null)
+                    ? '_'.str_replace(' ', '_', $summary['meta']['departmentName'])
+                    : '';
+                $fileName = "DBEDC_Attendance_Summary_{$monthName}{$deptSuffix}.pdf";
+
+                return Pdf::loadView('attendance_summary_pdf', ['summary' => $summary])
+                    ->setPaper('a4', 'landscape')
+                    ->download($fileName);
+            }
 
             return (new AttendancePerEmployeeSummaryExport)
                 ->export($from->year, $from->month, $departmentId);
