@@ -73,6 +73,8 @@ class UserManagementService
     {
         return DB::transaction(function () use ($validated, $roles, $profileImage) {
             unset($validated['profile_image']);
+            $attendanceTypeIds = array_key_exists('attendance_type_ids', $validated) ? $validated['attendance_type_ids'] : null;
+            unset($validated['attendance_type_ids']);
 
             if (isset($validated['password'])) {
                 $validated['password'] = Hash::make($validated['password']);
@@ -86,6 +88,7 @@ class UserManagementService
             }
 
             $user = User::create($validated);
+            $this->applyAttendanceTypeOverride($user, $attendanceTypeIds);
 
             if ($roles) {
                 $user->syncRoles($roles);
@@ -112,6 +115,8 @@ class UserManagementService
             $user = User::findOrFail($id);
 
             unset($validated['profile_image']);
+            $attendanceTypeIds = array_key_exists('attendance_type_ids', $validated) ? $validated['attendance_type_ids'] : null;
+            unset($validated['attendance_type_ids']);
 
             if (isset($validated['password'])) {
                 $validated['password'] = Hash::make($validated['password']);
@@ -125,6 +130,7 @@ class UserManagementService
             }
 
             $user->update($validated);
+            $this->applyAttendanceTypeOverride($user, $attendanceTypeIds);
 
             if ($hasRoles) {
                 $user->syncRoles($roles);
@@ -232,12 +238,41 @@ class UserManagementService
     /**
      * Update the attendance type of a user.
      */
+    /**
+     * Apply an employee's multi-method attendance OVERRIDE set from a list of type ids.
+     * - null  → no change (caller didn't submit the field)
+     * - []    → clear override (employee inherits from work location)
+     * - [..]  → set the override set; legacy single FK = first id for back-compat.
+     */
+    protected function applyAttendanceTypeOverride(User $user, ?array $ids): void
+    {
+        if ($ids === null) {
+            return;
+        }
+        $ids = collect($ids)
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        $user->attendanceTypes()->sync($ids->all());
+        $user->forceFill(['attendance_type_id' => $ids->first()])->save();
+
+        // Keep the single-row employee_attendance_types in sync (first method + clear device).
+        EmployeeAttendanceType::updateOrCreate(
+            ['user_id' => $user->id],
+            ['attendance_type_id' => $ids->first(), 'biometric_device_id' => null]
+        );
+    }
+
     public function updateAttendanceType(User $user, ?int $attendanceTypeId): User
     {
         if ($attendanceTypeId === null) {
             // Clear the personal override → employee inherits from their work location.
             $user->attendanceType()->dissociate();
             $user->save();
+            // Keep the multi-method override pivot consistent (no override).
+            $user->attendanceTypes()->detach();
 
             $user->load('workLocation');
             $inherited = $user->workLocation?->attendance_type_id;
@@ -250,6 +285,8 @@ class UserManagementService
 
             $user->attendanceType()->associate($attendanceType);
             $user->save();
+            // Inline single-select sets a one-method override; keep the pivot in sync.
+            $user->attendanceTypes()->sync([$attendanceType->id]);
 
             EmployeeAttendanceType::updateOrCreate(
                 ['user_id' => $user->id],

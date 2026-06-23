@@ -64,6 +64,15 @@ class WorkLocation extends Model
     }
 
     /**
+     * Multi-method: the SET of allowed attendance methods at this location.
+     * Employees here inherit this set unless they have a personal override set.
+     */
+    public function attendanceTypes(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(AttendanceType::class, 'work_location_attendance_type');
+    }
+
+    /**
      * Employees assigned to this work location.
      */
     public function employees(): HasMany

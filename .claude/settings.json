@@ -324,7 +324,10 @@
       "Bash(grep -o \"users.updateWorkLocation\\\\|users\\\\\\\\\\\\\\\\/.*work-location\" resources/js/ziggy.js)",
       "Bash(sed -n '/const handleWorkLocationChange/,/^    };/p' resources/js/Pages/Organization/Tables/EmployeeTable.jsx)",
       "Bash(sed -n '/export const useUpdateWorkLocation/,/^};/p' resources/js/api/queries/useEmployeesQuery.js)",
-      "Bash(npx esbuild *)"
+      "Bash(npx esbuild *)",
+      "Bash(grep -n \"use Illuminate\\\\\\\\\\\\\\\\Database\\\\\\\\\\\\\\\\Eloquent\\\\\\\\\\\\\\\\Relations\" app/Models/User.php)",
+      "Bash(grep -n \"use Illuminate\\\\\\\\\\\\\\\\Database\\\\\\\\\\\\\\\\Eloquent\\\\\\\\\\\\\\\\Relations\\\\|BelongsToMany\" app/Models/WorkLocation.php)",
+      "Bash(grep -n \"private function validateAttendanceType\\\\|function validateAnyAttendanceType\\\\|use Illuminate\\\\\\\\\\\\\\\\Support\\\\\\\\\\\\\\\\Collection\" app/Http/Controllers/Api/V1/AttendanceController.php)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",

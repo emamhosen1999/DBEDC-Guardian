@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Dialog, Button, Flex, Grid, Text, TextField,
-    Select, Box, Spinner, Switch, TextArea
+    Select, Box, Spinner, Switch, TextArea, Checkbox
 } from '@radix-ui/themes';
 import { SewingPinIcon } from '@radix-ui/react-icons';
 import * as useWorkLocationsQuery from '@/api/queries/useWorkLocationsQuery';
@@ -25,13 +25,18 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
         geofence_radius: '',
         timezone: '',
         is_active: true,
-        attendance_type_id: 'none',
+        attendance_type_ids: [],
     };
 
     const [formData, setFormData] = useState(initialFormState);
 
     useEffect(() => {
         if (modalType === 'update' && currentRow) {
+            // Prefer the multi-method set; fall back to the legacy single id.
+            const ids = (currentRow.attendance_types?.length
+                ? currentRow.attendance_types.map(t => t.id)
+                : (currentRow.attendance_type_id ? [currentRow.attendance_type_id] : []))
+                .map(Number);
             setFormData({
                 location: currentRow.name || '',
                 code: currentRow.code || '',
@@ -42,7 +47,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                 geofence_radius: currentRow.geofence_radius ?? '',
                 timezone: currentRow.timezone || '',
                 is_active: currentRow.is_active ?? true,
-                attendance_type_id: currentRow.attendance_type_id ? String(currentRow.attendance_type_id) : 'none',
+                attendance_type_ids: ids,
             });
         } else {
             setFormData(initialFormState);
@@ -52,12 +57,18 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
     const handleChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
+    const toggleAttendanceType = (id) => setFormData(prev => ({
+        ...prev,
+        attendance_type_ids: prev.attendance_type_ids.includes(id)
+            ? prev.attendance_type_ids.filter(x => x !== id)
+            : [...prev.attendance_type_ids, id],
+    }));
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrors({});
 
         const payload = { ...formData };
-        if (payload.attendance_type_id === 'none') payload.attendance_type_id = null;
         // Normalise empty numeric/optional fields to null so the API stores NULL, not "".
         ['latitude', 'longitude', 'geofence_radius', 'code', 'description', 'address', 'timezone'].forEach((f) => {
             if (payload[f] === '' || payload[f] === undefined) payload[f] = null;
@@ -179,20 +190,27 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                         </Box>
 
                         <Box style={{ gridColumn: '1 / -1' }}>
-                            <Text size="2" weight="medium" mb="1" as="div">Default Attendance Rule (Optional)</Text>
-                            <Select.Root value={formData.attendance_type_id} onValueChange={v => handleChange('attendance_type_id', v)} disabled={isMutating}>
-                                <Select.Trigger style={{ width: '100%' }} />
-                                <Select.Content>
-                                    <Select.Item value="none">Inherit / Unassigned</Select.Item>
-                                    {attendanceTypes.map(type => (
-                                        <Select.Item key={type.id} value={String(type.id)}>{type.name}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                            <Text size="1" color="gray" mt="1" as="div">
-                                Employees here inherit this rule unless they have a personal override.
+                            <Text size="2" weight="medium" mb="1" as="div">Allowed Attendance Methods</Text>
+                            <Text size="1" color="gray" mb="2" as="div">
+                                Select one or more. Employees here can punch via <strong>any</strong> selected method
+                                (e.g. biometric OR geofence OR WiFi). Personal overrides replace this set.
                             </Text>
-                            {errors.attendance_type_id && <Text size="1" color="red">{errors.attendance_type_id[0]}</Text>}
+                            <Flex direction="column" gap="2" style={{ border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-2)', padding: '10px' }}>
+                                {attendanceTypes.length === 0 && (
+                                    <Text size="1" color="gray">No attendance types configured.</Text>
+                                )}
+                                {attendanceTypes.map(type => (
+                                    <Text as="label" size="2" key={type.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                        <Checkbox
+                                            checked={formData.attendance_type_ids.includes(type.id)}
+                                            onCheckedChange={() => toggleAttendanceType(type.id)}
+                                            disabled={isMutating}
+                                        />
+                                        {type.name}
+                                    </Text>
+                                ))}
+                            </Flex>
+                            {errors.attendance_type_ids && <Text size="1" color="red">{errors.attendance_type_ids[0]}</Text>}
                         </Box>
 
                         <Box style={{ gridColumn: '1 / -1' }}>

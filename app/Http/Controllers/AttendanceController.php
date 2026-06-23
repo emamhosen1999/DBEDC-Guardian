@@ -196,18 +196,18 @@ class AttendanceController extends Controller
     {
         $user = Auth::user();
 
-        // 1. Resolve the user's effective attendance type (personal override → work-location default)
-        $attendanceType = $user->resolvedAttendanceType();
+        // 1. Resolve the effective SET of allowed attendance methods (override → location).
+        $attendanceTypes = $user->resolvedAttendanceTypes();
 
-        if (! $attendanceType || ! $attendanceType->is_active) {
+        if ($attendanceTypes->isEmpty()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'No active attendance type assigned to user.',
             ], 422);
         }
 
-        // Validate attendance based on type configuration
-        $validation = $this->validateAttendanceType($attendanceType, $request);
+        // 2. Multi-method validation: punch is valid if ANY allowed method validates.
+        $validation = $this->validateAnyAttendanceType($attendanceTypes, $request);
         if ($validation['status'] === 'error') {
             return response()->json($validation, $validation['code']);
         }
@@ -225,6 +225,34 @@ class AttendanceController extends Controller
     /**
      * Validate attendance based on type configuration
      */
+    /**
+     * Multi-method (OR) validation: succeeds on the first attendance type that validates.
+     * If all fail, returns the most relevant error (highest non-422 code, else last).
+     */
+    private function validateAnyAttendanceType($attendanceTypes, Request $request)
+    {
+        $errors = [];
+        foreach ($attendanceTypes as $attendanceType) {
+            if (! $attendanceType || ! $attendanceType->is_active) {
+                continue;
+            }
+            $result = $this->validateAttendanceType($attendanceType, $request);
+            if (($result['status'] ?? null) === 'success') {
+                return $result;
+            }
+            $errors[] = $result;
+        }
+
+        if (empty($errors)) {
+            return ['status' => 'error', 'message' => 'No active attendance type assigned to user.', 'code' => 422];
+        }
+
+        // Prefer a meaningful failure (e.g. 403 device/location) over a generic 422.
+        usort($errors, fn ($a, $b) => ($b['code'] ?? 0) <=> ($a['code'] ?? 0));
+
+        return $errors[0];
+    }
+
     private function validateAttendanceType($attendanceType, Request $request)
     {
         try {
