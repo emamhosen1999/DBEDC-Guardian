@@ -28,6 +28,8 @@ const LeaveForm = ({
     refetchStats
 }) => {
     const { auth } = usePage().props;
+    const isSuperAdmin = auth.isSuperAdmin || false;
+    const canManageLeaves = isSuperAdmin || auth.permissions?.includes('leaves.approve') || auth.permissions?.includes('leaves.manage') || false;
 
     const [user_id, setUserId] = useState(currentLeave?.user_id || auth.user.id);
     const [selectedDepartmentId, setSelectedDepartmentId] = useState(() => {
@@ -178,7 +180,7 @@ const LeaveForm = ({
                                     />
                                 </Box>
 
-                                {route().current('leaves*') && (
+                                {canManageLeaves && (
                                     <Box style={{ gridColumn: '1 / -1' }}>
                                         <DepartmentEmployeeSelector
                                             selectedDepartmentId={selectedDepartmentId}
