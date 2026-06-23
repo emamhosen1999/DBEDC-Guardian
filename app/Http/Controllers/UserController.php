@@ -468,13 +468,14 @@ class UserController extends Controller
     public function updateAttendanceType(Request $request, $id)
     {
         $request->validate([
-            'attendance_type_id' => 'required|exists:attendance_types,id',
+            'attendance_type_id' => 'nullable|exists:attendance_types,id',
         ]);
 
         try {
             $user = User::findOrFail($id);
             $this->authorize('updateAttendanceType', $user);
-            $updatedUser = $this->userService->updateAttendanceType($user, $request->input('attendance_type_id'));
+            $typeId = $request->input('attendance_type_id');
+            $updatedUser = $this->userService->updateAttendanceType($user, $typeId !== null ? (int) $typeId : null);
 
             return response()->json([
                 'message' => 'Attendance type updated successfully',

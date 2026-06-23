@@ -196,8 +196,8 @@ class AttendanceController extends Controller
     {
         $user = Auth::user();
 
-        // 1. Get the user's attendance type
-        $attendanceType = $user->attendanceType;
+        // 1. Resolve the user's effective attendance type (personal override → work-location default)
+        $attendanceType = $user->resolvedAttendanceType();
 
         if (! $attendanceType || ! $attendanceType->is_active) {
             return response()->json([

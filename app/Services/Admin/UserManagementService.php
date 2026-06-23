@@ -232,19 +232,32 @@ class UserManagementService
     /**
      * Update the attendance type of a user.
      */
-    public function updateAttendanceType(User $user, int $attendanceTypeId): User
+    public function updateAttendanceType(User $user, ?int $attendanceTypeId): User
     {
-        $attendanceType = AttendanceType::findOrFail($attendanceTypeId);
+        if ($attendanceTypeId === null) {
+            // Clear the personal override → employee inherits from their work location.
+            $user->attendanceType()->dissociate();
+            $user->save();
 
-        $user->attendanceType()->associate($attendanceType);
-        $user->save();
+            $user->load('workLocation');
+            $inherited = $user->workLocation?->attendance_type_id;
+            EmployeeAttendanceType::updateOrCreate(
+                ['user_id' => $user->id],
+                ['attendance_type_id' => $inherited, 'biometric_device_id' => null]
+            );
+        } else {
+            $attendanceType = AttendanceType::findOrFail($attendanceTypeId);
 
-        EmployeeAttendanceType::updateOrCreate(
-            ['user_id' => $user->id],
-            ['attendance_type_id' => $attendanceType->id, 'biometric_device_id' => null]
-        );
+            $user->attendanceType()->associate($attendanceType);
+            $user->save();
 
-        return $user->fresh(['department', 'designation', 'roles', 'currentDevice', 'attendanceType']);
+            EmployeeAttendanceType::updateOrCreate(
+                ['user_id' => $user->id],
+                ['attendance_type_id' => $attendanceType->id, 'biometric_device_id' => null]
+            );
+        }
+
+        return $user->fresh(['department', 'designation', 'roles', 'currentDevice', 'attendanceType', 'workLocation.attendanceType']);
     }
 
     /**
@@ -365,7 +378,7 @@ class UserManagementService
         $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $query = User::withTrashed()
-            ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType']);
+            ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType', 'employeeAttendanceType']);
 
         // Status / soft-delete filtering
         if ($status && $status !== 'all') {
@@ -426,6 +439,7 @@ class UserManagementService
                 'work_location_id' => $employee->work_location_id,
                 'work_location_name' => $employee->workLocation?->name,
                 'work_location_attendance_type_name' => $employee->workLocation?->attendanceType?->name,
+                'biometric_device_id' => $employee->employeeAttendanceType?->biometric_device_id,
                 'has_attendance_override' => $employee->getRawOriginal('attendance_type_id') !== null,
                 'report_to' => $employee->report_to,
                 'reports_to' => $employee->reportsTo ? [

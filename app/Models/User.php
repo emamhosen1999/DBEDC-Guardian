@@ -257,6 +257,36 @@ class User extends Authenticatable implements HasMedia
         return $this->relationLoaded('workLocation') ? $this->workLocation?->attendanceType : null;
     }
 
+    /**
+     * Reliably resolve the effective attendance type (personal override → work-location
+     * default) using explicit queries, so it works during punch validation regardless of
+     * which relations are eager-loaded. This is the source of truth for attendance.
+     */
+    public function resolvedAttendanceType(): ?\App\Models\HRM\AttendanceType
+    {
+        $rawId = $this->getRawOriginal('attendance_type_id');
+        if ($rawId !== null) {
+            // Personal override — prefer an eager-loaded relation to avoid extra queries.
+            if ($this->relationLoaded('attendanceType') && $this->attendanceType) {
+                return $this->attendanceType;
+            }
+            return \App\Models\HRM\AttendanceType::find($rawId);
+        }
+        if (! $this->work_location_id) {
+            return null;
+        }
+        $location = $this->relationLoaded('workLocation') && $this->workLocation
+            ? $this->workLocation
+            : WorkLocation::with('attendanceType')->find($this->work_location_id);
+        if (! $location) {
+            return null;
+        }
+
+        return $location->relationLoaded('attendanceType')
+            ? $location->attendanceType
+            : $location->attendanceType()->first();
+    }
+
     public function employeeAttendanceType(): HasOne
     {
         return $this->hasOne(EmployeeAttendanceType::class, 'user_id');

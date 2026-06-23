@@ -10,7 +10,7 @@ import {
     BackpackIcon, ClockIcon, DotsVerticalIcon,
     EnvelopeClosedIcon, HomeIcon, MobileIcon,
     Pencil1Icon, PersonIcon, TrashIcon, LockClosedIcon,
-    EyeOpenIcon, EyeNoneIcon, ReloadIcon
+    EyeOpenIcon, EyeNoneIcon, ReloadIcon, SewingPinIcon
 } from '@radix-ui/react-icons';
 import * as useEmployeesQuery from '@/api/queries/useEmployeesQuery';
 import AddEditUserFormRadix from '@/Forms/AddEditUserFormRadix.jsx';
@@ -166,10 +166,16 @@ const EmployeeTable = ({
     const handleAttendanceTypeChange = async (userId, attendanceTypeId) => {
         try {
             await updateAttendanceType.mutateAsync({ id: userId, attendance_type_id: attendanceTypeId });
-            const type = attendanceTypes.find(t => t.id === parseInt(attendanceTypeId)) || null;
-            const devices = (type?.biometric_devices ?? []).map(d => ({ id: d.id, name: d.name, serial_number: d.serial_number, location: d.location }));
-            updateEmployeeOptimized?.(userId, { attendance_type_id: attendanceTypeId, attendance_type_name: type?.name || null, attendance_type_devices: devices, biometric_device_id: null });
-            showToast.success('Attendance type updated');
+            if (attendanceTypeId === null) {
+                // Cleared personal override → inherit from work location.
+                updateEmployeeOptimized?.(userId, { attendance_type_id: null, attendance_type_name: null, attendance_type_devices: [], has_attendance_override: false, biometric_device_id: null });
+                showToast.success('Reverted to work location attendance rule');
+            } else {
+                const type = attendanceTypes.find(t => t.id === parseInt(attendanceTypeId)) || null;
+                const devices = (type?.biometric_devices ?? []).map(d => ({ id: d.id, name: d.name, serial_number: d.serial_number, location: d.location }));
+                updateEmployeeOptimized?.(userId, { attendance_type_id: attendanceTypeId, attendance_type_name: type?.name || null, attendance_type_devices: devices, has_attendance_override: true, biometric_device_id: null });
+                showToast.success('Attendance type updated');
+            }
         } catch { showToast.error('Failed to update attendance type'); }
     };
 
@@ -274,7 +280,11 @@ const EmployeeTable = ({
                             <Table.Row><Table.Cell colSpan={8}><Flex justify="center" py="8"><Text color="gray">No employees found.</Text></Flex></Table.Cell></Table.Row>
                         ) : allUsers.map((user, idx) => {
                             const filtDesignations = designations?.filter(d => d.department_id === parseInt(user.department_id)) || [];
-                            const isBiometricSelected = attendanceTypes?.find(t => t.slug === 'biometric') && parseInt(user.attendance_type_id) === attendanceTypes?.find(t => t.slug === 'biometric').id;
+                            const selectedAttType = attendanceTypes?.find(t => t.id === parseInt(user.attendance_type_id));
+                            const isBiometricSelected = selectedAttType && getBaseSlug(selectedAttType.slug) === 'biometric';
+                            // Device options come from the resolved attendance type definition so they
+                            // appear on initial load too (not only right after a change).
+                            const biometricDevices = selectedAttType?.biometric_devices || user.attendance_type_devices || [];
                             return (
                                 <Table.Row key={user.id} style={user.deleted_at ? { opacity: 0.65 } : undefined}>
                                     <Table.Cell><Text size="1" color="gray" weight="medium">{startRow + idx}</Text></Table.Cell>
@@ -370,6 +380,14 @@ const EmployeeTable = ({
                                                     </Button>
                                                 </DropdownMenu.Trigger>
                                                 <DropdownMenu.Content size="1">
+                                                    <DropdownMenu.Item onSelect={() => handleAttendanceTypeChange(user.id, null)}>
+                                                        <Flex align="center" gap="1">
+                                                            <SewingPinIcon />
+                                                            Inherit from work location
+                                                            {user.work_location_attendance_type_name ? ` (${user.work_location_attendance_type_name})` : ''}
+                                                        </Flex>
+                                                    </DropdownMenu.Item>
+                                                    <DropdownMenu.Separator />
                                                     {groupedAttendanceTypes.map((cat, ci) => (
                                                         <React.Fragment key={cat.slug}>
                                                             {ci > 0 && <DropdownMenu.Separator />}<DropdownMenu.Label>{cat.label}</DropdownMenu.Label>
@@ -381,9 +399,9 @@ const EmployeeTable = ({
                                             {isBiometricSelected && (
                                                 <Box mt="1">
                                                     <Select.Root size="1" value={user.biometric_device_id ? String(user.biometric_device_id) : ''} onValueChange={(v) => handleBiometricDeviceChange(user.id, v ? parseInt(v) : null)}>
-                                                        <Select.Trigger style={{ width: '100%' }} placeholder="Select device…" />
+                                                        <Select.Trigger style={{ width: '100%' }} placeholder={biometricDevices.length ? 'Select device…' : 'No devices configured'} />
                                                         <Select.Content>
-                                                            {user.attendance_type_devices?.map(device => <Select.Item key={device.id} value={String(device.id)}>{device.name}</Select.Item>)}
+                                                            {biometricDevices.map(device => <Select.Item key={device.id} value={String(device.id)}>{device.name}</Select.Item>)}
                                                         </Select.Content>
                                                     </Select.Root>
                                                 </Box>
