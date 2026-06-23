@@ -498,56 +498,6 @@ class UserController extends Controller
     }
 
     /**
-     * Update user work location.
-     */
-    public function updateWorkLocation(Request $request, $id)
-    {
-        $request->validate([
-            'jurisdiction_id' => 'nullable|exists:jurisdictions,id',
-        ]);
-
-        try {
-            $user = User::findOrFail($id);
-            $this->authorize('update', $user);
-            
-            $user->update([
-                'jurisdiction_id' => $request->input('jurisdiction_id'),
-            ]);
-
-            // Sync employee_attendance_types if user does not have a custom override
-            if (!$user->getRawOriginal('attendance_type_id')) {
-                $resolvedType = $user->workLocation?->attendance_type_id;
-                \App\Models\HRM\EmployeeAttendanceType::updateOrCreate(
-                    ['user_id' => $user->id],
-                    ['attendance_type_id' => $resolvedType]
-                );
-            }
-
-            $updatedUser = $user->fresh(['department', 'designation', 'roles', 'currentDevice', 'attendanceType', 'workLocation']);
-
-            return response()->json([
-                'message' => 'Work location updated successfully',
-                'user' => new UserResource($updatedUser),
-            ]);
-        } catch (HttpException $e) {
-            throw $e;
-        } catch (AuthorizationException $e) {
-            throw $e;
-        } catch (ValidationException $e) {
-            throw $e;
-        } catch (HttpResponseException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            Log::error('Failed to update work location: '.$e->getMessage());
-
-            return response()->json([
-                'error' => 'Failed to update work location',
-                'message' => $this->safeExceptionMessage($e),
-            ], 500);
-        }
-    }
-
-    /**
      * Assign biometric device to employee.
      */
     public function assignBiometricDevice(Request $request, $id)
