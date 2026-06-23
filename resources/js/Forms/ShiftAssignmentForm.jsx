@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Dialog, Flex, Box, Select, TextField, Button, Text, Callout } from '@radix-ui/themes';
+import { Dialog, Flex, Box, Select, TextField, Button, Text, Callout, SegmentedControl } from '@radix-ui/themes';
 import { InfoCircledIcon } from '@radix-ui/react-icons';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
@@ -12,12 +12,14 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
         scope_type: 'user',
         scope_ids: [],
         shift_id: '',
+        rotation_pattern_id: '',
         anchor_date: '',
         effective_from: '',
         effective_to: '',
         priority: 0,
     };
     const [form, setForm] = useState(empty);
+    const [assignmentType, setAssignmentType] = useState('shift'); // 'shift' or 'pattern'
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -26,6 +28,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
     useEffect(() => {
         if (open) {
             setForm(empty);
+            setAssignmentType('shift');
             setError('');
         }
     }, [open]);
@@ -36,6 +39,13 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
         enabled: open,
     });
     const shifts = shiftsData?.shifts || [];
+
+    const { data: patternsData } = useQuery({
+        queryKey: ['rotation-patterns'],
+        queryFn: () => requestJson('get', '/attendance/rotation-patterns'),
+        enabled: open,
+    });
+    const patterns = patternsData?.patterns || [];
 
     const scopeOptions = useMemo(() => {
         if (form.scope_type === 'department') return departments.map(d => ({ value: d.id, label: d.name }));
@@ -57,7 +67,8 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                 const payload = {
                     scope_type: 'org',
                     scope_id: null,
-                    shift_id: Number(form.shift_id),
+                    shift_id: assignmentType === 'shift' ? Number(form.shift_id) || null : null,
+                    rotation_pattern_id: assignmentType === 'pattern' ? Number(form.rotation_pattern_id) || null : null,
                     priority: Number(form.priority) || 0,
                     anchor_date: form.anchor_date,
                     effective_from: form.effective_from,
@@ -70,7 +81,8 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                 const payload = {
                     scope_type: form.scope_type,
                     scope_ids: form.scope_ids.map(Number),
-                    shift_id: Number(form.shift_id),
+                    shift_id: assignmentType === 'shift' ? Number(form.shift_id) || null : null,
+                    rotation_pattern_id: assignmentType === 'pattern' ? Number(form.rotation_pattern_id) || null : null,
                     priority: Number(form.priority) || 0,
                     anchor_date: form.anchor_date,
                     effective_from: form.effective_from,
@@ -78,11 +90,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                 };
                 const res = await requestJson('post', '/attendance/shift-assignments/bulk', { data: payload });
                 const msg = res?.message || `${form.scope_ids.length} assignment(s) created.`;
-                if (res?.skipped?.length > 0) {
-                    showToast.success(msg);
-                } else {
-                    showToast.success(msg);
-                }
+                showToast.success(msg);
             }
             onSaved?.();
             onOpenChange(false);
@@ -95,7 +103,8 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
         }
     };
 
-    const canSave = form.shift_id
+    const canSave = (assignmentType === 'shift' ? form.shift_id : form.rotation_pattern_id)
+        && form.anchor_date
         && form.effective_from
         && (form.scope_type === 'org' || form.scope_ids.length > 0);
 
@@ -151,20 +160,45 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                         </Callout.Root>
                     )}
 
-                    {/* Shift selector */}
+                    {/* Assignment Type Selector */}
                     <Box>
-                        <Text size="1" color="gray" as="div" mb="1" weight="medium">Shift *</Text>
-                        <Select.Root value={String(form.shift_id)} onValueChange={v => set('shift_id', v)}>
-                            <Select.Trigger placeholder="Select shift" style={{ width: '100%' }} />
-                            <Select.Content>
-                                {shifts.map(s => (
-                                    <Select.Item key={s.id} value={String(s.id)}>
-                                        {s.name} ({s.code})
-                                    </Select.Item>
-                                ))}
-                            </Select.Content>
-                        </Select.Root>
+                        <Text size="1" color="gray" as="div" mb="1" weight="medium">Assignment Type *</Text>
+                        <SegmentedControl.Root value={assignmentType} onValueChange={setAssignmentType} style={{ width: '100%' }}>
+                            <SegmentedControl.Item value="shift">Single Shift</SegmentedControl.Item>
+                            <SegmentedControl.Item value="pattern">Rotation Pattern</SegmentedControl.Item>
+                        </SegmentedControl.Root>
                     </Box>
+
+                    {/* Shift / Pattern selector */}
+                    {assignmentType === 'shift' ? (
+                        <Box>
+                            <Text size="1" color="gray" as="div" mb="1" weight="medium">Shift *</Text>
+                            <Select.Root value={String(form.shift_id)} onValueChange={v => set('shift_id', v)}>
+                                <Select.Trigger placeholder="Select shift" style={{ width: '100%' }} />
+                                <Select.Content>
+                                    {shifts.map(s => (
+                                        <Select.Item key={s.id} value={String(s.id)}>
+                                            {s.name} ({s.code})
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+                    ) : (
+                        <Box>
+                            <Text size="1" color="gray" as="div" mb="1" weight="medium">Rotation Pattern *</Text>
+                            <Select.Root value={String(form.rotation_pattern_id)} onValueChange={v => set('rotation_pattern_id', v)}>
+                                <Select.Trigger placeholder="Select rotation pattern" style={{ width: '100%' }} />
+                                <Select.Content>
+                                    {patterns.map(p => (
+                                        <Select.Item key={p.id} value={String(p.id)}>
+                                            {p.name} ({p.code})
+                                        </Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                        </Box>
+                    )}
 
                     {/* Date pickers */}
                     <Flex gap="3" wrap="wrap">
