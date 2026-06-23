@@ -306,7 +306,14 @@
       "Bash(bash __TRACKED_VAR__/scripts/review-package 33895dfe HEAD)",
       "Bash(echo \"blade deleted: $?\")",
       "Bash(echo \"test deleted: $?\")",
-      "Bash(php -l app/Services/Attendance/RosterService.php)"
+      "Bash(php -l app/Services/Attendance/RosterService.php)",
+      "Bash(curl -s -X POST https://erp.dhakabypass.com/api/v1/auth/login -H \"Content-Type: application/json\" -H \"Accept: application/json\" --data @/c/tmp/e_login.json)",
+      "Bash(python -c \"import sys,json;print\\('awaiting:',len\\(json.load\\(sys.stdin\\).get\\('data',[]\\)\\)\\)\")",
+      "Bash(python -c \"import sys,json;print\\(json.dumps\\(json.load\\(sys.stdin\\).get\\('data',[]\\),indent=1\\)[:800]\\)\")",
+      "Bash(php -l app/Models/HRM/ShiftSwapRequest.php)",
+      "Bash(grep -n \"never 500 the whole picker\\\\|catch \\(\\\\\\\\\\\\\\\\Throwable\" app/Http/Controllers/Api/V1/AttendanceRequestController.php)",
+      "Bash(git check-ignore *)",
+      "Bash(git push *)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
