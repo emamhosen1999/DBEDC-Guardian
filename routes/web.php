@@ -367,13 +367,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // HR Management routes
     Route::middleware(['permission:employees.view'])->group(function () {
-        Route::get('/employees', [UserController::class, 'index1'])->name('employees');
+        Route::get('/employees', [UserController::class, 'index'])->name('employees');
         Route::get('/employees/paginate', [UserController::class, 'employees'])->name('employees.paginate');
         Route::get('/employees/stats', [UserController::class, 'employeeStats'])->name('employees.stats');
     });
 
-    // The Master Organization Page
-    Route::middleware(['permission:employees.view'])->get('/organization', [OrganizationController::class, 'index'])->name('organization.index');
+    // The Master Organization Page (Redirected to Employees Console)
+    Route::middleware(['permission:employees.view'])->get('/organization', function () {
+        return redirect()->route('employees');
+    })->name('organization.index');
 
     // Department management routes
     Route::middleware(['permission:departments.view'])->get('/departments', [DepartmentController::class, 'index'])->name('departments');
@@ -400,8 +402,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // User management routes - CONSOLIDATED & REFACTORED
     Route::middleware(['permission:users.view'])->group(function () {
-        Route::get('/admin-unified', [UserController::class, 'adminUnified'])->name('admin.unified');
-        Route::get('/users', [UserController::class, 'index2'])->name('users');
+        Route::get('/admin-unified', function () { return redirect()->route('employees'); })->name('admin.unified');
+        Route::get('/users', function () { return redirect()->route('employees'); })->name('users');
         Route::get('/users/paginate', [UserController::class, 'paginate'])->name('users.paginate');
         Route::get('/users/stats', [UserController::class, 'stats'])->name('users.stats');
 
