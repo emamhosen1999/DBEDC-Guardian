@@ -313,7 +313,14 @@
       "Bash(php -l app/Models/HRM/ShiftSwapRequest.php)",
       "Bash(grep -n \"never 500 the whole picker\\\\|catch \\(\\\\\\\\\\\\\\\\Throwable\" app/Http/Controllers/Api/V1/AttendanceRequestController.php)",
       "Bash(git check-ignore *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "WebFetch(domain:www.zoho.com)",
+      "WebFetch(domain:help.zoho.com)",
+      "Bash(grep -nE \"Tabs\\\\.|<Card|Card>|/\\\\* ──|/\\\\* ==|Heading|>Personal|>Account|>Access|>Security|>Organization|>Roles|>Password|password_confirmation|single_device_login|Assigned Roles|editMode\" resources/js/Forms/AddEditUserFormRadix.jsx)",
+      "Bash(grep -n 'appends\\\\|getDepartment\\\\|->department\\\\|function department\\\\|protected $with' app/Models/HRM/Designation.php)",
+      "Bash(awk 'NR>=1{print NR\": \"$0}' ./emp-snapshot.md)",
+      "Bash(awk '/row \"1 /{flag=1} flag{print} /row \"2 /{if\\(flag\\)exit}' ./emp-snapshot2.md)",
+      "Bash(grep -nE 'button \\\\[ref=e[0-9]+\\\\]:?$|button \\\\[ref' ./emp3.md)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",

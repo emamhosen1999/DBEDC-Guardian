@@ -17,8 +17,8 @@ const WorkLocationsTable = ({
     isMobile,
     auth
 }) => {
-    const hasEditPermission = auth?.permissions?.includes('jurisdiction.update') || auth?.roles?.includes('Super Administrator') || false;
-    const hasDeletePermission = auth?.permissions?.includes('jurisdiction.delete') || auth?.roles?.includes('Super Administrator') || false;
+    const hasEditPermission = auth?.permissions?.includes('attendance.settings') || auth?.roles?.includes('Super Administrator') || false;
+    const hasDeletePermission = auth?.permissions?.includes('attendance.settings') || auth?.roles?.includes('Super Administrator') || false;
 
     if (loading && allData.length === 0) {
         return (
@@ -46,6 +46,8 @@ const WorkLocationsTable = ({
                     <Table.Row>
                         <Table.ColumnHeaderCell>Location Name</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Default Attendance Rule</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Employees</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                         {(hasEditPermission || hasDeletePermission) && (
                             <Table.ColumnHeaderCell justify="end">Actions</Table.ColumnHeaderCell>
                         )}
@@ -62,7 +64,17 @@ const WorkLocationsTable = ({
                                     <Box p="1" style={{ background: 'var(--amber-a3)', borderRadius: 'var(--radius-2)' }}>
                                         <SewingPinIcon style={{ color: 'var(--amber-9)' }} />
                                     </Box>
-                                    <Text weight="bold" size="2">{location.name}</Text>
+                                    <Box>
+                                        <Flex align="center" gap="2">
+                                            <Text weight="bold" size="2">{location.name}</Text>
+                                            {location.code && (
+                                                <Badge color="gray" variant="soft" size="1">{location.code}</Badge>
+                                            )}
+                                        </Flex>
+                                        {location.address && (
+                                            <Text size="1" color="gray" as="div">{location.address}</Text>
+                                        )}
+                                    </Box>
                                 </Flex>
                             </Table.Cell>
 
@@ -75,6 +87,20 @@ const WorkLocationsTable = ({
                                 ) : (
                                     <Text color="gray" size="2" style={{ fontStyle: 'italic' }}>None (Default Validation)</Text>
                                 )}
+                            </Table.Cell>
+
+                            {/* Employee count */}
+                            <Table.Cell>
+                                <Badge color={location.employees_count > 0 ? 'blue' : 'gray'} variant="soft" size="2">
+                                    {location.employees_count ?? 0}
+                                </Badge>
+                            </Table.Cell>
+
+                            {/* Status */}
+                            <Table.Cell>
+                                <Badge color={location.is_active === false ? 'gray' : 'green'} variant="soft" size="2">
+                                    {location.is_active === false ? 'Inactive' : 'Active'}
+                                </Badge>
                             </Table.Cell>
 
                             {/* Actions */}

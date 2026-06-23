@@ -37,7 +37,10 @@ import {
 import { useForm } from 'laravel-precognition-react';
 import { showToast } from "@/utils/toastUtils";
 
-const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, workLocations = [], attendanceTypes = [], setUsers, open, closeModal, editMode = false, onSuccess }) => {
+const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles, workLocations = [], attendanceTypes = [], setUsers, open, closeModal, editMode = false, onSuccess, scope = 'full' }) => {
+    // scope: 'full' (create — everything), 'profile' (identity/personal/org), 'access' (roles & security)
+    const showProfile = scope !== 'access';
+    const showAccess = scope !== 'profile';
     const [showPassword, setShowPassword] = useState(false);
     const [selectedImage, setSelectedImage] = useState(user?.profile_image_url || user?.profile_image || null);
     const [selectedImageFile, setSelectedImageFile] = useState(null);
@@ -254,11 +257,17 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                     <Dialog.Title mb="1">
                         <Flex align="center" gap="2">
                             <PersonIcon width="24" height="24" />
-                            <Text size="5" weight="bold">{editMode ? 'Edit User Profile' : 'Add New User'}</Text>
+                            <Text size="5" weight="bold">{!editMode ? 'Add New User' : (scope === 'access' ? 'Manage Access' : scope === 'profile' ? 'Edit Profile' : 'Edit User Profile')}</Text>
                         </Flex>
                     </Dialog.Title>
                     <Dialog.Description size="2" color="gray">
-                        {editMode ? 'Update user information and access controls.' : 'Fill in the details to create a new user account.'}
+                        {!editMode
+                            ? 'Fill in the details to create a new user account.'
+                            : (scope === 'access'
+                                ? 'Manage roles, permissions and device security.'
+                                : scope === 'profile'
+                                    ? 'Update identity, personal and organization details.'
+                                    : 'Update user information and access controls.')}
                     </Dialog.Description>
                 </Box>
 
@@ -266,7 +275,8 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                 <ScrollArea type="auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
                     <Box p="4" pt="5">
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            
+
+                            {showProfile && (<>
                             {/* SECTION 1: Profile Image */}
                             <Flex direction="column" align="center" justify="center" mb="2">
                                 <Box position="relative">
@@ -515,9 +525,11 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                     </Grid>
                                 </Card>
                             </Box>
+                            </>)}
 
-                            <Separator size="4" />
+                            {showProfile && showAccess && <Separator size="4" />}
 
+                            {showAccess && (<>
                             {/* SECTION 4: Access & Roles */}
                             <Box>
                                 <Heading size="3" mb="3" color="indigo">Access & Security</Heading>
@@ -604,6 +616,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                     </Flex>
                                 </Card>
                             </Box>
+                            </>)}
                         </form>
                     </Box>
                 </ScrollArea>

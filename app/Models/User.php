@@ -240,7 +240,9 @@ class User extends Authenticatable implements HasMedia
         if ($value !== null) {
             return $value;
         }
-        return $this->workLocation?->attendance_type_id;
+        // Only inherit from the work location when it's already loaded — reading this
+        // accessor during eager-load FK resolution must never trigger a lazy load.
+        return $this->relationLoaded('workLocation') ? $this->workLocation?->attendance_type_id : null;
     }
 
     /**
@@ -251,7 +253,8 @@ class User extends Authenticatable implements HasMedia
         if ($this->getRawOriginal('attendance_type_id') !== null) {
             return $this->attendanceType()->getResults();
         }
-        return $this->workLocation?->attendanceType;
+        // Inherit from location only when loaded, to avoid lazy-loading violations.
+        return $this->relationLoaded('workLocation') ? $this->workLocation?->attendanceType : null;
     }
 
     public function employeeAttendanceType(): HasOne
