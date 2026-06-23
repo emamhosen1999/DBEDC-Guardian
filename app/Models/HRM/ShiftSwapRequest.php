@@ -17,6 +17,10 @@ class ShiftSwapRequest extends Model
     ];
 
     protected $casts = [
+        'requester_id' => 'integer',
+        'counterparty_id' => 'integer',
+        'requested_shift_id' => 'integer',
+        'approved_by' => 'integer',
         'requester_date' => 'date',
         'counterparty_date' => 'date',
         'approval_chain' => 'array',
