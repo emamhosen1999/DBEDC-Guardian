@@ -245,6 +245,18 @@ export const useExportMonthlyCalendar = () => {
 };
 
 /**
+ * Export per-employee monthly summary (accounts handoff) — direct xlsx download.
+ */
+export const useExportMonthlySummary = () => {
+  return useMutation({
+    mutationFn: ({ month, departmentId }) => requestJson('get', '/attendance/monthly-summary/export', {
+      params: { month, department_id: departmentId },
+      responseType: 'blob'
+    }),
+  });
+};
+
+/**
  * Fetch monthly attendance stats for the current user
  */
 export const useMyMonthlyStats = (params = {}) => {
