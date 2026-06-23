@@ -9,12 +9,11 @@ import {
 } from '@radix-ui/themes';
 import { 
     SewingPinIcon, PlusIcon, MagnifyingGlassIcon, 
-    Cross2Icon, ReloadIcon, MixIcon
+    Cross2Icon, ReloadIcon
 } from '@radix-ui/react-icons';
 import * as useWorkLocationsQuery from '@/api/queries/useWorkLocationsQuery';
 
 import WorkLocationsTable from '../Tables/WorkLocationsTable.jsx';
-// Placeholders for your modal components
 import WorkLocationForm from '../Components/WorkLocationForm.jsx';
 import DeleteWorkLocationForm from '../Components/DeleteWorkLocationForm.jsx';
 
@@ -26,7 +25,7 @@ const StatPill = ({ label, value, color = 'gray' }) => (
 );
 
 const WorkLocationsTab = ({ isActive }) => {
-    const { auth, users } = usePage().props;
+    const { auth, users, attendanceTypes } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 767px)');
 
     // Modal states
@@ -35,7 +34,7 @@ const WorkLocationsTab = ({ isActive }) => {
     const [search, setSearch] = useState('');
     const [filteredData, setFilteredData] = useState([]);
 
-    const canCreate = auth.permissions?.includes('work_locations.create') || false;
+    const canCreate = auth.permissions?.includes('jurisdiction.create') || auth.roles?.includes('Super Administrator') || false;
 
     // React Query hooks
     const { data: allData = [], isLoading: loading, refetch } = useWorkLocationsQuery.useWorkLocationsList();
@@ -54,8 +53,7 @@ const WorkLocationsTab = ({ isActive }) => {
         } else {
             const lowerSearch = search.toLowerCase();
             const filtered = allData.filter(loc => 
-                (loc.location && loc.location.toLowerCase().includes(lowerSearch)) ||
-                (loc.incharge_user?.name && loc.incharge_user.name.toLowerCase().includes(lowerSearch))
+                (loc.name && loc.name.toLowerCase().includes(lowerSearch))
             );
             setFilteredData(filtered);
         }
@@ -81,14 +79,14 @@ const WorkLocationsTab = ({ isActive }) => {
             {/* Quick Stats */}
             <Flex wrap="wrap" gap="2" mb="4">
                 <StatPill label="Total Locations" value={allData?.length || 0} color="blue" />
-                <StatPill label="With In-Charge" value={allData?.filter(d => d.incharge_id).length || 0} color="green" />
+                <StatPill label="With Rules Set" value={allData?.filter(d => d.attendance_type_id).length || 0} color="green" />
             </Flex>
 
             {/* Toolbar */}
             <Flex gap="3" wrap="wrap" mb="5" align="center" justify="between">
                 <Flex gap="3" align="center" style={{ flex: 1, maxWidth: 400 }}>
                     <TextField.Root 
-                        placeholder="Search locations or in-charge..." 
+                        placeholder="Search locations..." 
                         value={search} 
                         onChange={(e) => setSearch(e.target.value)}
                         style={{ width: '100%' }}
@@ -137,6 +135,7 @@ const WorkLocationsTab = ({ isActive }) => {
                     onSuccess={handleSuccess}
                     currentRow={currentRow}
                     users={users}
+                    attendanceTypes={attendanceTypes}
                 />
             )}
 

@@ -365,7 +365,7 @@ class UserManagementService
         $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $query = User::withTrashed()
-            ->with(['department', 'designation', 'attendanceType', 'media', 'roles']);
+            ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType']);
 
         // Status / soft-delete filtering
         if ($status && $status !== 'all') {
@@ -423,6 +423,9 @@ class UserManagementService
                 'designation_hierarchy_level' => $employee->designation?->hierarchy_level,
                 'attendance_type_id' => $employee->attendance_type_id,
                 'attendance_type_name' => $employee->attendanceType?->name,
+                'work_location_id' => $employee->work_location_id,
+                'work_location_name' => $employee->workLocation?->name,
+                'has_attendance_override' => $employee->getRawOriginal('attendance_type_id') !== null,
                 'report_to' => $employee->report_to,
                 'reports_to' => $employee->reportsTo ? [
                     'id' => $employee->reportsTo->id,

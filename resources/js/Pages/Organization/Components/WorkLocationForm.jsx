@@ -7,7 +7,7 @@ import { SewingPinIcon } from '@radix-ui/react-icons';
 import * as useWorkLocationsQuery from '@/api/queries/useWorkLocationsQuery';
 import { showToast } from '@/utils/toastUtils';
 
-const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, users = [] }) => {
+const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, users = [], attendanceTypes = [] }) => {
     const [errors, setErrors] = useState({});
 
     // React Query mutations
@@ -17,9 +17,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
     const initialFormState = {
         location: '',
-        start_chainage: '',
-        end_chainage: '',
-        incharge: 'none',
+        attendance_type_id: 'none',
     };
 
     const [formData, setFormData] = useState(initialFormState);
@@ -27,10 +25,8 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
     useEffect(() => {
         if (modalType === 'update' && currentRow) {
             setFormData({
-                location: currentRow.location || '',
-                start_chainage: currentRow.start_chainage || '',
-                end_chainage: currentRow.end_chainage || '',
-                incharge: currentRow.incharge_id ? String(currentRow.incharge_id) : 'none',
+                location: currentRow.name || '',
+                attendance_type_id: currentRow.attendance_type_id ? String(currentRow.attendance_type_id) : 'none',
             });
         } else {
             setFormData(initialFormState);
@@ -45,7 +41,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
         setErrors({});
 
         const payload = { ...formData };
-        if (payload.incharge === 'none') payload.incharge = null;
+        if (payload.attendance_type_id === 'none') payload.attendance_type_id = null;
 
         try {
             if (modalType === 'update') {
@@ -68,7 +64,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
 
     return (
         <Dialog.Root open={open} onOpenChange={v => { if (!v && !isMutating) closeModal(); }}>
-            <Dialog.Content style={{ maxWidth: 500 }}>
+            <Dialog.Content style={{ maxWidth: 450 }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
                         <SewingPinIcon style={{ color: 'var(--accent-9)' }} />
@@ -89,48 +85,27 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                             {errors.location && <Text size="1" color="red">{errors.location[0]}</Text>}
                         </Box>
 
-                        <Grid columns="2" gap="4">
-                            <Box>
-                                <Text size="2" weight="medium" mb="1" as="div">Start Chainage</Text>
-                                <TextField.Root 
-                                    value={formData.start_chainage} 
-                                    onChange={e => handleChange('start_chainage', e.target.value)} 
-                                    disabled={isMutating} 
-                                    placeholder="e.g. CH 10+000" 
-                                />
-                                {errors.start_chainage && <Text size="1" color="red">{errors.start_chainage[0]}</Text>}
-                            </Box>
-                            <Box>
-                                <Text size="2" weight="medium" mb="1" as="div">End Chainage</Text>
-                                <TextField.Root 
-                                    value={formData.end_chainage} 
-                                    onChange={e => handleChange('end_chainage', e.target.value)} 
-                                    disabled={isMutating} 
-                                    placeholder="e.g. CH 15+500" 
-                                />
-                                {errors.end_chainage && <Text size="1" color="red">{errors.end_chainage[0]}</Text>}
-                            </Box>
-                        </Grid>
-
                         <Box>
-                            <Text size="2" weight="medium" mb="1" as="div">In-Charge (Optional)</Text>
-                            <Select.Root value={formData.incharge} onValueChange={v => handleChange('incharge', v)} disabled={isMutating}>
+                            <Text size="2" weight="medium" mb="1" as="div">Default Attendance Rule (Optional)</Text>
+                            <Select.Root value={formData.attendance_type_id} onValueChange={v => handleChange('attendance_type_id', v)} disabled={isMutating}>
                                 <Select.Trigger style={{ width: '100%' }} />
                                 <Select.Content>
-                                    <Select.Item value="none">Unassigned</Select.Item>
-                                    {users.map(u => (
-                                        <Select.Item key={u.id} value={String(u.id)}>{u.name}</Select.Item>
+                                    <Select.Item value="none">Inherit / Unassigned</Select.Item>
+                                    {attendanceTypes.map(type => (
+                                        <Select.Item key={type.id} value={String(type.id)}>{type.name}</Select.Item>
                                     ))}
                                 </Select.Content>
                             </Select.Root>
-                            {errors.incharge && <Text size="1" color="red">{errors.incharge[0]}</Text>}
+                            {errors.attendance_type_id && <Text size="1" color="red">{errors.attendance_type_id[0]}</Text>}
                         </Box>
                     </Grid>
 
                     <Flex justify="end" gap="3" mt="5">
-                        <Button variant="soft" color="gray" type="button" onClick={closeModal} disabled={isMutating}>Cancel</Button>
-                        <Button type="submit" color="indigo" disabled={isMutating}>
-                            {isMutating ? <Spinner size="1" /> : (modalType === 'update' ? 'Update Location' : 'Add Location')}
+                        <Button variant="soft" color="gray" type="button" onClick={closeModal} disabled={isMutating}>
+                            Cancel
+                        </Button>
+                        <Button variant="solid" color="indigo" type="submit" disabled={isMutating}>
+                            {isMutating ? <Spinner size="1" /> : modalType === 'update' ? 'Update' : 'Create'}
                         </Button>
                     </Flex>
                 </form>

@@ -11,159 +11,124 @@ use Inertia\Response;
 
 class JurisdictionController extends Controller
 {
-    public function index(): Response
+    public function index()
     {
-        return Inertia::render('WorkLocations/WorkLocations', [
-            'title' => 'Work Locations',
-            'jurisdictions' => Jurisdiction::with('inchargeUser')->get(),
-            'users' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
-        ]);
+        return redirect()->route('daily-works-unified', ['tab' => 'jurisdictions']);
     }
 
-    public function showWorkLocations(): Response
-    {
-        return Inertia::render('WorkLocations/WorkLocations', [
-            'title' => 'Work Locations Management',
-            'jurisdictions' => Jurisdiction::with('inchargeUser')->get(),
-            'users' => User::select('id', 'name', 'employee_id', 'department_id', 'designation_id')->with('roles:id,name')->get(),
-        ]);
-    }
-
-    public function allWorkLocations(Request $request)
+    public function allJurisdictions(Request $request)
     {
         try {
-            // Attempt to retrieve all work locations with their incharge users
-            $workLocations = Jurisdiction::with('inchargeUser')->get();
-
-            // Return a successful response with the work locations
+            $jurisdictions = Jurisdiction::with('inchargeUser')->get();
             return response()->json([
-                'work_locations' => $workLocations,
+                'jurisdictions' => $jurisdictions,
             ], 200);
         } catch (\Exception $e) {
-            // Catch any exceptions that occur and return an error response
             return response()->json([
-                'error' => 'Failed to retrieve work locations',
+                'error' => 'Failed to retrieve jurisdictions',
                 'message' => $e->getMessage(),
             ], 500);
         }
     }
 
-    public function addWorkLocation(Request $request)
+    public function addJurisdiction(Request $request)
     {
         try {
-            // Validate incoming request data
             $validatedData = $request->validate([
                 'location' => 'required|string|unique:jurisdictions,location',
                 'start_chainage' => 'required|string',
                 'end_chainage' => 'required|string',
                 'incharge' => 'required|exists:users,id',
             ], [
-                'location.required' => 'Work location name is required.',
-                'location.unique' => 'A work location with this name already exists.',
+                'location.required' => 'Jurisdiction name is required.',
+                'location.unique' => 'A jurisdiction with this name already exists.',
                 'start_chainage.required' => 'Start Chainage is required.',
                 'end_chainage.required' => 'End Chainage is required.',
-                'incharge.required' => 'Location incharge is required.',
+                'incharge.required' => 'Jurisdiction incharge is required.',
                 'incharge.exists' => 'Selected incharge user does not exist.',
             ]);
 
-            // Create a new Jurisdiction instance
-            $workLocation = Jurisdiction::create([
+            $jurisdiction = Jurisdiction::create([
                 'location' => $validatedData['location'],
                 'start_chainage' => $validatedData['start_chainage'],
                 'end_chainage' => $validatedData['end_chainage'],
                 'incharge' => $validatedData['incharge'],
             ]);
 
-            // Retrieve updated list of work locations with relationships
-            $workLocations = Jurisdiction::with('inchargeUser')->get();
+            $jurisdictions = Jurisdiction::with('inchargeUser')->get();
 
-            // Return a success response
             return response()->json([
-                'message' => 'Work location added successfully',
-                'work_locations' => $workLocations,
+                'message' => 'Jurisdiction added successfully',
+                'jurisdictions' => $jurisdictions,
             ], 201);
         } catch (ValidationException $e) {
-            // Validation failed, return error response
             return response()->json(['error' => $e->errors()], 422);
         } catch (\Exception $e) {
-            // Other exceptions occurred, return error response
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    public function updateWorkLocation(Request $request)
+    public function updateJurisdiction(Request $request)
     {
         try {
-            // Validate incoming request data
             $validatedData = $request->validate([
                 'id' => 'required|exists:jurisdictions,id',
-                'location' => 'required|string|unique:jurisdictions,location,'.$request->id,
+                'location' => 'required|string|unique:jurisdictions,location,' . $request->id,
                 'start_chainage' => 'required|string',
                 'end_chainage' => 'required|string',
                 'incharge' => 'required|exists:users,id',
             ], [
-                'location.required' => 'Work location name is required.',
-                'location.unique' => 'A work location with this name already exists.',
+                'location.required' => 'Jurisdiction name is required.',
+                'location.unique' => 'A jurisdiction with this name already exists.',
                 'start_chainage.required' => 'Start Chainage is required.',
                 'end_chainage.required' => 'End Chainage is required.',
-                'incharge.required' => 'Location incharge is required.',
+                'incharge.required' => 'Jurisdiction incharge is required.',
                 'incharge.exists' => 'Selected incharge user does not exist.',
             ]);
 
-            // Find and update the work location
-            $workLocation = Jurisdiction::findOrFail($validatedData['id']);
-            $workLocation->update([
+            $jurisdiction = Jurisdiction::findOrFail($validatedData['id']);
+            $jurisdiction->update([
                 'location' => $validatedData['location'],
                 'start_chainage' => $validatedData['start_chainage'],
                 'end_chainage' => $validatedData['end_chainage'],
                 'incharge' => $validatedData['incharge'],
             ]);
 
-            // Retrieve updated list of work locations with relationships
-            $workLocations = Jurisdiction::with('inchargeUser')->get();
+            $jurisdictions = Jurisdiction::with('inchargeUser')->get();
 
-            // Return a success response
             return response()->json([
-                'message' => 'Work location updated successfully',
-                'work_locations' => $workLocations,
+                'message' => 'Jurisdiction updated successfully',
+                'jurisdictions' => $jurisdictions,
             ], 200);
         } catch (ValidationException $e) {
-            // Validation failed, return error response
             return response()->json(['error' => $e->errors()], 422);
         } catch (\Exception $e) {
-            // Other exceptions occurred, return error response
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    public function deleteWorkLocation(Request $request)
+    public function deleteJurisdiction(Request $request)
     {
         try {
-            // Validate incoming request data
             $validatedData = $request->validate([
                 'id' => 'required|exists:jurisdictions,id',
             ], [
-                'id.required' => 'Work location ID is required.',
-                'id.exists' => 'Work location not found.',
+                'id.required' => 'Jurisdiction ID is required.',
+                'id.exists' => 'Jurisdiction not found.',
             ]);
 
-            // Find and delete the work location
-            $workLocation = Jurisdiction::findOrFail($validatedData['id']);
-            $workLocation->delete();
+            $jurisdiction = Jurisdiction::findOrFail($validatedData['id']);
+            $jurisdiction->delete();
 
-            // Retrieve updated list of work locations with relationships
-            $workLocations = Jurisdiction::with('inchargeUser')->get();
+            $jurisdictions = Jurisdiction::with('inchargeUser')->get();
 
-            // Return a success response
             return response()->json([
-                'message' => 'Work location deleted successfully',
-                'work_locations' => $workLocations,
+                'message' => 'Jurisdiction deleted successfully',
+                'jurisdictions' => $jurisdictions,
             ], 200);
         } catch (ValidationException $e) {
-            // Validation failed, return error response
             return response()->json(['error' => $e->errors()], 422);
         } catch (\Exception $e) {
-            // Other exceptions occurred, return error response
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

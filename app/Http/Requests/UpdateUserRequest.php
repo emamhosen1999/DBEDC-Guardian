@@ -37,6 +37,7 @@ class UpdateUserRequest extends FormRequest
             'department_id' => ['nullable', 'exists:departments,id'],
             'designation_id' => ['nullable', 'exists:designations,id'],
             'attendance_type_id' => ['nullable', 'exists:attendance_types,id'],
+            'work_location_id' => ['nullable', 'exists:work_locations,id'],
             'date_of_joining' => ['nullable', 'date'],
             'birthday' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', 'in:male,female,other'],
