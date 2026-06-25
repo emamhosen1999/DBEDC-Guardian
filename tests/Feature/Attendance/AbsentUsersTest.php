@@ -133,4 +133,80 @@ class AbsentUsersTest extends TestCase
         // Reset test now
         Carbon::setTestNow();
     }
+
+    public function test_daily_overview_stats_excludes_rostered_off_and_upcoming_shift_employees(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
+
+        // Create three employees
+        $empWorking = User::factory()->create();
+        $empWorking->assignRole('Employee');
+
+        $empOff = User::factory()->create();
+        $empOff->assignRole('Employee');
+
+        $empUpcoming = User::factory()->create();
+        $empUpcoming->assignRole('Employee');
+
+        // Roster the off employee OFF for today (2026-06-25)
+        RosterDay::create([
+            'user_id' => $empOff->id,
+            'date' => '2026-06-25',
+            'shift_id' => null, // null shift = off
+            'source' => 'manual',
+            'locked' => true,
+        ]);
+
+        // Create a shift starting at 20:00 (8:00 PM) today for the upcoming employee
+        $shift = Shift::factory()->create([
+            'start_time' => '20:00',
+            'end_time' => '08:00',
+        ]);
+        RosterDay::create([
+            'user_id' => $empUpcoming->id,
+            'date' => '2026-06-25',
+            'shift_id' => $shift->id,
+            'source' => 'manual',
+            'locked' => true,
+        ]);
+
+        // Set current time to today at 14:00 (2:00 PM) - before the upcoming shift starts
+        Carbon::setTestNow(Carbon::parse('2026-06-25 14:00:00'));
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('attendance.dailyOverview', ['date' => '2026-06-25']))
+            ->assertOk();
+
+        // 3 total employees, but:
+        // - $empWorking: scheduled (default is working day), hasn't clocked in -> Absent = 1
+        // - $empOff: rostered off -> Excluded from Absent
+        // - $empUpcoming: shift starts in the future -> Excluded from Absent
+        // Therefore, absent count should be exactly 1.
+        $response->assertJson([
+            'present' => 0,
+            'absent' => 1,
+            'late' => 0,
+            'total' => 3,
+        ]);
+
+        // Scenario B: Set current time to today at 21:00 (9:00 PM) - after the upcoming shift starts
+        Carbon::setTestNow(Carbon::parse('2026-06-25 21:00:00'));
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('attendance.dailyOverview', ['date' => '2026-06-25']))
+            ->assertOk();
+
+        // Now the upcoming shift employee is also absent, so absent count should be 2.
+        $response->assertJson([
+            'present' => 0,
+            'absent' => 2,
+            'late' => 0,
+            'total' => 3,
+        ]);
+
+        // Reset test now
+        Carbon::setTestNow();
+    }
 }
