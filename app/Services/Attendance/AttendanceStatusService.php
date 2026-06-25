@@ -29,7 +29,14 @@ class AttendanceStatusService
         bool $isOnLeave = false,
         ?CarbonInterface $now = null,
         ?PolicyProfile $policy = null,
+        float $leaveFraction = 0.0,
+        ?string $leaveSession = null,
     ): DayAttendance {
+        // Derive the effective leave fraction. Legacy callers pass isOnLeave=true
+        // with leaveFraction=0.0, which means a full-day leave (1.0).
+        $fraction = $leaveFraction > 0 ? $leaveFraction : ($isOnLeave ? 1.0 : 0.0);
+        $onLeave = $fraction > 0;
+
         $sorted = $punches
             ->filter(fn ($p) => $p->punchin !== null)
             ->sortBy(fn ($p) => Carbon::parse($p->punchin)->getTimestamp())
@@ -66,9 +73,15 @@ class AttendanceStatusService
             $status = match (true) {
                 $isHoliday => DayAttendance::HOLIDAY,
                 ! $shift->isWorkingDay => DayAttendance::WEEKEND,
-                $isOnLeave => DayAttendance::ON_LEAVE,
+                $onLeave => DayAttendance::ON_LEAVE,
                 default => DayAttendance::ABSENT,
             };
+
+            // A half-day leave with no punch means the worked half was a no-show;
+            // the report layer counts 0.5 leave + 0.5 absent. Flag it here.
+            if ($status === DayAttendance::ON_LEAVE && $shift->isWorkingDay && $fraction > 0 && $fraction < 1.0) {
+                $flags[] = 'half_day_leave_unworked';
+            }
 
             return new DayAttendance(
                 status: $status,
@@ -80,6 +93,8 @@ class AttendanceStatusService
                 last_out: null,
                 is_complete: true,
                 flags: $flags,
+                leave_fraction: $shift->isWorkingDay ? $fraction : 0.0,
+                leave_session: $shift->isWorkingDay ? $leaveSession : null,
             );
         }
 
@@ -152,9 +167,10 @@ class AttendanceStatusService
             }
         }
 
-        // Punch on an approved-leave working day: surface a conflict for the approver
-        // (do NOT silently relabel — classifyDay keeps the day On Leave).
-        if ($isOnLeave && $shift->isWorkingDay) {
+        // Punch on an approved FULL-day leave working day: surface a conflict for the
+        // approver (do NOT silently relabel — classifyDay keeps the day On Leave). A
+        // half-day leave worked in the other half is the expected reconciliation, not a conflict.
+        if ($onLeave && $fraction >= 1.0 && $shift->isWorkingDay) {
             $flags[] = 'worked_on_leave';
         }
 
@@ -205,6 +221,8 @@ class AttendanceStatusService
             regular_minutes: $regularMinutes,
             break_deducted_minutes: $breakDeducted,
             policy_events: $policyEvents,
+            leave_fraction: $shift->isWorkingDay ? $fraction : 0.0,
+            leave_session: $shift->isWorkingDay ? $leaveSession : null,
         );
     }
 }
