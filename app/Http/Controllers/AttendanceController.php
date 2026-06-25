@@ -536,6 +536,24 @@ class AttendanceController extends Controller
                 return ! $presentUserIds->contains($user->id);
             })->values();
 
+            $scheduleResolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
+            $parsedDate = Carbon::parse($date);
+
+            $absentCollection = collect();
+            $offCollection = collect();
+
+            foreach ($absentUsers as $user) {
+                $schedule = $scheduleResolver->resolve($user->id, $parsedDate);
+                if ($schedule->isWorkingDay) {
+                    $absentCollection->push($user);
+                } else {
+                    $offCollection->push($user);
+                }
+            }
+
+            $absentUsers = $absentCollection;
+            $offUsers = $offCollection;
+
             $absentUserIds = $absentUsers->pluck('id')->all();
 
             $leaveUserColumn = null;
@@ -597,10 +615,24 @@ class AttendanceController extends Controller
                 ];
             })->values();
 
+            $serializedOffUsers = $offUsers->map(function (User $user) {
+                return [
+                    'id' => (int) $user->id,
+                    'name' => $user->name,
+                    'employee_id' => $user->employee_id,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'profile_image' => $user->profile_image,
+                    'profile_image_url' => $user->profile_image_url,
+                ];
+            })->values();
+
             return response()->json([
                 'absent_users' => $serializedAbsentUsers,
+                'off_users' => $serializedOffUsers,
                 'leaves' => $leaves,
                 'total_absent' => $serializedAbsentUsers->count(),
+                'total_off' => $serializedOffUsers->count(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to get absent users: '.$e->getMessage());
