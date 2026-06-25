@@ -112,8 +112,14 @@ export const usePunchAttendance = () => {
   return useMutation({
     mutationFn: (data) => requestJson('post', '/attendance/punch', data),
     onSuccess: () => {
-      // Invalidate attendance queries to refetch
-      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      // Invalidate attendance queries granularly to avoid UI-wide thrash
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users', todayStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users', todayStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'locations-today', todayStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'my-monthly-stats'] });
     },
   });
 };
@@ -126,8 +132,18 @@ export const useUpdateTimeCorrection = () => {
 
   return useMutation({
     mutationFn: ({ attendanceId, data }) => requestJson('post', `/attendance/${attendanceId}/correct`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+    onSuccess: (data, variables) => {
+      const timeVal = variables.data?.punchin || variables.data?.punchout;
+      const dateStr = timeVal ? timeVal.split(' ')[0] : new Date().toLocaleDateString('en-CA');
+
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users', dateStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users', dateStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'locations-today', dateStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'my-monthly-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'history'] });
     },
   });
 };
@@ -144,8 +160,17 @@ export const useMarkAsPresent = () => {
       date,
       ...data
     }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+    onSuccess: (data, variables) => {
+      const dateStr = variables.date || new Date().toLocaleDateString('en-CA');
+
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users', dateStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users', dateStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'locations-today', dateStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'my-monthly-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'history'] });
     },
   });
 };
@@ -215,7 +240,14 @@ export const useDeleteAttendanceCorrection = () => {
   return useMutation({
     mutationFn: (attendanceId) => requestJson('delete', route('attendance.correct.delete', { id: attendanceId })),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'locations-today'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'my-monthly-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'history'] });
     },
   });
 };

@@ -6,6 +6,7 @@ import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
 import RosterCellPopover from './Components/RosterCellPopover';
 
@@ -91,11 +92,36 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         },
     });
 
-    const updateCell = useMutation({
+    const updateCell = useOptimisticMutation({
         mutationFn: ({ userId, date, shiftId }) => requestJson('put', '/attendance/roster/cell', {
             data: { user_id: Number(userId), date, shift_id: shiftId },
         }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['roster', from, to] }),
+        queryKey: ['roster', from, to, selectedDepartmentId],
+        updateFn: (oldData, { userId, date, shiftId }) => {
+            if (!oldData || !oldData.roster) return oldData;
+
+            const shift = shifts.find(s => s.id === shiftId);
+            const updatedCell = {
+                code: shift ? shift.code : null,
+                color: shift ? shift.color : null,
+                off: !shiftId,
+            };
+
+            const newRoster = { ...oldData.roster };
+            if (newRoster[userId]) {
+                const userRow = { ...newRoster[userId] };
+                userRow.days = {
+                    ...userRow.days,
+                    [date]: updatedCell,
+                };
+                newRoster[userId] = userRow;
+            }
+
+            return {
+                ...oldData,
+                roster: newRoster,
+            };
+        },
         onError: (err) => {
             showToast.error(err?.message || 'Failed to update roster cell.');
         },
