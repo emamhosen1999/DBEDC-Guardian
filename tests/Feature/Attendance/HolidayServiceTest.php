@@ -42,4 +42,30 @@ class HolidayServiceTest extends TestCase
         $out = app(HolidayService::class)->forRange(Carbon::create(2026,4,1), Carbon::create(2026,4,30));
         $this->assertCount(0, $out);
     }
+
+    public function test_year_boundary_recurring_span_is_found_in_later_january(): void
+    {
+        // Base span crosses a year boundary: Dec 30 -> Jan 2 (3 days).
+        Holiday::create(['title'=>'New Year Break','from_date'=>'2024-12-30','to_date'=>'2025-01-02','type'=>'company','is_active'=>true,'is_recurring'=>true,'recurrence_pattern'=>'annual_fixed']);
+        $out = app(HolidayService::class)->forRange(Carbon::create(2026,1,1), Carbon::create(2026,1,31));
+        $this->assertCount(1, $out);
+        $this->assertSame('2025-12-30', Carbon::parse($out->first()->from_date)->toDateString());
+        $this->assertSame('2026-01-02', Carbon::parse($out->first()->to_date)->toDateString());
+    }
+
+    public function test_feb29_annual_holiday_clamps_to_feb28_in_non_leap_year(): void
+    {
+        // Base date is Feb 29 (2024 is a leap year).
+        Holiday::create(['title'=>'Leap Day Holiday','from_date'=>'2024-02-29','to_date'=>'2024-02-29','type'=>'company','is_active'=>true,'is_recurring'=>true,'recurrence_pattern'=>'annual_fixed']);
+
+        // 2026 is not a leap year: must clamp to Feb 28, not overflow to Mar 1.
+        $out = app(HolidayService::class)->forRange(Carbon::create(2026,2,1), Carbon::create(2026,2,28));
+        $this->assertCount(1, $out);
+        $this->assertSame('2026-02-28', Carbon::parse($out->first()->from_date)->toDateString());
+
+        // 2028 is a leap year: must land on Feb 29 (no clamping needed).
+        $out2028 = app(HolidayService::class)->forRange(Carbon::create(2028,2,1), Carbon::create(2028,2,29));
+        $this->assertCount(1, $out2028);
+        $this->assertSame('2028-02-29', Carbon::parse($out2028->first()->from_date)->toDateString());
+    }
 }

@@ -43,8 +43,12 @@ class HolidayService
             $baseTo = Carbon::parse($holiday->to_date);
             $spanDays = $baseFrom->copy()->startOfDay()->diffInDays($baseTo->copy()->startOfDay());
 
-            for ($year = $from->year; $year <= $to->year; $year++) {
-                $occFrom = Carbon::create($year, $baseFrom->month, $baseFrom->day)->startOfDay();
+            // Start one year earlier so a December-anchored span can still be
+            // caught when it extends into January of the queried range.
+            for ($year = $from->year - 1; $year <= $to->year; $year++) {
+                $daysInMonth = Carbon::create($year, $baseFrom->month, 1)->daysInMonth;
+                $day = min($baseFrom->day, $daysInMonth);
+                $occFrom = Carbon::create($year, $baseFrom->month, $day)->startOfDay();
                 $occTo = $occFrom->copy()->addDays($spanDays)->endOfDay();
                 if ($occFrom->lte($to) && $occTo->gte($from)) {
                     $clone = $holiday->replicate();
