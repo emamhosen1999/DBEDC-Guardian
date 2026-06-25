@@ -207,12 +207,12 @@ class MobileSyncApiTest extends TestCase
             ->assertJsonPath('data.results.0.data.record.from_date', $fromDate)
             ->assertJsonPath('data.results.0.data.record.to_date', $toDate)
             ->assertJsonPath('data.results.0.data.record.reason', 'Sync leave apply request')
-            ->assertJsonPath('data.results.0.data.record.status', 'New');
+            ->assertJsonPath('data.results.0.data.record.status', 'pending');
 
         $this->assertDatabaseHas('leaves', [
             'leave_type' => $leaveTypeId,
             'reason' => 'Sync leave apply request',
-            'status' => 'New',
+            'status' => 'pending',
         ]);
 
         $this->assertDatabaseHas('mobile_sync_mutations', [
