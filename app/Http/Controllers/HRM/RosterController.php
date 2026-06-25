@@ -64,6 +64,7 @@ class RosterController extends Controller
                         'code' => $row->shift?->code,
                         'color' => $row->shift?->color,
                         'off' => $row->shift_id === null,
+                        'updated_at' => $row->updated_at?->toIso8601String(),
                     ]),
             ];
         });
