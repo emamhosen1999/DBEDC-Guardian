@@ -103,9 +103,9 @@ Already underway this session (Emam Hosen converted; the per-employee off-day li
 ### Phase 2 tests
 - Half-day leave (first_half) + afternoon punch → 0.5 leave + 0.5 present; half-day no-punch → 0.5 leave + 0.5 absent; full-day leave unchanged; `LeaveDayCalculator` excludes weekly-offs + holidays and applies 0.5; status normalization data-migration converts `Approved/New/Pending`; paid/LWP split in summary; `getLeaveCountsArray` approved-only; single-engine reconciliation (summary == dashboard == grid) holds with fractions; every CRUD/approval path writes a `leave_audit_logs` row; validation rejects multi-date half-day.
 
-## Phase 3 — Leave balance/accrual ledger *(sketch; full spec when reached)*
+## Phase 3 — Leave balance/accrual ledger
 
-Outline only (not specced for implementation yet):
+**Full spec:** `docs/superpowers/specs/2026-06-25-leave-balance-accrual-ledger-design.md` (written 2026-06-25; owner direction: standardize to industry-standard 10/10 — full carry-forward + encashment, correct pro-rated seeding, configurable per-type policy, append-only immutable ledger). Original sketch retained below for history:
 - A `leave_ledger` (entitlement opening → periodic accrual → consumption from approved leaves → carry-forward cap → optional encashment), per employee per leave-type per period.
 - Balances become first-class/auditable, replacing the implicit `LeaveSetting.days`. Consumes Phase-2 fractional day-counts.
 - Note: `leave_accruals` + `leave_carry_forwards` tables + `AccrueMonthlyLeaves`/`ResetAnnualLeaves` commands already exist as partial scaffolding — Phase 3 reconciles/replaces them with the ledger, it does not start from zero.
