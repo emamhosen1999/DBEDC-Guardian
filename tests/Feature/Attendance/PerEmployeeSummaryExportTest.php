@@ -37,7 +37,7 @@ class PerEmployeeSummaryExportTest extends TestCase
 
         // Collect all cell values from the header row (row 5) into a flat array.
         $headerValues = [];
-        foreach (range('A', 'L') as $col) {
+        foreach (range('A', 'N') as $col) {
             $headerValues[] = $sheet->getCell("{$col}5")->getValue();
         }
 
@@ -45,5 +45,7 @@ class PerEmployeeSummaryExportTest extends TestCase
         $this->assertContains('Attendance %', $headerValues);
         $this->assertContains('Employee', $headerValues);
         $this->assertContains('Department', $headerValues);
+        $this->assertContains('Paid Leave', $headerValues);
+        $this->assertContains('LWP', $headerValues);
     }
 }

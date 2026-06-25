@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Services\Attendance\DTO\ShiftSchedule;
 use App\Services\Leave\LeaveApprovalService;
 use App\Services\Leave\LeaveCrudService;
+use App\Services\Leave\LeaveDayCalculator;
 use App\Services\Leave\LeaveOverlapService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,6 +17,43 @@ use Tests\TestCase;
 class LeaveBalanceTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Deterministic schedule: every calendar day is a working day, so the
+        // server-side LeaveDayCalculator count equals the calendar span in range.
+        $this->app->bind(ScheduleResolver::class, fn () => new class implements ScheduleResolver
+        {
+            public function resolve(int $userId, \Carbon\CarbonInterface $date): ShiftSchedule
+            {
+                return new ShiftSchedule(
+                    start: $date->copy()->setTime(9, 0), end: $date->copy()->setTime(17, 0),
+                    crossesMidnight: false, graceInMinutes: 0, graceOutMinutes: 0,
+                    fullDayMinutes: 480, halfDayMinutes: 240, minPresentMinutes: 0,
+                    breakMinutes: 0, isWorkingDay: true, isScheduled: true,
+                );
+            }
+        });
+    }
+
+    private function makeService(LeaveApprovalService $approvalMock): LeaveCrudService
+    {
+        return new LeaveCrudService(
+            $approvalMock,
+            new LeaveOverlapService,
+            app(LeaveDayCalculator::class),
+            app(\App\Services\Leave\LeaveAuditService::class),
+            app(\App\Services\Leave\LeaveLedgerService::class),
+        );
+    }
+
+    /** Seed a ledger opening so the ledger-driven balance check (Phase 3) has a quota. */
+    private function seedOpening(int $userId, int $leaveTypeId, int $year, float $days): void
+    {
+        app(\App\Services\Leave\LeaveLedgerService::class)->post($userId, $leaveTypeId, $year, 'opening', $days);
+    }
 
     public function test_insufficient_balance_throws()
     {
@@ -38,12 +78,16 @@ class LeaveBalanceTest extends TestCase
             'status' => 'approved',
         ]);
 
+        // Ledger: entitlement of 5, all 5 consumed -> tracked, 0 available.
+        $year = (int) now()->addMonth()->year;
+        $this->seedOpening($user->id, $setting->id, $year, 5);
+        app(\App\Services\Leave\LeaveLedgerService::class)->post($user->id, $setting->id, $year, 'consumption', -5);
+
         $approvalMock = $this->getMockBuilder(LeaveApprovalService::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,
@@ -83,12 +127,14 @@ class LeaveBalanceTest extends TestCase
             'status' => 'approved',
         ]);
 
+        // Ledger holds the entitlement (10) for the apply year; plenty for a 2-day leave.
+        $this->seedOpening($user->id, $setting->id, (int) now()->addMonth()->year, 10);
+
         $approvalMock = $this->getMockBuilder(LeaveApprovalService::class)
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,
@@ -132,8 +178,7 @@ class LeaveBalanceTest extends TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,
@@ -183,8 +228,7 @@ class LeaveBalanceTest extends TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,

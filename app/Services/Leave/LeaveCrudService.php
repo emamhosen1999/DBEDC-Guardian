@@ -13,10 +13,32 @@ class LeaveCrudService
 
     protected LeaveOverlapService $overlapService;
 
-    public function __construct(LeaveApprovalService $approvalService, LeaveOverlapService $overlapService)
-    {
+    protected LeaveDayCalculator $dayCalculator;
+
+    protected LeaveAuditService $audit;
+
+    protected LeaveLedgerService $ledger;
+
+    public function __construct(
+        LeaveApprovalService $approvalService,
+        LeaveOverlapService $overlapService,
+        LeaveDayCalculator $dayCalculator,
+        LeaveAuditService $audit,
+        LeaveLedgerService $ledger
+    ) {
         $this->approvalService = $approvalService;
         $this->overlapService = $overlapService;
+        $this->dayCalculator = $dayCalculator;
+        $this->audit = $audit;
+        $this->ledger = $ledger;
+    }
+
+    /**
+     * Post a consumption transaction for an approved leave (net-idempotent).
+     */
+    private function postConsumption(Leave $leave): void
+    {
+        $this->ledger->consume($leave);
     }
 
     /**
@@ -40,13 +62,20 @@ class LeaveCrudService
                 throw new \RuntimeException($overlapError, 422);
             }
 
-            // Server-side balance enforcement: if leave type has an allocation, ensure user has enough remaining days
-            if ($leaveSetting && is_numeric($leaveSetting->days)) {
-                $year = (int) $fromDate->year;
-                $requested = (int) $data['daysCount'];
-                $remaining = $this->getRemainingDays((int) $data['user_id'], (int) $leaveTypeId, $year);
+            // Server-authoritative day-count: working days in range minus weekly-off
+            // and holidays, halved for a half-day leave. Client daysCount is ignored.
+            $isHalfDay = (bool) ($data['isHalfDay'] ?? false);
+            $halfDaySession = $isHalfDay ? ($data['halfDaySession'] ?? 'first_half') : null;
+            $serverDays = $this->dayCalculator->compute(
+                (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
+            );
 
-                if ($requested > $remaining) {
+            // Server-side balance enforcement via the ledger (only once the balance is
+            // tracked/seeded; dormant for un-onboarded types) unless the type allows negative.
+            if ($leaveSetting && ! $leaveSetting->allow_negative
+                && $this->ledger->isTracked((int) $data['user_id'], (int) $leaveTypeId, (int) $fromDate->year)) {
+                $available = $this->ledger->available((int) $data['user_id'], (int) $leaveTypeId, $fromDate);
+                if ($serverDays > $available) {
                     throw new \RuntimeException('Insufficient leave balance for selected leave type.', 422);
                 }
             }
@@ -56,9 +85,11 @@ class LeaveCrudService
                 'leave_type' => $leaveTypeId,
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
-                'no_of_days' => $data['daysCount'],
+                'no_of_days' => $serverDays,
+                'is_half_day' => $isHalfDay,
+                'half_day_session' => $halfDaySession,
                 'reason' => $data['leaveReason'],
-                'status' => 'new',
+                'status' => 'pending',
             ]);
 
             // Check if approval is required or auto-approve is enabled
@@ -68,10 +99,15 @@ class LeaveCrudService
                     'status' => 'approved',
                     'approved_at' => now(),
                 ]);
+
+                // An approved leave immediately consumes balance.
+                $this->postConsumption($leave->fresh());
             } else {
                 // Build and submit approval chain
                 $this->approvalService->submitForApproval($leave);
             }
+
+            $this->audit->record('create', $leave->id, null, $leave->fresh()->toArray());
 
             return $leave->fresh(); // Ensure we return the latest data
         });
@@ -84,6 +120,7 @@ class LeaveCrudService
     {
         return DB::transaction(function () use ($leaveId, $data) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
+            $before = $leave->toArray();
 
             // Parse dates correctly for consistent format
             $fromDate = Carbon::parse($data['fromDate']);
@@ -107,62 +144,51 @@ class LeaveCrudService
                 throw new \RuntimeException($overlapError, 422);
             }
 
-            // Server-side balance enforcement on update (exclude current leave from calculation)
-            if ($leaveSetting && is_numeric($leaveSetting->days)) {
-                $year = (int) $fromDate->year;
-                $requested = (int) $data['daysCount'];
-                $remaining = $this->getRemainingDays((int) $data['user_id'], (int) $leaveTypeId, $year, $leaveId);
+            // Server-authoritative day-count (see createLeave).
+            $isHalfDay = (bool) ($data['isHalfDay'] ?? false);
+            $halfDaySession = $isHalfDay ? ($data['halfDaySession'] ?? 'first_half') : null;
+            $serverDays = $this->dayCalculator->compute(
+                (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
+            );
 
-                if ($requested > $remaining) {
+            // If the existing leave was approved, free its consumed days before the
+            // balance check (so editing an approved leave doesn't double-count it).
+            $wasApproved = $leave->status === 'approved';
+            if ($wasApproved) {
+                $this->ledger->reverseConsumption($leaveId, 'Leave edited');
+            }
+
+            // Server-side balance enforcement via the ledger (tracked types only) unless allow_negative.
+            if ($leaveSetting && ! $leaveSetting->allow_negative
+                && $this->ledger->isTracked((int) $data['user_id'], (int) $leaveTypeId, (int) $fromDate->year)) {
+                $available = $this->ledger->available((int) $data['user_id'], (int) $leaveTypeId, $fromDate);
+                if ($serverDays > $available) {
                     throw new \RuntimeException('Insufficient leave balance for selected leave type.', 422);
                 }
             }
 
+            $newStatus = $data['status'] ?? $leave->status;
             $leave->update([
                 'user_id' => $data['user_id'],
                 'leave_type' => $leaveTypeId,
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
-                'no_of_days' => $data['daysCount'],
+                'no_of_days' => $serverDays,
+                'is_half_day' => $isHalfDay,
+                'half_day_session' => $halfDaySession,
                 'reason' => $data['leaveReason'],
-                'status' => $data['status'] ?? $leave->status,
+                'status' => $newStatus,
             ]);
+
+            // Re-post consumption for the new amount if the leave is (still) approved.
+            if ($newStatus === 'approved') {
+                $this->postConsumption($leave->fresh());
+            }
+
+            $this->audit->record('update', $leave->id, $before, $leave->fresh()->toArray());
 
             return $leave->fresh(); // Ensure we return the latest data with relationships
         });
-    }
-
-    /**
-     * Compute remaining days for a user's leave type for a year.
-     * Excludes an optional leave id from the aggregation (useful for updates).
-     */
-    private function getRemainingDays(int $userId, int $leaveTypeId, int $year, ?int $excludeLeaveId = null): int
-    {
-        $leaveSetting = LeaveSetting::find($leaveTypeId);
-
-        if (! $leaveSetting || ! is_numeric($leaveSetting->days)) {
-            // Treat as unlimited if no allocation is configured
-            return PHP_INT_MAX;
-        }
-
-        $allocated = (int) $leaveSetting->days;
-
-        $query = DB::table('leaves')
-            ->where('user_id', $userId)
-            ->where('leave_type', $leaveTypeId)
-            ->whereYear('from_date', $year)
-            ->whereRaw('LOWER(status) IN (?, ?)', ['approved', 'pending']);
-
-        if ($excludeLeaveId) {
-            $query->where('id', '<>', $excludeLeaveId);
-        }
-
-        // Lock relevant rows to avoid races; aggregate in PHP after selecting rows
-        $rows = $query->lockForUpdate()->get(['no_of_days']);
-
-        $used = $rows->sum('no_of_days');
-
-        return max(0, $allocated - (int) $used);
     }
 
     /**
@@ -172,14 +198,26 @@ class LeaveCrudService
     {
         return DB::transaction(function () use ($leaveId, $status, $approvedBy) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
+            $before = $leave->toArray();
 
             $normalized = strtolower((string) $status);
 
             if ($leave->status !== $normalized) {
+                $wasApproved = $leave->status === 'approved';
+
                 $leave->update([
                     'status' => $normalized,
                     'approved_by' => $approvedBy,
                 ]);
+
+                // Ledger: approving consumes; leaving an approved state reverses.
+                if ($normalized === 'approved') {
+                    $this->postConsumption($leave->fresh());
+                } elseif ($wasApproved) {
+                    $this->ledger->reverseConsumption($leaveId, "status -> {$normalized}");
+                }
+
+                $this->audit->record('status_change', $leave->id, $before, $leave->fresh()->toArray(), "status -> {$normalized}");
 
                 return [
                     'success' => true,
@@ -203,8 +241,18 @@ class LeaveCrudService
     {
         return DB::transaction(function () use ($leaveId) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
+            $before = $leave->toArray();
 
-            return $leave->delete();
+            // Free any consumed balance before removing the leave.
+            if ($leave->status === 'approved') {
+                $this->ledger->reverseConsumption($leaveId, 'Leave deleted');
+            }
+
+            $deleted = $leave->delete();
+
+            $this->audit->record('delete', $leaveId, $before, null);
+
+            return $deleted;
         });
     }
 

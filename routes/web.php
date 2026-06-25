@@ -111,6 +111,7 @@ Route::middleware($middlewareStack)->group(function () {
         Route::delete('/leave-delete', [LeaveController::class, 'delete'])->name('leave-delete');
         Route::get('/leaves-paginate', [LeaveController::class, 'paginate'])->name('leaves.paginate');
         Route::get('/leaves-stats', [LeaveController::class, 'stats'])->name('leaves.stats');
+        Route::get('/leave-balances', [\App\Http\Controllers\LeaveBalanceController::class, 'index'])->name('leave-balances');
     });
 
     // Attendance self-service routes
@@ -399,6 +400,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Holiday management routes
     Route::middleware(['permission:holidays.create'])->post('/holiday-add', [HolidayController::class, 'create'])->name('holiday-add');
+    Route::middleware(['permission:holidays.create'])->post('/holidays-restore', [HolidayController::class, 'restore'])->name('holidays-restore');
+    Route::middleware(['permission:holidays.create'])->post('/holidays-copy-year', [HolidayController::class, 'copyYear'])->name('holidays-copy-year');
     Route::middleware(['permission:holidays.delete'])->delete('/holiday-delete', [HolidayController::class, 'delete'])->name('holiday-delete');
 
     // User management routes - CONSOLIDATED & REFACTORED

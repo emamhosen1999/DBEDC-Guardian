@@ -13,6 +13,8 @@ use Inertia\Response;
 
 class HolidayController extends Controller
 {
+    public function __construct(private \App\Services\Holiday\HolidayAuditService $audit) {}
+
     public function index(): Response
     {
         $holidays = Cache::remember('active_holidays_list', now()->addDay(), function () {
@@ -54,7 +56,7 @@ class HolidayController extends Controller
             'type' => 'required|string|in:public,religious,national,company,optional',
             'is_recurring' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
-            'recurrence_pattern' => 'nullable|in:annual_fixed',
+            'recurrence_pattern' => 'nullable|in:none,annual_fixed',
         ]);
 
         if ($validator->fails()) {
@@ -100,13 +102,19 @@ class HolidayController extends Controller
             if ($holidayId) {
                 // Update existing holiday record
                 $holiday = Holiday::findOrFail($holidayId);
+                $before = $holiday->toArray();
 
                 $holiday->update($data);
+
+                $this->audit->record('update', $holiday->id, $before, $holiday->fresh()->toArray());
 
                 $message = 'Holiday updated successfully';
             } else {
                 // Create new holiday record
-                Holiday::create($data);
+                $holiday = Holiday::create($data);
+
+                $this->audit->record('create', $holiday->id, null, $holiday->fresh()->toArray());
+
                 $message = 'Holiday added successfully';
             }
 
@@ -126,6 +134,43 @@ class HolidayController extends Controller
         }
     }
 
+    public function copyYear(Request $request, \App\Services\Holiday\HolidayImportService $import): JsonResponse
+    {
+        $validated = $request->validate([
+            'fromYear' => 'required|integer|between:2000,2100',
+            'toYear' => 'required|integer|between:2000,2100|different:fromYear',
+        ]);
+
+        $created = $import->copyYear((int) $validated['fromYear'], (int) $validated['toYear']);
+
+        $this->audit->record('copy_year', null, null, [
+            'from' => (int) $validated['fromYear'],
+            'to' => (int) $validated['toYear'],
+            'created' => $created,
+        ]);
+
+        return response()->json([
+            'message' => "{$created} holiday(s) copied from {$validated['fromYear']} to {$validated['toYear']}.",
+            'created' => $created,
+            'holidays' => Holiday::active()->orderBy('from_date', 'asc')->get(),
+        ]);
+    }
+
+    public function restore(Request $request): JsonResponse
+    {
+        $request->validate(['id' => 'required|integer']);
+
+        $holiday = Holiday::onlyTrashed()->findOrFail($request->input('id'));
+        $holiday->restore();
+
+        $this->audit->record('restore', $holiday->id, null, $holiday->fresh()->toArray());
+
+        return response()->json([
+            'message' => 'Holiday restored successfully',
+            'holidays' => Holiday::active()->orderBy('from_date', 'asc')->get(),
+        ]);
+    }
+
     public function delete(Request $request): JsonResponse
     {
         try {
@@ -143,7 +188,10 @@ class HolidayController extends Controller
             }
 
             // Delete the holiday
+            $before = $holiday->toArray();
             $holiday->delete();
+
+            $this->audit->record('delete', $holiday->id, $before, null);
 
             // Get updated holidays for return
             $holidays = Holiday::active()

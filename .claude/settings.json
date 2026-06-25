@@ -357,13 +357,35 @@
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{JSON.parse\\(d\\);console.log\\('valid JSON, len',d.length\\)}\\)\")",
       "Bash(node -e \"const s=require\\('./.claude/settings.json'\\); const c=s.hooks.SessionStart[0].hooks[0].command; console.log\\('settings.json parses OK'\\); console.log\\('top keys:', Object.keys\\(s\\).join\\(', '\\)\\); const out=require\\('child_process'\\).execSync\\(c,{shell:'C:/Program Files/Git/bin/bash.exe'}\\).toString\\(\\); JSON.parse\\(out\\); console.log\\('hook command emits valid JSON, len', out.length\\);\")",
       "Bash(grep -cE \"#[0-9a-fA-F]{3,8}|rgba?\\\\\\(\" \"app/\\(tabs\\)/daily-works.js\")",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(git fetch *)",
+      "Bash(bash __TRACKED_VAR__/scripts/task-brief docs/superpowers/plans/2026-06-25-attendance-phase2-leave-correctness.md 1)",
+      "Bash(git -c advice.detachedHead=false checkout cfe5f609 -q)",
+      "Bash(perl -0pi -e 's/\\\\$overlapService = new LeaveOverlapService;\\\\n        \\\\$service = new LeaveCrudService\\\\\\(\\\\$approvalMock, \\\\$overlapService\\\\\\);/\\\\$service = \\\\$this->makeService\\(\\\\$approvalMock\\);/g' tests/Feature/LeaveBalanceTest.php)",
+      "Bash(grep -n \"use App\\\\\\\\\\\\\\\\Models\\\\\\\\\\\\\\\\HRM\\\\\\\\\\\\\\\\LeaveSetting\\\\|use App\\\\\\\\\\\\\\\\Models\\\\\\\\\\\\\\\\HRM\\\\\\\\\\\\\\\\Department\" app/Services/Attendance/AttendanceReportService.php)",
+      "Bash(grep -n 'public function approve\\\\|public function reject\\\\|$leave->update\\\\|return \\\\[' app/Services/Leave/LeaveApprovalService.php)",
+      "Bash(npx eas *)",
+      "Bash(node -e \"const a=require\\('./app.json'\\); const e=a.expo||a; console.log\\('version:', e.version\\); console.log\\('runtimeVersion:', JSON.stringify\\(e.runtimeVersion\\)\\); console.log\\('updates:', JSON.stringify\\(e.updates\\)\\); console.log\\('android.versionCode:', e.android&&e.android.versionCode\\);\")",
+      "PowerShell($ErrorActionPreference='SilentlyContinue'; Write-Output \"=== eas global ===\"; \\(Get-Command eas\\).Source; eas --version; Write-Output \"=== whoami ===\"; eas whoami)",
+      "Bash(timeout 540 npx --yes eas-cli@latest update --channel preview --platform android --message \"Cardless ESS redesign: 5 screens \\(My Attendance/Requests/Objections, Daily Works, Shift Swap\\) + consistent filled inputs \\(Pure+OLED\\); roster-driven swap; swap-eligible sanctum-guard fix verified live\" --non-interactive)",
+      "Bash(grep -n 'function getRemainingDays\\\\|\\(int\\) $used\\\\|return max\\(0' app/Services/Leave/LeaveCrudService.php)",
+      "Bash(grep -n '\\\\$workingDays++' app/Services/Attendance/AttendanceReportService.php)",
+      "PowerShell($base=\"2c09cfd7\"; $head=\"d9dc861a\"; $out=\"C:\\\\Users\\\\Emam Hosen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--laragon-www-Aero-Enterprise-Suite\\\\50df7a2b-8cd7-491d-aa42-172d2c3cf834\\\\scratchpad\\\\task-2-diff.md\"; $lines=@\\(\\); $lines += \"=== COMMITS \\($base..$head\\) ===\"; $lines += \\(git log --oneline \"$base..$head\"\\); $lines += \"\"; $lines += \"=== STAT ===\"; $lines += \\(git diff --stat \"$base..$head\"\\); $lines += \"\"; $lines += \"=== DIFF \\(-U10\\) ===\"; $lines += \\(git diff -U10 \"$base..$head\"\\); $lines | Out-File -FilePath $out -Encoding utf8; \"written: $out\"; \\(Get-Item $out\\).Length)",
+      "PowerShell(\"=== log 2c09cfd7..HEAD ===\"; git log --oneline 2c09cfd7..HEAD; \"=== files per commit ===\"; foreach \\($c in \\(git rev-list 2c09cfd7..HEAD\\)\\) { \"--- $c ---\"; git show --stat --oneline $c | Select-Object -First 20 }; \"=== current status ===\"; git status --short)",
+      "PowerShell(git reflog -n 12 --format=\"%h %gs\")",
+      "PowerShell(\"=== now ===\")",
+      "PowerShell(\"=== branches ===\")",
+      "PowerShell(\"=== reflog \\(last 12\\) ===\")",
+      "Bash(curl -k -s -o /dev/null -w \"%{http_code}\\\\n\" https://aero-enterprise-suite.test/holidays)",
+      "Bash(echo \"started npm run dev \\(bg pid $!\\)\")",
+      "Bash(curl -k -s -o /dev/null -w \"login_page=%{http_code}\\\\n\" https://aero-enterprise-suite.test/login)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
       "\\tmp",
       "C:\\laragon\\www\\Aero-Enterprise-Suite",
-      "c:\\c\\laragon\\www\\dbedc-mobile-app"
+      "c:\\c\\laragon\\www\\dbedc-mobile-app",
+      "c:\\Users\\Emam Hosen\\.claude\\projects\\c--laragon-www-Aero-Enterprise-Suite\\memory"
     ]
   },
   "hooks": {
