@@ -13,10 +13,16 @@ class LeaveCrudService
 
     protected LeaveOverlapService $overlapService;
 
-    public function __construct(LeaveApprovalService $approvalService, LeaveOverlapService $overlapService)
-    {
+    protected LeaveDayCalculator $dayCalculator;
+
+    public function __construct(
+        LeaveApprovalService $approvalService,
+        LeaveOverlapService $overlapService,
+        LeaveDayCalculator $dayCalculator
+    ) {
         $this->approvalService = $approvalService;
         $this->overlapService = $overlapService;
+        $this->dayCalculator = $dayCalculator;
     }
 
     /**
@@ -40,10 +46,18 @@ class LeaveCrudService
                 throw new \RuntimeException($overlapError, 422);
             }
 
+            // Server-authoritative day-count: working days in range minus weekly-off
+            // and holidays, halved for a half-day leave. Client daysCount is ignored.
+            $isHalfDay = (bool) ($data['isHalfDay'] ?? false);
+            $halfDaySession = $isHalfDay ? ($data['halfDaySession'] ?? 'first_half') : null;
+            $serverDays = $this->dayCalculator->compute(
+                (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
+            );
+
             // Server-side balance enforcement: if leave type has an allocation, ensure user has enough remaining days
             if ($leaveSetting && is_numeric($leaveSetting->days)) {
                 $year = (int) $fromDate->year;
-                $requested = (int) $data['daysCount'];
+                $requested = $serverDays;
                 $remaining = $this->getRemainingDays((int) $data['user_id'], (int) $leaveTypeId, $year);
 
                 if ($requested > $remaining) {
@@ -56,7 +70,9 @@ class LeaveCrudService
                 'leave_type' => $leaveTypeId,
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
-                'no_of_days' => $data['daysCount'],
+                'no_of_days' => $serverDays,
+                'is_half_day' => $isHalfDay,
+                'half_day_session' => $halfDaySession,
                 'reason' => $data['leaveReason'],
                 'status' => 'pending',
             ]);
@@ -107,10 +123,17 @@ class LeaveCrudService
                 throw new \RuntimeException($overlapError, 422);
             }
 
+            // Server-authoritative day-count (see createLeave).
+            $isHalfDay = (bool) ($data['isHalfDay'] ?? false);
+            $halfDaySession = $isHalfDay ? ($data['halfDaySession'] ?? 'first_half') : null;
+            $serverDays = $this->dayCalculator->compute(
+                (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
+            );
+
             // Server-side balance enforcement on update (exclude current leave from calculation)
             if ($leaveSetting && is_numeric($leaveSetting->days)) {
                 $year = (int) $fromDate->year;
-                $requested = (int) $data['daysCount'];
+                $requested = $serverDays;
                 $remaining = $this->getRemainingDays((int) $data['user_id'], (int) $leaveTypeId, $year, $leaveId);
 
                 if ($requested > $remaining) {
@@ -123,7 +146,9 @@ class LeaveCrudService
                 'leave_type' => $leaveTypeId,
                 'from_date' => $fromDate,
                 'to_date' => $toDate,
-                'no_of_days' => $data['daysCount'],
+                'no_of_days' => $serverDays,
+                'is_half_day' => $isHalfDay,
+                'half_day_session' => $halfDaySession,
                 'reason' => $data['leaveReason'],
                 'status' => $data['status'] ?? $leave->status,
             ]);

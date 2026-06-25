@@ -5,8 +5,11 @@ namespace Tests\Feature;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Services\Attendance\DTO\ShiftSchedule;
 use App\Services\Leave\LeaveApprovalService;
 use App\Services\Leave\LeaveCrudService;
+use App\Services\Leave\LeaveDayCalculator;
 use App\Services\Leave\LeaveOverlapService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -14,6 +17,31 @@ use Tests\TestCase;
 class LeaveBalanceTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Deterministic schedule: every calendar day is a working day, so the
+        // server-side LeaveDayCalculator count equals the calendar span in range.
+        $this->app->bind(ScheduleResolver::class, fn () => new class implements ScheduleResolver
+        {
+            public function resolve(int $userId, \Carbon\CarbonInterface $date): ShiftSchedule
+            {
+                return new ShiftSchedule(
+                    start: $date->copy()->setTime(9, 0), end: $date->copy()->setTime(17, 0),
+                    crossesMidnight: false, graceInMinutes: 0, graceOutMinutes: 0,
+                    fullDayMinutes: 480, halfDayMinutes: 240, minPresentMinutes: 0,
+                    breakMinutes: 0, isWorkingDay: true, isScheduled: true,
+                );
+            }
+        });
+    }
+
+    private function makeService(LeaveApprovalService $approvalMock): LeaveCrudService
+    {
+        return new LeaveCrudService($approvalMock, new LeaveOverlapService, app(LeaveDayCalculator::class));
+    }
 
     public function test_insufficient_balance_throws()
     {
@@ -42,8 +70,7 @@ class LeaveBalanceTest extends TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,
@@ -87,8 +114,7 @@ class LeaveBalanceTest extends TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,
@@ -132,8 +158,7 @@ class LeaveBalanceTest extends TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,
@@ -183,8 +208,7 @@ class LeaveBalanceTest extends TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $overlapService = new LeaveOverlapService;
-        $service = new LeaveCrudService($approvalMock, $overlapService);
+        $service = $this->makeService($approvalMock);
 
         $payload = [
             'user_id' => $user->id,
