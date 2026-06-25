@@ -5,12 +5,14 @@ import {
     CalendarIcon,
     PlusIcon,
     BarChartIcon,
+    CopyIcon,
 } from '@radix-ui/react-icons';
 import StatsCards from '@/Components/StatsCards.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import App from '@/Layouts/App.jsx';
 import HolidayTable from '@/Tables/HolidayTable.jsx';
 import HolidayForm from '@/Forms/HolidayForm.jsx';
+import CopyYearForm from '@/Forms/CopyYearForm.jsx';
 import DeleteHolidayForm from '@/Forms/DeleteHolidayForm.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
@@ -78,6 +80,14 @@ const Holidays = ({ title }) => {
                 <HolidayForm {...modalProps} />
             )}
 
+            {modalState.type === 'copy_year' && (
+                <CopyYearForm
+                    open
+                    setHolidaysData={updateHolidaysData}
+                    closeModal={handleModalClose}
+                />
+            )}
+
             {modalState.type === 'delete_holiday' && (
                 <DeleteHolidayForm
                     open
@@ -117,6 +127,10 @@ const Holidays = ({ title }) => {
 
                                 {/* Header Actions */}
                                 <Flex gap="2" align="center" wrap="wrap">
+                                    <Button variant="soft" color="gray" onClick={() => handleModalOpen('copy_year')}>
+                                        <CopyIcon style={{ width: 16, height: 16 }} />
+                                        {!isMobile && 'Copy year'}
+                                    </Button>
                                     <Button onClick={() => handleModalOpen('add_holiday')}>
                                         <PlusIcon style={{ width: 16, height: 16 }} />
                                         {!isMobile && 'Add holiday'}
