@@ -11,10 +11,13 @@ class LeaveSetting extends Model
 
     protected $fillable = [
         'type',
+        'symbol',
         'days',
         'eligibility',
         'carry_forward',
         'earned_leave',
+        'is_earned',
+        'is_paid',
         'requires_approval',
         'auto_approve',
         'special_conditions',
@@ -27,10 +30,11 @@ class LeaveSetting extends Model
         'eligibility' => 'string',
         'carry_forward' => 'boolean',
         'earned_leave' => 'boolean',
+        'is_earned' => 'boolean',
+        'is_paid' => 'boolean',
         'requires_approval' => 'boolean',
         'auto_approve' => 'boolean',
         'special_conditions' => 'string',
-
     ];
 
     public function leaves()
