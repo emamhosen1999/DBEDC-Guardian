@@ -276,7 +276,10 @@ class AttendanceRequestController extends Controller
         $user = $request->user();
         $date = Carbon::parse($data['date'])->toDateString();
 
-        $employees = User::role('Employee')
+        // Pin to the web guard: roles are registered for 'web', but this API runs
+        // under sanctum, so the scope's default-guard lookup would otherwise throw
+        // RoleDoesNotExist when the app's default guard resolves to 'sanctum'.
+        $employees = User::role('Employee', 'web')
             ->where('id', '!=', $user->id)
             ->where('department_id', $user->department_id)
             ->orderBy('name')

@@ -1,8 +1,8 @@
 # Attendance · Leaves · Holidays — 10/10 Industry-Standard Design
 
-**Date:** 2026-06-23
-**Status:** Approved (design). Overarching design for a phased initiative; each phase gets its own implementation plan.
-**Source:** Audit of 2026-06-23 (this session) + architectural decisions confirmed with the owner.
+**Date:** 2026-06-23 (revised 2026-06-25 — Phase 1 done; folded in module-hardening scope: expanded Phase 2, new Phase 4 holiday hardening, cross-cutting validation/audit sweep)
+**Status:** Approved (design). Overarching design for a phased initiative; each phase gets its own implementation plan. **Phase 1 COMPLETE & merged** (2026-06-23).
+**Source:** Audit of 2026-06-23 (this session) + architectural decisions confirmed with the owner; module-hardening scope confirmed 2026-06-25.
 **Related:** `docs/attendance/ATTENDANCE_HARDENING_ROADMAP.md` (Phases B2/B3 map onto Phase 1/2 here).
 
 ## Goal
@@ -29,6 +29,9 @@ Bring the leave/holiday **integration** and a few data-integrity gaps up to the 
 | Leave status | Normalize to `{pending, approved, rejected, cancelled}` + data migration; code updated. |
 | employee_id | Backfill the 4 bad rows (owner supplies values) → **unique constraint**. |
 | Weekend model | **Proper rosters** (per-employee approved weekly-off); retire the "Weekend" leave type; off-day moves = roster-edit/swap. |
+| Leave audit | **Immutable leave audit trail** (who/what/when/IP) mirroring `AttendanceAuditService`/`attendance_audit_logs`. None exists today — every create/update/status-change/delete is logged. |
+| Validation integrity | Cross-cutting sweep: validation rules must match real column types/canonical values (the Phase-1 final review caught a stale `employee_id => integer` rule in `ProfileValidationService`). Leave validation hardened (canonical status enum, half-day fields, day-count no longer client-trusted). |
+| Holiday hardening | Holiday **model** brought to attendance's standard (Phase 4): audit trail, soft-delete, copy-last-year/bulk import (manual per-year lunar entry stays, but the drudgery is removed), validation robustness, admin UI. |
 
 ---
 
@@ -40,9 +43,10 @@ Already underway this session (Emam Hosen converted; the per-employee off-day li
 - Retire the **"Weekend" `LeaveSetting`** type once all employees are rostered (stop creating Weekend leaves; the engine precedence fix in P1 also neutralizes any residual Friday Weekend-leaves immediately since Friday is the global off).
 - This is a **data migration** (a reversible artisan command with a dry-run), not application code; tracked separately from P1/P2/P3 code.
 
-## Phase 1 — Holiday correctness + Engine precedence + Data integrity
+## Phase 1 — Holiday correctness + Engine precedence + Data integrity ✅ DONE (2026-06-23)
 
-**Spec to follow:** `docs/superpowers/specs/2026-06-2x-attendance-phase1-*.md` (written when planned).
+**Plan:** `docs/superpowers/plans/2026-06-23-attendance-phase1-holidays-engine-integrity.md` · **Ledger:** `.superpowers/sdd/progress-phase1.md`.
+**Landed:** `HolidayService::forRange` (active-only + `annual_fixed` recurrence, year-boundary + Feb-29 safe); the 3 ad-hoc holiday queries delegated; engine no-punch precedence `holiday > weekly-off > leave > absent` + `worked_on_leave` conflict flag; `employee_id` unique migration (applied to dev MySQL, **run on prod**); night-shift overnight web punch-out fix. Full attendance suite 245 pass. Final-review fix: `ProfileValidationService` `employee_id` `integer`→`string|max:50` (the validation-integrity seed for the cross-cutting sweep below).
 
 ### 1a. Holiday single source
 - New `HolidayService::forRange(CarbonInterface $from, CarbonInterface $to): Collection` (or a method on the existing report service) that:
@@ -65,31 +69,52 @@ Already underway this session (Emam Hosen converted; the per-employee off-day li
 - Leave overlapping a weekly-off resolves to Day Off (not leave) at the engine; summary/dashboard reconcile.
 - employee_id uniqueness enforced; backfill correct.
 
-## Phase 2 — Leave correctness
+## Phase 2 (NEXT) — Leave correctness
 
-**Spec to follow:** `docs/superpowers/specs/2026-06-2x-attendance-phase2-*.md`.
+**Plan to follow:** `docs/superpowers/plans/2026-06-25-attendance-phase2-leave-correctness.md`.
 
 ### 2a. Model & migration
-- `leaves`: add `is_half_day` (bool) + `half_day_session` (enum `first_half|second_half`, nullable).
-- `leave_settings`: add `is_paid` (bool, default true); add `symbol`, `is_earned` to `$fillable` (columns already exist).
-- Normalize `leaves.status` to `{pending, approved, rejected, cancelled}` + data migration converting existing `Approved/New/Pending` rows; update model accessor, the engine loader filter, and all controllers/queries to the canonical values.
+- `leaves`: add `is_half_day` (bool, default false) + `half_day_session` (enum `first_half|second_half`, nullable). `no_of_days` widened to **decimal(5,1)** so 0.5 persists. Add `created_by`/edit provenance only if not derivable from the new audit log (prefer the audit log).
+- `leave_settings`: add `is_paid` (bool, default true); add `symbol`, `is_earned` to `$fillable` (columns already exist — see `create_leave_settings`/`add_is_earned` migrations).
+- Normalize `leaves.status` to `{pending, approved, rejected, cancelled}` + data migration converting existing rows (dev DB currently holds `Approved`,`New`,`Pending`; map `Approved→approved`, `New→pending`, `Pending→pending`, `Declined/Rejected→rejected`, case-insensitively). Update the model `status_color` accessor, the engine loader filter (`AttendanceReportService` `where('status','approved')`), `LeaveValidationService` enum, `LeaveCrudService` (`'new'`/`'declined'` literals), and the controller bulk-status `in:` rules + `'declined'` call-sites to the canonical values.
 
 ### 2b. Server-side day-count
-- On create/update, compute `no_of_days` server-side: iterate `[from_date,to_date]`, count only the employee's **roster working-days** (exclude weekly-off + holidays via the Phase-1 `HolidayService`), and apply 0.5 for a half-day leave. Stop trusting the client `daysCount`.
+- New `LeaveDayCalculator` (injects the Phase-1 `HolidayService` + the `ScheduleResolver` contract): given user + `[from,to]` + half-day flag/session, iterate the range, count only the employee's **roster working-days** (`ShiftSchedule::isWorkingDay`, excluding holidays from `HolidayService::forRange`), apply 0.5 when `is_half_day`. `LeaveCrudService::createLeave/updateLeave` compute `no_of_days` from this — **client `daysCount` is no longer trusted** (kept only as an optional display hint, never written). Balance enforcement (`getRemainingDays`) consumes the server figure.
 
 ### 2c. Engine integration (fraction, not bool)
-- `buildMonthlyDayResults` resolves a per-day **leave fraction** (0 / 0.5 / 1.0) + session from the (approved) leave overlapping that date; `AttendanceStatusService::resolve` accepts the fraction so a half-day leave + half-day worked reconciles to 0.5 present + 0.5 leave in worked-minutes, status, and the counts.
-- `classifyDay` and the accounts summary count fractional leave days; the summary gains **paid-leave days vs LWP days** columns from `is_paid`.
+- `AttendanceStatusService::resolve` gains `float $leaveFraction = 0.0` + `?string $leaveSession = null` (replacing the `bool $isOnLeave` meaning: `>0` ⇒ on leave). `DayAttendance` carries `leave_fraction`/`leave_session`. `buildMonthlyDayResults` resolves the per-day fraction (0 / 0.5 / 1.0) + session from the approved leave overlapping that date and passes it in.
+- **Reconciliation rules (locked):** on a working day — `fraction 1.0` no punch ⇒ ON_LEAVE (1.0 leave); `fraction 0.5` no punch ⇒ 0.5 leave + **0.5 absent** (the worked half was a no-show); `fraction 0.5` + punch ⇒ 0.5 leave + 0.5 present; `fraction 1.0` + punch ⇒ ON_LEAVE + `worked_on_leave` conflict (unchanged). Holiday/weekly-off still outrank leave (fraction ignored on rest days).
+- `classifyDay` and the accounts summary count **fractional** leave days; the summary gains **paid-leave days vs LWP days** columns from `LeaveSetting.is_paid`. `getLeaveCountsArray` adds a **status filter** (approved-only, matching the grid) so the leave-type tallies reconcile with the engine.
+
+### 2d. Leave audit logging (NEW — none exists today)
+- Mirror `AttendanceAuditService` + `attendance_audit_logs`: new `leave_audit_logs` table (immutable, `UPDATED_AT = null`), `LeaveAuditLog` model, `LeaveAuditService::record(action, leaveId, before, after, reason, request)`. Wire `create`/`update`/`status-change`/`approve`/`reject`/`delete` in `LeaveCrudService` + `LeaveApprovalService` to log who/what/when/IP. No read UI required in P2 (data captured; surfacing is a later UI task).
+
+### 2e. Validation hardening (NEW)
+- `LeaveValidationService`: canonical `status` enum; add `isHalfDay`/`halfDaySession` rules (session `required_if:isHalfDay,true`, half-day forces `fromDate == toDate`); drop the authoritative role of `daysCount` (accept but ignore, or remove). Reject half-day spanning multiple dates. Keep the existing `before:+1year` / `min:5 reason` guards.
 
 ### Phase 2 tests
-- Half-day leave (AM) + afternoon punch → 0.5 leave + 0.5 present; day-count excludes weekends/holidays; status normalization migration; paid/LWP split in summary; single-engine reconciliation holds with fractions.
+- Half-day leave (first_half) + afternoon punch → 0.5 leave + 0.5 present; half-day no-punch → 0.5 leave + 0.5 absent; full-day leave unchanged; `LeaveDayCalculator` excludes weekly-offs + holidays and applies 0.5; status normalization data-migration converts `Approved/New/Pending`; paid/LWP split in summary; `getLeaveCountsArray` approved-only; single-engine reconciliation (summary == dashboard == grid) holds with fractions; every CRUD/approval path writes a `leave_audit_logs` row; validation rejects multi-date half-day.
 
 ## Phase 3 — Leave balance/accrual ledger *(sketch; full spec when reached)*
 
 Outline only (not specced for implementation yet):
 - A `leave_ledger` (entitlement opening → periodic accrual → consumption from approved leaves → carry-forward cap → optional encashment), per employee per leave-type per period.
 - Balances become first-class/auditable, replacing the implicit `LeaveSetting.days`. Consumes Phase-2 fractional day-counts.
+- Note: `leave_accruals` + `leave_carry_forwards` tables + `AccrueMonthlyLeaves`/`ResetAnnualLeaves` commands already exist as partial scaffolding — Phase 3 reconciles/replaces them with the ledger, it does not start from zero.
 - Revisit and write a dedicated design+spec after P1/P2 ship.
+
+## Phase 4 (NEW) — Holiday module hardening *(sketch; full plan when reached)*
+
+Bring the holiday **module** up to attendance's standard now that `HolidayService` (P1) made its *integration* correct. Locked decision stands: `annual_fixed` auto-expand + lunar/Eid entered manually per year (no auto-Hijri).
+- **Audit trail + soft-delete:** `holiday_audit_logs` (mirror the leave/attendance audit) + `softDeletes()` on `holidays` so a deleted holiday is recoverable and the change is attributable.
+- **Copy-last-year / bulk import:** an admin action that clones a prior year's holidays into the new year (pre-filling Gregorian/national days; HR then edits the lunar dates per that year's moon-sighting). Removes the per-year manual re-entry drudgery without introducing unreliable auto-Hijri.
+- **Validation robustness:** `from_date <= to_date`, no silent overlap duplicates, `recurrence_pattern` constrained to `{none, annual_fixed}`, `is_active`/`is_recurring` coherent.
+- **UI:** holiday admin screen reflects recurrence + active state + the copy-year action.
+
+## Cross-cutting — Validation-rule integrity & audit consistency *(threads through P2/P4)*
+
+- **Validation-rule integrity sweep:** the P1 final review caught a stale `employee_id => integer` rule (column is now varchar). Sweep `*ValidationService` / FormRequests for rules that no longer match real column types or canonical enum values; the leave status normalization (2a) is the first beneficiary.
+- **Audit consistency across HR modules:** attendance has an immutable audit log; leave (P2) and holiday (P4) get the same. Standardize on the `actor_id / action / before / after / reason / ip`, `UPDATED_AT = null` shape so all HR audit logs read identically.
 
 ## Testing strategy (all phases)
 - PHPUnit class-style, sqlite `:memory:` + `RefreshDatabase`; single-engine reconciliation (summary == dashboard == grid) is the invariant every phase must preserve.
