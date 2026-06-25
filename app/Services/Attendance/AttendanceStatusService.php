@@ -60,12 +60,13 @@ class AttendanceStatusService
 
         $hasPunches = $sorted->isNotEmpty();
 
-        // No punches: holiday > leave > weekend/off > absent.
+        // No punches: holiday > weekly-off > leave > absent.
+        // A rest day (weekly-off/holiday) is never consumed by leave.
         if (! $hasPunches) {
             $status = match (true) {
                 $isHoliday => DayAttendance::HOLIDAY,
-                $isOnLeave => DayAttendance::ON_LEAVE,
                 ! $shift->isWorkingDay => DayAttendance::WEEKEND,
+                $isOnLeave => DayAttendance::ON_LEAVE,
                 default => DayAttendance::ABSENT,
             };
 
@@ -149,6 +150,12 @@ class AttendanceStatusService
             if ($firstIn->lessThan($windowStart) || ($lastOut && $lastOut->greaterThan($windowEnd))) {
                 $flags[] = 'outside_shift_window';
             }
+        }
+
+        // Punch on an approved-leave working day: surface a conflict for the approver
+        // (do NOT silently relabel — classifyDay keeps the day On Leave).
+        if ($isOnLeave && $shift->isWorkingDay) {
+            $flags[] = 'worked_on_leave';
         }
 
         // Policy-driven pay-rule overrides — gated strictly behind a non-neutral policy so
