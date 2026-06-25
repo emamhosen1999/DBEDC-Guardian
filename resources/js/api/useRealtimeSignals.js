@@ -25,10 +25,18 @@ export function useRealtimeSignals({ path, selfActorId, onSignal }) {
       .then((db) => {
         if (cancelled) return;
         const r = ref(db, `signals/${NS}/${path}`);
-        unsub = onValue(r, makeSignalHandler({
+        // onValue fires immediately with the current value on subscribe; skip that
+        // initial snapshot (the query already loads fresh data on mount) and react
+        // only to subsequent changes — genuine cross-user updates.
+        let isFirst = true;
+        const handle = makeSignalHandler({
           selfActorId,
           onSignal: (marker) => onSignalRef.current?.(marker),
-        }));
+        });
+        unsub = onValue(r, (snapshot) => {
+          if (isFirst) { isFirst = false; return; }
+          handle(snapshot);
+        });
       })
       .catch(() => { /* realtime unavailable — degrade silently */ });
 
