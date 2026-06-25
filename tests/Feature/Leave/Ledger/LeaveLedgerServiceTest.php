@@ -51,4 +51,27 @@ class LeaveLedgerServiceTest extends TestCase
         $this->assertSame(10.0, $svc->balance($u->id, $t->id, 2026));
         $this->assertSame(1, LeaveLedger::where('source_id', $leave->id)->where('txn_type', 'consumption_reversal')->count());
     }
+
+    /** @test */
+    public function reverse_after_an_edit_repost_fully_restores_the_balance(): void
+    {
+        $u = User::factory()->create();
+        $t = LeaveSetting::factory()->create();
+        $leave = Leave::create([
+            'user_id' => $u->id, 'leave_type' => $t->id, 'from_date' => '2026-04-01',
+            'to_date' => '2026-04-03', 'no_of_days' => 3, 'reason' => 'x', 'status' => 'approved',
+        ]);
+        $svc = app(LeaveLedgerService::class);
+        $svc->post($u->id, $t->id, 2026, 'opening', 10);
+
+        // approve (consume 3) -> edit (reverse + re-post 2) -> reject (reverse the 2)
+        $svc->consume($leave);                       // -3  => 7
+        $svc->reverseConsumption($leave->id);        // +3  => 10
+        $leave->update(['no_of_days' => 2]);
+        $svc->consume($leave->fresh());              // -2  => 8
+        $this->assertSame(8.0, $svc->balance($u->id, $t->id, 2026));
+
+        $svc->reverseConsumption($leave->id);        // must reverse the outstanding 2 => 10
+        $this->assertSame(10.0, $svc->balance($u->id, $t->id, 2026));
+    }
 }
