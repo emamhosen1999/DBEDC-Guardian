@@ -56,7 +56,7 @@ class HolidayController extends Controller
             'type' => 'required|string|in:public,religious,national,company,optional',
             'is_recurring' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
-            'recurrence_pattern' => 'nullable|in:annual_fixed',
+            'recurrence_pattern' => 'nullable|in:none,annual_fixed',
         ]);
 
         if ($validator->fails()) {
