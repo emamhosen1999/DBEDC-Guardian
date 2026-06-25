@@ -8,7 +8,7 @@
  */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-    Box, Flex, Text, Button, TextField, Switch,
+    Box, Flex, Text, Button, TextField, Switch, Select,
     Table, Badge, Tooltip, IconButton, Separator,
     ScrollArea, Spinner, Card, Grid,
 } from '@radix-ui/themes';
@@ -193,6 +193,15 @@ export default function LeaveSettingsPanel({
             earned_leave:      Boolean(lt.earned_leave),
             requires_approval: Boolean(lt.requires_approval ?? true),
             auto_approve:      Boolean(lt.auto_approve),
+            // Phase 3 — accrual policy
+            accrual_method:    lt.accrual_method || (lt.earned_leave ? 'monthly' : 'annual_upfront'),
+            accrual_rate:      lt.accrual_rate ?? '',
+            probation_months:  lt.probation_months ?? 0,
+            prorate_on_join:   Boolean(lt.prorate_on_join ?? true),
+            carry_forward_cap: lt.carry_forward_cap ?? '',
+            carry_expiry_months: lt.carry_expiry_months ?? '',
+            is_encashable:     Boolean(lt.is_encashable),
+            allow_negative:    Boolean(lt.allow_negative),
         });
         setIsEditing(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -311,6 +320,43 @@ export default function LeaveSettingsPanel({
                             <SwitchRow icon={ClockIcon} label="Earned Leave" description="Accumulated over time" checked={form.earned_leave} onCheckedChange={v => setField('earned_leave', v)} color="green" />
                             <SwitchRow icon={CheckCircledIcon} label="Approval Req." description="Manager approval needed" checked={form.requires_approval} onCheckedChange={v => { setField('requires_approval', v); if (!v) setField('auto_approve', false); }} color="blue" />
                             <SwitchRow icon={GearIcon} label="Auto Approve" description="Skip approval workflow" checked={form.auto_approve} onCheckedChange={v => setField('auto_approve', v)} color="teal" disabled={!form.requires_approval} />
+                        </Grid>
+
+                        {/* Accrual Policy (Phase 3 — ledger) */}
+                        <Text size="3" weight="bold" mt="2">Accrual Policy</Text>
+                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4">
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Accrual Method</Text>
+                                <Select.Root value={form.accrual_method} onValueChange={v => setField('accrual_method', v)}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="annual_upfront">Annual (upfront)</Select.Item>
+                                        <Select.Item value="monthly">Monthly accrual</Select.Item>
+                                        <Select.Item value="none">None</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Accrual Rate (days/yr)</Text>
+                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="defaults to days" value={form.accrual_rate} onChange={e => setField('accrual_rate', e.target.value)} />
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Probation (months)</Text>
+                                <TextField.Root size="2" type="number" min="0" placeholder="0" value={form.probation_months} onChange={e => setField('probation_months', e.target.value)} />
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Carry-forward Cap (days)</Text>
+                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="blank = no carry" value={form.carry_forward_cap} onChange={e => setField('carry_forward_cap', e.target.value)} />
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Carry Expiry (months)</Text>
+                                <TextField.Root size="2" type="number" min="0" placeholder="blank = never" value={form.carry_expiry_months} onChange={e => setField('carry_expiry_months', e.target.value)} />
+                            </Box>
+                        </Grid>
+                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="3">
+                            <SwitchRow icon={CalendarIcon} label="Prorate on Join" description="Pro-rate entitlement for mid-year joiners" checked={form.prorate_on_join} onCheckedChange={v => setField('prorate_on_join', v)} color="blue" />
+                            <SwitchRow icon={ReloadIcon} label="Encashable" description="Can be encashed (recorded)" checked={form.is_encashable} onCheckedChange={v => setField('is_encashable', v)} color="green" />
+                            <SwitchRow icon={InfoCircledIcon} label="Allow Negative" description="Permit advance/negative balance" checked={form.allow_negative} onCheckedChange={v => setField('allow_negative', v)} color="orange" />
                         </Grid>
 
                         {/* Action Buttons */}

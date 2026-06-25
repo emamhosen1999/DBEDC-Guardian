@@ -100,20 +100,17 @@ class LeaveLedgerService
             return;
         }
 
-        $alreadyReversed = LeaveLedger::where('source_type', 'leave')->where('source_id', $leaveId)
-            ->where('txn_type', 'consumption_reversal')->exists();
-        if ($alreadyReversed) {
-            return; // idempotent
-        }
-
-        $consumed = (float) LeaveLedger::where('source_type', 'leave')->where('source_id', $leaveId)
-            ->where('txn_type', 'consumption')->sum('amount'); // negative
-        if ($consumed === 0.0) {
-            return;
+        // Reverse only the OUTSTANDING (net) consumption, not "any consumption row".
+        // This stays correct across an edit (reverse → re-post) followed by a later
+        // reject/delete: net < 0 means still consuming; net >= 0 means already balanced.
+        $net = (float) LeaveLedger::where('source_type', 'leave')->where('source_id', $leaveId)
+            ->whereIn('txn_type', ['consumption', 'consumption_reversal'])->sum('amount');
+        if ($net >= 0) {
+            return; // nothing outstanding to reverse (idempotent)
         }
 
         $year = (int) Carbon::parse($leave->from_date)->year;
-        $this->post($leave->user_id, (int) $leave->leave_type, $year, 'consumption_reversal', -$consumed,
+        $this->post($leave->user_id, (int) $leave->leave_type, $year, 'consumption_reversal', -$net,
             'leave', $leaveId, null, $reason ?? 'Leave reversed');
     }
 }
