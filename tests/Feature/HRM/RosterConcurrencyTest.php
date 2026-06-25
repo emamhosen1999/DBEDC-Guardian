@@ -57,5 +57,22 @@ class RosterConcurrencyTest extends TestCase
         ]);
 
         $response->assertOk();
+        $response->assertJsonStructure(['message', 'cell' => ['updated_at']]);
+    }
+
+    public function test_new_cell_with_expected_updated_at_is_not_rejected(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo('attendance.settings');
+        // No cell pre-created — the date is fresh.
+
+        $response = $this->actingAs($user)->putJson('/attendance/roster/cell', [
+            'user_id'             => $user->id,
+            'date'                => '2026-06-21',
+            'shift_id'            => null,
+            'expected_updated_at' => '2000-01-01T00:00:00+00:00',
+        ]);
+
+        $response->assertOk();
     }
 }
