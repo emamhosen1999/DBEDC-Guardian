@@ -11,6 +11,7 @@ use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\Contracts\PolicyResolver;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\DayAttendance;
+use App\Services\Attendance\HolidayService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -73,12 +74,10 @@ class AttendanceReportService
      */
     public function getHolidaysForMonth(int $year, int $month): Collection
     {
-        return Holiday::where(function ($query) use ($year, $month) {
-            $query->whereYear('from_date', $year)
-                ->whereMonth('from_date', $month)
-                ->orWhereYear('to_date', $year)
-                ->whereMonth('to_date', $month);
-        })->get();
+        $start = Carbon::create($year, $month, 1)->startOfDay();
+        $end = $start->copy()->endOfMonth()->endOfDay();
+
+        return app(HolidayService::class)->forRange($start, $end);
     }
 
     /**
@@ -434,12 +433,9 @@ class AttendanceReportService
      */
     public function getTotalHolidayDays(int $year, int $month): int
     {
-        $holidays = Holiday::where(function ($query) use ($year, $month) {
-            $query->whereYear('from_date', $year)
-                ->whereMonth('from_date', $month)
-                ->orWhereYear('to_date', $year)
-                ->whereMonth('to_date', $month);
-        })->get();
+        $startOfMonth = Carbon::create($year, $month, 1)->startOfDay();
+        $endOfMonth = $startOfMonth->copy()->endOfMonth()->endOfDay();
+        $holidays = app(HolidayService::class)->forRange($startOfMonth, $endOfMonth);
 
         return $holidays->sum(function ($holiday) use ($year, $month) {
             $from = Carbon::parse($holiday->from_date);
@@ -473,18 +469,17 @@ class AttendanceReportService
             : (clone $startOfMonth)->endOfMonth();
 
         // Fetch holiday ranges
-        $holidayRanges = Holiday::where(function ($query) use ($year, $month) {
-            $query->whereYear('from_date', $year)->whereMonth('from_date', $month)
-                ->orWhereYear('to_date', $year)->whereMonth('to_date', $month);
-        })->get()->map(function ($holiday) use ($startOfMonth, $endOfRange) {
-            $from = Carbon::parse($holiday->from_date);
-            $to = Carbon::parse($holiday->to_date);
+        $holidayRanges = app(HolidayService::class)
+            ->forRange($startOfMonth->copy()->startOfDay(), (clone $startOfMonth)->endOfMonth()->endOfDay())
+            ->map(function ($holiday) use ($startOfMonth, $endOfRange) {
+                $h = Carbon::parse($holiday->from_date);
+                $t = Carbon::parse($holiday->to_date);
 
-            return [
-                'start' => $from->greaterThan($startOfMonth) ? $from : $startOfMonth,
-                'end' => $to->lessThan($endOfRange) ? $to : $endOfRange,
-            ];
-        });
+                return [
+                    'start' => $h->greaterThan($startOfMonth) ? $h : $startOfMonth,
+                    'end' => $t->lessThan($endOfRange) ? $t : $endOfRange,
+                ];
+            });
 
         $weekendCount = 0;
         $current = $startOfMonth->copy();
