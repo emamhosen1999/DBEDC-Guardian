@@ -1,6 +1,8 @@
 // firebase-config.js
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getDatabase } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -10,6 +12,7 @@ const firebaseConfig = {
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
 const app = initializeApp(firebaseConfig);
@@ -36,3 +39,7 @@ export const onMessageListener = () => new Promise((resolve) => {
         resolve(payload);
     });
 });
+
+// Realtime Database + Auth (used by the realtime signal layer).
+export const realtimeDb = getDatabase(app);
+export const firebaseAuth = getAuth(app);
