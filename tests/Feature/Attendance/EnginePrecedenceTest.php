@@ -55,4 +55,25 @@ class EnginePrecedenceTest extends TestCase
 
         $this->assertSame(DayAttendance::ON_LEAVE, $result->status);
     }
+
+    public function test_worked_on_leave_flag_is_set_when_punches_exist_on_leave_working_day(): void
+    {
+        $working = new ShiftSchedule(
+            start: Carbon::create(2026, 6, 10, 9), end: Carbon::create(2026, 6, 10, 17),
+            crossesMidnight: false, graceInMinutes: 15, graceOutMinutes: 0,
+            fullDayMinutes: 420, halfDayMinutes: 210, minPresentMinutes: 60,
+            breakMinutes: 60, isWorkingDay: true,
+        );
+
+        $punch = (object) [
+            'punchin'  => Carbon::create(2026, 6, 10, 9, 0),
+            'punchout' => Carbon::create(2026, 6, 10, 17, 0),
+        ];
+
+        $result = app(AttendanceStatusService::class)->resolve(
+            new Collection([$punch]), $working, isHoliday: false, isOnLeave: true,
+        );
+
+        $this->assertTrue(in_array('worked_on_leave', $result->flags, true));
+    }
 }
