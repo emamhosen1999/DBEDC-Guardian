@@ -10,7 +10,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 class AttendancePerEmployeeSummaryExport
 {
     private const HEADERS = [
-        'Employee', 'Emp ID', 'Department', 'Present', 'Absent', 'Leave',
+        'Employee', 'Emp ID', 'Department', 'Present', 'Absent', 'Leave', 'Paid Leave', 'LWP',
         'OT Hours', 'Late', 'Holidays Worked', 'Weekly-off Worked', 'Working Days', 'Attendance %',
     ];
 
@@ -19,7 +19,7 @@ class AttendancePerEmployeeSummaryExport
      */
     public function writeSheet(Worksheet $sheet, array $summary): void
     {
-        $lastColLetter = 'L'; // 12 columns
+        $lastColLetter = 'N'; // 14 columns
 
         $sheet->setTitle('Summary');
 
@@ -35,7 +35,7 @@ class AttendancePerEmployeeSummaryExport
         $sheet->getStyle('A2')->getFont()->setBold(true);
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        $sheet->setCellValue('A3', 'Whole-day leave/present model — half-days are not yet split (a half-day may count as a full day).');
+        $sheet->setCellValue('A3', 'Half-day leaves are split (0.5): a half-day counts as 0.5 leave + 0.5 present/absent. Paid Leave vs LWP per the leave type.');
         $sheet->mergeCells("A3:{$lastColLetter}3");
         $sheet->getStyle('A3')->getFont()->setItalic(true)->setSize(9);
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
@@ -50,13 +50,14 @@ class AttendancePerEmployeeSummaryExport
 
         // Data rows.
         $row = $headerRow + 1;
-        $totals = ['present' => 0, 'absent' => 0, 'leave' => 0, 'ot_hours' => 0.0,
+        $totals = ['present' => 0, 'absent' => 0, 'leave' => 0, 'paid_leave' => 0, 'lwp' => 0, 'ot_hours' => 0.0,
             'late' => 0, 'holidays_worked' => 0, 'weekly_off_worked' => 0, 'working_days' => 0];
 
         foreach ($summary['rows'] as $r) {
             $sheet->fromArray([
                 $r['employee_name'], $r['employee_id'], $r['department'],
-                $r['present'], $r['absent'], $r['leave'], $r['ot_hours'], $r['late'],
+                $r['present'], $r['absent'], $r['leave'], $r['paid_leave'], $r['lwp'],
+                $r['ot_hours'], $r['late'],
                 $r['holidays_worked'], $r['weekly_off_worked'], $r['working_days'], $r['attendance_percentage'],
             ], null, "A{$row}");
 
@@ -69,7 +70,8 @@ class AttendancePerEmployeeSummaryExport
         // Totals footer.
         $sheet->setCellValue("A{$row}", 'TOTAL');
         $sheet->fromArray([
-            $totals['present'], $totals['absent'], $totals['leave'], round($totals['ot_hours'], 1),
+            round($totals['present'], 1), round($totals['absent'], 1), round($totals['leave'], 1),
+            round($totals['paid_leave'], 1), round($totals['lwp'], 1), round($totals['ot_hours'], 1),
             $totals['late'], $totals['holidays_worked'], $totals['weekly_off_worked'], $totals['working_days'], '',
         ], null, "D{$row}");
         $sheet->getStyle("A{$row}:{$lastColLetter}{$row}")->getFont()->setBold(true);

@@ -5,6 +5,7 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Department;
+use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\Contracts\PolicyResolver;
@@ -95,6 +96,8 @@ class AttendanceReportService
                 'leave_settings.type as leave_type',
                 DB::raw($datediffExpression)
             )
+            // Approved-only, matching the engine/grid so the leave-type tallies reconcile.
+            ->where('leaves.status', 'approved')
             ->where(function ($query) use ($year, $month) {
                 $query->whereYear('leaves.from_date', $year)
                     ->whereMonth('leaves.from_date', $month)
@@ -259,10 +262,16 @@ class AttendanceReportService
                 /** @var DayAttendance $result */
                 $result = $ctx['result'];
                 $effective = $this->classifyDay($ctx);
+                $lf = $result->leave_fraction; // 0 / 0.5 / 1.0
+
+                if ($lf > 0) {
+                    $leaveDays += $lf;
+                }
 
                 if (in_array($effective, $workedStatuses, true)) {
-                    $present++;
-                    $userPresent++;
+                    // A present day may also carry a 0.5 leave (half-day worked the other half).
+                    $present += (1.0 - $lf);
+                    $userPresent += (1.0 - $lf);
                     // Hours/late only accrue on worked-effective days (a punch on a leave
                     // day is effective ON_LEAVE and contributes nothing, matching the grid).
                     $workMinutes += $result->worked_minutes;
@@ -273,14 +282,17 @@ class AttendanceReportService
                 } elseif ($effective === DayAttendance::ABSENT) {
                     $absent++;
                 } elseif ($effective === DayAttendance::ON_LEAVE) {
-                    $leaveDays++;
+                    // Half-day leave with no punch: the worked half is a no-show.
+                    if (in_array('half_day_leave_unworked', $result->flags, true)) {
+                        $absent += (1.0 - $lf);
+                    }
                 }
 
-                // A day this employee was actually scheduled to work (excludes off-days, holidays,
-                // and approved-leave days — leave does not reduce attendance %).
-                if ($ctx['schedule']->isWorkingDay && ! $ctx['holiday'] && $effective !== DayAttendance::ON_LEAVE) {
-                    $userWorkingDays++;
-                    $potentialManDays++;
+                // The scheduled working portion not excused by leave (excludes off-days,
+                // holidays, and the leave fraction — leave does not reduce attendance %).
+                if ($ctx['schedule']->isWorkingDay && ! $ctx['holiday']) {
+                    $userWorkingDays += (1.0 - $lf);
+                    $potentialManDays += (1.0 - $lf);
                 }
             }
 
@@ -307,9 +319,9 @@ class AttendanceReportService
                 'weekends' => (int) $weekendCount,
             ],
             'attendance' => [
-                'present' => (int) $present,
-                'absent' => (int) $absent,
-                'leaves' => (int) $leaveDays,
+                'present' => $this->numify($present),
+                'absent' => $this->numify($absent),
+                'leaves' => $this->numify($leaveDays),
                 'lateArrivals' => (int) $lateArrivals,
                 'percentage' => $attendancePercentage,
                 'perfectCount' => (int) $perfectCount,
@@ -344,6 +356,11 @@ class AttendanceReportService
         $holidays = $this->getHolidaysForMonth($year, $month);
         $users = $this->getEmployeeUsersWithAttendanceAndLeaves($year, $month, $departmentId);
 
+        // Paid/unpaid lookup. The leaves eager-load aliases leave_type to the type
+        // NAME, so resolve by name; fall back to id for any numeric leave_type.
+        $paidById = LeaveSetting::query()->pluck('is_paid', 'id');
+        $paidByName = LeaveSetting::query()->pluck('is_paid', 'type');
+
         $workedStatuses = [
             DayAttendance::PRESENT, DayAttendance::LATE, DayAttendance::HALF_DAY, DayAttendance::SHORT,
         ];
@@ -355,7 +372,8 @@ class AttendanceReportService
                 $resolver, $policyResolver, $statusEngine
             );
 
-            $present = $absent = $leave = $late = $holidaysWorked = $weeklyOffWorked = $workingDays = 0;
+            $present = $absent = $late = $holidaysWorked = $weeklyOffWorked = $workingDays = 0;
+            $leave = 0.0; $paidLeave = 0.0; $lwp = 0.0;
             $otMinutes = 0;
 
             foreach ($dayResults as $ctx) {
@@ -367,9 +385,24 @@ class AttendanceReportService
                 $result = $ctx['result'];
                 $effective = $this->classifyDay($ctx);
                 $hasPunch = $ctx['attendances']->isNotEmpty();
+                $lf = $result->leave_fraction; // 0 / 0.5 / 1.0
+
+                if ($lf > 0) {
+                    $leave += $lf;
+                    $lt = $ctx['leave']->leave_type ?? null;
+                    $isPaid = is_numeric($lt)
+                        ? (bool) ($paidById[$lt] ?? true)
+                        : (bool) ($paidByName[$lt] ?? true);
+                    if ($isPaid) {
+                        $paidLeave += $lf;
+                    } else {
+                        $lwp += $lf;
+                    }
+                }
 
                 if (in_array($effective, $workedStatuses, true)) {
-                    $present++;
+                    // A present day may also carry a 0.5 leave (half-day worked the other half).
+                    $present += (1.0 - $lf);
                     $otMinutes += $result->ot_minutes;
                     if ($result->late_minutes > 0) {
                         $late++;
@@ -377,7 +410,10 @@ class AttendanceReportService
                 } elseif ($effective === DayAttendance::ABSENT) {
                     $absent++;
                 } elseif ($effective === DayAttendance::ON_LEAVE) {
-                    $leave++;
+                    // Half-day leave with no punch: the worked half is a no-show.
+                    if (in_array('half_day_leave_unworked', $result->flags, true)) {
+                        $absent += (1.0 - $lf);
+                    }
                 }
 
                 if ($ctx['holiday'] && $hasPunch) {
@@ -398,9 +434,11 @@ class AttendanceReportService
                 'employee_name'        => $user->name,
                 'employee_id'          => $user->employee_id,
                 'department'           => optional($user->department)->name ?? '—',
-                'present'              => $present,
-                'absent'               => $absent,
-                'leave'                => $leave,
+                'present'              => $this->numify($present),
+                'absent'               => $this->numify($absent),
+                'leave'                => $this->numify($leave),
+                'paid_leave'           => $this->numify($paidLeave),
+                'lwp'                  => $this->numify($lwp),
                 'ot_hours'             => round($otMinutes / 60, 1),
                 'late'                 => $late,
                 'holidays_worked'      => $holidaysWorked,
@@ -597,6 +635,17 @@ class AttendanceReportService
      *
      * @return string a DayAttendance::* constant
      */
+    /**
+     * Present a day-count as an int when whole (clean "5" in UI/JSON) and a
+     * 1-decimal float only when fractional (half-day leaves → "4.5").
+     */
+    private function numify(float $value): int|float
+    {
+        $rounded = round($value, 1);
+
+        return $rounded == (int) $rounded ? (int) $rounded : $rounded;
+    }
+
     private function classifyDay(array $ctx): string
     {
         /** @var DayAttendance $result */
