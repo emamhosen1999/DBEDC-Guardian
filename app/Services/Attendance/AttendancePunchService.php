@@ -380,6 +380,20 @@ class AttendancePunchService
             return $this->punchOut($openRow, $request, $user, $punchTime);
         }
 
+        // ── Night-shift overnight close for manual (no check_type) punches ──
+        // When there is no open row TODAY and no explicit check_type, check
+        // whether a prior-day row should be closed (overnight shift).  The
+        // findOpenAttendanceToClose method already safely gates this: it only
+        // returns a prior-day row when the shift crosses_midnight AND the
+        // punch is within MAX_OVERNIGHT_HOURS of the punch-in, so day-shift
+        // workers are never wrongly paired.
+        if (! $checkType) {
+            $overnightRow = $this->findOpenAttendanceToClose($user->id, $punchTime, lock: true);
+            if ($overnightRow) {
+                return $this->punchOut($overnightRow, $request, $user, $punchTime);
+            }
+        }
+
         return $this->punchIn($user, $punchDate, $request, $punchTime);
     }
 

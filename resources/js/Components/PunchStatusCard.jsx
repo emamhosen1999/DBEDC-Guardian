@@ -480,9 +480,11 @@ const PunchStatusCard = React.memo(() => {
                     
                     // If invalid or string with just time format
                     if (isNaN(punchInTime.getTime()) || (typeof punch.punchin_time === 'string' && punch.punchin_time.includes(':') && !punch.punchin_time.includes('T'))) {
-                        const today = new Date();
+                        // Use the punch row's date (not today) — critical for overnight sessions
+                        // where punch.date is yesterday but the time is an evening hour.
+                        const baseDate = punch.date ? new Date(punch.date + 'T00:00:00') : new Date();
                         const [hours, minutes, seconds] = punch.punchin_time.split(':');
-                        punchInTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 
+                        punchInTime = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 
                             parseInt(hours), parseInt(minutes), parseInt(seconds || 0));
                     }
                 } catch (error) {
@@ -498,11 +500,11 @@ const PunchStatusCard = React.memo(() => {
                     try {
                         punchOutTime = new Date(punch.punchout_time);
                         
-                        // If invalid or string with just time format
+                        // If invalid or string with just time format — use punch row's date
                         if (isNaN(punchOutTime.getTime()) || (typeof punch.punchout_time === 'string' && punch.punchout_time.includes(':') && !punch.punchout_time.includes('T'))) {
-                            const today = new Date();
+                            const baseDate = punch.date ? new Date(punch.date + 'T00:00:00') : new Date();
                             const [hours, minutes, seconds] = punch.punchout_time.split(':');
-                            punchOutTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 
+                            punchOutTime = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 
                                 parseInt(hours), parseInt(minutes), parseInt(seconds || 0));
                         }
                     } catch (error) {
