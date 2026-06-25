@@ -63,10 +63,25 @@ and terminations are real for this org. Sequenced B1 → B2 → B3.
 - **Termination gate:** stop counting "Absent" after `Offboarding.last_working_date` (mirror the
   `date_of_joining` joiner clamp already in `calculateMonthlyStats`).
 
-**B2 — Holiday correctness** (small, high impact: prevents false-absents)
-- Apply `is_active` filter in `getHolidaysForMonth` (inactive holidays currently still suppress attendance).
-- Apply `is_recurring`/`recurrence_pattern` (annual holidays don't recur today → everyone shows Absent on a
-  real recurring holiday). Optional: per-location/department holiday scoping (multi-site only).
+**B2 — Holiday correctness** ✅ DONE (2026-06-23, Phase 1 of the 10/10 initiative)
+- ✅ `is_active` honored everywhere + ✅ `annual_fixed` recurrence expanded, via the single new
+  `HolidayService::forRange()`; the three ad-hoc holiday queries in `AttendanceReportService`
+  (`getHolidaysForMonth`/`getTotalHolidayDays`/`getWeekendDaysCount`) now delegate to it. Lunar/Islamic
+  holidays stay one-off (HR enters per year — no auto-Hijri). `recurrence_pattern` now persisted on create.
+- *Still open (later):* per-location/department holiday scoping (multi-site only — schema-ready, not built).
+
+**Also landed in Phase 1 (2026-06-23):**
+- ✅ **Engine precedence**: `AttendanceStatusService` no-punch order is now `holiday > weekly-off > leave > absent`
+  (a rest day is never consumed by leave); `worked_on_leave` conflict flag added.
+- ✅ **`employee_id` uniqueness**: dup/NULL backfilled (placeholders) + unique index (migration
+  `2026_06_23_000001_enforce_unique_employee_id`, applied to dev MySQL; **run on prod**).
+- ✅ **Night-shift overnight web punch-out**: a manual (no-`check_type`) 08:00 punch now closes the prior
+  evening's 20:00 night-shift row instead of opening a new one (`processPunchInTransaction` consults
+  `findOpenAttendanceToClose`); day-shift workers unaffected. Covered by `NightShiftOvernightPunchTest`.
+- Design + plan: `docs/superpowers/specs/2026-06-23-attendance-leaves-holidays-10of10-design.md`,
+  `docs/superpowers/plans/2026-06-23-attendance-phase1-holidays-engine-integrity.md`.
+
+**B3 — Leave correctness for the handoff** (Phase 2 of the 10/10 initiative — designed, plan next)
 
 **B3 — Leave correctness for the handoff**
 - **Half-day leave** (0.5 precision): add half-day to the leave model + apply flow + engine so a half-day
