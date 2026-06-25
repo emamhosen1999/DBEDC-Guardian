@@ -410,7 +410,7 @@ class LeaveController extends Controller
             $updatedCount = 0;
 
             foreach ($leaveIds as $leaveId) {
-                $result = $this->crudService->updateLeaveStatus($leaveId, 'declined', Auth::id());
+                $result = $this->crudService->updateLeaveStatus($leaveId, 'rejected', Auth::id());
                 if ($result['updated']) {
                     $updatedCount++;
                 }
@@ -441,7 +441,7 @@ class LeaveController extends Controller
             $request->validate([
                 'leave_ids' => 'required|array|min:1',
                 'leave_ids.*' => 'integer|exists:leaves,id',
-                'status' => 'required|string|in:approved,declined,pending,new',
+                'status' => 'required|string|in:approved,rejected,pending,cancelled',
             ]);
 
             if (! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
@@ -462,7 +462,7 @@ class LeaveController extends Controller
                 }
             }
 
-            $statusLabel = ucfirst($targetStatus === 'declined' ? 'rejected' : $targetStatus);
+            $statusLabel = ucfirst($targetStatus);
 
             return response()->json([
                 'success' => true,
