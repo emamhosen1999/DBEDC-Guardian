@@ -63,6 +63,36 @@ class LeaveLedgerService
         return $this->balance($userId, $leaveTypeId, $year);
     }
 
+    /**
+     * True once a balance is established (any ledger row) for (user, type, year).
+     * Enforcement is dormant until the ledger is seeded, so leave isn't blocked
+     * on un-onboarded types — distinguishes "0 because used up" from "untracked".
+     */
+    public function isTracked(int $userId, int $leaveTypeId, int $year): bool
+    {
+        return LeaveLedger::where('user_id', $userId)->where('leave_type', $leaveTypeId)
+            ->where('period_year', $year)->exists();
+    }
+
+    /**
+     * Post a `consumption` for an approved leave. Net-idempotent: if the leave is
+     * already net-consuming, no-op; if it was reversed (net 0), a fresh consumption
+     * posts (covers edit re-posting).
+     */
+    public function consume(Leave $leave): void
+    {
+        $net = (float) LeaveLedger::where('source_type', 'leave')->where('source_id', $leave->id)
+            ->whereIn('txn_type', ['consumption', 'consumption_reversal'])->sum('amount');
+        if ($net < 0) {
+            return;
+        }
+
+        $this->post(
+            (int) $leave->user_id, (int) $leave->leave_type, (int) Carbon::parse($leave->from_date)->year,
+            'consumption', -(float) $leave->no_of_days, 'leave', $leave->id, null, 'Leave taken'
+        );
+    }
+
     public function reverseConsumption(int $leaveId, ?string $reason = null): void
     {
         $leave = Leave::find($leaveId);

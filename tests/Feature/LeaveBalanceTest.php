@@ -40,7 +40,19 @@ class LeaveBalanceTest extends TestCase
 
     private function makeService(LeaveApprovalService $approvalMock): LeaveCrudService
     {
-        return new LeaveCrudService($approvalMock, new LeaveOverlapService, app(LeaveDayCalculator::class), app(\App\Services\Leave\LeaveAuditService::class));
+        return new LeaveCrudService(
+            $approvalMock,
+            new LeaveOverlapService,
+            app(LeaveDayCalculator::class),
+            app(\App\Services\Leave\LeaveAuditService::class),
+            app(\App\Services\Leave\LeaveLedgerService::class),
+        );
+    }
+
+    /** Seed a ledger opening so the ledger-driven balance check (Phase 3) has a quota. */
+    private function seedOpening(int $userId, int $leaveTypeId, int $year, float $days): void
+    {
+        app(\App\Services\Leave\LeaveLedgerService::class)->post($userId, $leaveTypeId, $year, 'opening', $days);
     }
 
     public function test_insufficient_balance_throws()
@@ -65,6 +77,11 @@ class LeaveBalanceTest extends TestCase
             'reason' => 'Used up',
             'status' => 'approved',
         ]);
+
+        // Ledger: entitlement of 5, all 5 consumed -> tracked, 0 available.
+        $year = (int) now()->addMonth()->year;
+        $this->seedOpening($user->id, $setting->id, $year, 5);
+        app(\App\Services\Leave\LeaveLedgerService::class)->post($user->id, $setting->id, $year, 'consumption', -5);
 
         $approvalMock = $this->getMockBuilder(LeaveApprovalService::class)
             ->disableOriginalConstructor()
@@ -109,6 +126,9 @@ class LeaveBalanceTest extends TestCase
             'reason' => 'Earlier',
             'status' => 'approved',
         ]);
+
+        // Ledger holds the entitlement (10) for the apply year; plenty for a 2-day leave.
+        $this->seedOpening($user->id, $setting->id, (int) now()->addMonth()->year, 10);
 
         $approvalMock = $this->getMockBuilder(LeaveApprovalService::class)
             ->disableOriginalConstructor()

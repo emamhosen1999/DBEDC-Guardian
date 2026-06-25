@@ -17,16 +17,28 @@ class LeaveCrudService
 
     protected LeaveAuditService $audit;
 
+    protected LeaveLedgerService $ledger;
+
     public function __construct(
         LeaveApprovalService $approvalService,
         LeaveOverlapService $overlapService,
         LeaveDayCalculator $dayCalculator,
-        LeaveAuditService $audit
+        LeaveAuditService $audit,
+        LeaveLedgerService $ledger
     ) {
         $this->approvalService = $approvalService;
         $this->overlapService = $overlapService;
         $this->dayCalculator = $dayCalculator;
         $this->audit = $audit;
+        $this->ledger = $ledger;
+    }
+
+    /**
+     * Post a consumption transaction for an approved leave (net-idempotent).
+     */
+    private function postConsumption(Leave $leave): void
+    {
+        $this->ledger->consume($leave);
     }
 
     /**
@@ -58,13 +70,12 @@ class LeaveCrudService
                 (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
             );
 
-            // Server-side balance enforcement: if leave type has an allocation, ensure user has enough remaining days
-            if ($leaveSetting && is_numeric($leaveSetting->days)) {
-                $year = (int) $fromDate->year;
-                $requested = $serverDays;
-                $remaining = $this->getRemainingDays((int) $data['user_id'], (int) $leaveTypeId, $year);
-
-                if ($requested > $remaining) {
+            // Server-side balance enforcement via the ledger (only once the balance is
+            // tracked/seeded; dormant for un-onboarded types) unless the type allows negative.
+            if ($leaveSetting && ! $leaveSetting->allow_negative
+                && $this->ledger->isTracked((int) $data['user_id'], (int) $leaveTypeId, (int) $fromDate->year)) {
+                $available = $this->ledger->available((int) $data['user_id'], (int) $leaveTypeId, $fromDate);
+                if ($serverDays > $available) {
                     throw new \RuntimeException('Insufficient leave balance for selected leave type.', 422);
                 }
             }
@@ -88,6 +99,9 @@ class LeaveCrudService
                     'status' => 'approved',
                     'approved_at' => now(),
                 ]);
+
+                // An approved leave immediately consumes balance.
+                $this->postConsumption($leave->fresh());
             } else {
                 // Build and submit approval chain
                 $this->approvalService->submitForApproval($leave);
@@ -137,17 +151,23 @@ class LeaveCrudService
                 (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
             );
 
-            // Server-side balance enforcement on update (exclude current leave from calculation)
-            if ($leaveSetting && is_numeric($leaveSetting->days)) {
-                $year = (int) $fromDate->year;
-                $requested = $serverDays;
-                $remaining = $this->getRemainingDays((int) $data['user_id'], (int) $leaveTypeId, $year, $leaveId);
+            // If the existing leave was approved, free its consumed days before the
+            // balance check (so editing an approved leave doesn't double-count it).
+            $wasApproved = $leave->status === 'approved';
+            if ($wasApproved) {
+                $this->ledger->reverseConsumption($leaveId, 'Leave edited');
+            }
 
-                if ($requested > $remaining) {
+            // Server-side balance enforcement via the ledger (tracked types only) unless allow_negative.
+            if ($leaveSetting && ! $leaveSetting->allow_negative
+                && $this->ledger->isTracked((int) $data['user_id'], (int) $leaveTypeId, (int) $fromDate->year)) {
+                $available = $this->ledger->available((int) $data['user_id'], (int) $leaveTypeId, $fromDate);
+                if ($serverDays > $available) {
                     throw new \RuntimeException('Insufficient leave balance for selected leave type.', 422);
                 }
             }
 
+            $newStatus = $data['status'] ?? $leave->status;
             $leave->update([
                 'user_id' => $data['user_id'],
                 'leave_type' => $leaveTypeId,
@@ -157,47 +177,18 @@ class LeaveCrudService
                 'is_half_day' => $isHalfDay,
                 'half_day_session' => $halfDaySession,
                 'reason' => $data['leaveReason'],
-                'status' => $data['status'] ?? $leave->status,
+                'status' => $newStatus,
             ]);
+
+            // Re-post consumption for the new amount if the leave is (still) approved.
+            if ($newStatus === 'approved') {
+                $this->postConsumption($leave->fresh());
+            }
 
             $this->audit->record('update', $leave->id, $before, $leave->fresh()->toArray());
 
             return $leave->fresh(); // Ensure we return the latest data with relationships
         });
-    }
-
-    /**
-     * Compute remaining days for a user's leave type for a year.
-     * Excludes an optional leave id from the aggregation (useful for updates).
-     */
-    private function getRemainingDays(int $userId, int $leaveTypeId, int $year, ?int $excludeLeaveId = null): float
-    {
-        $leaveSetting = LeaveSetting::find($leaveTypeId);
-
-        if (! $leaveSetting || ! is_numeric($leaveSetting->days)) {
-            // Treat as unlimited if no allocation is configured
-            return (float) PHP_INT_MAX;
-        }
-
-        $allocated = (int) $leaveSetting->days;
-
-        $query = DB::table('leaves')
-            ->where('user_id', $userId)
-            ->where('leave_type', $leaveTypeId)
-            ->whereYear('from_date', $year)
-            ->whereRaw('LOWER(status) IN (?, ?)', ['approved', 'pending']);
-
-        if ($excludeLeaveId) {
-            $query->where('id', '<>', $excludeLeaveId);
-        }
-
-        // Lock relevant rows to avoid races; aggregate in PHP after selecting rows
-        $rows = $query->lockForUpdate()->get(['no_of_days']);
-
-        // Sum as float so half-day (0.5) usage is not truncated in the balance check.
-        $used = (float) $rows->sum('no_of_days');
-
-        return max(0, $allocated - $used);
     }
 
     /**
@@ -212,10 +203,19 @@ class LeaveCrudService
             $normalized = strtolower((string) $status);
 
             if ($leave->status !== $normalized) {
+                $wasApproved = $leave->status === 'approved';
+
                 $leave->update([
                     'status' => $normalized,
                     'approved_by' => $approvedBy,
                 ]);
+
+                // Ledger: approving consumes; leaving an approved state reverses.
+                if ($normalized === 'approved') {
+                    $this->postConsumption($leave->fresh());
+                } elseif ($wasApproved) {
+                    $this->ledger->reverseConsumption($leaveId, "status -> {$normalized}");
+                }
 
                 $this->audit->record('status_change', $leave->id, $before, $leave->fresh()->toArray(), "status -> {$normalized}");
 
@@ -242,6 +242,11 @@ class LeaveCrudService
         return DB::transaction(function () use ($leaveId) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
             $before = $leave->toArray();
+
+            // Free any consumed balance before removing the leave.
+            if ($leave->status === 'approved') {
+                $this->ledger->reverseConsumption($leaveId, 'Leave deleted');
+            }
 
             $deleted = $leave->delete();
 

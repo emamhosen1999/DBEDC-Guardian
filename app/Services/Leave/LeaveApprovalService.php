@@ -226,6 +226,9 @@ class LeaveApprovalService
                     }
                 }
 
+                // Final approval consumes balance from the ledger.
+                app(LeaveLedgerService::class)->consume($leave->fresh());
+
                 app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
 
                 DB::commit();
@@ -300,6 +303,9 @@ class LeaveApprovalService
                     ]);
                 }
             }
+
+            // A rejection frees any previously-consumed balance (no-op if never consumed).
+            app(LeaveLedgerService::class)->reverseConsumption($leave->id, 'Leave rejected');
 
             app(LeaveAuditService::class)->record('reject', $leave->id, $before, $leave->fresh()->toArray(), $reason);
 
