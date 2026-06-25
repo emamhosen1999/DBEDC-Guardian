@@ -21,6 +21,15 @@ class LeaveSetting extends Model
         'requires_approval',
         'auto_approve',
         'special_conditions',
+        // Phase 3 — configurable accrual policy
+        'accrual_method',
+        'accrual_rate',
+        'probation_months',
+        'prorate_on_join',
+        'carry_forward_cap',
+        'carry_expiry_months',
+        'is_encashable',
+        'allow_negative',
     ];
 
     protected $casts = [
@@ -35,6 +44,15 @@ class LeaveSetting extends Model
         'requires_approval' => 'boolean',
         'auto_approve' => 'boolean',
         'special_conditions' => 'string',
+        // Phase 3
+        'accrual_method' => 'string',
+        'accrual_rate' => 'decimal:2',
+        'probation_months' => 'integer',
+        'prorate_on_join' => 'boolean',
+        'carry_forward_cap' => 'decimal:1',
+        'carry_expiry_months' => 'integer',
+        'is_encashable' => 'boolean',
+        'allow_negative' => 'boolean',
     ];
 
     public function leaves()
