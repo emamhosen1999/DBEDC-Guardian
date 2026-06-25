@@ -696,30 +696,30 @@ class AttendanceController extends Controller
             $date = $request->query('date', now()->toDateString());
             $departmentId = $request->query('department_id') ? (int) $request->query('department_id') : null;
 
-            $totalEmployeesQuery = User::query()->whereHas('roles', function ($q) {
+            $employeesQuery = User::query()->whereHas('roles', function ($q) {
                 $q->where('name', 'Employee');
             });
             if ($departmentId) {
-                $totalEmployeesQuery->where('department_id', $departmentId);
+                $employeesQuery->where('department_id', $departmentId);
             }
-            $totalEmployees = $totalEmployeesQuery->count();
+            $employees = $employeesQuery->get();
+            $totalEmployees = $employees->count();
 
-            $presentUsersIds = Attendance::whereDate('date', $date)
+            $attendanceQuery = Attendance::whereDate('date', $date)
                 ->whereNotNull('punchin')
-                ->where('policy_status', '!=', 'rejected')
-                ->pluck('user_id')
-                ->unique();
+                ->where('policy_status', '!=', 'rejected');
+            if ($departmentId) {
+                $attendanceQuery->whereHas('user', function ($q) use ($departmentId) {
+                    $q->where('department_id', $departmentId);
+                });
+            }
+            $dayPunches = $attendanceQuery->get()->groupBy('user_id');
 
+            $presentUsersIds = $dayPunches->keys();
             $presentCount = $presentUsersIds->count();
 
             $statusService = app(\App\Services\Attendance\AttendanceStatusService::class);
             $resolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
-
-            $dayPunches = Attendance::whereDate('date', $date)
-                ->whereNotNull('punchin')
-                ->where('policy_status', '!=', 'rejected')
-                ->get()
-                ->groupBy('user_id');
 
             $lateCount = 0;
             foreach ($dayPunches as $userId => $punches) {
@@ -730,19 +730,42 @@ class AttendanceController extends Controller
                 }
             }
 
-            $onLeaveCount = 0;
+            $onLeaveUserIds = collect();
             if (Schema::hasTable('leaves')) {
                 $leaveUserColumn = Schema::hasColumn('leaves', 'user_id') ? 'user_id' : 'employee_id';
-                $onLeaveCount = DB::table('leaves')
+                $onLeaveQuery = DB::table('leaves')
                     ->whereDate('from_date', '<=', $date)
                     ->whereDate('to_date', '>=', $date)
-                    ->whereRaw('LOWER(status) = ?', ['approved'])
-                    ->pluck($leaveUserColumn)
-                    ->unique()
-                    ->count();
-            }
+                    ->whereRaw('LOWER(status) = ?', ['approved']);
 
-            $absentCount = max(0, $totalEmployees - $presentCount - $onLeaveCount);
+                if ($departmentId) {
+                    $onLeaveQuery->join('users', 'leaves.'.$leaveUserColumn, '=', 'users.id')
+                        ->where('users.department_id', $departmentId);
+                    $onLeaveUserIds = $onLeaveQuery->pluck('leaves.'.$leaveUserColumn)->unique();
+                } else {
+                    $onLeaveUserIds = $onLeaveQuery->pluck($leaveUserColumn)->unique();
+                }
+            }
+            $onLeaveCount = $onLeaveUserIds->count();
+
+            $parsedDate = \Carbon\Carbon::parse($date);
+            $now = \Carbon\Carbon::now();
+
+            $absentCount = 0;
+            // Potential absents: employees who are not present and not on leave
+            $potentialAbsents = $employees->filter(function ($user) use ($presentUsersIds, $onLeaveUserIds) {
+                return !$presentUsersIds->contains($user->id) && !$onLeaveUserIds->contains($user->id);
+            });
+
+            foreach ($potentialAbsents as $user) {
+                $schedule = $resolver->resolve($user->id, $parsedDate);
+                if ($schedule->isWorkingDay) {
+                    $isUpcoming = $parsedDate->isFuture() || ($parsedDate->isToday() && $now->lt($schedule->start));
+                    if (!$isUpcoming) {
+                        $absentCount++;
+                    }
+                }
+            }
 
             return response()->json([
                 'present' => $presentCount,
