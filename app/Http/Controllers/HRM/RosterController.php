@@ -5,12 +5,16 @@ namespace App\Http\Controllers\HRM;
 use App\Http\Controllers\Controller;
 use App\Models\HRM\RosterDay;
 use App\Services\Attendance\RosterService;
+use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RosterController extends Controller
 {
-    public function __construct(private readonly RosterService $roster) {}
+    public function __construct(
+        private readonly RosterService $roster,
+        private readonly RealtimeSignal $signals,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -81,6 +85,13 @@ class RosterController extends Controller
 
         $count = $this->roster->generateRoster($data['user_ids'], $data['from'], $data['to']);
 
+        $cursor = \Carbon\Carbon::parse($data['from'])->startOfMonth();
+        $end = \Carbon\Carbon::parse($data['to'])->startOfMonth();
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $this->signals->touch('roster', $cursor->format('Y-m'), $request->user()?->id);
+            $cursor->addMonth();
+        }
+
         return response()->json(['message' => 'Roster generated.', 'count' => $count]);
     }
 
@@ -113,6 +124,8 @@ class RosterController extends Controller
             ['user_id' => $data['user_id'], 'date' => $data['date']],
             ['shift_id' => $data['shift_id'] ?? null, 'source' => 'manual', 'locked' => true, 'note' => $data['note'] ?? null],
         );
+
+        $this->signals->touch('roster', substr($data['date'], 0, 7), $request->user()?->id);
 
         return response()->json(['message' => 'Roster updated.', 'cell' => $cell->load('shift')]);
     }
