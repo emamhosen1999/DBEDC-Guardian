@@ -15,14 +15,18 @@ class LeaveCrudService
 
     protected LeaveDayCalculator $dayCalculator;
 
+    protected LeaveAuditService $audit;
+
     public function __construct(
         LeaveApprovalService $approvalService,
         LeaveOverlapService $overlapService,
-        LeaveDayCalculator $dayCalculator
+        LeaveDayCalculator $dayCalculator,
+        LeaveAuditService $audit
     ) {
         $this->approvalService = $approvalService;
         $this->overlapService = $overlapService;
         $this->dayCalculator = $dayCalculator;
+        $this->audit = $audit;
     }
 
     /**
@@ -89,6 +93,8 @@ class LeaveCrudService
                 $this->approvalService->submitForApproval($leave);
             }
 
+            $this->audit->record('create', $leave->id, null, $leave->fresh()->toArray());
+
             return $leave->fresh(); // Ensure we return the latest data
         });
     }
@@ -100,6 +106,7 @@ class LeaveCrudService
     {
         return DB::transaction(function () use ($leaveId, $data) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
+            $before = $leave->toArray();
 
             // Parse dates correctly for consistent format
             $fromDate = Carbon::parse($data['fromDate']);
@@ -153,6 +160,8 @@ class LeaveCrudService
                 'status' => $data['status'] ?? $leave->status,
             ]);
 
+            $this->audit->record('update', $leave->id, $before, $leave->fresh()->toArray());
+
             return $leave->fresh(); // Ensure we return the latest data with relationships
         });
     }
@@ -197,6 +206,7 @@ class LeaveCrudService
     {
         return DB::transaction(function () use ($leaveId, $status, $approvedBy) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
+            $before = $leave->toArray();
 
             $normalized = strtolower((string) $status);
 
@@ -205,6 +215,8 @@ class LeaveCrudService
                     'status' => $normalized,
                     'approved_by' => $approvedBy,
                 ]);
+
+                $this->audit->record('status_change', $leave->id, $before, $leave->fresh()->toArray(), "status -> {$normalized}");
 
                 return [
                     'success' => true,
@@ -228,8 +240,13 @@ class LeaveCrudService
     {
         return DB::transaction(function () use ($leaveId) {
             $leave = Leave::lockForUpdate()->findOrFail($leaveId);
+            $before = $leave->toArray();
 
-            return $leave->delete();
+            $deleted = $leave->delete();
+
+            $this->audit->record('delete', $leaveId, $before, null);
+
+            return $deleted;
         });
     }
 

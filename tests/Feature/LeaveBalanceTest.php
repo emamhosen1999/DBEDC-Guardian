@@ -40,7 +40,7 @@ class LeaveBalanceTest extends TestCase
 
     private function makeService(LeaveApprovalService $approvalMock): LeaveCrudService
     {
-        return new LeaveCrudService($approvalMock, new LeaveOverlapService, app(LeaveDayCalculator::class));
+        return new LeaveCrudService($approvalMock, new LeaveOverlapService, app(LeaveDayCalculator::class), app(\App\Services\Leave\LeaveAuditService::class));
     }
 
     public function test_insufficient_balance_throws()
