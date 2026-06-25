@@ -32,6 +32,7 @@ const getLeaveColor = (status) => {
 
 const AbsentSidebar = ({
     absentUsers = [],
+    offUsers = [],
     getUserLeave,
     isLoaded = true,
     onMarkAsPresent,
@@ -85,7 +86,7 @@ const AbsentSidebar = ({
                                 </Flex>
                             ))}
                         </Flex>
-                    ) : absentUsers.length === 0 ? (
+                    ) : absentUsers.length === 0 && offUsers.length === 0 ? (
                         <Flex direction="column" align="center" justify="center" py="8" gap="2">
                             <CheckCircledIcon style={{ color: 'var(--green-9)', width: 28, height: 28 }} />
                             <Text size="2" color="gray" align="center">
@@ -93,74 +94,132 @@ const AbsentSidebar = ({
                             </Text>
                         </Flex>
                     ) : (
-                        <Flex direction="column" gap="1">
-                            {Array.isArray(absentUsers) && absentUsers.map((user) => {
-                                const leave = getUserLeave?.(user.id || user.user_id);
-                                return (
-                                    <Box
-                                        key={user.id || user.user_id}
-                                        p="2"
-                                        style={{
-                                            borderRadius: 'var(--radius-2)',
-                                            background: 'var(--color-surface)',
-                                            border: '1px solid var(--gray-a3)',
-                                        }}
-                                    >
-                                        <Flex align="start" gap="2">
-                                            <Avatar
-                                                src={user.profile_image_url || user.profile_image}
-                                                fallback={(user.name || '?').charAt(0).toUpperCase()}
-                                                size="1"
-                                                radius="full"
-                                                style={{ flexShrink: 0, marginTop: 2 }}
-                                            />
-                                            <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
-                                                <Text
-                                                    size="1"
-                                                    weight="medium"
-                                                    style={{
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: 'nowrap',
-                                                    }}
-                                                >
-                                                    {user.name || 'Unknown'}
-                                                </Text>
-
-                                                {leave ? (
-                                                    <Flex align="center" gap="1">
-                                                        <CalendarIcon style={{ width: 10, height: 10, color: 'var(--gray-9)' }} />
-                                                        <Badge color={getLeaveColor(leave.status)} variant="soft" size="1">
-                                                            {leave.leave_type || 'Leave'} · {leave.status}
-                                                        </Badge>
-                                                    </Flex>
-                                                ) : (
-                                                    <Flex align="center" gap="1">
-                                                        <PersonIcon style={{ width: 10, height: 10, color: 'var(--gray-8)' }} />
-                                                        <Text size="1" color="gray">No leave filed</Text>
-                                                    </Flex>
-                                                )}
-
-                                                {canManage && onMarkAsPresent && (
-                                                    <Button
+                        <Flex direction="column" gap="4">
+                            {/* 1. Absent Employees */}
+                            {absentUsers.length > 0 && (
+                                <Flex direction="column" gap="1">
+                                    <Text size="1" color="red" weight="bold" mb="1" px="1">
+                                        ABSENT ({absentUsers.length})
+                                    </Text>
+                                    {absentUsers.map((user) => {
+                                        const leave = getUserLeave?.(user.id || user.user_id);
+                                        return (
+                                            <Box
+                                                key={user.id || user.user_id}
+                                                p="2"
+                                                style={{
+                                                    borderRadius: 'var(--radius-2)',
+                                                    background: 'var(--color-surface)',
+                                                    border: '1px solid var(--gray-a3)',
+                                                }}
+                                            >
+                                                <Flex align="start" gap="2">
+                                                    <Avatar
+                                                        src={user.profile_image_url || user.profile_image}
+                                                        fallback={(user.name || '?').charAt(0).toUpperCase()}
                                                         size="1"
-                                                        variant="soft"
-                                                        color="green"
-                                                        style={{ marginTop: 2, width: '100%' }}
-                                                        disabled={markingId === user.id}
-                                                        onClick={() => onMarkAsPresent(user, selectedDate)}
-                                                    >
-                                                        {markingId === user.id
-                                                            ? <Spinner size="1" />
-                                                            : <CheckCircledIcon width={11} height={11} />}
-                                                        {markingId === user.id ? 'Marking…' : 'Mark Present'}
-                                                    </Button>
-                                                )}
-                                            </Flex>
-                                        </Flex>
-                                    </Box>
-                                );
-                            })}
+                                                        radius="full"
+                                                        style={{ flexShrink: 0, marginTop: 2 }}
+                                                    />
+                                                    <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+                                                        <Text
+                                                            size="1"
+                                                            weight="medium"
+                                                            style={{
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                            }}
+                                                        >
+                                                            {user.name || 'Unknown'}
+                                                        </Text>
+
+                                                        {leave ? (
+                                                            <Flex align="center" gap="1">
+                                                                <CalendarIcon style={{ width: 10, height: 10, color: 'var(--gray-9)' }} />
+                                                                <Badge color={getLeaveColor(leave.status)} variant="soft" size="1">
+                                                                    {leave.leave_type || 'Leave'} · {leave.status}
+                                                                </Badge>
+                                                            </Flex>
+                                                        ) : (
+                                                            <Flex align="center" gap="1">
+                                                                <PersonIcon style={{ width: 10, height: 10, color: 'var(--gray-8)' }} />
+                                                                <Text size="1" color="gray">No leave filed</Text>
+                                                            </Flex>
+                                                        )}
+
+                                                        {canManage && onMarkAsPresent && (
+                                                            <Button
+                                                                size="1"
+                                                                variant="soft"
+                                                                color="green"
+                                                                style={{ marginTop: 2, width: '100%' }}
+                                                                disabled={markingId === user.id}
+                                                                onClick={() => onMarkAsPresent(user, selectedDate)}
+                                                            >
+                                                                {markingId === user.id
+                                                                    ? <Spinner size="1" />
+                                                                    : <CheckCircledIcon width={11} height={11} />}
+                                                                {markingId === user.id ? 'Marking…' : 'Mark Present'}
+                                                            </Button>
+                                                        )}
+                                                    </Flex>
+                                                </Flex>
+                                            </Box>
+                                        );
+                                    })}
+                                </Flex>
+                            )}
+
+                            {/* 2. Rostered Off / Weekend Employees */}
+                            {offUsers.length > 0 && (
+                                <Flex direction="column" gap="1">
+                                    <Text size="1" color="gray" weight="bold" mb="1" px="1">
+                                        ROSTERED OFF / WEEKEND ({offUsers.length})
+                                    </Text>
+                                    {offUsers.map((user) => {
+                                        return (
+                                            <Box
+                                                key={user.id || user.user_id}
+                                                p="2"
+                                                style={{
+                                                    borderRadius: 'var(--radius-2)',
+                                                    background: 'var(--color-surface)',
+                                                    border: '1px solid var(--gray-a3)',
+                                                    opacity: 0.8,
+                                                }}
+                                            >
+                                                <Flex align="start" gap="2">
+                                                    <Avatar
+                                                        src={user.profile_image_url || user.profile_image}
+                                                        fallback={(user.name || '?').charAt(0).toUpperCase()}
+                                                        size="1"
+                                                        radius="full"
+                                                        style={{ flexShrink: 0, marginTop: 2 }}
+                                                    />
+                                                    <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+                                                        <Text
+                                                            size="1"
+                                                            weight="medium"
+                                                            style={{
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                            }}
+                                                        >
+                                                            {user.name || 'Unknown'}
+                                                        </Text>
+                                                        <Flex align="center" gap="1">
+                                                            <CalendarIcon style={{ width: 10, height: 10, color: 'var(--gray-8)' }} />
+                                                            <Text size="1" color="gray">Rest Day / Weekend</Text>
+                                                        </Flex>
+                                                    </Flex>
+                                                </Flex>
+                                            </Box>
+                                        );
+                                    })}
+                                </Flex>
+                            )}
                         </Flex>
                     )}
                 </Box>
