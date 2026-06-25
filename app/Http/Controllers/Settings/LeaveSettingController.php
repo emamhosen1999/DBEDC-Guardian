@@ -32,13 +32,12 @@ class LeaveSettingController extends Controller
         return redirect()->route('leaves.index');
     }
 
-    public function store(Request $request)
+    /**
+     * Validation rules shared by store/update — base fields + Phase-3 accrual policy.
+     */
+    private function rules(): array
     {
-        if (! Auth::user()->can('leave-settings.update')) {
-            return response()->json(['error' => 'Unauthorized to manage leave settings.'], 403);
-        }
-
-        $request->validate([
+        return [
             'type' => 'required|string|max:255',
             'days' => 'required|integer',
             'eligibility' => 'nullable|string',
@@ -47,19 +46,54 @@ class LeaveSettingController extends Controller
             'requires_approval' => 'nullable|boolean',
             'auto_approve' => 'nullable|boolean',
             'special_conditions' => 'nullable|string',
-        ]);
+            // Phase 3 — configurable accrual policy
+            'accrual_method' => 'nullable|in:annual_upfront,monthly,none',
+            'accrual_rate' => 'nullable|numeric|min:0|max:365',
+            'probation_months' => 'nullable|integer|min:0|max:60',
+            'prorate_on_join' => 'nullable|boolean',
+            'carry_forward_cap' => 'nullable|numeric|min:0|max:365',
+            'carry_expiry_months' => 'nullable|integer|min:0|max:60',
+            'is_encashable' => 'nullable|boolean',
+            'allow_negative' => 'nullable|boolean',
+        ];
+    }
+
+    /**
+     * Build the persistable payload from a validated request (base + policy).
+     */
+    private function payload(Request $request): array
+    {
+        return [
+            'type' => $request->input('type'),
+            'days' => $request->input('days'),
+            'eligibility' => $request->input('eligibility'),
+            'carry_forward' => $request->boolean('carry_forward'),
+            'earned_leave' => $request->boolean('earned_leave'),
+            'requires_approval' => $request->input('requires_approval', true),
+            'auto_approve' => $request->input('auto_approve', false),
+            'special_conditions' => $request->input('special_conditions'),
+            // Policy (fall back to the entitlement/flags when unspecified).
+            'accrual_method' => $request->input('accrual_method', $request->boolean('earned_leave') ? 'monthly' : 'annual_upfront'),
+            'accrual_rate' => $request->input('accrual_rate', $request->input('days')),
+            'probation_months' => $request->input('probation_months', 0),
+            'prorate_on_join' => $request->boolean('prorate_on_join', true),
+            'carry_forward_cap' => $request->input('carry_forward_cap'),
+            'carry_expiry_months' => $request->input('carry_expiry_months'),
+            'is_encashable' => $request->boolean('is_encashable'),
+            'allow_negative' => $request->boolean('allow_negative'),
+        ];
+    }
+
+    public function store(Request $request)
+    {
+        if (! Auth::user()->can('leave-settings.update')) {
+            return response()->json(['error' => 'Unauthorized to manage leave settings.'], 403);
+        }
+
+        $request->validate($this->rules());
 
         try {
-            $leaveType = LeaveSetting::create([
-                'type' => $request->input('type'),
-                'days' => $request->input('days'),
-                'eligibility' => $request->input('eligibility'),
-                'carry_forward' => $request->input('carry_forward'),
-                'earned_leave' => $request->input('earned_leave'),
-                'requires_approval' => $request->input('requires_approval', true),
-                'auto_approve' => $request->input('auto_approve', false),
-                'special_conditions' => $request->input('special_conditions'),
-            ]);
+            $leaveType = LeaveSetting::create($this->payload($request));
 
             return response()->json([
                 'id' => $leaveType->id,
@@ -79,29 +113,11 @@ class LeaveSettingController extends Controller
             return response()->json(['error' => 'Unauthorized to manage leave settings.'], 403);
         }
 
-        $request->validate([
-            'type' => 'required|string|max:255',
-            'days' => 'required|integer',
-            'eligibility' => 'nullable|string',
-            'carry_forward' => 'required|boolean',
-            'earned_leave' => 'required|boolean',
-            'requires_approval' => 'nullable|boolean',
-            'auto_approve' => 'nullable|boolean',
-            'special_conditions' => 'nullable|string',
-        ]);
+        $request->validate($this->rules());
 
         try {
             $leaveType = LeaveSetting::findOrFail($id);
-            $leaveType->update([
-                'type' => $request->input('type'),
-                'days' => $request->input('days'),
-                'eligibility' => $request->input('eligibility'),
-                'carry_forward' => $request->input('carry_forward'),
-                'earned_leave' => $request->input('earned_leave'),
-                'requires_approval' => $request->input('requires_approval', true),
-                'auto_approve' => $request->input('auto_approve', false),
-                'special_conditions' => $request->input('special_conditions'),
-            ]);
+            $leaveType->update($this->payload($request));
 
             return response()->json([
                 'id' => $leaveType->id,
