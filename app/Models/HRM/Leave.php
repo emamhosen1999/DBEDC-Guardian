@@ -18,6 +18,8 @@ class Leave extends Model
         'from_date',
         'to_date',
         'no_of_days',
+        'is_half_day',
+        'half_day_session',
         'approved_by',
         'reason',
         'status',
@@ -34,7 +36,9 @@ class Leave extends Model
         'leave_type' => 'string',
         'from_date' => 'date', // Simplified casting
         'to_date' => 'date',   // Simplified casting
-        'no_of_days' => 'integer',
+        'no_of_days' => 'decimal:1',
+        'is_half_day' => 'boolean',
+        'half_day_session' => 'string',
         'reason' => 'string',
         'status' => 'string',
         'approved_by' => 'integer',
