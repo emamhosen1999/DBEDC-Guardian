@@ -58,7 +58,7 @@ class LeaveCrudService
                 'to_date' => $toDate,
                 'no_of_days' => $data['daysCount'],
                 'reason' => $data['leaveReason'],
-                'status' => 'new',
+                'status' => 'pending',
             ]);
 
             // Check if approval is required or auto-approve is enabled

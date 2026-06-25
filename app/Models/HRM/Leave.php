@@ -95,11 +95,11 @@ class Leave extends Model
     // Accessors
     public function getStatusColorAttribute(): string
     {
-        return match ($this->status) {
-            'New' => 'primary',
-            'Pending' => 'warning',
-            'Approved' => 'success',
-            'Declined' => 'danger',
+        return match (strtolower((string) $this->status)) {
+            'pending' => 'warning',
+            'approved' => 'success',
+            'rejected' => 'danger',
+            'cancelled' => 'secondary',
             default => 'default'
         };
     }
