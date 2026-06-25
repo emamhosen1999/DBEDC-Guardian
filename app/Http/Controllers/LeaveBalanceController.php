@@ -58,4 +58,41 @@ class LeaveBalanceController extends Controller
             'balances' => $balances,
         ]);
     }
+
+    /**
+     * Immutable ledger transaction history for a user/year (admin/self).
+     */
+    public function ledger(Request $request): JsonResponse
+    {
+        $year = (int) $request->input('year', now()->year);
+        $requestedUserId = (int) ($request->input('user_id') ?: Auth::id());
+
+        if ($requestedUserId !== Auth::id()
+            && ! Auth::user()->can('leaves.approve') && ! Auth::user()->can('leaves.manage')) {
+            $requestedUserId = (int) Auth::id();
+        }
+
+        $types = LeaveSetting::pluck('type', 'id');
+
+        $rows = LeaveLedger::query()
+            ->where('user_id', $requestedUserId)
+            ->where('period_year', $year)
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($r) => [
+                'id' => $r->id,
+                'type' => $types[$r->leave_type] ?? 'Unknown',
+                'txn_type' => $r->txn_type,
+                'amount' => (float) $r->amount,
+                'balance_after' => (float) $r->balance_after,
+                'reason' => $r->reason,
+                'created_at' => optional($r->created_at)->toDateTimeString(),
+            ]);
+
+        return response()->json([
+            'year' => $year,
+            'user_id' => $requestedUserId,
+            'transactions' => $rows,
+        ]);
+    }
 }
