@@ -60,8 +60,8 @@
       "_ExclamationTriangleIcon-cq7qCi7Y.js"
     ]
   },
-  "_EmployeeTable-zwjQTykx.js": {
-    "file": "assets/js/EmployeeTable-zwjQTykx.js",
+  "_EmployeeTable-D7A18eBO.js": {
+    "file": "assets/js/EmployeeTable-D7A18eBO.js",
     "name": "EmployeeTable",
     "isDynamicEntry": true,
     "imports": [
@@ -1967,7 +1967,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CLB3__cP.js",
+    "file": "assets/js/app-CCvpB9Hp.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2025,7 +2025,7 @@
       "resources/js/Pages/Organization/Components/WorkLocationForm.jsx",
       "resources/js/Pages/Organization/Tables/DepartmentTable.jsx",
       "resources/js/Pages/Organization/Tables/DesignationTable.jsx",
-      "_EmployeeTable-zwjQTykx.js",
+      "_EmployeeTable-D7A18eBO.js",
       "resources/js/Pages/Organization/Tables/WorkLocationsTable.jsx",
       "resources/js/Pages/Organization/Tabs/DepartmentsTab.jsx",
       "resources/js/Pages/Organization/Tabs/DesignationsTab.jsx",

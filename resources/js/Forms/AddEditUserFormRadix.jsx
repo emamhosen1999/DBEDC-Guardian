@@ -46,7 +46,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
     const [selectedImageFile, setSelectedImageFile] = useState(null);
     const [filteredDesignations, setFilteredDesignations] = useState(designations || []);
     const [filteredReportTo, setFilteredReportTo] = useState(allUsers || []);
-    const [hasOverride, setHasOverride] = useState(user?.has_attendance_override || false);
+    const [hasOverride, setHasOverride] = useState(user?.has_attendance_override || (user?.attendance_types?.length > 0) || false);
 
     // Initialize Precognition form with proper method and URL
     const form = useForm(
@@ -71,7 +71,9 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
             roles: user?.roles?.map(r => typeof r === 'object' ? r.name : r) || [],
             single_device_login_enabled: user?.single_device_login_enabled || user?.single_device_login || false,
             work_location_id: user?.work_location_id || '',
-            attendance_type_id: user?.has_attendance_override && user?.attendance_type_id ? String(user.attendance_type_id) : '',
+            attendance_type_ids: (user?.attendance_types?.map(t => Number(t.id))
+                || (user?.has_attendance_override && user?.attendance_type_id ? [Number(user.attendance_type_id)] : [])),
+            biometric_device_ids: (user?.override_biometric_devices?.map(d => Number(d.id)) || []),
             profile_image: null,
         }
     );
@@ -156,7 +158,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
         if (user?.profile_image_url || user?.profile_image) {
             setSelectedImage(user.profile_image_url || user.profile_image);
         }
-        setHasOverride(user?.has_attendance_override || false);
+        setHasOverride(user?.has_attendance_override || (user?.attendance_types?.length > 0) || false);
     }, [user]);
 
     const handleSubmit = async (e) => {
@@ -479,40 +481,79 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                             {form.errors.work_location_id && <Text color="red" size="1" mt="1" display="block">{form.errors.work_location_id}</Text>}
                                         </Box>
 
-                                        {/* Attendance Rule Override */}
+                                        {/* Attendance Method Override (multi-method, OR-validated) */}
                                         <Box>
                                             <Flex align="center" justify="between" mb="2" mt="1">
                                                 <Text as="label" size="2" weight="medium">Custom Attendance Override</Text>
-                                                <Switch 
-                                                    checked={hasOverride} 
+                                                <Switch
+                                                    checked={hasOverride}
                                                     onCheckedChange={(checked) => {
                                                         setHasOverride(checked);
                                                         if (!checked) {
-                                                            handleChange('attendance_type_id', '');
-                                                        } else {
-                                                            handleChange('attendance_type_id', attendanceTypes?.[0]?.id ? String(attendanceTypes[0].id) : '');
+                                                            handleChange('attendance_type_ids', []);
+                                                            handleChange('biometric_device_ids', []);
                                                         }
-                                                    }} 
+                                                    }}
                                                 />
                                             </Flex>
-                                            
+
                                             {hasOverride ? (
-                                                <Select.Root value={form.data.attendance_type_id ? String(form.data.attendance_type_id) : undefined} onValueChange={(value) => handleChange('attendance_type_id', value)}>
-                                                    <Select.Trigger placeholder="Select custom rule" style={{ width: '100%' }} />
-                                                    <Select.Content>
+                                                <Box>
+                                                    <Text size="1" color="gray" mb="2" as="div">
+                                                        Select one or more methods — the employee can punch via <strong>any</strong> of them. This replaces the work-location methods.
+                                                    </Text>
+                                                    <Flex direction="column" gap="2" style={{ border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-2)', padding: '10px' }}>
                                                         {attendanceTypes?.map((type) => (
-                                                            <Select.Item key={type.id} value={String(type.id)}>
+                                                            <Text as="label" size="2" key={type.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                                                <Checkbox
+                                                                    checked={form.data.attendance_type_ids.includes(type.id)}
+                                                                    onCheckedChange={() => {
+                                                                        const cur = form.data.attendance_type_ids;
+                                                                        handleChange('attendance_type_ids', cur.includes(type.id) ? cur.filter(x => x !== type.id) : [...cur, type.id]);
+                                                                    }}
+                                                                />
                                                                 {type.name}
-                                                            </Select.Item>
+                                                            </Text>
                                                         ))}
-                                                    </Select.Content>
-                                                </Select.Root>
+                                                    </Flex>
+
+                                                    {(() => {
+                                                        const devMap = new Map();
+                                                        attendanceTypes
+                                                            ?.filter(t => form.data.attendance_type_ids.includes(t.id) && /^biometric/.test(String(t.slug || '')))
+                                                            .forEach(t => (t.biometric_devices || []).forEach(d => devMap.set(d.id, d)));
+                                                        const devs = Array.from(devMap.values());
+                                                        if (!devs.length) return null;
+                                                        return (
+                                                            <Box mt="3">
+                                                                <Text size="2" weight="medium" mb="1" as="div">Biometric Devices</Text>
+                                                                <Text size="1" color="gray" mb="2" as="div">Leave all unchecked to accept any device of the biometric type.</Text>
+                                                                <Flex direction="column" gap="2" style={{ border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-2)', padding: '10px' }}>
+                                                                    {devs.map(device => (
+                                                                        <Text as="label" size="2" key={device.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                                                            <Checkbox
+                                                                                checked={form.data.biometric_device_ids.includes(device.id)}
+                                                                                onCheckedChange={() => {
+                                                                                    const cur = form.data.biometric_device_ids;
+                                                                                    handleChange('biometric_device_ids', cur.includes(device.id) ? cur.filter(x => x !== device.id) : [...cur, device.id]);
+                                                                                }}
+                                                                            />
+                                                                            {device.name}{device.serial_number ? ` (${device.serial_number})` : ''}
+                                                                        </Text>
+                                                                    ))}
+                                                                </Flex>
+                                                            </Box>
+                                                        );
+                                                    })()}
+                                                </Box>
                                             ) : (
                                                 <Box p="2" style={{ backgroundColor: 'var(--gray-2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-4)' }}>
                                                     <Text size="1" color="gray" style={{ fontStyle: 'italic' }}>
                                                         {form.data.work_location_id ? (
                                                             `Inherits from ${workLocations?.find(w => String(w.id) === String(form.data.work_location_id))?.name || 'location'}: ${
-                                                                workLocations?.find(w => String(w.id) === String(form.data.work_location_id))?.attendance_type?.name || 'Default'
+                                                                (workLocations?.find(w => String(w.id) === String(form.data.work_location_id))?.attendance_types?.map(t => t.name).join(', ')
+                                                                    || workLocations?.find(w => String(w.id) === String(form.data.work_location_id))?.attendance_type?.name
+                                                                    || 'Default')
                                                             }`
                                                         ) : (
                                                             'Unassigned. Uses default check-in verification.'
@@ -520,7 +561,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                                     </Text>
                                                 </Box>
                                             )}
-                                            {form.errors.attendance_type_id && <Text color="red" size="1" mt="1" display="block">{form.errors.attendance_type_id}</Text>}
+                                            {form.errors.attendance_type_ids && <Text color="red" size="1" mt="1" display="block">{form.errors.attendance_type_ids}</Text>}
                                         </Box>
                                     </Grid>
                                 </Card>

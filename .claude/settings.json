@@ -327,11 +327,23 @@
       "Bash(npx esbuild *)",
       "Bash(grep -n \"use Illuminate\\\\\\\\\\\\\\\\Database\\\\\\\\\\\\\\\\Eloquent\\\\\\\\\\\\\\\\Relations\" app/Models/User.php)",
       "Bash(grep -n \"use Illuminate\\\\\\\\\\\\\\\\Database\\\\\\\\\\\\\\\\Eloquent\\\\\\\\\\\\\\\\Relations\\\\|BelongsToMany\" app/Models/WorkLocation.php)",
-      "Bash(grep -n \"private function validateAttendanceType\\\\|function validateAnyAttendanceType\\\\|use Illuminate\\\\\\\\\\\\\\\\Support\\\\\\\\\\\\\\\\Collection\" app/Http/Controllers/Api/V1/AttendanceController.php)"
+      "Bash(grep -n \"private function validateAttendanceType\\\\|function validateAnyAttendanceType\\\\|use Illuminate\\\\\\\\\\\\\\\\Support\\\\\\\\\\\\\\\\Collection\" app/Http/Controllers/Api/V1/AttendanceController.php)",
+      "Bash(curl -s -o /dev/null -w \"prod reachable: %{http_code}\\\\n\" https://erp.dhakabypass.com/api/v1/auth/login -X POST)",
+      "Bash(python qa_live.py)",
+      "Bash(python qa_emam.py)",
+      "Bash(grep -nE \"#[0-9a-fA-F]{3,8}|rgba?\\\\\\(\" \"app/\\(tabs\\)/my-requests.js\")",
+      "Bash(php -l app/Http/Controllers/WorkLocationController.php)",
+      "Bash(php -l app/Models/User.php)",
+      "Bash(php -l app/Models/WorkLocation.php)",
+      "Bash(php -l app/Services/Attendance/BiometricValidator.php)",
+      "Bash(perl -0pi -e 's/\\\\Quser\\\\?\\\\.has_attendance_override || false\\\\E/\\(user?.has_attendance_override || \\(user?.attendance_types?.length > 0\\) || false\\)/g' resources/js/Forms/AddEditUserFormRadix.jsx)",
+      "Bash(grep -E \"\\\\.png|\\\\.md$\")",
+      "Bash(grep -n \"LinearGradient\\\\|StyleSheet\\\\|BentoPanel\\\\|UiStatusBadge\\\\|getObjectionStatusTheme\\\\|#[0-9A-Fa-f]\\\\{3,8\\\\}\" \"app/\\(tabs\\)/my-objections.js\")"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
-      "\\tmp"
+      "\\tmp",
+      "C:\\laragon\\www\\Aero-Enterprise-Suite"
     ]
   }
 }
