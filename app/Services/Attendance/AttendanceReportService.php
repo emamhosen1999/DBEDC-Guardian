@@ -5,7 +5,6 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Department;
-use App\Models\HRM\Holiday;
 use App\Models\User;
 use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\Contracts\PolicyResolver;
