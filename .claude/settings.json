@@ -355,7 +355,9 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{JSON.parse\\(d\\);console.log\\('valid JSON, len',d.length\\)}\\)\")",
-      "Bash(node -e \"const s=require\\('./.claude/settings.json'\\); const c=s.hooks.SessionStart[0].hooks[0].command; console.log\\('settings.json parses OK'\\); console.log\\('top keys:', Object.keys\\(s\\).join\\(', '\\)\\); const out=require\\('child_process'\\).execSync\\(c,{shell:'C:/Program Files/Git/bin/bash.exe'}\\).toString\\(\\); JSON.parse\\(out\\); console.log\\('hook command emits valid JSON, len', out.length\\);\")"
+      "Bash(node -e \"const s=require\\('./.claude/settings.json'\\); const c=s.hooks.SessionStart[0].hooks[0].command; console.log\\('settings.json parses OK'\\); console.log\\('top keys:', Object.keys\\(s\\).join\\(', '\\)\\); const out=require\\('child_process'\\).execSync\\(c,{shell:'C:/Program Files/Git/bin/bash.exe'}\\).toString\\(\\); JSON.parse\\(out\\); console.log\\('hook command emits valid JSON, len', out.length\\);\")",
+      "Bash(grep -cE \"#[0-9a-fA-F]{3,8}|rgba?\\\\\\(\" \"app/\\(tabs\\)/daily-works.js\")",
+      "Bash(netstat -ano)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",

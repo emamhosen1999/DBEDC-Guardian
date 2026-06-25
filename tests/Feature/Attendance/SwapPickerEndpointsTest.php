@@ -54,6 +54,24 @@ class SwapPickerEndpointsTest extends TestCase
         $this->assertNotContains($me->id, $ids);         // not self
     }
 
+    public function test_eligible_resolves_employee_role_when_default_guard_is_sanctum(): void
+    {
+        // Reproduces prod: the API runs under the sanctum guard, but the Employee
+        // role is registered for the web guard. User::role('Employee') must not
+        // resolve the role against the ambient default guard, or it 500s with
+        // RoleDoesNotExist. Regression for the live swaps/eligible outage.
+        $me = $this->employee();
+        $free = $this->employee();
+
+        // Roles are assigned (above) under the web guard, as in prod. Only the
+        // request-time query scope runs under the sanctum default guard.
+        config(['auth.defaults.guard' => 'sanctum']);
+
+        $res = $this->actingAs($me)->getJson(route('attendance.swaps.eligible', ['date' => '2026-07-01']))->assertOk();
+
+        $this->assertContains($free->id, collect($res->json('employees'))->pluck('id')->all());
+    }
+
     public function test_counterparty_roster_returns_working_days(): void
     {
         $me = $this->employee();
