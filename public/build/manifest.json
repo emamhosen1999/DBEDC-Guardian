@@ -329,8 +329,8 @@
       "_vendor-inertia-B_jPe_ra.js"
     ]
   },
-  "_useAttendanceQuery-DNopBweJ.js": {
-    "file": "assets/js/useAttendanceQuery-DNopBweJ.js",
+  "_useAttendanceQuery-z5cel1dG.js": {
+    "file": "assets/js/useAttendanceQuery-z5cel1dG.js",
     "name": "useAttendanceQuery",
     "imports": [
       "_useQuery-ANt8wetq.js",
@@ -909,7 +909,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-BphQWUB6.js",
+    "file": "assets/js/AttendancePage-rwk2mlOR.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -938,7 +938,7 @@
       "_TileLayer-OsRTXKLT.js",
       "resources/js/Pages/Attendance/MonthlyCalendarTab.jsx",
       "_TablePagination-C1K7Mm4i.js",
-      "_useAttendanceQuery-DNopBweJ.js",
+      "_useAttendanceQuery-z5cel1dG.js",
       "_useMutation-fRTAc7XG.js"
     ],
     "dynamicImports": [
@@ -1116,7 +1116,7 @@
     ]
   },
   "resources/js/Pages/Attendance/RosterTab.jsx": {
-    "file": "assets/js/RosterTab-Ck7p0Brj.js",
+    "file": "assets/js/RosterTab-C5AAYBk9.js",
     "name": "RosterTab",
     "src": "resources/js/Pages/Attendance/RosterTab.jsx",
     "isDynamicEntry": true,
@@ -1137,7 +1137,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab-Dbhak6zB.js",
+    "file": "assets/js/SettingsTab-DvQh5bnD.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -1146,7 +1146,7 @@
       "_vendor-inertia-B_jPe_ra.js",
       "_react-icons.esm-CvJ4WvCR.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "_useAttendanceQuery-DNopBweJ.js",
+      "_useAttendanceQuery-z5cel1dG.js",
       "resources/js/Pages/Attendance/ShiftsSettings.jsx",
       "resources/js/Pages/Attendance/Components/PoliciesManager.jsx",
       "_leaflet-CpeWTaXg.js",
@@ -1967,7 +1967,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CsA6hr8t.js",
+    "file": "assets/js/app-CIVVTXYC.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
