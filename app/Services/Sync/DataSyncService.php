@@ -417,7 +417,8 @@ class DataSyncService
 
         $requiresApproval = (bool) ($leaveType->requires_approval ?? true);
         $autoApprove = (bool) ($leaveType->auto_approve ?? false);
-        $status = (! $requiresApproval || $autoApprove) ? 'approved' : 'new';
+        // Canonical status set {pending, approved, rejected, cancelled} (Phase 2).
+        $status = (! $requiresApproval || $autoApprove) ? 'approved' : 'pending';
 
         $insertPayload = [
             'leave_type' => (int) $leaveType->id,
