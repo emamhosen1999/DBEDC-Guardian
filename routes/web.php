@@ -89,6 +89,9 @@ $middlewareStack = ['auth', 'verified'];
 
 Route::middleware($middlewareStack)->group(function () {
 
+    // Firebase custom-token endpoint — lets the browser sign in to Firebase (signInWithCustomToken)
+    Route::get('/firebase/token', \App\Http\Controllers\FirebaseTokenController::class)->name('firebase.token');
+
     // Dashboard routes - require dashboard permission
     Route::middleware(['permission:core.dashboard.view'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
