@@ -97,6 +97,14 @@ and terminations are real for this org. Sequenced B1 → B2 → B3.
   ledger `.superpowers/sdd/progress-phase2.md`. **5 migrations applied to dev MySQL — run on prod** (see plan's deploy section).
 - *Next:* Phase 3 (leave balance/accrual ledger), Phase 4 (holiday module hardening).
 
+**Phase 4 — Holiday module hardening** 🟦 backend DONE (2026-06-25); UI remaining
+- ✅ **Immutable `holiday_audit_logs`** trail on create/update/delete/restore/copy_year (mirrors leave/attendance audit).
+- ✅ **Soft-delete** holidays (`deleted_at`) — recoverable; `restore` endpoint; `HolidayService::forRange` transparently excludes trashed.
+- ✅ **Copy-last-year bulk import** (`HolidayImportService::copyYear`, `holidays-copy-year` route) — clones a year's holidays, overlap-safe (whereDate interval test), Feb-29 clamped; removes per-year manual re-entry drudgery (HR still edits lunar dates).
+- ✅ **Validation**: `recurrence_pattern` constrained to `{none, annual_fixed}`; `is_recurring=false` stores null (coherent).
+- 🔭 **UI (remaining)**: copy-year action + recurrence/active badges + restore button in `Holidays.jsx`/`HolidayForm.jsx`/`HolidayTable.jsx`.
+- 2 migrations applied to dev MySQL (`holiday_audit_logs`, `holidays.deleted_at`) — **run on prod**. Plan: `docs/superpowers/plans/2026-06-25-attendance-phase4-holiday-hardening.md`; ledger `.superpowers/sdd/progress-phase4.md`.
+
 ## 🟠 Phase B — High (fraud / integrity / multi-site)
 
 - **#6 GPS-spoofing defense.** `PolygonLocationValidator` only ray-casts the reported point.
