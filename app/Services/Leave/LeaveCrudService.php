@@ -170,13 +170,13 @@ class LeaveCrudService
      * Compute remaining days for a user's leave type for a year.
      * Excludes an optional leave id from the aggregation (useful for updates).
      */
-    private function getRemainingDays(int $userId, int $leaveTypeId, int $year, ?int $excludeLeaveId = null): int
+    private function getRemainingDays(int $userId, int $leaveTypeId, int $year, ?int $excludeLeaveId = null): float
     {
         $leaveSetting = LeaveSetting::find($leaveTypeId);
 
         if (! $leaveSetting || ! is_numeric($leaveSetting->days)) {
             // Treat as unlimited if no allocation is configured
-            return PHP_INT_MAX;
+            return (float) PHP_INT_MAX;
         }
 
         $allocated = (int) $leaveSetting->days;
@@ -194,9 +194,10 @@ class LeaveCrudService
         // Lock relevant rows to avoid races; aggregate in PHP after selecting rows
         $rows = $query->lockForUpdate()->get(['no_of_days']);
 
-        $used = $rows->sum('no_of_days');
+        // Sum as float so half-day (0.5) usage is not truncated in the balance check.
+        $used = (float) $rows->sum('no_of_days');
 
-        return max(0, $allocated - (int) $used);
+        return max(0, $allocated - $used);
     }
 
     /**

@@ -53,6 +53,21 @@ class LeaveValidationHardeningTest extends TestCase
     }
 
     /** @test */
+    public function half_day_session_required_rejects_empty_string(): void
+    {
+        $svc = new LeaveValidationService;
+        $req = Request::create('/leaves', 'POST', [
+            'user_id' => 1, 'leaveType' => 'Casual',
+            'fromDate' => '2026-03-02', 'toDate' => '2026-03-02',
+            'leaveReason' => 'empty session', 'isHalfDay' => true, 'halfDaySession' => '',
+        ]);
+
+        $validator = $svc->validateLeaveRequest($req);
+        $this->assertTrue($validator->fails());
+        $this->assertArrayHasKey('halfDaySession', $validator->errors()->toArray());
+    }
+
+    /** @test */
     public function canonical_status_only(): void
     {
         $rules = (new LeaveValidationService)->getLeaveValidationRules();
