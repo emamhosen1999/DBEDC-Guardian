@@ -556,12 +556,21 @@ class AttendanceReportService
                 ? $policyResolver->resolve($user->id, $date)
                 : null;
 
+            $leaveFraction = 0.0;
+            $leaveSession = null;
+            if ($leave) {
+                $leaveFraction = $leave->is_half_day ? 0.5 : 1.0;
+                $leaveSession = $leave->half_day_session;
+            }
+
             $result = $statusEngine->resolve(
                 $attendancesForDate,
                 $schedule,
                 isHoliday: (bool) $holiday,
                 isOnLeave: (bool) $leave,
                 policy: $policy,
+                leaveFraction: $leaveFraction,
+                leaveSession: $leaveSession,
             );
 
             $results[$dateString] = [
