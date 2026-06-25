@@ -18,9 +18,13 @@ class LeaveValidationService
             'leaveType' => 'required|exists:leave_settings,type',
             'fromDate' => 'required|date|before_or_equal:toDate',
             'toDate' => 'required|date|after_or_equal:fromDate|before:'.now()->addYear()->format('Y-m-d'),
-            'daysCount' => 'required|integer|min:1|max:365',
+            // daysCount is accepted for backward-compat but NO LONGER authoritative
+            // (LeaveDayCalculator computes no_of_days server-side). Bound it loosely.
+            'daysCount' => 'nullable|numeric|min:0.5|max:365',
             'leaveReason' => 'required|string|max:500|min:5',
-            'status' => 'nullable|in:new,pending,approved,rejected',
+            'status' => 'nullable|in:pending,approved,rejected,cancelled',
+            'isHalfDay' => 'nullable|boolean',
+            'halfDaySession' => 'nullable|required_if:isHalfDay,true,1|in:first_half,second_half',
         ];
     }
 
@@ -40,6 +44,8 @@ class LeaveValidationService
             'leaveType.exists' => 'The selected leave type is invalid.',
             'user_id.required' => 'User ID is required.',
             'user_id.exists' => 'The selected user does not exist.',
+            'halfDaySession.required_if' => 'Please choose the morning or afternoon session for a half-day leave.',
+            'halfDaySession.in' => 'Half-day session must be first_half or second_half.',
         ];
     }
 
@@ -58,7 +64,16 @@ class LeaveValidationService
      */
     public function validateLeaveRequest(Request $request): \Illuminate\Contracts\Validation\Validator
     {
-        return Validator::make($request->all(), $this->getLeaveValidationRules(), $this->getValidationMessages());
+        $validator = Validator::make($request->all(), $this->getLeaveValidationRules(), $this->getValidationMessages());
+
+        // A half-day leave must start and end on the same date.
+        $validator->after(function ($validator) use ($request) {
+            if ($request->boolean('isHalfDay') && $request->input('fromDate') !== $request->input('toDate')) {
+                $validator->errors()->add('toDate', 'A half-day leave must start and end on the same date.');
+            }
+        });
+
+        return $validator;
     }
 
     /**
