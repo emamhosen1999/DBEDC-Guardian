@@ -338,12 +338,19 @@
       "Bash(php -l app/Services/Attendance/BiometricValidator.php)",
       "Bash(perl -0pi -e 's/\\\\Quser\\\\?\\\\.has_attendance_override || false\\\\E/\\(user?.has_attendance_override || \\(user?.attendance_types?.length > 0\\) || false\\)/g' resources/js/Forms/AddEditUserFormRadix.jsx)",
       "Bash(grep -E \"\\\\.png|\\\\.md$\")",
-      "Bash(grep -n \"LinearGradient\\\\|StyleSheet\\\\|BentoPanel\\\\|UiStatusBadge\\\\|getObjectionStatusTheme\\\\|#[0-9A-Fa-f]\\\\{3,8\\\\}\" \"app/\\(tabs\\)/my-objections.js\")"
+      "Bash(grep -n \"LinearGradient\\\\|StyleSheet\\\\|BentoPanel\\\\|UiStatusBadge\\\\|getObjectionStatusTheme\\\\|#[0-9A-Fa-f]\\\\{3,8\\\\}\" \"app/\\(tabs\\)/my-objections.js\")",
+      "Bash(git -C /c/laragon/www/Aero-Enterprise-Suite log --oneline -1 cfe56c2a)",
+      "Bash(git -C /c/laragon/www/Aero-Enterprise-Suite show cfe56c2a --stat)",
+      "Bash(cd \"/c/laragon/www/dbedc-mobile-app\" && rm -f lint_output.txt)",
+      "Bash(grep -nE \"LinearGradient|StyleSheet|BentoPanel|StateCard|StatusBadge|SafeAreaView|rgba\\\\\\(|#[0-9A-Fa-f]{3,8}\\\\b\" \"app/\\(tabs\\)/daily-works.js\")",
+      "Bash(node --check \"app/\\(tabs\\)/daily-works.js\")",
+      "Bash(composer show *)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
       "\\tmp",
-      "C:\\laragon\\www\\Aero-Enterprise-Suite"
+      "C:\\laragon\\www\\Aero-Enterprise-Suite",
+      "c:\\c\\laragon\\www\\dbedc-mobile-app"
     ]
   }
 }
