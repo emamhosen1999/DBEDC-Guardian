@@ -117,6 +117,15 @@ const EMPTY_FORM = {
     requires_approval:  true,
     auto_approve:       false,
     special_conditions: '',
+    // Phase 3 — accrual policy
+    accrual_method:     'annual_upfront',
+    accrual_rate:       '',
+    probation_months:   0,
+    prorate_on_join:    true,
+    carry_forward_cap:  '',
+    carry_expiry_months:'',
+    is_encashable:      false,
+    allow_negative:     false,
 };
 
 export default function LeaveSettingsPanel({
