@@ -400,6 +400,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Holiday management routes
     Route::middleware(['permission:holidays.create'])->post('/holiday-add', [HolidayController::class, 'create'])->name('holiday-add');
     Route::middleware(['permission:holidays.create'])->post('/holidays-restore', [HolidayController::class, 'restore'])->name('holidays-restore');
+    Route::middleware(['permission:holidays.create'])->post('/holidays-copy-year', [HolidayController::class, 'copyYear'])->name('holidays-copy-year');
     Route::middleware(['permission:holidays.delete'])->delete('/holiday-delete', [HolidayController::class, 'delete'])->name('holiday-delete');
 
     // User management routes - CONSOLIDATED & REFACTORED
