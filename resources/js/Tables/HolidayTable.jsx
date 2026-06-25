@@ -160,9 +160,17 @@ const HolidayTable = ({
                         differenceInDays(new Date(holiday.to_date), new Date(holiday.from_date)) + 1;
                     return (
                         <Box>
-                            <Text size="2" weight="bold" style={{ textTransform: 'capitalize' }}>
-                                {holiday.title}
-                            </Text>
+                            <Flex align="center" gap="2" wrap="wrap">
+                                <Text size="2" weight="bold" style={{ textTransform: 'capitalize' }}>
+                                    {holiday.title}
+                                </Text>
+                                {holiday.is_recurring && (
+                                    <Badge color="indigo" variant="soft" size="1">🔁 Annual</Badge>
+                                )}
+                                {holiday.is_active === false && (
+                                    <Badge color="gray" variant="soft" size="1">Inactive</Badge>
+                                )}
+                            </Flex>
                             <Flex align="center" gap="1" mt="1">
                                 <CalendarIcon style={{ width: 12, height: 12, color: 'var(--gray-9)' }} />
                                 <Text size="1" color="gray">
