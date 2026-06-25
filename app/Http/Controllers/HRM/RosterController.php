@@ -91,7 +91,23 @@ class RosterController extends Controller
             'date' => 'required|date',
             'shift_id' => 'nullable|integer|exists:shifts,id',
             'note' => 'nullable|string|max:255',
+            'expected_updated_at' => 'nullable|date',
         ]);
+
+        $existing = RosterDay::where('user_id', $data['user_id'])
+            ->whereDate('date', $data['date'])
+            ->first();
+
+        if (
+            $existing
+            && ! empty($data['expected_updated_at'])
+            && $existing->updated_at->toIso8601String() !== \Carbon\Carbon::parse($data['expected_updated_at'])->toIso8601String()
+        ) {
+            return response()->json([
+                'message' => 'This cell was changed by someone else. Showing the latest version.',
+                'cell' => $existing->load('shift'),
+            ], 409);
+        }
 
         $cell = RosterDay::updateOrCreate(
             ['user_id' => $data['user_id'], 'date' => $data['date']],
