@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Attendance\Contracts\ScheduleResolver;
+use App\Services\Attendance\DTO\ShiftSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -24,6 +26,22 @@ class LeaveModuleTest extends TestCase
 
         // Clear Spatie cached permissions
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+        // Deterministic schedule: every calendar day is a working day, so the
+        // server-side leave day-count equals the calendar span (no weekend exclusion
+        // here — these tests assert leave-count behavior, not roster logic).
+        $this->app->bind(ScheduleResolver::class, fn () => new class implements ScheduleResolver
+        {
+            public function resolve(int $userId, \Carbon\CarbonInterface $date): ShiftSchedule
+            {
+                return new ShiftSchedule(
+                    start: $date->copy()->setTime(9, 0), end: $date->copy()->setTime(17, 0),
+                    crossesMidnight: false, graceInMinutes: 0, graceOutMinutes: 0,
+                    fullDayMinutes: 480, halfDayMinutes: 240, minPresentMinutes: 0,
+                    breakMinutes: 0, isWorkingDay: true, isScheduled: true,
+                );
+            }
+        });
 
         // Create a test user
         $this->user = User::factory()->create([
