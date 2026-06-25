@@ -15,6 +15,9 @@ return new class extends Migration
         Schema::create('leave_audit_logs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
+            // leave_id is deliberately NOT a foreign key: an immutable audit trail must
+            // survive deletion of the leave it describes (the 'delete' action row would
+            // otherwise be cascade-removed). Indexed below for lookups. Do NOT add constrained().
             $table->unsignedBigInteger('leave_id')->nullable();
             $table->string('action');
             $table->json('before')->nullable();

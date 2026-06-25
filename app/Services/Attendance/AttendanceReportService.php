@@ -626,16 +626,6 @@ class AttendanceReportService
     }
 
     /**
-     * Decide what a day MEANS (effective status) so the grid and the dashboard
-     * can't diverge — both consume this one classifier. Standard precedence:
-     * holiday and weekly-off outrank leave (leave isn't consumed on a non-working
-     * day); leave only paints a working day. A punch on an approved-leave day is a
-     * conflict left "On Leave" for the Phase B exceptions workflow to reconcile —
-     * it is NOT silently relabeled present here.
-     *
-     * @return string a DayAttendance::* constant
-     */
-    /**
      * Present a day-count as an int when whole (clean "5" in UI/JSON) and a
      * 1-decimal float only when fractional (half-day leaves → "4.5").
      */
@@ -646,6 +636,16 @@ class AttendanceReportService
         return $rounded == (int) $rounded ? (int) $rounded : $rounded;
     }
 
+    /**
+     * Decide what a day MEANS (effective status) so the grid and the dashboard
+     * can't diverge — both consume this one classifier. Standard precedence:
+     * holiday and weekly-off outrank leave (leave isn't consumed on a non-working
+     * day); leave only paints a working day. A punch on an approved-leave day is a
+     * conflict left "On Leave" for the Phase B exceptions workflow to reconcile —
+     * it is NOT silently relabeled present here.
+     *
+     * @return string a DayAttendance::* constant
+     */
     private function classifyDay(array $ctx): string
     {
         /** @var DayAttendance $result */
