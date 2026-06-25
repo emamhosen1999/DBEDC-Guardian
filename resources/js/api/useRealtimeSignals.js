@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ref, onValue } from 'firebase/database';
 import { getRealtimeDb } from '@/api/realtimeClient';
 import { makeSignalHandler } from '@/api/realtimeSignalHandler';
@@ -8,9 +8,14 @@ const NS = import.meta.env.VITE_REALTIME_NAMESPACE || import.meta.env.VITE_FIREB
 
 /**
  * Subscribe to a resource's RTDB change-marker and react when ANOTHER user changes it.
+ * `onSignal` may be an inline function — it's held in a ref so the subscription is not
+ * torn down and recreated on every render (only path/selfActorId changes re-subscribe).
  * Degrades silently if the realtime client can't connect (no throw).
  */
 export function useRealtimeSignals({ path, selfActorId, onSignal }) {
+  const onSignalRef = useRef(onSignal);
+  onSignalRef.current = onSignal;
+
   useEffect(() => {
     if (!path) return undefined;
     let unsub = () => {};
@@ -20,10 +25,13 @@ export function useRealtimeSignals({ path, selfActorId, onSignal }) {
       .then((db) => {
         if (cancelled) return;
         const r = ref(db, `signals/${NS}/${path}`);
-        unsub = onValue(r, makeSignalHandler({ selfActorId, onSignal }));
+        unsub = onValue(r, makeSignalHandler({
+          selfActorId,
+          onSignal: (marker) => onSignalRef.current?.(marker),
+        }));
       })
       .catch(() => { /* realtime unavailable — degrade silently */ });
 
     return () => { cancelled = true; unsub(); };
-  }, [path, selfActorId, onSignal]);
+  }, [path, selfActorId]);
 }
