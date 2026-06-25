@@ -33,6 +33,7 @@ const getLeaveColor = (status) => {
 const AbsentSidebar = ({
     absentUsers = [],
     offUsers = [],
+    upcomingUsers = [],
     getUserLeave,
     isLoaded = true,
     onMarkAsPresent,
@@ -86,7 +87,7 @@ const AbsentSidebar = ({
                                 </Flex>
                             ))}
                         </Flex>
-                    ) : absentUsers.length === 0 && offUsers.length === 0 ? (
+                    ) : absentUsers.length === 0 && offUsers.length === 0 && upcomingUsers.length === 0 ? (
                         <Flex direction="column" align="center" justify="center" py="8" gap="2">
                             <CheckCircledIcon style={{ color: 'var(--green-9)', width: 28, height: 28 }} />
                             <Text size="2" color="gray" align="center">
@@ -171,7 +172,58 @@ const AbsentSidebar = ({
                                 </Flex>
                             )}
 
-                            {/* 2. Rostered Off / Weekend Employees */}
+                            {/* 2. Scheduled / Upcoming Employees */}
+                            {upcomingUsers.length > 0 && (
+                                <Flex direction="column" gap="1">
+                                    <Text size="1" color="indigo" weight="bold" mb="1" px="1">
+                                        UPCOMING SHIFTS ({upcomingUsers.length})
+                                    </Text>
+                                    {upcomingUsers.map((user) => {
+                                        return (
+                                            <Box
+                                                key={user.id || user.user_id}
+                                                p="2"
+                                                style={{
+                                                    borderRadius: 'var(--radius-2)',
+                                                    background: 'var(--color-surface)',
+                                                    border: '1px solid var(--gray-a3)',
+                                                }}
+                                            >
+                                                <Flex align="start" gap="2">
+                                                    <Avatar
+                                                        src={user.profile_image_url || user.profile_image}
+                                                        fallback={(user.name || '?').charAt(0).toUpperCase()}
+                                                        size="1"
+                                                        radius="full"
+                                                        style={{ flexShrink: 0, marginTop: 2 }}
+                                                    />
+                                                    <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+                                                        <Text
+                                                            size="1"
+                                                            weight="medium"
+                                                            style={{
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                            }}
+                                                        >
+                                                            {user.name || 'Unknown'}
+                                                        </Text>
+                                                        <Flex align="center" gap="1">
+                                                            <CalendarIcon style={{ width: 10, height: 10, color: 'var(--indigo-9)' }} />
+                                                            <Text size="1" color="indigo">
+                                                                Starts at {user.shift_start_time || 'scheduled time'}
+                                                            </Text>
+                                                        </Flex>
+                                                    </Flex>
+                                                </Flex>
+                                            </Box>
+                                        );
+                                    })}
+                                </Flex>
+                            )}
+
+                            {/* 3. Rostered Off / Weekend Employees */}
                             {offUsers.length > 0 && (
                                 <Flex direction="column" gap="1">
                                     <Text size="1" color="gray" weight="bold" mb="1" px="1">

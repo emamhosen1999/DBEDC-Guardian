@@ -371,6 +371,7 @@ const DailyTimesheetTab = ({
     const presentUsers = presentUsersData?.attendances || [];
     const absentUsers = absentUsersData?.absent_users || [];
     const offUsers = absentUsersData?.off_users || [];
+    const upcomingUsers = absentUsersData?.upcoming_users || [];
     const leaves = absentUsersData?.leaves || [];
     const isWeekend = absentUsersData?.is_weekend || false;
     const isLoaded = !isLoadingTimesheet && !isLoadingPresent && !isLoadingAbsent;
@@ -726,6 +727,7 @@ const DailyTimesheetTab = ({
                             <AbsentSidebar
                                 absentUsers={absentUsers}
                                 offUsers={offUsers}
+                                upcomingUsers={upcomingUsers}
                                 getUserLeave={getUserLeave}
                                 isLoaded={isLoaded}
                                 onMarkAsPresent={handleMarkAsPresent}
