@@ -134,6 +134,28 @@ class HolidayController extends Controller
         }
     }
 
+    public function copyYear(Request $request, \App\Services\Holiday\HolidayImportService $import): JsonResponse
+    {
+        $validated = $request->validate([
+            'fromYear' => 'required|integer|between:2000,2100',
+            'toYear' => 'required|integer|between:2000,2100|different:fromYear',
+        ]);
+
+        $created = $import->copyYear((int) $validated['fromYear'], (int) $validated['toYear']);
+
+        $this->audit->record('copy_year', null, null, [
+            'from' => (int) $validated['fromYear'],
+            'to' => (int) $validated['toYear'],
+            'created' => $created,
+        ]);
+
+        return response()->json([
+            'message' => "{$created} holiday(s) copied from {$validated['fromYear']} to {$validated['toYear']}.",
+            'created' => $created,
+            'holidays' => Holiday::active()->orderBy('from_date', 'asc')->get(),
+        ]);
+    }
+
     public function restore(Request $request): JsonResponse
     {
         $request->validate(['id' => 'required|integer']);
