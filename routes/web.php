@@ -112,6 +112,7 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/leaves-paginate', [LeaveController::class, 'paginate'])->name('leaves.paginate');
         Route::get('/leaves-stats', [LeaveController::class, 'stats'])->name('leaves.stats');
         Route::get('/leave-balances', [\App\Http\Controllers\LeaveBalanceController::class, 'index'])->name('leave-balances');
+        Route::get('/leave-ledger', [\App\Http\Controllers\LeaveBalanceController::class, 'ledger'])->name('leave-ledger');
     });
 
     // Attendance self-service routes

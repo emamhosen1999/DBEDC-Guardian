@@ -11,7 +11,7 @@ import {
 } from '@radix-ui/themes';
 import {
     BarChartIcon, CalendarIcon, CheckCircledIcon,
-    GearIcon, LayersIcon,
+    GearIcon, LayersIcon, BackpackIcon,
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
@@ -19,6 +19,7 @@ import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import AdminLeavesPanel    from '@/Components/LeaveUnified/AdminLeavesPanel.jsx';
 import SummaryPanel        from '@/Components/LeaveUnified/SummaryPanel.jsx';
 import AnalyticsPanel      from '@/Components/LeaveUnified/AnalyticsPanel.jsx';
+import BalancesPanel       from '@/Components/LeaveUnified/BalancesPanel.jsx';
 import LeaveSettingsPanel  from '@/Components/LeaveUnified/LeaveSettingsPanel.jsx';
 import ErrorBoundary       from '@/Components/ErrorBoundary/ErrorBoundary';
 
@@ -123,6 +124,16 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                                         </Tabs.Trigger>
                                     )}
 
+                                    {/* Balances — admin only (ledger) */}
+                                    {isAdmin && (
+                                        <Tabs.Trigger value="balances">
+                                            <Flex align="center" gap="2">
+                                                <BackpackIcon />
+                                                {!isMobile && 'Balances'}
+                                            </Flex>
+                                        </Tabs.Trigger>
+                                    )}
+
                                     {/* Settings — super admin only */}
                                     {canSettings && (
                                         <Tabs.Trigger value="settings">
@@ -171,6 +182,17 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                                             isMobile={isMobile}
                                             isActive={activeTab === 'analytics'}
                                             onSetHeaderActions={setHeaderActions}
+                                        />
+                                    </ErrorBoundary>
+                                </Tabs.Content>
+                            )}
+
+                            {isAdmin && (
+                                <Tabs.Content value="balances">
+                                    <ErrorBoundary>
+                                        <BalancesPanel
+                                            allUsers={allUsers}
+                                            isActive={activeTab === 'balances'}
                                         />
                                     </ErrorBoundary>
                                 </Tabs.Content>
