@@ -13,6 +13,8 @@ use Inertia\Response;
 
 class HolidayController extends Controller
 {
+    public function __construct(private \App\Services\Holiday\HolidayAuditService $audit) {}
+
     public function index(): Response
     {
         $holidays = Cache::remember('active_holidays_list', now()->addDay(), function () {
@@ -100,13 +102,19 @@ class HolidayController extends Controller
             if ($holidayId) {
                 // Update existing holiday record
                 $holiday = Holiday::findOrFail($holidayId);
+                $before = $holiday->toArray();
 
                 $holiday->update($data);
+
+                $this->audit->record('update', $holiday->id, $before, $holiday->fresh()->toArray());
 
                 $message = 'Holiday updated successfully';
             } else {
                 // Create new holiday record
-                Holiday::create($data);
+                $holiday = Holiday::create($data);
+
+                $this->audit->record('create', $holiday->id, null, $holiday->fresh()->toArray());
+
                 $message = 'Holiday added successfully';
             }
 
@@ -143,7 +151,10 @@ class HolidayController extends Controller
             }
 
             // Delete the holiday
+            $before = $holiday->toArray();
             $holiday->delete();
+
+            $this->audit->record('delete', $holiday->id, $before, null);
 
             // Get updated holidays for return
             $holidays = Holiday::active()
