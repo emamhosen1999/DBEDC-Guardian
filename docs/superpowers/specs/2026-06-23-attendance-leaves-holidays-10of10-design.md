@@ -15,6 +15,13 @@ Bring the leave/holiday **integration** and a few data-integrity gaps up to the 
 - **One pure engine pass** (`AttendanceStatusService`) derives status / worked / late / OT per employee-day; `AttendanceReportService::buildMonthlyDayResults` + `classifyDay` feed every surface.
 - **Leaves and holidays are clean inputs** to that engine — not duplicated or ad-hoc logic. This design removes the remaining places where they aren't.
 
+### Relational model & wiring (standard)
+
+The three modules relate two ways, and conflating them is the classic mistake:
+
+- **Ownership → physical FK.** A leave is owned by a user and typed by a leave-setting; an audit row is owned by its subject. These get real, enforced foreign keys: `leaves.user_id → users.id` (cascade), `leaves.leave_type → leave_settings.id`, `leave_audit_logs.leave_id → leaves.id`, `attendance_audit_logs.attendance_id → attendances.id`, `holidays.{created_by,updated_by} → users.id`. Eloquent relationships are defined both directions and used instead of raw `DB::table` joins where a relationship exists. (Today `leaves` carries **no** enforced FKs — only a plain `user_id` index — so this is real hardening, done as part of Phase 2; verified 0 orphan/null `user_id` rows on prod-shaped dev data, so enforcement is safe.)
+- **Temporal overlay → calendar-layer join (NOT a per-row FK).** Whether a given (employee, date) is *present / on-leave / holiday / weekly-off* is **derived** by the engine overlaying the roster (working vs rest) + `HolidayService::forRange` (date intersection) + the approved leave overlapping that date. You do **not** stamp `attendance.holiday_id`/`attendance.leave_id` — a day is a computed classification, not an owned child of one holiday or leave row. This date-range intersection in `buildMonthlyDayResults` is the standard HRIS pattern and is already how the single engine works; Phase 2 only enriches the leave side of that overlay from a boolean to a fraction. Keeping the overlay computed (not physically linked) is what lets one engine pass stay the single source of truth.
+
 ## Architectural decisions (confirmed)
 
 | Area | Decision |
@@ -32,6 +39,7 @@ Bring the leave/holiday **integration** and a few data-integrity gaps up to the 
 | Leave audit | **Immutable leave audit trail** (who/what/when/IP) mirroring `AttendanceAuditService`/`attendance_audit_logs`. None exists today — every create/update/status-change/delete is logged. |
 | Validation integrity | Cross-cutting sweep: validation rules must match real column types/canonical values (the Phase-1 final review caught a stale `employee_id => integer` rule in `ProfileValidationService`). Leave validation hardened (canonical status enum, half-day fields, day-count no longer client-trusted). |
 | Holiday hardening | Holiday **model** brought to attendance's standard (Phase 4): audit trail, soft-delete, copy-last-year/bulk import (manual per-year lunar entry stays, but the drudgery is removed), validation robustness, admin UI. |
+| Relational wiring | Attendance · Leave · Holiday wired the **standard** way: (1) physical FKs only where true parent-child ownership exists (`leaves.user_id`→`users`, `leaves.leave_type`→`leave_settings`, `*_audit_logs.{leave,attendance}_id`, `holidays.{created,updated}_by`); (2) holiday/leave → attendance related through the **calendar/schedule layer** (per-(user,date) date-range intersection in the engine), NOT per-row FKs — the industry standard for temporal overlays. No `attendance.leave_id`/`attendance.holiday_id` columns (a day is *derived*, not *owned*). |
 
 ---
 
@@ -95,9 +103,9 @@ Already underway this session (Emam Hosen converted; the per-employee off-day li
 ### Phase 2 tests
 - Half-day leave (first_half) + afternoon punch → 0.5 leave + 0.5 present; half-day no-punch → 0.5 leave + 0.5 absent; full-day leave unchanged; `LeaveDayCalculator` excludes weekly-offs + holidays and applies 0.5; status normalization data-migration converts `Approved/New/Pending`; paid/LWP split in summary; `getLeaveCountsArray` approved-only; single-engine reconciliation (summary == dashboard == grid) holds with fractions; every CRUD/approval path writes a `leave_audit_logs` row; validation rejects multi-date half-day.
 
-## Phase 3 — Leave balance/accrual ledger *(sketch; full spec when reached)*
+## Phase 3 — Leave balance/accrual ledger
 
-Outline only (not specced for implementation yet):
+**Full spec:** `docs/superpowers/specs/2026-06-25-leave-balance-accrual-ledger-design.md` (written 2026-06-25; owner direction: standardize to industry-standard 10/10 — full carry-forward + encashment, correct pro-rated seeding, configurable per-type policy, append-only immutable ledger). Original sketch retained below for history:
 - A `leave_ledger` (entitlement opening → periodic accrual → consumption from approved leaves → carry-forward cap → optional encashment), per employee per leave-type per period.
 - Balances become first-class/auditable, replacing the implicit `LeaveSetting.days`. Consumes Phase-2 fractional day-counts.
 - Note: `leave_accruals` + `leave_carry_forwards` tables + `AccrueMonthlyLeaves`/`ResetAnnualLeaves` commands already exist as partial scaffolding — Phase 3 reconciles/replaces them with the ledger, it does not start from zero.

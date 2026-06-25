@@ -6,9 +6,12 @@ use App\Models\HRM\CompOffLedger;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\User;
+use App\Models\HRM\Department;
 use App\Services\Attendance\CompOffService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class MobileAttendanceRequestApiTest extends TestCase
@@ -246,6 +249,35 @@ class MobileAttendanceRequestApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.balance_minutes', 0);
+    }
+
+    // -------------------------------------------------------------------------
+    // Swap eligibility (role resolution under the sanctum guard)
+    // -------------------------------------------------------------------------
+
+    public function test_swap_eligible_resolves_employee_role_under_sanctum_guard(): void
+    {
+        // Regression for the live swaps/eligible 500. The Employee role is
+        // registered for the web guard, but auth:sanctum calls Auth::shouldUse('sanctum'),
+        // so by the time the controller runs the request's default guard is 'sanctum'.
+        // User::role('Employee') must pin the web guard or it throws RoleDoesNotExist.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Role::firstOrCreate(['name' => 'Employee']); // created under the web guard
+
+        $dept = Department::factory()->create();
+        $me = User::factory()->create(['department_id' => $dept->id]);
+        $free = User::factory()->create(['department_id' => $dept->id]);
+        $me->assignRole('Employee');
+        $free->assignRole('Employee');
+
+        Sanctum::actingAs($me);
+        // Mirror the post-auth-middleware state of a real sanctum request.
+        config(['auth.defaults.guard' => 'sanctum']);
+
+        $response = $this->getJson('/api/v1/attendance/swaps/eligible?date=2026-07-01');
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $this->assertContains($free->id, collect($response->json('data'))->pluck('id')->all());
     }
 
     // -------------------------------------------------------------------------

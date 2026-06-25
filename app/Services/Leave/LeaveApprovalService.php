@@ -161,6 +161,7 @@ class LeaveApprovalService
         try {
             $approvalChain = $leave->approval_chain;
             $currentLevel = $leave->current_approval_level;
+            $before = $leave->toArray();
 
             // Validate approver
             if (! $this->canApprove($leave, $approver)) {
@@ -197,6 +198,8 @@ class LeaveApprovalService
                 // Notify next approver
                 $this->notifyCurrentApprover($leave);
 
+                app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
+
                 DB::commit();
 
                 return [
@@ -222,6 +225,11 @@ class LeaveApprovalService
                         ]);
                     }
                 }
+
+                // Final approval consumes balance from the ledger.
+                app(LeaveLedgerService::class)->consume($leave->fresh());
+
+                app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
 
                 DB::commit();
                 Log::info("Leave #{$leave->id} fully approved", [
@@ -266,6 +274,7 @@ class LeaveApprovalService
 
             $approvalChain = $leave->approval_chain;
             $currentLevel = $leave->current_approval_level;
+            $before = $leave->toArray();
 
             // Update current level in chain
             foreach ($approvalChain as &$level) {
@@ -294,6 +303,11 @@ class LeaveApprovalService
                     ]);
                 }
             }
+
+            // A rejection frees any previously-consumed balance (no-op if never consumed).
+            app(LeaveLedgerService::class)->reverseConsumption($leave->id, 'Leave rejected');
+
+            app(LeaveAuditService::class)->record('reject', $leave->id, $before, $leave->fresh()->toArray(), $reason);
 
             DB::commit();
             Log::info("Leave #{$leave->id} rejected", [

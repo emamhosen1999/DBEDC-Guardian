@@ -64,39 +64,33 @@ class Kernel extends ConsoleKernel
             ],
         ])->daily();
 
-        // Leave management scheduled tasks
-        // Reset annual leaves and process carry forwards - runs on January 1st at midnight
-        $schedule->command('leave:reset-annual')
-            ->yearly()
-            ->timezone(config('app.timezone', 'UTC'))
-            ->at('00:00')
-            ->before(function () {
-                Log::info('Starting annual leave reset process');
-            })
-            ->onSuccess(function () {
-                Log::info('Annual leave reset completed successfully');
-            })
-            ->onFailure(function () {
-                Log::error('Annual leave reset failed');
-            })
-            ->withoutOverlapping()
-            ->appendOutputTo(storage_path('logs/leave-reset.log'));
+        // Leave ledger scheduled tasks (Phase 3).
+        // Year-boundary: grant annual entitlement + carry forward last year's remaining.
+        $schedule->command('leave:grant-annual')
+            ->yearly()->timezone(config('app.timezone', 'UTC'))->at('00:05')
+            ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-grant-annual.log'));
 
-        // Accrue monthly earned leaves - runs on 1st of each month at midnight
-        $schedule->command('leave:accrue-monthly')
-            ->monthlyOn(1, '00:00')
-            ->timezone(config('app.timezone', 'UTC'))
-            ->before(function () {
-                Log::info('Starting monthly leave accrual process');
-            })
-            ->onSuccess(function () {
-                Log::info('Monthly leave accrual completed successfully');
-            })
-            ->onFailure(function () {
-                Log::error('Monthly leave accrual failed');
-            })
+        $schedule->command('leave:carry-forward')
+            ->yearly()->timezone(config('app.timezone', 'UTC'))->at('00:10')
+            ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-carry-forward.log'));
+
+        // Monthly accrual for monthly-accrual types - 1st of each month.
+        $schedule->command('leave:accrue')
+            ->monthlyOn(1, '00:15')->timezone(config('app.timezone', 'UTC'))
+            ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-accrual.log'));
+
+        // Daily: expire elapsed carried days + reconcile ledger integrity.
+        $schedule->command('leave:expire-carried')
+            ->daily()->timezone(config('app.timezone', 'UTC'))
+            ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-expire-carried.log'));
+
+        $schedule->command('leave:reconcile-ledger')
+            ->daily()->timezone(config('app.timezone', 'UTC'))
             ->withoutOverlapping()
-            ->appendOutputTo(storage_path('logs/leave-accrual.log'));
+            ->onFailure(function () {
+                Log::error('Leave ledger reconcile detected drift');
+            })
+            ->appendOutputTo(storage_path('logs/leave-reconcile.log'));
 
         // Process scheduled biometric device commands - runs every minute
         $schedule->command('biometric:process-scheduled-commands')

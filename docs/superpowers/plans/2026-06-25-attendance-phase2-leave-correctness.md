@@ -1728,6 +1728,158 @@ git commit -m "feat(leave): harden validation (half-day single-date+session, can
 
 ---
 
+## Task 10: Relational integrity & standard wiring (Attendance · Leave · Holiday)
+
+**Files:**
+- Create: `database/migrations/2026_06_25_000005_enforce_leave_relational_fks.php`
+- Modify: `app/Models/HRM/Leave.php` (confirm relationships), `app/Models/HRM/LeaveAuditLog.php` (already has `leave()`/`actor()` from Task 8)
+- Test: `tests/Feature/Leave/LeaveRelationalIntegrityTest.php`
+
+**Interfaces:**
+- Produces: enforced FKs `leaves.user_id → users.id` (cascade on delete), `leaves.leave_type → leave_settings.id` (if missing), `leave_audit_logs.leave_id → leaves.id`. Standard Eloquent relationships usable across the three modules. The holiday/leave→attendance temporal overlay stays computed in the engine (no per-row FK) — this task only asserts that contract, it does not add link columns.
+
+> Pre-check (run before writing the migration): `php artisan tinker` →
+> `DB::table('leaves')->leftJoin('users','leaves.user_id','=','users.id')->whereNull('users.id')->count()` and `DB::table('leaves')->whereNull('user_id')->count()` MUST both be 0 on dev. (Verified 0/0 at plan time.) If nonzero on prod, clean/backfill those rows first — an FK add will fail otherwise.
+
+- [ ] **Step 1: Write the failing test**
+
+```php
+<?php
+// tests/Feature/Leave/LeaveRelationalIntegrityTest.php
+namespace Tests\Feature\Leave;
+
+use App\Models\HRM\Leave;
+use App\Models\HRM\LeaveSetting;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
+
+class LeaveRelationalIntegrityTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /** @test */
+    public function leaves_user_id_has_an_enforced_foreign_key(): void
+    {
+        // sqlite reports FKs via pragma; assert the constraint exists after migration.
+        $fks = collect(DB::select('PRAGMA foreign_key_list(leaves)'));
+        $this->assertTrue(
+            $fks->contains(fn ($fk) => $fk->from === 'user_id' && $fk->table === 'users'),
+            'leaves.user_id should reference users.id'
+        );
+    }
+
+    /** @test */
+    public function leave_belongs_to_user_and_setting_via_relationships(): void
+    {
+        $user = User::factory()->create();
+        $type = LeaveSetting::factory()->create();
+        $leave = Leave::create([
+            'user_id' => $user->id, 'leave_type' => $type->id,
+            'from_date' => '2026-04-01', 'to_date' => '2026-04-01',
+            'no_of_days' => 1, 'reason' => 'x', 'status' => 'pending',
+        ]);
+
+        $this->assertTrue($leave->user->is($user));
+        $this->assertTrue($leave->leaveSetting->is($type));
+    }
+}
+```
+
+> If sqlite foreign-key enforcement is off in the test env, the PRAGMA still lists the declared FK after a `foreignId()->constrained()` migration; the assertion checks declaration, not enforcement.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `php artisan test --filter=LeaveRelationalIntegrityTest`
+Expected: FAIL — no FK on `leaves.user_id`.
+
+- [ ] **Step 3: Write the FK migration (orphan-guarded, idempotent)**
+
+```php
+<?php
+// database/migrations/2026_06_25_000005_enforce_leave_relational_fks.php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('leaves') || ! Schema::hasColumn('leaves', 'user_id')) {
+            return;
+        }
+
+        // Safety: never attempt an FK add over orphan/null rows (would fail on MySQL).
+        $orphans = DB::table('leaves')
+            ->leftJoin('users', 'leaves.user_id', '=', 'users.id')
+            ->whereNull('users.id')
+            ->count();
+        if ($orphans > 0) {
+            throw new RuntimeException("Refusing to add FK: {$orphans} orphan leaves.user_id rows. Backfill first.");
+        }
+
+        $driver = Schema::getConnection()->getDriverName();
+
+        // Detect an existing FK to stay idempotent (MySQL information_schema).
+        $hasUserFk = false;
+        if ($driver === 'mysql') {
+            $hasUserFk = ! empty(DB::select(
+                'SELECT 1 FROM information_schema.KEY_COLUMN_USAGE
+                 WHERE TABLE_NAME = "leaves" AND COLUMN_NAME = "user_id"
+                 AND REFERENCED_TABLE_NAME = "users" AND TABLE_SCHEMA = DATABASE() LIMIT 1'
+            ));
+        }
+
+        if (! $hasUserFk) {
+            Schema::table('leaves', function (Blueprint $table) {
+                $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        if (Schema::hasTable('leaves')) {
+            try {
+                Schema::table('leaves', function (Blueprint $table) {
+                    $table->dropForeign(['user_id']);
+                });
+            } catch (\Throwable $e) {
+                // FK may not exist; ignore.
+            }
+        }
+    }
+};
+```
+
+> sqlite recreates the table to add the FK (Laravel handles this) — the PRAGMA assertion in the test will then see it. Confirm via `current-tech-stack` that Laravel 11 + the installed sqlite driver supports `foreign()->constrained` add on an existing table; if not, the test asserts declaration which the migration provides.
+
+- [ ] **Step 4: Confirm the relationships exist (no code change expected)**
+
+`app/Models/HRM/Leave.php` already declares `user()`, `employee()`, `leaveSetting()`, `approver()`, `rejectedBy()`. Confirm no raw `DB::table('leaves')->join('leave_settings'...)` remains where a relationship + `with()` is the standard call — the engine loader (`getEmployeeUsersWithAttendanceAndLeaves`) intentionally joins for a `leave_type` alias and stays (performance); leave it. No edit needed unless a finding surfaces.
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `php artisan test --filter=LeaveRelationalIntegrityTest`
+Expected: PASS.
+
+- [ ] **Step 6: Run on dev MySQL + full regression + commit**
+
+Run: `php artisan migrate` then `php artisan test --filter="Leave"` and `php artisan test --filter="Attendance"`
+
+```bash
+git add database/migrations/2026_06_25_000005_enforce_leave_relational_fks.php tests/Feature/Leave/LeaveRelationalIntegrityTest.php
+git commit -m "feat(leave): enforce leaves.user_id FK (cascade) + assert standard relational wiring"
+```
+
+> The holiday/leave → attendance overlay is intentionally NOT given link columns (it stays a computed calendar-layer join in the engine — see the design's "Relational model & wiring (standard)"). If the owner wants a *physical* attendance↔leave link, that is a separate scope decision (see plan header note) — not in this task.
+
+---
+
 ## Final verification (whole-phase)
 
 - [ ] **Run the complete suite**
@@ -1758,5 +1910,6 @@ Run on prod after merge (in order):
 2. `2026_06_25_000002_add_paid_to_leave_settings` — review `is_paid` per leave type with accounts (default true; mark LWP types false).
 3. `2026_06_25_000003_add_half_day_to_leaves` — verify `no_of_days` decimal change on the prod engine (confirm `change()`/`MODIFY` path).
 4. `2026_06_25_000004_create_leave_audit_logs_table`.
+5. `2026_06_25_000005_enforce_leave_relational_fks` — **pre-check prod for orphan/null `leaves.user_id` and backfill before running** (the migration throws if any exist).
 
 (Still pending from Phase 1: `2026_06_23_000001_enforce_unique_employee_id` + the employee_id placeholder→real-number replacements + the Weekend→roster bootstrap.)

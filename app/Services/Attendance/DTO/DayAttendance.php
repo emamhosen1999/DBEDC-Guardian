@@ -30,6 +30,8 @@ final class DayAttendance
         public readonly int $regular_minutes = 0,
         public readonly int $break_deducted_minutes = 0,
         public readonly array $policy_events = [],
+        public readonly float $leave_fraction = 0.0,
+        public readonly ?string $leave_session = null,
     ) {}
 
     public function toArray(): array
@@ -48,6 +50,8 @@ final class DayAttendance
             'regular_minutes' => $this->regular_minutes,
             'break_deducted_minutes' => $this->break_deducted_minutes,
             'policy_events' => $this->policy_events,
+            'leave_fraction' => $this->leave_fraction,
+            'leave_session' => $this->leave_session,
         ];
     }
 }

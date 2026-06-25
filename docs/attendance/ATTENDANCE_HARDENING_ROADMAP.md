@@ -81,15 +81,41 @@ and terminations are real for this org. Sequenced B1 → B2 → B3.
 - Design + plan: `docs/superpowers/specs/2026-06-23-attendance-leaves-holidays-10of10-design.md`,
   `docs/superpowers/plans/2026-06-23-attendance-phase1-holidays-engine-integrity.md`.
 
-**B3 — Leave correctness for the handoff** (Phase 2 of the 10/10 initiative — designed, plan next)
+**B3 — Leave correctness for the handoff** ✅ DONE (2026-06-25, Phase 2 of the 10/10 initiative)
+- ✅ **Half-day leave** (0.5 precision): `is_half_day` + `half_day_session` on `leaves`, decimal `no_of_days`;
+  engine `AttendanceStatusService::resolve` takes a per-day leave **fraction** (0/0.5/1.0)+session; half-day
+  reconciles as 0.5 leave + 0.5 present (worked) or 0.5 leave + 0.5 absent (no-show); dashboard + per-employee
+  summary count fractionally (`numify` keeps whole counts as int).
+- ✅ **Paid/unpaid flag** (`LeaveSetting.is_paid`): per-employee summary + export split **Paid Leave vs LWP**.
+- ✅ **Server-side `no_of_days`** via `LeaveDayCalculator` (roster working-days − weekly-off − holidays, 0.5 for
+  half-day); client `daysCount` no longer trusted; balance check now float (no half-day truncation).
+- ✅ **Status normalization** to canonical `{pending,approved,rejected,cancelled}` + data migration; all write-paths updated.
+- ✅ **Leave audit trail** (`leave_audit_logs`, immutable) on create/update/status/approve/reject/delete.
+- ✅ **Validation hardening** (half-day single-date + session) + **relational FK** `leaves.user_id → users` (cascade).
+- ✅ `getLeaveCountsArray` approved-only filter. Spec/plan:
+  `docs/superpowers/{specs/2026-06-23-attendance-leaves-holidays-10of10-design.md,plans/2026-06-25-attendance-phase2-leave-correctness.md}`;
+  ledger `.superpowers/sdd/progress-phase2.md`. **5 migrations applied to dev MySQL — run on prod** (see plan's deploy section).
+- *Next:* Phase 3 (leave balance/accrual ledger), Phase 4 (holiday module hardening).
 
-**B3 — Leave correctness for the handoff**
-- **Half-day leave** (0.5 precision): add half-day to the leave model + apply flow + engine so a half-day
-  reconciles as 0.5 leave + 0.5 present in the counts. Most important B3 item (org has half-days).
-- **Paid/unpaid flag** on `LeaveSetting` so accounts can separate LWP from paid leave. *(Confirm accounts
-  needs the split.)*
-- *(Lower)* server-side `no_of_days` excluding weekends/holidays — fixes leave-**balance** accounting
-  (the accounts summary already derives leave-days from the engine, so this is balance-module hygiene).
+**Phase 3 — Leave balance/accrual ledger** ✅ DONE (2026-06-25, live-verified)
+- ✅ **Append-only immutable `leave_ledger`** (signed transactions; balance = running sum; `UPDATED_AT=null`). Replaces the dead `leave_accruals`/`leave_carry_forwards` scaffolding.
+- ✅ **Configurable per-type policy** on `LeaveSetting` (`accrual_method`, `accrual_rate`, `probation_months`, `prorate_on_join`, `carry_forward_cap`, `carry_expiry_months`, `is_encashable`, `allow_negative`).
+- ✅ **Services**: `LeaveLedgerService` (post/balance/available/consume/reverse/isTracked), `LeaveAccrualService` (idempotent annual grant + monthly accrual w/ probation+proration), `CarryForwardService` (cap + expiry), `LeaveEncashmentService` (recorded, no payout).
+- ✅ **Lifecycle**: approval posts `consumption`; reject/cancel/delete/edit reverses; apply enforced via `available()` (tracked-only — dormant until seeded). Removed dead `getRemainingDays`.
+- ✅ **Commands**: `leave:seed-ledger` (pro-rated cut-over, idempotent), `leave:accrue`, `leave:grant-annual`, `leave:carry-forward`, `leave:expire-carried`, `leave:reconcile-ledger` (drift check); scheduled in Kernel; retired `leave:accrue-monthly`/`leave:reset-annual`.
+- ✅ **UI**: `/leave-balances` API + ledger-backed balance cards (Entitled / Accrued / Taken / Remaining / Carried). Live-verified for emam (Casual 7 taken/3 left; Earned 6 accrued).
+- 2 migrations on dev MySQL — **run on prod**; then review per-type policy + run `leave:seed-ledger {year}` (dry-run first) + enable schedule. Spec: `docs/superpowers/specs/2026-06-25-leave-balance-accrual-ledger-design.md`; plan: `docs/superpowers/plans/2026-06-25-leave-balance-accrual-ledger.md`; ledger `.superpowers/sdd/progress-phase3.md`.
+
+### Initiative status: Attendance · Leaves · Holidays = industry-standard 10/10 (single-site)
+Phases 1–4 + Phase 3 complete. Attendance engine + holiday module + leave (fractional, audited, balance-tracked) all reconcile through one schedule layer + one engine pass, with consistent immutable audit and enforced relational integrity. Documented non-goals remain: in-app payroll (external), algorithmic Hijri (HR enters lunar dates), multi-site holiday scoping (schema-ready).
+
+**Phase 4 — Holiday module hardening** ✅ DONE (2026-06-25, incl. live-verified UI)
+- ✅ **Immutable `holiday_audit_logs`** trail on create/update/delete/restore/copy_year (mirrors leave/attendance audit).
+- ✅ **Soft-delete** holidays (`deleted_at`) — recoverable; `restore` endpoint; `HolidayService::forRange` transparently excludes trashed.
+- ✅ **Copy-last-year bulk import** (`HolidayImportService::copyYear`, `holidays-copy-year` route) — clones a year's holidays, overlap-safe (whereDate interval test), Feb-29 clamped; removes per-year manual re-entry drudgery (HR still edits lunar dates).
+- ✅ **Validation**: `recurrence_pattern` constrained to `{none, annual_fixed}`; `is_recurring=false` stores null (coherent).
+- ✅ **UI**: `Copy year` header action + `CopyYearForm` dialog (from/to year, skip-overlap callout) + Annual/Inactive badges in `HolidayTable`. Live-verified via Playwright (emam). Restore is endpoint-only (a trashed-holidays view is a separate enhancement).
+- 2 migrations applied to dev MySQL (`holiday_audit_logs`, `holidays.deleted_at`) — **run on prod**. Plan: `docs/superpowers/plans/2026-06-25-attendance-phase4-holiday-hardening.md`; ledger `.superpowers/sdd/progress-phase4.md`.
 
 ## 🟠 Phase B — High (fraud / integrity / multi-site)
 
