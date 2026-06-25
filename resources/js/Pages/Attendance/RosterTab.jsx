@@ -10,10 +10,12 @@ import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
 import RosterCellPopover from './Components/RosterCellPopover';
 import { handleCellConflict } from './rosterCellConflict';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 export default function RosterTab({ month, onMonthChange, departments = [], isActive = true }) {
-    const { employees = [] } = usePage().props;
+    const { employees = [], auth } = usePage().props;
     const qc = useQueryClient();
+    const authUserId = auth?.user?.id ?? null;
     const [selectedCell, setSelectedCell] = useState(null); // { userId, date }
     const [popoverOpen, setPopoverOpen] = useState(false);
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
@@ -53,6 +55,14 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const roster = data?.roster || {};
+
+    // Live cross-user updates: when ANOTHER user changes this month's roster,
+    // refetch just this grid (the actor's own change is filtered out by selfActorId).
+    useRealtimeSignals({
+        path: `roster/${month}`,
+        selfActorId: authUserId,
+        onSignal: () => qc.invalidateQueries({ queryKey: ['roster', from, to, selectedDepartmentId] }),
+    });
 
     const filteredEmployees = useMemo(() => {
         return employees.filter(e => {
