@@ -272,6 +272,39 @@ class User extends Authenticatable implements HasMedia
     }
 
     /**
+     * Zone model: the employee's override SUBSET of biometric devices (used only when the
+     * employee has a personal override). Empty = fall back to location/type devices.
+     */
+    public function biometricDevices(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\HRM\BiometricDevice::class, 'user_biometric_device');
+    }
+
+    /**
+     * Resolve the biometric device ids valid for this employee:
+     *   override devices → work-location devices → [] (caller falls back to the type's devices).
+     */
+    public function resolvedBiometricDeviceIds(): array
+    {
+        $hasOverride = $this->getRawOriginal('attendance_type_id') !== null
+            || ($this->relationLoaded('attendanceTypes') ? $this->attendanceTypes->isNotEmpty() : $this->attendanceTypes()->exists());
+
+        if ($hasOverride) {
+            return $this->biometricDevices()->pluck('biometric_devices.id')->all();
+        }
+
+        if ($this->work_location_id) {
+            $location = $this->relationLoaded('workLocation') && $this->workLocation
+                ? $this->workLocation
+                : WorkLocation::find($this->work_location_id);
+
+            return $location ? $location->biometricDevices()->pluck('biometric_devices.id')->all() : [];
+        }
+
+        return [];
+    }
+
+    /**
      * Resolve the effective SET of allowed attendance methods for this employee.
      * Precedence (override REPLACES inheritance):
      *   1. Employee override set (user_attendance_type pivot)

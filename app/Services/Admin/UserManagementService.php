@@ -74,7 +74,8 @@ class UserManagementService
         return DB::transaction(function () use ($validated, $roles, $profileImage) {
             unset($validated['profile_image']);
             $attendanceTypeIds = array_key_exists('attendance_type_ids', $validated) ? $validated['attendance_type_ids'] : null;
-            unset($validated['attendance_type_ids']);
+            $biometricDeviceIds = array_key_exists('biometric_device_ids', $validated) ? $validated['biometric_device_ids'] : null;
+            unset($validated['attendance_type_ids'], $validated['biometric_device_ids']);
 
             if (isset($validated['password'])) {
                 $validated['password'] = Hash::make($validated['password']);
@@ -88,7 +89,7 @@ class UserManagementService
             }
 
             $user = User::create($validated);
-            $this->applyAttendanceTypeOverride($user, $attendanceTypeIds);
+            $this->applyAttendanceTypeOverride($user, $attendanceTypeIds, $biometricDeviceIds);
 
             if ($roles) {
                 $user->syncRoles($roles);
@@ -116,7 +117,8 @@ class UserManagementService
 
             unset($validated['profile_image']);
             $attendanceTypeIds = array_key_exists('attendance_type_ids', $validated) ? $validated['attendance_type_ids'] : null;
-            unset($validated['attendance_type_ids']);
+            $biometricDeviceIds = array_key_exists('biometric_device_ids', $validated) ? $validated['biometric_device_ids'] : null;
+            unset($validated['attendance_type_ids'], $validated['biometric_device_ids']);
 
             if (isset($validated['password'])) {
                 $validated['password'] = Hash::make($validated['password']);
@@ -130,7 +132,7 @@ class UserManagementService
             }
 
             $user->update($validated);
-            $this->applyAttendanceTypeOverride($user, $attendanceTypeIds);
+            $this->applyAttendanceTypeOverride($user, $attendanceTypeIds, $biometricDeviceIds);
 
             if ($hasRoles) {
                 $user->syncRoles($roles);
@@ -244,25 +246,45 @@ class UserManagementService
      * - []    → clear override (employee inherits from work location)
      * - [..]  → set the override set; legacy single FK = first id for back-compat.
      */
-    protected function applyAttendanceTypeOverride(User $user, ?array $ids): void
+    protected function applyAttendanceTypeOverride(User $user, ?array $ids, ?array $biometricDeviceIds = null): void
     {
         if ($ids === null) {
+            // Still allow updating just the device subset if provided.
+            if ($biometricDeviceIds !== null) {
+                $user->biometricDevices()->sync($this->cleanIds($biometricDeviceIds));
+            }
             return;
         }
-        $ids = collect($ids)
-            ->filter(fn ($id) => $id !== null && $id !== '')
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values();
+        $ids = collect($this->cleanIds($ids));
 
         $user->attendanceTypes()->sync($ids->all());
         $user->forceFill(['attendance_type_id' => $ids->first()])->save();
+
+        // Override biometric device subset (zone model). Empty/none → falls back to type devices.
+        if ($biometricDeviceIds !== null) {
+            $user->biometricDevices()->sync($this->cleanIds($biometricDeviceIds));
+        } elseif ($ids->isEmpty()) {
+            $user->biometricDevices()->detach();
+        }
 
         // Keep the single-row employee_attendance_types in sync (first method + clear device).
         EmployeeAttendanceType::updateOrCreate(
             ['user_id' => $user->id],
             ['attendance_type_id' => $ids->first(), 'biometric_device_id' => null]
         );
+    }
+
+    /**
+     * Normalise an id array: drop blanks, cast to int, dedupe.
+     */
+    protected function cleanIds(array $ids): array
+    {
+        return collect($ids)
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function updateAttendanceType(User $user, ?int $attendanceTypeId): User
@@ -415,7 +437,7 @@ class UserManagementService
         $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         $query = User::withTrashed()
-            ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType', 'employeeAttendanceType']);
+            ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType', 'employeeAttendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number']);
 
         // Status / soft-delete filtering
         if ($status && $status !== 'all') {
@@ -477,7 +499,10 @@ class UserManagementService
                 'work_location_name' => $employee->workLocation?->name,
                 'work_location_attendance_type_name' => $employee->workLocation?->attendanceType?->name,
                 'biometric_device_id' => $employee->employeeAttendanceType?->biometric_device_id,
-                'has_attendance_override' => $employee->getRawOriginal('attendance_type_id') !== null,
+                'has_attendance_override' => $employee->getRawOriginal('attendance_type_id') !== null || $employee->attendanceTypes->isNotEmpty(),
+                // Multi-method override sets (for the Edit form prefill)
+                'attendance_types' => $employee->attendanceTypes->map(fn ($t) => ['id' => $t->id, 'name' => $t->name, 'slug' => $t->slug])->values(),
+                'override_biometric_devices' => $employee->biometricDevices->map(fn ($d) => ['id' => $d->id, 'name' => $d->name, 'serial_number' => $d->serial_number])->values(),
                 'report_to' => $employee->report_to,
                 'reports_to' => $employee->reportsTo ? [
                     'id' => $employee->reportsTo->id,

@@ -54,10 +54,15 @@ class BiometricValidator extends BaseAttendanceValidator
             return $this->errorResponse("User's attendance methods do not include biometric. Device punches not allowed.", 403);
         }
 
-        $allowedDeviceIds = $bioType->biometricDevices()->pluck('biometric_devices.id')->all();
+        // Zone model: prefer the employee's resolved device subset (override → location);
+        // fall back to all devices linked to the biometric type when no subset is configured.
+        $allowedDeviceIds = $user->resolvedBiometricDeviceIds();
+        if (empty($allowedDeviceIds)) {
+            $allowedDeviceIds = $bioType->biometricDevices()->pluck('biometric_devices.id')->all();
+        }
 
-        // If devices are linked to the biometric type, the punch device must be one of them.
-        // If none are linked yet, any active registered device is accepted (pool fallback).
+        // If a device set applies, the punch device must be one of them.
+        // If none are configured anywhere, any active registered device is accepted (pool fallback).
         if (! empty($allowedDeviceIds) && ! in_array($device->id, $allowedDeviceIds, true)) {
             return $this->errorResponse(
                 "Punch rejected: this device is not linked to the employee's biometric method.",

@@ -26,9 +26,20 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
         timezone: '',
         is_active: true,
         attendance_type_ids: [],
+        biometric_device_ids: [],
     };
 
     const [formData, setFormData] = useState(initialFormState);
+
+    const isBiometricSlug = (slug) => /^biometric/.test(String(slug || ''));
+    // Devices available to choose = those linked to any ticked biometric type.
+    const availableBiometricDevices = React.useMemo(() => {
+        const map = new Map();
+        attendanceTypes
+            .filter(t => formData.attendance_type_ids.includes(t.id) && isBiometricSlug(t.slug))
+            .forEach(t => (t.biometric_devices || []).forEach(d => map.set(d.id, d)));
+        return Array.from(map.values());
+    }, [attendanceTypes, formData.attendance_type_ids]);
 
     useEffect(() => {
         if (modalType === 'update' && currentRow) {
@@ -48,6 +59,7 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                 timezone: currentRow.timezone || '',
                 is_active: currentRow.is_active ?? true,
                 attendance_type_ids: ids,
+                biometric_device_ids: (currentRow.biometric_devices || []).map(d => Number(d.id)),
             });
         } else {
             setFormData(initialFormState);
@@ -64,6 +76,13 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
             : [...prev.attendance_type_ids, id],
     }));
 
+    const toggleBiometricDevice = (id) => setFormData(prev => ({
+        ...prev,
+        biometric_device_ids: prev.biometric_device_ids.includes(id)
+            ? prev.biometric_device_ids.filter(x => x !== id)
+            : [...prev.biometric_device_ids, id],
+    }));
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrors({});
@@ -73,6 +92,9 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
         ['latitude', 'longitude', 'geofence_radius', 'code', 'description', 'address', 'timezone'].forEach((f) => {
             if (payload[f] === '' || payload[f] === undefined) payload[f] = null;
         });
+        // Only keep device selections that belong to a currently-ticked biometric method.
+        const availableIds = availableBiometricDevices.map(d => d.id);
+        payload.biometric_device_ids = payload.biometric_device_ids.filter(id => availableIds.includes(id));
 
         try {
             if (modalType === 'update') {
@@ -212,6 +234,28 @@ const WorkLocationForm = ({ modalType, open, closeModal, onSuccess, currentRow, 
                             </Flex>
                             {errors.attendance_type_ids && <Text size="1" color="red">{errors.attendance_type_ids[0]}</Text>}
                         </Box>
+
+                        {availableBiometricDevices.length > 0 && (
+                            <Box style={{ gridColumn: '1 / -1' }}>
+                                <Text size="2" weight="medium" mb="1" as="div">Biometric Devices (for this location)</Text>
+                                <Text size="1" color="gray" mb="2" as="div">
+                                    Pick which devices are valid here. Leave all unchecked to accept <strong>any</strong> device of the biometric type.
+                                </Text>
+                                <Flex direction="column" gap="2" style={{ border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-2)', padding: '10px' }}>
+                                    {availableBiometricDevices.map(device => (
+                                        <Text as="label" size="2" key={device.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                            <Checkbox
+                                                checked={formData.biometric_device_ids.includes(device.id)}
+                                                onCheckedChange={() => toggleBiometricDevice(device.id)}
+                                                disabled={isMutating}
+                                            />
+                                            {device.name}{device.serial_number ? ` (${device.serial_number})` : ''}
+                                        </Text>
+                                    ))}
+                                </Flex>
+                                {errors.biometric_device_ids && <Text size="1" color="red">{errors.biometric_device_ids[0]}</Text>}
+                            </Box>
+                        )}
 
                         <Box style={{ gridColumn: '1 / -1' }}>
                             <Text size="2" weight="medium" mb="1" as="div">Description (Optional)</Text>

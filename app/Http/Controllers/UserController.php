@@ -59,7 +59,7 @@ class UserController extends Controller
             ->whereNull('deleted_at')
             ->get();
 
-        $workLocations = \App\Models\WorkLocation::with('attendanceType')->get();
+        $workLocations = \App\Models\WorkLocation::with(['attendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number'])->get();
 
         // 2. Department Tab Stats & Pagination
         $parentDepartments = $departments->whereNull('parent_id')->values();

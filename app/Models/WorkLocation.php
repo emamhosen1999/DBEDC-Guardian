@@ -73,6 +73,15 @@ class WorkLocation extends Model
     }
 
     /**
+     * Zone model: the SUBSET of biometric devices valid at this location.
+     * Empty = all of the biometric type's devices are valid (pool fallback).
+     */
+    public function biometricDevices(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\HRM\BiometricDevice::class, 'work_location_biometric_device');
+    }
+
+    /**
      * Employees assigned to this work location.
      */
     public function employees(): HasMany

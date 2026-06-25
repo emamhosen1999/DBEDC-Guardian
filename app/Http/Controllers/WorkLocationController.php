@@ -125,7 +125,7 @@ class WorkLocationController extends Controller
      */
     protected function locationsWithMeta()
     {
-        return WorkLocation::with(['attendanceType', 'attendanceTypes:id,name,slug'])->withCount('employees')->get();
+        return WorkLocation::with(['attendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name'])->withCount('employees')->get();
     }
 
     /**
@@ -146,6 +146,16 @@ class WorkLocationController extends Controller
         $location->attendanceTypes()->sync($ids->all());
         // Keep legacy single FK pointing at the first method (or null) for back-compat.
         $location->forceFill(['attendance_type_id' => $ids->first()])->save();
+
+        // Zone model: biometric device subset for this location.
+        if ($request->has('biometric_device_ids')) {
+            $deviceIds = collect($request->input('biometric_device_ids', []))
+                ->filter(fn ($id) => $id !== null && $id !== '')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+            $location->biometricDevices()->sync($deviceIds->all());
+        }
     }
 
     /**
@@ -172,6 +182,8 @@ class WorkLocationController extends Controller
             'attendance_type_id' => ['nullable', 'exists:attendance_types,id'],
             'attendance_type_ids' => ['nullable', 'array'],
             'attendance_type_ids.*' => ['integer', 'exists:attendance_types,id'],
+            'biometric_device_ids' => ['nullable', 'array'],
+            'biometric_device_ids.*' => ['integer', 'exists:biometric_devices,id'],
         ], [
             'name.required' => 'Work location name is required.',
             'name.unique' => 'A work location with this name already exists.',
@@ -180,8 +192,8 @@ class WorkLocationController extends Controller
 
         $validated['is_active'] = $request->has('is_active') ? $request->boolean('is_active') : true;
 
-        // Not a column — handled separately via the pivot in syncAttendanceTypes().
-        unset($validated['attendance_type_ids']);
+        // Not columns — handled separately via pivots in syncAttendanceTypes().
+        unset($validated['attendance_type_ids'], $validated['biometric_device_ids']);
 
         return $validated;
     }
