@@ -134,6 +134,21 @@ class HolidayController extends Controller
         }
     }
 
+    public function restore(Request $request): JsonResponse
+    {
+        $request->validate(['id' => 'required|integer']);
+
+        $holiday = Holiday::onlyTrashed()->findOrFail($request->input('id'));
+        $holiday->restore();
+
+        $this->audit->record('restore', $holiday->id, null, $holiday->fresh()->toArray());
+
+        return response()->json([
+            'message' => 'Holiday restored successfully',
+            'holidays' => Holiday::active()->orderBy('from_date', 'asc')->get(),
+        ]);
+    }
+
     public function delete(Request $request): JsonResponse
     {
         try {
