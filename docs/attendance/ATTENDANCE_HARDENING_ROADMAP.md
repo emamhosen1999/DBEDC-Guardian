@@ -81,15 +81,21 @@ and terminations are real for this org. Sequenced B1 → B2 → B3.
 - Design + plan: `docs/superpowers/specs/2026-06-23-attendance-leaves-holidays-10of10-design.md`,
   `docs/superpowers/plans/2026-06-23-attendance-phase1-holidays-engine-integrity.md`.
 
-**B3 — Leave correctness for the handoff** (Phase 2 of the 10/10 initiative — designed, plan next)
-
-**B3 — Leave correctness for the handoff**
-- **Half-day leave** (0.5 precision): add half-day to the leave model + apply flow + engine so a half-day
-  reconciles as 0.5 leave + 0.5 present in the counts. Most important B3 item (org has half-days).
-- **Paid/unpaid flag** on `LeaveSetting` so accounts can separate LWP from paid leave. *(Confirm accounts
-  needs the split.)*
-- *(Lower)* server-side `no_of_days` excluding weekends/holidays — fixes leave-**balance** accounting
-  (the accounts summary already derives leave-days from the engine, so this is balance-module hygiene).
+**B3 — Leave correctness for the handoff** ✅ DONE (2026-06-25, Phase 2 of the 10/10 initiative)
+- ✅ **Half-day leave** (0.5 precision): `is_half_day` + `half_day_session` on `leaves`, decimal `no_of_days`;
+  engine `AttendanceStatusService::resolve` takes a per-day leave **fraction** (0/0.5/1.0)+session; half-day
+  reconciles as 0.5 leave + 0.5 present (worked) or 0.5 leave + 0.5 absent (no-show); dashboard + per-employee
+  summary count fractionally (`numify` keeps whole counts as int).
+- ✅ **Paid/unpaid flag** (`LeaveSetting.is_paid`): per-employee summary + export split **Paid Leave vs LWP**.
+- ✅ **Server-side `no_of_days`** via `LeaveDayCalculator` (roster working-days − weekly-off − holidays, 0.5 for
+  half-day); client `daysCount` no longer trusted; balance check now float (no half-day truncation).
+- ✅ **Status normalization** to canonical `{pending,approved,rejected,cancelled}` + data migration; all write-paths updated.
+- ✅ **Leave audit trail** (`leave_audit_logs`, immutable) on create/update/status/approve/reject/delete.
+- ✅ **Validation hardening** (half-day single-date + session) + **relational FK** `leaves.user_id → users` (cascade).
+- ✅ `getLeaveCountsArray` approved-only filter. Spec/plan:
+  `docs/superpowers/{specs/2026-06-23-attendance-leaves-holidays-10of10-design.md,plans/2026-06-25-attendance-phase2-leave-correctness.md}`;
+  ledger `.superpowers/sdd/progress-phase2.md`. **5 migrations applied to dev MySQL — run on prod** (see plan's deploy section).
+- *Next:* Phase 3 (leave balance/accrual ledger), Phase 4 (holiday module hardening).
 
 ## 🟠 Phase B — High (fraud / integrity / multi-site)
 
