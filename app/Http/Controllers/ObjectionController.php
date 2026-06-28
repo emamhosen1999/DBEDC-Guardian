@@ -191,6 +191,8 @@ class ObjectionController extends Controller
 
             DB::commit();
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'created');
+
             return response()->json([
                 'message' => 'Objection created successfully.',
                 'objection' => $objection->load(['createdBy:id,name', 'dailyWorks:id,number']),
@@ -731,6 +733,8 @@ class ObjectionController extends Controller
         try {
             $objection->delete();
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'deleted');
+
             return response()->json([
                 'message' => 'Objection deleted successfully.',
             ]);
@@ -771,6 +775,8 @@ class ObjectionController extends Controller
                     'changed_by' => auth()->id(),
                     'changed_at' => now(),
                 ]);
+
+                app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'submitted');
 
                 return response()->json([
                     'message' => 'Objection submitted for review.',
@@ -875,6 +881,8 @@ class ObjectionController extends Controller
                     $this->notifyRfiIncharges($objection, $rfiIds, 'resolved');
                 }
 
+                app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'resolved');
+
                 return response()->json([
                     'message' => 'Objection resolved successfully.',
                     'objection' => $objection->fresh(['createdBy', 'resolvedBy', 'dailyWorks', 'statusLogs.changedBy']),
@@ -927,6 +935,8 @@ class ObjectionController extends Controller
                     'changed_by' => auth()->id(),
                     'changed_at' => now(),
                 ]);
+
+                app(\App\Services\Realtime\RealtimeSignal::class)->touch('objection', 'all', auth()->id(), 'rejected');
 
                 return response()->json([
                     'message' => 'Objection rejected.',

@@ -1875,7 +1875,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-813o-l3_.js",
+    "file": "assets/js/Index-CKPqCsVU.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isDynamicEntry": true,
@@ -1898,6 +1898,7 @@
       "_QueryClientProvider-Ciyt_ZtV.js",
       "_useMutation-CwTBkPz6.js",
       "_client-D5ykMpLs.js",
+      "_useRealtimeSignals-CWCVEMPY.js",
       "_ShieldExclamationIcon-hiqp5JC-.js",
       "_PlusIcon-C0xlwpnT.js",
       "_MagnifyingGlassIcon-wOFKd6O6.js",
@@ -1909,7 +1910,8 @@
       "_reactQueryClient-CDinxHsG.js",
       "_StatsCards-CKRamtCB.js",
       "resources/js/Pages/Project/Objections/utils/buildObjectionsStats.jsx",
-      "_objectionConfig-Bt8Hm9mE.js"
+      "_objectionConfig-Bt8Hm9mE.js",
+      "_firebase-config-Be1LEgRV.js"
     ],
     "dynamicImports": [
       "../../../node_modules/xlsx/xlsx.mjs"
@@ -2073,7 +2075,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-JyOqM6tz.js",
+    "file": "assets/js/app-D7npsOuB.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
