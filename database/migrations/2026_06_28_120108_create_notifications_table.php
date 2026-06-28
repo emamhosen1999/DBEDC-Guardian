@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Idempotent: the notifications table may already exist on environments
+        // where database-channel notifications ran before this migration was added.
+        if (Schema::hasTable('notifications')) {
+            return;
+        }
+
         Schema::create('notifications', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('type');
