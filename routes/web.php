@@ -815,4 +815,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'update']);
 });
 
+// In-app notification center (View-all page; API lives under /api/notifications)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/notifications', fn () => Inertia::render('Notifications/Index'))->name('notifications.index');
+});
+
 require __DIR__.'/auth.php';
