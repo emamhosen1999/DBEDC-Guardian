@@ -1,0 +1,1 @@
+import{e as n}from"./useObjectionsListState-D0IbNrbU.js";function l(s,a){var t;return((s==null?void 0:s.status)??((t=s==null?void 0:s.response)==null?void 0:t.status))!==409?!1:(a.warning(n(s,"This cell was changed by someone else.")),!0)}export{l as h};
