@@ -14,7 +14,25 @@ class FcmNotificationService
 
     public function __construct()
     {
-        $this->messaging = app('firebase.messaging');
+        // Resolve Firebase lazily (see messaging()). Resolving here would throw
+        // when credentials are absent, which — because this service is constructed
+        // during push-channel resolution — would break the ENTIRE notification
+        // (including the always-on database channel). Lazy resolution lets the
+        // send methods' catch blocks degrade gracefully instead.
+    }
+
+    /**
+     * Lazily resolve the Firebase messaging client. Throws if Firebase is not
+     * configured; callers invoke this inside their try/catch so a missing
+     * credentials file logs and returns a graceful result rather than bubbling.
+     */
+    protected function messaging()
+    {
+        if ($this->messaging === null) {
+            $this->messaging = app('firebase.messaging');
+        }
+
+        return $this->messaging;
     }
 
     /**
@@ -63,7 +81,7 @@ class FcmNotificationService
                 ]);
 
             // Send the message
-            $response = $this->messaging->send($message);
+            $response = $this->messaging()->send($message);
 
             Log::debug('FCM Notification Sent', [
                 'message_id' => $response,
@@ -90,7 +108,9 @@ class FcmNotificationService
 
             return false;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // \Throwable (not just \Exception): a missing Firebase credentials file
+            // surfaces as an Error, and push must never break notification delivery.
             Log::error('FCM Notification Error', [
                 'fcm_token' => $deviceToken,
                 'error' => $e->getMessage(),
@@ -119,7 +139,7 @@ class FcmNotificationService
                 ->withDefaultSounds()
                 ->withHighPriority();
 
-            $report = $this->messaging->sendMulticast($message, $deviceTokens);
+            $report = $this->messaging()->sendMulticast($message, $deviceTokens);
 
             return [
                 'successful' => $report->successes()->count(),
@@ -127,7 +147,9 @@ class FcmNotificationService
                 'invalid_tokens' => $report->invalidTokens(),
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // \Throwable (not just \Exception): a missing Firebase credentials file
+            // surfaces as an Error, and push must never break notification delivery.
             Log::error('FCM Multicast Error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
