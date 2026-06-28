@@ -1504,7 +1504,7 @@
     ]
   },
   "resources/js/Pages/LeavesEmployee.jsx": {
-    "file": "assets/js/LeavesEmployee-WPpXgzV6.js",
+    "file": "assets/js/LeavesEmployee-BHlfHk2w.js",
     "name": "LeavesEmployee",
     "src": "resources/js/Pages/LeavesEmployee.jsx",
     "isEntry": true,
@@ -1513,39 +1513,45 @@
       "_vendor-inertia-B_jPe_ra.js",
       "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
       "resources/js/Pages/UserDevices.jsx",
-      "resources/js/Pages/LeavesUnified.jsx",
-      "resources/js/Pages/Attendance/ShiftsSettings.jsx",
-      "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "_ErrorBoundary-D3L690y6.js",
-      "_vendor-utils-D6Wd6ilh.js",
-      "_preload-helper-BfFHrpNk.js",
       "_useMediaQuery-DzkaZ5Od.js",
-      "_reactQueryClient-CDinxHsG.js",
-      "_react-icons.esm-C2OFLrbC.js",
-      "_ClockIcon-wojZnvr5.js",
-      "_TablePagination-CU428HiC.js"
-    ]
-  },
-  "resources/js/Pages/LeavesUnified.jsx": {
-    "file": "assets/js/LeavesUnified-Bn18edsv.js",
-    "name": "LeavesUnified",
-    "src": "resources/js/Pages/LeavesUnified.jsx",
-    "isEntry": true,
-    "imports": [
-      "_vendor-radix-DBlOuIwi.js",
-      "_vendor-inertia-B_jPe_ra.js",
-      "resources/js/Pages/UserDevices.jsx",
-      "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "resources/js/Pages/Attendance/ShiftsSettings.jsx",
-      "_ErrorBoundary-D3L690y6.js",
-      "_useMediaQuery-DzkaZ5Od.js",
       "_react-icons.esm-C2OFLrbC.js",
       "_vendor-utils-D6Wd6ilh.js",
       "_TablePagination-CU428HiC.js",
+      "resources/js/Pages/Attendance/ShiftsSettings.jsx",
+      "_ErrorBoundary-D3L690y6.js",
       "_preload-helper-BfFHrpNk.js",
       "_reactQueryClient-CDinxHsG.js",
       "_ClockIcon-wojZnvr5.js"
+    ]
+  },
+  "resources/js/Pages/LeavesUnified.jsx": {
+    "file": "assets/js/LeavesUnified-DF6tRtLE.js",
+    "name": "LeavesUnified",
+    "src": "resources/js/Pages/LeavesUnified.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vendor-radix-DBlOuIwi.js",
+      "_vendor-inertia-B_jPe_ra.js",
+      "_react-icons.esm-C2OFLrbC.js",
+      "resources/js/Pages/UserDevices.jsx",
+      "_useMediaQuery-DzkaZ5Od.js",
+      "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
+      "_vendor-utils-D6Wd6ilh.js",
+      "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
+      "_useRealtimeSignals-CWCVEMPY.js",
+      "resources/js/Pages/LeavesEmployee.jsx",
+      "_LeaveBalanceCards-B8OFbEtq.js",
+      "_ErrorBoundary-D3L690y6.js",
+      "_preload-helper-BfFHrpNk.js",
+      "_reactQueryClient-CDinxHsG.js",
+      "_ClockIcon-wojZnvr5.js",
+      "_firebase-config-Be1LEgRV.js",
+      "_client-D5ykMpLs.js",
+      "_TablePagination-CU428HiC.js",
+      "resources/js/Pages/Attendance/ShiftsSettings.jsx",
+      "_DateTimePicker-XpWKfZTt.js",
+      "_clsx-B-dksMZM.js"
     ]
   },
   "resources/js/Pages/Organization/Components/DeleteDepartmentForm.jsx": {
@@ -2064,7 +2070,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CC6O361I.js",
+    "file": "assets/js/app-Blb5-i1F.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
