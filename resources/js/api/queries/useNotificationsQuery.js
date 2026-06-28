@@ -21,7 +21,7 @@ export const useUnreadCount = () =>
 export const useNotificationsList = (params = {}) =>
   useQuery({
     queryKey: notificationKeys.list(),
-    queryFn: () => requestJson('get', '/notifications', { params }),
+    queryFn: () => requestJson('get', '/notifications/list', { params }),
   });
 
 // Mark a single notification read
