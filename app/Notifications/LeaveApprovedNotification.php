@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\HRM\Leave;
+use App\Notifications\Concerns\DeliversViaPreferences;
+use App\Services\Notification\Push\PushMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,28 +12,28 @@ use Illuminate\Notifications\Notification;
 
 class LeaveApprovedNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use DeliversViaPreferences, Queueable;
 
     public function __construct(
         public Leave $leave
     ) {}
 
-    public function via(object $notifiable): array
+    public function typeKey(): string
     {
-        return ['mail', 'database'];
+        return 'leave.approved';
     }
 
     public function toMail(object $notifiable): MailMessage
     {
-        $leaveType = $this->leave->leaveSetting->leave_type ?? 'Leave';
+        $leaveType = $this->leave->leaveSetting?->leave_type ?? 'Leave';
 
         return (new MailMessage)
             ->subject('Leave Request Approved')
             ->greeting("Hello {$notifiable->name},")
             ->line("Your {$leaveType} request has been approved.")
             ->line('**Leave Details:**')
-            ->line("From: {$this->leave->from_date->format('d M Y')}")
-            ->line("To: {$this->leave->to_date->format('d M Y')}")
+            ->line('From: '.\Illuminate\Support\Carbon::parse($this->leave->from_date)->format('d M Y'))
+            ->line('To: '.\Illuminate\Support\Carbon::parse($this->leave->to_date)->format('d M Y'))
             ->line("Duration: {$this->leave->no_of_days} day(s)")
             ->line("Approved at: {$this->leave->approved_at->format('d M Y H:i')}")
             ->action('View Leave Details', url("/leaves?view={$this->leave->id}"))
@@ -40,14 +42,31 @@ class LeaveApprovedNotification extends Notification implements ShouldQueue
 
     public function toArray(object $notifiable): array
     {
+        $leaveType = $this->leave->leaveSetting?->leave_type ?? 'Leave';
+
         return [
+            'type_key' => 'leave.approved',
+            'title' => 'Leave approved',
+            'body' => "Your {$leaveType} request ({$this->leave->no_of_days} day(s)) has been approved.",
+            'url' => "/leaves-employee?view={$this->leave->id}",
             'leave_id' => $this->leave->id,
-            'leave_type' => $this->leave->leaveSetting->leave_type ?? 'Leave',
-            'from_date' => $this->leave->from_date->format('Y-m-d'),
-            'to_date' => $this->leave->to_date->format('Y-m-d'),
+            'leave_type' => $leaveType,
+            'from_date' => $this->leave->from_date,
+            'to_date' => $this->leave->to_date,
             'no_of_days' => $this->leave->no_of_days,
             'status' => 'approved',
             'approved_at' => $this->leave->approved_at,
         ];
+    }
+
+    public function toPush(object $notifiable): PushMessage
+    {
+        $data = $this->toArray($notifiable);
+
+        return new PushMessage($data['title'], $data['body'], [
+            'type_key' => $data['type_key'],
+            'leave_id' => (string) $this->leave->id,
+            'url' => $data['url'],
+        ]);
     }
 }
