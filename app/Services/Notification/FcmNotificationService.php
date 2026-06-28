@@ -151,10 +151,9 @@ class FcmNotificationService
     {
         Log::warning('Invalid FCM token detected', [
             'fcm_token' => $deviceToken,
-            'action' => 'Token should be removed from database',
+            'action' => 'Token removed from notification_tokens',
         ]);
 
-        // Example: Remove the token from your database
-        // User::where('fcm_token', $deviceToken)->update(['fcm_token' => null]);
+        \App\Models\NotificationToken::where('token', $deviceToken)->delete();
     }
 }

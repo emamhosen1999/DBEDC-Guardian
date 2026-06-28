@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Http\Controllers\NotificationController;
 use App\Models\User;
 use App\Notifications\Attendance\MissedPunchNotification;
 use Illuminate\Console\Command;
@@ -27,20 +26,13 @@ class SendPunchOutReminder extends Command
             $query->whereNotNull('punchin'); // Filter attendances to only those with punchin data
         }])->whereHas('attendances', function ($query) {
             $query->whereNotNull('punchin'); // Ensure users have attendances with punchin
-        })->whereNotNull('fcm_token')->get(); // Ensure users have the FCM token
+        })->get();
 
         foreach ($users as $user) {
-            $token = $user->fcm_token; // FCM token of the user
-
-            // Call your notification controller method
-            $notificationController = new NotificationController;
-            $notificationController->sendPushNotification(
-                $token,
-                'Punch out reminder',
-                'Are you forgetting to punch out?'
-            );
-
-            // Also fire the structured notification (queued, non-breaking)
+            // Fire the structured notification (queued, non-breaking).
+            // Deliverability across channels (push/db/mail) is handled by the
+            // engine notify itself, which no-ops gracefully if the user has
+            // no registered notification_tokens.
             try {
                 $user->notify(new MissedPunchNotification('out', $date));
             } catch (\Throwable $exception) {
