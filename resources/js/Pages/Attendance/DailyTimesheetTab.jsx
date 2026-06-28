@@ -477,8 +477,9 @@ const DailyTimesheetTab = ({
                 data: { [field]: formattedTime },
             });
 
+            // Optimistic patch already flipped the cell; the mutation reconciles
+            // on settle. No manual refetch needed (avoids a redundant full fetch).
             setEditingCell(null);
-            refetchTimesheet();
         } catch (error) {
             console.error('Error updating attendance:', error);
             showToast.error(error.response?.data?.error || 'Failed to update attendance');
