@@ -260,6 +260,7 @@ import { statusConfig, categoryConfig } from './config/objectionUiConfig';
 import { useObjectionsAccess } from './hooks/useObjectionsAccess';
 import { useObjectionsListState } from './hooks/useObjectionsListState';
 import { useObjectionsActions } from './hooks/useObjectionsActions';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import useDisclosure from '@/Hooks/useDisclosure';
 
 const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, categories, creators, statistics }) => {
@@ -293,6 +294,14 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
         handlePageChange,
         toggleExpanded,
     } = useObjectionsListState({ initialObjections, initialFilters: filters, isMobile });
+
+    // Live updates: when ANOTHER user changes any objection, refetch the list + stats (~1s).
+    const realtimeActorId = usePage().props?.auth?.user?.id ?? null;
+    useRealtimeSignals({
+        path: 'objection/all',
+        selfActorId: realtimeActorId,
+        onSignal: () => router.reload({ only: ['objections', 'statistics'] }),
+    });
 
     const [statsLoading, setStatsLoading] = useState(false);
 
