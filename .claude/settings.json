@@ -398,7 +398,9 @@
       "PowerShell(Set-Location \"C:\\\\laragon\\\\www\\\\Aero-Enterprise-Suite\\\\.claude\\\\worktrees\\\\realtime-foundation\"; npx esbuild resources/js/api/useRealtimeSignals.js --bundle=false | Out-Null; \"esbuild_exit=$LASTEXITCODE\")",
       "Bash(git config *)",
       "Bash(git symbolic-ref *)",
-      "Bash(git rebase *)"
+      "Bash(git rebase *)",
+      "Bash(bash \"C:/Users/Emam Hosen/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-06-28-expressway-monitoring-foundation.md 1)",
+      "Bash(bash \"C:/Users/Emam Hosen/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package\" 2591edf0 4d592b89)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
