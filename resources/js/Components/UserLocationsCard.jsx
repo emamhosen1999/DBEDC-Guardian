@@ -21,17 +21,23 @@ import L from 'leaflet';
 import { usePage } from "@inertiajs/react";
 
 // --- leaflet-routing-machine safety guard (runs once on import) ---
-// LRM's _clearLines() calls this._map.removeLayer() to clear old route polylines. When an async
-// OSRM route request resolves AFTER its control was detached (component re-render/unmount — e.g.
-// an attendance data refetch), this._map is null and removeLayer() throws an unhandled error.
-// Make _clearLines a no-op once the control is detached.
-if (L?.Routing?.Control && !L.Routing.Control.prototype.__clearLinesGuarded) {
-    const _origClearLines = L.Routing.Control.prototype._clearLines;
-    L.Routing.Control.prototype._clearLines = function (...args) {
-        if (!this._map) return;
-        return _origClearLines.apply(this, args);
-    };
-    L.Routing.Control.prototype.__clearLinesGuarded = true;
+// When an async OSRM route request resolves AFTER its control was detached (component re-render /
+// unmount — e.g. an attendance data refetch), this._map is null and LRM still tries to mutate it:
+//   _clearLines()    -> this._map.removeLayer(...)   (clear old polylines)
+//   _routeSelected() -> _updateLines() -> this._map.addLayer(...) / fitBounds (draw new route)
+// Both throw on a null map. Make them no-ops once the control is detached.
+if (L?.Routing?.Control && !L.Routing.Control.prototype.__detachGuarded) {
+    const proto = L.Routing.Control.prototype;
+    ['_clearLines', '_routeSelected'].forEach((method) => {
+        const original = proto[method];
+        if (typeof original === 'function') {
+            proto[method] = function (...args) {
+                if (!this._map) return; // control detached — nothing to draw/clear
+                return original.apply(this, args);
+            };
+        }
+    });
+    proto.__detachGuarded = true;
 }
 
 // Utility function to replace MUI's alpha function
