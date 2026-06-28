@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Box, Flex, Text, Card } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, ReloadIcon, HomeIcon } from '@radix-ui/react-icons';
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/react';
 
 /**
  * Enhanced Error Boundary Component
@@ -70,7 +70,7 @@ class ErrorBoundary extends React.Component {
     };
 
     handleGoHome = () => {
-        Inertia.visit('/dashboard');
+        router.visit('/dashboard');
     };
 
     handleReload = () => {
