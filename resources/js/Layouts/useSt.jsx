@@ -10,7 +10,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import '../../css/theme-transitions.css';
 import Sidebar from "@/Layouts/Sidebar.jsx";
-import { Inertia } from '@inertiajs/inertia';
+import { router } from '@inertiajs/react';
 import { getDynamicPages } from '@/Props/dynamicNavigation.jsx';
 import SessionExpiredModal from '@/Components/SessionExpiredModal.jsx';
 import { onMessageListener, requestNotificationPermission } from "@/firebase-config.js";
@@ -202,8 +202,8 @@ function App({ children }) {
     useEffect(() => {
         const start = () => setLoading(true);
         const finish = () => setLoading(false);
-        const unStart = Inertia.on('start', start);
-        const unFinish = Inertia.on('finish', finish);
+        const unStart = router.on('start', start);
+        const unFinish = router.on('finish', finish);
         return () => {
             unStart();
             unFinish();
