@@ -462,8 +462,8 @@
       "_vendor-inertia-BheeDqvO.js"
     ]
   },
-  "_ObjectionAccordionItem-3OfFQ-Q_.js": {
-    "file": "assets/js/ObjectionAccordionItem-3OfFQ-Q_.js",
+  "_ObjectionAccordionItem-15OOuDqr.js": {
+    "file": "assets/js/ObjectionAccordionItem-15OOuDqr.js",
     "name": "ObjectionAccordionItem",
     "isDynamicEntry": true,
     "imports": [
@@ -1875,7 +1875,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-BeNntYxq.js",
+    "file": "assets/js/Index-Dxu__nT8.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isDynamicEntry": true,
@@ -1886,7 +1886,7 @@
       "resources/js/Pages/UserDevices.jsx",
       "resources/js/Pages/Project/Objections/components/ObjectionsStatsSection.jsx",
       "resources/js/Pages/Project/Objections/components/ObjectionsFiltersBar.jsx",
-      "_ObjectionAccordionItem-3OfFQ-Q_.js",
+      "_ObjectionAccordionItem-15OOuDqr.js",
       "_useMediaQuery-iotCY5cT.js",
       "_ErrorBoundary-DxAQBqr1.js",
       "_ArrowPathIcon-n5G26bAK.js",
@@ -2075,7 +2075,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CpBpPRy3.js",
+    "file": "assets/js/app-B32yvH7t.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2149,7 +2149,7 @@
       "resources/js/Pages/Project/DailyWorksUnified.jsx",
       "resources/js/Pages/Project/Jurisdictions/JurisdictionsManager.jsx",
       "resources/js/Pages/Project/Objections/Index.jsx",
-      "_ObjectionAccordionItem-3OfFQ-Q_.js",
+      "_ObjectionAccordionItem-15OOuDqr.js",
       "resources/js/Pages/Project/Objections/components/ObjectionsFiltersBar.jsx",
       "resources/js/Pages/Project/Objections/components/ObjectionsStatsSection.jsx",
       "resources/js/Pages/Project/Objections/utils/buildObjectionsStats.jsx",
