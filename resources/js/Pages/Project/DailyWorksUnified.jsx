@@ -14,6 +14,7 @@ import DailyWorksTable from '@/Tables/DailyWorksTable.jsx';
 import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import JurisdictionsManager from '@/Pages/Project/Jurisdictions/JurisdictionsManager.jsx';
 import { showToast } from '@/utils/toastUtils';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import { Head, router } from "@inertiajs/react";
 import {
     BarChartIcon,
@@ -371,6 +372,13 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
         setCurrentPage(1);
         fetchData();
     }, [fetchData]);
+
+    // Live updates: when ANOTHER user changes a daily-work status, refetch silently (~1s).
+    useRealtimeSignals({
+        path: 'dailywork/all',
+        selfActorId: auth?.user?.id ?? null,
+        onSignal: () => fetchData(false),
+    });
 
     // Cleanup abort controller on unmount
     useEffect(() => {

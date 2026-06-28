@@ -347,6 +347,8 @@ class DailyWorkController extends Controller
                 true // Web controller updates submission_time
             );
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'status');
+
             return response()->json([
                 'message' => 'Status updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
