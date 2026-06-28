@@ -111,6 +111,13 @@ class HandleInertiaRequests extends Middleware
                 'environment' => config('app.env', 'production'),
             ],
 
+            // Realtime (RTDB) — single source of truth for the signal namespace, so the
+            // client subscribes to exactly what the server publishes to. Avoids the
+            // server-config vs VITE_-env drift that would silently break realtime.
+            'realtime' => [
+                'namespace' => config('realtime.namespace'),
+            ],
+
             'url' => $request->getPathInfo(),
             'csrfToken' => session('csrfToken'),
 

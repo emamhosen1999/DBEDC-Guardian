@@ -75,14 +75,8 @@ export default function ObjectionAccordionItem({
                 </div>
             </Box>
 
-            <AnimatePresence>
-                {isExpanded && (
-                    <div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                    >
+            {isExpanded && (
+                    <div>
                         <Box px="3" pb="3" pt="0">
                             <Separator size="4" mb="3" />
                             <div className="space-y-2 text-xs">
@@ -130,7 +124,6 @@ export default function ObjectionAccordionItem({
                         </Box>
                     </div>
                 )}
-            </AnimatePresence>
         </Card>
     );
 }

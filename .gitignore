@@ -76,3 +76,7 @@ public/test.php
 .playwright-mcp/
 roster-june-2026*.png
 prod-roster-*.png
+
+# Firebase service-account / admin keys — NEVER commit
+*firebase-adminsdk*
+/storage/app/firebase-credentials.json

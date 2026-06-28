@@ -3,15 +3,12 @@ import { getPages, getPagesByModule, getPagesByPriority, getNavigationPath } fro
 
 describe('pages.jsx utility module', () => {
   describe('getPages', () => {
-    it('returns Workspace dropdown with only Petty Cash if roles/permissions are empty', () => {
+    it('returns Petty Cash as the sole top-level item when roles/permissions are empty', () => {
       const pages = getPages([], []);
-      // Since roles are empty (not only Employee), Petty Cash is grouped under Workspace folder
+      // Workspace items are spread at top level (no "Workspace" wrapper); Petty Cash is always available.
       expect(pages).toHaveLength(1);
-      expect(pages[0].name).toBe('Workspace');
-      expect(pages[0].subMenu).toBeDefined();
-      expect(pages[0].subMenu).toHaveLength(1);
-      expect(pages[0].subMenu[0].name).toBe('Petty Cash');
-      expect(pages[0].subMenu[0].route).toBe('petty-cash.index');
+      expect(pages[0].name).toBe('Petty Cash');
+      expect(pages[0].route).toBe('petty-cash.index');
     });
 
     it('returns workspace items directly for single Employee role (no submenu wrapping)', () => {
@@ -35,7 +32,7 @@ describe('pages.jsx utility module', () => {
       expect(pages.find(p => p.name === 'Workspace')).toBeUndefined();
     });
 
-    it('groups workspace items under a Workspace dropdown for non-sole-Employee roles', () => {
+    it('spreads workspace items at top level (no Workspace wrapper) regardless of role mix', () => {
       const roles = ['Employee', 'Super Administrator'];
       const permissions = [
         'daily-works.view',
@@ -44,16 +41,14 @@ describe('pages.jsx utility module', () => {
       ];
 
       const pages = getPages(roles, permissions);
-      
-      // Should find a Workspace folder
-      const workspaceMenu = pages.find(p => p.name === 'Workspace');
-      expect(workspaceMenu).toBeDefined();
-      expect(workspaceMenu.subMenu).toBeDefined();
-      expect(workspaceMenu.subMenu).toHaveLength(4);
-      expect(workspaceMenu.subMenu.map(p => p.name)).toContain('Daily Works');
-      expect(workspaceMenu.subMenu.map(p => p.name)).toContain('My Attendance');
-      expect(workspaceMenu.subMenu.map(p => p.name)).toContain('My Leaves');
-      expect(workspaceMenu.subMenu.map(p => p.name)).toContain('Petty Cash');
+
+      // Workspace items are no longer wrapped in a "Workspace" folder — they are top-level.
+      expect(pages.find(p => p.name === 'Workspace')).toBeUndefined();
+      const names = pages.map(p => p.name);
+      expect(names).toContain('Daily Works');
+      expect(names).toContain('My Attendance');
+      expect(names).toContain('My Leaves');
+      expect(names).toContain('Petty Cash');
     });
 
     it('shows Workforce navigation options with subMenu groups for HR Managers', () => {
@@ -73,10 +68,10 @@ describe('pages.jsx utility module', () => {
       expect(workforceMenu).toBeDefined();
       expect(workforceMenu.subMenu).toBeDefined();
 
-      // Check for Organization link
-      const orgItem = workforceMenu.subMenu.find(i => i.name === 'Organization');
-      expect(orgItem).toBeDefined();
-      expect(orgItem.route).toBe('organization.index');
+      // Employee management link (formerly "Organization")
+      const empItem = workforceMenu.subMenu.find(i => i.name === 'Employees');
+      expect(empItem).toBeDefined();
+      expect(empItem.route).toBe('employees');
 
       // Check for Time/Attendance submenu folder
       const timeMenu = workforceMenu.subMenu.find(i => i.name === 'Time/Attendance');
@@ -100,8 +95,7 @@ describe('pages.jsx utility module', () => {
       const adminMenu = pages.find(p => p.name === 'Admin');
       expect(adminMenu).toBeDefined();
       expect(adminMenu.subMenu).toBeDefined();
-      expect(adminMenu.subMenu).toHaveLength(3);
-      expect(adminMenu.subMenu.map(i => i.name)).toContain('Users/Roles');
+      expect(adminMenu.subMenu).toHaveLength(2);
       expect(adminMenu.subMenu.map(i => i.name)).toContain('Company Details');
       expect(adminMenu.subMenu.map(i => i.name)).toContain('Request Logs');
     });
@@ -142,13 +136,17 @@ describe('pages.jsx utility module', () => {
   });
 
   describe('getPagesByPriority', () => {
-    it('sorts pages by priority ascending', () => {
+    it('sorts pages by priority ascending (unprioritized items sort last)', () => {
       const permissions = ['users.view', 'core.dashboard.view'];
-      // Dashboard has priority 1, Admin has priority 8
+      // Dashboard has priority 1, Admin has priority 8, Petty Cash has no priority (→ 999)
       const sorted = getPagesByPriority(['Super Administrator'], permissions);
-      
+
       expect(sorted[0].name).toBe('Dashboard');
-      expect(sorted[sorted.length - 1].name).toBe('Admin');
+      // Admin (priority 8) sorts ahead of the unprioritized Petty Cash
+      const adminIdx = sorted.findIndex(p => p.name === 'Admin');
+      const pettyIdx = sorted.findIndex(p => p.name === 'Petty Cash');
+      expect(adminIdx).toBeGreaterThanOrEqual(0);
+      expect(adminIdx).toBeLessThan(pettyIdx);
     });
   });
 

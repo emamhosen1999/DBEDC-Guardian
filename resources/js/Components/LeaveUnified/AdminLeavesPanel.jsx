@@ -22,6 +22,7 @@ import {
     ReloadIcon, TableIcon, LayersIcon
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import LeaveEmployeeTable from '@/Tables/LeaveEmployeeTable.jsx';
 import LeaveForm          from '@/Forms/LeaveForm.jsx';
 import DeleteLeaveForm    from '@/Forms/DeleteLeaveForm.jsx';
@@ -151,6 +152,14 @@ export default function AdminLeavesPanel({
             if (data.stats) setLeaveStats(data.stats);
         } catch { /* silent */ }
     }, [filters.selectedMonth]);
+
+    // Live updates: when ANOTHER user approves/rejects/changes a leave, refetch this
+    // list + stats silently (~1s). The actor's own change is filtered out.
+    useRealtimeSignals({
+        path: isActive ? 'leave/all' : null,
+        selfActorId: auth?.user?.id ?? null,
+        onSignal: () => { fetchLeaves(true); fetchStats(); },
+    });
 
     useEffect(() => {
         if (isActive) { fetchLeaves(); fetchStats(); }

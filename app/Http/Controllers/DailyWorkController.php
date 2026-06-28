@@ -347,6 +347,8 @@ class DailyWorkController extends Controller
                 true // Web controller updates submission_time
             );
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'status');
+
             return response()->json([
                 'message' => 'Status updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),
@@ -369,6 +371,8 @@ class DailyWorkController extends Controller
             $this->authorize('updateCompletionTime', $dailyWork);
 
             $this->dailyWorkService->updateCompletionTime($dailyWork, $request->completion_time);
+
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'completion-time');
 
             return response()->json([
                 'message' => 'Completion time updated successfully',
@@ -472,6 +476,8 @@ class DailyWorkController extends Controller
                     'message' => 'Some RFIs have active objections. Please choose to skip them or override with a reason.',
                 ], 422);
             }
+
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'bulk-submit');
 
             return response()->json([
                 'message' => $this->buildBulkSubmitMessage($result['submitted'], $result['skipped'], $result['failed']),
