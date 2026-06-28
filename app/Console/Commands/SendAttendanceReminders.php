@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\SendAttendanceReminder;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\User;
+use App\Notifications\Attendance\MissedPunchNotification;
 use App\Services\Notification\FcmNotificationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -66,6 +67,15 @@ class SendAttendanceReminders extends Command
                         // Dispatch the job
                         SendAttendanceReminder::dispatch($user, $attendanceSetting)
                             ->onQueue('notifications');
+
+                        // Also fire the structured missed punch-in notification (queued, non-breaking)
+                        try {
+                            $user->notify(new MissedPunchNotification('in', now()->toDateString()));
+                        } catch (\Throwable $exception) {
+                            Log::warning("MissedPunchNotification(in) failed for user {$user->id}", [
+                                'error' => $exception->getMessage(),
+                            ]);
+                        }
 
                         $dispatchedCount++;
                         $this->info("✅ Dispatched reminder for user: {$user->name} (ID: {$user->id})");
