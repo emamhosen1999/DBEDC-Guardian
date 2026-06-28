@@ -37,6 +37,28 @@ class RosterSignalTest extends TestCase
         ])->assertOk();
     }
 
+    public function test_generate_publishes_signal_for_each_month_in_range(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo('attendance.settings');
+
+        // Isolate the signal logic from real roster generation.
+        $roster = Mockery::mock(\App\Services\Attendance\RosterService::class);
+        $roster->shouldReceive('generateRoster')->once()->andReturn(3);
+        $this->app->instance(\App\Services\Attendance\RosterService::class, $roster);
+
+        $signals = Mockery::mock(RealtimeSignal::class);
+        $signals->shouldReceive('touch')->once()->with('roster', '2026-06', $user->id);
+        $signals->shouldReceive('touch')->once()->with('roster', '2026-07', $user->id);
+        $this->app->instance(RealtimeSignal::class, $signals);
+
+        $this->actingAs($user)->postJson('/attendance/roster/generate', [
+            'user_ids' => [$user->id],
+            'from' => '2026-06-15',
+            'to' => '2026-07-10',
+        ])->assertOk();
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();

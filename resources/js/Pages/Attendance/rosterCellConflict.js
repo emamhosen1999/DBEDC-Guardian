@@ -6,7 +6,9 @@ import { extractErrorMessage } from '@/utils/toastUtils';
  * back to its default error handling.
  */
 export function handleCellConflict(err, showToast) {
-  if (err?.response?.status !== 409) return false;
+  // ApiError carries a top-level `status`; a raw axios-style error carries `response.status`.
+  const status = err?.status ?? err?.response?.status;
+  if (status !== 409) return false;
   showToast.warning(extractErrorMessage(err, 'This cell was changed by someone else.'));
   return true;
 }

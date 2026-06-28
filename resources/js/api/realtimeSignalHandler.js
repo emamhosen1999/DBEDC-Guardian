@@ -7,7 +7,7 @@ export function makeSignalHandler({ selfActorId, onSignal }) {
   return (snapshot) => {
     const marker = snapshot?.val?.() ?? null;
     if (!marker) return;
-    if (marker.actor_id === selfActorId) return;
+    if (Number(marker.actor_id) === Number(selfActorId)) return;
     onSignal(marker);
   };
 }
