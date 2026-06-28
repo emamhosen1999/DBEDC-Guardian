@@ -431,14 +431,14 @@ class UserController extends Controller
     /**
      * Update FCM registration token.
      */
-    public function updateFcmToken(Request $request, $id)
+    public function updateFcmToken(Request $request)
     {
         $request->validate([
             'fcm_token' => 'required|string',
         ]);
 
         try {
-            $user = User::findOrFail($id);
+            $user = $request->user();
             $this->userService->updateFcmToken($user, $request->input('fcm_token'));
 
             return response()->json([

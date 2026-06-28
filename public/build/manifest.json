@@ -813,7 +813,7 @@
     "isEntry": true
   },
   "resources/js/Components/DailyWorkSummaryAnalytics.jsx": {
-    "file": "assets/js/DailyWorkSummaryAnalytics-zhRiOR9c.js",
+    "file": "assets/js/DailyWorkSummaryAnalytics-BdkC2CdD.js",
     "name": "DailyWorkSummaryAnalytics",
     "src": "resources/js/Components/DailyWorkSummaryAnalytics.jsx",
     "isDynamicEntry": true,
@@ -879,7 +879,7 @@
     ]
   },
   "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx": {
-    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-P2-otAV-.js",
+    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-CRuwrq72.js",
     "name": "EnhancedDailyWorkSummaryExportForm",
     "src": "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx",
     "isDynamicEntry": true,
@@ -926,7 +926,7 @@
     ]
   },
   "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx": {
-    "file": "assets/js/SystemMonitoringEnhanced-D6q_KWaP.js",
+    "file": "assets/js/SystemMonitoringEnhanced-Bpb7bTqV.js",
     "name": "SystemMonitoringEnhanced",
     "src": "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx",
     "isEntry": true,
@@ -956,7 +956,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-CwGMUI9L.js",
+    "file": "assets/js/AttendancePage-5AHT2MII.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1260,7 +1260,7 @@
     ]
   },
   "resources/js/Pages/AttendanceEmployee.jsx": {
-    "file": "assets/js/AttendanceEmployee-zYUoNi6V.js",
+    "file": "assets/js/AttendanceEmployee-C8cEI4mw.js",
     "name": "AttendanceEmployee",
     "src": "resources/js/Pages/AttendanceEmployee.jsx",
     "isDynamicEntry": true,
@@ -1348,7 +1348,7 @@
     ]
   },
   "resources/js/Pages/Dashboard.jsx": {
-    "file": "assets/js/Dashboard-BDosFJRm.js",
+    "file": "assets/js/Dashboard-1JuONWPl.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Dashboard.jsx",
     "isEntry": true,
@@ -1370,7 +1370,7 @@
     ]
   },
   "resources/js/Pages/Departments.jsx": {
-    "file": "assets/js/Departments-Bu4owCNf.js",
+    "file": "assets/js/Departments-uWSoyBLn.js",
     "name": "Departments",
     "src": "resources/js/Pages/Departments.jsx",
     "isDynamicEntry": true,
@@ -1405,7 +1405,7 @@
     ]
   },
   "resources/js/Pages/Designations.jsx": {
-    "file": "assets/js/Designations-DS2ynvRi.js",
+    "file": "assets/js/Designations-BgVr4xte.js",
     "name": "Designations",
     "src": "resources/js/Pages/Designations.jsx",
     "isEntry": true,
@@ -1424,7 +1424,7 @@
     ]
   },
   "resources/js/Pages/Employees/EmployeesPage.jsx": {
-    "file": "assets/js/EmployeesPage-C_rPWPZ7.js",
+    "file": "assets/js/EmployeesPage-B421Vxf7.js",
     "name": "EmployeesPage",
     "src": "resources/js/Pages/Employees/EmployeesPage.jsx",
     "isEntry": true,
@@ -1447,7 +1447,7 @@
     ]
   },
   "resources/js/Pages/Errors/Forbidden.jsx": {
-    "file": "assets/js/Forbidden-CX4DaNM0.js",
+    "file": "assets/js/Forbidden-BFenGMPc.js",
     "name": "Forbidden",
     "src": "resources/js/Pages/Errors/Forbidden.jsx",
     "isEntry": true,
@@ -1466,7 +1466,7 @@
     ]
   },
   "resources/js/Pages/Holidays.jsx": {
-    "file": "assets/js/Holidays-bxCCj4od.js",
+    "file": "assets/js/Holidays-gCj5sLhs.js",
     "name": "Holidays",
     "src": "resources/js/Pages/Holidays.jsx",
     "isDynamicEntry": true,
@@ -1504,7 +1504,7 @@
     ]
   },
   "resources/js/Pages/LeavesEmployee.jsx": {
-    "file": "assets/js/LeavesEmployee-a1fWXR91.js",
+    "file": "assets/js/LeavesEmployee-WPpXgzV6.js",
     "name": "LeavesEmployee",
     "src": "resources/js/Pages/LeavesEmployee.jsx",
     "isEntry": true,
@@ -1527,7 +1527,7 @@
     ]
   },
   "resources/js/Pages/LeavesUnified.jsx": {
-    "file": "assets/js/LeavesUnified-CsvT_sO5.js",
+    "file": "assets/js/LeavesUnified-Bn18edsv.js",
     "name": "LeavesUnified",
     "src": "resources/js/Pages/LeavesUnified.jsx",
     "isEntry": true,
@@ -1746,7 +1746,7 @@
     ]
   },
   "resources/js/Pages/PettyCashUnified.jsx": {
-    "file": "assets/js/PettyCashUnified-DS2ynvRi.js",
+    "file": "assets/js/PettyCashUnified-BgVr4xte.js",
     "name": "PettyCashUnified",
     "src": "resources/js/Pages/PettyCashUnified.jsx",
     "isEntry": true,
@@ -1798,7 +1798,7 @@
     ]
   },
   "resources/js/Pages/Profile/UserProfile.jsx": {
-    "file": "assets/js/UserProfile-BQleJ0_3.js",
+    "file": "assets/js/UserProfile-D_VuzMtp.js",
     "name": "UserProfile",
     "src": "resources/js/Pages/Profile/UserProfile.jsx",
     "isDynamicEntry": true,
@@ -1818,7 +1818,7 @@
     ]
   },
   "resources/js/Pages/Project/DailyWorksUnified.jsx": {
-    "file": "assets/js/DailyWorksUnified-C7E9COES.js",
+    "file": "assets/js/DailyWorksUnified-9RTQmg0P.js",
     "name": "DailyWorksUnified",
     "src": "resources/js/Pages/Project/DailyWorksUnified.jsx",
     "isDynamicEntry": true,
@@ -1866,7 +1866,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-Dc3CHRiD.js",
+    "file": "assets/js/Index-813o-l3_.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isDynamicEntry": true,
@@ -2002,7 +2002,7 @@
     ]
   },
   "resources/js/Pages/Settings/CompanySettings.jsx": {
-    "file": "assets/js/CompanySettings-DS2ynvRi.js",
+    "file": "assets/js/CompanySettings-BgVr4xte.js",
     "name": "CompanySettings",
     "src": "resources/js/Pages/Settings/CompanySettings.jsx",
     "isEntry": true,
@@ -2021,7 +2021,7 @@
     ]
   },
   "resources/js/Pages/Settings/RequestLogs.jsx": {
-    "file": "assets/js/RequestLogs-Bvu00Qg6.js",
+    "file": "assets/js/RequestLogs-D0atzFe7.js",
     "name": "RequestLogs",
     "src": "resources/js/Pages/Settings/RequestLogs.jsx",
     "isEntry": true,
@@ -2040,7 +2040,7 @@
     ]
   },
   "resources/js/Pages/UserDevices.jsx": {
-    "file": "assets/js/UserDevices-BE8VDP6W.js",
+    "file": "assets/js/UserDevices-C2tuo6hP.js",
     "name": "UserDevices",
     "src": "resources/js/Pages/UserDevices.jsx",
     "isEntry": true,
@@ -2064,7 +2064,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-BLyP9Sjw.js",
+    "file": "assets/js/app-CC6O361I.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2225,7 +2225,7 @@
     ]
   },
   "resources/js/utils/firebaseInit.js": {
-    "file": "assets/js/firebaseInit-BfsD3nvL.js",
+    "file": "assets/js/firebaseInit-C1jA2e5L.js",
     "name": "firebaseInit",
     "src": "resources/js/utils/firebaseInit.js",
     "isDynamicEntry": true,

@@ -9,6 +9,13 @@ export const initFirebase = async () => {
         // Dynamic import to avoid loading Firebase unless needed
         const { onMessageListener, requestNotificationPermission } = await import("@/firebase-config.js");
         
+        // Skip FCM token registration when notifications are blocked — avoids a noisy
+        // messaging/permission-blocked console error. (Realtime/RTDB does not use FCM.)
+        if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+            firebaseInitialized = true;
+            return;
+        }
+
         // Request notification permission and get token
         const token = await requestNotificationPermission();
         if (token) {
