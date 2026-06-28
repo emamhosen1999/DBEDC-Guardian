@@ -549,6 +549,8 @@ class LeaveController extends Controller
             $result = $this->approvalService->approve($leave, $approver, $comments);
 
             if ($result['success']) {
+                app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver?->id, 'approve');
+
                 return response()->json($result, 200);
             }
 
@@ -580,6 +582,8 @@ class LeaveController extends Controller
             $result = $this->approvalService->reject($leave, $approver, $reason);
 
             if ($result['success']) {
+                app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver?->id, 'reject');
+
                 return response()->json($result, 200);
             }
 
