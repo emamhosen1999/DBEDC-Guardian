@@ -4,6 +4,7 @@ use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
 use App\Http\Controllers\DailyWorkController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DailyWorkSummaryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
@@ -815,9 +816,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'update']);
 });
 
-// In-app notification center (View-all page; API lives under /api/notifications)
+// In-app notification center — Inertia page + JSON endpoints for the SPA (session auth,
+// matching the convention used by every other React Query hook in this app). The
+// /api/notifications* routes remain for token-authenticated (mobile) clients.
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications', fn () => Inertia::render('Notifications/Index'))->name('notifications.index');
+    Route::get('/notifications/list', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 });
 
 require __DIR__.'/auth.php';

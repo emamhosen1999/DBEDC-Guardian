@@ -9,6 +9,9 @@ class ExpoGateway implements PushGateway
 {
     private const ENDPOINT = 'https://exp.host/--/api/v2/push/send';
 
+    /** Expo accepts at most 100 messages per request. */
+    private const CHUNK_SIZE = 100;
+
     public function send(iterable $tokens, PushMessage $message): array
     {
         $tokenStrings = collect($tokens)->pluck('token')->filter()->values();
@@ -16,26 +19,33 @@ class ExpoGateway implements PushGateway
             return [];
         }
 
-        $payload = $tokenStrings->map(fn ($t) => [
-            'to' => $t,
-            'title' => $message->title,
-            'body' => $message->body,
-            'data' => $message->data,
-            'sound' => 'default',
-        ])->all();
-
         $invalid = [];
-        try {
-            $response = Http::acceptJson()->asJson()->post(self::ENDPOINT, $payload);
-            $tickets = $response->json('data', []);
-            foreach ($tickets as $i => $ticket) {
-                if (($ticket['status'] ?? null) === 'error'
-                    && ($ticket['details']['error'] ?? null) === 'DeviceNotRegistered') {
-                    $invalid[] = $tokenStrings[$i];
+
+        // Expo caps a single push request at 100 messages — send in chunks and
+        // map each chunk's tickets back to that chunk's tokens (ticket order
+        // matches request order).
+        foreach ($tokenStrings->chunk(self::CHUNK_SIZE) as $chunk) {
+            $chunkTokens = $chunk->values();
+            $payload = $chunkTokens->map(fn ($t) => [
+                'to' => $t,
+                'title' => $message->title,
+                'body' => $message->body,
+                'data' => $message->data,
+                'sound' => 'default',
+            ])->all();
+
+            try {
+                $response = Http::acceptJson()->asJson()->post(self::ENDPOINT, $payload);
+                $tickets = $response->json('data', []);
+                foreach ($tickets as $i => $ticket) {
+                    if (($ticket['status'] ?? null) === 'error'
+                        && ($ticket['details']['error'] ?? null) === 'DeviceNotRegistered') {
+                        $invalid[] = $chunkTokens[$i];
+                    }
                 }
+            } catch (\Throwable $e) {
+                Log::error('Expo push failed', ['error' => $e->getMessage()]);
             }
-        } catch (\Throwable $e) {
-            Log::error('Expo push failed', ['error' => $e->getMessage()]);
         }
 
         return $invalid;

@@ -357,6 +357,12 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
                 <Text size="2" color="gray">All caught up</Text>
               </Flex>
             )}
+            <Separator size="4" />
+            <DropdownMenu.Item asChild>
+              <Link href={route('settings.notifications')} style={{ justifyContent: 'center' }}>
+                <Text size="2" color="gray">Notification settings</Text>
+              </Link>
+            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
 

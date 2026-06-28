@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import App from '@/Layouts/App';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { showToast } from '@/utils/toastUtils';
@@ -26,9 +26,10 @@ const CHANNELS = [
     { key: 'mail', label: 'Email' },
 ];
 
-const ALL_ROLES = ['Employee', 'Manager', 'Super Administrator', 'Administrator', 'HR Manager'];
+// Fallback only — the live role list is passed from the server (availableRoles prop).
+const DEFAULT_ROLES = ['Employee', 'Manager', 'Super Administrator', 'Administrator', 'HR Manager'];
 
-function NotificationTypeRow({ type }) {
+function NotificationTypeRow({ type, roles }) {
     const [localType, setLocalType] = useState(type);
     const updateMutation = useUpdateNotificationType();
 
@@ -103,7 +104,7 @@ function NotificationTypeRow({ type }) {
 
             <Table.Cell>
                 <Flex direction="column" gap="1">
-                    {ALL_ROLES.map((role) => (
+                    {roles.map((role) => (
                         <Flex key={role} align="center" gap="1">
                             <Checkbox
                                 checked={(localType.recipient_roles || []).includes(role)}
@@ -127,7 +128,7 @@ function NotificationTypeRow({ type }) {
     );
 }
 
-function CategorySection({ category, types }) {
+function CategorySection({ category, types, roles }) {
     return (
         <Box mb="5">
             <Flex align="center" gap="2" mb="2">
@@ -148,7 +149,7 @@ function CategorySection({ category, types }) {
                 </Table.Header>
                 <Table.Body>
                     {types.map((type) => (
-                        <NotificationTypeRow key={type.id} type={type} />
+                        <NotificationTypeRow key={type.id} type={type} roles={roles} />
                     ))}
                 </Table.Body>
             </Table.Root>
@@ -159,7 +160,9 @@ function CategorySection({ category, types }) {
 const NotificationSettings = ({ title }) => {
     const { data, isLoading, isError } = useNotificationTypes();
 
-    const types = data?.data ?? [];
+    // requestJson unwraps the `{success,data}` envelope (no `pagination` key) to the
+    // array itself, so `data` is already the types array.
+    const types = Array.isArray(data) ? data : (data?.data ?? []);
 
     const grouped = types.reduce((acc, type) => {
         const cat = type.category || 'general';

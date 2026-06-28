@@ -2,8 +2,10 @@
 // tests/Feature/Notifications/AttendanceTriggerWiringTest.php
 namespace Tests\Feature\Notifications;
 
+use App\Http\Controllers\HRM\RosterController;
 use App\Http\Controllers\HRM\ShiftSwapController;
 use App\Models\HRM\ShiftSwapRequest;
+use App\Services\Attendance\RosterService;
 use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
 use App\Notifications\Attendance\ShiftSwapDecidedNotification;
@@ -131,8 +133,16 @@ class AttendanceTriggerWiringTest extends TestCase
 
         $employee = User::factory()->create();
 
-        // Directly invoke the notification path wired in RosterController::updateCell
-        $employee->notify(new RosterChangedNotification(now()->addDays(2)->toDateString()));
+        // Exercise the real controller path so the wiring (not just the notification) is guarded.
+        $controller = new RosterController($this->createMock(RosterService::class));
+        $request = Request::create('/attendance/roster/cell', 'PUT');
+        $request->merge([
+            'user_id' => $employee->id,
+            'date' => now()->addDays(2)->toDateString(),
+            'shift_id' => null,
+        ]);
+
+        $controller->updateCell($request);
 
         Notification::assertSentTo($employee, RosterChangedNotification::class);
     }

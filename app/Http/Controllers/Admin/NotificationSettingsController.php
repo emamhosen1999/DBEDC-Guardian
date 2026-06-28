@@ -8,12 +8,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Spatie\Permission\Models\Role;
 
 class NotificationSettingsController extends Controller
 {
     public function index(): Response
     {
-        return Inertia::render('Admin/NotificationSettings');
+        return Inertia::render('Admin/NotificationSettings', [
+            'availableRoles' => Role::orderBy('name')->pluck('name')->values(),
+        ]);
     }
 
     public function list(): JsonResponse
