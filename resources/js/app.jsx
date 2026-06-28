@@ -110,7 +110,8 @@ createInertiaApp({
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.jsx`,
-            import.meta.glob('./Pages/**/*.jsx')
+            // Exclude co-located tests so test code is never bundled / resolvable as a page.
+            import.meta.glob(['./Pages/**/*.jsx', '!./Pages/**/__tests__/**', '!./Pages/**/*.test.jsx'])
         ),
     setup({ el, App, props }) {
         const root = createRoot(el);

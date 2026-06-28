@@ -8,8 +8,11 @@ import { globSync } from 'glob';
 // Replace 'aero-enterprise-suite' with your actual system username if using Herd/Valet paths
 const host = 'aero-enterprise-suite.test';
 
-// Dynamically discover all Inertia page components
-const pageFiles = globSync('resources/js/Pages/**/*.{js,jsx}');
+// Dynamically discover all Inertia page components.
+// Exclude co-located tests so test code never ships in the production bundle.
+const pageFiles = globSync('resources/js/Pages/**/*.{js,jsx}', {
+    ignore: ['**/__tests__/**', '**/*.test.{js,jsx}'],
+});
 
 export default defineConfig({
     plugins: [

@@ -1,5 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '../client';
+import { useOptimisticMutation } from '../useOptimisticMutation';
+import { patchTimesheetPunch } from '@/Pages/Attendance/timesheetPatch';
+
+// Secondary attendance aggregates that a punch correction can shift. They are
+// usually inactive on the timesheet screen, so invalidating them just marks
+// them stale (lazy refetch on next mount) — correctness without thrashing the
+// visible, already-optimistically-patched list.
+const ATTENDANCE_AGGREGATE_KEYS = [
+  ['attendance', 'today'],
+  ['attendance', 'present-users'],
+  ['attendance', 'absent-users'],
+  ['attendance', 'locations-today'],
+  ['attendance', 'my-monthly-stats'],
+  ['attendance', 'monthly-summary'],
+  ['attendance', 'history'],
+];
 
 /**
  * Fetch today's attendance for the current user
@@ -130,20 +146,17 @@ export const usePunchAttendance = () => {
 export const useUpdateTimeCorrection = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  // Phase C: optimistic row-patch. The edited punch flips instantly in every
+  // cached daily-timesheet page (partial-key match), rolls back to the exact
+  // snapshot on error, and reconciles with the server on settle — instead of
+  // blocking the visible list on a full refetch.
+  return useOptimisticMutation({
     mutationFn: ({ attendanceId, data }) => requestJson('post', `/attendance/${attendanceId}/correct`, data),
-    onSuccess: (data, variables) => {
-      const timeVal = variables.data?.punchin || variables.data?.punchout;
-      const dateStr = timeVal ? timeVal.split(' ')[0] : new Date().toLocaleDateString('en-CA');
-
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users', dateStr] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users', dateStr] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'locations-today', dateStr] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'my-monthly-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'history'] });
+    queryKey: ['attendance', 'daily-timesheet'],
+    partialMatch: true,
+    updateFn: patchTimesheetPunch,
+    onSettled: () => {
+      ATTENDANCE_AGGREGATE_KEYS.forEach((key) => queryClient.invalidateQueries({ queryKey: key }));
     },
   });
 };
