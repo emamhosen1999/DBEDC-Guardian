@@ -193,7 +193,7 @@ class User extends Authenticatable implements HasMedia
         ]);
     }
 
-    public function notificationTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function notificationTokens(): HasMany
     {
         return $this->hasMany(NotificationToken::class);
     }
