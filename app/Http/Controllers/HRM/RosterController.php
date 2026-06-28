@@ -4,10 +4,13 @@ namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\HRM\RosterDay;
+use App\Models\User;
+use App\Notifications\Attendance\RosterChangedNotification;
 use App\Services\Attendance\RosterService;
 use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class RosterController extends Controller
 {
@@ -125,7 +128,20 @@ class RosterController extends Controller
             ['shift_id' => $data['shift_id'] ?? null, 'source' => 'manual', 'locked' => true, 'note' => $data['note'] ?? null],
         );
 
+        // Realtime cross-client signal (from realtime-foundation) + per-employee notification.
         $this->signals->touch('roster', substr($data['date'], 0, 7), $request->user()?->id);
+
+        // Notify the affected employee of their updated roster slot.
+        $employee = User::find($data['user_id']);
+        if ($employee) {
+            try {
+                $employee->notify(new RosterChangedNotification($data['date']));
+            } catch (\Throwable $exception) {
+                Log::warning("RosterChangedNotification failed for user {$data['user_id']}", [
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
 
         return response()->json(['message' => 'Roster updated.', 'cell' => $cell->load('shift')]);
     }

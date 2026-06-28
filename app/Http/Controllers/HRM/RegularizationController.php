@@ -4,10 +4,13 @@ namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
 use App\Models\HRM\AttendanceRegularization;
+use App\Models\User;
+use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
 use App\Services\Attendance\AttendanceApprovalService;
 use App\Services\Attendance\RegularizationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class RegularizationController extends Controller
 {
@@ -65,6 +68,20 @@ class RegularizationController extends Controller
         $data = $request->validate(['reason' => 'required|string|max:500']);
         $r = AttendanceRegularization::findOrFail($id);
         $res = $this->approvals->reject($r, $request->user(), $data['reason']);
+
+        if ($res['success'] ?? false) {
+            // Notify the requester that their time correction was rejected
+            $requesterUser = User::find($r->user_id);
+            if ($requesterUser) {
+                try {
+                    $requesterUser->notify(new TimeCorrectionDecidedNotification($r->id, 'rejected'));
+                } catch (\Throwable $exception) {
+                    Log::warning("TimeCorrectionDecidedNotification(rejected) failed for regularization #{$r->id}", [
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
+        }
 
         return response()->json($res, $res['success'] ? 200 : 422);
     }

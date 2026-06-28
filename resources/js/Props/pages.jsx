@@ -140,6 +140,12 @@ export const getPages = (roles, permissions, auth = null) => {
             route: 'admin.system-monitoring',
             description: 'View system health and analytics logs'
           }] : []),
+          ...(permissions.includes('notifications.settings') ? [{
+            name: 'Notifications',
+            icon: <Cog6ToothIcon className="w-5 h-5" />,
+            route: 'admin.settings.notifications',
+            description: 'Configure notification types, channels, and recipients'
+          }] : []),
       ]
     }] : []),
   ];

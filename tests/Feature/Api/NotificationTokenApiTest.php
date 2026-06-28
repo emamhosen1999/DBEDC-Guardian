@@ -42,10 +42,7 @@ class NotificationTokenApiTest extends TestCase
                 'fcm_token' => $legacyToken,
             ]);
 
-        $this->assertDatabaseHas('users', [
-            'id' => $user->id,
-            'fcm_token' => $legacyToken,
-        ]);
+        $this->assertDatabaseHas('notification_tokens', ['user_id' => $user->id, 'token' => $legacyToken, 'provider' => 'fcm']);
 
         $v1Token = 'v1-mobile-fcm-token';
 
@@ -60,10 +57,7 @@ class NotificationTokenApiTest extends TestCase
                 'fcm_token' => $v1Token,
             ]);
 
-        $this->assertDatabaseHas('users', [
-            'id' => $user->id,
-            'fcm_token' => $v1Token,
-        ]);
+        $this->assertDatabaseHas('notification_tokens', ['user_id' => $user->id, 'token' => $v1Token, 'provider' => 'fcm']);
     }
 
     public function test_notification_token_requires_fcm_token_field(): void

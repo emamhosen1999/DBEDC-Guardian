@@ -425,6 +425,7 @@ class ComprehensiveRolePermissionSeeder extends Seeder
                 'request_logs.view' => 'View request logs',
                 'request_logs.delete' => 'Delete request logs',
                 'request_logs.clear_all' => 'Clear all request logs',
+                'notifications.settings' => 'Manage notification type settings (channels, recipients)',
             ],
 
             // Compliance Management

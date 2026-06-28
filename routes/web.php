@@ -4,6 +4,7 @@ use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
 use App\Http\Controllers\DailyWorkController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DailyWorkSummaryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
@@ -802,6 +803,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/petty-cash/upload-bill', [PettyCashController::class, 'uploadBill'])->name('petty-cash.upload-bill');
     Route::post('/petty-cash/delete-bill', [PettyCashController::class, 'deleteBill'])->name('petty-cash.delete-bill');
     Route::get('/petty-cash/export', [PettyCashController::class, 'exportData'])->name('petty-cash.export');
+});
+
+// Notification Settings Routes (admin)
+Route::middleware(['auth', 'verified', 'permission:notifications.settings'])->group(function () {
+    Route::get('/admin/settings/notifications', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'index'])->name('admin.settings.notifications');
+    Route::get('/admin/settings/notifications/list', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'list']);
+    Route::put('/admin/settings/notifications/{type}', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'update']);
+});
+
+// User notification preferences (any authenticated user manages their own prefs)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'index'])->name('settings.notifications');
+    Route::get('/settings/notifications/list', [\App\Http\Controllers\NotificationPreferenceController::class, 'list']);
+    Route::put('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'update']);
+});
+
+// In-app notification center — Inertia page + JSON endpoints for the SPA (session auth,
+// matching the convention used by every other React Query hook in this app). The
+// /api/notifications* routes remain for token-authenticated (mobile) clients.
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/notifications', fn () => Inertia::render('Notifications/Index'))->name('notifications.index');
+    Route::get('/notifications/list', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 });
 
 require __DIR__.'/auth.php';
