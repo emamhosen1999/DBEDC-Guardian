@@ -40,6 +40,21 @@ if (L?.Routing?.Control && !L.Routing.Control.prototype.__detachGuarded) {
     proto.__detachGuarded = true;
 }
 
+// --- leaflet core safety guard (runs once on import) ---
+// _onZoomTransitionEnd -> _move -> _getMapPanePos reads this._mapPane._leaflet_pos. If the map
+// container was removed/hidden (tab switch, component unmount) DURING a zoom animation, _mapPane is
+// undefined and it throws an unhandled error after the map is already gone. Skip the settle step.
+if (L?.Map?.prototype && !L.Map.prototype.__zoomEndGuarded) {
+    const _origZoomTransitionEnd = L.Map.prototype._onZoomTransitionEnd;
+    if (typeof _origZoomTransitionEnd === 'function') {
+        L.Map.prototype._onZoomTransitionEnd = function (...args) {
+            if (!this._mapPane) return; // map removed mid-zoom — nothing to settle
+            return _origZoomTransitionEnd.apply(this, args);
+        };
+    }
+    L.Map.prototype.__zoomEndGuarded = true;
+}
+
 // Utility function to replace MUI's alpha function
 const alpha = (color, opacity) => {
     if (color.startsWith('var(')) {
