@@ -10,6 +10,7 @@ use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
+use App\Models\NotificationToken;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -190,6 +191,11 @@ class User extends Authenticatable implements HasMedia
             'educations',
             'experiences',
         ]);
+    }
+
+    public function notificationTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(NotificationToken::class);
     }
 
     public function ledProjects()
