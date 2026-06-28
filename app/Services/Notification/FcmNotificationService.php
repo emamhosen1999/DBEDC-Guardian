@@ -63,12 +63,13 @@ class FcmNotificationService
             // Create notification
             $notification = Notification::create($title, $body);
 
-            // Create message
-            $message = CloudMessage::withTarget('token', $deviceToken)
+            // Create message (installed kreait API: new()->withToken(), withHighestPossiblePriority())
+            $message = CloudMessage::new()
+                ->withToken($deviceToken)
                 ->withNotification($notification)
                 ->withData($data)
                 ->withDefaultSounds()
-                ->withHighPriority()
+                ->withHighestPossiblePriority()
                 ->withApnsConfig([
                     'headers' => [
                         'apns-priority' => '10',
@@ -137,7 +138,7 @@ class FcmNotificationService
                 ->withNotification($notification)
                 ->withData($data)
                 ->withDefaultSounds()
-                ->withHighPriority();
+                ->withHighestPossiblePriority();
 
             $report = $this->messaging()->sendMulticast($message, $deviceTokens);
 
