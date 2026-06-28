@@ -808,4 +808,11 @@ Route::middleware(['auth', 'verified', 'permission:notifications.settings'])->gr
     Route::put('/admin/settings/notifications/{type}', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'update']);
 });
 
+// User notification preferences (any authenticated user manages their own prefs)
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'index'])->name('settings.notifications');
+    Route::get('/settings/notifications/list', [\App\Http\Controllers\NotificationPreferenceController::class, 'list']);
+    Route::put('/settings/notifications', [\App\Http\Controllers\NotificationPreferenceController::class, 'update']);
+});
+
 require __DIR__.'/auth.php';
