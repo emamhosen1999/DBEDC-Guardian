@@ -26,4 +26,10 @@ describe('makeSignalHandler', () => {
     h(undefined);
     expect(onSignal).not.toHaveBeenCalled();
   });
+
+  it('treats a string actor_id equal to a numeric selfActorId (coercion)', () => {
+    const onSignal = vi.fn();
+    makeSignalHandler({ selfActorId: 7, onSignal })(snap({ ts: 't', actor_id: '7', action: 'update' }));
+    expect(onSignal).not.toHaveBeenCalled();
+  });
 });
