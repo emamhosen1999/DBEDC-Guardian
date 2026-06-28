@@ -42,8 +42,8 @@ This is per-screen work; sequence after Phase B so each domain gets optimism + r
 ## Phase D — SPA consolidation (gap d)
 The original audit's core critique — still open:
 - [ ] Make **React Query the single server-state source**; hydrate its cache from Inertia initial props on first paint; retire the manual-`axios`+`useState` fetching (e.g. `AdminLeavesPanel`) and the duplicated Inertia-prop refetch lists.
-- [ ] Remove dead deps: `@inertiajs/inertia@^0.11`, `@inertiajs/progress`, `laravel-precognition-react` (installed, unused). Confirm Zustand is UI-state only.
-- [ ] Kill the last full reload: `window.location.reload()` in `PettyCashUnified.jsx`.
+- [ ] Retire the legacy data-paradigm deps — NOTE: these are NOT unused (audit was wrong), so each needs a migration first: `@inertiajs/inertia@^0.11` (the `Inertia` facade is used in `ErrorBoundary.jsx` + `Layouts/useSt.jsx` → migrate to v2 `router`), `laravel-precognition-react` (used in `Forms/AddEditUserFormRadix.jsx` → migrate to Inertia `useForm`/react-hook-form), then drop `@inertiajs/progress`. Confirm Zustand is UI-state only.
+- [x] Kill the last full reload: `window.location.reload()` in `PettyCashUnified.jsx` → `router.reload()`. DONE.
 - [ ] Add `broadcastQueryClient` for instant same-device multi-tab cache sync; clear the RQ cache on logout (user-scoping).
 - [ ] Re-enable `refetchOnWindowFocus`, lower global `staleTime` (realtime keeps data fresh).
 
