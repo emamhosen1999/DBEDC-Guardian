@@ -801,4 +801,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/petty-cash/export', [PettyCashController::class, 'exportData'])->name('petty-cash.export');
 });
 
+// Notification Settings Routes (admin)
+Route::middleware(['auth', 'verified', 'permission:notifications.settings'])->group(function () {
+    Route::get('/admin/settings/notifications', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'index'])->name('admin.settings.notifications');
+    Route::get('/admin/settings/notifications/list', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'list']);
+    Route::put('/admin/settings/notifications/{type}', [\App\Http\Controllers\Admin\NotificationSettingsController::class, 'update']);
+});
+
 require __DIR__.'/auth.php';
