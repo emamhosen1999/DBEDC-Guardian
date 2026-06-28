@@ -29,7 +29,7 @@ const CHANNELS = [
 // Fallback only — the live role list is passed from the server (availableRoles prop).
 const DEFAULT_ROLES = ['Employee', 'Manager', 'Super Administrator', 'Administrator', 'HR Manager'];
 
-function NotificationTypeRow({ type, roles }) {
+function NotificationTypeRow({ type, roles = DEFAULT_ROLES }) {
     const [localType, setLocalType] = useState(type);
     const updateMutation = useUpdateNotificationType();
 
@@ -128,7 +128,7 @@ function NotificationTypeRow({ type, roles }) {
     );
 }
 
-function CategorySection({ category, types, roles }) {
+function CategorySection({ category, types, roles = DEFAULT_ROLES }) {
     return (
         <Box mb="5">
             <Flex align="center" gap="2" mb="2">
@@ -159,6 +159,11 @@ function CategorySection({ category, types, roles }) {
 
 const NotificationSettings = ({ title }) => {
     const { data, isLoading, isError } = useNotificationTypes();
+    const pageProps = usePage().props;
+    // Server-provided role list (Inertia prop); fall back to the static list if absent.
+    const roles = Array.isArray(pageProps?.availableRoles) && pageProps.availableRoles.length
+        ? pageProps.availableRoles
+        : DEFAULT_ROLES;
 
     // requestJson unwraps the `{success,data}` envelope (no `pagination` key) to the
     // array itself, so `data` is already the types array.
@@ -201,7 +206,7 @@ const NotificationSettings = ({ title }) => {
                         )}
 
                         {!isLoading && !isError && Object.entries(grouped).map(([category, catTypes]) => (
-                            <CategorySection key={category} category={category} types={catTypes} />
+                            <CategorySection key={category} category={category} types={catTypes} roles={roles} />
                         ))}
                     </Flex>
                 </ErrorBoundary>
