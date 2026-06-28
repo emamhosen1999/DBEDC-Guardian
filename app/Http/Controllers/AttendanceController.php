@@ -824,6 +824,9 @@ class AttendanceController extends Controller
                 $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
             });
 
+            // Realtime: notify the live attendance dashboard that this date's presence changed.
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', \Carbon\Carbon::parse($validated['date'])->format('Y-m-d'), $request->user()?->id, 'mark_present');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Employee marked as present successfully',
