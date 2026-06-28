@@ -1824,7 +1824,7 @@
     ]
   },
   "resources/js/Pages/Project/DailyWorksUnified.jsx": {
-    "file": "assets/js/DailyWorksUnified-9RTQmg0P.js",
+    "file": "assets/js/DailyWorksUnified-C2X-H6si.js",
     "name": "DailyWorksUnified",
     "src": "resources/js/Pages/Project/DailyWorksUnified.jsx",
     "isDynamicEntry": true,
@@ -1842,12 +1842,15 @@
       "_TablePagination-CU428HiC.js",
       "_jspdf.es.min-D88Eocld.js",
       "resources/js/Pages/Project/Jurisdictions/JurisdictionsManager.jsx",
+      "_useRealtimeSignals-CWCVEMPY.js",
       "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
       "_isBetween-BeFsmbWA.js",
       "_ErrorBoundary-D3L690y6.js",
       "_reactQueryClient-CDinxHsG.js",
       "_ClockIcon-wojZnvr5.js",
-      "_objectionConfig-Bt8Hm9mE.js"
+      "_objectionConfig-Bt8Hm9mE.js",
+      "_firebase-config-Be1LEgRV.js",
+      "_client-D5ykMpLs.js"
     ],
     "dynamicImports": [
       "resources/js/Components/DailyWorkSummaryAnalytics.jsx",
@@ -2070,7 +2073,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-Blb5-i1F.js",
+    "file": "assets/js/app-JyOqM6tz.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
