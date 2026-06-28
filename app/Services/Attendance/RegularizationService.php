@@ -5,7 +5,10 @@ namespace App\Services\Attendance;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceRegularization;
 use App\Models\User;
+use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
+use App\Notifications\Attendance\TimeCorrectionRequestedNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class RegularizationService
 {
@@ -16,6 +19,8 @@ class RegularizationService
 
     public function request(int $userId, array $data): AttendanceRegularization
     {
+        $requester = User::find($userId);
+
         $r = AttendanceRegularization::create([
             'user_id' => $userId,
             'date' => $data['date'],
@@ -30,6 +35,21 @@ class RegularizationService
         $r->refresh();
         if ($r->status === 'approved') {
             $this->applyApproved($r);
+        } else {
+            // Notify the first approver in the chain of the new time correction request
+            $firstApprover = collect($r->approval_chain ?? [])->firstWhere('level', 1);
+            if ($firstApprover && isset($firstApprover['approver_id'])) {
+                $approverUser = User::find($firstApprover['approver_id']);
+                if ($approverUser) {
+                    try {
+                        $approverUser->notify(new TimeCorrectionRequestedNotification($r->id, $requester?->name));
+                    } catch (\Throwable $exception) {
+                        Log::warning("TimeCorrectionRequestedNotification failed for regularization #{$r->id}", [
+                            'error' => $exception->getMessage(),
+                        ]);
+                    }
+                }
+            }
         }
 
         return $r;
@@ -40,6 +60,18 @@ class RegularizationService
         $res = $this->approvals->approve($r, $approver, $comments);
         if (($res['status'] ?? null) === 'approved') {
             $this->applyApproved($r->fresh());
+
+            // Notify the requester that their time correction was approved
+            $requesterUser = User::find($r->user_id);
+            if ($requesterUser) {
+                try {
+                    $requesterUser->notify(new TimeCorrectionDecidedNotification($r->id, 'approved'));
+                } catch (\Throwable $exception) {
+                    Log::warning("TimeCorrectionDecidedNotification(approved) failed for regularization #{$r->id}", [
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
         }
 
         return $res;

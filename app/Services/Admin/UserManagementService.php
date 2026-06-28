@@ -228,11 +228,16 @@ class UserManagementService
 
     /**
      * Update a user's FCM token.
+     *
+     * Upserts into the multi-device notification_tokens table (scoped to this
+     * user) rather than the legacy single-column users.fcm_token.
      */
     public function updateFcmToken(User $user, string $fcmToken): User
     {
-        $user->fcm_token = $fcmToken;
-        $user->save();
+        $user->notificationTokens()->updateOrCreate(
+            ['token' => $fcmToken],
+            ['provider' => 'fcm', 'platform' => 'web', 'last_used_at' => now()]
+        );
 
         return $user;
     }

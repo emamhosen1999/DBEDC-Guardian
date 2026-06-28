@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
+use App\Notifications\Attendance\ShiftSwapDecidedNotification;
+use App\Notifications\Attendance\ShiftSwapRequestedNotification;
 use App\Services\Attendance\RosterService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ShiftSwapController extends Controller
@@ -97,6 +100,15 @@ class ShiftSwapController extends Controller
             'status' => 'pending',
             'counterparty_status' => 'pending',
         ]));
+
+        // Notify the counterparty (target of the swap request)
+        try {
+            $counterparty->notify(new ShiftSwapRequestedNotification($swap->id, $requester->name));
+        } catch (\Throwable $exception) {
+            Log::warning("ShiftSwapRequestedNotification failed for swap #{$swap->id}", [
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'message' => 'Swap request sent to the counterparty for confirmation.',
@@ -236,6 +248,18 @@ class ShiftSwapController extends Controller
             $this->roster->applySwap($swap->fresh());
         });
 
+        // Notify the requester that their swap was approved
+        $requesterUser = User::find($swap->requester_id);
+        if ($requesterUser) {
+            try {
+                $requesterUser->notify(new ShiftSwapDecidedNotification($swap->id, 'approved'));
+            } catch (\Throwable $exception) {
+                Log::warning("ShiftSwapDecidedNotification(approved) failed for swap #{$swap->id}", [
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
         return response()->json(['message' => 'Swap approved and applied.', 'swap' => $swap->fresh()]);
     }
 
@@ -248,6 +272,18 @@ class ShiftSwapController extends Controller
             'status' => 'rejected',
             'approved_by' => $request->user()->id,
         ]);
+
+        // Notify the requester that their swap was rejected
+        $requesterUser = User::find($swap->requester_id);
+        if ($requesterUser) {
+            try {
+                $requesterUser->notify(new ShiftSwapDecidedNotification($swap->id, 'rejected'));
+            } catch (\Throwable $exception) {
+                Log::warning("ShiftSwapDecidedNotification(rejected) failed for swap #{$swap->id}", [
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
 
         return response()->json(['message' => 'Swap rejected.', 'swap' => $swap->fresh()]);
     }

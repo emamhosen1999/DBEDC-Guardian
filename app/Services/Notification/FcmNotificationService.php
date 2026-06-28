@@ -14,7 +14,25 @@ class FcmNotificationService
 
     public function __construct()
     {
-        $this->messaging = app('firebase.messaging');
+        // Resolve Firebase lazily (see messaging()). Resolving here would throw
+        // when credentials are absent, which — because this service is constructed
+        // during push-channel resolution — would break the ENTIRE notification
+        // (including the always-on database channel). Lazy resolution lets the
+        // send methods' catch blocks degrade gracefully instead.
+    }
+
+    /**
+     * Lazily resolve the Firebase messaging client. Throws if Firebase is not
+     * configured; callers invoke this inside their try/catch so a missing
+     * credentials file logs and returns a graceful result rather than bubbling.
+     */
+    protected function messaging()
+    {
+        if ($this->messaging === null) {
+            $this->messaging = app('firebase.messaging');
+        }
+
+        return $this->messaging;
     }
 
     /**
@@ -45,12 +63,13 @@ class FcmNotificationService
             // Create notification
             $notification = Notification::create($title, $body);
 
-            // Create message
-            $message = CloudMessage::withTarget('token', $deviceToken)
+            // Create message (installed kreait API: new()->withToken(), withHighestPossiblePriority())
+            $message = CloudMessage::new()
+                ->withToken($deviceToken)
                 ->withNotification($notification)
                 ->withData($data)
                 ->withDefaultSounds()
-                ->withHighPriority()
+                ->withHighestPossiblePriority()
                 ->withApnsConfig([
                     'headers' => [
                         'apns-priority' => '10',
@@ -63,7 +82,7 @@ class FcmNotificationService
                 ]);
 
             // Send the message
-            $response = $this->messaging->send($message);
+            $response = $this->messaging()->send($message);
 
             Log::debug('FCM Notification Sent', [
                 'message_id' => $response,
@@ -90,7 +109,9 @@ class FcmNotificationService
 
             return false;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // \Throwable (not just \Exception): a missing Firebase credentials file
+            // surfaces as an Error, and push must never break notification delivery.
             Log::error('FCM Notification Error', [
                 'fcm_token' => $deviceToken,
                 'error' => $e->getMessage(),
@@ -117,9 +138,9 @@ class FcmNotificationService
                 ->withNotification($notification)
                 ->withData($data)
                 ->withDefaultSounds()
-                ->withHighPriority();
+                ->withHighestPossiblePriority();
 
-            $report = $this->messaging->sendMulticast($message, $deviceTokens);
+            $report = $this->messaging()->sendMulticast($message, $deviceTokens);
 
             return [
                 'successful' => $report->successes()->count(),
@@ -127,7 +148,9 @@ class FcmNotificationService
                 'invalid_tokens' => $report->invalidTokens(),
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // \Throwable (not just \Exception): a missing Firebase credentials file
+            // surfaces as an Error, and push must never break notification delivery.
             Log::error('FCM Multicast Error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -151,10 +174,9 @@ class FcmNotificationService
     {
         Log::warning('Invalid FCM token detected', [
             'fcm_token' => $deviceToken,
-            'action' => 'Token should be removed from database',
+            'action' => 'Token removed from notification_tokens',
         ]);
 
-        // Example: Remove the token from your database
-        // User::where('fcm_token', $deviceToken)->update(['fcm_token' => null]);
+        \App\Models\NotificationToken::where('token', $deviceToken)->delete();
     }
 }

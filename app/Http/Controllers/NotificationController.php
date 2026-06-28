@@ -1,100 +1,74 @@
 <?php
-
+// app/Http/Controllers/NotificationController.php
 namespace App\Http\Controllers;
 
+use App\Models\NotificationToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class NotificationController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $paginator = $request->user()->notifications()->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'data' => $paginator->items(),
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
+    }
+
+    public function unreadCount(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => ['count' => $request->user()->unreadNotifications()->count()],
+        ]);
+    }
+
+    public function markRead(Request $request, string $id): JsonResponse
+    {
+        $notification = $request->user()->notifications()->findOrFail($id);
+        $notification->markAsRead();
+
+        return response()->json(['success' => true, 'data' => ['id' => $id]]);
+    }
+
+    public function markAllRead(Request $request): JsonResponse
+    {
+        $request->user()->unreadNotifications->markAsRead();
+
+        return response()->json(['success' => true, 'data' => ['marked' => true]]);
+    }
+
     public function storeToken(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'fcm_token' => ['required', 'string', 'max:2048'],
+            'fcm_token' => ['required_without:token', 'string', 'max:2048'],
+            'token' => ['required_without:fcm_token', 'string', 'max:2048'],
+            'provider' => ['nullable', 'in:fcm,expo'],
+            'platform' => ['nullable', 'in:web,android,ios'],
         ]);
 
-        $user = $request->user();
+        $token = $validated['token'] ?? $validated['fcm_token'];
+        $provider = $validated['provider'] ?? 'fcm';
+        $platform = $validated['platform'] ?? 'web';
 
-        if (! $user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthenticated.',
-            ], 401);
-        }
-
-        $user->update([
-            'fcm_token' => $validated['fcm_token'],
-        ]);
+        NotificationToken::updateOrCreate(
+            ['token' => $token],
+            ['user_id' => $request->user()->id, 'provider' => $provider, 'platform' => $platform, 'last_used_at' => now()],
+        );
 
         return response()->json([
             'success' => true,
             'message' => 'Notification token updated successfully.',
-            'fcm_token' => $user->fcm_token,
+            'fcm_token' => $token, // backward-compatible field for existing mobile callers
         ]);
-    }
-
-    public function sendPushNotification($token, $title, $body): JsonResponse
-    {
-
-        // Obtain an OAuth 2.0 access token
-        $accessToken = $this->getAccessToken(); // Implement this method to retrieve the access token
-
-        // Firebase API URL - Replace 'myproject-ID' with your actual project ID
-        $firebaseUrl = 'https://fcm.googleapis.com/v1/projects/dbedc-erp/messages:send';
-
-        // Notification payload
-        $notificationData = [
-            'message' => [
-                'token' => $token, // FCM token of the device
-                'notification' => [
-                    'title' => $title,
-                    'body' => $body,
-                ],
-                'data' => [  // Custom data
-                    'click_action' => 'FLUTTER_NOTIFICATION_CLICK',  // Adjust based on your frontend
-                    'type' => 'Reminder',
-                ],
-            ],
-        ];
-
-        Log::info($accessToken);
-
-        // Send POST request to Firebase Cloud Messaging
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.$accessToken,
-            'Content-Type' => 'application/json',
-        ])->post($firebaseUrl, $notificationData);
-
-        Log::info($response);
-
-        // Handle response
-        if ($response->successful()) {
-            return response()->json(['success' => true, 'message' => 'Notification sent successfully']);
-        } else {
-            return response()->json(['success' => false, 'message' => 'Failed to send notification'], 500);
-        }
-    }
-
-    private function getAccessToken()
-    {
-        // Load your service account credentials
-        $keyFilePath = config('firebase.credentials.file', config('services.firebase.credentials')); // Path to your service account JSON file
-        $credentials = json_decode(file_get_contents($keyFilePath), true);
-
-        // Create JWT client and get the access token
-        $googleClientClass = '\\Google_Client';
-        $client = new $googleClientClass;
-        $client->setAuthConfig($keyFilePath);
-        $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
-        $client->setSubject($credentials['client_email']);
-
-        // Get access token
-        if ($client->isAccessTokenExpired()) {
-            $client->fetchAccessTokenWithAssertion();
-        }
-
-        return $client->getAccessToken()['access_token'];
     }
 }

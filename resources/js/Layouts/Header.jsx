@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, usePage, router } from "@inertiajs/react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
@@ -29,6 +29,13 @@ import {
 } from '@radix-ui/react-icons';
 import LanguageSwitcher from '@/Components/LanguageSwitcher';
 import { useRadixTheme } from '@/Contexts/RadixThemeContext';
+import {
+  useUnreadCount,
+  useNotificationsList,
+  useMarkRead,
+  useMarkAllRead,
+} from '@/api/queries/useNotificationsQuery';
+import { useRealtimeNotifications } from '@/Hooks/useRealtimeNotifications';
 
 const getGreeting = () => {
   const h = new Date().getHours();
@@ -45,7 +52,7 @@ const VDivider = () => (
 );
 
 const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) => {
-  const { auth, app, notifications, title } = usePage().props;
+  const { auth, app, title } = usePage().props;
   const { settings, toggleAppearance } = useRadixTheme();
   const isMobile  = useMediaQuery('(max-width: 640px)');
   const isTablet  = useMediaQuery('(max-width: 1024px)');
@@ -53,10 +60,27 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
   const [searchQuery, setSearchQuery] = useState('');
   const searchWrapRef = useRef(null);
 
-  const unreadCount = useMemo(() =>
-    Array.isArray(notifications) ? notifications.filter(n => !n.read_at).length : 0,
-    [notifications]
-  );
+  // Live in-app notifications (Task 13): React Query + RTDB-driven refresh.
+  const { data: unreadCount = 0 } = useUnreadCount();
+  const { data: notificationsPage } = useNotificationsList();
+  const notifications = notificationsPage?.data ?? [];
+  const markReadMutation = useMarkRead();
+  const markAllReadMutation = useMarkAllRead();
+  useRealtimeNotifications(auth?.user?.id);
+
+  const handleNotificationClick = useCallback((n) => {
+    if (!n.read_at) {
+      markReadMutation.mutate(n.id);
+    }
+    const url = n.data?.url;
+    if (url) {
+      router.visit(url);
+    }
+  }, [markReadMutation]);
+
+  const handleMarkAllRead = useCallback(() => {
+    markAllReadMutation.mutate();
+  }, [markAllReadMutation]);
 
   const handleLogout = useCallback(() => router.post(route('logout'), { preserveState: true, preserveScroll: true }), []);
 
@@ -300,7 +324,11 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
             {Array.isArray(notifications) && notifications.length > 0 ? (
               <>
                 {notifications.slice(0, 6).map(n => (
-                  <DropdownMenu.Item key={n.id} style={{ opacity: n.read_at ? 0.55 : 1 }}>
+                  <DropdownMenu.Item
+                    key={n.id}
+                    style={{ opacity: n.read_at ? 0.55 : 1 }}
+                    onSelect={() => handleNotificationClick(n)}
+                  >
                     <Flex direction="column" style={{ maxWidth: 260 }}>
                       <Text size="2" weight={n.read_at ? 'regular' : 'medium'} style={{ lineHeight: 1.4 }}>
                         {n.data?.title || n.data?.message || 'Notification'}
@@ -312,8 +340,13 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
                   </DropdownMenu.Item>
                 ))}
                 <Separator size="4" />
+                {unreadCount > 0 && (
+                  <DropdownMenu.Item onSelect={handleMarkAllRead} disabled={markAllReadMutation.isPending}>
+                    <Text size="2" style={{ justifyContent: 'center', width: '100%', textAlign: 'center' }}>Mark all read</Text>
+                  </DropdownMenu.Item>
+                )}
                 <DropdownMenu.Item asChild>
-                  <Link href="#" style={{ justifyContent: 'center' }}>
+                  <Link href={route('notifications.index')} style={{ justifyContent: 'center' }}>
                     <Text size="2" color="accent">View all notifications</Text>
                   </Link>
                 </DropdownMenu.Item>
@@ -324,6 +357,12 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
                 <Text size="2" color="gray">All caught up</Text>
               </Flex>
             )}
+            <Separator size="4" />
+            <DropdownMenu.Item asChild>
+              <Link href={route('settings.notifications')} style={{ justifyContent: 'center' }}>
+                <Text size="2" color="gray">Notification settings</Text>
+              </Link>
+            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
 

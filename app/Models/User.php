@@ -10,6 +10,8 @@ use App\Models\HRM\Designation;
 use App\Models\HRM\EmployeeAttendanceType;
 use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
+use App\Models\NotificationPreference;
+use App\Models\NotificationToken;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -108,7 +110,6 @@ class User extends Authenticatable implements HasMedia
         'email_verified_at',
         'attendance_type_id',
         'work_location_id',
-        'fcm_token',
         'preferences',
         'single_device_login_enabled',
         'device_reset_at',
@@ -190,6 +191,16 @@ class User extends Authenticatable implements HasMedia
             'educations',
             'experiences',
         ]);
+    }
+
+    public function notificationTokens(): HasMany
+    {
+        return $this->hasMany(NotificationToken::class);
+    }
+
+    public function notificationPreferences(): HasMany
+    {
+        return $this->hasMany(NotificationPreference::class);
     }
 
     public function ledProjects()

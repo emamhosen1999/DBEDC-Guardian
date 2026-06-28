@@ -23,6 +23,9 @@ class EventServiceProvider extends ServiceProvider
         BiometricDeviceConnected::class => [
             TriggerLogDownloadOnReconnect::class,
         ],
+        \Illuminate\Notifications\Events\NotificationSent::class => [
+            \App\Listeners\WriteRealtimeNotificationSignal::class,
+        ],
     ];
 
     /**

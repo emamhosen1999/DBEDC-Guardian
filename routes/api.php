@@ -93,8 +93,14 @@ Route::post('/log-error', function (Request $request) {
 
 // Performance logging endpoint
 
-// Notification token endpoint
-Route::post('/notification-token', [NotificationController::class, 'storeToken'])->middleware(['auth:sanctum']);
+// Notifications (in-app center + device tokens)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::post('/notification-token', [NotificationController::class, 'storeToken']);
+});
 Route::post('/log-performance', function (Request $request) {
     try {
         $validated = $request->validate([

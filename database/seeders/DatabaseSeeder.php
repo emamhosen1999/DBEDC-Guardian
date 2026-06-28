@@ -15,5 +15,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CombinedSeeder::class,
         ]);
+
+        $this->call(NotificationTypeSeeder::class);
     }
 }
