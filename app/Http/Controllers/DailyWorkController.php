@@ -372,6 +372,8 @@ class DailyWorkController extends Controller
 
             $this->dailyWorkService->updateCompletionTime($dailyWork, $request->completion_time);
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'completion-time');
+
             return response()->json([
                 'message' => 'Completion time updated successfully',
                 'dailyWork' => $dailyWork->fresh(['inchargeUser', 'assignedUser']),

@@ -252,6 +252,8 @@ class LeaveController extends Controller
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $safeData['user_id'], 'update');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Leave application updated successfully',
