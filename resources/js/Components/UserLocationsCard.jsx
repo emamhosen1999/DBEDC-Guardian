@@ -20,6 +20,20 @@ import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
 import L from 'leaflet';
 import { usePage } from "@inertiajs/react";
 
+// --- leaflet-routing-machine safety guard (runs once on import) ---
+// LRM's _clearLines() calls this._map.removeLayer() to clear old route polylines. When an async
+// OSRM route request resolves AFTER its control was detached (component re-render/unmount — e.g.
+// an attendance data refetch), this._map is null and removeLayer() throws an unhandled error.
+// Make _clearLines a no-op once the control is detached.
+if (L?.Routing?.Control && !L.Routing.Control.prototype.__clearLinesGuarded) {
+    const _origClearLines = L.Routing.Control.prototype._clearLines;
+    L.Routing.Control.prototype._clearLines = function (...args) {
+        if (!this._map) return;
+        return _origClearLines.apply(this, args);
+    };
+    L.Routing.Control.prototype.__clearLinesGuarded = true;
+}
+
 // Utility function to replace MUI's alpha function
 const alpha = (color, opacity) => {
     if (color.startsWith('var(')) {
