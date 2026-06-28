@@ -21,6 +21,7 @@ import TablePagination from '@/Components/TablePagination.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import { useDailyTimesheet, usePresentUsers, useAbsentUsers, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet } from '@/api/queries/useAttendanceQuery';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 /* ── helpers ──────────────────────────────────────────────── */
 
@@ -356,6 +357,16 @@ const DailyTimesheetTab = ({
     const { data: absentUsersData, isLoading: isLoadingAbsent, refetch: refetchAbsent } = useAbsentUsers(
         selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null
     );
+
+    // Live updates: when anyone punches (mobile/web) or is marked present for this date,
+    // another user's dashboard refetches presence within ~1s. The actor's own change is
+    // filtered out (their mutation already refetched). Past-date views only react to that date.
+    const signalDate = selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null;
+    useRealtimeSignals({
+        path: isActive && signalDate ? `attendance/${signalDate}` : null,
+        selfActorId: auth?.user?.id ?? null,
+        onSignal: () => { refetchPresent(); refetchAbsent(); refetchTimesheet(); },
+    });
 
     // Mutations
     const updateTimeCorrection = useUpdateTimeCorrection();
