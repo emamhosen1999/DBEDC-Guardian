@@ -7,13 +7,17 @@ use App\Models\HRM\RosterDay;
 use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
 use App\Services\Attendance\RosterService;
+use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class RosterController extends Controller
 {
-    public function __construct(private readonly RosterService $roster) {}
+    public function __construct(
+        private readonly RosterService $roster,
+        private readonly RealtimeSignal $signals,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -84,6 +88,13 @@ class RosterController extends Controller
 
         $count = $this->roster->generateRoster($data['user_ids'], $data['from'], $data['to']);
 
+        $cursor = \Carbon\Carbon::parse($data['from'])->startOfMonth();
+        $end = \Carbon\Carbon::parse($data['to'])->startOfMonth();
+        while ($cursor->lessThanOrEqualTo($end)) {
+            $this->signals->touch('roster', $cursor->format('Y-m'), $request->user()?->id);
+            $cursor->addMonth();
+        }
+
         return response()->json(['message' => 'Roster generated.', 'count' => $count]);
     }
 
@@ -94,14 +105,33 @@ class RosterController extends Controller
             'date' => 'required|date',
             'shift_id' => 'nullable|integer|exists:shifts,id',
             'note' => 'nullable|string|max:255',
+            'expected_updated_at' => 'nullable|date',
         ]);
+
+        $existing = RosterDay::where('user_id', $data['user_id'])
+            ->whereDate('date', $data['date'])
+            ->first();
+
+        if (
+            $existing
+            && ! empty($data['expected_updated_at'])
+            && $existing->updated_at->toIso8601String() !== \Carbon\Carbon::parse($data['expected_updated_at'])->toIso8601String()
+        ) {
+            return response()->json([
+                'message' => 'This cell was changed by someone else. Showing the latest version.',
+                'cell' => $existing->load('shift'),
+            ], 409);
+        }
 
         $cell = RosterDay::updateOrCreate(
             ['user_id' => $data['user_id'], 'date' => $data['date']],
             ['shift_id' => $data['shift_id'] ?? null, 'source' => 'manual', 'locked' => true, 'note' => $data['note'] ?? null],
         );
 
-        // Notify the affected employee of their updated roster slot
+        // Realtime cross-client signal (from realtime-foundation) + per-employee notification.
+        $this->signals->touch('roster', substr($data['date'], 0, 7), $request->user()?->id);
+
+        // Notify the affected employee of their updated roster slot.
         $employee = User::find($data['user_id']);
         if ($employee) {
             try {

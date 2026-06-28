@@ -179,6 +179,9 @@ class LeaveController extends Controller
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
 
+            // Realtime: a new application lights up the approver queue live.
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $userId, 'apply');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Leave application submitted successfully',
@@ -248,6 +251,8 @@ class LeaveController extends Controller
 
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
+
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $safeData['user_id'], 'update');
 
             return response()->json([
                 'success' => true,
@@ -379,6 +384,8 @@ class LeaveController extends Controller
                 }
             }
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', Auth::id(), 'approve');
+
             return response()->json([
                 'message' => "{$updatedCount} leave(s) approved successfully",
                 'updated_count' => $updatedCount,
@@ -415,6 +422,8 @@ class LeaveController extends Controller
                     $updatedCount++;
                 }
             }
+
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', Auth::id(), 'reject');
 
             return response()->json([
                 'message' => "{$updatedCount} leave(s) rejected successfully",
@@ -549,6 +558,8 @@ class LeaveController extends Controller
             $result = $this->approvalService->approve($leave, $approver, $comments);
 
             if ($result['success']) {
+                app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver?->id, 'approve');
+
                 return response()->json($result, 200);
             }
 
@@ -580,6 +591,8 @@ class LeaveController extends Controller
             $result = $this->approvalService->reject($leave, $approver, $reason);
 
             if ($result['success']) {
+                app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver?->id, 'reject');
+
                 return response()->json($result, 200);
             }
 

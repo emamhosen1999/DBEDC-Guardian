@@ -4,7 +4,7 @@
  * Aligned with LeavesUnified.jsx pattern.
  */
 import React, { useState, useCallback } from 'react';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     Badge, Box, Card, Flex, Heading,
     Separator, Tabs, Text, ScrollArea
@@ -30,8 +30,8 @@ const PettyCashUnified = ({ title, activeLoan }) => {
 
     const handleLoanCreated = useCallback((newLoan) => {
         setShowLoanForm(false);
-        // Refresh data by reloading page or updating state
-        window.location.reload();
+        // Inertia partial reload — refresh props without a full page reload (SPA-friendly).
+        router.reload();
     }, []);
 
     const headerActions = (

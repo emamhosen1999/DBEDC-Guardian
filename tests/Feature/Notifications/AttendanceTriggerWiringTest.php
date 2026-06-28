@@ -134,7 +134,10 @@ class AttendanceTriggerWiringTest extends TestCase
         $employee = User::factory()->create();
 
         // Exercise the real controller path so the wiring (not just the notification) is guarded.
-        $controller = new RosterController($this->createMock(RosterService::class));
+        $controller = new RosterController(
+            $this->createMock(RosterService::class),
+            $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
+        );
         $request = Request::create('/attendance/roster/cell', 'PUT');
         $request->merge([
             'user_id' => $employee->id,
