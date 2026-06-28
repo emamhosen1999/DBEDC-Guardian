@@ -1055,6 +1055,9 @@ class AttendanceController extends Controller
             return response()->json($result, $result['code']);
         }
 
+        // Realtime: notify the live attendance dashboard that today's presence changed.
+        app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', now()->format('Y-m-d'), $user->id, 'punch');
+
         return response()->json(array_merge(['success' => true], $result));
     }
 

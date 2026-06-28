@@ -9,10 +9,13 @@ import { showToast } from '@/utils/toastUtils';
 import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
 import RosterCellPopover from './Components/RosterCellPopover';
+import { handleCellConflict } from './rosterCellConflict';
+import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 export default function RosterTab({ month, onMonthChange, departments = [], isActive = true }) {
-    const { employees = [] } = usePage().props;
+    const { employees = [], auth } = usePage().props;
     const qc = useQueryClient();
+    const authUserId = auth?.user?.id ?? null;
     const [selectedCell, setSelectedCell] = useState(null); // { userId, date }
     const [popoverOpen, setPopoverOpen] = useState(false);
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
@@ -52,6 +55,14 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const roster = data?.roster || {};
+
+    // Live cross-user updates: when ANOTHER user changes this month's roster,
+    // refetch just this grid (the actor's own change is filtered out by selfActorId).
+    useRealtimeSignals({
+        path: `roster/${month}`,
+        selfActorId: authUserId,
+        onSignal: () => qc.invalidateQueries({ queryKey: ['roster', from, to, selectedDepartmentId] }),
+    });
 
     const filteredEmployees = useMemo(() => {
         return employees.filter(e => {
@@ -93,8 +104,13 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const updateCell = useOptimisticMutation({
-        mutationFn: ({ userId, date, shiftId }) => requestJson('put', '/attendance/roster/cell', {
-            data: { user_id: Number(userId), date, shift_id: shiftId },
+        mutationFn: ({ userId, date, shiftId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
+            data: {
+                user_id: Number(userId),
+                date,
+                shift_id: shiftId,
+                expected_updated_at: expectedUpdatedAt ?? null,
+            },
         }),
         queryKey: ['roster', from, to, selectedDepartmentId],
         updateFn: (oldData, { userId, date, shiftId }) => {
@@ -123,6 +139,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
             };
         },
         onError: (err) => {
+            if (handleCellConflict(err, showToast)) return; // 409 → warning + auto-revert + revalidate
             showToast.error(err?.message || 'Failed to update roster cell.');
         },
     });
@@ -135,7 +152,9 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const handlePick = (shiftId) => {
         if (!selectedCell) return;
         setPopoverOpen(false);
-        updateCell.mutate({ userId: selectedCell.userId, date: selectedCell.date, shiftId });
+        const { userId, date } = selectedCell;
+        const expectedUpdatedAt = roster?.[userId]?.days?.[date]?.updated_at ?? null;
+        updateCell.mutate({ userId, date, shiftId, expectedUpdatedAt });
         setSelectedCell(null);
     };
 
