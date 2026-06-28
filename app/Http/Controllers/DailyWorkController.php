@@ -475,6 +475,8 @@ class DailyWorkController extends Controller
                 ], 422);
             }
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('dailywork', 'all', $request->user()?->id, 'bulk-submit');
+
             return response()->json([
                 'message' => $this->buildBulkSubmitMessage($result['submitted'], $result['skipped'], $result['failed']),
                 'submitted' => $result['submitted'],

@@ -866,6 +866,8 @@ class AttendanceController extends Controller
                 }
             });
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', $date, $request->user()?->id, 'mark_present');
+
             return response()->json([
                 'success' => true,
                 'message' => 'Employees marked as present successfully',
