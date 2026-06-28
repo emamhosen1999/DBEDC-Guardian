@@ -110,7 +110,6 @@ class User extends Authenticatable implements HasMedia
         'email_verified_at',
         'attendance_type_id',
         'work_location_id',
-        'fcm_token',
         'preferences',
         'single_device_login_enabled',
         'device_reset_at',

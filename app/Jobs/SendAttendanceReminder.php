@@ -68,9 +68,11 @@ class SendAttendanceReminder implements ShouldQueue
                 return;
             }
 
-            // Skip if user doesn't have a valid device token
-            if (empty($this->user->fcm_token)) {
-                Log::warning('Skipping attendance reminder - user has no FCM token', [
+            // Resolve the user's FCM device tokens from the multi-device table.
+            $tokens = $this->user->notificationTokens()->where('provider', 'fcm')->pluck('token')->all();
+
+            if (empty($tokens)) {
+                Log::warning('Skipping attendance reminder - user has no FCM tokens', [
                     'user_id' => $this->user->id,
                 ]);
 
@@ -92,24 +94,26 @@ class SendAttendanceReminder implements ShouldQueue
                 'sound' => 'default',
             ];
 
-            // Send notification
-            $result = $fcmService->sendNotification(
-                $this->user->fcm_token,
+            // Send notification to all of the user's registered devices
+            $result = $fcmService->sendMulticastNotification(
+                $tokens,
                 $title,
                 $body,
                 $data
             );
 
-            if ($result) {
+            if (! empty($result['successful'])) {
                 Log::info('Attendance reminder sent successfully', [
                     'user_id' => $this->user->id,
-                    'fcm_token' => $this->user->fcm_token,
+                    'tokens' => $tokens,
                     'office_start_time' => $officeStartTime,
+                    'result' => $result,
                 ]);
             } else {
                 Log::error('Failed to send attendance reminder', [
                     'user_id' => $this->user->id,
-                    'fcm_token' => $this->user->fcm_token,
+                    'tokens' => $tokens,
+                    'result' => $result,
                 ]);
                 $this->fail('Failed to send FCM notification');
             }

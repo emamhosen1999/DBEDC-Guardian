@@ -43,7 +43,9 @@ class SendAttendanceReminders extends Command
                 return $this->handleTestMode($attendanceSetting);
             }
 
-            // Get all active users with FCM tokens in chunks to handle memory efficiently
+            // Get all active users in chunks to handle memory efficiently.
+            // Deliverability (FCM/Expo tokens, mail, db) is resolved per-channel
+            // by the engine notify / FcmNotificationService — no upfront filter needed.
             $batchSize = 50;
             $totalUsers = 0;
             $dispatchedCount = 0;
@@ -51,18 +53,9 @@ class SendAttendanceReminders extends Command
 
             User::query()
                 ->whereNull('deleted_at')
-                ->whereNotNull('fcm_token')
                 ->chunk($batchSize, function ($users) use ($attendanceSetting, &$totalUsers, &$dispatchedCount, &$skippedCount) {
                     foreach ($users as $user) {
                         $totalUsers++;
-
-                        // Skip if user has no FCM token
-                        if (empty($user->fcm_token)) {
-                            $skippedCount++;
-                            $this->warn("Skipping user {$user->id}: No FCM token");
-
-                            continue;
-                        }
 
                         // Dispatch the job
                         SendAttendanceReminder::dispatch($user, $attendanceSetting)
@@ -126,13 +119,11 @@ class SendAttendanceReminders extends Command
 
             $users = collect([$user]);
         } else {
-            // Get a single test user with FCM token
-            $user = User::whereNull('deleted_at')
-                ->whereNotNull('fcm_token')
-                ->first();
+            // Get a single test user
+            $user = User::whereNull('deleted_at')->first();
 
             if (! $user) {
-                $this->error('No active users with FCM tokens found for testing');
+                $this->error('No active users found for testing');
 
                 return 1;
             }
