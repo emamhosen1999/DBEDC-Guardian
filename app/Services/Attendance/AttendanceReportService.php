@@ -26,7 +26,7 @@ class AttendanceReportService
     /**
      * Get all Employee users with their attendances and leaves for a given month.
      */
-    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?int $userId = null): Collection
+    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?int $userId = null, ?int $designationId = null, ?string $employee = null): Collection
     {
         $query = User::query()
             ->select('users.*')
@@ -40,6 +40,17 @@ class AttendanceReportService
             if ($departmentId) {
                 $query->where('users.department_id', $departmentId);
             }
+
+            if ($designationId) {
+                $query->where('users.designation_id', $designationId);
+            }
+
+            if (! empty($employee)) {
+                $query->where(function ($q) use ($employee) {
+                    $q->where('users.name', 'like', '%'.$employee.'%')
+                        ->orWhere('users.employee_id', 'like', '%'.$employee.'%');
+                });
+            }
         }
 
         return $query->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
@@ -47,6 +58,7 @@ class AttendanceReportService
             ->with([
                 'offboarding',
                 'department',
+                'designation',
                 'attendances' => function ($query) use ($year, $month) {
                     $query->whereYear('date', $year)
                         ->whereMonth('date', $month)
