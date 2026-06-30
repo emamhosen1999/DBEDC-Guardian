@@ -26,7 +26,7 @@ class AttendanceReportService
     /**
      * Get all Employee users with their attendances and leaves for a given month.
      */
-    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?int $userId = null): Collection
+    public function getEmployeeUsersWithAttendanceAndLeaves(int $year, int $month, ?int $departmentId = null, ?int $userId = null, ?int $designationId = null, ?string $employee = null): Collection
     {
         $query = User::query()
             ->select('users.*')
@@ -40,6 +40,17 @@ class AttendanceReportService
             if ($departmentId) {
                 $query->where('users.department_id', $departmentId);
             }
+
+            if ($designationId) {
+                $query->where('users.designation_id', $designationId);
+            }
+
+            if (! empty($employee)) {
+                $query->where(function ($q) use ($employee) {
+                    $q->where('users.name', 'like', '%'.$employee.'%')
+                        ->orWhere('users.employee_id', 'like', '%'.$employee.'%');
+                });
+            }
         }
 
         return $query->orderByRaw('COALESCE(designations.hierarchy_level, 999) ASC')
@@ -47,6 +58,7 @@ class AttendanceReportService
             ->with([
                 'offboarding',
                 'department',
+                'designation',
                 'attendances' => function ($query) use ($year, $month) {
                     $query->whereYear('date', $year)
                         ->whereMonth('date', $month)
@@ -180,6 +192,8 @@ class AttendanceReportService
 
             $attendanceData[$dateString] = [
                 'status' => $symbol,
+                'status_code' => $effective,
+                'is_complete' => $result->is_complete,
                 'punch_in' => $punchIn,
                 'punch_out' => $punchOut,
                 'total_work_hours' => $totalWorkHours,
@@ -194,6 +208,100 @@ class AttendanceReportService
         }
 
         return $attendanceData;
+    }
+
+    /**
+     * Build a flat one-row-per-employee-per-day attendance log across an arbitrary
+     * date range. Reuses the month-keyed engine per month and trims to [from, to].
+     * Both the on-screen log endpoint and the range export consume this method.
+     *
+     * @param  array<string,mixed>  $filters  department_id, designation_id, employee, status, user_id
+     * @return array<int,array<string,mixed>>
+     */
+    public function getRangedAttendanceLog(Carbon $from, Carbon $to, array $filters = []): array
+    {
+        $from = $from->copy()->startOfDay();
+        $to = $to->copy()->startOfDay();
+
+        $departmentId = $filters['department_id'] ?? null;
+        $designationId = $filters['designation_id'] ?? null;
+        $employee = $filters['employee'] ?? null;
+        $statusFilter = $filters['status'] ?? null;
+        $userId = $filters['user_id'] ?? null;
+
+        $leaveTypes = LeaveSetting::all();
+
+        $rows = [];
+        $cursor = $from->copy()->startOfMonth();
+        while ($cursor->lte($to)) {
+            $year = (int) $cursor->year;
+            $month = (int) $cursor->month;
+
+            $users = $this->getEmployeeUsersWithAttendanceAndLeaves(
+                $year, $month, $departmentId, $userId, $designationId, $employee
+            );
+            $holidays = $this->getHolidaysForMonth($year, $month);
+
+            foreach ($users as $user) {
+                $data = $this->getUserAttendanceData($user, $year, $month, $holidays, $leaveTypes);
+
+                foreach ($data as $dateString => $day) {
+                    if (! is_array($day) || ! isset($day['status_code'])) {
+                        continue; // skip meta keys (user_id, employee_id, name, profile_image_url)
+                    }
+
+                    $date = Carbon::parse($dateString)->startOfDay();
+                    if ($date->lt($from) || $date->gt($to)) {
+                        continue;
+                    }
+
+                    $rows[] = [
+                        'date' => $dateString,
+                        'user_id' => $user->id,
+                        'employee_id' => $user->employee_id,
+                        'employee_name' => $user->name,
+                        'department' => $user->department->name ?? null,
+                        'designation' => $user->designation->title ?? null,
+                        'clock_in' => $day['punch_in'],
+                        'clock_out' => $day['punch_out'],
+                        'work_hours' => $day['total_work_hours'],
+                        'worked_minutes' => $day['worked_minutes'] ?? 0,
+                        'status' => $day['status'],
+                        'status_code' => $day['status_code'],
+                        'is_complete' => $day['is_complete'],
+                        'remarks' => $day['remarks'],
+                    ];
+                }
+            }
+
+            $cursor->addMonth();
+        }
+
+        usort($rows, fn ($a, $b) => [$a['date'], $a['employee_name']] <=> [$b['date'], $b['employee_name']]);
+
+        if (! empty($statusFilter)) {
+            $rows = array_values(array_filter($rows, fn ($r) => $this->matchesStatusFilter($r, $statusFilter)));
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Match a materialized log row against a derived-status filter keyword.
+     */
+    private function matchesStatusFilter(array $row, string $filter): bool
+    {
+        $worked = [DayAttendance::PRESENT, DayAttendance::LATE, DayAttendance::HALF_DAY, DayAttendance::SHORT];
+
+        return match ($filter) {
+            'present' => in_array($row['status_code'], $worked, true),
+            'absent' => $row['status_code'] === DayAttendance::ABSENT,
+            'on_leave' => $row['status_code'] === DayAttendance::ON_LEAVE,
+            'holiday' => $row['status_code'] === DayAttendance::HOLIDAY,
+            'day_off' => in_array($row['status_code'], [DayAttendance::WEEKEND, DayAttendance::DAY_OFF], true),
+            'incomplete' => in_array($row['status_code'], $worked, true) && $row['is_complete'] === false,
+            default => true,
+        };
     }
 
     /**

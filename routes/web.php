@@ -481,6 +481,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance', [AttendanceController::class, 'indexUnified'])->name('attendance.unified'); // Unified attendance page
         Route::get('/attendances-admin-paginate', [AttendanceController::class, 'paginate'])->name('attendancesAdmin.paginate');
         Route::get('/admin/daily-timesheet', [AttendanceController::class, 'getAllUsersAttendanceForDate'])->name('admin.daily-timesheet');
+        Route::get('/attendance/log', [AttendanceController::class, 'getAttendanceLog'])->name('attendance.log');
         Route::get('/attendance/locations-today', [AttendanceController::class, 'getUserLocationsForDate'])->name('getUserLocationsForDate');
         Route::get('/admin/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('admin.getPresentUsersForDate');
         Route::get('/admin/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('admin.getAbsentUsersForDate');
@@ -496,6 +497,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Export routes (dispatchers for frontend export buttons)
         Route::get('/attendance/daily-timesheet/export', [AttendanceController::class, 'exportDailyTimesheet'])->name('attendance.dailyTimesheet.export');
         Route::get('/attendance/monthly-calendar/export', [AttendanceController::class, 'exportMonthlyCalendar'])->name('attendance.monthlyCalendar.export');
+        Route::get('/attendance/log/export', [AttendanceController::class, 'exportAttendanceLog'])->name('attendance.log.export');
 
     });
 

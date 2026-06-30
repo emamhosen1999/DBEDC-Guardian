@@ -120,6 +120,25 @@ export const useDailyTimesheet = (params = {}) => {
 };
 
 /**
+ * Fetch the ranged, filterable attendance log
+ */
+export const useAttendanceLog = (params = {}) => {
+  const { from, to, page = 1, perPage = 25, employee, departmentId, designationId, status } = params;
+
+  return useQuery({
+    queryKey: ['attendance', 'log', { from, to, page, perPage, employee, departmentId, designationId, status }],
+    queryFn: () => requestJson('get', '/attendance/log', {
+      params: {
+        from, to, page, perPage, employee,
+        department_id: departmentId, designation_id: designationId, status,
+      },
+    }),
+    enabled: !!from && !!to,
+    staleTime: 3 * 60 * 1000,
+  });
+};
+
+/**
  * Punch attendance mutation
  */
 export const usePunchAttendance = () => {
@@ -274,6 +293,22 @@ export const useExportDailyTimesheet = () => {
       params: { date, type },
       responseType: 'blob'
     }),
+  });
+};
+
+/**
+ * Export the ranged attendance log (queued)
+ */
+export const useExportAttendanceLog = () => {
+  return useMutation({
+    mutationFn: ({ from, to, type, employee, departmentId, designationId, status }) =>
+      requestJson('get', '/attendance/log/export', {
+        params: {
+          from, to, type, employee,
+          department_id: departmentId, designation_id: designationId, status,
+        },
+        responseType: 'blob',
+      }),
   });
 };
 
