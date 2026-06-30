@@ -57,4 +57,17 @@ class RangedAttendanceLogTest extends TestCase
         $this->assertSame(DayAttendance::PRESENT, $data['2026-06-02']['status_code']);
         $this->assertTrue($data['2026-06-02']['is_complete']);
     }
+
+    public function test_employee_selection_filters_by_employee_keyword(): void
+    {
+        $alice = $this->employee('Alice Example');
+        $bob = $this->employee('Bob Sample');
+
+        $service = app(AttendanceReportService::class);
+        $users = $service->getEmployeeUsersWithAttendanceAndLeaves(2026, 6, null, null, null, 'Alice');
+
+        $this->assertCount(1, $users);
+        $this->assertSame($alice->id, $users->first()->id);
+        $this->assertTrue($users->first()->relationLoaded('designation'));
+    }
 }
