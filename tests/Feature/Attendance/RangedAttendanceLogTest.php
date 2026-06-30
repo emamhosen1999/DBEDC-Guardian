@@ -70,4 +70,48 @@ class RangedAttendanceLogTest extends TestCase
         $this->assertSame($alice->id, $users->first()->id);
         $this->assertTrue($users->first()->relationLoaded('designation'));
     }
+
+    public function test_ranged_log_spans_month_boundary_and_trims_to_range(): void
+    {
+        $user = $this->employee('Range Worker');
+        Attendance::create([
+            'user_id' => $user->id, 'date' => '2026-06-29',
+            'punchin' => '2026-06-29 09:00:00', 'punchout' => '2026-06-29 18:00:00',
+        ]);
+        Attendance::create([
+            'user_id' => $user->id, 'date' => '2026-07-01',
+            'punchin' => '2026-07-01 09:00:00', 'punchout' => '2026-07-01 18:00:00',
+        ]);
+
+        $service = app(AttendanceReportService::class);
+        $rows = $service->getRangedAttendanceLog(
+            \Carbon\Carbon::parse('2026-06-29'),
+            \Carbon\Carbon::parse('2026-07-01')
+        );
+
+        $dates = collect($rows)->where('user_id', $user->id)->pluck('date')->all();
+        $this->assertSame(['2026-06-29', '2026-06-30', '2026-07-01'], $dates);
+        $this->assertSame('Range Worker', $rows[0]['employee_name']);
+    }
+
+    public function test_ranged_log_status_filter_returns_only_absent(): void
+    {
+        $present = $this->employee('Present Person');
+        $absent = $this->employee('Absent Person');
+        Attendance::create([
+            'user_id' => $present->id, 'date' => '2026-06-02',
+            'punchin' => '2026-06-02 09:00:00', 'punchout' => '2026-06-02 18:00:00',
+        ]);
+
+        $service = app(AttendanceReportService::class);
+        $rows = $service->getRangedAttendanceLog(
+            \Carbon\Carbon::parse('2026-06-02'),
+            \Carbon\Carbon::parse('2026-06-02'),
+            ['status' => 'absent']
+        );
+
+        $names = collect($rows)->pluck('employee_name')->unique()->values()->all();
+        $this->assertContains('Absent Person', $names);
+        $this->assertNotContains('Present Person', $names);
+    }
 }
