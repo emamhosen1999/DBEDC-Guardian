@@ -4,7 +4,6 @@ use App\Http\Controllers\ApkDownloadController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BulkLeaveController;
 use App\Http\Controllers\DailyWorkController;
-use App\Http\Controllers\FirebaseTokenController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DailyWorkSummaryController;
 use App\Http\Controllers\DashboardController;
@@ -92,7 +91,7 @@ $middlewareStack = ['auth', 'verified'];
 Route::middleware($middlewareStack)->group(function () {
 
     // Firebase custom-token endpoint — lets the browser sign in to Firebase (signInWithCustomToken)
-    Route::get('/firebase/token', [FirebaseTokenController::class, '__invoke'])->name('firebase.token');
+    Route::get('/firebase/token', \App\Http\Controllers\FirebaseTokenController::class)->name('firebase.token');
 
     // Dashboard routes - require dashboard permission
     Route::middleware(['permission:core.dashboard.view'])->group(function () {
