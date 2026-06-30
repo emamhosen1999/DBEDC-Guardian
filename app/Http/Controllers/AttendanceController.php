@@ -1210,6 +1210,49 @@ class AttendanceController extends Controller
         }
     }
 
+    public function getAttendanceLog(Request $request): JsonResponse
+    {
+        try {
+            $from = Carbon::parse($request->query('from', now()->toDateString()))->startOfDay();
+            $to = Carbon::parse($request->query('to', now()->toDateString()))->startOfDay();
+            if ($to->lt($from)) {
+                [$from, $to] = [$to, $from];
+            }
+
+            $page = max(1, (int) $request->query('page', 1));
+            $perPage = max(1, (int) $request->query('perPage', 25));
+
+            $filters = array_filter([
+                'employee' => $request->query('employee'),
+                'department_id' => $request->query('department_id') ? (int) $request->query('department_id') : null,
+                'designation_id' => $request->query('designation_id') ? (int) $request->query('designation_id') : null,
+                'status' => $request->query('status'),
+            ], fn ($v) => $v !== null && $v !== '');
+
+            $rows = $this->attendanceReportService->getRangedAttendanceLog($from, $to, $filters);
+
+            $total = count($rows);
+            $lastPage = max(1, (int) ceil($total / $perPage));
+            $slice = array_slice($rows, ($page - 1) * $perPage, $perPage);
+
+            return response()->json([
+                'rows' => array_values($slice),
+                'total' => $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'last_page' => $lastPage,
+                'applied_filters' => array_merge($filters, [
+                    'from' => $from->toDateString(),
+                    'to' => $to->toDateString(),
+                ]),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get attendance log: '.$e->getMessage());
+
+            return response()->json(['error' => 'Failed to retrieve attendance log.'], 500);
+        }
+    }
+
     public function auditHistory(int $id): JsonResponse
     {
         $logs = \App\Models\HRM\AttendanceAuditLog::with('actor:id,name')

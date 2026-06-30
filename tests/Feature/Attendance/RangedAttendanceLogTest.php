@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Attendance\DTO\DayAttendance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -113,5 +114,29 @@ class RangedAttendanceLogTest extends TestCase
         $names = collect($rows)->pluck('employee_name')->unique()->values()->all();
         $this->assertContains('Absent Person', $names);
         $this->assertNotContains('Present Person', $names);
+    }
+
+    public function test_attendance_log_endpoint_returns_paginated_rows(): void
+    {
+        Permission::firstOrCreate(['name' => 'attendance.view']);
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
+        $user = $this->employee('Log Worker');
+        Attendance::create([
+            'user_id' => $user->id, 'date' => '2026-06-02',
+            'punchin' => '2026-06-02 09:00:00', 'punchout' => '2026-06-02 18:00:00',
+        ]);
+
+        $response = $this->actingAs($admin)->getJson(route('attendance.log', [
+            'from' => '2026-06-01', 'to' => '2026-06-03', 'perPage' => 25,
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'rows' => [['date', 'employee_name', 'clock_in', 'clock_out', 'work_hours', 'status']],
+            'total', 'page', 'per_page', 'last_page', 'applied_filters',
+        ]);
+        $response->assertJsonPath('applied_filters.from', '2026-06-01');
     }
 }
