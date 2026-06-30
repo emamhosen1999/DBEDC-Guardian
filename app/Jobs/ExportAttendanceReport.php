@@ -32,16 +32,19 @@ class ExportAttendanceReport implements ShouldQueue
 
     protected string $filename;
 
+    protected array $filters;
+
     /**
      * Create a new job instance.
      */
-    public function __construct(string $type, ?string $date, ?string $month, int $userId, string $filename)
+    public function __construct(string $type, ?string $date, ?string $month, int $userId, string $filename, array $filters = [])
     {
         $this->type = $type;
         $this->date = $date;
         $this->month = $month;
         $this->userId = $userId;
         $this->filename = $filename;
+        $this->filters = $filters;
     }
 
     /**
@@ -107,6 +110,29 @@ class ExportAttendanceReport implements ShouldQueue
                     'summary' => $summary,
                 ])->setPaper('a4', 'landscape');
 
+                Storage::disk('public')->put($filePath, $pdf->output());
+            } elseif ($this->type === 'range_excel') {
+                if (! isset($this->filters['from'], $this->filters['to'])) {
+                    throw new \InvalidArgumentException('Range export requires filters.from and filters.to.');
+                }
+                (new \App\Exports\AttendanceRangeExport)->saveToDisk(
+                    $this->filters['from'], $this->filters['to'], $this->filters, $filePath, 'public'
+                );
+            } elseif ($this->type === 'range_pdf') {
+                if (! isset($this->filters['from'], $this->filters['to'])) {
+                    throw new \InvalidArgumentException('Range export requires filters.from and filters.to.');
+                }
+                $rows = app(AttendanceReportService::class)->getRangedAttendanceLog(
+                    Carbon::parse($this->filters['from']),
+                    Carbon::parse($this->filters['to']),
+                    $this->filters
+                );
+                $pdf = PDF::loadView('attendance_range_pdf', [
+                    'from' => Carbon::parse($this->filters['from']),
+                    'to' => Carbon::parse($this->filters['to']),
+                    'rows' => $rows,
+                    'generatedOn' => now()->format('F d, Y h:i A'),
+                ])->setPaper('a4', 'landscape');
                 Storage::disk('public')->put($filePath, $pdf->output());
             }
 
