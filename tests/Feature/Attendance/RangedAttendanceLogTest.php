@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Attendance\DTO\DayAttendance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -140,5 +141,25 @@ class RangedAttendanceLogTest extends TestCase
         $response->assertJsonPath('applied_filters.from', '2026-06-02');
         $response->assertJsonPath('total', 1);
         $response->assertJsonCount(1, 'rows');
+    }
+
+    public function test_range_export_saves_xlsx_with_rows(): void
+    {
+        Storage::fake('public');
+        $user = $this->employee('Export Worker');
+        Attendance::create([
+            'user_id' => $user->id, 'date' => '2026-06-02',
+            'punchin' => '2026-06-02 09:00:00', 'punchout' => '2026-06-02 18:00:00',
+        ]);
+
+        $path = 'exports/test_range.xlsx';
+        (new \App\Exports\AttendanceRangeExport)->saveToDisk('2026-06-01', '2026-06-03', [], $path, 'public');
+
+        Storage::disk('public')->assertExists($path);
+        $loaded = \PhpOffice\PhpSpreadsheet\IOFactory::load(Storage::disk('public')->path($path));
+        $cells = $loaded->getActiveSheet()->toArray();
+        $flat = json_encode($cells);
+        $this->assertStringContainsString('Export Worker', $flat);
+        $this->assertStringContainsString('Clock In', $flat);
     }
 }
