@@ -112,10 +112,16 @@ class ExportAttendanceReport implements ShouldQueue
 
                 Storage::disk('public')->put($filePath, $pdf->output());
             } elseif ($this->type === 'range_excel') {
+                if (! isset($this->filters['from'], $this->filters['to'])) {
+                    throw new \InvalidArgumentException('Range export requires filters.from and filters.to.');
+                }
                 (new \App\Exports\AttendanceRangeExport)->saveToDisk(
                     $this->filters['from'], $this->filters['to'], $this->filters, $filePath, 'public'
                 );
             } elseif ($this->type === 'range_pdf') {
+                if (! isset($this->filters['from'], $this->filters['to'])) {
+                    throw new \InvalidArgumentException('Range export requires filters.from and filters.to.');
+                }
                 $rows = app(AttendanceReportService::class)->getRangedAttendanceLog(
                     Carbon::parse($this->filters['from']),
                     Carbon::parse($this->filters['to']),
