@@ -20,7 +20,8 @@ import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
 import TablePagination from '@/Components/TablePagination.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { useAttendanceStore } from '@/store/attendanceStore';
-import { useDailyTimesheet, usePresentUsers, useAbsentUsers, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet } from '@/api/queries/useAttendanceQuery';
+import { RANGE_PRESETS, resolvePreset, isRangeMode } from './logRange';
+import { useDailyTimesheet, usePresentUsers, useAbsentUsers, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet, useAttendanceLog, useExportAttendanceLog } from '@/api/queries/useAttendanceQuery';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 /* ── helpers ──────────────────────────────────────────────── */
@@ -317,6 +318,8 @@ const DailyTimesheetTab = ({
     selectedDate,
     onDateChange,
     isActive = true,
+    departments = [],
+    designations = [],
 }) => {
     const { auth, url } = usePage().props;
 
@@ -338,6 +341,23 @@ const DailyTimesheetTab = ({
     // Pagination state
     const [currentPage,  setCurrentPage]  = useState(1);
     const [perPage,      setPerPage]      = useState(25);
+
+    // Range + filter state (Log mode)
+    const [toDate, setToDate] = useState(selectedDate);
+    const [preset, setPreset] = useState('today');
+    const [deptFilter, setDeptFilter] = useState('');
+    const [desigFilter, setDesigFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+
+    // Keep "to" anchored to "from" while in single-day (today/preset) usage.
+    useEffect(() => {
+        if (!isRangeMode(selectedDate, toDate) && preset !== 'custom') {
+            setToDate(selectedDate);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedDate]);
+
+    const rangeMode = isRangeMode(selectedDate, toDate);
 
     // Editing state for inline correction
     const [editingCell, setEditingCell] = useState(null); // { attendanceId, field: 'punchin' | 'punchout' }
@@ -367,6 +387,23 @@ const DailyTimesheetTab = ({
         selfActorId: auth?.user?.id ?? null,
         onSignal: () => { refetchPresent(); refetchAbsent(); refetchTimesheet(); },
     });
+
+    const logFilters = {
+        employee: employeeQuery || undefined,
+        departmentId: deptFilter || undefined,
+        designationId: desigFilter || undefined,
+        status: statusFilter || undefined,
+    };
+
+    const { data: logData, isLoading: isLoadingLog } = useAttendanceLog({
+        from: rangeMode ? selectedDate : null,
+        to: rangeMode ? toDate : null,
+        page: currentPage,
+        perPage,
+        ...logFilters,
+    });
+
+    const exportLog = useExportAttendanceLog();
 
     // Mutations
     const updateTimeCorrection = useUpdateTimeCorrection();
@@ -429,7 +466,7 @@ const DailyTimesheetTab = ({
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedDate, employeeQuery, perPage]);
+    }, [selectedDate, toDate, employeeQuery, perPage, deptFilter, desigFilter, statusFilter]);
 
     useEffect(() => {
         // React Query handles automatic refetching based on dependencies
@@ -449,16 +486,36 @@ const DailyTimesheetTab = ({
     const exportFile = useCallback(async (type) => {
         setDownloading(type);
         try {
-            const mime = type === 'pdf'   ? 'application/pdf'               : undefined;
-            const ext  = type === 'excel' ? 'xlsx'                          : 'pdf';
-            const data = await exportDailyTimesheet.mutateAsync({ date: selectedDate, type });
-            const defaultFilename = `Daily_Timesheet_${dayjs(selectedDate).format('YYYY_MM_DD')}.${ext}`;
-            await handleExportResponse(data, defaultFilename, mime, ext);
+            const mime = type === 'pdf' ? 'application/pdf' : undefined;
+            const ext  = type === 'excel' ? 'xlsx' : 'pdf';
+
+            let data;
+            if (rangeMode) {
+                data = await exportLog.mutateAsync({
+                    from: selectedDate, to: toDate, type, ...logFilters,
+                });
+            } else {
+                data = await exportDailyTimesheet.mutateAsync({ date: selectedDate, type });
+            }
+
+            const label = rangeMode
+                ? `Attendance_Log_${dayjs(selectedDate).format('YYYY_MM_DD')}_${dayjs(toDate).format('YYYY_MM_DD')}.${ext}`
+                : `Daily_Timesheet_${dayjs(selectedDate).format('YYYY_MM_DD')}.${ext}`;
+            await handleExportResponse(data, label, mime, ext);
         } catch (err) {
             console.error('Export failed:', err);
             showToast.error(`Failed to download ${type}.`);
         } finally { setDownloading(''); }
-    }, [selectedDate, exportDailyTimesheet]);
+    }, [selectedDate, toDate, rangeMode, exportDailyTimesheet, exportLog, employeeQuery, deptFilter, desigFilter, statusFilter]);
+
+    const applyPreset = useCallback((value) => {
+        setPreset(value);
+        const resolved = resolvePreset(value);
+        if (!resolved) return; // custom: leave dates as-is
+        onDateChange({ target: { value: resolved.from } });
+        setToDate(resolved.to);
+        setCurrentPage(1);
+    }, [onDateChange]);
 
     const getUserLeave = (uid) => leaves.find(l => String(l.user_id) === String(uid));
 
@@ -571,6 +628,64 @@ const DailyTimesheetTab = ({
                         </TextField.Root>
                     )}
 
+                    <Select.Root value={preset} onValueChange={applyPreset}>
+                        <Select.Trigger size="2" style={{ width: 130 }} />
+                        <Select.Content>
+                            {RANGE_PRESETS.map(p => (
+                                <Select.Item key={p.value} value={p.value}>{p.label}</Select.Item>
+                            ))}
+                        </Select.Content>
+                    </Select.Root>
+
+                    {preset === 'custom' && (
+                        <TextField.Root
+                            type="date"
+                            size="2"
+                            value={dayjs(toDate).format('YYYY-MM-DD')}
+                            onChange={e => { setToDate(e.target.value); setCurrentPage(1); }}
+                            style={{ width: 160 }}
+                        >
+                            <TextField.Slot><CalendarIcon /></TextField.Slot>
+                        </TextField.Root>
+                    )}
+
+                    {isAdminView && rangeMode && (
+                        <>
+                            <Select.Root value={statusFilter || 'all'} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                                <Select.Trigger size="2" placeholder="Status" style={{ width: 130 }} />
+                                <Select.Content>
+                                    <Select.Item value="all">All statuses</Select.Item>
+                                    <Select.Item value="present">Present</Select.Item>
+                                    <Select.Item value="absent">Absent</Select.Item>
+                                    <Select.Item value="on_leave">On Leave</Select.Item>
+                                    <Select.Item value="incomplete">Incomplete</Select.Item>
+                                    <Select.Item value="holiday">Holiday</Select.Item>
+                                    <Select.Item value="day_off">Day Off</Select.Item>
+                                </Select.Content>
+                            </Select.Root>
+
+                            <Select.Root value={deptFilter || 'all'} onValueChange={v => { setDeptFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                                <Select.Trigger size="2" placeholder="Department" style={{ width: 150 }} />
+                                <Select.Content>
+                                    <Select.Item value="all">All departments</Select.Item>
+                                    {departments.map(d => (
+                                        <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+
+                            <Select.Root value={desigFilter || 'all'} onValueChange={v => { setDesigFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                                <Select.Trigger size="2" placeholder="Designation" style={{ width: 150 }} />
+                                <Select.Content>
+                                    <Select.Item value="all">All designations</Select.Item>
+                                    {designations.map(d => (
+                                        <Select.Item key={d.id} value={String(d.id)}>{d.title}</Select.Item>
+                                    ))}
+                                </Select.Content>
+                            </Select.Root>
+                        </>
+                    )}
+
                     <Select.Root
                         value={String(perPage)}
                         onValueChange={v => setPerPage(Number(v))}
@@ -655,8 +770,64 @@ const DailyTimesheetTab = ({
                 )}
             </Flex>
 
-            {/* Body: table + sidebar */}
-            {error ? (
+            {/* Body: range log table OR single-day table + sidebar */}
+            {rangeMode ? (
+                <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden', minHeight: 400 }}>
+                    <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+                        <Table.Root size="2" variant="ghost" style={{ minWidth: 720 }}>
+                            <Table.Header>
+                                <Table.Row>
+                                    <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Clock In</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Clock Out</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Work Hours</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                </Table.Row>
+                            </Table.Header>
+                            <Table.Body>
+                                {isLoadingLog ? (
+                                    [...Array(8)].map((_, i) => (
+                                        <Table.Row key={i}>
+                                            {[...Array(6)].map((__, j) => (
+                                                <Table.Cell key={j}><Skeleton width="80%" height="16px" /></Table.Cell>
+                                            ))}
+                                        </Table.Row>
+                                    ))
+                                ) : (logData?.rows?.length ?? 0) === 0 ? (
+                                    <Table.Row>
+                                        <Table.Cell colSpan={6}>
+                                            <Flex direction="column" align="center" py="9" gap="3">
+                                                <ClockIcon style={{ color: 'var(--gray-7)', width: 36, height: 36 }} />
+                                                <Text size="2" color="gray">No records for this range and filters</Text>
+                                            </Flex>
+                                        </Table.Cell>
+                                    </Table.Row>
+                                ) : (
+                                    logData.rows.map((row, idx) => (
+                                        <Table.Row key={`${row.user_id}-${row.date}-${idx}`}>
+                                            <Table.Cell><Text size="2">{dayjs(row.date).format('MMM D, YYYY')}</Text></Table.Cell>
+                                            <Table.Cell><Text size="2" weight="medium">{row.employee_name}</Text></Table.Cell>
+                                            <Table.Cell><Text size="2">{row.clock_in ? dayjs(row.clock_in).format('h:mm A') : '—'}</Text></Table.Cell>
+                                            <Table.Cell><Text size="2">{row.clock_out ? dayjs(row.clock_out).format('h:mm A') : '—'}</Text></Table.Cell>
+                                            <Table.Cell><Text size="2">{row.work_hours}</Text></Table.Cell>
+                                            <Table.Cell><Badge variant="soft" color="gray">{row.remarks}</Badge></Table.Cell>
+                                        </Table.Row>
+                                    ))
+                                )}
+                            </Table.Body>
+                        </Table.Root>
+                    </ScrollArea>
+                    {(logData?.last_page ?? 1) > 1 && !isLoadingLog && (
+                        <TablePagination
+                            pagination={{ currentPage, perPage, total: logData?.total ?? 0 }}
+                            onPageChange={setCurrentPage}
+                            onRowsPerPageChange={(v) => setPerPage(v)}
+                            loading={isLoadingLog}
+                        />
+                    )}
+                </Box>
+            ) : error ? (
                 <Flex align="center" gap="3" p="4" style={{ border: '1px solid var(--red-a7)', borderRadius: 'var(--radius-3)' }}>
                     <ExclamationTriangleIcon style={{ color: 'var(--red-9)', width: 20, height: 20 }} />
                     <Text size="2" color="red">{error}</Text>
@@ -753,8 +924,8 @@ const DailyTimesheetTab = ({
                 </Flex>
             )}
 
-            {/* ── Map: admin only ─────────────────────────────── */}
-            {isAdminView && (
+            {/* ── Map: admin only, single-day mode only ───────── */}
+            {isAdminView && !rangeMode && (
                 <Box mt="4">
                     <ErrorBoundary>
                         <UserLocationsCard selectedDate={selectedDate} updateMap={updateMap} />

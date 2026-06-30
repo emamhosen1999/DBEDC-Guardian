@@ -22,7 +22,7 @@ import AttendanceOverview from './Components/AttendanceOverview';
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
 // import BulkMarkAsPresentForm from '@/Forms/BulkMarkAsPresentForm';
 
-const AttendancePage = ({ title, departments = [] }) => {
+const AttendancePage = ({ title, departments = [], designations = [] }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isDesktop = useMediaQuery('(min-width: 1025px)');
@@ -193,6 +193,8 @@ const AttendancePage = ({ title, departments = [] }) => {
                                             selectedDate={selectedDate}
                                             onDateChange={handleDateChange}
                                             isActive={activeTab === 'timesheet'}
+                                            departments={departments}
+                                            designations={designations}
                                         />
                                     </ErrorBoundary>
                                 </Box>
