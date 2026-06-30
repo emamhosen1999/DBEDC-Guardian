@@ -163,6 +163,7 @@ class RangedAttendanceLogTest extends TestCase
         $flat = json_encode($cells);
         $this->assertStringContainsString('Export Worker', $flat);
         $this->assertStringContainsString('Clock In', $flat);
+        $this->assertStringContainsString('Present', $flat);
     }
 
     public function test_log_export_dispatches_range_excel_job(): void
@@ -179,7 +180,10 @@ class RangedAttendanceLogTest extends TestCase
 
         $response->assertStatus(200)->assertJson(['success' => true, 'queued' => true]);
         $response->assertJsonStructure(['download_url', 'filename']);
-        Queue::assertPushed(ExportAttendanceReport::class, fn ($job) => $job->getType() === 'range_excel');
+        Queue::assertPushed(ExportAttendanceReport::class, function ($job) {
+            // filters are private; covered structurally — only getType() is publicly observable
+            return $job->getType() === 'range_excel';
+        });
     }
 
     public function test_log_export_pdf_rejects_range_over_cap(): void
@@ -195,5 +199,25 @@ class RangedAttendanceLogTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonStructure(['error']);
+    }
+
+    public function test_log_export_pdf_cap_boundary(): void
+    {
+        Permission::firstOrCreate(['name' => 'attendance.view']);
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
+
+        $from = '2026-01-01';
+        $allowedTo = \Carbon\Carbon::parse($from)->addDays(62)->toDateString(); // diff 62 → allowed
+        $rejectedTo = \Carbon\Carbon::parse($from)->addDays(63)->toDateString(); // diff 63 → rejected
+
+        $this->actingAs($admin)
+            ->getJson(route('attendance.log.export', ['from' => $from, 'to' => $allowedTo, 'type' => 'pdf']))
+            ->assertStatus(200);
+
+        $this->actingAs($admin)
+            ->getJson(route('attendance.log.export', ['from' => $from, 'to' => $rejectedTo, 'type' => 'pdf']))
+            ->assertStatus(422);
     }
 }

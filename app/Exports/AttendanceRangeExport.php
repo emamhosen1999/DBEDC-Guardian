@@ -15,7 +15,7 @@ class AttendanceRangeExport
 {
     private array $headings = [
         'Date', 'Employee', 'Employee ID', 'Department', 'Designation',
-        'Clock In', 'Clock Out', 'Work Hours', 'Status', 'Remarks',
+        'Clock In', 'Clock Out', 'Work Hours', 'Status',
     ];
 
     public function saveToDisk(string $from, string $to, array $filters, string $filePath, string $disk = 'public'): void
@@ -46,11 +46,11 @@ class AttendanceRangeExport
         // Metadata header
         $sheet->setCellValue('A1', 'Attendance Log');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-        $sheet->mergeCells('A1:J1');
+        $sheet->mergeCells('A1:I1');
         $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $sheet->setCellValue('A2', 'Range: '.$fromC->format('M d, Y').' to '.$toC->format('M d, Y'));
-        $sheet->mergeCells('A2:J2');
+        $sheet->mergeCells('A2:I2');
         $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         $filterParts = [];
@@ -60,7 +60,7 @@ class AttendanceRangeExport
             }
         }
         $sheet->setCellValue('A3', 'Filters: '.($filterParts ? implode(', ', $filterParts) : 'None').'  |  Generated: '.now()->format('M d, Y h:i A'));
-        $sheet->mergeCells('A3:J3');
+        $sheet->mergeCells('A3:I3');
         $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
         // Column headings on row 5
@@ -70,8 +70,8 @@ class AttendanceRangeExport
             $sheet->setCellValue($col.$headerRow, $heading);
             $col++;
         }
-        $sheet->getStyle("A{$headerRow}:J{$headerRow}")->getFont()->setBold(true);
-        $sheet->getStyle("A{$headerRow}:J{$headerRow}")->getFill()
+        $sheet->getStyle("A{$headerRow}:I{$headerRow}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$headerRow}:I{$headerRow}")->getFill()
             ->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE3F2FD');
 
         // Data rows
@@ -85,14 +85,13 @@ class AttendanceRangeExport
             $sheet->setCellValue('F'.$r, $row['clock_in'] ? Carbon::parse($row['clock_in'])->format('h:i A') : '—');
             $sheet->setCellValue('G'.$r, $row['clock_out'] ? Carbon::parse($row['clock_out'])->format('h:i A') : '—');
             $sheet->setCellValue('H'.$r, $row['work_hours']);
-            $sheet->setCellValue('I'.$r, $row['status']);
-            $sheet->setCellValue('J'.$r, $row['remarks']);
+            $sheet->setCellValue('I'.$r, $row['remarks']);
             $r++;
         }
 
         $lastRow = max($headerRow, $r - 1);
-        $sheet->getStyle("A{$headerRow}:J{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
-        foreach (range('A', 'J') as $c) {
+        $sheet->getStyle("A{$headerRow}:I{$lastRow}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+        foreach (range('A', 'I') as $c) {
             $sheet->getColumnDimension($c)->setAutoSize(true);
         }
 
