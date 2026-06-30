@@ -33,7 +33,7 @@
                     <td>{{ $row['designation'] ?? '' }}</td>
                     <td>{{ $row['clock_in'] ? \Carbon\Carbon::parse($row['clock_in'])->format('h:i A') : '—' }}</td>
                     <td>{{ $row['clock_out'] ? \Carbon\Carbon::parse($row['clock_out'])->format('h:i A') : '—' }}</td>
-                    <td>{{ $row['work_hours'] }}</td>
+                    <td>{{ $row['work_hours'] ?? '' }}</td>
                     <td>{{ $row['remarks'] }}</td>
                 </tr>
             @empty
