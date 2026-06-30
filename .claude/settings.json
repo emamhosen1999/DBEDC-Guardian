@@ -423,7 +423,9 @@
       "Bash(bash __TRACKED_VAR__/scripts/task-brief docs/superpowers/plans/2026-06-30-attendance-ranged-log-export.md 8)",
       "Bash(bash __TRACKED_VAR__/scripts/task-brief docs/superpowers/plans/2026-06-30-attendance-ranged-log-export.md 9)",
       "Bash(bash __TRACKED_VAR__/scripts/review-package 84a0da9e HEAD)",
-      "Bash(grep -nE \"[':]J[0-9{]|'J'|range\\\\\\('A', 'J'\\\\\\)\" app/Exports/AttendanceRangeExport.php)"
+      "Bash(grep -nE \"[':]J[0-9{]|'J'|range\\\\\\('A', 'J'\\\\\\)\" app/Exports/AttendanceRangeExport.php)",
+      "Bash(git commit -m 'fix\\(users\\): blank user_name on update no longer nulls the NOT NULL column *)",
+      "Bash(git rev-list *)"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
