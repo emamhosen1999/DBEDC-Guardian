@@ -180,6 +180,8 @@ class AttendanceReportService
 
             $attendanceData[$dateString] = [
                 'status' => $symbol,
+                'status_code' => $effective,
+                'is_complete' => $result->is_complete,
                 'punch_in' => $punchIn,
                 'punch_out' => $punchOut,
                 'total_work_hours' => $totalWorkHours,
