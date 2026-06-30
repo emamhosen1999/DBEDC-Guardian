@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Attendance;
 
+use App\Jobs\ExportAttendanceReport;
 use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\LeaveSetting;
@@ -9,6 +10,7 @@ use App\Models\User;
 use App\Services\Attendance\AttendanceReportService;
 use App\Services\Attendance\DTO\DayAttendance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -161,5 +163,37 @@ class RangedAttendanceLogTest extends TestCase
         $flat = json_encode($cells);
         $this->assertStringContainsString('Export Worker', $flat);
         $this->assertStringContainsString('Clock In', $flat);
+    }
+
+    public function test_log_export_dispatches_range_excel_job(): void
+    {
+        Queue::fake();
+        Permission::firstOrCreate(['name' => 'attendance.view']);
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
+
+        $response = $this->actingAs($admin)->getJson(route('attendance.log.export', [
+            'from' => '2026-06-01', 'to' => '2026-06-10', 'type' => 'excel',
+        ]));
+
+        $response->assertStatus(200)->assertJson(['success' => true, 'queued' => true]);
+        $response->assertJsonStructure(['download_url', 'filename']);
+        Queue::assertPushed(ExportAttendanceReport::class, fn ($job) => $job->getType() === 'range_excel');
+    }
+
+    public function test_log_export_pdf_rejects_range_over_cap(): void
+    {
+        Permission::firstOrCreate(['name' => 'attendance.view']);
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.view');
+
+        $response = $this->actingAs($admin)->getJson(route('attendance.log.export', [
+            'from' => '2026-01-01', 'to' => '2026-06-30', 'type' => 'pdf',
+        ]));
+
+        $response->assertStatus(422);
+        $response->assertJsonStructure(['error']);
     }
 }

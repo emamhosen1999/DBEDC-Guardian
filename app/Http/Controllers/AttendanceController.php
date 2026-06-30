@@ -1040,6 +1040,53 @@ class AttendanceController extends Controller
         }
     }
 
+    public function exportAttendanceLog(Request $request)
+    {
+        try {
+            $from = Carbon::parse($request->query('from', now()->toDateString()))->startOfDay();
+            $to = Carbon::parse($request->query('to', now()->toDateString()))->startOfDay();
+            if ($to->lt($from)) {
+                [$from, $to] = [$to, $from];
+            }
+
+            $type = $request->query('type', 'excel') === 'pdf' ? 'pdf' : 'excel';
+
+            if ($type === 'pdf' && $from->diffInDays($to) > 62) {
+                return response()->json([
+                    'error' => 'PDF export is limited to 62 days. Narrow the range or use Excel.',
+                ], 422);
+            }
+
+            $filters = array_filter([
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'employee' => $request->query('employee'),
+                'department_id' => $request->query('department_id') ? (int) $request->query('department_id') : null,
+                'designation_id' => $request->query('designation_id') ? (int) $request->query('designation_id') : null,
+                'status' => $request->query('status'),
+            ], fn ($v) => $v !== null && $v !== '');
+
+            $ext = $type === 'pdf' ? 'pdf' : 'xlsx';
+            $jobType = $type === 'pdf' ? 'range_pdf' : 'range_excel';
+            $filename = 'Attendance_Log_'.$from->format('Ymd').'_'.$to->format('Ymd').'_'.time().'.'.$ext;
+
+            ExportAttendanceReport::dispatch($jobType, null, null, Auth::id(), $filename, $filters);
+
+            return response()->json([
+                'success' => true,
+                'queued' => true,
+                'filename' => $filename,
+                'download_url' => asset('storage/exports/'.$filename),
+                'message' => 'Export job has been dispatched.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Attendance log export failed.',
+                'details' => $this->safeExceptionMessage($e, 'Export failed.'),
+            ], 500);
+        }
+    }
+
     public function updateAttendanceRecord(Request $request, $id): JsonResponse
     {
         $this->authorize('attendance.correct');
