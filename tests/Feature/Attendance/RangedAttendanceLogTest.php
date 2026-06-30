@@ -129,7 +129,7 @@ class RangedAttendanceLogTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)->getJson(route('attendance.log', [
-            'from' => '2026-06-01', 'to' => '2026-06-03', 'perPage' => 25,
+            'from' => '2026-06-02', 'to' => '2026-06-02', 'perPage' => 25,
         ]));
 
         $response->assertStatus(200);
@@ -137,6 +137,8 @@ class RangedAttendanceLogTest extends TestCase
             'rows' => [['date', 'employee_name', 'clock_in', 'clock_out', 'work_hours', 'status']],
             'total', 'page', 'per_page', 'last_page', 'applied_filters',
         ]);
-        $response->assertJsonPath('applied_filters.from', '2026-06-01');
+        $response->assertJsonPath('applied_filters.from', '2026-06-02');
+        $response->assertJsonPath('total', 1);
+        $response->assertJsonCount(1, 'rows');
     }
 }
