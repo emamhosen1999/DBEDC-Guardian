@@ -131,6 +131,15 @@ class UserManagementService
                 );
             }
 
+            // user_name is a NOT NULL column, but the edit form always submits the
+            // field and the global ConvertEmptyStringsToNull middleware turns a blank
+            // entry into null. On update a blank submission means "no change" — never
+            // overwrite the existing value with null/'' (which violates the constraint).
+            if (array_key_exists('user_name', $validated)
+                && ($validated['user_name'] === null || $validated['user_name'] === '')) {
+                unset($validated['user_name']);
+            }
+
             $user->update($validated);
             $this->applyAttendanceTypeOverride($user, $attendanceTypeIds, $biometricDeviceIds);
 

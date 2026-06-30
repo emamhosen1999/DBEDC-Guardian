@@ -141,6 +141,32 @@ class UserManagementTest extends TestCase
     }
 
     /** @test */
+    public function blank_user_name_on_update_preserves_existing_value(): void
+    {
+        $user = User::factory()->create([
+            'user_name' => 'wangfuchen',
+            'name' => 'Old Name',
+        ]);
+
+        // Reproduces the production failure: the edit form always submits the
+        // user_name field; when it is blank the global ConvertEmptyStringsToNull
+        // middleware turns '' into null, which must NOT overwrite the NOT NULL
+        // user_name column (a blank submission means "no change").
+        $response = $this->put(route('users.update', $user->id), [
+            'name' => 'Wang FuChen',
+            'email' => $user->email,
+            'user_name' => '',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Wang FuChen',
+            'user_name' => 'wangfuchen', // preserved, not nulled/blanked
+        ]);
+    }
+
+    /** @test */
     public function user_update_validates_unique_email_except_current_user(): void
     {
         $user1 = User::factory()->create(['email' => 'user1@example.com']);
