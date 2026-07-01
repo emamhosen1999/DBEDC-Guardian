@@ -8,6 +8,7 @@ import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
+import CoveragePanel from './Components/CoveragePanel';
 import RosterCellPopover from './Components/RosterCellPopover';
 import { handleCellConflict } from './rosterCellConflict';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
@@ -254,6 +255,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 ? <Text size="2" color="gray">Loading roster…</Text>
                 : (
                     <>
+                        <CoveragePanel from={from} to={to} isActive={isActive} />
                         <RosterCalendar
                             roster={Object.fromEntries(rows)}
                             days={days}
