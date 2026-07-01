@@ -9,6 +9,7 @@ import { showToast } from '@/utils/toastUtils';
 import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
 import CoveragePanel from './Components/CoveragePanel';
+import CoverageRequirementsDialog from './Components/CoverageRequirementsDialog';
 import RosterCellPopover from './Components/RosterCellPopover';
 import { handleCellConflict } from './rosterCellConflict';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
@@ -21,6 +22,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const [popoverOpen, setPopoverOpen] = useState(false);
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
     const [employeeQuery, setEmployeeQuery] = useState('');
+    const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
 
     const from = useMemo(() => dayjs(month + '-01').startOf('month').format('YYYY-MM-DD'), [month]);
     const to = useMemo(() => dayjs(month + '-01').endOf('month').format('YYYY-MM-DD'), [month]);
@@ -241,6 +243,9 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         <ReloadIcon />
                         Refresh
                     </Button>
+                    <Button variant="soft" color="gray" size="2" onClick={() => setCoverageDialogOpen(true)}>
+                        Coverage rules
+                    </Button>
                     <Button
                         size="2"
                         onClick={() => generate.mutate()}
@@ -256,6 +261,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 : (
                     <>
                         <CoveragePanel from={from} to={to} isActive={isActive} />
+                        <CoverageRequirementsDialog open={coverageDialogOpen} onOpenChange={setCoverageDialogOpen} />
                         <RosterCalendar
                             roster={Object.fromEntries(rows)}
                             days={days}
