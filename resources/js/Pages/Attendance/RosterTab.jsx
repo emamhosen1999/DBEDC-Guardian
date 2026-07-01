@@ -55,6 +55,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const roster = data?.roster || {};
+    const holidays = data?.holidays || {};
 
     // Live cross-user updates: when ANOTHER user changes this month's roster,
     // refetch just this grid (the actor's own change is filtered out by selfActorId).
@@ -246,6 +247,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         <RosterCalendar
                             roster={Object.fromEntries(rows)}
                             days={days}
+                            holidays={holidays}
                             onCellClick={handleCellClick}
                         />
                         <RosterCellPopover
