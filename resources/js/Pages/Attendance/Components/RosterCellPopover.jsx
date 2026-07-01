@@ -1,8 +1,13 @@
-import React from 'react';
-import { Popover, Flex, Button, Text, Callout } from '@radix-ui/themes';
+import React, { useState, useEffect } from 'react';
+import { Popover, Flex, Box, Button, Text, Callout, Select } from '@radix-ui/themes';
 
-/** shifts: [{id,code,name,color}]; onPick(shiftIdOrNull) */
-export default function RosterCellPopover({ open, onOpenChange, anchor, shifts = [], notice = null, onPick }) {
+/** shifts: [{id,code,name,color}]; onPick(shiftIdOrNull, workLocationIdOrNull) */
+export default function RosterCellPopover({ open, onOpenChange, anchor, shifts = [], notice = null, workLocations = [], selectedLocationId = null, onPick }) {
+    const [locId, setLocId] = useState(selectedLocationId ? String(selectedLocationId) : 'home');
+    useEffect(() => { setLocId(selectedLocationId ? String(selectedLocationId) : 'home'); }, [selectedLocationId, open]);
+
+    const pick = (shiftId) => onPick(shiftId, locId === 'home' ? null : Number(locId));
+
     return (
         <Popover.Root open={open} onOpenChange={onOpenChange}>
             <Popover.Trigger>{anchor}</Popover.Trigger>
@@ -12,6 +17,18 @@ export default function RosterCellPopover({ open, onOpenChange, anchor, shifts =
                         <Callout.Text>{notice}</Callout.Text>
                     </Callout.Root>
                 )}
+                {workLocations.length > 0 && (
+                    <Box mb="2">
+                        <Text size="1" color="gray">Post</Text>
+                        <Select.Root value={locId} onValueChange={setLocId}>
+                            <Select.Trigger placeholder="Home location" />
+                            <Select.Content>
+                                <Select.Item value="home">Home location</Select.Item>
+                                {workLocations.map(l => <Select.Item key={l.id} value={String(l.id)}>{l.name}</Select.Item>)}
+                            </Select.Content>
+                        </Select.Root>
+                    </Box>
+                )}
                 <Text size="1" color="gray">Assign shift</Text>
                 <Flex direction="column" gap="1" mt="2">
                     {shifts.map(s => (
@@ -20,7 +37,7 @@ export default function RosterCellPopover({ open, onOpenChange, anchor, shifts =
                             size="1"
                             variant="soft"
                             style={{ justifyContent: 'flex-start' }}
-                            onClick={() => onPick(s.id)}
+                            onClick={() => pick(s.id)}
                         >
                             <span style={{
                                 width: 10, height: 10, borderRadius: 2,
@@ -30,7 +47,7 @@ export default function RosterCellPopover({ open, onOpenChange, anchor, shifts =
                             {s.name} ({s.code})
                         </Button>
                     ))}
-                    <Button size="1" variant="soft" color="gray" onClick={() => onPick(null)}>
+                    <Button size="1" variant="soft" color="gray" onClick={() => pick(null)}>
                         Off (clear)
                     </Button>
                 </Flex>

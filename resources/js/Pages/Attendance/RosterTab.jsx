@@ -45,6 +45,13 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
     const shifts = shiftsData?.shifts || [];
 
+    const { data: locData } = useQuery({
+        queryKey: ['work-locations'],
+        queryFn: () => requestJson('get', '/attendance/work-locations'),
+        enabled: isActive,
+    });
+    const workLocations = locData?.work_locations || [];
+
     const { data, isLoading, isFetching, refetch } = useQuery({
         queryKey: ['roster', from, to, selectedDepartmentId],
         queryFn: () => requestJson('get', '/attendance/roster', {
@@ -118,11 +125,12 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const updateCell = useOptimisticMutation({
-        mutationFn: ({ userId, date, shiftId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
+        mutationFn: ({ userId, date, shiftId, workLocationId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
             data: {
                 user_id: Number(userId),
                 date,
                 shift_id: shiftId,
+                work_location_id: workLocationId ?? null,
                 expected_updated_at: expectedUpdatedAt ?? null,
             },
         }),
@@ -163,12 +171,12 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         setPopoverOpen(true);
     };
 
-    const handlePick = (shiftId) => {
+    const handlePick = (shiftId, workLocationId) => {
         if (!selectedCell) return;
         setPopoverOpen(false);
         const { userId, date } = selectedCell;
         const expectedUpdatedAt = roster?.[userId]?.days?.[date]?.updated_at ?? null;
-        updateCell.mutate({ userId, date, shiftId, expectedUpdatedAt });
+        updateCell.mutate({ userId, date, shiftId, workLocationId, expectedUpdatedAt });
         setSelectedCell(null);
     };
 
@@ -274,6 +282,8 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                             anchor={<span />}
                             shifts={shifts}
                             notice={selectedNotice}
+                            workLocations={workLocations}
+                            selectedLocationId={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.work_location_id ?? null) : null}
                             onPick={handlePick}
                         />
                     </>
