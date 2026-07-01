@@ -13,11 +13,12 @@ export function resolveRosterCellDisplay(cell, holidayTitle) {
   const leave = cell?.leave;
   if (leave && leave.status === 'approved') {
     if (leave.fraction === 0.5) {
+      const sessionLabel = leave.session === 'first_half' ? 'AM' : leave.session === 'second_half' ? 'PM' : null;
       return {
         kind: 'leave-half',
         label: cell.code || leave.type,
         color: cell.color || null,
-        tooltip: `Half-day leave (${leave.session === 'first_half' ? 'AM' : 'PM'}) — ${leave.type}`,
+        tooltip: sessionLabel ? `Half-day leave (${sessionLabel}) — ${leave.type}` : `Half-day leave — ${leave.type}`,
         leaveType: leave.type,
         session: leave.session,
       };
