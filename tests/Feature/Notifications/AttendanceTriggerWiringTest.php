@@ -137,6 +137,7 @@ class AttendanceTriggerWiringTest extends TestCase
         $controller = new RosterController(
             $this->createMock(RosterService::class),
             $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
+            $this->createMock(\App\Services\Attendance\RosterOverlayService::class),
         );
         $request = Request::create('/attendance/roster/cell', 'PUT');
         $request->merge([

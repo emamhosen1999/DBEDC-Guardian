@@ -55,6 +55,17 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const roster = data?.roster || {};
+    const holidays = data?.holidays || {};
+
+    const selectedNotice = useMemo(() => {
+        if (!selectedCell) return null;
+        const { userId, date } = selectedCell;
+        if (holidays[date]) return `Company holiday — ${holidays[date]}`;
+        const lv = roster?.[userId]?.days?.[date]?.leave;
+        if (lv?.status === 'approved') return `On approved leave — ${lv.type}`;
+        if (lv?.status === 'pending') return `Has a pending leave request — ${lv.type}`;
+        return null;
+    }, [selectedCell, holidays, roster]);
 
     // Live cross-user updates: when ANOTHER user changes this month's roster,
     // refetch just this grid (the actor's own change is filtered out by selfActorId).
@@ -246,6 +257,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         <RosterCalendar
                             roster={Object.fromEntries(rows)}
                             days={days}
+                            holidays={holidays}
                             onCellClick={handleCellClick}
                         />
                         <RosterCellPopover
@@ -253,6 +265,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                             onOpenChange={(o) => { if (!o) setPopoverOpen(false); }}
                             anchor={<span />}
                             shifts={shifts}
+                            notice={selectedNotice}
                             onPick={handlePick}
                         />
                     </>

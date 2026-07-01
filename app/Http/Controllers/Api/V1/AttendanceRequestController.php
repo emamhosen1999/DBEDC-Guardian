@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Attendance\CompOffService;
 use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
+use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +29,7 @@ class AttendanceRequestController extends Controller
         private readonly OvertimeService $overtime,
         private readonly CompOffService $compOff,
         private readonly RosterService $roster,
+        private readonly RosterOverlayService $overlay,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -135,9 +137,23 @@ class AttendanceRequestController extends Controller
                 'off'              => $row->shift_id === null,
             ]);
 
+        $overlay = $this->overlay->forRange([$request->user()->id], $data['from'], $data['to']);
+        $daysArr = $days->toArray();
+
+        foreach (($overlay['leave'][$request->user()->id] ?? []) as $date => $info) {
+            if (! isset($daysArr[$date])) {
+                $daysArr[$date] = [
+                    'code' => null, 'name' => null, 'color' => null, 'type' => null,
+                    'start' => null, 'end' => null, 'crosses_midnight' => false, 'off' => true,
+                ];
+            }
+            $daysArr[$date]['leave'] = $info;
+        }
+
         return $this->successResponse([
             'name' => $request->user()->name,
-            'days' => $days,
+            'days' => $daysArr,
+            'holidays' => $overlay['holidays'],
         ]);
     }
 

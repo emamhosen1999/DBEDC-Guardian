@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Flex, Text, Tooltip } from '@radix-ui/themes';
 import dayjs from 'dayjs';
+import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 
 /**
  * Presentational employees × days roster grid.
@@ -14,7 +15,7 @@ const CELL_W = 46;
 const ROW_H = 36;
 const LINE = '1px solid var(--gray-a5)';
 
-export default function RosterCalendar({ roster = {}, days = [], onCellClick }) {
+export default function RosterCalendar({ roster = {}, days = [], holidays = {}, onCellClick }) {
     const rows = Object.entries(roster);
 
     if (rows.length === 0) {
@@ -56,7 +57,7 @@ export default function RosterCalendar({ roster = {}, days = [], onCellClick }) 
                                 style={{
                                     width: CELL_W, minWidth: CELL_W, height: ROW_H,
                                     borderRight: LINE, borderBottom: LINE,
-                                    background: weekend ? 'var(--gray-a3)' : 'transparent',
+                                    background: holidays[d] ? 'var(--amber-a3)' : (weekend ? 'var(--gray-a3)' : 'transparent'),
                                     display: 'flex', flexDirection: 'column',
                                     alignItems: 'center', justifyContent: 'center', lineHeight: 1.1,
                                 }}
@@ -74,8 +75,7 @@ export default function RosterCalendar({ roster = {}, days = [], onCellClick }) 
                         {nameCell(<Text size="2">{row.name || 'Unknown'}</Text>, { zIndex: 1 })}
                         {days.map((d) => {
                             const cell = row.days?.[d];
-                            const isOff = cell?.off;
-                            const assigned = cell && !isOff;
+                            const disp = resolveRosterCellDisplay(cell, holidays[d]);
                             return (
                                 <Box
                                     key={d}
@@ -84,21 +84,29 @@ export default function RosterCalendar({ roster = {}, days = [], onCellClick }) 
                                         width: CELL_W, minWidth: CELL_W, height: ROW_H,
                                         borderRight: LINE, borderBottom: LINE, padding: 4,
                                         boxSizing: 'border-box',
+                                        background: disp.kind === 'holiday' ? 'var(--amber-a2)' : 'transparent',
                                         cursor: onCellClick ? 'pointer' : 'default',
                                     }}
                                 >
-                                    <Tooltip content={cell ? (isOff ? 'Off' : (cell.code || 'Assigned')) : 'No assignment'}>
+                                    <Tooltip content={disp.tooltip}>
                                         <Box
                                             style={{
                                                 width: '100%', height: '100%', borderRadius: 4,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                background: assigned ? (cell.color || 'var(--accent-9)') : 'transparent',
-                                                border: isOff ? '1px dashed var(--gray-a6)' : 'none',
-                                                color: assigned ? '#fff' : 'var(--gray-8)',
+                                                background:
+                                                    disp.kind === 'leave' ? 'var(--amber-9)'
+                                                    : disp.kind === 'leave-half' ? `linear-gradient(135deg, ${disp.color || 'var(--accent-9)'} 50%, var(--amber-9) 50%)`
+                                                    : (disp.kind === 'shift' || disp.kind === 'pending') ? (disp.color || 'var(--accent-9)')
+                                                    : 'transparent',
+                                                border:
+                                                    disp.kind === 'off' ? '1px dashed var(--gray-a6)'
+                                                    : disp.kind === 'pending' ? '1px dashed var(--amber-8)'
+                                                    : 'none',
+                                                color: (disp.kind === 'shift' || disp.kind === 'pending' || disp.kind === 'leave' || disp.kind === 'leave-half') ? '#fff' : 'var(--gray-8)',
                                                 fontSize: 9, fontWeight: 700, letterSpacing: 0.2,
                                             }}
                                         >
-                                            {assigned ? (cell.code || '·') : ''}
+                                            {disp.label}
                                         </Box>
                                     </Tooltip>
                                 </Box>

@@ -1,12 +1,17 @@
 import React from 'react';
-import { Popover, Flex, Button, Text } from '@radix-ui/themes';
+import { Popover, Flex, Button, Text, Callout } from '@radix-ui/themes';
 
 /** shifts: [{id,code,name,color}]; onPick(shiftIdOrNull) */
-export default function RosterCellPopover({ open, onOpenChange, anchor, shifts = [], onPick }) {
+export default function RosterCellPopover({ open, onOpenChange, anchor, shifts = [], notice = null, onPick }) {
     return (
         <Popover.Root open={open} onOpenChange={onOpenChange}>
             <Popover.Trigger>{anchor}</Popover.Trigger>
             <Popover.Content width="220px">
+                {notice && (
+                    <Callout.Root color="amber" size="1" mb="2">
+                        <Callout.Text>{notice}</Callout.Text>
+                    </Callout.Root>
+                )}
                 <Text size="1" color="gray">Assign shift</Text>
                 <Flex direction="column" gap="1" mt="2">
                     {shifts.map(s => (
