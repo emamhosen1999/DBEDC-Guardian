@@ -17,6 +17,7 @@ import AbsentSidebar from './AbsentSidebar';
 import AuditHistoryModal from './Components/AuditHistoryModal';
 import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
 import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
+import DateTimePicker from '@/Components/DateTimePicker';
 import TablePagination from '@/Components/TablePagination.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { useAttendanceStore } from '@/store/attendanceStore';
@@ -600,20 +601,8 @@ const DailyTimesheetTab = ({
                 mb="4"
                 wrap="wrap"
             >
-                {/* left: date + search + per-page */}
+                {/* left: preset + (custom range) + search + per-page */}
                 <Flex gap="3" align="center" wrap="wrap">
-                    <TextField.Root
-                        type="date"
-                        size="2"
-                        value={dayjs(selectedDate).format('YYYY-MM-DD')}
-                        onChange={onDateChange}
-                        style={{ width: 160 }}
-                    >
-                        <TextField.Slot>
-                            <CalendarIcon />
-                        </TextField.Slot>
-                    </TextField.Root>
-
                     {isAdminView && (
                         <TextField.Root
                             size="2"
@@ -638,15 +627,22 @@ const DailyTimesheetTab = ({
                     </Select.Root>
 
                     {preset === 'custom' && (
-                        <TextField.Root
-                            type="date"
+                        <DateTimePicker
+                            mode="dateRange"
                             size="2"
-                            value={dayjs(toDate).format('YYYY-MM-DD')}
-                            onChange={e => { setToDate(e.target.value); setCurrentPage(1); }}
-                            style={{ width: 160 }}
-                        >
-                            <TextField.Slot><CalendarIcon /></TextField.Slot>
-                        </TextField.Root>
+                            clearable={false}
+                            presets={false}
+                            placeholder="Select date range…"
+                            value={{
+                                start: dayjs(selectedDate).format('YYYY-MM-DD'),
+                                end: dayjs(toDate).format('YYYY-MM-DD'),
+                            }}
+                            onChange={({ start, end }) => {
+                                if (start) onDateChange({ target: { value: start } });
+                                if (end) setToDate(end);
+                                setCurrentPage(1);
+                            }}
+                        />
                     )}
 
                     {isAdminView && rangeMode && (
