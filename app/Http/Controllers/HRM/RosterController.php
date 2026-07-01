@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\HRM\RosterDay;
 use App\Models\User;
 use App\Notifications\Attendance\RosterChangedNotification;
+use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
 use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,7 @@ class RosterController extends Controller
     public function __construct(
         private readonly RosterService $roster,
         private readonly RealtimeSignal $signals,
+        private readonly RosterOverlayService $overlay,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -35,7 +37,12 @@ class RosterController extends Controller
             ))
             ->get();
 
-        return response()->json(['roster' => $this->formatRoster($rows)]);
+        return response()->json($this->withOverlay(
+            $this->formatRoster($rows),
+            $rows->pluck('user_id')->unique()->values()->all(),
+            $data['from'],
+            $data['to'],
+        ));
     }
 
     /**
@@ -53,7 +60,12 @@ class RosterController extends Controller
             ->whereBetween('date', [$data['from'], $data['to']])
             ->get();
 
-        return response()->json(['roster' => $this->formatRoster($rows)]);
+        return response()->json($this->withOverlay(
+            $this->formatRoster($rows),
+            [$request->user()->id],
+            $data['from'],
+            $data['to'],
+        ));
     }
 
     /**
@@ -75,6 +87,42 @@ class RosterController extends Controller
                     ]),
             ];
         });
+    }
+
+    /**
+     * Merge the leave/holiday overlay into a formatted roster payload.
+     * Leave is attached per user/date cell; holidays are org-wide (top level).
+     *
+     * @return array{roster: array, holidays: array<string,string>}
+     */
+    private function withOverlay($rosterCollection, array $userIds, string $from, string $to): array
+    {
+        // `Collection::toArray()` only converts top-level Arrayable items; the nested
+        // `days` Collection inside each user's array survives as an object, so cast
+        // each user's entry (and its `days`) explicitly to plain arrays.
+        $roster = $rosterCollection->map(fn ($user) => [
+            'name' => $user['name'],
+            'days' => $user['days'] instanceof \Illuminate\Support\Collection
+                ? $user['days']->toArray()
+                : $user['days'],
+        ])->toArray();
+        $overlay = $this->overlay->forRange($userIds, $from, $to);
+
+        foreach ($overlay['leave'] as $userId => $days) {
+            if (! isset($roster[$userId])) {
+                continue; // only annotate users already present in the grid
+            }
+            foreach ($days as $date => $info) {
+                if (! isset($roster[$userId]['days'][$date])) {
+                    $roster[$userId]['days'][$date] = [
+                        'code' => null, 'color' => null, 'off' => true, 'updated_at' => null,
+                    ];
+                }
+                $roster[$userId]['days'][$date]['leave'] = $info;
+            }
+        }
+
+        return ['roster' => $roster, 'holidays' => $overlay['holidays']];
     }
 
     public function generate(Request $request): JsonResponse
