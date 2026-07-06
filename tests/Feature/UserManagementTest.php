@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -38,9 +39,11 @@ class UserManagementTest extends TestCase
     /** @test */
     public function authorized_user_can_view_users_list(): void
     {
+        // The legacy /users list was unified into the employees page; the route
+        // now redirects there rather than rendering its own view.
         $response = $this->get(route('users'));
 
-        $response->assertStatus(200);
+        $response->assertRedirect(route('employees'));
     }
 
     /** @test */
@@ -164,6 +167,36 @@ class UserManagementTest extends TestCase
             'name' => 'Wang FuChen',
             'user_name' => 'wangfuchen', // preserved, not nulled/blanked
         ]);
+    }
+
+    /** @test */
+    public function blank_password_on_update_preserves_existing_credentials(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('OriginalPass123!'),
+        ]);
+
+        // Reproduces the production failure: the edit form hides the password
+        // fields in edit mode but still carries password: '' in its state and
+        // submits it. The global ConvertEmptyStringsToNull middleware turns ''
+        // into null, which must NOT overwrite the stored hash (a blank
+        // submission means "no change") — otherwise the user is locked out.
+        $response = $this->put(route('users.update', $user->id), [
+            'name' => 'Updated Name',
+            'email' => $user->email,
+            'user_name' => $user->user_name,
+            'password' => '',
+            'password_confirmation' => '',
+        ]);
+
+        $response->assertStatus(200);
+
+        $user->refresh();
+        $this->assertNotNull($user->password);
+        $this->assertTrue(
+            Hash::check('OriginalPass123!', $user->password),
+            'The original password must still verify after a blank-password edit.'
+        );
     }
 
     /** @test */
