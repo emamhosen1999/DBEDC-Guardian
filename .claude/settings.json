@@ -481,7 +481,10 @@
       "Bash(xargs git log -1 --format='%h %s')",
       "Bash(gh pr *)",
       "PowerShell($g = \\(Get-Command gh -ErrorAction SilentlyContinue\\); if \\($g\\) { gh pr list --state open --limit 30 2>&1 | Select-Object -First 25 } else { \"gh not installed\" })",
-      "Bash(git worktree *)"
+      "Bash(git worktree *)",
+      "Bash(git remote *)",
+      "Bash(echo \"PUSH_EXIT=$?\")",
+      "Bash(echo \"VITE_EXIT=$?\")"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
