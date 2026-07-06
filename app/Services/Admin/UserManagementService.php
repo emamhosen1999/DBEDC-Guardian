@@ -120,6 +120,15 @@ class UserManagementService
             $biometricDeviceIds = array_key_exists('biometric_device_ids', $validated) ? $validated['biometric_device_ids'] : null;
             unset($validated['attendance_type_ids'], $validated['biometric_device_ids']);
 
+            // On update the edit form hides the password fields but still submits
+            // password: '' from its form state; ConvertEmptyStringsToNull turns that
+            // into null. A blank submission means "no change" — never overwrite the
+            // stored hash with null/'' (which locks the user out of every login).
+            if (array_key_exists('password', $validated)
+                && ($validated['password'] === null || $validated['password'] === '')) {
+                unset($validated['password']);
+            }
+
             if (isset($validated['password'])) {
                 $validated['password'] = Hash::make($validated['password']);
             }
