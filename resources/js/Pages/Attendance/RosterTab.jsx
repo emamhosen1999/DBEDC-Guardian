@@ -135,7 +135,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
             },
         }),
         queryKey: ['roster', from, to, selectedDepartmentId],
-        updateFn: (oldData, { userId, date, shiftId }) => {
+        updateFn: (oldData, { userId, date, shiftId, workLocationId }) => {
             if (!oldData || !oldData.roster) return oldData;
 
             const shift = shifts.find(s => s.id === shiftId);
@@ -143,6 +143,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 code: shift ? shift.code : null,
                 color: shift ? shift.color : null,
                 off: !shiftId,
+                work_location_id: workLocationId ?? null,
             };
 
             const newRoster = { ...oldData.roster };

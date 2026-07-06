@@ -5,7 +5,7 @@
  */
 export function resolveCoverageCellDisplay(cell) {
   const assigned = Number(cell?.assigned ?? 0);
-  const assignedLabel = Number.isInteger(assigned) ? String(assigned) : String(assigned);
+  const assignedLabel = String(assigned);
   const required = cell?.required ?? null;
 
   const color =

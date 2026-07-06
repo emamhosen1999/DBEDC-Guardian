@@ -1,14 +1,18 @@
 import React, { useMemo } from 'react';
 import { Box, Flex, Text, Card, Tooltip, Badge } from '@radix-ui/themes';
 import { useQuery } from '@tanstack/react-query';
+import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { resolveCoverageCellDisplay } from '../coverageCellDisplay';
 
 /**
  * Location × Shift coverage matrix for [from,to], aggregated across the range
- * by worst-status per cell, plus an understaffed-posts list.
+ * by worst-status per cell (total AND role requirements), plus an
+ * understaffed-posts list that includes role-level gaps.
  */
 export default function CoveragePanel({ from, to, isActive = true }) {
+    const { designations = [] } = usePage().props;
+
     const { data: covData } = useQuery({
         queryKey: ['coverage', from, to],
         queryFn: () => requestJson('get', '/attendance/coverage', { params: { from, to } }),
@@ -30,23 +34,37 @@ export default function CoveragePanel({ from, to, isActive = true }) {
     const shifts = shiftData?.shifts || [];
 
     // Reduce the date-keyed payload to a worst-status-per (location,shift) summary + gaps list.
+    // A cell's status is the worst of its total requirement AND any role requirement, so a
+    // met total with a missing role still surfaces as understaffed.
     const { matrix, gaps } = useMemo(() => {
         const rank = { understaffed: 3, overstaffed: 2, met: 1, untracked: 0, null: 0 };
-        const m = {}; // [loc][shift] = {required, assigned, status}
-        const g = []; // understaffed rows
+        const m = {}; // [loc:shift] = {required, assigned, status}
+        const g = []; // understaffed rows (total + role)
         Object.entries(coverage).forEach(([date, locs]) => {
             Object.entries(locs).forEach(([locId, shiftsObj]) => {
                 Object.entries(shiftsObj).forEach(([shiftId, cell]) => {
-                    const t = cell.total;
+                    const t = cell.total || {};
+                    const roles = cell.roles || {};
                     const key = `${locId}:${shiftId}`;
+
+                    let worst = t.status || 'untracked';
+                    Object.values(roles).forEach(r => {
+                        if ((rank[r.status] ?? 0) > (rank[worst] ?? 0)) worst = r.status;
+                    });
+
                     const prev = m[key];
-                    const status = t.status || 'untracked';
-                    if (!prev || (rank[status] ?? 0) > (rank[prev.status] ?? 0)) {
-                        m[key] = { required: t.required, assigned: t.assigned, status };
+                    if (!prev || (rank[worst] ?? 0) > (rank[prev.status] ?? 0)) {
+                        m[key] = { required: t.required, assigned: t.assigned, status: worst };
                     }
-                    if (status === 'understaffed') {
-                        g.push({ date, locId, shiftId, required: t.required, assigned: t.assigned });
+
+                    if (t.status === 'understaffed') {
+                        g.push({ date, locId, shiftId, role: null, required: t.required, assigned: t.assigned });
                     }
+                    Object.entries(roles).forEach(([desigId, r]) => {
+                        if (r.status === 'understaffed') {
+                            g.push({ date, locId, shiftId, role: desigId, required: r.required, assigned: r.assigned });
+                        }
+                    });
                 });
             });
         });
@@ -55,6 +73,7 @@ export default function CoveragePanel({ from, to, isActive = true }) {
 
     const locName = (id) => locations.find(l => String(l.id) === String(id))?.name || `#${id}`;
     const shiftCode = (id) => shifts.find(s => String(s.id) === String(id))?.code || `#${id}`;
+    const roleName = (id) => designations.find(d => String(d.id) === String(id))?.title || `role #${id}`;
 
     if (locations.length === 0 || shifts.length === 0) {
         return null;
@@ -106,7 +125,7 @@ export default function CoveragePanel({ from, to, isActive = true }) {
 
             {gaps.length > 0 && (
                 <Box mt="3">
-                    <Text size="1" color="gray">Understaffed: {gaps.slice(0, 12).map(g => `${g.date} ${locName(g.locId)}/${shiftCode(g.shiftId)} (${g.assigned}/${g.required})`).join(' · ')}{gaps.length > 12 ? ' …' : ''}</Text>
+                    <Text size="1" color="gray">Understaffed: {gaps.slice(0, 12).map(g => `${g.date} ${locName(g.locId)}/${shiftCode(g.shiftId)}${g.role ? ` [${roleName(g.role)}]` : ''} (${g.assigned}/${g.required})`).join(' · ')}{gaps.length > 12 ? ' …' : ''}</Text>
                 </Box>
             )}
         </Card>
