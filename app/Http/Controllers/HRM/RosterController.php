@@ -83,6 +83,7 @@ class RosterController extends Controller
                         'code' => $row->shift?->code,
                         'color' => $row->shift?->color,
                         'off' => $row->shift_id === null,
+                        'work_location_id' => $row->work_location_id,
                         'updated_at' => $row->updated_at?->toIso8601String(),
                     ]),
             ];
@@ -152,6 +153,7 @@ class RosterController extends Controller
             'user_id' => 'required|integer|exists:users,id',
             'date' => 'required|date',
             'shift_id' => 'nullable|integer|exists:shifts,id',
+            'work_location_id' => 'nullable|integer|exists:work_locations,id',
             'note' => 'nullable|string|max:255',
             'expected_updated_at' => 'nullable|date',
         ]);
@@ -173,7 +175,7 @@ class RosterController extends Controller
 
         $cell = RosterDay::updateOrCreate(
             ['user_id' => $data['user_id'], 'date' => $data['date']],
-            ['shift_id' => $data['shift_id'] ?? null, 'source' => 'manual', 'locked' => true, 'note' => $data['note'] ?? null],
+            ['shift_id' => $data['shift_id'] ?? null, 'work_location_id' => $data['work_location_id'] ?? null, 'source' => 'manual', 'locked' => true, 'note' => $data['note'] ?? null],
         );
 
         // Realtime cross-client signal (from realtime-foundation) + per-employee notification.

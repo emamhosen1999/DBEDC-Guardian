@@ -55,7 +55,7 @@ storage/app/accessibility-audit.json
 
 
 # Testing
-coverage/
+/coverage/
 .nyc_output
 .phpunit.result.cache
 
@@ -77,6 +77,6 @@ public/test.php
 roster-june-2026*.png
 prod-roster-*.png
 
-# Firebase service-account / admin keys — NEVER commit
+# Firebase service-account / admin keys ï¿½ NEVER commit
 *firebase-adminsdk*
 /storage/app/firebase-credentials.json

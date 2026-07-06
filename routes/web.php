@@ -594,6 +594,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/attendance/roster/generate', [\App\Http\Controllers\HRM\RosterController::class, 'generate'])->name('attendance.roster.generate');
         Route::put('/attendance/roster/cell', [\App\Http\Controllers\HRM\RosterController::class, 'updateCell'])->name('attendance.roster.cell');
 
+        // Coverage (Phase 2)
+        Route::get('/attendance/coverage', [\App\Http\Controllers\HRM\CoverageController::class, 'index'])->name('attendance.coverage.index');
+        Route::get('/attendance/work-locations', [\App\Http\Controllers\HRM\CoverageController::class, 'workLocations'])->name('attendance.workLocations.index');
+        Route::get('/attendance/coverage-requirements', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'index'])->name('attendance.coverageRequirements.index');
+        Route::post('/attendance/coverage-requirements', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'store'])->name('attendance.coverageRequirements.store');
+        Route::put('/attendance/coverage-requirements/{id}', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'update'])->name('attendance.coverageRequirements.update');
+        Route::delete('/attendance/coverage-requirements/{id}', [\App\Http\Controllers\HRM\CoverageRequirementController::class, 'destroy'])->name('attendance.coverageRequirements.destroy');
+
         // Swap management routes (admin)
         Route::get('/attendance/swaps', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'index'])->name('attendance.swaps.index');
         Route::post('/attendance/swaps/{id}/approve', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'approve'])->name('attendance.swaps.approve');

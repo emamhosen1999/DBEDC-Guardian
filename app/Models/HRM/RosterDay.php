@@ -11,7 +11,7 @@ class RosterDay extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'date', 'shift_id', 'source', 'assignment_id', 'note', 'locked'];
+    protected $fillable = ['user_id', 'date', 'shift_id', 'work_location_id', 'source', 'assignment_id', 'note', 'locked'];
 
     protected $casts = ['date' => 'date:Y-m-d', 'locked' => 'boolean'];
 
@@ -23,5 +23,10 @@ class RosterDay extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function workLocation(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\WorkLocation::class);
     }
 }

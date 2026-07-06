@@ -8,6 +8,8 @@ import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
+import CoveragePanel from './Components/CoveragePanel';
+import CoverageRequirementsDialog from './Components/CoverageRequirementsDialog';
 import RosterCellPopover from './Components/RosterCellPopover';
 import { handleCellConflict } from './rosterCellConflict';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
@@ -20,6 +22,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const [popoverOpen, setPopoverOpen] = useState(false);
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
     const [employeeQuery, setEmployeeQuery] = useState('');
+    const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
 
     const from = useMemo(() => dayjs(month + '-01').startOf('month').format('YYYY-MM-DD'), [month]);
     const to = useMemo(() => dayjs(month + '-01').endOf('month').format('YYYY-MM-DD'), [month]);
@@ -41,6 +44,13 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         enabled: isActive,
     });
     const shifts = shiftsData?.shifts || [];
+
+    const { data: locData } = useQuery({
+        queryKey: ['work-locations'],
+        queryFn: () => requestJson('get', '/attendance/work-locations'),
+        enabled: isActive,
+    });
+    const workLocations = locData?.work_locations || [];
 
     const { data, isLoading, isFetching, refetch } = useQuery({
         queryKey: ['roster', from, to, selectedDepartmentId],
@@ -115,16 +125,17 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const updateCell = useOptimisticMutation({
-        mutationFn: ({ userId, date, shiftId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
+        mutationFn: ({ userId, date, shiftId, workLocationId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
             data: {
                 user_id: Number(userId),
                 date,
                 shift_id: shiftId,
+                work_location_id: workLocationId ?? null,
                 expected_updated_at: expectedUpdatedAt ?? null,
             },
         }),
         queryKey: ['roster', from, to, selectedDepartmentId],
-        updateFn: (oldData, { userId, date, shiftId }) => {
+        updateFn: (oldData, { userId, date, shiftId, workLocationId }) => {
             if (!oldData || !oldData.roster) return oldData;
 
             const shift = shifts.find(s => s.id === shiftId);
@@ -132,6 +143,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 code: shift ? shift.code : null,
                 color: shift ? shift.color : null,
                 off: !shiftId,
+                work_location_id: workLocationId ?? null,
             };
 
             const newRoster = { ...oldData.roster };
@@ -160,12 +172,12 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         setPopoverOpen(true);
     };
 
-    const handlePick = (shiftId) => {
+    const handlePick = (shiftId, workLocationId) => {
         if (!selectedCell) return;
         setPopoverOpen(false);
         const { userId, date } = selectedCell;
         const expectedUpdatedAt = roster?.[userId]?.days?.[date]?.updated_at ?? null;
-        updateCell.mutate({ userId, date, shiftId, expectedUpdatedAt });
+        updateCell.mutate({ userId, date, shiftId, workLocationId, expectedUpdatedAt });
         setSelectedCell(null);
     };
 
@@ -240,6 +252,9 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         <ReloadIcon />
                         Refresh
                     </Button>
+                    <Button variant="soft" color="gray" size="2" onClick={() => setCoverageDialogOpen(true)}>
+                        Coverage rules
+                    </Button>
                     <Button
                         size="2"
                         onClick={() => generate.mutate()}
@@ -254,6 +269,8 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 ? <Text size="2" color="gray">Loading roster…</Text>
                 : (
                     <>
+                        <CoveragePanel from={from} to={to} isActive={isActive} />
+                        <CoverageRequirementsDialog open={coverageDialogOpen} onOpenChange={setCoverageDialogOpen} />
                         <RosterCalendar
                             roster={Object.fromEntries(rows)}
                             days={days}
@@ -266,6 +283,8 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                             anchor={<span />}
                             shifts={shifts}
                             notice={selectedNotice}
+                            workLocations={workLocations}
+                            selectedLocationId={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.work_location_id ?? null) : null}
                             onPick={handlePick}
                         />
                     </>
