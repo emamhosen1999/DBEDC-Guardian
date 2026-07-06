@@ -72,7 +72,7 @@ temp/
 
 # Security-sensitive files
 cookies.txt
-query
+/query
 check_users_keys.php
 *.bak
 .phpunit.result.cache
