@@ -49,6 +49,12 @@ storage/app/lighthouse-*.html
 storage/app/bundle-stats.json
 storage/app/accessibility-audit.json
 
+# Generated export artifacts (runtime, never version-controlled)
+storage/app/public/exports/
+
+# Local git worktree metadata
+.claude/worktrees/
+
 # Cache directories
 .sass-cache/
 
