@@ -10,7 +10,6 @@ public/hot
 
 # Dependencies
 package-lock.json
-composer.lock
 
 # IDE & Editor files
 .vscode/
