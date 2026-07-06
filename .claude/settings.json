@@ -487,7 +487,9 @@
       "Bash(echo \"VITE_EXIT=$?\")",
       "Bash(ssh -i ~/.ssh/aeos365_deploy -p 21098 -o BatchMode=yes aeos365@server904.web-hosting.com 'cd ~/erp.dhakabypass.com && echo \"========== PROD ==========\" && echo \"--- branch & head ---\" && git rev-parse --abbrev-ref HEAD && git log -1 --format=\"%h | %an <%ae> | %s\" && echo \"--- maintenance mode? \\(down file\\) ---\" && \\(ls storage/framework/down 2>/dev/null && echo \"APP IS DOWN\" || echo \"app is UP\"\\) && echo \"--- coverage migrations present on prod DB? ---\" && php artisan migrate:status 2>&1 | grep -iE \"coverage|work_location_id\" || echo \"coverage migrations NOT yet run on prod\" && echo \"--- does prod have coverage source yet? ---\" && ls app/Services/Attendance/CoverageService.php 2>&1')",
       "Bash(npm --version)",
-      "Bash(./node_modules/.bin/vite --version)"
+      "Bash(./node_modules/.bin/vite --version)",
+      "Bash(node node_modules/vite/bin/vite.js build)",
+      "Bash(node -e \"const s=require\\('./.claude/settings.json'\\); console.log\\(JSON.stringify\\(s.hooks||{}, null, 1\\).slice\\(0,1500\\)\\)\")"
     ],
     "additionalDirectories": [
       "C:\\laragon\\www\\Aero-Enterprise-Suite\\.git\\sdd",
