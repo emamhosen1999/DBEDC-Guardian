@@ -10,6 +10,12 @@ const cpLabel = (s) => s.counterparty_status === 'pending' ? 'awaiting counterpa
     : s.counterparty_status === 'declined' ? 'counterparty declined'
     : (s.counterparty_id ? '—' : 'no counterparty');
 
+const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 export default function SwapApprovals({ status = 'pending' }) {
     const qc = useQueryClient();
     const { data } = useQuery({ queryKey: ['swaps'], queryFn: () => requestJson('get', '/attendance/swaps') });
@@ -37,9 +43,10 @@ export default function SwapApprovals({ status = 'pending' }) {
                 <Table.Header>
                     <Table.Row>
                         <Table.ColumnHeaderCell>Requester</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Requester date</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Shift to Give</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Counterparty</Table.ColumnHeaderCell>
-                        <Table.ColumnHeaderCell>Counterparty status</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Shift to Take</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
                     </Table.Row>
@@ -47,11 +54,63 @@ export default function SwapApprovals({ status = 'pending' }) {
                 <Table.Body>
                     {swaps.map(s => (
                         <Table.Row key={s.id}>
-                            <Table.Cell>{s.requester?.name || `#${s.requester_id}`}</Table.Cell>
-                            <Table.Cell>{s.requester_date}</Table.Cell>
-                            <Table.Cell>{s.counterparty?.name || (s.counterparty_id ? `#${s.counterparty_id}` : '—')}{s.counterparty_date ? ` (${s.counterparty_date})` : ''}</Table.Cell>
-                            <Table.Cell><Badge color={cpColor[s.counterparty_status] || 'gray'} variant="soft">{cpLabel(s)}</Badge></Table.Cell>
-                            <Table.Cell><Badge color={statusColor[s.status] || 'gray'}>{s.status}</Badge></Table.Cell>
+                            {/* Requester Info */}
+                            <Table.Cell>
+                                <Flex direction="column">
+                                    <Text weight="semibold">{s.requester?.name || `#${s.requester_id}`}</Text>
+                                    {s.reason && <Text size="1" color="gray" italic mt="1">"{s.reason}"</Text>}
+                                </Flex>
+                            </Table.Cell>
+                            
+                            {/* Requester Shift / Date */}
+                            <Table.Cell>
+                                <Flex direction="column">
+                                    <Text size="2">{formatDate(s.requester_date)}</Text>
+                                    <Badge color="blue" variant="soft" style={{ alignSelf: 'flex-start' }} mt="1">
+                                        {s.requester_shift_code || 'OFF'}
+                                    </Badge>
+                                </Flex>
+                            </Table.Cell>
+
+                            {/* Type */}
+                            <Table.Cell>
+                                <Badge color={s.type === 'swap' ? 'purple' : 'orange'} variant="solid">
+                                    {s.type.toUpperCase()}
+                                </Badge>
+                            </Table.Cell>
+
+                            {/* Counterparty Info */}
+                            <Table.Cell>
+                                <Text weight="semibold">
+                                    {s.counterparty?.name || (s.counterparty_id ? `#${s.counterparty_id}` : '—')}
+                                </Text>
+                            </Table.Cell>
+
+                            {/* Counterparty Shift / Date */}
+                            <Table.Cell>
+                                {s.counterparty_id ? (
+                                    <Flex direction="column">
+                                        <Text size="2">{s.counterparty_date ? formatDate(s.counterparty_date) : formatDate(s.requester_date)}</Text>
+                                        <Badge color="blue" variant="soft" style={{ alignSelf: 'flex-start' }} mt="1">
+                                            {s.counterparty_shift_code || 'OFF'}
+                                        </Badge>
+                                    </Flex>
+                                ) : '—'}
+                            </Table.Cell>
+
+                            {/* Statuses */}
+                            <Table.Cell>
+                                <Flex direction="column" gap="1" style={{ alignItems: 'flex-start' }}>
+                                    <Badge color={statusColor[s.status] || 'gray'}>
+                                        {s.status.toUpperCase()}
+                                    </Badge>
+                                    <Badge color={cpColor[s.counterparty_status] || 'gray'} variant="outline" size="1">
+                                        {cpLabel(s)}
+                                    </Badge>
+                                </Flex>
+                            </Table.Cell>
+
+                            {/* Actions */}
                             <Table.Cell>
                                 {canAct(s) && (
                                     <Flex gap="2">
@@ -63,7 +122,7 @@ export default function SwapApprovals({ status = 'pending' }) {
                         </Table.Row>
                     ))}
                     {swaps.length === 0 && (
-                        <Table.Row><Table.Cell colSpan={6}><Text color="gray" size="2">No {emptyLabel}swap requests.</Text></Table.Cell></Table.Row>
+                        <Table.Row><Table.Cell colSpan={7}><Text color="gray" size="2">No {emptyLabel}swap requests.</Text></Table.Cell></Table.Row>
                     )}
                 </Table.Body>
             </Table.Root>

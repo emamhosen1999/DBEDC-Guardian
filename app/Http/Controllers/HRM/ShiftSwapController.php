@@ -46,9 +46,25 @@ class ShiftSwapController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $shifts = \App\Models\HRM\Shift::all()->keyBy('id');
+
         $swaps = ShiftSwapRequest::with(['requester', 'counterparty'])
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(function ($swap) use ($shifts) {
+                $reqDateStr = $swap->requester_date->toDateString();
+                $reqShiftId = $this->roster->effectiveShiftId($swap->requester_id, $reqDateStr);
+                $swap->requester_shift_code = $reqShiftId ? ($shifts[$reqShiftId]?->code ?? null) : 'OFF';
+
+                if ($swap->counterparty_id) {
+                    $cpDateStr = $swap->counterparty_date ? $swap->counterparty_date->toDateString() : $reqDateStr;
+                    $cpShiftId = $this->roster->effectiveShiftId($swap->counterparty_id, $cpDateStr);
+                    $swap->counterparty_shift_code = $cpShiftId ? ($shifts[$cpShiftId]?->code ?? null) : 'OFF';
+                } else {
+                    $swap->counterparty_shift_code = null;
+                }
+                return $swap;
+            });
 
         return response()->json(['swaps' => $swaps]);
     }
