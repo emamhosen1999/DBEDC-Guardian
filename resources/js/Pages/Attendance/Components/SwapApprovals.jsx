@@ -147,8 +147,8 @@ export default function SwapApprovals({ status = 'pending' }) {
                             <Table.Cell>
                                 {canAct(s) && (
                                     <Flex gap="2">
-                                        <Button size="1" color="green" loading={act.isPending} onClick={() => act.mutate({ id: s.id, decision: 'approve' })}>Approve</Button>
-                                        <Button size="1" color="red" variant="soft" loading={act.isPending} onClick={() => act.mutate({ id: s.id, decision: 'reject' })}>Reject</Button>
+                                        <Button size="1" color="green" loading={act.isPending && act.variables?.id === s.id && act.variables?.decision === 'approve'} onClick={() => act.mutate({ id: s.id, decision: 'approve' })}>Approve</Button>
+                                        <Button size="1" color="red" variant="soft" loading={act.isPending && act.variables?.id === s.id && act.variables?.decision === 'reject'} onClick={() => act.mutate({ id: s.id, decision: 'reject' })}>Reject</Button>
                                     </Flex>
                                 )}
                             </Table.Cell>
