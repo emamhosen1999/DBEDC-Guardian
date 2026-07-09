@@ -113,10 +113,17 @@ class RosterService
             $cpDate = $swap->counterparty_date->toDateString();
             $counterpartyShiftId = $this->effectiveShiftId($swap->counterparty_id, $cpDate);
 
-            $this->writeSwapDay($swap->requester_id, $reqDate, null);
-            $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
-            $this->writeSwapDay($swap->counterparty_id, $cpDate, null);
-            $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId);
+            if ($reqDate === $cpDate) {
+                // Same-day trade (e.g. MCE <-> MCN on same date): swap directly.
+                $this->writeSwapDay($swap->requester_id, $reqDate, $counterpartyShiftId);
+                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
+            } else {
+                // Different-day trade: clear old shifts first, then assign new ones.
+                $this->writeSwapDay($swap->requester_id, $reqDate, null);
+                $this->writeSwapDay($swap->counterparty_id, $reqDate, $requesterShiftId);
+                $this->writeSwapDay($swap->counterparty_id, $cpDate, null);
+                $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId);
+            }
         });
     }
 
