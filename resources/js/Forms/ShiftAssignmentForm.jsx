@@ -7,7 +7,8 @@ import { showToast } from '@/utils/toastUtils';
 import DateTimePicker from '@/Components/DateTimePicker';
 import SearchableMultiSelect from '@/Components/SearchableMultiSelect';
 
-export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, employees = [], departments = [], designations = [] }) {
+export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assignment = null, employees = [], departments = [], designations = [] }) {
+    const isEdit = !!assignment;
     const empty = {
         scope_type: 'user',
         scope_ids: [],
@@ -24,14 +25,39 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
     const [saving, setSaving] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-    // Reset form when dialog opens/closes
+    // Read-only scope label shown when editing an existing assignment.
+    const scopeText = useMemo(() => {
+        if (!assignment) return '';
+        if (assignment.scope_type === 'org') return 'Whole Organization';
+        const list = assignment.scope_type === 'department' ? departments
+            : assignment.scope_type === 'designation' ? designations : employees;
+        const found = list.find(x => Number(x.id) === Number(assignment.scope_id));
+        const name = found ? (found.name || found.title) : `#${assignment.scope_id}`;
+        const lbl = assignment.scope_type.charAt(0).toUpperCase() + assignment.scope_type.slice(1);
+        return `${lbl}: ${name}`;
+    }, [assignment, departments, designations, employees]);
+
+    // Reset (create) or prefill (edit) the form when the dialog opens.
     useEffect(() => {
-        if (open) {
+        if (!open) return;
+        if (assignment) {
+            setForm({
+                scope_type: assignment.scope_type,
+                scope_ids: assignment.scope_id != null ? [assignment.scope_id] : [],
+                shift_id: assignment.shift?.id ? String(assignment.shift.id) : '',
+                rotation_pattern_id: assignment.rotation_pattern?.id ? String(assignment.rotation_pattern.id) : '',
+                anchor_date: assignment.anchor_date || '',
+                effective_from: assignment.effective_from || '',
+                effective_to: assignment.effective_to || '',
+                priority: assignment.priority ?? 0,
+            });
+            setAssignmentType(assignment.rotation_pattern?.id ? 'pattern' : 'shift');
+        } else {
             setForm(empty);
             setAssignmentType('shift');
-            setError('');
         }
-    }, [open]);
+        setError('');
+    }, [open, assignment]);
 
     const { data: shiftsData } = useQuery({
         queryKey: ['shifts'],
@@ -62,6 +88,22 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
         setError('');
         setSaving(true);
         try {
+            if (isEdit) {
+                // Editing supersedes in place (e.g. set an end-date). Scope is fixed.
+                const payload = {
+                    shift_id: assignmentType === 'shift' ? Number(form.shift_id) || null : null,
+                    rotation_pattern_id: assignmentType === 'pattern' ? Number(form.rotation_pattern_id) || null : null,
+                    priority: Number(form.priority) || 0,
+                    anchor_date: form.anchor_date,
+                    effective_from: form.effective_from,
+                    effective_to: form.effective_to || null,
+                };
+                await requestJson('put', `/attendance/shift-assignments/${assignment.id}`, { data: payload });
+                showToast.success('Assignment updated.');
+                onSaved?.();
+                onOpenChange(false);
+                return;
+            }
             if (form.scope_type === 'org') {
                 // Org-wide = single assignment, use original endpoint
                 const payload = {
@@ -111,12 +153,21 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
     return (
         <Dialog.Root open={open} onOpenChange={v => { if (!v) { setError(''); setForm(empty); } onOpenChange(v); }}>
             <Dialog.Content maxWidth="540px">
-                <Dialog.Title>Assign Shift</Dialog.Title>
+                <Dialog.Title>{isEdit ? 'Edit Assignment' : 'Assign Shift'}</Dialog.Title>
                 <Dialog.Description size="2" color="gray" mb="3">
-                    Assign a shift to one or more employees, departments, or designations.
+                    {isEdit
+                        ? 'Update this assignment — e.g. set an end date to supersede it from a future date.'
+                        : 'Assign a shift to one or more employees, departments, or designations.'}
                 </Dialog.Description>
 
                 <Flex direction="column" gap="3">
+                    {isEdit && (
+                        <Callout.Root color="blue" size="1">
+                            <Callout.Icon><InfoCircledIcon /></Callout.Icon>
+                            <Callout.Text>Editing assignment — {scopeText}</Callout.Text>
+                        </Callout.Root>
+                    )}
+                    {!isEdit && (<>
                     {/* Scope type selector */}
                     <Box>
                         <Text size="1" color="gray" as="div" mb="1" weight="medium">Assign To</Text>
@@ -159,6 +210,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                             </Callout.Text>
                         </Callout.Root>
                     )}
+                    </>)}
 
                     {/* Assignment Type Selector */}
                     <Box>
@@ -247,9 +299,10 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, emplo
                             Cancel
                         </Button>
                         <Button onClick={save} disabled={saving || !canSave}>
-                            {saving ? 'Saving…' : form.scope_type !== 'org' && form.scope_ids.length > 1
-                                ? `Assign to ${form.scope_ids.length} ${scopeLabel}`
-                                : 'Save'}
+                            {saving ? 'Saving…' : isEdit ? 'Save changes'
+                                : form.scope_type !== 'org' && form.scope_ids.length > 1
+                                    ? `Assign to ${form.scope_ids.length} ${scopeLabel}`
+                                    : 'Save'}
                         </Button>
                     </Flex>
                 </Flex>

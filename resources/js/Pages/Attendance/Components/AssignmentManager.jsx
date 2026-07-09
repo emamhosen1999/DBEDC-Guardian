@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Flex, Table, Button, IconButton, Text, Badge } from '@radix-ui/themes';
-import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
+import { PlusIcon, TrashIcon, Pencil1Icon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
@@ -9,6 +9,7 @@ import ShiftAssignmentForm from '@/Forms/ShiftAssignmentForm';
 export default function AssignmentManager({ employees = [], departments = [], designations = [] }) {
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
+    const [editing, setEditing] = useState(null);
 
     const { data, isLoading } = useQuery({
         queryKey: ['shift-assignments'],
@@ -47,7 +48,7 @@ export default function AssignmentManager({ employees = [], departments = [], de
         <Box mt="5">
             <Flex justify="between" align="center" mb="3">
                 <Text size="3" weight="bold">Shift Assignments</Text>
-                <Button size="2" onClick={() => setOpen(true)}>
+                <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
                     <PlusIcon /> Assign shift
                 </Button>
             </Flex>
@@ -94,8 +95,11 @@ export default function AssignmentManager({ employees = [], departments = [], de
                                     <Text size="2">{a.priority ?? 0}</Text>
                                 </Table.Cell>
                                 <Table.Cell>
-                                    <Flex justify="end">
-                                        <IconButton size="1" variant="ghost" color="red" onClick={() => remove(a.id)}>
+                                    <Flex justify="end" gap="1">
+                                        <IconButton size="1" variant="ghost" color="gray" onClick={() => { setEditing(a); setOpen(true); }} title="Edit / end-date">
+                                            <Pencil1Icon />
+                                        </IconButton>
+                                        <IconButton size="1" variant="ghost" color="red" onClick={() => remove(a.id)} title="Delete">
                                             <TrashIcon />
                                         </IconButton>
                                     </Flex>
@@ -108,8 +112,9 @@ export default function AssignmentManager({ employees = [], departments = [], de
 
             <ShiftAssignmentForm
                 open={open}
-                onOpenChange={setOpen}
+                onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}
                 onSaved={refresh}
+                assignment={editing}
                 employees={employees}
                 departments={departments}
                 designations={designations}

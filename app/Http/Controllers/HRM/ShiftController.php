@@ -227,6 +227,31 @@ class ShiftController extends Controller
         return response()->json(['assignments' => $assignments]);
     }
 
+    public function updateAssignment(Request $request, int $id): JsonResponse
+    {
+        $assignment = \App\Models\HRM\ShiftAssignment::findOrFail($id);
+
+        $data = $request->validate([
+            'scope_type' => 'sometimes|in:user,designation,department,org',
+            'scope_id' => 'sometimes|nullable|integer',
+            'shift_id' => 'sometimes|nullable|integer|exists:shifts,id',
+            'rotation_pattern_id' => 'sometimes|nullable|integer|exists:shift_rotation_patterns,id',
+            'anchor_date' => 'sometimes|date',
+            'effective_from' => 'sometimes|date',
+            'effective_to' => 'sometimes|nullable|date',
+            'priority' => 'sometimes|integer|min:0',
+            'assigned_by' => 'sometimes|nullable|integer|exists:users,id',
+        ]);
+
+        try {
+            $assignment = DB::transaction(fn () => $this->shifts->updateAssignment($assignment, $data));
+        } catch (InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['message' => 'Assignment updated.', 'assignment' => $assignment]);
+    }
+
     public function destroyAssignment(int $id): JsonResponse
     {
         $assignment = \App\Models\HRM\ShiftAssignment::findOrFail($id);

@@ -28,6 +28,39 @@ class ShiftService
         return ShiftAssignment::create($data);
     }
 
+    /**
+     * Update an existing assignment (e.g. end-date it to supersede from a future date).
+     * Overlap is checked against every other assignment for the same scope, ignoring itself.
+     */
+    public function updateAssignment(ShiftAssignment $assignment, array $data): ShiftAssignment
+    {
+        $finalShift = array_key_exists('shift_id', $data) ? $data['shift_id'] : $assignment->shift_id;
+        $finalPattern = array_key_exists('rotation_pattern_id', $data) ? $data['rotation_pattern_id'] : $assignment->rotation_pattern_id;
+
+        if (empty($finalShift) === empty($finalPattern)) {
+            throw new InvalidArgumentException('Exactly one of shift_id or rotation_pattern_id must be set.');
+        }
+
+        $scopeType = $data['scope_type'] ?? $assignment->scope_type;
+        $scopeId = array_key_exists('scope_id', $data) ? $data['scope_id'] : $assignment->scope_id;
+        $from = $data['effective_from'] ?? $assignment->effective_from->toDateString();
+        $to = array_key_exists('effective_to', $data)
+            ? $data['effective_to']
+            : $assignment->effective_to?->toDateString();
+
+        if ($to !== null && $to < $from) {
+            throw new InvalidArgumentException('Effective to must be on or after effective from.');
+        }
+
+        if ($this->assignmentsOverlap($scopeType, $scopeId, $from, $to, $assignment->id)) {
+            throw new InvalidArgumentException('Assignment effective dates overlap an existing assignment for this scope.');
+        }
+
+        $assignment->update($data);
+
+        return $assignment->fresh();
+    }
+
     public function assignmentsOverlap(string $scopeType, ?int $scopeId, string $from, ?string $to, ?int $ignoreId = null): bool
     {
         $query = ShiftAssignment::where('scope_type', $scopeType);
