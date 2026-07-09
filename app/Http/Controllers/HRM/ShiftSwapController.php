@@ -21,17 +21,16 @@ class ShiftSwapController extends Controller
     public function __construct(private readonly RosterService $roster) {}
 
     /**
-     * Roster-availability check shared by store (request time) and approve (apply time):
-     * a swap valid when requested but whose rosters changed before approval must fail
-     * loudly instead of corrupting the roster. Returns [field, message] or null.
+     * Roster-availability check shared by store (request time) and approve (apply time).
+     * Validates that both parties are scheduled on their respective dates.
+     * Does NOT restrict based on whether the counterparty is free — any same-department
+     * employee can swap any shift (same day or different day).
+     * Returns [field, message] or null.
      */
     private function rosterAvailabilityProblem(string $type, int $requesterId, int $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
     {
         if ($this->roster->effectiveShiftId($requesterId, $requesterDate) === null) {
             return ['requester_date', 'You are not scheduled to work on that date.'];
-        }
-        if ($this->roster->effectiveShiftId($counterpartyId, $requesterDate) !== null) {
-            return ['counterparty_id', 'The counterparty is already scheduled on that date.'];
         }
         if ($type === 'swap') {
             if (! $counterpartyDate) {
@@ -39,9 +38,6 @@ class ShiftSwapController extends Controller
             }
             if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
                 return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
-            }
-            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
-                return ['counterparty_date', 'You are already scheduled on that date.'];
             }
         }
 
@@ -117,21 +113,38 @@ class ShiftSwapController extends Controller
     }
 
     /**
-     * Same-department Employees who are FREE on the given date — the swap/cover
-     * partner picker.
+     * Same-department Employees — the swap/cover partner picker.
+     * Returns same-department employees with the SAME or LOWER designation
+     * (hierarchy_level >= requester's level) so any shift can be swapped
+     * with any eligible colleague. If the requester has no designation,
+     * all same-department employees are returned.
      */
     public function eligible(Request $request): JsonResponse
     {
         $data = $request->validate(['date' => 'required|date']);
         $user = $request->user();
-        $date = Carbon::parse($data['date'])->toDateString();
 
-        $employees = User::role('Employee')
-            ->where('id', '!=', $user->id)
-            ->where('department_id', $user->department_id)
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->filter(fn ($c) => $this->roster->effectiveShiftId($c->id, $date) === null)
+        $query = User::role('Employee')
+            ->where('users.id', '!=', $user->id)
+            ->where('users.department_id', $user->department_id);
+
+        // Only show teammates with same or lower designation (higher hierarchy_level number)
+        $requesterLevel = $user->designation_id
+            ? \App\Models\HRM\Designation::where('id', $user->designation_id)->value('hierarchy_level')
+            : null;
+
+        if ($requesterLevel !== null) {
+            $query->leftJoin('designations', 'users.designation_id', '=', 'designations.id')
+                ->where(function ($q) use ($requesterLevel) {
+                    $q->where('designations.hierarchy_level', '>=', $requesterLevel)
+                      ->orWhereNull('users.designation_id');
+                })
+                ->select('users.id', 'users.name');
+        }
+
+        $employees = $query
+            ->orderBy('users.name')
+            ->get(['users.id', 'users.name'])
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
             ->values();
 
