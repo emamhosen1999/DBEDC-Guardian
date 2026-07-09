@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Flex, Button, Text, Card, TextField, Select } from '@radix-ui/themes';
-import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon } from '@radix-ui/react-icons';
+import { Box, Flex, Button, Text, Card, TextField, Select, SegmentedControl } from '@radix-ui/themes';
+import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon, GridIcon } from '@radix-ui/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
@@ -8,6 +8,7 @@ import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
+import RosterEmployeeView from './Components/RosterEmployeeView';
 import CoveragePanel from './Components/CoveragePanel';
 import CoverageRequirementsDialog from './Components/CoverageRequirementsDialog';
 import RosterCellPopover from './Components/RosterCellPopover';
@@ -23,6 +24,8 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
     const [employeeQuery, setEmployeeQuery] = useState('');
     const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'employee'
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
 
     const from = useMemo(() => dayjs(month + '-01').startOf('month').format('YYYY-MM-DD'), [month]);
     const to = useMemo(() => dayjs(month + '-01').endOf('month').format('YYYY-MM-DD'), [month]);
@@ -103,6 +106,16 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
             return row.name?.toLowerCase().includes(employeeQuery.toLowerCase());
         });
     }, [roster, employeeQuery]);
+
+    // Employee options + default selection for the per-employee calendar view.
+    const employeeOptions = useMemo(
+        () => rows.map(([id, row]) => ({ id: Number(id), name: row.name || 'Unknown' })),
+        [rows]
+    );
+    const selectedIsAvailable = employeeOptions.some(e => String(e.id) === String(selectedEmployeeId));
+    const effectiveEmployeeId = selectedIsAvailable
+        ? String(selectedEmployeeId)
+        : (employeeOptions[0] ? String(employeeOptions[0].id) : null);
 
     const generate = useMutation({
         mutationFn: () => {
@@ -242,8 +255,16 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                     )}
                 </Flex>
 
-                {/* Right: Refresh & Generate */}
+                {/* Right: View toggle, Refresh & Generate */}
                 <Flex gap="2" align="center" wrap="wrap">
+                    <SegmentedControl.Root size="2" value={viewMode} onValueChange={setViewMode}>
+                        <SegmentedControl.Item value="grid">
+                            <Flex align="center" gap="1"><GridIcon /> Grid</Flex>
+                        </SegmentedControl.Item>
+                        <SegmentedControl.Item value="employee">
+                            <Flex align="center" gap="1"><PersonIcon /> Per employee</Flex>
+                        </SegmentedControl.Item>
+                    </SegmentedControl.Root>
                     <Button
                         variant="soft" color="gray" size="2"
                         onClick={() => refetch()}
@@ -269,14 +290,27 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 ? <Text size="2" color="gray">Loading roster…</Text>
                 : (
                     <>
-                        <CoveragePanel from={from} to={to} isActive={isActive} />
+                        {viewMode === 'grid' && <CoveragePanel from={from} to={to} isActive={isActive} />}
                         <CoverageRequirementsDialog open={coverageDialogOpen} onOpenChange={setCoverageDialogOpen} />
-                        <RosterCalendar
-                            roster={Object.fromEntries(rows)}
-                            days={days}
-                            holidays={holidays}
-                            onCellClick={handleCellClick}
-                        />
+                        {viewMode === 'employee' ? (
+                            <RosterEmployeeView
+                                employees={employeeOptions}
+                                roster={Object.fromEntries(rows)}
+                                days={days}
+                                holidays={holidays}
+                                shifts={shifts}
+                                selectedUserId={effectiveEmployeeId}
+                                onSelectUser={setSelectedEmployeeId}
+                                onCellClick={handleCellClick}
+                            />
+                        ) : (
+                            <RosterCalendar
+                                roster={Object.fromEntries(rows)}
+                                days={days}
+                                holidays={holidays}
+                                onCellClick={handleCellClick}
+                            />
+                        )}
                         <RosterCellPopover
                             open={popoverOpen}
                             onOpenChange={(o) => { if (!o) setPopoverOpen(false); }}
