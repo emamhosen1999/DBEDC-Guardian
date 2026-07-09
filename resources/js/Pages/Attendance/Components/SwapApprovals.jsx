@@ -16,6 +16,24 @@ const formatDate = (dateStr) => {
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+const getTimelineEvents = (chain) => {
+    if (!chain || !Array.isArray(chain)) return [];
+    return chain.map(e => {
+        const date = new Date(e.timestamp);
+        const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        
+        let label = '';
+        if (e.action === 'requested') label = `Requested by ${e.user_name}`;
+        else if (e.action === 'counterparty_accepted') label = `Accepted by ${e.user_name}`;
+        else if (e.action === 'counterparty_declined') label = `Declined by ${e.user_name}`;
+        else if (e.action === 'manager_approved') label = `Approved by ${e.user_name}`;
+        else if (e.action === 'manager_rejected') label = `Rejected by ${e.user_name}`;
+        
+        return { label, time: `${dateStr} ${timeStr}` };
+    });
+};
+
 export default function SwapApprovals({ status = 'pending' }) {
     const qc = useQueryClient();
     const { data } = useQuery({ queryKey: ['swaps'], queryFn: () => requestJson('get', '/attendance/swaps') });
@@ -47,6 +65,7 @@ export default function SwapApprovals({ status = 'pending' }) {
                         <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Counterparty</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Shift to Take</Table.ColumnHeaderCell>
+                        <Table.ColumnHeaderCell>Timeline History</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
                         <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
                     </Table.Row>
@@ -98,6 +117,20 @@ export default function SwapApprovals({ status = 'pending' }) {
                                 ) : '—'}
                             </Table.Cell>
 
+                            {/* Timeline History */}
+                            <Table.Cell style={{ verticalAlign: 'middle' }}>
+                                <Flex direction="column" gap="1">
+                                    {getTimelineEvents(s.approval_chain).map((event, idx) => (
+                                        <Text key={idx} size="1" color="gray">
+                                            • <strong>{event.label}</strong> at {event.time}
+                                        </Text>
+                                    ))}
+                                    {(!s.approval_chain || s.approval_chain.length === 0) && (
+                                        <Text size="1" color="gray" italic>—</Text>
+                                    )}
+                                </Flex>
+                            </Table.Cell>
+
                             {/* Statuses */}
                             <Table.Cell>
                                 <Flex direction="column" gap="1" style={{ alignItems: 'flex-start' }}>
@@ -122,7 +155,7 @@ export default function SwapApprovals({ status = 'pending' }) {
                         </Table.Row>
                     ))}
                     {swaps.length === 0 && (
-                        <Table.Row><Table.Cell colSpan={7}><Text color="gray" size="2">No {emptyLabel}swap requests.</Text></Table.Cell></Table.Row>
+                        <Table.Row><Table.Cell colSpan={8}><Text color="gray" size="2">No {emptyLabel}swap requests.</Text></Table.Cell></Table.Row>
                     )}
                 </Table.Body>
             </Table.Root>

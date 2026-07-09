@@ -111,6 +111,14 @@ class ShiftSwapController extends Controller
             'reason' => $data['reason'] ?? null,
             'status' => 'pending',
             'counterparty_status' => 'pending',
+            'approval_chain' => [
+                [
+                    'action' => 'requested',
+                    'user_id' => $requester->id,
+                    'user_name' => $requester->name,
+                    'timestamp' => now()->toIso8601String(),
+                ]
+            ],
         ]));
 
         // Notify the counterparty (target of the swap request)
@@ -220,12 +228,35 @@ class ShiftSwapController extends Controller
         abort_if($swap->counterparty_status !== 'pending', 409, 'This swap is not awaiting your response.');
 
         if ($data['decision'] === 'accept') {
-            $swap->update(['counterparty_status' => 'accepted']);
+            $chain = $swap->approval_chain ?? [];
+            $chain[] = [
+                'action' => 'counterparty_accepted',
+                'user_id' => $request->user()->id,
+                'user_name' => $request->user()->name,
+                'timestamp' => now()->toIso8601String(),
+            ];
+
+            $swap->update([
+                'counterparty_status' => 'accepted',
+                'approval_chain' => $chain,
+            ]);
 
             return response()->json(['message' => 'Swap accepted; sent to your manager for final approval.', 'swap' => $swap->fresh()]);
         }
 
-        $swap->update(['counterparty_status' => 'declined', 'status' => 'rejected']);
+        $chain = $swap->approval_chain ?? [];
+        $chain[] = [
+            'action' => 'counterparty_declined',
+            'user_id' => $request->user()->id,
+            'user_name' => $request->user()->name,
+            'timestamp' => now()->toIso8601String(),
+        ];
+
+        $swap->update([
+            'counterparty_status' => 'declined',
+            'status' => 'rejected',
+            'approval_chain' => $chain,
+        ]);
 
         return response()->json(['message' => 'Swap declined.', 'swap' => $swap->fresh()]);
     }
@@ -269,9 +300,18 @@ class ShiftSwapController extends Controller
         }
 
         DB::transaction(function () use ($swap, $request) {
+            $chain = $swap->approval_chain ?? [];
+            $chain[] = [
+                'action' => 'manager_approved',
+                'user_id' => $request->user()->id,
+                'user_name' => $request->user()->name,
+                'timestamp' => now()->toIso8601String(),
+            ];
+
             $swap->update([
                 'status' => 'approved',
                 'approved_by' => $request->user()->id,
+                'approval_chain' => $chain,
             ]);
 
             $this->roster->applySwap($swap->fresh());
@@ -297,9 +337,18 @@ class ShiftSwapController extends Controller
         $swap = ShiftSwapRequest::findOrFail($id);
         abort_if($swap->status !== 'pending', 409, 'This swap request has already been decided.');
 
+        $chain = $swap->approval_chain ?? [];
+        $chain[] = [
+            'action' => 'manager_rejected',
+            'user_id' => $request->user()->id,
+            'user_name' => $request->user()->name,
+            'timestamp' => now()->toIso8601String(),
+        ];
+
         $swap->update([
             'status' => 'rejected',
             'approved_by' => $request->user()->id,
+            'approval_chain' => $chain,
         ]);
 
         // Notify the requester that their swap was rejected
