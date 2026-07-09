@@ -19,6 +19,15 @@ class RegularizationService
 
     public function request(int $userId, array $data): AttendanceRegularization
     {
+        $targetDate = \Carbon\Carbon::parse($data['date'])->startOfDay();
+        $today = \Carbon\Carbon::today();
+
+        if ($targetDate->greaterThanOrEqualTo($today)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'date' => 'Regularization requests can only be submitted for previous dates.',
+            ]);
+        }
+
         $requester = User::find($userId);
 
         $r = AttendanceRegularization::create([
