@@ -9,6 +9,7 @@ import { showToast } from '@/utils/toastUtils';
 import { useOptimisticMutation } from '@/api/useOptimisticMutation';
 import RosterCalendar from './Components/RosterCalendar';
 import RosterEmployeeView from './Components/RosterEmployeeView';
+import RosterLegend from './Components/RosterLegend';
 import CoveragePanel from './Components/CoveragePanel';
 import CoverageRequirementsDialog from './Components/CoverageRequirementsDialog';
 import RosterCellPopover from './Components/RosterCellPopover';
@@ -116,6 +117,16 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const effectiveEmployeeId = selectedIsAvailable
         ? String(selectedEmployeeId)
         : (employeeOptions[0] ? String(employeeOptions[0].id) : null);
+
+    // Shift legend: only the shifts actually present in the current roster view.
+    const legendShifts = useMemo(() => {
+        const present = new Set();
+        rows.forEach(([, row]) => Object.values(row.days || {}).forEach(c => {
+            if (c && !c.off && c.code) present.add(c.code);
+        }));
+        return shifts.filter(s => present.has(s.code));
+    }, [rows, shifts]);
+    const hasHoliday = Object.keys(holidays).length > 0;
 
     const generate = useMutation({
         mutationFn: () => {
@@ -290,6 +301,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 ? <Text size="2" color="gray">Loading roster…</Text>
                 : (
                     <>
+                        <RosterLegend shifts={legendShifts} showHoliday={hasHoliday} />
                         {viewMode === 'grid' && <CoveragePanel from={from} to={to} isActive={isActive} />}
                         <CoverageRequirementsDialog open={coverageDialogOpen} onOpenChange={setCoverageDialogOpen} />
                         {viewMode === 'employee' ? (

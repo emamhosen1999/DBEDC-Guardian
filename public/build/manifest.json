@@ -983,7 +983,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-CpRphWUV.js",
+    "file": "assets/js/AttendancePage-xnSWchd5.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1171,6 +1171,17 @@
       "_vendor-utils-Bd_1ICpc.js"
     ]
   },
+  "resources/js/Pages/Attendance/Components/RosterLegend.jsx": {
+    "file": "assets/js/RosterLegend-0IEy9BHL.js",
+    "name": "RosterLegend",
+    "src": "resources/js/Pages/Attendance/Components/RosterLegend.jsx",
+    "isEntry": true,
+    "imports": [
+      "_vendor-radix-BJkrQj4B.js",
+      "_vendor-inertia-BheeDqvO.js",
+      "_vendor-utils-Bd_1ICpc.js"
+    ]
+  },
   "resources/js/Pages/Attendance/Components/SwapApprovals.jsx": {
     "file": "assets/js/SwapApprovals-0IEy9BHL.js",
     "name": "SwapApprovals",
@@ -1236,7 +1247,7 @@
     ]
   },
   "resources/js/Pages/Attendance/RosterTab.jsx": {
-    "file": "assets/js/RosterTab-EAjbHlp0.js",
+    "file": "assets/js/RosterTab-Cni34zVx.js",
     "name": "RosterTab",
     "src": "resources/js/Pages/Attendance/RosterTab.jsx",
     "isDynamicEntry": true,
@@ -1253,6 +1264,7 @@
       "_useOptimisticMutation-DB5W7lpo.js",
       "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
       "resources/js/Pages/Attendance/Components/RosterEmployeeView.jsx",
+      "resources/js/Pages/Attendance/Components/RosterLegend.jsx",
       "resources/js/Pages/Attendance/Components/CoveragePanel.jsx",
       "resources/js/Pages/Attendance/Components/CoverageRequirementsDialog.jsx",
       "resources/js/Pages/Attendance/Components/RosterCellPopover.jsx",
@@ -2246,7 +2258,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-Cwzyu4k7.js",
+    "file": "assets/js/app-Bi7yj-Mm.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2276,6 +2288,7 @@
       "resources/js/Pages/Attendance/Components/RosterCalendar.jsx",
       "resources/js/Pages/Attendance/Components/RosterCellPopover.jsx",
       "resources/js/Pages/Attendance/Components/RosterEmployeeView.jsx",
+      "resources/js/Pages/Attendance/Components/RosterLegend.jsx",
       "resources/js/Pages/Attendance/Components/SwapApprovals.jsx",
       "resources/js/Pages/Attendance/Components/SwapResponses.jsx",
       "resources/js/Pages/Attendance/DailyTimesheetTab.jsx",
