@@ -6,6 +6,7 @@ import {
 } from '@radix-ui/themes';
 import {
     ClockIcon, CalendarIcon, GearIcon, LayersIcon, CheckCircledIcon,
+    DesktopIcon,
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
@@ -15,6 +16,7 @@ const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
 const RosterTab          = lazy(() => import('./RosterTab'));
 const SettingsTab        = lazy(() => import('./SettingsTab'));
 const ApprovalsInbox     = lazy(() => import('./Components/ApprovalsInbox'));
+const BiometricPanel     = lazy(() => import('@/Components/AdminUnified/BiometricPanel'));
 import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
 import AttendanceOverview from './Components/AttendanceOverview';
 
@@ -22,7 +24,7 @@ import AttendanceOverview from './Components/AttendanceOverview';
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
 // import BulkMarkAsPresentForm from '@/Forms/BulkMarkAsPresentForm';
 
-const AttendancePage = ({ title, departments = [], designations = [] }) => {
+const AttendancePage = ({ title, departments = [], designations = [], devices = [] }) => {
     const { auth } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
     const isDesktop = useMediaQuery('(min-width: 1025px)');
@@ -63,6 +65,10 @@ const AttendancePage = ({ title, departments = [], designations = [] }) => {
         ),
         ...(canSettings
             ? [{ value: 'settings', label: 'Settings', icon: <GearIcon /> }]
+            : []
+        ),
+        ...(canSettings
+            ? [{ value: 'biometric', label: 'Biometric Devices', icon: <DesktopIcon /> }]
             : []
         ),
     ];
@@ -124,7 +130,7 @@ const AttendancePage = ({ title, departments = [], designations = [] }) => {
                                 {/* header action buttons */}
                                 <Flex align="center" gap="2" wrap="wrap">
                                     {/* context-aware date badge */}
-                                    {activeTab !== 'settings' && (
+                                    {activeTab !== 'settings' && activeTab !== 'biometric' && (
                                         <Flex
                                             align="center"
                                             gap="1"
@@ -147,7 +153,7 @@ const AttendancePage = ({ title, departments = [], designations = [] }) => {
                             </Flex>
                         </Box>
 
-                        {activeTab !== 'settings' && (
+                        {activeTab !== 'settings' && activeTab !== 'biometric' && (
                             <AttendanceOverview
                                 date={selectedDate}
                                 mode={activeTab === 'monthly' ? 'monthly' : 'daily'}
@@ -253,6 +259,27 @@ const AttendancePage = ({ title, departments = [], designations = [] }) => {
                                         <ErrorBoundary>
                                             <Suspense fallback={<Skeleton height="400px" />}>
                                                 <SettingsTab />
+                                            </Suspense>
+                                        </ErrorBoundary>
+                                    </Box>
+                                </Tabs.Content>
+                            )}
+
+                            {/* ── Biometric Devices Tab ───────────────── */}
+                            {canSettings && (
+                                <Tabs.Content value="biometric">
+                                    <Box mt="4">
+                                        <ErrorBoundary>
+                                            <Suspense fallback={<Skeleton height="400px" />}>
+                                                <BiometricPanel
+                                                    initialDevices={devices}
+                                                    employees={[]}
+                                                    isMobile={isMobile}
+                                                    tick={0}
+                                                    onCountChange={() => {}}
+                                                    onSetHeaderActions={() => {}}
+                                                    isActive={activeTab === 'biometric'}
+                                                />
                                             </Suspense>
                                         </ErrorBoundary>
                                     </Box>

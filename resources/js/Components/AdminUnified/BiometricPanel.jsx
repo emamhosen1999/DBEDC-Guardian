@@ -215,16 +215,23 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                 payload = { pin: commandPayload };
             } else if (commandType === 'CHECK_ATTLOG') {
                 if (logStartDate && logEndDate) {
-                    const formatDateTime = (val) => {
+                    const formatDateTime = (val, isEndDate = false) => {
                         let formatted = val.replace('T', ' ');
                         if (formatted.length === 16) {
                             formatted += ':00';
+                        }
+                        // When the user selects only a date without explicitly setting time,
+                        // the browser defaults to 00:00. For end dates this means midnight at
+                        // the START of that day, excluding the entire day from results.
+                        // Auto-set to 23:59:59 so the full end date is included.
+                        if (isEndDate && formatted.endsWith(' 00:00:00')) {
+                            formatted = formatted.replace(' 00:00:00', ' 23:59:59');
                         }
                         return formatted;
                     };
                     payload = {
                         start_time: formatDateTime(logStartDate),
-                        end_time: formatDateTime(logEndDate),
+                        end_time: formatDateTime(logEndDate, true),
                     };
                 } else if (logStartDate || logEndDate) {
                     showToast.error('Please specify both start and end date/time, or leave both empty.');

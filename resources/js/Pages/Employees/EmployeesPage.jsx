@@ -9,7 +9,6 @@ import {
     SewingPinIcon,
     Component1Icon,
     LockClosedIcon,
-    GearIcon
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
@@ -19,7 +18,6 @@ import DesignationsTab from '../Organization/Tabs/DesignationsTab';
 import WorkLocationsTab from '../Organization/Tabs/WorkLocationsTab';
 import OrganizationOverview from '../Organization/Components/OrganizationOverview';
 import RolesPanel from '@/Components/AdminUnified/RolesPanel.jsx';
-import BiometricPanel from '@/Components/AdminUnified/BiometricPanel.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 
 const EmployeesPage = ({
@@ -29,9 +27,6 @@ const EmployeesPage = ({
     role_has_permissions = [],
     permissionsGrouped = {},
     can_manage_super_admin = false,
-    // Biometric props
-    devices = [],
-    employees = [],
 }) => {
     const { auth, overviewStats, roles } = usePage().props;
     const isMobile = useMediaQuery('(max-width: 640px)');
@@ -43,7 +38,6 @@ const EmployeesPage = ({
 
     /* ── permission checks ─────────────────────────────────── */
     const canViewRoles = auth?.permissions?.includes('roles.view') || auth?.roles?.includes('Super Administrator');
-    const canManageDevices = auth?.permissions?.includes('attendance.settings') || auth?.roles?.includes('Super Administrator');
 
     /* ── tab definitions ──────────────────────────────────── */
     const tabs = [
@@ -52,7 +46,6 @@ const EmployeesPage = ({
         { value: 'designations',   label: 'Designations',   icon: <LayersIcon /> },
         { value: 'work_locations', label: 'Work Locations', icon: <SewingPinIcon /> },
         ...(canViewRoles ? [{ value: 'roles', label: 'Roles & Permissions', icon: <LockClosedIcon /> }] : []),
-        ...(canManageDevices ? [{ value: 'biometric', label: 'Biometric Devices', icon: <GearIcon /> }] : []),
     ];
 
     /* ── handle tab change to clear header actions ── */
@@ -101,7 +94,7 @@ const EmployeesPage = ({
                                             Employees Console
                                         </Text>
                                         <Text size={{ initial: '1', md: '2' }} color="gray" as="div">
-                                            Manage employees, departments, designations, permissions, and biometric devices
+                                            Manage employees, departments, designations, and permissions
                                         </Text>
                                     </Box>
                                 </Flex>
@@ -200,24 +193,6 @@ const EmployeesPage = ({
                                 </Tabs.Content>
                             )}
 
-                            {/* ── Biometric Devices Tab (IT Admin) ─────── */}
-                            {canManageDevices && (
-                                <Tabs.Content value="biometric">
-                                    <Box mt="4">
-                                        <ErrorBoundary>
-                                            <BiometricPanel
-                                                initialDevices={devices}
-                                                employees={employees}
-                                                isMobile={isMobile}
-                                                tick={0}
-                                                onCountChange={() => {}}
-                                                onSetHeaderActions={setHeaderActions}
-                                                isActive={activeTab === 'biometric'}
-                                            />
-                                        </ErrorBoundary>
-                                    </Box>
-                                </Tabs.Content>
-                            )}
                         </Tabs.Root>
 
                     </Card>

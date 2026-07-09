@@ -9,6 +9,7 @@ use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\AttendanceType;
 use App\Models\HRM\Department;
 use App\Models\HRM\Designation;
+use App\Models\HRM\BiometricDevice;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Services\Attendance\AttendanceAuditService;
@@ -75,6 +76,8 @@ class AttendanceController extends Controller
                 ->get()
                 ->map(fn ($d) => ['id' => $d->id, 'title' => $d->title])
                 ->values(),
+            // Biometric Devices tab
+            'devices' => BiometricDevice::all(),
         ]);
     }
 
