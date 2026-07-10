@@ -34,6 +34,8 @@ class LeaveSetting extends Model
         'eligible_gender',
         'min_service_months',
         'max_encash_days',
+        'requires_attachment_days',
+        'is_comp_off',
     ];
 
     protected $casts = [
@@ -60,6 +62,8 @@ class LeaveSetting extends Model
         'eligible_gender' => 'string',
         'min_service_months' => 'integer',
         'max_encash_days' => 'decimal:1',
+        'requires_attachment_days' => 'decimal:1',
+        'is_comp_off' => 'boolean',
     ];
 
     public function leaves()

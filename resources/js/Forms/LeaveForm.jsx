@@ -48,6 +48,10 @@ const LeaveForm = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const processing = isSubmitting;
 
+    // Supporting documents (e.g. medical certificate)
+    const [files, setFiles] = useState([]);
+    const [existingAttachments, setExistingAttachments] = useState(currentLeave?.attachments || []);
+
     const { data, setData, errors, setError, clearErrors, reset } = useForm({
         leaveType: currentLeave?.leave_type || "",
         fromDate: currentLeave?.from_date ? currentLeave.from_date.split('T')[0] : '',
@@ -90,21 +94,34 @@ const LeaveForm = ({
         setIsSubmitting(true);
         clearErrors();
 
-        const payload = { 
-            user_id, 
-            leaveType: data.leaveType, 
-            fromDate: data.fromDate, 
-            toDate: data.toDate, 
-            daysCount, 
-            leaveReason: data.leaveReason, 
-            month: selectedMonth 
+        const payload = {
+            user_id,
+            leaveType: data.leaveType,
+            fromDate: data.fromDate,
+            toDate: data.toDate,
+            daysCount,
+            leaveReason: data.leaveReason,
+            month: selectedMonth
         };
         if (currentLeave) payload.id = currentLeave.id;
 
+        // Use multipart only when documents are attached.
+        let body = payload;
+        let config = {};
+        if (files.length > 0) {
+            body = new FormData();
+            Object.entries(payload).forEach(([k, v]) => {
+                if (v !== undefined && v !== null) body.append(k, v);
+            });
+            files.forEach(f => body.append('attachments[]', f));
+            config = { headers: { 'Content-Type': 'multipart/form-data' } };
+        }
+
         try {
             const response = await axios.post(
-                route(currentLeave ? 'leave-update' : 'leave-add'), 
-                payload
+                route(currentLeave ? 'leave-update' : 'leave-add'),
+                body,
+                config
             );
             if (response.status === 200 || response.status === 201) {
                 setLeavesData(response.data.leavesData);
@@ -117,8 +134,10 @@ const LeaveForm = ({
                 
                 refetchStats();
                 showToast.success(response.data.message || 'Leave submitted successfully');
+                (response.data.warnings || []).forEach(w => showToast.info(w));
                 closeModal();
                 reset();
+                setFiles([]);
             }
         } catch (error) {
             if (error.response?.status === 422) {
@@ -197,6 +216,62 @@ const LeaveForm = ({
                                 <Box style={{ gridColumn: '1 / -1' }}>
                                     <Text size="2" weight="medium" mb="1" display="block">Reason</Text>
                                     <TextArea value={data.leaveReason} onChange={e => setData('leaveReason', e.target.value)} rows={3} />
+                                </Box>
+
+                                <Box style={{ gridColumn: '1 / -1' }}>
+                                    <Text size="2" weight="medium" mb="1" display="block">
+                                        Supporting Documents
+                                        {(() => {
+                                            const type = leaveTypes.find(t => t.type === data.leaveType);
+                                            return type?.requires_attachment_days != null
+                                                ? ` (required over ${type.requires_attachment_days} day${type.requires_attachment_days == 1 ? '' : 's'})`
+                                                : ' (optional)';
+                                        })()}
+                                    </Text>
+                                    <input
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        onChange={e => setFiles(Array.from(e.target.files || []).slice(0, 3))}
+                                        style={{ display: 'block', width: '100%', fontSize: 13 }}
+                                    />
+                                    {files.length > 0 && (
+                                        <Flex direction="column" gap="1" mt="2">
+                                            {files.map((f, i) => (
+                                                <Flex key={i} align="center" justify="between" gap="2">
+                                                    <Text size="1" color="gray" truncate>{f.name} ({Math.round(f.size / 1024)} KB)</Text>
+                                                    <Button type="button" size="1" variant="ghost" color="red"
+                                                        onClick={() => setFiles(p => p.filter((_, j) => j !== i))}>
+                                                        Remove
+                                                    </Button>
+                                                </Flex>
+                                            ))}
+                                        </Flex>
+                                    )}
+                                    {existingAttachments.length > 0 && (
+                                        <Flex direction="column" gap="1" mt="2">
+                                            <Text size="1" weight="medium" color="gray">Uploaded:</Text>
+                                            {existingAttachments.map(att => (
+                                                <Flex key={att.id} align="center" justify="between" gap="2">
+                                                    <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+                                                        {att.name} ({Math.round((att.size || 0) / 1024)} KB)
+                                                    </a>
+                                                    <Button type="button" size="1" variant="ghost" color="red"
+                                                        onClick={async () => {
+                                                            try {
+                                                                await axios.delete(route('leaves.attachments.delete', { id: currentLeave.id, mediaId: att.id }));
+                                                                setExistingAttachments(p => p.filter(a => a.id !== att.id));
+                                                                showToast.success('Attachment removed');
+                                                            } catch (err) {
+                                                                showToast.error(err.response?.data?.message || 'Failed to remove attachment');
+                                                            }
+                                                        }}>
+                                                        Remove
+                                                    </Button>
+                                                </Flex>
+                                            ))}
+                                        </Flex>
+                                    )}
                                 </Box>
                             </Grid>
                         </Card>

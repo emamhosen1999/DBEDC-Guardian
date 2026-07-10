@@ -114,6 +114,8 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/leave-update', [LeaveController::class, 'update'])->name('leave-update');
         Route::delete('/leave-delete', [LeaveController::class, 'delete'])->name('leave-delete');
         Route::post('/leaves/{id}/cancel', [LeaveController::class, 'cancelLeave'])->name('leaves.cancel');
+        Route::get('/leaves/{id}/attachments/{mediaId}', [LeaveController::class, 'downloadAttachment'])->name('leaves.attachments.download');
+        Route::delete('/leaves/{id}/attachments/{mediaId}', [LeaveController::class, 'deleteAttachment'])->name('leaves.attachments.delete');
         Route::get('/leaves-paginate', [LeaveController::class, 'paginate'])->name('leaves.paginate');
         Route::get('/leaves-stats', [LeaveController::class, 'stats'])->name('leaves.stats');
         Route::get('/leave-balances', [\App\Http\Controllers\LeaveBalanceController::class, 'index'])->name('leave-balances');

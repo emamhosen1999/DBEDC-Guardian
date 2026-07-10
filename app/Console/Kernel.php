@@ -84,6 +84,11 @@ class Kernel extends ConsoleKernel
             ->daily()->timezone(config('app.timezone', 'UTC'))
             ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-expire-carried.log'));
 
+        // Daily: bank comp-off for yesterday's work on off-days/holidays/leave days.
+        $schedule->command('leave:grant-comp-off')
+            ->dailyAt('01:00')->timezone(config('app.timezone', 'UTC'))
+            ->withoutOverlapping()->appendOutputTo(storage_path('logs/leave-comp-off.log'));
+
         $schedule->command('leave:reconcile-ledger')
             ->daily()->timezone(config('app.timezone', 'UTC'))
             ->withoutOverlapping()

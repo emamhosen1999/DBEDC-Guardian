@@ -126,6 +126,12 @@ const EMPTY_FORM = {
     carry_expiry_months:'',
     is_encashable:      false,
     allow_negative:     false,
+    // Policy hardening — eligibility, documents, comp-off
+    eligible_gender:    'all',
+    min_service_months: '',
+    max_encash_days:    '',
+    requires_attachment_days: '',
+    is_comp_off:        false,
 };
 
 export default function LeaveSettingsPanel({
@@ -202,6 +208,11 @@ export default function LeaveSettingsPanel({
             carry_expiry_months: lt.carry_expiry_months ?? '',
             is_encashable:     Boolean(lt.is_encashable),
             allow_negative:    Boolean(lt.allow_negative),
+            eligible_gender:   lt.eligible_gender || 'all',
+            min_service_months: lt.min_service_months ?? '',
+            max_encash_days:   lt.max_encash_days ?? '',
+            requires_attachment_days: lt.requires_attachment_days ?? '',
+            is_comp_off:       Boolean(lt.is_comp_off),
         });
         setIsEditing(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -212,6 +223,9 @@ export default function LeaveSettingsPanel({
         if (!isFormValid) { showToast.error('Leave type name and days are required.'); return; }
         setLoading(true);
 
+        // 'all' is a UI-only sentinel — the backend expects null for no gender restriction.
+        const payload = { ...form, eligible_gender: form.eligible_gender === 'all' ? null : form.eligible_gender };
+
         if (isEditing) {
             const previousState = [...leaveTypes];
             // Optimistic update
@@ -219,7 +233,7 @@ export default function LeaveSettingsPanel({
             resetForm();
 
             try {
-                await axios.put(route('update-leave-type', { id: form.id }), form);
+                await axios.put(route('update-leave-type', { id: form.id }), payload);
                 showToast.success('Leave type updated successfully.');
             } catch (e) {
                 setLeaveTypes(previousState); // Rollback
@@ -230,7 +244,7 @@ export default function LeaveSettingsPanel({
         } else {
             // Creation requires DB ID, cannot be fully optimistic
             try {
-                const r = await axios.post(route('add-leave-type'), form);
+                const r = await axios.post(route('add-leave-type'), payload);
                 setLeaveTypes(p => [...p, { ...form, id: r.data.id }]);
                 resetForm();
                 showToast.success('Leave type added successfully.');
@@ -357,6 +371,37 @@ export default function LeaveSettingsPanel({
                             <SwitchRow icon={CalendarIcon} label="Prorate on Join" description="Pro-rate entitlement for mid-year joiners" checked={form.prorate_on_join} onCheckedChange={v => setField('prorate_on_join', v)} color="blue" />
                             <SwitchRow icon={ReloadIcon} label="Encashable" description="Can be encashed (recorded)" checked={form.is_encashable} onCheckedChange={v => setField('is_encashable', v)} color="green" />
                             <SwitchRow icon={InfoCircledIcon} label="Allow Negative" description="Permit advance/negative balance" checked={form.allow_negative} onCheckedChange={v => setField('allow_negative', v)} color="orange" />
+                        </Grid>
+
+                        {/* Eligibility, Documents & Comp-off */}
+                        <Text size="3" weight="bold" mt="2">Eligibility & Documents</Text>
+                        <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4">
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Eligible Gender</Text>
+                                <Select.Root value={form.eligible_gender} onValueChange={v => setField('eligible_gender', v)}>
+                                    <Select.Trigger style={{ width: '100%' }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All employees</Select.Item>
+                                        <Select.Item value="male">Male only</Select.Item>
+                                        <Select.Item value="female">Female only</Select.Item>
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Min Service (months)</Text>
+                                <TextField.Root size="2" type="number" min="0" placeholder="blank = none" value={form.min_service_months} onChange={e => setField('min_service_months', e.target.value)} />
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Encash Cap (days/yr)</Text>
+                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="blank = no cap" value={form.max_encash_days} onChange={e => setField('max_encash_days', e.target.value)} />
+                            </Box>
+                            <Box>
+                                <Text size="2" weight="medium" as="div" mb="2">Attachment Req. Over (days)</Text>
+                                <TextField.Root size="2" type="number" min="0" step="0.5" placeholder="blank = never" value={form.requires_attachment_days} onChange={e => setField('requires_attachment_days', e.target.value)} />
+                            </Box>
+                        </Grid>
+                        <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="3">
+                            <SwitchRow icon={ClockIcon} label="Comp-off Bank" description="Receives comp-off grants for off-day/holiday work" checked={form.is_comp_off} onCheckedChange={v => setField('is_comp_off', v)} color="purple" />
                         </Grid>
 
                         {/* Action Buttons */}

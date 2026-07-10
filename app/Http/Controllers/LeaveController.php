@@ -163,6 +163,9 @@ class LeaveController extends Controller
             $data['isHalfDay'] = $request->boolean('isHalfDay');
             $data['halfDaySession'] = $request->input('halfDaySession');
 
+            $this->validateAttachments($request);
+            $data['hasAttachment'] = $request->hasFile('attachments');
+
             $userId = $data['user_id'];
 
             // Check for overlapping leaves
@@ -177,6 +180,8 @@ class LeaveController extends Controller
 
             // Create new leave (use sanitized data)
             $newLeave = $this->crudService->createLeave($data);
+
+            $this->storeAttachments($request, $newLeave);
 
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
@@ -241,6 +246,9 @@ class LeaveController extends Controller
                 'halfDaySession' => $request->input('halfDaySession'),
             ];
 
+            $this->validateAttachments($request);
+            $safeData['hasAttachment'] = $request->hasFile('attachments');
+
             $fromDate = Carbon::parse($safeData['fromDate'] ?? $existing->from_date);
             $toDate = Carbon::parse($safeData['toDate'] ?? $existing->to_date);
             $overlapError = $this->overlapService->getOverlapErrorMessage(
@@ -256,6 +264,8 @@ class LeaveController extends Controller
             }
 
             $updatedLeave = $this->crudService->updateLeave($leaveId, $safeData);
+
+            $this->storeAttachments($request, $updatedLeave);
 
             // Get updated leave records using the same service as paginate method
             $leaveData = $this->queryService->getLeaveRecords($request);
@@ -305,6 +315,83 @@ class LeaveController extends Controller
         );
 
         return response()->json(['message' => $result['message']]);
+    }
+
+    /**
+     * Validate uploaded supporting documents (attachments[]).
+     */
+    private function validateAttachments(Request $request): void
+    {
+        if (! $request->hasFile('attachments')) {
+            return;
+        }
+
+        $request->validate([
+            'attachments' => 'array|max:3',
+            'attachments.*' => 'file|mimes:pdf,jpg,jpeg,png|max:5120',
+        ], [
+            'attachments.max' => 'A maximum of 3 attachments are allowed.',
+            'attachments.*.mimes' => 'Attachments must be PDF, JPG, or PNG files.',
+            'attachments.*.max' => 'Each attachment must not exceed 5 MB.',
+        ]);
+    }
+
+    /**
+     * Persist uploaded supporting documents onto the leave record.
+     */
+    private function storeAttachments(Request $request, \App\Models\HRM\Leave $leave): void
+    {
+        if (! $request->hasFile('attachments')) {
+            return;
+        }
+
+        foreach ($request->file('attachments') as $file) {
+            $leave->addMedia($file)->toMediaCollection('attachments');
+        }
+    }
+
+    /**
+     * Stream a leave attachment. Owner, approvers, and leave managers only.
+     */
+    public function downloadAttachment($id, $mediaId)
+    {
+        $leave = Leave::findOrFail($id);
+
+        if ($leave->user_id !== Auth::id()
+            && ! Auth::user()->can('leaves.view')
+            && ! Auth::user()->can('leaves.approve')
+            && ! Auth::user()->can('leaves.manage')) {
+            abort(403, 'Unauthorized to view this attachment.');
+        }
+
+        $media = $leave->getMedia('attachments')->firstWhere('id', (int) $mediaId);
+        abort_unless($media, 404);
+
+        return $media;
+    }
+
+    /**
+     * Remove a leave attachment. Owner (while pending) or leave managers.
+     */
+    public function deleteAttachment($id, $mediaId): JsonResponse
+    {
+        $leave = Leave::findOrFail($id);
+
+        $isOwner = $leave->user_id === Auth::id();
+        $isManager = Auth::user()->can('leaves.approve') || Auth::user()->can('leaves.manage');
+
+        if (! ($isManager || ($isOwner && strtolower((string) $leave->status) === 'pending'))) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized to remove this attachment.'], 403);
+        }
+
+        $media = $leave->getMedia('attachments')->firstWhere('id', (int) $mediaId);
+        if (! $media) {
+            return response()->json(['success' => false, 'message' => 'Attachment not found.'], 404);
+        }
+
+        $media->delete();
+
+        return response()->json(['success' => true, 'message' => 'Attachment removed.']);
     }
 
     /**

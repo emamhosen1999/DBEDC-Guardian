@@ -7,10 +7,13 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Leave extends Model
+class Leave extends Model implements HasMedia
 {
     use HasFactory;
+    use InteractsWithMedia;
 
     protected $fillable = [
         'user_id',
@@ -52,6 +55,16 @@ class Leave extends Model
         'cancelled_at' => 'datetime',
         'cancelled_by' => 'integer',
     ];
+
+    /**
+     * Supporting documents (e.g. medical certificates). Gated per leave type
+     * via LeaveSetting.requires_attachment_days.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('attachments')
+            ->acceptsMimeTypes(['application/pdf', 'image/jpeg', 'image/png']);
+    }
 
     // Relationships
     public function user(): BelongsTo

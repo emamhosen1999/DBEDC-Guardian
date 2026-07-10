@@ -78,6 +78,24 @@ class LeaveCrudService
     }
 
     /**
+     * Attachment gate: types with requires_attachment_days demand a supporting
+     * document (e.g. medical certificate) once the request exceeds the threshold.
+     *
+     * @throws \RuntimeException 422 when a required document is missing
+     */
+    private function assertAttachmentRequirement(?LeaveSetting $setting, float $days, bool $hasAttachment): void
+    {
+        if (! $setting || $setting->requires_attachment_days === null) {
+            return;
+        }
+        if ($days > (float) $setting->requires_attachment_days && ! $hasAttachment) {
+            throw new \RuntimeException(
+                "\"{$setting->type}\" requests over {$setting->requires_attachment_days} day(s) require a supporting document.", 422
+            );
+        }
+    }
+
+    /**
      * Balance-enforcement gate. If the (user, type, year) balance is untracked,
      * lazily seed it from the accrual policy so enforcement is never silently
      * dormant; a type that still has no ledger (no accrual config) is logged.
@@ -144,6 +162,9 @@ class LeaveCrudService
 
             // Request-time eligibility (gender / minimum service).
             $this->assertEligible($leaveSetting, (int) $data['user_id'], $fromDate);
+
+            // Supporting-document gate (e.g. medical certificate for long sick leave).
+            $this->assertAttachmentRequirement($leaveSetting, $serverDays, (bool) ($data['hasAttachment'] ?? false));
 
             // Server-side balance enforcement via the ledger (lazily seeded from the
             // accrual policy when untracked) unless the type allows negative.
@@ -229,6 +250,10 @@ class LeaveCrudService
 
             // Request-time eligibility (gender / minimum service).
             $this->assertEligible($leaveSetting, (int) $data['user_id'], $fromDate);
+
+            // Supporting-document gate (counts existing attachments on the record).
+            $hasAttachment = (bool) ($data['hasAttachment'] ?? false) || $leave->getMedia('attachments')->isNotEmpty();
+            $this->assertAttachmentRequirement($leaveSetting, $serverDays, $hasAttachment);
 
             // Server-side balance enforcement via the ledger (lazily seeded when
             // untracked) unless the type allows negative.

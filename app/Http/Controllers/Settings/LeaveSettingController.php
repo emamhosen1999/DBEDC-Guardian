@@ -59,6 +59,8 @@ class LeaveSettingController extends Controller
             'eligible_gender' => 'nullable|in:male,female',
             'min_service_months' => 'nullable|integer|min:0|max:600',
             'max_encash_days' => 'nullable|numeric|min:0|max:365',
+            'requires_attachment_days' => 'nullable|numeric|min:0|max:365',
+            'is_comp_off' => 'nullable|boolean',
         ];
     }
 
@@ -88,6 +90,8 @@ class LeaveSettingController extends Controller
             'eligible_gender' => $request->input('eligible_gender'),
             'min_service_months' => $request->input('min_service_months'),
             'max_encash_days' => $request->input('max_encash_days'),
+            'requires_attachment_days' => $request->input('requires_attachment_days'),
+            'is_comp_off' => $request->boolean('is_comp_off'),
         ];
     }
 

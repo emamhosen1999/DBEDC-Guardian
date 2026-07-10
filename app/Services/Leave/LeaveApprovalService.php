@@ -124,6 +124,10 @@ class LeaveApprovalService
                     'approved_at' => now(),
                 ]);
 
+                // An approved leave must consume balance — this path previously
+                // approved WITHOUT posting consumption (silent free leave).
+                app(LeaveLedgerService::class)->consume($leave->fresh());
+
                 Log::info("Leave #{$leave->id} auto-approved - no approvers in chain");
 
                 DB::commit();

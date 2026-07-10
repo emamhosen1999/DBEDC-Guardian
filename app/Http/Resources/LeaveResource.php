@@ -36,6 +36,17 @@ class LeaveResource extends JsonResource
             'rejected_at' => $this->rejected_at,
             'rejected_by' => $this->rejected_by,
             'rejection_reason' => $this->rejection_reason,
+            'cancelled_at' => $this->cancelled_at,
+            'cancelled_by' => $this->cancelled_by,
+
+            // Supporting documents (medical certificates etc.)
+            'attachments' => $this->getMedia('attachments')->map(fn ($media) => [
+                'id' => $media->id,
+                'name' => $media->file_name,
+                'size' => $media->size,
+                'mime_type' => $media->mime_type,
+                'url' => route('leaves.attachments.download', ['id' => $this->id, 'mediaId' => $media->id]),
+            ])->values(),
 
             // Include employee data when available
             'employee' => $this->when($this->relationLoaded('employee') && $this->employee, function () {
