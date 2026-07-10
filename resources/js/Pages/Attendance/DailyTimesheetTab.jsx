@@ -327,8 +327,8 @@ const DailyTimesheetTab = ({
     const { auth, url } = usePage().props;
 
     const canViewAll = auth.permissions?.includes('attendance.view')   || false;
-    const canManage  = auth.permissions?.includes('attendance.manage') || false;
-    const canCorrect = auth.permissions?.includes('attendance.correct') || false;
+    const canManage  = auth.permissions?.includes('attendance.correct') || auth.permissions?.includes('attendance.create') || false;
+    const canCorrect = auth.permissions?.includes('attendance.correct') || auth.permissions?.includes('attendance.delete') || false;
     const canExport  = auth.permissions?.includes('attendance.export') || canManage;
     const isAdminView = canViewAll && url !== '/attendance-employee';
     const isMobile = useMediaQuery('(max-width: 767px)');

@@ -505,7 +505,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // Attendance management routes (admin actions)
-    Route::middleware(['permission:attendance.manage'])->group(function () {
+    Route::middleware(['permission:attendance.correct|attendance.create|attendance.update'])->group(function () {
         Route::post('/attendance/mark-as-present', [AttendanceController::class, 'markAsPresent'])->name('attendance.mark-as-present');
         Route::post('/attendance/bulk-mark-as-present', [AttendanceController::class, 'bulkMarkAsPresent'])->name('attendance.bulk-mark-as-present');
         Route::get('/attendance/regularizations/pending', [\App\Http\Controllers\HRM\RegularizationController::class, 'pending'])->name('attendance.regularizations.pending');
