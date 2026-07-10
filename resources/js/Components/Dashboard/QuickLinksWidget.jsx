@@ -1,15 +1,16 @@
 import React from 'react';
-import { Card, Flex, Grid, Heading, Box, Text } from '@radix-ui/themes';
+import { Card, Flex, Heading, Box, Text } from '@radix-ui/themes';
 import { 
     ClockIcon, 
     FileTextIcon, 
     Link2Icon, 
-    PersonIcon 
+    PersonIcon,
+    ChevronRightIcon
 } from '@radix-ui/react-icons';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 
 const QuickLink = ({ href, icon: Icon, label, color }) => (
-    <Link href={href} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
+    <Link href={href} style={{ textDecoration: 'none', display: 'block' }}>
         <Box 
             p="3" 
             className={`quick-link-item hover-${color}`}
@@ -19,23 +20,24 @@ const QuickLink = ({ href, icon: Icon, label, color }) => (
                 border: '1px solid var(--gray-a4)',
                 transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
                 cursor: 'pointer',
-                height: '100%',
             }}
         >
-            <Flex direction="column" align="center" gap="2">
-                <Box style={{
-                    padding: 8, borderRadius: 'var(--radius-full)',
-                    background: `var(--${color}-a3)`,
-                }}>
-                    <Icon style={{ color: `var(--${color}-9)`, width: 20, height: 20 }} />
-                </Box>
-                <Text size="2" weight="medium" color="gray" align="center">{label}</Text>
+            <Flex align="center" justify="between" gap="3">
+                <Flex align="center" gap="3">
+                    <Box style={{
+                        padding: 8, borderRadius: 'var(--radius-3)',
+                        background: `var(--${color}-a3)`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                        <Icon style={{ color: `var(--${color}-9)`, width: 16, height: 16 }} />
+                    </Box>
+                    <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>{label}</Text>
+                </Flex>
+                <ChevronRightIcon style={{ color: 'var(--gray-8)', width: 16, height: 16 }} />
             </Flex>
         </Box>
     </Link>
 );
-
-import { usePage } from '@inertiajs/react';
 
 export default function QuickLinksWidget({ permissions = [] }) {
     const has = (p) => permissions.includes(p);
@@ -66,7 +68,7 @@ export default function QuickLinksWidget({ permissions = [] }) {
                 }
             `}} />
             <Flex direction="column" gap="3" style={{ height: '100%' }}>
-                <Flex align="center" gap="2">
+                <Flex align="center" gap="2" mb="1">
                     <Box style={{
                         padding: 8, borderRadius: 'var(--radius-3)',
                         background: 'var(--accent-a3)', flexShrink: 0,
@@ -76,7 +78,7 @@ export default function QuickLinksWidget({ permissions = [] }) {
                     <Heading size="3">Quick Links</Heading>
                 </Flex>
 
-                <Grid columns="2" gap="3" style={{ flex: 1 }}>
+                <Flex direction="column" gap="2" style={{ flex: 1, justifyContent: 'center' }}>
                     {has('attendance.own.view') && (
                         <QuickLink href={route('attendance-employee')} icon={ClockIcon} label="My Attendance" color="blue" />
                     )}
@@ -89,7 +91,7 @@ export default function QuickLinksWidget({ permissions = [] }) {
                     {has('profile.own.view') && auth?.user?.id && (
                         <QuickLink href={route('profile', { user: auth.user.id })} icon={PersonIcon} label="My Profile" color="purple" />
                     )}
-                </Grid>
+                </Flex>
             </Flex>
         </Card>
     );

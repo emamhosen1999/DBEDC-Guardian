@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Flex, Heading, Text, Skeleton, Box, Badge } from '@radix-ui/themes';
+import { Card, Flex, Skeleton, Box, Badge, Text } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, DoubleArrowRightIcon } from '@radix-ui/react-icons';
 import { Link } from '@inertiajs/react';
 import axios from 'axios';
@@ -27,57 +27,36 @@ export default function PendingTasksWidget({ permissions = [] }) {
     const pending = stats?.pending || 0;
 
     return (
-        <Card style={{ height: '100%', border: pending > 0 ? '1px solid var(--amber-a6)' : undefined }}>
-            <Flex direction="column" gap="3" style={{ height: '100%' }}>
+        <Card style={{ height: '105px', border: pending > 0 ? '1px solid var(--amber-a5)' : undefined }}>
+            <Flex direction="column" justify="between" style={{ height: '100%' }}>
                 <Flex align="center" justify="between">
                     <Flex align="center" gap="2">
                         <Box style={{
-                            padding: 8, borderRadius: 'var(--radius-3)',
+                            padding: 6, borderRadius: 'var(--radius-3)',
                             background: pending > 0 ? 'var(--amber-a3)' : 'var(--gray-a3)', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <ExclamationTriangleIcon style={{ color: pending > 0 ? 'var(--amber-9)' : 'var(--gray-9)' }} />
+                            <ExclamationTriangleIcon style={{ color: pending > 0 ? 'var(--amber-9)' : 'var(--gray-9)', width: 14, height: 14 }} />
                         </Box>
-                        <Heading size="3">Pending Tasks</Heading>
+                        <Text size="2" weight="bold" style={{ color: 'var(--gray-12)' }}>Pending Tasks</Text>
                     </Flex>
-                    {pending > 0 && (
-                        <Badge color="amber" variant="soft" size="2" radius="full">
-                            {pending} Action{pending !== 1 ? 's' : ''} Needed
+                    {loading ? (
+                        <Skeleton style={{ width: 36, height: 20 }} />
+                    ) : (
+                        <Badge color={pending > 0 ? 'amber' : 'gray'} variant="soft" size="2" radius="full" style={{ fontWeight: 700 }}>
+                            {pending}
                         </Badge>
                     )}
                 </Flex>
 
-                {loading ? (
-                    <Skeleton style={{ height: 60, width: '100%', borderRadius: 8 }} />
-                ) : (
-                    <Flex direction="column" justify="center" align="center" style={{ flex: 1, textAlign: 'center', py: 2 }}>
-                        <Flex
-                            align="center"
-                            justify="center"
-                            style={{
-                                width: 72,
-                                height: 72,
-                                borderRadius: '50%',
-                                background: pending > 0 ? 'var(--amber-a3)' : 'var(--gray-a3)',
-                                border: pending > 0 ? '2px solid var(--amber-7)' : '1px solid var(--gray-a5)',
-                                boxShadow: pending > 0 ? '0 0 12px var(--amber-a2)' : 'none',
-                                marginBottom: 8,
-                            }}
-                        >
-                            <Text size="7" weight="bold" style={{ color: pending > 0 ? 'var(--amber-11)' : 'var(--gray-11)', lineHeight: 1 }}>
-                                {pending}
-                            </Text>
-                        </Flex>
-                        <Text size="2" color="gray">
-                            {pending > 0 ? 'Pending action items' : 'All caught up! No pending tasks.'}
-                        </Text>
-                    </Flex>
-                )}
-
-                <Flex justify="end" mt="auto">
+                <Flex align="center" justify="between">
+                    <Text size="1" color="gray">
+                        {pending > 0 ? 'Requires attention.' : 'All caught up!'}
+                    </Text>
                     <Link href={route('daily-works-unified')} style={{ textDecoration: 'none' }}>
                         <Flex align="center" gap="1" style={{ color: 'var(--accent-9)', cursor: 'pointer' }}>
-                            <Text size="2" weight="medium">View Tasks</Text>
-                            <DoubleArrowRightIcon />
+                            <Text size="1" weight="bold">View Tasks</Text>
+                            <DoubleArrowRightIcon style={{ width: 12, height: 12 }} />
                         </Flex>
                     </Link>
                 </Flex>

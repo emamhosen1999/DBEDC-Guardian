@@ -85,7 +85,7 @@ export default function PersonalOverviewCard({ permissions = [] }) {
                     box-shadow: var(--shadow-1);
                 }
             `}} />
-            <Flex direction="column" gap="3" style={{ height: '100%' }}>
+            <Flex direction="column" gap="2" style={{ height: '100%' }}>
                 <Flex align="center" justify="between">
                     <Heading size={{ initial: '2', md: '3' }}>My Overview</Heading>
                     {meta?.month && (

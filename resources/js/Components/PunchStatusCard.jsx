@@ -1084,9 +1084,9 @@ const PunchStatusCard = React.memo(() => {
     const rc = (c) => ({ primary: 'blue', success: 'green', warning: 'amber', danger: 'red', default: 'gray', secondary: 'violet' }[c] || 'gray');
 
     return (
-        <Box>
-            <Card style={{ opacity: attendanceState.loading ? 0.7 : 1 }}>
-                <Box p={{ initial: '3', md: '4' }}>
+        <Box style={{ height: '100%' }}>
+            <Card style={{ height: '100%', opacity: attendanceState.loading ? 0.7 : 1, display: 'flex', flexDirection: 'column' }}>
+                <Box p={{ initial: '3', md: '4' }} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     {/* Header: Avatar + Name + Time */}
                     <Flex align="center" justify="between" mb={{ initial: '3', md: '4' }}>
                         <Flex align="center" gap="3">

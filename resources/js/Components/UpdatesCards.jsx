@@ -98,8 +98,8 @@ const LeavePopover = ({ leave, user, children }) => (
 );
 
 const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => (
-    <Card style={{ height: '100%' }}>
-        <Box pb="2" mb="2" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
+    <Card style={{ height: '220px', display: 'flex', flexDirection: 'column' }}>
+        <Box pb="2" mb="2" style={{ borderBottom: '1px solid var(--gray-a4)', flexShrink: 0 }}>
             <Flex align="center" gap="3">
                 <Box style={{
                     padding: 10,
@@ -115,7 +115,7 @@ const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => (
                 <Heading size="3">{title}</Heading>
             </Flex>
         </Box>
-        <Flex direction="column" gap="0">
+        <Flex direction="column" gap="0" style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
             {items.map((item, index) => {
                 const leaves = item.leaves?.filter((l) => l.leave_type === item.type) ?? [];
                 return (

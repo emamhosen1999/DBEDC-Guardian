@@ -28,8 +28,8 @@ export default function ProjectOverviewWidget({ permissions = [] }) {
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return (
-        <Card style={{ height: '100%' }}>
-            <Flex direction="column" gap="3" style={{ height: '100%' }}>
+        <Card style={{ height: '260px', display: 'flex', flexDirection: 'column' }}>
+            <Flex direction="column" gap="3" style={{ height: '100%', justifyContent: 'space-between' }}>
                 <Flex align="center" gap="2">
                     <Box style={{
                         padding: 8, borderRadius: 'var(--radius-3)',

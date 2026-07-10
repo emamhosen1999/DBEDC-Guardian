@@ -178,24 +178,28 @@ export default function AttendanceChartWidget({ permissions = [] }) {
         <Box>
             <Flex gap={{ initial: '3', md: '4' }} style={{ flexWrap: 'wrap' }}>
                 {canPersonal && (
-                    <Card style={{ flex: '1 1 240px', minWidth: 0 }}>
-                        <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }}>
+                    <Card style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
+                        <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }} style={{ flexShrink: 0 }}>
                             <Heading size={{ initial: '2', md: '3' }}>My Attendance</Heading>
                             <Badge variant="soft" color="gray" size="1">{monthLabel}</Badge>
                         </Flex>
-                        <PersonalChart data={personal} loading={loading} height={chartHeight} />
+                        <Box style={{ flex: 1, minHeight: 0 }}>
+                            <PersonalChart data={personal} loading={loading} height={170} />
+                        </Box>
                     </Card>
                 )}
 
                 {canTeam && (
-                    <Card style={{ flex: '1 1 240px', minWidth: 0 }}>
-                        <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }}>
+                    <Card style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
+                        <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }} style={{ flexShrink: 0 }}>
                             <Heading size={{ initial: '2', md: '3' }}>Team Attendance</Heading>
                             <Badge variant="soft" color="gray" size="1">
                                 {team?.meta?.totalEmployees != null ? `${team.meta.totalEmployees} employees` : monthLabel}
                             </Badge>
                         </Flex>
-                        <TeamChart data={team} loading={loading} height={chartHeight} />
+                        <Box style={{ flex: 1, minHeight: 0 }}>
+                            <TeamChart data={team} loading={loading} height={170} />
+                        </Box>
                     </Card>
                 )}
             </Flex>
