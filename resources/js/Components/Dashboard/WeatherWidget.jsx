@@ -32,9 +32,43 @@ function getWmo(code) {
 export default function WeatherWidget() {
     const [state, setState] = useState({ status: 'idle', data: null, error: null });
 
+    const fetchWeather = (lat, lon, label = '') => {
+        fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+            `&current_weather=true&hourly=relativehumidity_2m,apparent_temperature` +
+            `&forecast_days=1&timezone=auto`
+        )
+            .then(r => r.json())
+            .then(json => {
+                const cw = json.current_weather;
+                const humidity = json.hourly?.relativehumidity_2m?.[new Date().getHours()] ?? null;
+                const feelsLike = json.hourly?.apparent_temperature?.[new Date().getHours()] ?? null;
+                setState({
+                    status: 'done',
+                    data: {
+                        temp: Math.round(cw.temperature),
+                        windspeed: Math.round(cw.windspeed),
+                        code: cw.weathercode,
+                        humidity,
+                        feelsLike: feelsLike != null ? Math.round(feelsLike) : null,
+                        locationName: label,
+                    },
+                    error: null,
+                });
+            })
+            .catch(() => {
+                // If fetching fails, fall back to Dhaka weather
+                if (label !== 'Dhaka') {
+                    fetchWeather(23.8103, 90.4125, 'Dhaka');
+                } else {
+                    setState({ status: 'error', data: null, error: 'Weather fetch failed' });
+                }
+            });
+    };
+
     useEffect(() => {
         if (!navigator.geolocation) {
-            setState({ status: 'error', data: null, error: 'Geolocation not supported' });
+            fetchWeather(23.8103, 90.4125, 'Dhaka');
             return;
         }
 
@@ -44,33 +78,14 @@ export default function WeatherWidget() {
             ({ coords }) => {
                 const { latitude: lat, longitude: lon } = coords;
                 setState(s => ({ ...s, status: 'fetching' }));
-
-                fetch(
-                    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-                    `&current_weather=true&hourly=relativehumidity_2m,apparent_temperature` +
-                    `&forecast_days=1&timezone=auto`
-                )
-                    .then(r => r.json())
-                    .then(json => {
-                        const cw = json.current_weather;
-                        const humidity = json.hourly?.relativehumidity_2m?.[new Date().getHours()] ?? null;
-                        const feelsLike = json.hourly?.apparent_temperature?.[new Date().getHours()] ?? null;
-                        setState({
-                            status: 'done',
-                            data: {
-                                temp: Math.round(cw.temperature),
-                                windspeed: Math.round(cw.windspeed),
-                                code: cw.weathercode,
-                                humidity,
-                                feelsLike: feelsLike != null ? Math.round(feelsLike) : null,
-                            },
-                            error: null,
-                        });
-                    })
-                    .catch(() => setState({ status: 'error', data: null, error: 'Weather fetch failed' }));
+                fetchWeather(lat, lon, 'Your Location');
             },
-            () => setState({ status: 'error', data: null, error: 'Location access denied' }),
-            { timeout: 8000 }
+            () => {
+                // Fallback to Dhaka
+                setState(s => ({ ...s, status: 'fetching' }));
+                fetchWeather(23.8103, 90.4125, 'Dhaka');
+            },
+            { timeout: 5000 }
         );
     }, []);
 
@@ -92,9 +107,16 @@ export default function WeatherWidget() {
     return (
         <Card style={{ height: '100%' }}>
             <Flex direction="column" gap="2" style={{ height: '100%' }}>
-                <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Weather
-                </Text>
+                <Flex align="center" justify="between">
+                    <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Weather
+                    </Text>
+                    {state.data?.locationName && (
+                        <Badge size="1" color="indigo" variant="soft">
+                            📍 {state.data.locationName}
+                        </Badge>
+                    )}
+                </Flex>
 
                 {isLoading ? (
                     <Flex direction="column" gap="2" mt="1">

@@ -25,15 +25,23 @@ export default function GreetingBanner({ user }) {
     });
 
     return (
-        <Card style={{ height: '100%', background: 'var(--accent-a3)', border: '1px solid var(--accent-a6)' }}>
-            <Flex direction="column" justify="center" gap="1" style={{ height: '100%' }}>
-                <Flex align="center" gap="2">
-                    <Text style={{ fontSize: 'clamp(16px, 3vw, 26px)', lineHeight: 1 }}>{emoji}</Text>
-                    <Text size={{ initial: '4', xs: '5', md: '6' }} weight="bold" style={{ lineHeight: 1.2 }}>
-                        {text}, {firstName}!
-                    </Text>
+        <Card style={{ 
+            height: '100%', 
+            background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a1) 100%)', 
+            border: '1px solid var(--accent-a5)',
+            boxShadow: 'var(--shadow-1)',
+            backdropFilter: 'blur(8px)',
+        }}>
+            <Flex direction="column" justify="center" gap="2" style={{ height: '100%', padding: '4px 0' }}>
+                <Flex align="center" gap="3">
+                    <Text style={{ fontSize: 'clamp(20px, 3.5vw, 32px)', lineHeight: 1 }}>{emoji}</Text>
+                    <Flex direction="column" gap="0">
+                        <Text size={{ initial: '4', xs: '5', md: '6' }} weight="bold" style={{ lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                            {text}, {firstName}!
+                        </Text>
+                        <Text size={{ initial: '1', sm: '2' }} color="gray" style={{ opacity: 0.85 }}>Ready to conquer the day?</Text>
+                    </Flex>
                 </Flex>
-                <Text size={{ initial: '1', sm: '2' }} color="gray" mt="1" truncate>{today}</Text>
             </Flex>
         </Card>
     );

@@ -1,12 +1,12 @@
 {
-  "_AreaChart-B6HK8I9g.js": {
-    "file": "assets/js/AreaChart-B6HK8I9g.js",
+  "_AreaChart-CseQtBWI.js": {
+    "file": "assets/js/AreaChart-CseQtBWI.js",
     "name": "AreaChart",
     "imports": [
-      "_generateCategoricalChart-HXVeZJuy.js",
+      "_PieChart-DYsKHUfD.js",
       "_vendor-inertia-BheeDqvO.js",
       "_clsx-B-dksMZM.js",
-      "_BarChart-BY3T2Zwp.js"
+      "_BarChart-Cc6ZcYV_.js"
     ]
   },
   "_ArrowPathIcon-n5G26bAK.js": {
@@ -16,22 +16,22 @@
       "_vendor-inertia-BheeDqvO.js"
     ]
   },
-  "_BarChart-BY3T2Zwp.js": {
-    "file": "assets/js/BarChart-BY3T2Zwp.js",
+  "_BarChart-Cc6ZcYV_.js": {
+    "file": "assets/js/BarChart-Cc6ZcYV_.js",
     "name": "BarChart",
     "imports": [
-      "_generateCategoricalChart-HXVeZJuy.js",
+      "_PieChart-DYsKHUfD.js",
       "_vendor-inertia-BheeDqvO.js",
       "_clsx-B-dksMZM.js"
     ]
   },
-  "_CartesianGrid-CiHac9lh.js": {
-    "file": "assets/js/CartesianGrid-CiHac9lh.js",
+  "_CartesianGrid-C4istImg.js": {
+    "file": "assets/js/CartesianGrid-C4istImg.js",
     "name": "CartesianGrid",
     "imports": [
       "_vendor-inertia-BheeDqvO.js",
-      "_generateCategoricalChart-HXVeZJuy.js",
-      "_BarChart-BY3T2Zwp.js"
+      "_PieChart-DYsKHUfD.js",
+      "_BarChart-Cc6ZcYV_.js"
     ]
   },
   "_CheckCircleIcon-DTBYKXVC.js": {
@@ -183,13 +183,13 @@
       "_vendor-inertia-BheeDqvO.js"
     ]
   },
-  "_PieChart-D6dvVR8j.js": {
-    "file": "assets/js/PieChart-D6dvVR8j.js",
+  "_PieChart-DYsKHUfD.js": {
+    "file": "assets/js/PieChart-DYsKHUfD.js",
     "name": "PieChart",
     "imports": [
-      "_generateCategoricalChart-HXVeZJuy.js",
+      "_clsx-B-dksMZM.js",
       "_vendor-inertia-BheeDqvO.js",
-      "_clsx-B-dksMZM.js"
+      "_index-DQEhoism.js"
     ]
   },
   "_PlusIcon-OIQRKtYd.js": {
@@ -278,15 +278,6 @@
   "_format-SWwc5JVH.js": {
     "file": "assets/js/format-SWwc5JVH.js",
     "name": "format"
-  },
-  "_generateCategoricalChart-HXVeZJuy.js": {
-    "file": "assets/js/generateCategoricalChart-HXVeZJuy.js",
-    "name": "generateCategoricalChart",
-    "imports": [
-      "_clsx-B-dksMZM.js",
-      "_vendor-inertia-BheeDqvO.js",
-      "_index-DQEhoism.js"
-    ]
   },
   "_index-DQEhoism.js": {
     "file": "assets/js/index-DQEhoism.js",
@@ -850,7 +841,7 @@
     ]
   },
   "resources/js/Components/DailyWorkSummaryAnalytics.jsx": {
-    "file": "assets/js/DailyWorkSummaryAnalytics-DNI2qkXn.js",
+    "file": "assets/js/DailyWorkSummaryAnalytics-Cj0nnJcN.js",
     "name": "DailyWorkSummaryAnalytics",
     "src": "resources/js/Components/DailyWorkSummaryAnalytics.jsx",
     "isDynamicEntry": true,
@@ -863,11 +854,10 @@
       "resources/js/Pages/Settings/RequestLogs.jsx",
       "resources/js/Pages/Attendance/logRange.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "_generateCategoricalChart-HXVeZJuy.js",
-      "_AreaChart-B6HK8I9g.js",
-      "_CartesianGrid-CiHac9lh.js",
-      "_BarChart-BY3T2Zwp.js",
-      "_PieChart-D6dvVR8j.js",
+      "_PieChart-DYsKHUfD.js",
+      "_AreaChart-CseQtBWI.js",
+      "_CartesianGrid-C4istImg.js",
+      "_BarChart-Cc6ZcYV_.js",
       "_clsx-B-dksMZM.js",
       "resources/js/Pages/UserDevices.jsx",
       "_ErrorBoundary-tiv_J5WV.js",
@@ -1024,7 +1014,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-DpCUg0o2.js",
+    "file": "assets/js/AttendancePage-CmNJiCPQ.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1046,10 +1036,9 @@
       "_client-Cz5iVfPv.js",
       "_exportUtils-DKLRgTah.js",
       "resources/js/Pages/Attendance/AbsentSidebar.jsx",
-      "_generateCategoricalChart-HXVeZJuy.js",
+      "_PieChart-DYsKHUfD.js",
       "_clsx-B-dksMZM.js",
       "_index-DQEhoism.js",
-      "_PieChart-D6dvVR8j.js",
       "resources/js/Pages/Attendance/Components/AuditHistoryModal.jsx",
       "resources/js/Pages/Attendance/DailyTimesheetTab.jsx",
       "_leaflet-GjjsV4zE.js",
@@ -2033,7 +2022,7 @@
     ]
   },
   "resources/js/Pages/Project/DailyWorksUnified.jsx": {
-    "file": "assets/js/DailyWorksUnified-BYUj4uJi.js",
+    "file": "assets/js/DailyWorksUnified-BUUsVrtl.js",
     "name": "DailyWorksUnified",
     "src": "resources/js/Pages/Project/DailyWorksUnified.jsx",
     "isDynamicEntry": true,
@@ -2314,7 +2303,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-DMnQ40uT.js",
+    "file": "assets/js/app-B2uzjRxS.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

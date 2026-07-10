@@ -12,17 +12,14 @@ const QuickLink = ({ href, icon: Icon, label, color }) => (
     <Link href={href} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
         <Box 
             p="3" 
+            className={`quick-link-item hover-${color}`}
             style={{ 
                 borderRadius: 'var(--radius-3)', 
                 background: 'var(--gray-a2)',
                 border: '1px solid var(--gray-a4)',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
                 cursor: 'pointer',
                 height: '100%',
-                ':hover': {
-                    background: `var(--${color}-a3)`,
-                    borderColor: `var(--${color}-a6)`
-                }
             }}
         >
             <Flex direction="column" align="center" gap="2">
@@ -46,6 +43,28 @@ export default function QuickLinksWidget({ permissions = [] }) {
     
     return (
         <Card style={{ height: '100%' }}>
+            <style dangerouslySetInnerHTML={{__html: `
+                .quick-link-item:hover {
+                    transform: translateY(-2px);
+                    box-shadow: var(--shadow-2);
+                }
+                .quick-link-item.hover-blue:hover {
+                    background: var(--blue-a3) !important;
+                    border-color: var(--blue-a6) !important;
+                }
+                .quick-link-item.hover-amber:hover {
+                    background: var(--amber-a3) !important;
+                    border-color: var(--amber-a6) !important;
+                }
+                .quick-link-item.hover-green:hover {
+                    background: var(--green-a3) !important;
+                    border-color: var(--green-a6) !important;
+                }
+                .quick-link-item.hover-purple:hover {
+                    background: var(--purple-a3) !important;
+                    border-color: var(--purple-a6) !important;
+                }
+            `}} />
             <Flex direction="column" gap="3" style={{ height: '100%' }}>
                 <Flex align="center" gap="2">
                     <Box style={{
