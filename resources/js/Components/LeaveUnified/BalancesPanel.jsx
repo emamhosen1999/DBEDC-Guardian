@@ -83,44 +83,64 @@ export default function BalancesPanel({ allUsers = [], isActive = false }) {
                 <>
                     <LeaveBalanceCards userId={Number(userId)} year={Number(year)} leaveTypes={[]} userLeaveCounts={[]} />
 
-                    <Separator size="4" />
-                    <Text size="3" weight="bold">Ledger history</Text>
+                    <Separator size="4" style={{ margin: '24px 0' }} />
+                    <Flex align="center" gap="2" mb="3">
+                        <Text size="3" weight="bold" style={{ color: 'var(--gray-12)' }}>Ledger Transaction History</Text>
+                    </Flex>
                     {loading ? (
-                        <Flex justify="center" py="6"><Spinner size="3" /></Flex>
+                        <Flex justify="center" py="8"><Spinner size="3" /></Flex>
                     ) : txns.length === 0 ? (
-                        <Text size="2" color="gray">No ledger transactions for this employee/year.</Text>
+                        <Card style={{ padding: 24, textAlign: 'center', background: 'var(--gray-a2)', border: '1px dashed var(--gray-a6)' }}>
+                            <Text size="2" color="gray">No ledger transactions found for this employee/year.</Text>
+                        </Card>
                     ) : (
-                        <Card>
-                            <Table.Root variant="surface" size="1">
-                                <Table.Header>
-                                    <Table.Row>
-                                        <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Type</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Transaction</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell justify="end">Amount</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell justify="end">Balance</Table.ColumnHeaderCell>
-                                        <Table.ColumnHeaderCell>Reason</Table.ColumnHeaderCell>
-                                    </Table.Row>
-                                </Table.Header>
-                                <Table.Body>
-                                    {txns.map(t => (
-                                        <Table.Row key={t.id}>
-                                            <Table.Cell>{t.created_at}</Table.Cell>
-                                            <Table.Cell>{t.type}</Table.Cell>
-                                            <Table.Cell>
-                                                <Badge color={TXN_COLOR[t.txn_type] || 'gray'} variant="soft" size="1">
-                                                    {t.txn_type.replace(/_/g, ' ')}
-                                                </Badge>
-                                            </Table.Cell>
-                                            <Table.Cell justify="end">
-                                                <Text color={t.amount < 0 ? 'red' : 'green'}>{t.amount > 0 ? '+' : ''}{t.amount}</Text>
-                                            </Table.Cell>
-                                            <Table.Cell justify="end"><Text weight="medium">{t.balance_after}</Text></Table.Cell>
-                                            <Table.Cell><Text size="1" color="gray">{t.reason}</Text></Table.Cell>
+                        <Card size="2" style={{ p: 0, overflow: 'hidden', boxShadow: 'var(--shadow-1)' }}>
+                            <ScrollArea type="auto" scrollbars="horizontal">
+                                <Table.Root size="2" style={{ width: '100%', minWidth: 600 }}>
+                                    <Table.Header style={{ backgroundColor: 'var(--gray-a2)' }}>
+                                        <Table.Row>
+                                            <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell>Leave Type</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell>Transaction Type</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell justify="end" style={{ textAlign: 'right' }}>Amount</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell justify="end" style={{ textAlign: 'right' }}>Balance After</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell>Reason</Table.ColumnHeaderCell>
                                         </Table.Row>
-                                    ))}
-                                </Table.Body>
-                            </Table.Root>
+                                    </Table.Header>
+                                    <Table.Body>
+                                        {txns.map(t => (
+                                            <Table.Row key={t.id} style={{ transition: 'background 0.2s ease' }}>
+                                                <Table.Cell style={{ verticalAlign: 'middle' }}>
+                                                    <Text size="2" color="gray">{t.created_at}</Text>
+                                                </Table.Cell>
+                                                <Table.Cell style={{ verticalAlign: 'middle' }}>
+                                                    <Text size="2" weight="bold">{t.type}</Text>
+                                                </Table.Cell>
+                                                <Table.Cell style={{ verticalAlign: 'middle' }}>
+                                                    <Badge color={TXN_COLOR[t.txn_type] || 'gray'} variant="soft" size="1" style={{ textTransform: 'capitalize', fontWeight: 600 }}>
+                                                        {t.txn_type.replace(/_/g, ' ')}
+                                                    </Badge>
+                                                </Table.Cell>
+                                                <Table.Cell style={{ verticalAlign: 'middle', textAlign: 'right' }}>
+                                                    <Text color={t.amount < 0 ? 'red' : 'green'} weight="bold" size="2">
+                                                        {t.amount > 0 ? '+' : ''}{t.amount} {Math.abs(t.amount) === 1 ? 'day' : 'days'}
+                                                    </Text>
+                                                </Table.Cell>
+                                                <Table.Cell style={{ verticalAlign: 'middle', textAlign: 'right' }}>
+                                                    <Badge size="1" variant="soft" color="indigo" style={{ fontWeight: 700 }}>
+                                                        {t.balance_after} {t.balance_after === 1 ? 'day' : 'days'}
+                                                    </Badge>
+                                                </Table.Cell>
+                                                <Table.Cell style={{ verticalAlign: 'middle' }}>
+                                                    <Text size="2" color="gray" style={{ fontStyle: t.reason ? 'normal' : 'italic' }}>
+                                                        {t.reason || 'No description provided'}
+                                                    </Text>
+                                                </Table.Cell>
+                                            </Table.Row>
+                                        ))}
+                                    </Table.Body>
+                                </Table.Root>
+                            </ScrollArea>
                         </Card>
                     )}
                 </>

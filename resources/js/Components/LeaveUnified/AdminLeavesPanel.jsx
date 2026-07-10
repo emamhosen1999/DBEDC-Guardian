@@ -31,24 +31,47 @@ import BulkDeleteModal          from '@/Components/BulkDelete/BulkDeleteModal.js
 import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdateModal.jsx';
 
 /* ── Responsive Stat Pill ── */
-function StatPill({ label, value, color = 'gray', icon: Icon, loading = false }) {
+function StatPill({ label, value, color = 'gray', icon: Icon, loading = false, active = false, onClick }) {
     return (
-        <Card size="1" style={{ 
-            minWidth: '130px', 
-            flex: '1 1 auto',
-            background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
-            border: `1px solid var(--${color}-a4)`,
-            boxShadow: 'var(--shadow-1)'
-        }}>
+        <Card 
+            size="1" 
+            style={{ 
+                minWidth: '130px', 
+                flex: '1 1 auto',
+                background: active 
+                    ? `linear-gradient(135deg, var(--${color}-9) 0%, var(--${color}-10) 100%)`
+                    : `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
+                border: active 
+                    ? `1px solid var(--${color}-8)`
+                    : `1px solid var(--${color}-a4)`,
+                boxShadow: active 
+                    ? `0 4px 12px var(--${color}-a3)`
+                    : 'var(--shadow-1)',
+                cursor: onClick ? 'pointer' : 'default',
+                transform: active ? 'translateY(-2px)' : 'none',
+                transition: 'all 0.2s ease',
+            }}
+            onClick={onClick}
+        >
             <Flex align="center" gap="3" p="1">
-                <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {Icon ? <Icon style={{ color: `var(--${color}-9)`, width: 16, height: 16 }} /> : <LayersIcon style={{ color: `var(--${color}-9)`, width: 16, height: 16 }} />}
+                <Box p="2" style={{ 
+                    backgroundColor: active ? 'rgba(255, 255, 255, 0.2)' : `var(--${color}-a3)`, 
+                    borderRadius: 'var(--radius-2)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center' 
+                }}>
+                    {Icon ? (
+                        <Icon style={{ color: active ? 'white' : `var(--${color}-9)`, width: 16, height: 16 }} />
+                    ) : (
+                        <LayersIcon style={{ color: active ? 'white' : `var(--${color}-9)`, width: 16, height: 16 }} />
+                    )}
                 </Box>
                 <Box>
                     <Skeleton loading={loading}>
-                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1, color: 'var(--gray-12)' }}>{value}</Text>
+                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1, color: active ? 'white' : 'var(--gray-12)' }}>{value}</Text>
                     </Skeleton>
-                    <Text size="1" color="gray" weight="medium" style={{ display: 'block', marginTop: 4 }}>{label}</Text>
+                    <Text size="1" color={active ? 'white' : 'gray'} weight="medium" style={{ display: 'block', marginTop: 4, opacity: active ? 0.9 : 1 }}>{label}</Text>
                 </Box>
             </Flex>
         </Card>
@@ -113,6 +136,17 @@ export default function AdminLeavesPanel({
 
     const handleFilterChange = useCallback((key, val) => {
         setFilters(p => ({ ...p, [key]: val }));
+        setPagination(p => ({ ...p, currentPage: 1 }));
+    }, []);
+
+    const toggleStatusFilter = useCallback((statusVal) => {
+        setFilters(p => {
+            const current = p.status[0];
+            return {
+                ...p,
+                status: current === statusVal ? [] : [statusVal]
+            };
+        });
         setPagination(p => ({ ...p, currentPage: 1 }));
     }, []);
 
@@ -252,10 +286,10 @@ export default function AdminLeavesPanel({
             {/* ── Stats Row ── */}
             <ScrollArea type="auto" scrollbars="horizontal" style={{ width: '100%', marginBottom: '16px' }}>
                 <Flex gap="3" style={{ minWidth: '100%', paddingBottom: '4px' }}>
-                    <StatPill label="Total"      value={leaveStats.total}     color="blue"   icon={TableIcon} loading={loading} />
-                    <StatPill label="Pending"    value={leaveStats.pending}   color="amber"  icon={ClockIcon} loading={loading} />
-                    <StatPill label="Approved"   value={leaveStats.approved}  color="green"  icon={CheckCircledIcon} loading={loading} />
-                    <StatPill label="Rejected"   value={leaveStats.rejected}  color="red"    icon={CrossCircledIcon} loading={loading} />
+                    <StatPill label="Total"      value={leaveStats.total}     color="blue"   icon={TableIcon} loading={loading} active={filters.status.length === 0} onClick={() => setFilters(p => ({ ...p, status: [] }))} />
+                    <StatPill label="Pending"    value={leaveStats.pending}   color="amber"  icon={ClockIcon} loading={loading} active={filters.status.includes('pending')} onClick={() => toggleStatusFilter('pending')} />
+                    <StatPill label="Approved"   value={leaveStats.approved}  color="green"  icon={CheckCircledIcon} loading={loading} active={filters.status.includes('approved')} onClick={() => toggleStatusFilter('approved')} />
+                    <StatPill label="Rejected"   value={leaveStats.rejected}  color="red"    icon={CrossCircledIcon} loading={loading} active={filters.status.includes('rejected')} onClick={() => toggleStatusFilter('rejected')} />
                     <StatPill label="This Month" value={leaveStats.thisMonth} color="violet" icon={CalendarIcon} loading={loading} />
                 </Flex>
             </ScrollArea>

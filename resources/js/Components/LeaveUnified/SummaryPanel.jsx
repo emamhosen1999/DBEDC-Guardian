@@ -302,35 +302,47 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                                             <Table.ColumnHeaderCell style={{ textAlign: 'center', minWidth: 100 }}>Total Leaves</Table.ColumnHeaderCell>
                                             <Table.ColumnHeaderCell style={{ textAlign: 'center', minWidth: 100 }}>Approved</Table.ColumnHeaderCell>
                                             <Table.ColumnHeaderCell style={{ textAlign: 'center', minWidth: 100 }}>Pending</Table.ColumnHeaderCell>
-                                            <Table.ColumnHeaderCell style={{ textAlign: 'center', minWidth: 120 }}>Avg / Employee</Table.ColumnHeaderCell>
+                                            <Table.ColumnHeaderCell style={{ textAlign: 'right', minWidth: 160 }}>Avg / Employee</Table.ColumnHeaderCell>
                                         </Table.Row>
                                     </Table.Header>
                                     <Table.Body>
-                                        {department_summary.map((dept, i) => (
-                                            <Table.Row key={i}>
-                                                <Table.Cell>
-                                                    <Flex align="center" gap="2">
-                                                        <HomeIcon style={{ width: 14, height: 14, color: 'var(--gray-9)', flexShrink: 0 }} />
-                                                        <Text weight="medium" size="2">{dept.department}</Text>
-                                                    </Flex>
-                                                </Table.Cell>
-                                                <Table.Cell style={{ textAlign: 'center' }}>
-                                                    <Badge size="1" variant="soft" color="gray">{dept.employee_count}</Badge>
-                                                </Table.Cell>
-                                                <Table.Cell style={{ textAlign: 'center' }}>
-                                                    <Text size="2" weight="bold">{dept.total_leaves}</Text>
-                                                </Table.Cell>
-                                                <Table.Cell style={{ textAlign: 'center' }}>
-                                                    <Badge size="1" variant="soft" color="green">{dept.total_approved}</Badge>
-                                                </Table.Cell>
-                                                <Table.Cell style={{ textAlign: 'center' }}>
-                                                    <Badge size="1" variant="soft" color="amber">{dept.total_pending}</Badge>
-                                                </Table.Cell>
-                                                <Table.Cell style={{ textAlign: 'center' }}>
-                                                    <Text size="2" color="gray" weight="medium">{dept.avg_leaves_per_employee}</Text>
-                                                </Table.Cell>
-                                            </Table.Row>
-                                        ))}
+                                        {(() => {
+                                            const maxAvg = Math.max(...department_summary.map(d => Number(d.avg_leaves_per_employee) || 0), 1);
+                                            return department_summary.map((dept, i) => {
+                                                const avg = Number(dept.avg_leaves_per_employee) || 0;
+                                                const pct = Math.min(100, (avg / maxAvg) * 100);
+                                                return (
+                                                    <Table.Row key={i}>
+                                                        <Table.Cell>
+                                                            <Flex align="center" gap="2">
+                                                                <HomeIcon style={{ width: 14, height: 14, color: 'var(--gray-9)', flexShrink: 0 }} />
+                                                                <Text weight="medium" size="2">{dept.department}</Text>
+                                                            </Flex>
+                                                        </Table.Cell>
+                                                        <Table.Cell style={{ textAlign: 'center' }}>
+                                                            <Badge size="1" variant="soft" color="gray">{dept.employee_count}</Badge>
+                                                        </Table.Cell>
+                                                        <Table.Cell style={{ textAlign: 'center' }}>
+                                                            <Text size="2" weight="bold">{dept.total_leaves}</Text>
+                                                        </Table.Cell>
+                                                        <Table.Cell style={{ textAlign: 'center' }}>
+                                                            <Badge size="1" variant="soft" color="green">{dept.total_approved}</Badge>
+                                                        </Table.Cell>
+                                                        <Table.Cell style={{ textAlign: 'center' }}>
+                                                            <Badge size="1" variant="soft" color="amber">{dept.total_pending}</Badge>
+                                                        </Table.Cell>
+                                                        <Table.Cell>
+                                                            <Flex align="center" gap="3" justify="end">
+                                                                <Text size="2" color="gray" weight="bold">{dept.avg_leaves_per_employee}</Text>
+                                                                <Box style={{ width: 80, height: 6, background: 'var(--gray-a4)', borderRadius: 'var(--radius-full)', overflow: 'hidden', display: 'inline-block' }}>
+                                                                    <Box style={{ height: '100%', width: `${pct}%`, background: 'var(--accent-9)', borderRadius: 'var(--radius-full)', boxShadow: '0 0 4px var(--accent-a4)' }} />
+                                                                </Box>
+                                                            </Flex>
+                                                        </Table.Cell>
+                                                    </Table.Row>
+                                                );
+                                            });
+                                        })()}
                                     </Table.Body>
                                 </Table.Root>
                             </ScrollArea>
