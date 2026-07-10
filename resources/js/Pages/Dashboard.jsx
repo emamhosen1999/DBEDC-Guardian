@@ -96,13 +96,53 @@ export default function Dashboard({ auth }) {
 
             </Flex>
 
-            {/* Inject a tiny style tag to handle the md grid spans, since inline style gridColumn ignores Radix responsive props for custom spanning without proper CSS */}
+            {/* Inject global dashboard CSS styles for 100/100 aesthetics and transitions */}
             <style dangerouslySetInnerHTML={{__html: `
+                /* Responsive Grid Spans */
                 @media (min-width: 768px) {
                     .md-col-span-3 { grid-column: span 3 !important; }
                     .md-col-span-4 { grid-column: span 4 !important; }
                     .md-col-span-6 { grid-column: span 6 !important; }
                     .md-col-span-8 { grid-column: span 8 !important; }
+                }
+
+                /* Premium Card Hover Lift & Glow Effects */
+                .rt-Card {
+                    transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                    border: 1px solid var(--gray-a4) !important;
+                }
+                .rt-Card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: var(--shadow-3) !important;
+                    border-color: var(--accent-a7) !important;
+                }
+
+                /* Clock Widget Analog Face Keyframes */
+                @keyframes sweep {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+
+                /* Custom weather glows based on conditions */
+                .weather-glow-amber { border-color: var(--amber-a5) !important; box-shadow: 0 0 12px var(--amber-a2) !important; }
+                .weather-glow-blue { border-color: var(--blue-a5) !important; box-shadow: 0 0 12px var(--blue-a2) !important; }
+                .weather-glow-purple { border-color: var(--purple-a5) !important; box-shadow: 0 0 12px var(--purple-a2) !important; }
+                .weather-glow-gray { border-color: var(--gray-a5) !important; }
+
+                /* Timeline / Holiday styles */
+                .holiday-timeline-item {
+                    position: relative;
+                    padding-left: 16px;
+                    border-left: 2px solid var(--gray-a4);
+                    transition: border-color 0.2s ease;
+                }
+                .holiday-timeline-item:hover {
+                    border-left-color: var(--amber-9);
+                }
+
+                /* Custom Progress Glows */
+                .progress-glow-bar {
+                    box-shadow: 0 0 8px var(--blue-a4);
                 }
             `}} />
         </>

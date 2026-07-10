@@ -50,7 +50,7 @@ export default function ProjectOverviewWidget({ permissions = [] }) {
                         </Flex>
 
                         <Box style={{
-                            width: '100%', height: 8,
+                            width: '100%', height: 10,
                             borderRadius: 'var(--radius-full)',
                             background: 'var(--gray-a4)',
                             overflow: 'hidden',
@@ -58,9 +58,10 @@ export default function ProjectOverviewWidget({ permissions = [] }) {
                             <Box style={{
                                 width: `${percentage}%`,
                                 height: '100%',
-                                background: 'var(--blue-9)',
+                                background: 'linear-gradient(90deg, var(--blue-9) 0%, var(--indigo-9) 100%)',
                                 borderRadius: 'var(--radius-full)',
                                 transition: 'width 1s ease-in-out',
+                                boxShadow: '0 0 10px var(--blue-a4)',
                             }} />
                         </Box>
 

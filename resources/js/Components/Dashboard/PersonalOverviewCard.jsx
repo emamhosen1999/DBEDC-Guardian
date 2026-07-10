@@ -8,11 +8,17 @@ import axios from 'axios';
 
 function StatBox({ icon: Icon, label, value, color = 'accent', loading }) {
     return (
-        <Box p={{ initial: '2', md: '3' }} style={{
-            borderRadius: 'var(--radius-3)',
-            background: 'var(--gray-a2)',
-            border: '1px solid var(--gray-a4)',
-        }}>
+        <Box 
+            p={{ initial: '2', md: '3' }} 
+            className="stat-box-interactive"
+            style={{
+                borderRadius: 'var(--radius-3)',
+                background: 'var(--gray-a2)',
+                border: '1px solid var(--gray-a4)',
+                transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'default',
+            }}
+        >
             <Flex align="center" gap="2" mb="1">
                 <Box style={{
                     padding: 5, borderRadius: 'var(--radius-2)',
@@ -71,6 +77,14 @@ export default function PersonalOverviewCard({ permissions = [] }) {
 
     return (
         <Card style={{ height: '100%' }}>
+            <style dangerouslySetInnerHTML={{__html: `
+                .stat-box-interactive:hover {
+                    background: var(--gray-a3) !important;
+                    border-color: var(--accent-a5) !important;
+                    transform: translateY(-1px);
+                    box-shadow: var(--shadow-1);
+                }
+            `}} />
             <Flex direction="column" gap="3" style={{ height: '100%' }}>
                 <Flex align="center" justify="between">
                     <Heading size={{ initial: '2', md: '3' }}>My Overview</Heading>
@@ -95,7 +109,7 @@ export default function PersonalOverviewCard({ permissions = [] }) {
                         {att?.percentage != null && (
                             <Flex align="center" gap="2" mt="-1">
                                 <Box style={{
-                                    flex: 1, height: 4,
+                                    flex: 1, height: 6,
                                     borderRadius: 'var(--radius-full)',
                                     background: 'var(--gray-a4)',
                                     overflow: 'hidden',
@@ -103,12 +117,17 @@ export default function PersonalOverviewCard({ permissions = [] }) {
                                     <Box style={{
                                         width: `${att.percentage}%`,
                                         height: '100%',
-                                        background: att.percentage >= 80 ? 'var(--green-9)' : att.percentage >= 60 ? 'var(--amber-9)' : 'var(--red-9)',
+                                        background: att.percentage >= 80 
+                                            ? 'linear-gradient(90deg, var(--green-9) 0%, var(--green-11) 100%)' 
+                                            : att.percentage >= 60 
+                                            ? 'linear-gradient(90deg, var(--amber-9) 0%, var(--amber-11) 100%)' 
+                                            : 'linear-gradient(90deg, var(--red-9) 0%, var(--red-11) 100%)',
                                         borderRadius: 'var(--radius-full)',
                                         transition: 'width 0.6s ease',
+                                        boxShadow: '0 0 6px var(--accent-a3)',
                                     }} />
                                 </Box>
-                                <Text size="1" color="gray" style={{ flexShrink: 0, minWidth: 36 }}>
+                                <Text size="1" weight="bold" style={{ flexShrink: 0, minWidth: 36, color: att.percentage >= 80 ? 'var(--green-11)' : att.percentage >= 60 ? 'var(--amber-11)' : 'var(--red-11)' }}>
                                     {att.percentage}%
                                 </Text>
                             </Flex>

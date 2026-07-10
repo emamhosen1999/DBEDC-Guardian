@@ -54,34 +54,28 @@ export default function UpcomingHolidaysWidget({ permissions = [] }) {
                         <Skeleton style={{ height: 40, width: '100%', borderRadius: 8 }} />
                     </Flex>
                 ) : holidays.length > 0 ? (
-                    <Flex direction="column" gap="3">
-                        {holidays.map((holiday, idx) => (
-                            <React.Fragment key={holiday.id}>
+                    <Flex direction="column" gap="4">
+                        {holidays.map((holiday) => (
+                            <Box key={holiday.id} className="holiday-timeline-item">
                                 <Flex direction="column" gap="1">
-                                    <Flex align="center" justify="between">
-                                        <Flex align="center" gap="2">
-                                            <InfoCircledIcon style={{ color: 'var(--gray-9)' }} />
-                                            <Text size="2" weight="bold">{holiday.title}</Text>
-                                        </Flex>
-                                        <Flex align="center" gap="1">
-                                            <CalendarIcon style={{ color: 'var(--gray-9)' }} />
-                                            <Text size="1" color="gray">
-                                                {holiday.from_date === holiday.to_date 
-                                                    ? new Date(holiday.from_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                                    : `${new Date(holiday.from_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(holiday.to_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                                                }
-                                            </Text>
-                                        </Flex>
+                                    <Flex align="center" justify="between" gap="2">
+                                        <Text size="2" weight="bold" style={{ color: 'var(--amber-11)', letterSpacing: '-0.01em' }}>
+                                            {holiday.title}
+                                        </Text>
+                                        <Badge size="1" color="gray" variant="soft" style={{ flexShrink: 0 }}>
+                                            {holiday.from_date === holiday.to_date 
+                                                ? new Date(holiday.from_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                                : `${new Date(holiday.from_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(holiday.to_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                                            }
+                                        </Badge>
                                     </Flex>
                                     {holiday.description && (
-                                        <Flex align="start" gap="2" pl="4">
-                                            <TextAlignLeftIcon style={{ color: 'var(--gray-9)', marginTop: 3 }} />
-                                            <Text size="1" color="gray">{holiday.description}</Text>
-                                        </Flex>
+                                        <Text size="1" color="gray" style={{ lineHeight: 1.3, marginTop: 2 }}>
+                                            {holiday.description}
+                                        </Text>
                                     )}
                                 </Flex>
-                                {idx < holidays.length - 1 && <Separator size="4" />}
-                            </React.Fragment>
+                            </Box>
                         ))}
                     </Flex>
                 ) : (

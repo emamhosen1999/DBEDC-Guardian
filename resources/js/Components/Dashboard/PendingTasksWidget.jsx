@@ -49,12 +49,26 @@ export default function PendingTasksWidget({ permissions = [] }) {
                 {loading ? (
                     <Skeleton style={{ height: 60, width: '100%', borderRadius: 8 }} />
                 ) : (
-                    <Flex direction="column" justify="center" align="center" style={{ flex: 1, textAlign: 'center', py: 4 }}>
-                        <Text size="8" weight="bold" style={{ color: pending > 0 ? 'var(--amber-11)' : 'var(--gray-11)', lineHeight: 1 }}>
-                            {pending}
-                        </Text>
-                        <Text size="2" color="gray" mt="2">
-                            {pending > 0 ? 'You have unresolved tasks.' : 'All caught up! No pending tasks.'}
+                    <Flex direction="column" justify="center" align="center" style={{ flex: 1, textAlign: 'center', py: 2 }}>
+                        <Flex
+                            align="center"
+                            justify="center"
+                            style={{
+                                width: 72,
+                                height: 72,
+                                borderRadius: '50%',
+                                background: pending > 0 ? 'var(--amber-a3)' : 'var(--gray-a3)',
+                                border: pending > 0 ? '2px solid var(--amber-7)' : '1px solid var(--gray-a5)',
+                                boxShadow: pending > 0 ? '0 0 12px var(--amber-a2)' : 'none',
+                                marginBottom: 8,
+                            }}
+                        >
+                            <Text size="7" weight="bold" style={{ color: pending > 0 ? 'var(--amber-11)' : 'var(--gray-11)', lineHeight: 1 }}>
+                                {pending}
+                            </Text>
+                        </Flex>
+                        <Text size="2" color="gray">
+                            {pending > 0 ? 'Pending action items' : 'All caught up! No pending tasks.'}
                         </Text>
                     </Flex>
                 )}

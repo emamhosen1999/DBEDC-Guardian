@@ -103,9 +103,10 @@ export default function WeatherWidget() {
     }
 
     const wmo = state.data ? getWmo(state.data.code) : null;
+    const glowClass = wmo ? `weather-glow-${wmo.color}` : '';
 
     return (
-        <Card style={{ height: '100%' }}>
+        <Card className={glowClass} style={{ height: '100%', transition: 'all 0.3s ease' }}>
             <Flex direction="column" gap="2" style={{ height: '100%' }}>
                 <Flex align="center" justify="between">
                     <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>

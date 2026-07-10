@@ -15,18 +15,6 @@ function AnalogFace({ time, size = 96 }) {
     const minuteAngle = ((m + s / 60) / 60) * 360 - 90;
     const secondAngle = (s / 60) * 360 - 90;
 
-    const hand = (angle, len, width, color) => {
-        const rad = (angle * Math.PI) / 180;
-        return (
-            <line
-                x1={cx} y1={cy}
-                x2={cx + len * Math.cos(rad)}
-                y2={cy + len * Math.sin(rad)}
-                stroke={color} strokeWidth={width} strokeLinecap="round"
-            />
-        );
-    };
-
     const ticks = Array.from({ length: 12 }, (_, i) => {
         const a = ((i / 12) * 360 - 90) * (Math.PI / 180);
         const inner = r - 6;
@@ -35,19 +23,54 @@ function AnalogFace({ time, size = 96 }) {
                 key={i}
                 x1={cx + r * Math.cos(a)} y1={cy + r * Math.sin(a)}
                 x2={cx + inner * Math.cos(a)} y2={cy + inner * Math.sin(a)}
-                stroke="var(--gray-a7)" strokeWidth={i % 3 === 0 ? 2 : 1}
+                stroke={i % 3 === 0 ? 'var(--gray-a8)' : 'var(--gray-a5)'} 
+                strokeWidth={i % 3 === 0 ? 2 : 1}
             />
         );
     });
 
     return (
         <svg width={size} height={size} style={{ flexShrink: 0 }}>
+            {/* Outer metallic ring */}
             <circle cx={cx} cy={cy} r={r} fill="var(--color-panel-solid)" stroke="var(--gray-a6)" strokeWidth={1.5} />
+            <circle cx={cx} cy={cy} r={r - 2} fill="none" stroke="var(--gray-a3)" strokeWidth={0.5} />
+            
+            {/* Ticks */}
             {ticks}
-            {hand(hourAngle,   r * 0.48, 3, 'var(--gray-12)')}
-            {hand(minuteAngle, r * 0.68, 2, 'var(--gray-12)')}
-            {hand(secondAngle, r * 0.76, 1.2, 'var(--accent-9)')}
-            <circle cx={cx} cy={cy} r={3} fill="var(--accent-9)" />
+            
+            {/* Hour hand */}
+            <line
+                x1={cx} y1={cy}
+                x2={cx} y2={cy - r * 0.48}
+                stroke="var(--gray-12)" strokeWidth={3} strokeLinecap="round"
+                style={{
+                    transform: `rotate(${hourAngle + 90}deg)`,
+                    transformOrigin: `${cx}px ${cy}px`,
+                }}
+            />
+            {/* Minute hand */}
+            <line
+                x1={cx} y1={cy}
+                x2={cx} y2={cy - r * 0.68}
+                stroke="var(--gray-11)" strokeWidth={2} strokeLinecap="round"
+                style={{
+                    transform: `rotate(${minuteAngle + 90}deg)`,
+                    transformOrigin: `${cx}px ${cy}px`,
+                }}
+            />
+            {/* Second hand with mechanical spring bounce effect */}
+            <line
+                x1={cx} y1={cy}
+                x2={cx} y2={cy - r * 0.78}
+                stroke="var(--accent-9)" strokeWidth={1.2} strokeLinecap="round"
+                style={{
+                    transform: `rotate(${secondAngle + 90}deg)`,
+                    transformOrigin: `${cx}px ${cy}px`,
+                    transition: 'transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+                }}
+            />
+            {/* Center cap */}
+            <circle cx={cx} cy={cy} r={3.5} fill="var(--accent-9)" stroke="var(--color-panel-solid)" strokeWidth={1} />
         </svg>
     );
 }
@@ -80,7 +103,7 @@ export default function ClockWidget() {
         <Card style={{ height: '100%' }}>
             <Flex align="center" gap={{ initial: '2', sm: '3', md: '4' }} style={{ height: '100%' }}>
                 <AnalogFace time={time} size={clockSize} />
-                <Flex direction="column" gap="1" style={{ minWidth: 0, flex: 1 }}>
+                <Flex direction="column" gap="0" style={{ minWidth: 0, flex: 1, justifyContent: 'center' }}>
                     <Text style={{
                         fontFamily: 'monospace',
                         fontSize: isSmall ? 20 : 26,
@@ -88,11 +111,12 @@ export default function ClockWidget() {
                         letterSpacing: '-0.02em',
                         lineHeight: 1,
                         color: 'var(--gray-12)',
+                        fontVariantNumeric: 'tabular-nums',
                     }}>
                         {hh}<span style={{ opacity: 0.4, animation: 'blink 1s step-end infinite' }}>:</span>{mm}
-                        <Text size="3" color="gray" style={{ fontFamily: 'monospace', marginLeft: 4 }}>{ss}</Text>
+                        <Text size="3" color="gray" style={{ fontFamily: 'monospace', marginLeft: 6, fontVariantNumeric: 'tabular-nums' }}>{ss}</Text>
                     </Text>
-                    <Text size="1" color="gray" style={{ marginTop: 4 }} truncate>{dateStr}</Text>
+                    <Text size="1" color="gray" style={{ marginTop: 6 }} truncate>{dateStr}</Text>
                 </Flex>
             </Flex>
         </Card>
