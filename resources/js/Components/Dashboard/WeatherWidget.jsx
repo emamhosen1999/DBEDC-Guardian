@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Card, Flex, Skeleton, Text } from '@radix-ui/themes';
+import { Box, Card, Flex, Skeleton, Text, Badge } from '@radix-ui/themes';
 
 const WMO = {
     0:  { label: 'Clear sky',       emoji: '☀️',  color: 'amber'  },
