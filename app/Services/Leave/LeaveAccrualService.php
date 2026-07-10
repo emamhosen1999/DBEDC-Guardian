@@ -39,7 +39,8 @@ class LeaveAccrualService
                     continue;
                 }
                 if (! $dryRun) {
-                    $this->ledger->post($user->id, $type->id, $year, 'opening', $entitlement, 'command', null, null, 'Annual entitlement');
+                    $this->ledger->post($user->id, $type->id, $year, 'opening', $entitlement, 'command', null, null,
+                        'Annual entitlement', "op:{$user->id}:{$type->id}:{$year}");
                 }
                 $posted++;
             }
@@ -77,13 +78,34 @@ class LeaveAccrualService
                     continue;
                 }
                 if (! $dryRun) {
-                    $this->ledger->post($user->id, $type->id, $year, 'accrual', $monthly, 'command', null, null, "Accrual {$year}-{$month}");
+                    $this->ledger->post($user->id, $type->id, $year, 'accrual', $monthly, 'command', null, null,
+                        "Accrual {$year}-{$month}", "ac:{$user->id}:{$type->id}:{$year}-{$month}");
                 }
                 $posted++;
             }
         }
 
         return $posted;
+    }
+
+    /**
+     * Lazily seed one user's ledger for a year from every configured accrual
+     * policy (annual grant + monthly back-fill up to the current month).
+     * Idempotent — safe to call on every leave request; used to close the
+     * "untracked balance = unlimited leave" gap.
+     */
+    public function seedFor(int $userId, int $year): void
+    {
+        $this->grantAnnual($year, $userId);
+
+        $now = Carbon::now();
+        if ($year > $now->year) {
+            return; // no monthly accrual for future years
+        }
+        $lastMonth = ($year < $now->year) ? 12 : $now->month;
+        for ($m = 1; $m <= $lastMonth; $m++) {
+            $this->accrueMonthly($year, $m, $userId);
+        }
     }
 
     private function users(?int $userId)

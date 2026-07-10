@@ -28,6 +28,21 @@ class LeaveEncashmentService
             throw new \RuntimeException('Insufficient balance to encash.', 422);
         }
 
+        // Yearly encashment cap (LeaveSetting.max_encash_days).
+        if ($type->max_encash_days !== null) {
+            $alreadyEncashed = abs((float) LeaveLedger::where('user_id', $userId)
+                ->where('leave_type', $leaveTypeId)
+                ->where('period_year', $year)
+                ->where('txn_type', 'encashment')
+                ->sum('amount'));
+            if ($alreadyEncashed + $days > (float) $type->max_encash_days) {
+                $remaining = max(0, (float) $type->max_encash_days - $alreadyEncashed);
+                throw new \RuntimeException(
+                    "Encashment cap exceeded: {$remaining} of {$type->max_encash_days} days remain this year.", 422
+                );
+            }
+        }
+
         return $this->ledger->post($userId, $leaveTypeId, $year, 'encashment', -$days, 'manual', null, $actorId, $reason ?? 'Leave encashment');
     }
 }

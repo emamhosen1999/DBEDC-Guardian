@@ -30,6 +30,10 @@ class LeaveSetting extends Model
         'carry_expiry_months',
         'is_encashable',
         'allow_negative',
+        // Policy hardening — structured eligibility + encashment cap
+        'eligible_gender',
+        'min_service_months',
+        'max_encash_days',
     ];
 
     protected $casts = [
@@ -53,6 +57,9 @@ class LeaveSetting extends Model
         'carry_expiry_months' => 'integer',
         'is_encashable' => 'boolean',
         'allow_negative' => 'boolean',
+        'eligible_gender' => 'string',
+        'min_service_months' => 'integer',
+        'max_encash_days' => 'decimal:1',
     ];
 
     public function leaves()

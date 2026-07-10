@@ -160,6 +160,8 @@ class LeaveController extends Controller
             $data['daysCount'] = $request->input('daysCount');
             $data['leaveReason'] = $request->input('leaveReason');
             $data['month'] = $request->input('month');
+            $data['isHalfDay'] = $request->boolean('isHalfDay');
+            $data['halfDaySession'] = $request->input('halfDaySession');
 
             $userId = $data['user_id'];
 
@@ -182,9 +184,13 @@ class LeaveController extends Controller
             // Realtime: a new application lights up the approver queue live.
             app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $userId, 'apply');
 
+            // Non-blocking advisory: teammates already on leave in this range.
+            $teamWarnings = $this->overlapService->teamConflictWarnings($userId, $fromDate, $toDate);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Leave application submitted successfully',
+                'warnings' => $teamWarnings,
                 'leave' => array_merge(
                     (new LeaveResource($newLeave->load('employee')))->toArray($request),
                     [
@@ -231,6 +237,8 @@ class LeaveController extends Controller
                 'daysCount' => $request->input('daysCount'),
                 'leaveReason' => $request->input('leaveReason'),
                 'month' => $request->input('month'),
+                'isHalfDay' => $request->boolean('isHalfDay'),
+                'halfDaySession' => $request->input('halfDaySession'),
             ];
 
             $fromDate = Carbon::parse($safeData['fromDate'] ?? $existing->from_date);
@@ -297,6 +305,38 @@ class LeaveController extends Controller
         );
 
         return response()->json(['message' => $result['message']]);
+    }
+
+    /**
+     * Cancel (withdraw) a leave request. Owner may cancel pending leave any
+     * time and approved leave before it starts; approvers/managers may cancel
+     * any active leave. Approved cancellations reverse the ledger consumption.
+     */
+    public function cancelLeave(Request $request, $id): JsonResponse
+    {
+        try {
+            $leave = $this->crudService->cancelLeave((int) $id, Auth::user(), $request->input('reason'));
+
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $leave->user_id, 'cancel');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Leave request cancelled successfully.',
+                'leave' => new LeaveResource($leave->load('employee')),
+            ]);
+        } catch (\RuntimeException $e) {
+            $code = in_array($e->getCode(), [403, 422], true) ? $e->getCode() : 422;
+
+            return response()->json(['success' => false, 'message' => $e->getMessage()], $code);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'An error occurred while cancelling the leave.',
+                'details' => $this->safeExceptionMessage($e),
+            ], 500);
+        }
     }
 
     public function delete(Request $request): JsonResponse

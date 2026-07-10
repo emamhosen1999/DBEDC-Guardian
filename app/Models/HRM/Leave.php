@@ -29,6 +29,8 @@ class Leave extends Model
         'rejection_reason',
         'rejected_by',
         'submitted_at',
+        'cancelled_at',
+        'cancelled_by',
     ];
 
     protected $casts = [
@@ -47,6 +49,8 @@ class Leave extends Model
         'approved_at' => 'datetime',
         'rejected_by' => 'integer',
         'submitted_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'cancelled_by' => 'integer',
     ];
 
     // Relationships
@@ -94,6 +98,11 @@ class Leave extends Model
     public function rejectedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 
     // Accessors

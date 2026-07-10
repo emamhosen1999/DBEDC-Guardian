@@ -23,28 +23,50 @@ class LeaveLedgerService
         ?string $sourceType = null,
         ?int $sourceId = null,
         ?int $actorId = null,
-        ?string $reason = null
+        ?string $reason = null,
+        ?string $idempotencyKey = null
     ): LeaveLedger {
-        return DB::transaction(function () use ($userId, $leaveTypeId, $year, $txnType, $amount, $sourceType, $sourceId, $actorId, $reason) {
-            $prior = LeaveLedger::query()
-                ->where('user_id', $userId)->where('leave_type', $leaveTypeId)->where('period_year', $year)
-                ->lockForUpdate()->orderByDesc('id')->value('balance_after');
+        try {
+            return DB::transaction(function () use ($userId, $leaveTypeId, $year, $txnType, $amount, $sourceType, $sourceId, $actorId, $reason, $idempotencyKey) {
+                // DB-backed idempotency: a keyed posting is applied at most once,
+                // even across concurrent command runs (unique index backstops the check).
+                if ($idempotencyKey !== null) {
+                    $existing = LeaveLedger::where('idempotency_key', $idempotencyKey)->first();
+                    if ($existing) {
+                        return $existing;
+                    }
+                }
 
-            $balanceAfter = round((float) ($prior ?? 0) + $amount, 2);
+                $prior = LeaveLedger::query()
+                    ->where('user_id', $userId)->where('leave_type', $leaveTypeId)->where('period_year', $year)
+                    ->lockForUpdate()->orderByDesc('id')->value('balance_after');
 
-            return LeaveLedger::create([
-                'user_id' => $userId,
-                'leave_type' => $leaveTypeId,
-                'period_year' => $year,
-                'txn_type' => $txnType,
-                'amount' => round($amount, 2),
-                'balance_after' => $balanceAfter,
-                'source_type' => $sourceType,
-                'source_id' => $sourceId,
-                'actor_id' => $actorId ?? auth()->id(),
-                'reason' => $reason,
-            ]);
-        });
+                $balanceAfter = round((float) ($prior ?? 0) + $amount, 2);
+
+                return LeaveLedger::create([
+                    'user_id' => $userId,
+                    'leave_type' => $leaveTypeId,
+                    'period_year' => $year,
+                    'txn_type' => $txnType,
+                    'amount' => round($amount, 2),
+                    'balance_after' => $balanceAfter,
+                    'source_type' => $sourceType,
+                    'source_id' => $sourceId,
+                    'actor_id' => $actorId ?? auth()->id(),
+                    'reason' => $reason,
+                    'idempotency_key' => $idempotencyKey,
+                ]);
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Unique-key race on idempotency_key: another process posted it first.
+            if ($idempotencyKey !== null && (string) $e->getCode() === '23000') {
+                $existing = LeaveLedger::where('idempotency_key', $idempotencyKey)->first();
+                if ($existing) {
+                    return $existing;
+                }
+            }
+            throw $e;
+        }
     }
 
     public function balance(int $userId, int $leaveTypeId, int $year): float

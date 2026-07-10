@@ -34,7 +34,6 @@ class LeaveValidationService
     public function getValidationMessages(): array
     {
         return [
-            'fromDate.after_or_equal' => 'Leave cannot be applied for past dates.',
             'toDate.before' => 'Leave cannot be applied more than one year in advance.',
             'daysCount.max' => 'Leave duration cannot exceed 365 days.',
             'daysCount.min' => 'Leave duration must be at least 1 day.',
@@ -70,6 +69,30 @@ class LeaveValidationService
         $validator->after(function ($validator) use ($request) {
             if ($request->boolean('isHalfDay') && $request->input('fromDate') !== $request->input('toDate')) {
                 $validator->errors()->add('toDate', 'A half-day leave must start and end on the same date.');
+            }
+
+            // Backdating window + notice period apply to NEW requests only
+            // (editing an existing/historic record is exempt).
+            if (! $request->filled('id') && $request->filled('fromDate')) {
+                try {
+                    $fromDate = \Carbon\Carbon::parse($request->input('fromDate'))->startOfDay();
+                } catch (\Throwable $e) {
+                    return; // date rule already reports the format error
+                }
+                $today = now()->startOfDay();
+
+                $maxBackdate = (int) config('leave.max_backdate_days', 30);
+                if ($fromDate->lt($today->copy()->subDays($maxBackdate))) {
+                    $validator->errors()->add('fromDate',
+                        "Leave cannot start more than {$maxBackdate} days in the past.");
+                }
+
+                $minNotice = (int) config('leave.min_notice_days', 0);
+                if ($minNotice > 0 && $fromDate->gte($today)
+                    && $fromDate->lt($today->copy()->addDays($minNotice))) {
+                    $validator->errors()->add('fromDate',
+                        "Leave requires at least {$minNotice} days notice.");
+                }
             }
         });
 

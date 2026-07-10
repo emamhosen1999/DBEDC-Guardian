@@ -55,6 +55,10 @@ class LeaveSettingController extends Controller
             'carry_expiry_months' => 'nullable|integer|min:0|max:60',
             'is_encashable' => 'nullable|boolean',
             'allow_negative' => 'nullable|boolean',
+            // Policy hardening — structured eligibility + encashment cap
+            'eligible_gender' => 'nullable|in:male,female',
+            'min_service_months' => 'nullable|integer|min:0|max:600',
+            'max_encash_days' => 'nullable|numeric|min:0|max:365',
         ];
     }
 
@@ -81,6 +85,9 @@ class LeaveSettingController extends Controller
             'carry_expiry_months' => $request->input('carry_expiry_months'),
             'is_encashable' => $request->boolean('is_encashable'),
             'allow_negative' => $request->boolean('allow_negative'),
+            'eligible_gender' => $request->input('eligible_gender'),
+            'min_service_months' => $request->input('min_service_months'),
+            'max_encash_days' => $request->input('max_encash_days'),
         ];
     }
 

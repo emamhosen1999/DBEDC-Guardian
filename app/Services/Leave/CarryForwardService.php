@@ -31,7 +31,8 @@ class CarryForwardService
                     continue;
                 }
                 if (! $dryRun) {
-                    $this->ledger->post($user->id, $type->id, $toYear, 'carry_forward', $carried, 'command', null, null, "Carry-forward from {$fromYear}");
+                    $this->ledger->post($user->id, $type->id, $toYear, 'carry_forward', $carried, 'command', null, null,
+                        "Carry-forward from {$fromYear}", "cf:{$user->id}:{$type->id}:{$toYear}");
                 }
                 $posted++;
             }
@@ -66,7 +67,8 @@ class CarryForwardService
                     continue;
                 }
                 if (! $dryRun) {
-                    $this->ledger->post($user->id, $type->id, $year, 'carry_expiry', -$unused, 'command', null, null, 'Carried days expired');
+                    $this->ledger->post($user->id, $type->id, $year, 'carry_expiry', -$unused, 'command', null, null,
+                        'Carried days expired', "ce:{$user->id}:{$type->id}:{$year}");
                 }
                 $posted++;
             }

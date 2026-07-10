@@ -4,8 +4,10 @@ namespace App\Services\Leave;
 
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class LeaveCrudService
 {
@@ -42,6 +44,76 @@ class LeaveCrudService
     }
 
     /**
+     * Request-time eligibility gate: gender restriction and minimum service.
+     *
+     * @throws \RuntimeException 422 when the employee is not eligible
+     */
+    private function assertEligible(?LeaveSetting $setting, int $userId, Carbon $fromDate): void
+    {
+        if (! $setting) {
+            return;
+        }
+
+        $user = User::find($userId);
+        if (! $user) {
+            return;
+        }
+
+        if ($setting->eligible_gender
+            && strcasecmp((string) $user->gender, (string) $setting->eligible_gender) !== 0) {
+            throw new \RuntimeException(
+                "\"{$setting->type}\" is only available to {$setting->eligible_gender} employees.", 422
+            );
+        }
+
+        if ($setting->min_service_months) {
+            $join = $user->date_of_joining ? Carbon::parse($user->date_of_joining) : null;
+            $serviceMonths = $join ? (int) $join->diffInMonths($fromDate) : 0;
+            if ($serviceMonths < (int) $setting->min_service_months) {
+                throw new \RuntimeException(
+                    "\"{$setting->type}\" requires {$setting->min_service_months} months of service.", 422
+                );
+            }
+        }
+    }
+
+    /**
+     * Balance-enforcement gate. If the (user, type, year) balance is untracked,
+     * lazily seed it from the accrual policy so enforcement is never silently
+     * dormant; a type that still has no ledger (no accrual config) is logged.
+     *
+     * @throws \RuntimeException 422 on insufficient balance
+     */
+    private function assertSufficientBalance(?LeaveSetting $setting, int $userId, int $leaveTypeId, Carbon $fromDate, float $days): void
+    {
+        if (! $setting || $setting->allow_negative) {
+            return;
+        }
+
+        $year = (int) $fromDate->year;
+
+        if (! $this->ledger->isTracked($userId, $leaveTypeId, $year)
+            && config('leave.auto_seed_ledger', true)) {
+            app(LeaveAccrualService::class)->seedFor($userId, $year);
+        }
+
+        if (! $this->ledger->isTracked($userId, $leaveTypeId, $year)) {
+            // Still untracked (type has no accrual policy): enforcement stays
+            // dormant, but never silently — surface the exposure.
+            Log::warning('Leave balance untracked — enforcement bypassed', [
+                'user_id' => $userId, 'leave_type' => $leaveTypeId, 'year' => $year,
+            ]);
+
+            return;
+        }
+
+        $available = $this->ledger->available($userId, $leaveTypeId, $fromDate);
+        if ($days > $available) {
+            throw new \RuntimeException('Insufficient leave balance for selected leave type.', 422);
+        }
+    }
+
+    /**
      * Create a new leave record
      */
     public function createLeave(array $data): Leave
@@ -70,15 +142,12 @@ class LeaveCrudService
                 (int) $data['user_id'], $fromDate, $toDate, $isHalfDay
             );
 
-            // Server-side balance enforcement via the ledger (only once the balance is
-            // tracked/seeded; dormant for un-onboarded types) unless the type allows negative.
-            if ($leaveSetting && ! $leaveSetting->allow_negative
-                && $this->ledger->isTracked((int) $data['user_id'], (int) $leaveTypeId, (int) $fromDate->year)) {
-                $available = $this->ledger->available((int) $data['user_id'], (int) $leaveTypeId, $fromDate);
-                if ($serverDays > $available) {
-                    throw new \RuntimeException('Insufficient leave balance for selected leave type.', 422);
-                }
-            }
+            // Request-time eligibility (gender / minimum service).
+            $this->assertEligible($leaveSetting, (int) $data['user_id'], $fromDate);
+
+            // Server-side balance enforcement via the ledger (lazily seeded from the
+            // accrual policy when untracked) unless the type allows negative.
+            $this->assertSufficientBalance($leaveSetting, (int) $data['user_id'], (int) $leaveTypeId, $fromDate, $serverDays);
 
             $leave = Leave::create([
                 'user_id' => $data['user_id'],
@@ -158,14 +227,12 @@ class LeaveCrudService
                 $this->ledger->reverseConsumption($leaveId, 'Leave edited');
             }
 
-            // Server-side balance enforcement via the ledger (tracked types only) unless allow_negative.
-            if ($leaveSetting && ! $leaveSetting->allow_negative
-                && $this->ledger->isTracked((int) $data['user_id'], (int) $leaveTypeId, (int) $fromDate->year)) {
-                $available = $this->ledger->available((int) $data['user_id'], (int) $leaveTypeId, $fromDate);
-                if ($serverDays > $available) {
-                    throw new \RuntimeException('Insufficient leave balance for selected leave type.', 422);
-                }
-            }
+            // Request-time eligibility (gender / minimum service).
+            $this->assertEligible($leaveSetting, (int) $data['user_id'], $fromDate);
+
+            // Server-side balance enforcement via the ledger (lazily seeded when
+            // untracked) unless the type allows negative.
+            $this->assertSufficientBalance($leaveSetting, (int) $data['user_id'], (int) $leaveTypeId, $fromDate, $serverDays);
 
             $newStatus = $data['status'] ?? $leave->status;
             $leave->update([
@@ -231,6 +298,63 @@ class LeaveCrudService
                 'updated' => false,
                 'message' => 'Leave status remains unchanged.',
             ];
+        });
+    }
+
+    /**
+     * Cancel a leave request (employee-initiated withdrawal or admin cancel).
+     *
+     * Rules:
+     *  - only the owner or a user with leaves.approve / leaves.manage may cancel;
+     *  - pending leave: cancellable any time;
+     *  - approved leave: owner may withdraw only BEFORE it starts; an
+     *    approver/manager may cancel any approved leave (full reversal);
+     *  - rejected/cancelled leave: nothing to cancel.
+     *
+     * @throws \RuntimeException 403|422
+     */
+    public function cancelLeave(int $leaveId, User $actor, ?string $reason = null): Leave
+    {
+        return DB::transaction(function () use ($leaveId, $actor, $reason) {
+            $leave = Leave::lockForUpdate()->findOrFail($leaveId);
+            $before = $leave->toArray();
+
+            $isOwner = (int) $leave->user_id === (int) $actor->id;
+            $isManager = $actor->can('leaves.approve') || $actor->can('leaves.manage');
+
+            if (! $isOwner && ! $isManager) {
+                throw new \RuntimeException('You are not authorized to cancel this leave request.', 403);
+            }
+
+            $status = strtolower((string) $leave->status);
+
+            if (in_array($status, ['cancelled', 'rejected'], true)) {
+                throw new \RuntimeException('This leave request can no longer be cancelled.', 422);
+            }
+
+            if ($status === 'approved' && ! $isManager
+                && Carbon::parse($leave->from_date)->startOfDay()->lte(now()->startOfDay())) {
+                throw new \RuntimeException(
+                    'An approved leave that has already started can only be cancelled by an approver.', 422
+                );
+            }
+
+            $wasApproved = $status === 'approved';
+
+            $leave->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+                'cancelled_by' => $actor->id,
+            ]);
+
+            // Cancelling an approved leave frees the consumed balance.
+            if ($wasApproved) {
+                $this->ledger->reverseConsumption($leaveId, $reason ?? 'Leave cancelled');
+            }
+
+            $this->audit->record('cancel', $leaveId, $before, $leave->fresh()->toArray(), $reason);
+
+            return $leave->fresh();
         });
     }
 

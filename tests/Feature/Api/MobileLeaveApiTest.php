@@ -734,8 +734,10 @@ class MobileLeaveApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'Leave request cancelled successfully.');
 
-        $this->assertDatabaseMissing('leaves', [
+        // Soft-cancel: record is kept (history + audit trail), status flipped.
+        $this->assertDatabaseHas('leaves', [
             'id' => $leaveId,
+            'status' => 'cancelled',
         ]);
     }
 

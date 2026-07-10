@@ -858,11 +858,25 @@ class LeaveApiService
         }
 
         $status = strtolower((string) ($leave->status ?? ''));
-        if (in_array($status, ['approved', 'declined', 'rejected'], true)) {
+        if (in_array($status, ['approved', 'declined', 'rejected', 'cancelled'], true)) {
             throw new RuntimeException('This leave request can no longer be cancelled.', 422);
         }
 
-        DB::table('leaves')->where('id', $leaveId)->delete();
+        // Soft-cancel: keep the record (and its audit trail) instead of deleting.
+        $update = ['status' => 'cancelled'];
+        if (Schema::hasColumn('leaves', 'cancelled_at')) {
+            $update['cancelled_at'] = now();
+        }
+        if (Schema::hasColumn('leaves', 'cancelled_by')) {
+            $update['cancelled_by'] = $user->id;
+        }
+        DB::table('leaves')->where('id', $leaveId)->update($update);
+
+        app(\App\Services\Leave\LeaveAuditService::class)->record(
+            'cancel', $leaveId, (array) $leave,
+            (array) DB::table('leaves')->where('id', $leaveId)->first(),
+            'Cancelled via mobile'
+        );
     }
 
     public function assertLeaveConfigurationAvailable(): void

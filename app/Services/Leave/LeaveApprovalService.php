@@ -53,18 +53,25 @@ class LeaveApprovalService
             ];
         }
 
-        // Level 2: Department Head (if different from direct manager)
-        $departmentHead = User::where('department_id', $user->department_id)
-            ->where('designation_id', function ($query) {
-                $query->selectRaw('MIN(id)') // Lowest designation_id = highest rank
-                    ->from('designations')
-                    ->whereColumn('id', 'users.designation_id');
-            })
-            ->where('id', '!=', $user->id)
-            ->when($directManagerId, function ($query) use ($directManagerId) {
-                $query->where('id', '!=', $directManagerId);
-            })
-            ->first();
+        // Level 2: Department Head (if different from direct manager).
+        // Head = a user in the same department holding a ROOT designation
+        // (designations are hierarchical via parent_id; root = top of the tree).
+        $departmentHead = $user->department_id
+            ? User::where('department_id', $user->department_id)
+                ->where('id', '!=', $user->id)
+                ->when($directManagerId, function ($query) use ($directManagerId) {
+                    $query->where('id', '!=', $directManagerId);
+                })
+                ->whereIn('designation_id', function ($query) use ($user) {
+                    $query->select('id')
+                        ->from('designations')
+                        ->where('department_id', $user->department_id)
+                        ->whereNull('parent_id')
+                        ->whereNull('deleted_at');
+                })
+                ->orderBy('id')
+                ->first()
+            : null;
 
         if ($departmentHead) {
             $approvalChain[] = [

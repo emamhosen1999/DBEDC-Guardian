@@ -80,6 +80,44 @@ class LeaveOverlapService
     }
 
     /**
+     * Non-blocking team-conflict advisory: teammates (same department) with
+     * pending/approved leave overlapping the requested range. Returned as
+     * warnings — informs the approver, never blocks the request.
+     */
+    public function teamConflictWarnings(int $userId, Carbon $fromDate, Carbon $toDate): array
+    {
+        $departmentId = \App\Models\User::where('id', $userId)->value('department_id');
+        if (! $departmentId) {
+            return [];
+        }
+
+        $threshold = max(1, (int) config('leave.team_conflict_warn_threshold', 1));
+
+        $conflicts = Leave::query()
+            ->join('users', 'users.id', '=', 'leaves.user_id')
+            ->where('users.department_id', $departmentId)
+            ->where('leaves.user_id', '!=', $userId)
+            ->whereIn('leaves.status', ['pending', 'approved'])
+            ->where('leaves.from_date', '<=', $toDate)
+            ->where('leaves.to_date', '>=', $fromDate)
+            ->select('users.name', 'leaves.from_date', 'leaves.to_date', 'leaves.status')
+            ->limit(10)
+            ->get();
+
+        if ($conflicts->count() < $threshold) {
+            return [];
+        }
+
+        return $conflicts->map(function ($row) {
+            $from = Carbon::parse($row->from_date)->format('Y-m-d');
+            $to = Carbon::parse($row->to_date)->format('Y-m-d');
+            $range = $from === $to ? $from : "{$from} to {$to}";
+
+            return "{$row->name} also has {$row->status} leave ({$range}) in your team.";
+        })->all();
+    }
+
+    /**
      * Check if there are any overlapping leaves and return error message
      */
     public function getOverlapErrorMessage(int $userId, Carbon $fromDate, Carbon $toDate, ?int $excludeLeaveId = null): ?string

@@ -15,6 +15,7 @@ class LeaveLedger extends Model
     protected $fillable = [
         'user_id', 'leave_type', 'period_year', 'txn_type',
         'amount', 'balance_after', 'source_type', 'source_id', 'actor_id', 'reason',
+        'idempotency_key',
     ];
 
     protected $casts = [
