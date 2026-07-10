@@ -292,7 +292,7 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
                                             <CounterClockwiseClockIcon style={{ width: 14, height: 14 }} />
                                         </Button>
                                     </Tooltip>
-                                    <Tooltip content="Delete Record">
+                                    <Tooltip content="Mark Absent">
                                         <Button
                                             size="1"
                                             variant="ghost"
