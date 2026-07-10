@@ -27,11 +27,18 @@ function BarChart({ data, valueKey = 'value', labelKey = 'label', color = 'var(-
     const max = Math.max(...data.map(d => d[valueKey] || 0), 1);
     const barW = Math.max(12, Math.floor(320 / data.length) - 4);
     const totalW = data.length * (barW + 4);
+    const gradId = `barGrad-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
     
     return (
         <ScrollArea type="auto" scrollbars="horizontal">
             <Box style={{ overflowX: 'auto', paddingBottom: '8px' }}>
                 <svg viewBox={`0 0 ${totalW} ${height + 24}`} style={{ width: '100%', minWidth: totalW }}>
+                    <defs>
+                        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} />
+                            <stop offset="100%" stopColor={color} stopOpacity={0.25} />
+                        </linearGradient>
+                    </defs>
                     {data.map((d, i) => {
                         const val = d[valueKey] || 0;
                         const barH = Math.max(2, Math.round((val / max) * height));
@@ -39,10 +46,10 @@ function BarChart({ data, valueKey = 'value', labelKey = 'label', color = 'var(-
                         const y = height - barH;
                         return (
                             <g key={i} style={{ transition: 'all 0.3s ease' }}>
-                                <rect x={x} y={y} width={barW} height={barH} fill={color} rx="3" opacity="0.85" />
-                                <text x={x + barW / 2} y={height + 14} textAnchor="middle" fontSize="9" fill="var(--gray-10)">{d[labelKey]}</text>
+                                <rect x={x} y={y} width={barW} height={barH} fill={`url(#${gradId})`} rx="4" />
+                                <text x={x + barW / 2} y={height + 14} textAnchor="middle" fontSize="9" fontWeight="500" fill="var(--gray-10)">{d[labelKey]}</text>
                                 {val > 0 && (
-                                    <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize="9" fontWeight="600" fill="var(--gray-11)">{val}</text>
+                                    <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--gray-12)">{val}</text>
                                 )}
                             </g>
                         );
@@ -61,15 +68,22 @@ function ProgressRow({ label, value, max, color = 'var(--accent-9)', badge, load
     return (
         <Flex direction="column" gap="1">
             <Flex justify="between" align="center">
-                <Text size="2" color="gray" weight="medium">{label}</Text>
+                <Text size="2" color="gray" weight="semibold">{label}</Text>
                 <Flex align="center" gap="2">
-                    {badge && <Badge size="1" variant="soft" color={badge}>{value}</Badge>}
-                    {!badge && <Text size="2" weight="medium">{value}</Text>}
-                    <Text size="1" color="gray" style={{ width: '30px', textAlign: 'right' }}>{pct}%</Text>
+                    {badge && <Badge size="1" variant="soft" color={badge} style={{ fontWeight: 700 }}>{value}</Badge>}
+                    {!badge && <Text size="2" weight="bold">{value}</Text>}
+                    <Text size="1" color="gray" style={{ width: '32px', textAlign: 'right', fontWeight: 500 }}>{pct}%</Text>
                 </Flex>
             </Flex>
-            <Box style={{ height: 6, background: 'var(--gray-a4)', borderRadius: 'var(--radius-1)', overflow: 'hidden' }}>
-                <Box style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 'var(--radius-1)', transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+            <Box style={{ height: 8, background: 'var(--gray-a4)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                <Box style={{ 
+                    height: '100%', 
+                    width: `${pct}%`, 
+                    background: color, 
+                    borderRadius: 'var(--radius-full)', 
+                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: `0 0 8px ${color}80`
+                }} />
             </Box>
         </Flex>
     );
@@ -78,17 +92,22 @@ function ProgressRow({ label, value, max, color = 'var(--accent-9)', badge, load
 /* ── Stat Card ── */
 function StatCard({ label, value, sub, color = 'blue', icon: Icon, loading = false }) {
     return (
-        <Card size="2" variant="surface">
-            <Flex align="start" gap="3">
-                <Box p="2" style={{ background: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon style={{ width: 18, height: 18, color: `var(--${color}-9)` }} />
+        <Card size="2" style={{
+            background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
+            border: `1px solid var(--${color}-a4)`,
+            boxShadow: 'var(--shadow-2)',
+            borderRadius: 'var(--radius-3)'
+        }}>
+            <Flex align="center" gap="3">
+                <Box p="3" style={{ background: `var(--${color}-a3)`, borderRadius: 'var(--radius-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon style={{ width: 20, height: 20, color: `var(--${color}-9)` }} />
                 </Box>
                 <Box>
                     <Skeleton loading={loading}>
-                        <Text size="6" weight="bold" as="div" style={{ lineHeight: 1.1 }}>{value ?? 0}</Text>
+                        <Text size="6" weight="bold" as="div" style={{ lineHeight: 1.1, color: 'var(--gray-12)' }}>{value ?? 0}</Text>
                     </Skeleton>
-                    <Text size="2" weight="medium" as="div" mt="1">{label}</Text>
-                    {sub && <Text size="1" color="gray">{sub}</Text>}
+                    <Text size="2" weight="bold" as="div" mt="1" color="gray" style={{ opacity: 0.8 }}>{label}</Text>
+                    {sub && <Text size="1" color="gray" style={{ display: 'block', mt: 1 }}>{sub}</Text>}
                 </Box>
             </Flex>
         </Card>
