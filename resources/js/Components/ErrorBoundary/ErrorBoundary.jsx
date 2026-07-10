@@ -86,55 +86,97 @@ class ErrorBoundary extends React.Component {
         }, 1000);
     };    render() {
         if (this.state.hasError) {
-            const { error, errorInfo, errorId, showDetails } = this.state;
+            const { error, errorInfo, errorId } = this.state;
+            
+            // Check if it is a widget-level error (inside Grid rows)
+            const isWidget = this.props.compact || (errorInfo?.componentStack && (
+                errorInfo.componentStack.includes('PersonalOverviewCard') || 
+                errorInfo.componentStack.includes('PunchStatusCard') || 
+                errorInfo.componentStack.includes('QuickLinksWidget') || 
+                errorInfo.componentStack.includes('AttendanceChartWidget') || 
+                errorInfo.componentStack.includes('PendingTasksWidget') || 
+                errorInfo.componentStack.includes('UpcomingHolidaysWidget') || 
+                errorInfo.componentStack.includes('UpdatesCards') ||
+                errorInfo.componentStack.includes('WeatherWidget') ||
+                errorInfo.componentStack.includes('ClockWidget')
+            ));
+
+            if (isWidget) {
+                return (
+                    <Card style={{ height: '100%', borderColor: 'var(--red-a7)', background: 'var(--red-a1)' }}>
+                        <Flex direction="column" justify="center" align="center" gap="2" style={{ height: '100%', minHeight: 120, textAlign: 'center', padding: 12 }}>
+                            <ExclamationTriangleIcon style={{ width: 24, height: 24, color: 'var(--red-9)' }} />
+                            <Box>
+                                <Text size="2" weight="bold" color="red" style={{ display: 'block' }}>Widget Error</Text>
+                                <Text size="1" color="gray" style={{ display: 'block', mt: 1 }}>Failed to load element</Text>
+                            </Box>
+                            <Button size="1" color="red" variant="soft" onClick={this.handleRetry}>
+                                <ReloadIcon style={{ width: 10, height: 10 }} /> Retry Widget
+                            </Button>
+                        </Flex>
+                    </Card>
+                );
+            }
 
             return (
-                <Flex align="center" justify="center" style={{ minHeight: '100vh', padding: 24 }}>
-                    <Box style={{ maxWidth: 640, width: '100%', textAlign: 'center' }}>
-                        <Flex justify="center" mb="5">
-                            <ExclamationTriangleIcon style={{ width: 80, height: 80, color: 'var(--red-9)' }} />
-                        </Flex>
-                        <Text as="p" size="7" weight="bold" color="red" mb="3">Oops! Something went wrong</Text>
-                        <Text as="p" size="3" color="gray" mb="5">
-                            We encountered an unexpected error. Our team has been notified and will investigate this issue.
-                        </Text>
-                        <Card mb="5" style={{ borderLeft: '4px solid var(--blue-9)', textAlign: 'left' }}>
-                            <Box p="3">
-                                <Text as="p" size="2"><strong>Error ID:</strong> <code style={{ fontFamily: 'monospace', background: 'var(--gray-a3)', padding: '1px 4px', borderRadius: 3 }}>{errorId}</code></Text>
-                                <Text as="p" size="1" color="gray" mt="1">Please provide this ID when contacting support.</Text>
-                            </Box>
-                        </Card>
-                        <Flex gap="2" justify="center" wrap="wrap" mb="5">
-                            <Button color="indigo" onClick={this.handleRetry}><ReloadIcon /> Try Again</Button>
-                            <Button color="indigo" variant="outline" onClick={this.handleGoHome}><HomeIcon /> Go to Dashboard</Button>
-                            <Button color="gray" variant="outline" onClick={this.handleReload}><ReloadIcon /> Recover</Button>
-                        </Flex>
-                        {(error || errorInfo) && (
-                            <Box mb="5" style={{ textAlign: 'left' }}>
-                                <details style={{ border: '1px solid var(--gray-a6)', borderRadius: 'var(--radius-2)', padding: 12 }}>
-                                    <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Technical Details</summary>
-                                    <Box mt="3">
-                                        {error && (
-                                            <Box mb="3">
-                                                <Text size="2" weight="bold" color="red" as="p" mb="1">Error Message:</Text>
-                                                <pre style={{ background: 'var(--gray-a3)', padding: 12, borderRadius: 'var(--radius-2)', fontSize: 12, overflow: 'auto', fontFamily: 'monospace' }}>{error.message}</pre>
+                <Flex align="center" justify="center" style={{ minHeight: '100vh', background: 'radial-gradient(circle, var(--gray-1) 0%, var(--gray-3) 100%)', padding: 24 }}>
+                    <Box style={{ maxWidth: 520, width: '100%' }}>
+                        <Card style={{ padding: 32, borderTop: '4px solid var(--red-9)', boxShadow: 'var(--shadow-4)' }}>
+                            <Flex direction="column" align="center" gap="4" style={{ textAlign: 'center' }}>
+                                <Box style={{ padding: 16, borderRadius: '50%', background: 'var(--red-a3)' }}>
+                                    <ExclamationTriangleIcon style={{ width: 48, height: 48, color: 'var(--red-9)' }} />
+                                </Box>
+                                <Box>
+                                    <Text size="6" weight="bold" style={{ color: 'var(--gray-12)', letterSpacing: '-0.02em' }}>
+                                        Application Outage
+                                    </Text>
+                                    <Text size="2" color="gray" mt="2" style={{ display: 'block', lineHeight: 1.5 }}>
+                                        A component encountered an unrecoverable failure. Our system administration is analyzing the logs automatically.
+                                    </Text>
+                                </Box>
+
+                                <Card style={{ width: '100%', borderLeft: '3px solid var(--blue-9)', background: 'var(--blue-a1)', textAlign: 'left' }}>
+                                    <Flex direction="column" gap="1" p="2">
+                                        <Text size="1" color="gray">DIAGNOSTIC REFERENCE ID</Text>
+                                        <Text size="2" weight="bold" style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
+                                            {errorId}
+                                        </Text>
+                                    </Flex>
+                                </Card>
+
+                                <Flex gap="3" justify="center" wrap="wrap" style={{ width: '100%' }}>
+                                    <Button color="indigo" size="2" onClick={this.handleRetry} style={{ flex: 1, minWidth: 120 }}>
+                                        <ReloadIcon /> Reload State
+                                    </Button>
+                                    <Button color="gray" variant="soft" size="2" onClick={this.handleGoHome} style={{ flex: 1, minWidth: 120 }}>
+                                        <HomeIcon /> Go to Dashboard
+                                    </Button>
+                                </Flex>
+
+                                {(error || errorInfo) && (
+                                    <Box style={{ width: '100%', textAlign: 'left' }}>
+                                        <details style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', padding: 12 }}>
+                                            <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 13, color: 'var(--gray-11)' }}>
+                                                Developer Stack Trace
+                                            </summary>
+                                            <Box mt="3">
+                                                {error && (
+                                                    <Box mb="3">
+                                                        <Text size="1" weight="bold" color="red" as="p" mb="1">Message</Text>
+                                                        <pre style={{ background: 'var(--gray-a2)', padding: 12, borderRadius: 'var(--radius-2)', fontSize: 11, overflow: 'auto', fontFamily: 'monospace' }}>{error.message}</pre>
+                                                    </Box>
+                                                )}
+                                                {errorInfo && (
+                                                    <Box>
+                                                        <Text size="1" weight="bold" color="red" as="p" mb="1">Stack Trace</Text>
+                                                        <pre style={{ background: 'var(--gray-a2)', padding: 12, borderRadius: 'var(--radius-2)', fontSize: 11, overflow: 'auto', fontFamily: 'monospace', maxHeight: 150 }}>{errorInfo.componentStack}</pre>
+                                                    </Box>
+                                                )}
                                             </Box>
-                                        )}
-                                        {errorInfo && (
-                                            <Box>
-                                                <Text size="2" weight="bold" color="red" as="p" mb="1">Component Stack:</Text>
-                                                <pre style={{ background: 'var(--gray-a3)', padding: 12, borderRadius: 'var(--radius-2)', fontSize: 12, overflow: 'auto', fontFamily: 'monospace', maxHeight: 192 }}>{errorInfo.componentStack}</pre>
-                                            </Box>
-                                        )}
+                                        </details>
                                     </Box>
-                                </details>
-                            </Box>
-                        )}
-                        <Card>
-                            <Box p="3" style={{ textAlign: 'center' }}>
-                                <Text as="p" size="3" weight="bold" mb="1">Need Help?</Text>
-                                <Text as="p" size="2" color="gray">If this problem persists, contact our support team at <strong style={{ color: 'var(--accent-9)' }}>support@dbedc.com</strong> with the error ID.</Text>
-                            </Box>
+                                )}
+                            </Flex>
                         </Card>
                     </Box>
                 </Flex>
