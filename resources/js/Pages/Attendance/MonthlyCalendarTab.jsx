@@ -15,6 +15,8 @@ import { showToast } from '@/utils/toastUtils';
 import { handleExportResponse } from '@/utils/exportUtils';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
+import MonthlySidebar from './Components/MonthlySidebar';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 /* ── status map ───────────────────────────────────────────── */
 const STATUS_MAP = {
@@ -399,6 +401,15 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
 
     const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
     const [downloading, setDownloading] = useState('');
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedMonth, selectedDepartmentId, employeeQuery, perPage]);
 
     // React Query mutation
     const exportMonthlyCalendar = useAttendanceQuery.useExportMonthlyCalendar();
@@ -419,10 +430,14 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
         currentYear: yearNum,
         departmentId: selectedDepartmentId !== 'all' ? parseInt(selectedDepartmentId) : null,
         employee: employeeQuery,
+        page: currentPage,
+        perPage: perPage,
     });
 
     // Derived state from React Query data
     const rows = monthlySummaryData?.data || [];
+    const totalRows = monthlySummaryData?.total || 0;
+    const lastPage = monthlySummaryData?.last_page || 1;
     const leaveTypes = monthlySummaryData?.leaveTypes || [];
     const leaveCounts = monthlySummaryData?.leaveCounts || {};
     const settings = monthlySummaryData?.settings || null;
@@ -506,10 +521,40 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
                             </Select.Content>
                         </Select.Root>
                     )}
+
+                    {isAdminView && (
+                        <Select.Root
+                            value={String(perPage)}
+                            onValueChange={v => setPerPage(Number(v))}
+                        >
+                            <Select.Trigger size="2" style={{ width: 110 }} />
+                            <Select.Content>
+                                {[10, 25, 50, 100].map(n => (
+                                    <Select.Item key={n} value={String(n)}>{n} / page</Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
+                    )}
                 </Flex>
 
                 {/* right: refresh + export (admin only) */}
                 <Flex gap="2" align="center" wrap="wrap">
+                    {isAdminView && (
+                        <Tooltip content={sidebarOpen ? "Hide Stats Sidebar" : "Show Stats Sidebar"}>
+                            <Button
+                                size="2"
+                                variant={sidebarOpen ? "soft" : "solid"}
+                                color="blue"
+                                onClick={() => setSidebarOpen(!sidebarOpen)}
+                            >
+                                {sidebarOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+                                <Text size="2" weight="medium">
+                                    {sidebarOpen ? 'Hide Stats' : 'Show Stats'}
+                                </Text>
+                            </Button>
+                        </Tooltip>
+                    )}
+
                     <Tooltip content="Refresh">
                         <Button size="2" variant="soft" color="gray" onClick={() => refetch()}>
                             <ReloadIcon />
@@ -553,18 +598,53 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
             </Flex>
 
             {/* Table / Cards */}
-            {isMobile
-                ? <MobileMonthCalendar
-                    rows={rows} days={days} month={monthNum} year={yearNum}
-                    leaveTypes={leaveTypes} leaveCounts={leaveCounts}
-                    weekendDays={weekendDays} loading={isLoading}
-                  />
-                : <DesktopMonthTable
-                    rows={rows} days={days} month={monthNum} year={yearNum}
-                    leaveTypes={leaveTypes} leaveCounts={leaveCounts}
-                    weekendDays={weekendDays} loading={isLoading}
-                  />
-            }
+            <Flex direction={isMobile ? 'column' : 'row'} gap="3" align="stretch">
+                <Box style={{ flex: '1 1 0', minWidth: 0 }}>
+                    {isMobile
+                        ? <MobileMonthCalendar
+                            rows={rows} days={days} month={monthNum} year={yearNum}
+                            leaveTypes={leaveTypes} leaveCounts={leaveCounts}
+                            weekendDays={weekendDays} loading={isLoading}
+                          />
+                        : <DesktopMonthTable
+                            rows={rows} days={days} month={monthNum} year={yearNum}
+                            leaveTypes={leaveTypes} leaveCounts={leaveCounts}
+                            weekendDays={weekendDays} loading={isLoading}
+                          />
+                    }
+                    {lastPage > 1 && !isLoading && (
+                        <Box mt="4">
+                            <TablePagination
+                                pagination={{ currentPage, perPage, total: totalRows }}
+                                onPageChange={setCurrentPage}
+                                onRowsPerPageChange={(v) => setPerPage(v)}
+                                loading={isLoading}
+                            />
+                        </Box>
+                    )}
+                </Box>
+                {isAdminView && sidebarOpen && (
+                    <Box
+                        style={{
+                            width: isMobile ? '100%' : '320px',
+                            flexShrink: 0,
+                            borderRadius: 'var(--radius-3)',
+                            border: '1px solid var(--gray-a4)',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <MonthlySidebar
+                            rows={rows}
+                            days={days}
+                            monthNum={monthNum}
+                            yearNum={yearNum}
+                            leaveTypes={leaveTypes}
+                            leaveCounts={leaveCounts}
+                            isLoading={isLoading}
+                        />
+                    </Box>
+                )}
+            </Flex>
         </Box>
     );
 };

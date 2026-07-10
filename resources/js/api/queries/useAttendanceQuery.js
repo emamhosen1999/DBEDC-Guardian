@@ -47,12 +47,12 @@ export const useAttendanceHistory = (params = {}) => {
  * Fetch monthly attendance summary
  */
 export const useMonthlySummary = (params = {}) => {
-  const { currentMonth, currentYear, scope = 'self', employee, departmentId } = params;
+  const { currentMonth, currentYear, scope = 'self', employee, departmentId, page = 1, perPage = 25 } = params;
 
   return useQuery({
-    queryKey: ['attendance', 'monthly-summary', { currentMonth, currentYear, scope, employee, departmentId }],
+    queryKey: ['attendance', 'monthly-summary', { currentMonth, currentYear, scope, employee, departmentId, page, perPage }],
     queryFn: () => requestJson('get', '/attendances-admin-paginate', {
-      params: { currentMonth, currentYear, page: 1, perPage: 1000, employee, department_id: departmentId }
+      params: { currentMonth, currentYear, page, per_page: perPage, employee, department_id: departmentId }
     }),
     staleTime: 10 * 60 * 1000, // 10 minutes - summary doesn't change often
   });

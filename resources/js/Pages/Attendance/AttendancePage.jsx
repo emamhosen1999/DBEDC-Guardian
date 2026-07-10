@@ -2,7 +2,7 @@ import React, { useState, useCallback, lazy, Suspense } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import App from '@/Layouts/App';
 import {
-    Box, Flex, Text, Card, Tabs, Separator, Skeleton,
+    Box, Flex, Text, Card, Tabs, Skeleton,
 } from '@radix-ui/themes';
 import {
     ClockIcon, CalendarIcon, GearIcon, LayersIcon, CheckCircledIcon,
@@ -18,7 +18,7 @@ const SettingsTab        = lazy(() => import('./SettingsTab'));
 const ApprovalsInbox     = lazy(() => import('./Components/ApprovalsInbox'));
 const BiometricPanel     = lazy(() => import('@/Components/AdminUnified/BiometricPanel'));
 import ErrorBoundary      from '@/Components/ErrorBoundary/ErrorBoundary';
-import AttendanceOverview from './Components/AttendanceOverview';
+
 
 /* ── optional: mark-as-present modals (keep your existing) ── */
 // import MarkAsPresentForm     from '@/Forms/MarkAsPresentForm';
@@ -153,15 +153,7 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                             </Flex>
                         </Box>
 
-                        {activeTab !== 'settings' && activeTab !== 'biometric' && (
-                            <AttendanceOverview
-                                date={selectedDate}
-                                mode={activeTab === 'monthly' ? 'monthly' : 'daily'}
-                                month={selectedMonth}
-                            />
-                        )}
 
-                        <Separator size="4" mb="4" />
 
                         {/* ══ TABS ═══════════════════════════════════════ */}
                         <Tabs.Root

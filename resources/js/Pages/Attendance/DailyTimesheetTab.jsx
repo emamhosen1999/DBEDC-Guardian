@@ -8,8 +8,10 @@ import {
     ExclamationTriangleIcon, CheckCircledIcon, DownloadIcon,
     MobileIcon,
     ReloadIcon, UpdateIcon, TrashIcon, CounterClockwiseClockIcon,
+    ChevronLeftIcon, ChevronRightIcon,
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
+import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
 import { showToast } from '@/utils/toastUtils';
 import { handleExportResponse } from '@/utils/exportUtils';
@@ -329,6 +331,7 @@ const DailyTimesheetTab = ({
     const canCorrect = auth.permissions?.includes('attendance.correct') || false;
     const canExport  = auth.permissions?.includes('attendance.export') || canManage;
     const isAdminView = canViewAll && url !== '/attendance-employee';
+    const isMobile = useMediaQuery('(max-width: 767px)');
 
     // Zustand store for shared state
     const { employeeQuery, setEmployeeQuery } = useAttendanceStore();
@@ -336,6 +339,7 @@ const DailyTimesheetTab = ({
     /* state */
     const [updateMap,    setUpdateMap]    = useState(false);
     const [downloading,  setDownloading]  = useState('');
+    const [sidebarOpen,  setSidebarOpen]  = useState(true);
     const [lastChecked,  setLastChecked]  = useState(null);
     const prevUpdateRef = useRef(null);
 
@@ -706,6 +710,27 @@ const DailyTimesheetTab = ({
                         </Text>
                     )}
 
+                    {isAdminView && !rangeMode && (
+                        <Tooltip content={sidebarOpen ? "Hide Absent Sidebar" : "Show Absent Sidebar"}>
+                            <Button
+                                size="2"
+                                variant={sidebarOpen ? "soft" : "solid"}
+                                color="red"
+                                onClick={() => setSidebarOpen(!sidebarOpen)}
+                            >
+                                {sidebarOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+                                <Text size="2" weight="medium">
+                                    {sidebarOpen ? 'Hide Absents' : 'Show Absents'}
+                                </Text>
+                                {isLoaded && absentUsers?.length > 0 && (
+                                    <Badge color="red" variant="solid" size="1" style={{ marginLeft: 4 }}>
+                                        {absentUsers.length}
+                                    </Badge>
+                                )}
+                            </Button>
+                        </Tooltip>
+                    )}
+
                     <Tooltip content="Refresh">
                         <Button
                             size="2"
@@ -744,27 +769,8 @@ const DailyTimesheetTab = ({
                 </Flex>
             </Flex>
 
-            {/* Stats row */}
-            <Flex align="center" gap="4" mb="3">
-                <Flex align="center" gap="1">
-                    <CheckCircledIcon style={{ color: 'var(--green-9)', width: 14 }} />
-                    <Text size="2" color="gray">Present: {isLoaded ? totalRows : '…'}</Text>
-                </Flex>
-                {isAdminView && (
-                    <Flex align="center" gap="1">
-                        <ExclamationTriangleIcon style={{ color: 'var(--amber-9)', width: 14 }} />
-                        <Text size="2" color="gray">Absent: {isLoaded ? (absentUsers?.length || 0) : '…'}</Text>
-                    </Flex>
-                )}
-                {isAdminView && (
-                    <Flex align="center" gap="1">
-                        <PersonIcon style={{ color: 'var(--accent-9)', width: 14 }} />
-                        <Text size="2" color="gray">
-                            Total: {isLoaded ? totalRows + (absentUsers?.length || 0) : '…'}
-                        </Text>
-                    </Flex>
-                )}
-            </Flex>
+
+
 
             {/* Body: range log table OR single-day table + sidebar */}
             {rangeMode ? (
@@ -829,7 +835,7 @@ const DailyTimesheetTab = ({
                     <Text size="2" color="red">{error}</Text>
                 </Flex>
             ) : (
-                <Flex gap="0" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden', minHeight: 400 }}>
+                <Flex direction={isMobile ? 'column' : 'row'} gap="0" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden', minHeight: 400 }}>
 
                     {/* Present table */}
                     <Box style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
@@ -901,8 +907,8 @@ const DailyTimesheetTab = ({
                     </Box>
 
                     {/* Absent sidebar — admin only */}
-                    {isAdminView && (
-                        <Box style={{ width: 260, flexShrink: 0 }}>
+                    {isAdminView && sidebarOpen && (
+                        <Box style={{ width: isMobile ? '100%' : '320px', flexShrink: 0 }}>
                             <AbsentSidebar
                                 absentUsers={absentUsers}
                                 offUsers={offUsers}
@@ -914,6 +920,8 @@ const DailyTimesheetTab = ({
                                 selectedDate={selectedDate}
                                 canManage={canManage}
                                 isWeekend={isWeekend}
+                                presentCount={totalRows}
+                                leavesCount={leaves?.length || 0}
                             />
                         </Box>
                     )}

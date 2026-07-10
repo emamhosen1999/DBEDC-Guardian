@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Box, Flex, Button, Text, Card, TextField, Select, SegmentedControl } from '@radix-ui/themes';
 import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon, GridIcon } from '@radix-ui/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +15,7 @@ import CoverageRequirementsDialog from './Components/CoverageRequirementsDialog'
 import RosterCellPopover from './Components/RosterCellPopover';
 import { handleCellConflict } from './rosterCellConflict';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 export default function RosterTab({ month, onMonthChange, departments = [], isActive = true }) {
     const { employees = [], auth } = usePage().props;
@@ -27,6 +28,14 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'employee'
     const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+
+    // Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [perPage, setPerPage] = useState(25);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [month, selectedDepartmentId, employeeQuery, perPage, viewMode]);
 
     const from = useMemo(() => dayjs(month + '-01').startOf('month').format('YYYY-MM-DD'), [month]);
     const to = useMemo(() => dayjs(month + '-01').endOf('month').format('YYYY-MM-DD'), [month]);
@@ -107,6 +116,10 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
             return row.name?.toLowerCase().includes(employeeQuery.toLowerCase());
         });
     }, [roster, employeeQuery]);
+
+    const paginatedRows = useMemo(() => {
+        return rows.slice((currentPage - 1) * perPage, currentPage * perPage);
+    }, [rows, currentPage, perPage]);
 
     // Employee options + default selection for the per-employee calendar view.
     const employeeOptions = useMemo(
@@ -264,6 +277,18 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                             </Select.Content>
                         </Select.Root>
                     )}
+
+                    <Select.Root
+                        value={String(perPage)}
+                        onValueChange={v => setPerPage(Number(v))}
+                    >
+                        <Select.Trigger size="2" style={{ width: 110 }} />
+                        <Select.Content>
+                            {[10, 25, 50, 100].map(n => (
+                                <Select.Item key={n} value={String(n)}>{n} / page</Select.Item>
+                            ))}
+                        </Select.Content>
+                    </Select.Root>
                 </Flex>
 
                 {/* Right: View toggle, Refresh & Generate */}
@@ -316,12 +341,24 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                                 onCellClick={handleCellClick}
                             />
                         ) : (
-                            <RosterCalendar
-                                roster={Object.fromEntries(rows)}
-                                days={days}
-                                holidays={holidays}
-                                onCellClick={handleCellClick}
-                            />
+                            <>
+                                <RosterCalendar
+                                    roster={Object.fromEntries(paginatedRows)}
+                                    days={days}
+                                    holidays={holidays}
+                                    onCellClick={handleCellClick}
+                                />
+                                {rows.length > perPage && (
+                                    <Box mt="3">
+                                        <TablePagination
+                                            pagination={{ currentPage, perPage, total: rows.length }}
+                                            onPageChange={setCurrentPage}
+                                            onRowsPerPageChange={() => {}}
+                                            loading={isLoading}
+                                        />
+                                    </Box>
+                                )}
+                            </>
                         )}
                         <RosterCellPopover
                             open={popoverOpen}
