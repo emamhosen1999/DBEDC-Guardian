@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Flex, Heading, Text, Skeleton, Box, Separator } from '@radix-ui/themes';
+import { Card, Flex, Heading, Text, Skeleton, Box, Separator, Badge } from '@radix-ui/themes';
 import { SunIcon, CalendarIcon, InfoCircledIcon, TextAlignLeftIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
