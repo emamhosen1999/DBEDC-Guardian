@@ -22,6 +22,20 @@ import { showToast } from '@/utils/toastUtils';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
 
+const getLeaveTypeConfig = (type) => {
+    const t = type?.toLowerCase() || '';
+    if (t.includes('sick') || t.includes('medical')) {
+        return { color: 'red', icon: '🩺', bg: 'var(--red-a3)', accent: 'var(--red-9)' };
+    }
+    if (t.includes('casual') || t.includes('personal')) {
+        return { color: 'blue', icon: '🏖️', bg: 'var(--blue-a3)', accent: 'var(--blue-9)' };
+    }
+    if (t.includes('earned') || t.includes('annual') || t.includes('vacation')) {
+        return { color: 'green', icon: '🌴', bg: 'var(--green-a3)', accent: 'var(--green-9)' };
+    }
+    return { color: 'amber', icon: '📝', bg: 'var(--amber-a3)', accent: 'var(--amber-9)' };
+};
+
 /* ── Confirm Modal ───────────────────────── */
 const ConfirmModal = ({ open, onClose, onConfirm, loading, candidate }) => {
     if (!open) return null;
@@ -469,16 +483,18 @@ export default function LeaveSettingsPanel({
                                         </Table.Cell>
                                     </Table.Row>
                                 ) : (
-                                    filtered.map(lt => (
-                                        <Table.Row key={lt.id}>
-                                            <Table.Cell>
-                                                <Flex align="center" gap="3">
-                                                    <Box style={{ width: 32, height: 32, borderRadius: 'var(--radius-2)', background: 'var(--accent-a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                        <ClockIcon style={{ color: 'var(--accent-9)', width: 16 }} />
-                                                    </Box>
-                                                    <Text size="2" weight="bold">{lt.type}</Text>
-                                                </Flex>
-                                            </Table.Cell>
+                                    filtered.map(lt => {
+                                        const cfg = getLeaveTypeConfig(lt.type);
+                                        return (
+                                            <Table.Row key={lt.id}>
+                                                <Table.Cell>
+                                                    <Flex align="center" gap="3">
+                                                        <Box style={{ width: 32, height: 32, borderRadius: 'var(--radius-2)', background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                            <Text size="3" style={{ lineHeight: 1 }}>{cfg.icon}</Text>
+                                                        </Box>
+                                                        <Text size="2" weight="bold">{lt.type}</Text>
+                                                    </Flex>
+                                                </Table.Cell>
                                             <Table.Cell style={{ textAlign: 'center' }}>
                                                 <Badge color="blue" variant="solid" size="2">{lt.days} days</Badge>
                                             </Table.Cell>
@@ -524,8 +540,9 @@ export default function LeaveSettingsPanel({
                                                 </Flex>
                                             </Table.Cell>
                                         </Table.Row>
-                                    ))
-                                )}
+                                    );
+                                })
+                            )}
                             </Table.Body>
                         </Table.Root>
                     </ScrollArea>

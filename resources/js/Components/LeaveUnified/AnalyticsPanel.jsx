@@ -19,37 +19,91 @@ import {
 } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 
-/* ── Mini Bar Chart (Pure SVG) ── */
-function BarChart({ data, valueKey = 'value', labelKey = 'label', color = 'var(--accent-9)', height = 140, loading = false }) {
-    if (loading) return <Skeleton height={`${height + 24}px`} width="100%" />;
+/* ── Stacked Bar Chart (Pure SVG) ── */
+function BarChart({ data, height = 180, loading = false }) {
+    if (loading) return <Skeleton height={`${height + 36}px`} width="100%" />;
     if (!data?.length) return <Flex height={`${height}px`} align="center" justify="center"><Text color="gray">No data</Text></Flex>;
     
-    const max = Math.max(...data.map(d => d[valueKey] || 0), 1);
-    const barW = Math.max(12, Math.floor(320 / data.length) - 4);
-    const totalW = data.length * (barW + 4);
-    const gradId = `barGrad-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+    // Find the max value (sum of approved, pending, rejected)
+    const max = Math.max(...data.map(d => (d.approved || 0) + (d.pending || 0) + (d.rejected || 0)), 1);
     
+    // Grid settings
+    const barW = Math.max(16, Math.floor(400 / data.length) - 8);
+    const totalW = data.length * (barW + 12) + 24;
+    
+    // Background Grid Y-Coordinates
+    const gridLines = [0, 0.25, 0.5, 0.75, 1];
+
     return (
         <ScrollArea type="auto" scrollbars="horizontal">
             <Box style={{ overflowX: 'auto', paddingBottom: '8px' }}>
-                <svg viewBox={`0 0 ${totalW} ${height + 24}`} style={{ width: '100%', minWidth: totalW }}>
+                <svg viewBox={`0 0 ${totalW} ${height + 36}`} style={{ width: '100%', minWidth: totalW }}>
                     <defs>
-                        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={color} />
-                            <stop offset="100%" stopColor={color} stopOpacity={0.25} />
+                        <linearGradient id="apprGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--green-9)" />
+                            <stop offset="100%" stopColor="var(--green-7)" stopOpacity={0.8} />
+                        </linearGradient>
+                        <linearGradient id="pendGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--amber-9)" />
+                            <stop offset="100%" stopColor="var(--amber-7)" stopOpacity={0.8} />
+                        </linearGradient>
+                        <linearGradient id="rejGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--red-9)" />
+                            <stop offset="100%" stopColor="var(--red-7)" stopOpacity={0.8} />
                         </linearGradient>
                     </defs>
+
+                    {/* Grid Lines */}
+                    {gridLines.map((ratio, idx) => {
+                        const y = height - ratio * height + 10;
+                        const label = Math.round(ratio * max);
+                        return (
+                            <g key={idx} opacity="0.15">
+                                <line x1="24" y1={y} x2={totalW} y2={y} stroke="var(--gray-12)" strokeWidth="1" strokeDasharray="3 3" />
+                                <text x="18" y={y + 3} textAnchor="end" fontSize="8" fontWeight="600" fill="var(--gray-12)">{label}</text>
+                            </g>
+                        );
+                    })}
+
                     {data.map((d, i) => {
-                        const val = d[valueKey] || 0;
-                        const barH = Math.max(2, Math.round((val / max) * height));
-                        const x = i * (barW + 4);
-                        const y = height - barH;
+                        const apprVal = d.approved || 0;
+                        const pendVal = d.pending || 0;
+                        const rejVal = d.rejected || 0;
+                        const totalVal = apprVal + pendVal + rejVal;
+
+                        // Bar Heights
+                        const apprH = Math.round((apprVal / max) * height);
+                        const pendH = Math.round((pendVal / max) * height);
+                        const rejH = Math.round((rejVal / max) * height);
+
+                        const x = i * (barW + 12) + 30;
+
+                        // Y position offsets for stacked blocks
+                        const apprY = height - apprH + 10;
+                        const pendY = apprY - pendH;
+                        const rejY = pendY - rejH;
+
                         return (
                             <g key={i} style={{ transition: 'all 0.3s ease' }}>
-                                <rect x={x} y={y} width={barW} height={barH} fill={`url(#${gradId})`} rx="4" />
-                                <text x={x + barW / 2} y={height + 14} textAnchor="middle" fontSize="9" fontWeight="500" fill="var(--gray-10)">{d[labelKey]}</text>
-                                {val > 0 && (
-                                    <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--gray-12)">{val}</text>
+                                {/* Approved Segment */}
+                                {apprH > 0 && (
+                                    <rect x={x} y={apprY} width={barW} height={apprH} fill="url(#apprGrad)" rx={pendH === 0 && rejH === 0 ? "4" : "0"} />
+                                )}
+                                {/* Pending Segment */}
+                                {pendH > 0 && (
+                                    <rect x={x} y={pendY} width={barW} height={pendH} fill="url(#pendGrad)" rx={rejH === 0 ? "4" : "0"} />
+                                )}
+                                {/* Rejected Segment */}
+                                {rejH > 0 && (
+                                    <rect x={x} y={rejY} width={barW} height={rejH} fill="url(#rejGrad)" rx="4" />
+                                )}
+
+                                {/* X-axis labels */}
+                                <text x={x + barW / 2} y={height + 26} textAnchor="middle" fontSize="9" fontWeight="600" fill="var(--gray-10)">{d.label}</text>
+                                
+                                {/* Total Label above bar */}
+                                {totalVal > 0 && (
+                                    <text x={x + barW / 2} y={rejY - 4} textAnchor="middle" fontSize="9" fontWeight="800" fill="var(--gray-12)">{totalVal}</text>
                                 )}
                             </g>
                         );
@@ -171,26 +225,31 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
     const leaveTypeData = useMemo(() => {
         const source = analytics?.leave_type_distribution ?? analytics?.by_leave_type ?? [];
         if (!source.length) return [];
-        const total = source.reduce((s, t) => s + (t.count ?? 0), 0) || 1;
-        return source.map(t => ({
-            label:      t.type ?? t.name ?? '—',
-            value:      t.count ?? 0,
-            percentage: Math.round(((t.count ?? 0) / total) * 100),
-        }));
+        const total = source.reduce((s, t) => s + (Number(t.count) || Number(t.total) || Number(t.days) || 0), 0) || 1;
+        return source.map(t => {
+            const val = Number(t.count) || Number(t.total) || Number(t.days) || 0;
+            return {
+                label:      t.type ?? t.name ?? '—',
+                value:      val,
+                percentage: Math.round((val / total) * 100),
+            };
+        });
     }, [analytics]);
 
     const departmentData = useMemo(() => {
         const source = analytics?.department_comparison ?? analytics?.by_department ?? [];
         if (!source.length) return [];
-        const max = Math.max(...source.map(d => d.average_days ?? d.total ?? d.count ?? 0), 1);
+        const max = Math.max(...source.map(d => Number(d.average_days) || Number(d.total) || Number(d.count) || 0), 1);
         return source.map(d => ({
             label: d.department ?? d.name ?? '—',
-            value: d.average_days ?? d.total ?? d.count ?? 0,
+            value: Number(d.average_days) || Number(d.total) || Number(d.count) || 0,
             max,
         }));
     }, [analytics]);
 
     const topStats = analytics?.summary ?? analytics?.stats ?? analytics?.overview ?? { total: 0, approved: 0, pending: 0, rejected: 0 };
+    const absenteeismRate = Number(analytics?.absenteeism_rate) || 0;
+    const peakPeriods = analytics?.peak_periods || [];
 
     /* ── Render ── */
     return (
@@ -278,6 +337,69 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                             </>
                         )}
                     </Card>
+
+                    {/* ── Additional Analytics Metrics ── */}
+                    <Grid columns={{ initial: '1', md: '2' }} gap="4">
+                        {/* Absenteeism Gauge Card */}
+                        <Card variant="surface">
+                            <Text size="3" weight="bold" as="div" mb="4">Absenteeism Rate Index</Text>
+                            <Flex align="center" justify="between" gap="4" py="2">
+                                <Flex direction="column" gap="1">
+                                    <Text size="6" weight="bold" color={absenteeismRate > 2 ? 'red' : 'green'}>
+                                        {absenteeismRate.toFixed(2)}%
+                                    </Text>
+                                    <Text size="2" color="gray">Average leave absenteeism rate across all employees.</Text>
+                                </Flex>
+                                <Box style={{ position: 'relative', width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                                        <path
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none"
+                                            stroke="var(--gray-a4)"
+                                            strokeWidth="3.5"
+                                        />
+                                        <path
+                                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            fill="none"
+                                            stroke={absenteeismRate > 2 ? 'var(--red-9)' : 'var(--green-9)'}
+                                            strokeWidth="3.5"
+                                            strokeDasharray={`${Math.min(100, absenteeismRate * 10)}, 100`}
+                                            style={{ strokeLinecap: 'round', transition: 'stroke-dasharray 0.6s ease' }}
+                                        />
+                                    </svg>
+                                    <Box style={{ position: 'absolute' }}>
+                                        <BarChartIcon style={{ width: 24, height: 24, color: 'var(--gray-9)' }} />
+                                    </Box>
+                                </Box>
+                            </Flex>
+                        </Card>
+
+                        {/* Peak Periods List Card */}
+                        <Card variant="surface">
+                            <Text size="3" weight="bold" as="div" mb="4">Peak Leave Periods</Text>
+                            <Flex direction="column" gap="2">
+                                {loading ? (
+                                    <Skeleton height="60px" />
+                                ) : peakPeriods.length > 0 ? (
+                                    peakPeriods.map((p, idx) => (
+                                        <Flex key={idx} align="center" justify="between" p="2" style={{ backgroundColor: 'var(--gray-a2)', borderRadius: 'var(--radius-3)' }}>
+                                            <Flex align="center" gap="2">
+                                                <Badge size="1" color="indigo" radius="full" style={{ width: 20, height: 20, justifyContent: 'center' }}>
+                                                    {idx + 1}
+                                                </Badge>
+                                                <Text size="2" weight="bold">{p.period}</Text>
+                                            </Flex>
+                                            <Badge size="2" color="blue" variant="soft">
+                                                {p.count} requests
+                                            </Badge>
+                                        </Flex>
+                                    ))
+                                ) : (
+                                    <Text size="2" color="gray" style={{ fontStyle: 'italic' }}>No peak period data.</Text>
+                                )}
+                            </Flex>
+                        </Card>
+                    </Grid>
 
                     {/* ── Leave Type & Department Breakdown ── */}
                     <Grid columns={{ initial: '1', lg: '2' }} gap="4">

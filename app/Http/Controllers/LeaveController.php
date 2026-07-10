@@ -780,6 +780,7 @@ class LeaveController extends Controller
                 'leave_type_distribution' => $this->getLeaveTypeDistribution($year, $departmentId),
                 'absenteeism_rate' => $this->getAbsenteeismRate($year, $departmentId),
                 'peak_periods' => $this->getPeakPeriods($year, $departmentId),
+                'top_leave_takers' => $this->getTopLeaveTakers($year, $departmentId),
             ];
 
             return response()->json([
@@ -923,6 +924,42 @@ class LeaveController extends Controller
                     'period' => Carbon::create(null, $item->month)->format('F'),
                     'count' => $item->count,
                     'reason' => null,
+                ];
+            });
+    }
+
+    /**
+     * Get top leave takers
+     */
+    protected function getTopLeaveTakers($year, $departmentId = null)
+    {
+        $query = Leave::whereYear('from_date', $year)
+            ->whereIn('status', ['approved', 'pending']);
+
+        if ($departmentId) {
+            $query->whereHas('user', function ($q) use ($departmentId) {
+                $q->where('department_id', $departmentId);
+            });
+        }
+
+        return $query->select(
+            'user_id',
+            DB::raw('SUM(no_of_days) as total_days'),
+            DB::raw("SUM(CASE WHEN status = 'approved' THEN no_of_days ELSE 0 END) as approved_days"),
+            DB::raw("SUM(CASE WHEN status = 'pending' THEN no_of_days ELSE 0 END) as pending_days")
+        )
+            ->groupBy('user_id')
+            ->orderByDesc('total_days')
+            ->limit(5)
+            ->with(['user.department'])
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'employee_name' => $item->user->name ?? '—',
+                    'department' => $item->user->department->name ?? '—',
+                    'total_days' => (int) $item->total_days,
+                    'approved_days' => (int) $item->approved_days,
+                    'pending_days' => (int) $item->pending_days,
                 ];
             });
     }
