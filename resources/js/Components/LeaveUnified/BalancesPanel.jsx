@@ -34,6 +34,12 @@ export default function BalancesPanel({ allUsers = [], isActive = false }) {
     }, [allUsers, search]);
 
     useEffect(() => {
+        if (!userId && allUsers?.length > 0) {
+            setUserId(String(allUsers[0].id));
+        }
+    }, [allUsers, userId]);
+
+    useEffect(() => {
         if (!isActive || !userId) { setTxns([]); return; }
         let active = true;
         setLoading(true);
