@@ -293,64 +293,45 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                         <StatCard label="Rejected"     value={topStats.rejected} color="red"    icon={CrossCircledIcon} loading={loading} />
                     </Grid>
 
-                    {/* ── Monthly Trend Bar Chart ── */}
-                    <Card variant="surface">
-                        <Text size="3" weight="bold" as="div" mb="4">Monthly Leave Trends — {year}</Text>
-                        <BarChart
-                            data={monthlyData}
-                            valueKey="value"
-                            labelKey="label"
-                            color="var(--accent-9)"
-                            height={160}
-                            loading={loading}
-                        />
-                        
-                        {!loading && monthlyData.length > 0 && (
-                            <>
-                                <Flex gap="4" mt="4" wrap="wrap">
+                    {/* ── Visual Analytics Grid ── */}
+                    <Grid columns={{ initial: '1', md: '3' }} gap="4">
+                        {/* Monthly Trend Bar Chart */}
+                        <Card variant="surface">
+                            <Text size="3" weight="bold" as="div" mb="1">Monthly Leave Trends — {year}</Text>
+                            <Text size="1" color="gray" mb="3">Monthly request volume and status splits</Text>
+                            <BarChart
+                                data={monthlyData}
+                                height={120}
+                                loading={loading}
+                            />
+                            {!loading && monthlyData.length > 0 && (
+                                <Flex gap="3" mt="3" justify="center" wrap="wrap">
                                     {[
                                         { label: 'Approved', color: 'green' },
                                         { label: 'Pending',  color: 'amber' },
                                         { label: 'Rejected', color: 'red'   },
                                     ].map(({ label, color }) => (
-                                        <Flex key={label} align="center" gap="2">
-                                            <Box style={{ width: 10, height: 10, borderRadius: '50%', background: `var(--${color}-9)` }} />
+                                        <Flex key={label} align="center" gap="1">
+                                            <Box style={{ width: 8, height: 8, borderRadius: '50%', background: `var(--${color}-9)` }} />
                                             <Text size="1" color="gray" weight="medium">{label}</Text>
                                         </Flex>
                                     ))}
                                 </Flex>
+                            )}
+                        </Card>
 
-                                <Separator size="4" my="4" />
-                                
-                                <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="3">
-                                    {monthlyData.filter(m => m.value > 0).slice(0, 6).map((m, i) => (
-                                        <Flex key={i} align="center" justify="between" p="2" style={{ backgroundColor: 'var(--gray-a2)', borderRadius: 'var(--radius-2)' }}>
-                                            <Text size="2" weight="bold" style={{ width: 40 }}>{m.label}</Text>
-                                            <Flex gap="2" align="center">
-                                                {m.approved > 0 && <Badge size="1" color="green" variant="soft">{m.approved} Apprv</Badge>}
-                                                {m.pending  > 0 && <Badge size="1" color="amber" variant="soft">{m.pending} Pend</Badge>}
-                                                {m.rejected > 0 && <Badge size="1" color="red"   variant="soft">{m.rejected} Rej</Badge>}
-                                            </Flex>
-                                        </Flex>
-                                    ))}
-                                </Grid>
-                            </>
-                        )}
-                    </Card>
-
-                    {/* ── Additional Analytics Metrics ── */}
-                    <Grid columns={{ initial: '1', md: '2' }} gap="4">
                         {/* Absenteeism Gauge Card */}
                         <Card variant="surface">
-                            <Text size="3" weight="bold" as="div" mb="4">Absenteeism Rate Index</Text>
-                            <Flex align="center" justify="between" gap="4" py="2">
+                            <Text size="3" weight="bold" as="div" mb="1">Absenteeism Rate</Text>
+                            <Text size="1" color="gray" mb="3">Ratio of leave days to total working days</Text>
+                            <Flex align="center" justify="between" gap="4" py="2" style={{ height: 120 }}>
                                 <Flex direction="column" gap="1">
                                     <Text size="6" weight="bold" color={absenteeismRate > 2 ? 'red' : 'green'}>
                                         {absenteeismRate.toFixed(2)}%
                                     </Text>
-                                    <Text size="2" color="gray">Average leave absenteeism rate across all employees.</Text>
+                                    <Text size="2" color="gray">Healthy range: &lt; 2.0%</Text>
                                 </Flex>
-                                <Box style={{ position: 'relative', width: 80, height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Box style={{ position: 'relative', width: 75, height: 75, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
                                         <path
                                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -368,36 +349,60 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                                         />
                                     </svg>
                                     <Box style={{ position: 'absolute' }}>
-                                        <BarChartIcon style={{ width: 24, height: 24, color: 'var(--gray-9)' }} />
+                                        <BarChartIcon style={{ width: 22, height: 22, color: 'var(--gray-9)' }} />
                                     </Box>
                                 </Box>
                             </Flex>
                         </Card>
 
-                        {/* Peak Periods List Card */}
+                        {/* Peak Periods & Status Distribution List Card */}
                         <Card variant="surface">
-                            <Text size="3" weight="bold" as="div" mb="4">Peak Leave Periods</Text>
-                            <Flex direction="column" gap="2">
+                            <Text size="3" weight="bold" as="div" mb="1">Peak Periods & Split</Text>
+                            <Text size="1" color="gray" mb="3">Months with highest approved volume</Text>
+                            
+                            <Flex direction="column" gap="2" style={{ maxHeight: 110 }}>
                                 {loading ? (
-                                    <Skeleton height="60px" />
+                                    <Skeleton height="40px" />
                                 ) : peakPeriods.length > 0 ? (
-                                    peakPeriods.map((p, idx) => (
-                                        <Flex key={idx} align="center" justify="between" p="2" style={{ backgroundColor: 'var(--gray-a2)', borderRadius: 'var(--radius-3)' }}>
+                                    peakPeriods.slice(0, 2).map((p, idx) => (
+                                        <Flex key={idx} align="center" justify="between" p="1" px="2" style={{ backgroundColor: 'var(--gray-a2)', borderRadius: 'var(--radius-3)' }}>
                                             <Flex align="center" gap="2">
-                                                <Badge size="1" color="indigo" radius="full" style={{ width: 20, height: 20, justifyContent: 'center' }}>
+                                                <Badge size="1" color="indigo" radius="full" style={{ width: 16, height: 16, justifyContent: 'center' }}>
                                                     {idx + 1}
                                                 </Badge>
-                                                <Text size="2" weight="bold">{p.period}</Text>
+                                                <Text size="1" weight="bold">{p.period}</Text>
                                             </Flex>
-                                            <Badge size="2" color="blue" variant="soft">
+                                            <Badge size="1" color="blue" variant="soft">
                                                 {p.count} requests
                                             </Badge>
                                         </Flex>
                                     ))
                                 ) : (
-                                    <Text size="2" color="gray" style={{ fontStyle: 'italic' }}>No peak period data.</Text>
+                                    <Text size="1" color="gray" style={{ fontStyle: 'italic' }}>No peak period data.</Text>
                                 )}
                             </Flex>
+
+                            {/* Status distribution progress bar */}
+                            {(() => {
+                                const total = Number(topStats.total) || 0;
+                                const apprPct = total > 0 ? Math.round((Number(topStats.approved) / total) * 100) : 0;
+                                const pendPct = total > 0 ? Math.round((Number(topStats.pending) / total) * 100) : 0;
+                                const rejPct = total > 0 ? Math.round((Number(topStats.rejected) / total) * 100) : 0;
+                                return (
+                                    <Flex direction="column" gap="1" mt="3">
+                                        <Box style={{ height: 8, background: 'var(--gray-a4)', borderRadius: 'var(--radius-full)', overflow: 'hidden', display: 'flex' }}>
+                                            {apprPct > 0 && <Box style={{ width: `${apprPct}%`, background: 'var(--green-9)' }} />}
+                                            {pendPct > 0 && <Box style={{ width: `${pendPct}%`, background: 'var(--amber-9)' }} />}
+                                            {rejPct > 0 && <Box style={{ width: `${rejPct}%`, background: 'var(--red-9)' }} />}
+                                        </Box>
+                                        <Flex justify="between" style={{ fontSize: 9 }}>
+                                            <Text color="green" weight="bold">{apprPct}% Apprv</Text>
+                                            <Text color="amber" weight="bold">{pendPct}% Pend</Text>
+                                            <Text color="red" weight="bold">{rejPct}% Rej</Text>
+                                        </Flex>
+                                    </Flex>
+                                );
+                            })()}
                         </Card>
                     </Grid>
 
