@@ -686,17 +686,6 @@ const DailyTimesheetTab = ({
                         </>
                     )}
 
-                    <Select.Root
-                        value={String(perPage)}
-                        onValueChange={v => setPerPage(Number(v))}
-                    >
-                        <Select.Trigger size="2" style={{ width: 110 }} />
-                        <Select.Content>
-                            {[10, 25, 50, 100].map(n => (
-                                <Select.Item key={n} value={String(n)}>{n} / page</Select.Item>
-                            ))}
-                        </Select.Content>
-                    </Select.Root>
                 </Flex>
 
                 {/* right: last updated + refresh + export */}

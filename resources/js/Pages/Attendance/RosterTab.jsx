@@ -278,17 +278,6 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         </Select.Root>
                     )}
 
-                    <Select.Root
-                        value={String(perPage)}
-                        onValueChange={v => setPerPage(Number(v))}
-                    >
-                        <Select.Trigger size="2" style={{ width: 110 }} />
-                        <Select.Content>
-                            {[10, 25, 50, 100].map(n => (
-                                <Select.Item key={n} value={String(n)}>{n} / page</Select.Item>
-                            ))}
-                        </Select.Content>
-                    </Select.Root>
                 </Flex>
 
                 {/* Right: View toggle, Refresh & Generate */}
@@ -353,7 +342,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                                         <TablePagination
                                             pagination={{ currentPage, perPage, total: rows.length }}
                                             onPageChange={setCurrentPage}
-                                            onRowsPerPageChange={() => {}}
+                                            onRowsPerPageChange={setPerPage}
                                             loading={isLoading}
                                         />
                                     </Box>
