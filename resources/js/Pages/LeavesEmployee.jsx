@@ -588,26 +588,43 @@ const LeavesEmployee = ({ title, allUsers }) => {
         />
       )}
 
-      <Box p="4">
+      <Box p={{ initial: '3', md: '5' }}>
         <Card size="3" style={{
-            }}>
-          <Flex align="center" justify="between" wrap="wrap" gap="3" pb="4" mb="4"
-            style={{ borderBottom: '1px solid var(--gray-a4)' }}
+            boxShadow: 'var(--shadow-3)',
+            borderRadius: 'var(--radius-4)',
+            border: '1px solid var(--gray-a3)'
+        }}>
+          <Flex align="center" justify="between" wrap="wrap" gap="3" pb="4" mb="5"
+            style={{ borderBottom: '1px solid var(--gray-a3)' }}
           >
             <Flex align="center" gap="3">
               <Box style={{
-                padding: 10, background: 'var(--accent-a3)', borderRadius: 'var(--radius-2)',
-                border: '1px solid var(--accent-a6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 12, 
+                background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a2) 100%)', 
+                borderRadius: 'var(--radius-3)',
+                border: '1px solid var(--accent-a5)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px var(--accent-a2)'
               }}>
-                <BarChartIcon style={{ width: 22, height: 22, color: 'var(--accent-9)' }} />
+                <CalendarIcon style={{ width: 24, height: 24, color: 'var(--accent-9)' }} />
               </Box>
               <Box>
-                <Heading size="5">My Leaves</Heading>
-                <Text size="2" color="gray">Your leave requests and balances</Text>
+                <Heading size="5" style={{ letterSpacing: '-0.02em', color: 'var(--gray-12)' }}>My Leaves</Heading>
+                <Text size="2" color="gray" style={{ display: 'block', mt: 0.5 }}>Your leave requests and balances</Text>
               </Box>
             </Flex>
             <Flex gap="2">
-              <Button onClick={() => openModal('add_leave')} size="2" style={{ cursor: 'pointer' }}>
+              <Button 
+                onClick={() => openModal('add_leave')} 
+                size="2" 
+                style={{ 
+                    cursor: 'pointer',
+                    background: 'linear-gradient(135deg, var(--accent-9) 0%, var(--accent-10) 100%)',
+                    boxShadow: '0 2px 8px var(--accent-a3)'
+                }}
+              >
                 <PlusIcon /> Add Leave
               </Button>
               <Button variant="soft" color="gray" onClick={() => openModal('bulk_leave')} size="2" style={{ cursor: 'pointer' }}>
@@ -616,16 +633,17 @@ const LeavesEmployee = ({ title, allUsers }) => {
             </Flex>
           </Flex>
 
-          <Flex gap="3" mb="5" align="center" wrap="wrap">
-            <Box>
-              <Text as="label" size="1" weight="medium" style={{ display: 'block', marginBottom: 4 }}>Year</Text>
+          <Flex gap="3" mb="5" align="end" wrap="wrap" style={{ background: 'var(--gray-a2)', padding: 12, borderRadius: 'var(--radius-3)', border: '1px solid var(--gray-a3)' }}>
+            <Box style={{ minWidth: 120 }}>
+              <Text as="label" size="1" weight="bold" color="gray" style={{ display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Select Year</Text>
               <select
                 value={String(filters.year)}
                 onChange={e => handleFilterChange('year', Number(e.target.value))}
                 style={{
-                  padding: '6px 10px', background: 'var(--color-surface)',
+                  padding: '8px 12px', background: 'var(--color-surface)',
                   border: '1px solid var(--gray-a7)', borderRadius: 'var(--radius-2)',
-                  color: 'var(--gray-12)', fontSize: 14,
+                  color: 'var(--gray-12)', fontSize: 13, fontWeight: 500, width: '100%',
+                  outline: 'none', cursor: 'pointer'
                 }}
               >
                 {yearOptions.map(y => (
@@ -633,7 +651,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
                 ))}
               </select>
             </Box>
-            <Box style={{ alignSelf: 'flex-end' }}>
+            <Box style={{ marginLeft: 'auto' }}>
               <Button variant="soft" color="gray" onClick={refetch} disabled={isLoading} size="2" style={{ cursor: 'pointer' }}>
                 {isLoading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
               </Button>

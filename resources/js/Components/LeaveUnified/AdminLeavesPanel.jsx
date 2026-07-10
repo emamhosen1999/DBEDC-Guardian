@@ -33,16 +33,22 @@ import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdate
 /* ── Responsive Stat Pill ── */
 function StatPill({ label, value, color = 'gray', icon: Icon, loading = false }) {
     return (
-        <Card size="1" style={{ minWidth: '130px', flex: '1 1 auto' }}>
+        <Card size="1" style={{ 
+            minWidth: '130px', 
+            flex: '1 1 auto',
+            background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
+            border: `1px solid var(--${color}-a4)`,
+            boxShadow: 'var(--shadow-1)'
+        }}>
             <Flex align="center" gap="3" p="1">
-                <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)' }}>
-                    {Icon ? <Icon style={{ color: `var(--${color}-9)` }} /> : <LayersIcon style={{ color: `var(--${color}-9)` }} />}
+                <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {Icon ? <Icon style={{ color: `var(--${color}-9)`, width: 16, height: 16 }} /> : <LayersIcon style={{ color: `var(--${color}-9)`, width: 16, height: 16 }} />}
                 </Box>
                 <Box>
                     <Skeleton loading={loading}>
-                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1 }}>{value}</Text>
+                        <Text size="4" weight="bold" style={{ display: 'block', lineHeight: 1, color: 'var(--gray-12)' }}>{value}</Text>
                     </Skeleton>
-                    <Text size="1" color="gray">{label}</Text>
+                    <Text size="1" color="gray" weight="medium" style={{ display: 'block', marginTop: 4 }}>{label}</Text>
                 </Box>
             </Flex>
         </Card>

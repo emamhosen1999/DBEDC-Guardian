@@ -107,8 +107,11 @@ const LeaveEmployeeTable = React.forwardRef(({
         const config = statusConfig[status] || statusConfig['New'];
         const StatusIcon = config.icon;
         return (
-            <Badge color={config.color} variant="soft" radius="full">
-                <StatusIcon style={{ width: 10, height: 10 }} />{status}
+            <Badge color={config.color} variant="soft" radius="full" style={{ padding: '2px 8px', fontWeight: 600, textTransform: 'uppercase', fontSize: '9px', letterSpacing: '0.03em' }}>
+                <Flex align="center" gap="1">
+                    <StatusIcon style={{ width: 11, height: 11 }} />
+                    {status}
+                </Flex>
             </Badge>
         );
     };
