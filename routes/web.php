@@ -7,6 +7,7 @@ use App\Http\Controllers\DailyWorkController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DailyWorkSummaryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Quality\NcrController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
 use App\Http\Controllers\DeviceController;
@@ -98,6 +99,15 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/command', [DashboardController::class, 'command'])->name('dashboard.command');
         Route::get('/stats', [DashboardController::class, 'stats'])->name('stats');
+    });
+
+    // Quality — NCR register (full CRUD + status workflow)
+    Route::middleware(['permission:quality.ncr.view'])->prefix('quality')->name('quality.')->group(function () {
+        Route::get('/ncr', [NcrController::class, 'index'])->name('ncr.index');
+        Route::post('/ncr', [NcrController::class, 'store'])->name('ncr.store');
+        Route::put('/ncr/{ncr}', [NcrController::class, 'update'])->name('ncr.update');
+        Route::patch('/ncr/{ncr}/transition', [NcrController::class, 'transition'])->name('ncr.transition');
+        Route::delete('/ncr/{ncr}', [NcrController::class, 'destroy'])->name('ncr.destroy');
     });
 
     // Security Dashboard route - available to authenticated users
