@@ -193,12 +193,19 @@ function SeverityCard({ sev = {} }) {
 
 /* ── chainage map ───────────────────────────────────────────────── */
 function ChainageMap({ ncrs, onPick }) {
-    const pts = ncrs.filter((n) => n.chainage_m != null && n.is_open);
+    const pts = ncrs.filter((n) => n.chainage_m != null);
     const W = 680, H = 92, y = 52;
     return (
         <Card style={{ height: '100%' }}>
-            <Text size="2" weight="medium" style={{ display: 'block' }}>Open NCRs along the road</Text>
-            <Text size="1" color="gray" style={{ fontFamily: MONO }}>Ch 0+000 → 48+000</Text>
+            <Flex align="baseline" justify="between" gap="2">
+                <Box>
+                    <Text size="2" weight="medium" style={{ display: 'block' }}>NCRs mapped by chainage</Text>
+                    <Text size="1" color="gray" style={{ fontFamily: MONO }}>Ch 0+000 → 48+000 · {pts.length} located</Text>
+                </Box>
+                <Flex gap="2" style={{ fontFamily: MONO, fontSize: 10, color: 'var(--gray-11)' }}>
+                    <span style={{ opacity: 1 }}>● open</span><span style={{ opacity: 0.45 }}>● closed / consent</span>
+                </Flex>
+            </Flex>
             <Box style={{ overflowX: 'auto', marginTop: 6 }}>
                 <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 520 }}>
                     <line x1="12" y1={y} x2={W - 12} y2={y} stroke="var(--gray-a6)" strokeWidth="2" strokeLinecap="round" />
@@ -213,11 +220,15 @@ function ChainageMap({ ncrs, onPick }) {
                         const x = 12 + (n.chainage_m / (ROAD_KM * 1000)) * (W - 24);
                         return (
                             <circle key={n.id} cx={x} cy={y} r="6" fill={SEV[n.severity]?.s} stroke={SEV[n.severity]?.c} strokeWidth="2"
+                                fillOpacity={n.is_open ? 0.95 : 0.4} strokeOpacity={n.is_open ? 1 : 0.5}
                                 style={{ cursor: 'pointer' }} onClick={() => onPick(n)}>
-                                <title>{`${n.ncr_number} · ${chLabel(n.chainage_m)} · ${SEV[n.severity]?.label}`}</title>
+                                <title>{`${n.ncr_number} · ${chLabel(n.chainage_m)} · ${SEV[n.severity]?.label} · ${STATUS[n.status]?.label}`}</title>
                             </circle>
                         );
                     })}
+                    {pts.length === 0 && (
+                        <text x={W / 2} y={y - 12} textAnchor="middle" fill="var(--gray-9)" fontSize="11" fontFamily="monospace">no chainage recorded on any NCR</text>
+                    )}
                 </svg>
             </Box>
         </Card>
