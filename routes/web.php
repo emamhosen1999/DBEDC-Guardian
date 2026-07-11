@@ -96,6 +96,7 @@ Route::middleware($middlewareStack)->group(function () {
     // Dashboard routes - require dashboard permission
     Route::middleware(['permission:core.dashboard.view'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard/command', [DashboardController::class, 'command'])->name('dashboard.command');
         Route::get('/stats', [DashboardController::class, 'stats'])->name('stats');
     });
 
