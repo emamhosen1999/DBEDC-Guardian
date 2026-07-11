@@ -107,7 +107,19 @@ export const getPages = (roles, permissions, auth = null) => {
       ]
     }] : []),
 
-    /* Quality module — enable when resources/js/Pages/Quality/* exist */
+    // Quality — Independent Engineer registers
+    ...((permissions.includes('quality.ncr.view') || permissions.includes('quality.view')) ? [{
+      name: 'Quality',
+      icon: <ClipboardDocumentCheckIcon className="" />,
+      priority: 4,
+      module: 'quality',
+      subMenu: [
+        ...(permissions.includes('quality.ncr.view') ? [{
+          name: 'NCR Register', icon: <ScaleIcon />, route: 'quality.ncr.index',
+          description: 'Non-conformance reports raised by the Independent Engineer',
+        }] : []),
+      ],
+    }] : []),
 
     // 8. Admin & Settings (System Administration)
     ...((permissions.includes('users.view') || permissions.includes('settings.view') || permissions.includes('roles.view') || permissions.includes('modules.view') || permissions.includes('company.settings') || permissions.includes('attendance.settings') || permissions.includes('leave-settings.view') || permissions.includes('request_logs.view') || (auth?.user && auth?.roles?.includes('Super Administrator'))) ? [{

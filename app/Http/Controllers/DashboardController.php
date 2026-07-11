@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DailyWork;
 use App\Models\User;
+use App\Services\CommandCenterService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,19 @@ class DashboardController extends Controller
             'status' => session('status'),
             'csrfToken' => session('csrfToken'),
         ]);
+    }
+
+    /**
+     * Aggregated command-center payload for the redesigned Dashboard.
+     */
+    public function command(CommandCenterService $service)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        return response()->json($service->payload($user));
     }
 
     public function stats()
