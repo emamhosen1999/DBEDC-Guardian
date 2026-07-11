@@ -833,7 +833,7 @@
     ]
   },
   "resources/js/Components/DailyWorkSummaryAnalytics.jsx": {
-    "file": "assets/js/DailyWorkSummaryAnalytics-BqE9QwWX.js",
+    "file": "assets/js/DailyWorkSummaryAnalytics-D-trrCjI.js",
     "name": "DailyWorkSummaryAnalytics",
     "src": "resources/js/Components/DailyWorkSummaryAnalytics.jsx",
     "isDynamicEntry": true,
@@ -904,7 +904,7 @@
     ]
   },
   "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx": {
-    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-BWH7htWn.js",
+    "file": "assets/js/EnhancedDailyWorkSummaryExportForm-tr5dykFZ.js",
     "name": "EnhancedDailyWorkSummaryExportForm",
     "src": "resources/js/Forms/EnhancedDailyWorkSummaryExportForm.jsx",
     "isDynamicEntry": true,
@@ -953,7 +953,7 @@
     ]
   },
   "resources/js/Pages/Admin/NotificationSettings.jsx": {
-    "file": "assets/js/NotificationSettings-Dsb_EQQT.js",
+    "file": "assets/js/NotificationSettings-BJp-FDcb.js",
     "name": "NotificationSettings",
     "src": "resources/js/Pages/Admin/NotificationSettings.jsx",
     "isEntry": true,
@@ -974,7 +974,7 @@
     ]
   },
   "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx": {
-    "file": "assets/js/SystemMonitoringEnhanced-oQHWWV0D.js",
+    "file": "assets/js/SystemMonitoringEnhanced-CZeVcIzn.js",
     "name": "SystemMonitoringEnhanced",
     "src": "resources/js/Pages/Administration/SystemMonitoringEnhanced.jsx",
     "isEntry": true,
@@ -1006,7 +1006,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-BFDSFjDR.js",
+    "file": "assets/js/AttendancePage-CiZ8kynS.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1397,7 +1397,7 @@
     "isEntry": true
   },
   "resources/js/Pages/AttendanceEmployee.jsx": {
-    "file": "assets/js/AttendanceEmployee-oa4ISYnk.js",
+    "file": "assets/js/AttendanceEmployee-CoRJJ4Ci.js",
     "name": "AttendanceEmployee",
     "src": "resources/js/Pages/AttendanceEmployee.jsx",
     "isDynamicEntry": true,
@@ -1483,7 +1483,7 @@
     ]
   },
   "resources/js/Pages/Dashboard.jsx": {
-    "file": "assets/js/Dashboard-lnlyNDxB.js",
+    "file": "assets/js/Dashboard-C9Fzt6Sm.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Dashboard.jsx",
     "isEntry": true,
@@ -1504,7 +1504,7 @@
     ]
   },
   "resources/js/Pages/Departments.jsx": {
-    "file": "assets/js/Departments-XthpbPGT.js",
+    "file": "assets/js/Departments-_-yJ4wuB.js",
     "name": "Departments",
     "src": "resources/js/Pages/Departments.jsx",
     "isDynamicEntry": true,
@@ -1538,7 +1538,7 @@
     ]
   },
   "resources/js/Pages/Designations.jsx": {
-    "file": "assets/js/Designations-DYzrSTwp.js",
+    "file": "assets/js/Designations-DIZ0wn48.js",
     "name": "Designations",
     "src": "resources/js/Pages/Designations.jsx",
     "isEntry": true,
@@ -1559,7 +1559,7 @@
     ]
   },
   "resources/js/Pages/Employees/EmployeesPage.jsx": {
-    "file": "assets/js/EmployeesPage-D1sBLAIH.js",
+    "file": "assets/js/EmployeesPage-CxSpIren.js",
     "name": "EmployeesPage",
     "src": "resources/js/Pages/Employees/EmployeesPage.jsx",
     "isDynamicEntry": true,
@@ -1603,7 +1603,7 @@
     ]
   },
   "resources/js/Pages/Errors/Forbidden.jsx": {
-    "file": "assets/js/Forbidden-CL0u5jFZ.js",
+    "file": "assets/js/Forbidden-BFnYYThq.js",
     "name": "Forbidden",
     "src": "resources/js/Pages/Errors/Forbidden.jsx",
     "isEntry": true,
@@ -1624,7 +1624,7 @@
     ]
   },
   "resources/js/Pages/Holidays.jsx": {
-    "file": "assets/js/Holidays-Bjq4IvjZ.js",
+    "file": "assets/js/Holidays-DbVxuzmJ.js",
     "name": "Holidays",
     "src": "resources/js/Pages/Holidays.jsx",
     "isDynamicEntry": true,
@@ -1664,7 +1664,7 @@
     ]
   },
   "resources/js/Pages/LeavesEmployee.jsx": {
-    "file": "assets/js/LeavesEmployee-UFAAWInn.js",
+    "file": "assets/js/LeavesEmployee-DpYiCDbG.js",
     "name": "LeavesEmployee",
     "src": "resources/js/Pages/LeavesEmployee.jsx",
     "isEntry": true,
@@ -1688,7 +1688,7 @@
     ]
   },
   "resources/js/Pages/LeavesUnified.jsx": {
-    "file": "assets/js/LeavesUnified-DxDxfSlL.js",
+    "file": "assets/js/LeavesUnified-CUhH8wWh.js",
     "name": "LeavesUnified",
     "src": "resources/js/Pages/LeavesUnified.jsx",
     "isDynamicEntry": true,
@@ -1719,7 +1719,7 @@
     ]
   },
   "resources/js/Pages/Notifications/Index.jsx": {
-    "file": "assets/js/Index-lnlyNDxB.js",
+    "file": "assets/js/Index-C9Fzt6Sm.js",
     "name": "Index",
     "src": "resources/js/Pages/Notifications/Index.jsx",
     "isEntry": true,
@@ -1936,7 +1936,7 @@
     ]
   },
   "resources/js/Pages/PettyCashUnified.jsx": {
-    "file": "assets/js/PettyCashUnified-DYzrSTwp.js",
+    "file": "assets/js/PettyCashUnified-DIZ0wn48.js",
     "name": "PettyCashUnified",
     "src": "resources/js/Pages/PettyCashUnified.jsx",
     "isEntry": true,
@@ -1990,7 +1990,7 @@
     ]
   },
   "resources/js/Pages/Profile/UserProfile.jsx": {
-    "file": "assets/js/UserProfile-qISjHAjC.js",
+    "file": "assets/js/UserProfile-D09Kh6eK.js",
     "name": "UserProfile",
     "src": "resources/js/Pages/Profile/UserProfile.jsx",
     "isDynamicEntry": true,
@@ -2012,7 +2012,7 @@
     ]
   },
   "resources/js/Pages/Project/DailyWorksUnified.jsx": {
-    "file": "assets/js/DailyWorksUnified-BBFcL3Rj.js",
+    "file": "assets/js/DailyWorksUnified-C6KIUAEM.js",
     "name": "DailyWorksUnified",
     "src": "resources/js/Pages/Project/DailyWorksUnified.jsx",
     "isDynamicEntry": true,
@@ -2064,7 +2064,7 @@
     ]
   },
   "resources/js/Pages/Project/Objections/Index.jsx": {
-    "file": "assets/js/Index-vLVsAdmr.js",
+    "file": "assets/js/Index-B1abIluc.js",
     "name": "Index",
     "src": "resources/js/Pages/Project/Objections/Index.jsx",
     "isDynamicEntry": true,
@@ -2201,8 +2201,29 @@
       "_vendor-utils-Bd_1ICpc.js"
     ]
   },
+  "resources/js/Pages/Quality/NcrRegister.jsx": {
+    "file": "assets/js/NcrRegister-C9Fzt6Sm.js",
+    "name": "NcrRegister",
+    "src": "resources/js/Pages/Quality/NcrRegister.jsx",
+    "isEntry": true,
+    "imports": [
+      "_vendor-radix-B57UXKiB.js",
+      "_vendor-inertia-BheeDqvO.js",
+      "resources/js/Pages/UserDevices.jsx",
+      "_ErrorBoundary-CFN5Amac.js",
+      "_vendor-utils-Bd_1ICpc.js",
+      "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
+      "_reactQueryClient-BnZ6xgJ8.js",
+      "_useMediaQuery-iotCY5cT.js",
+      "_react-icons.esm-CXju-nJO.js",
+      "_ClockIcon-DI4s8R_S.js",
+      "_useQuery-jLQ-lTLJ.js",
+      "_useMutation-BphN90OX.js",
+      "_client-Cz5iVfPv.js"
+    ]
+  },
   "resources/js/Pages/Settings/CompanySettings.jsx": {
-    "file": "assets/js/CompanySettings-DYzrSTwp.js",
+    "file": "assets/js/CompanySettings-DIZ0wn48.js",
     "name": "CompanySettings",
     "src": "resources/js/Pages/Settings/CompanySettings.jsx",
     "isEntry": true,
@@ -2223,7 +2244,7 @@
     ]
   },
   "resources/js/Pages/Settings/NotificationPreferences.jsx": {
-    "file": "assets/js/NotificationPreferences-Dsb_EQQT.js",
+    "file": "assets/js/NotificationPreferences-BJp-FDcb.js",
     "name": "NotificationPreferences",
     "src": "resources/js/Pages/Settings/NotificationPreferences.jsx",
     "isEntry": true,
@@ -2244,7 +2265,7 @@
     ]
   },
   "resources/js/Pages/Settings/RequestLogs.jsx": {
-    "file": "assets/js/RequestLogs-CF7eI8DR.js",
+    "file": "assets/js/RequestLogs-DYYRNxDW.js",
     "name": "RequestLogs",
     "src": "resources/js/Pages/Settings/RequestLogs.jsx",
     "isEntry": true,
@@ -2265,7 +2286,7 @@
     ]
   },
   "resources/js/Pages/UserDevices.jsx": {
-    "file": "assets/js/UserDevices-BHHqED28.js",
+    "file": "assets/js/UserDevices-FpvtfM1t.js",
     "name": "UserDevices",
     "src": "resources/js/Pages/UserDevices.jsx",
     "isEntry": true,
@@ -2292,7 +2313,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-Cd3tA7Eo.js",
+    "file": "assets/js/app-CjNF46Pi.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2374,6 +2395,7 @@
       "resources/js/Pages/Project/Objections/components/ObjectionsFiltersBar.jsx",
       "resources/js/Pages/Project/Objections/components/ObjectionsStatsSection.jsx",
       "resources/js/Pages/Project/Objections/utils/buildObjectionsStats.jsx",
+      "resources/js/Pages/Quality/NcrRegister.jsx",
       "resources/js/Pages/Settings/CompanySettings.jsx",
       "resources/js/Pages/Settings/NotificationPreferences.jsx",
       "resources/js/Pages/Settings/RequestLogs.jsx",
