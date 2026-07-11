@@ -362,8 +362,12 @@ class CommandCenterService
     {
         if (! Schema::hasTable('attendances')) return ['series' => [], 'present_today' => 0, 'total' => 0];
 
-        $maxDate = DB::table('attendances')->max(DB::raw('DATE(date)'));
-        if (! $maxDate) $maxDate = now()->toDateString();
+        // Anchor to the latest attendance date that is not in the future — the register
+        // can contain stray future-dated (roster/planned) rows that would otherwise
+        // pull the 14-day window past "today" and show an empty trend.
+        $today = now()->toDateString();
+        $maxDate = DB::table('attendances')->whereDate('date', '<=', $today)->max(DB::raw('DATE(date)'));
+        if (! $maxDate) $maxDate = $today;
         $from = Carbon::parse($maxDate)->subDays(13)->toDateString();
 
         $rows = DB::table('attendances')
