@@ -4,9 +4,9 @@ import dayjs from 'dayjs';
 import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 
 const NAME_W = 168;
-const CELL_W = 120; // Increased from 64 to 120 for 24 segmented columns
-const ROW_H = 36;
-const HEADER_H = 46; // Dedicated header height to accommodate the ruler
+const CELL_W = 144; // Increased from 120 to 144 to align with reference layout
+const ROW_H = 48;   // Increased from 36 to 48 for larger visual chips and grid lines
+const HEADER_H = 56; // Increased from 46 to 56 to fit two rows of dates and hourly labels
 const LINE = '1px solid var(--gray-a5)';
 
 const parseTimeToHours = (timeStr) => {
@@ -15,6 +15,11 @@ const parseTimeToHours = (timeStr) => {
     const h = parseInt(parts[0] || 0, 10);
     const m = parseInt(parts[1] || 0, 10);
     return h + m / 60;
+};
+
+const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 };
 
 export default function RosterCalendar({ roster = {}, days = [], holidays = {}, shifts = [], onCellClick }) {
@@ -61,54 +66,49 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                     borderRight: LINE, borderBottom: LINE,
                                     background: holidays[d] ? 'var(--amber-a3)' : (weekend ? 'var(--gray-a3)' : 'transparent'),
                                     display: 'flex', flexDirection: 'column',
-                                    alignItems: 'center', justifyContent: 'flex-start',
-                                    paddingTop: 4, position: 'relative',
+                                    alignItems: 'center', justifyContent: 'space-between',
+                                    paddingTop: 6, paddingBottom: 4, position: 'relative',
                                     boxSizing: 'border-box',
                                 }}
                             >
-                                <Text size="1" weight="medium" style={{ lineHeight: 1 }}>{dayjs(d).format('D')}</Text>
-                                <Text size="1" color="gray" style={{ fontSize: 9, lineHeight: 1, marginBottom: 2 }}>{dayjs(d).format('dd')}</Text>
+                                <Text size="1" weight="bold" style={{ fontSize: 10, lineHeight: 1 }}>{dayjs(d).format('ddd D MMM')}</Text>
                                 
-                                {/* Timeline ruler axis at the bottom */}
-                                <Box style={{ position: 'absolute', bottom: 2, left: 2, right: 2, height: 10 }}>
-                                    {/* Horizontal axis line */}
-                                    <Box style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 1, background: 'var(--gray-a6)' }} />
-                                    
-                                    {/* Ticks at every 2 hours */}
-                                    {Array.from({ length: 13 }).map((_, index) => {
-                                        const h = index * 2;
-                                        const isMajor = h % 6 === 0;
-                                        return (
-                                            <Box
-                                                key={h}
-                                                style={{
-                                                    position: 'absolute',
-                                                    left: `${(h / 24) * 100}%`,
-                                                    top: 0,
-                                                    width: 1,
-                                                    height: isMajor ? 3 : 2,
-                                                    background: isMajor ? 'var(--gray-a8)' : 'var(--gray-a5)',
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                    
-                                    {/* Labels at 0, 6, 12, 18, 24 */}
-                                    {[0, 6, 12, 18, 24].map(h => (
+                                {/* Vertical hour division lines inside header */}
+                                {Array.from({ length: 24 }).map((_, h) => {
+                                    if (h === 0) return null;
+                                    return (
+                                        <Box
+                                            key={h}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${(h / 24) * 100}%`,
+                                                top: '22px', // starts below date text
+                                                bottom: 0,
+                                                width: 1,
+                                                borderLeft: '1px solid var(--gray-a3)',
+                                                pointerEvents: 'none',
+                                            }}
+                                        />
+                                    );
+                                })}
+
+                                {/* 2-hourly labels at the bottom of header cell */}
+                                <Box style={{ position: 'relative', width: '100%', height: 10 }}>
+                                    {[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22].map(h => (
                                         <span
                                             key={h}
                                             style={{
                                                 position: 'absolute',
                                                 left: `${(h / 24) * 100}%`,
                                                 transform: 'translateX(-50%)',
-                                                top: 3,
+                                                bottom: 0,
                                                 fontSize: 7,
                                                 color: 'var(--gray-8)',
                                                 fontWeight: 600,
                                                 lineHeight: 1
                                             }}
                                         >
-                                            {h}
+                                            {String(h).padStart(2, '0')}
                                         </span>
                                     ))}
                                 </Box>
@@ -120,7 +120,22 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                 {/* ── Employee rows ──────────────────────────── */}
                 {rows.map(([userId, row], i) => (
                     <Flex key={userId} style={{ background: i % 2 ? 'var(--gray-a1)' : 'transparent' }}>
-                        {nameCell(<Text size="2">{row.name || 'Unknown'}</Text>, { zIndex: 1 })}
+                        {nameCell(
+                            <Flex gap="2" align="center" style={{ width: '100%' }}>
+                                <Box style={{
+                                    width: 24, height: 24, borderRadius: '50%',
+                                    background: 'var(--accent-3)', color: 'var(--accent-11)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 10, fontWeight: 700, flexShrink: 0
+                                }}>
+                                    {getInitials(row.name)}
+                                </Box>
+                                <Text size="1" weight="medium" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {row.name || 'Unknown'}
+                                </Text>
+                            </Flex>,
+                            { zIndex: 1 }
+                        )}
                         {days.map((d) => {
                             const cell = row.days?.[d];
                             const disp = resolveRosterCellDisplay(cell, holidays[d]);
@@ -200,7 +215,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                     onClick={() => onCellClick?.(userId, d, cell)}
                                     style={{
                                         width: CELL_W, minWidth: CELL_W, height: ROW_H,
-                                        borderRight: LINE, borderBottom: LINE, padding: '4px 2px',
+                                        borderRight: LINE, borderBottom: LINE, padding: '4px 0px',
                                         boxSizing: 'border-box',
                                         cursor: onCellClick ? 'pointer' : 'default',
                                     }}
@@ -214,18 +229,22 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                             position: 'relative'
                                         }}>
                                             {/* 24 visual columns background */}
-                                            {Array.from({ length: 24 }).map((_, hIndex) => (
-                                                <Box
-                                                    key={hIndex}
-                                                    style={{
-                                                        gridColumn: `${hIndex + 1} / ${hIndex + 2}`,
-                                                        gridRow: 1,
-                                                        height: '100%',
-                                                        borderRight: hIndex < 23 ? '1px solid var(--gray-a3)' : 'none',
-                                                        background: hIndex % 2 === 0 ? 'var(--gray-a1)' : 'transparent',
-                                                    }}
-                                                />
-                                            ))}
+                                            {Array.from({ length: 24 }).map((_, hIndex) => {
+                                                if (hIndex === 0) return null;
+                                                return (
+                                                    <Box
+                                                        key={hIndex}
+                                                        style={{
+                                                            gridColumn: `${hIndex} / ${hIndex + 1}`,
+                                                            gridRow: 1,
+                                                            height: '100%',
+                                                            borderRight: '1px solid var(--gray-a3)',
+                                                            pointerEvents: 'none',
+                                                            zIndex: 0,
+                                                        }}
+                                                    />
+                                                );
+                                            })}
 
                                             {/* Half-day Leave background overlay */}
                                             {disp.kind === 'leave-half' && (
@@ -233,25 +252,13 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                     style={{
                                                         gridColumn: disp.session === 'first_half' ? '1 / 13' : '13 / 25',
                                                         gridRow: 1,
-                                                        height: '100%',
+                                                        height: '24px',
+                                                        alignSelf: 'center',
                                                         background: 'var(--amber-a3)',
                                                         border: '1px dashed var(--amber-8)',
-                                                        borderRadius: 3,
-                                                        zIndex: 0,
-                                                    }}
-                                                />
-                                            )}
-
-                                            {/* Off-day dashed line overlay */}
-                                            {disp.kind === 'off' && (
-                                                <Box
-                                                    style={{
-                                                        gridColumn: '1 / 25',
-                                                        gridRow: 1,
-                                                        height: 2,
-                                                        alignSelf: 'center',
-                                                        borderTop: '2px dashed var(--gray-a6)',
+                                                        borderRadius: 4,
                                                         zIndex: 1,
+                                                        margin: '0 2px',
                                                     }}
                                                 />
                                             )}
@@ -268,23 +275,24 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                         style={{
                                                             gridColumn: `${startCol} / ${endCol}`,
                                                             gridRow: 1,
-                                                            height: 20,
+                                                            height: '24px',
                                                             alignSelf: 'center',
                                                             background: disp.color || 'var(--accent-9)',
-                                                            borderRadius: 3,
+                                                            borderRadius: 4,
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
                                                             color: '#fff',
-                                                            boxShadow: 'var(--shadow-1)',
+                                                            boxShadow: 'var(--shadow-2)',
                                                             zIndex: 2,
                                                             overflow: 'hidden',
                                                             whiteSpace: 'nowrap',
-                                                            padding: '0 2px',
+                                                            padding: '0 4px',
                                                             border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
+                                                            margin: '0 1px',
                                                         }}
                                                     >
-                                                        <Text style={{ fontSize: 8, fontWeight: 700 }}>
+                                                        <Text style={{ fontSize: 9, fontWeight: 700 }}>
                                                             {shift.code}
                                                         </Text>
                                                     </Box>
@@ -308,6 +316,8 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                     style={{
                                                         gridColumn: '1 / 25',
                                                         gridRow: 1,
+                                                        height: '24px',
+                                                        alignSelf: 'center',
                                                         borderRadius: 4,
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -317,6 +327,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                         fontSize: 9,
                                                         fontWeight: 700,
                                                         zIndex: 2,
+                                                        margin: '0 4px',
                                                     }}
                                                 >
                                                     {disp.label}
