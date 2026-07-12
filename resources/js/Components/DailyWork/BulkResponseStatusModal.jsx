@@ -11,6 +11,7 @@ import {
 } from "@radix-ui/react-icons";
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 /**
  * RFI Response Status options
@@ -159,10 +160,12 @@ const BulkResponseStatusModal = ({
 
                                     {/* Response Date */}
                                     <Flex direction="column" gap="1">
-                                        <Text as="label" size="1" weight="medium">Response Date</Text>
-                                        <TextField.Root type="date" value={responseDate} onChange={(e) => setResponseDate(e.target.value)}>
-                                            <TextField.Slot><CalendarIcon style={{ width: 16, height: 16 }} /></TextField.Slot>
-                                        </TextField.Root>
+                                        <Text as="label" size="1" weight="medium" mb="1">Response Date</Text>
+                                        <DateTimePicker
+                                            mode="date"
+                                            value={responseDate}
+                                            onChange={setResponseDate}
+                                        />
                                     </Flex>
 
                                     {/* Summary */}

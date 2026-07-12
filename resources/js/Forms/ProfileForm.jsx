@@ -7,6 +7,7 @@ import {
 import React, {useEffect, useState} from "react";
 import { X, Camera } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";
+import DateTimePicker from '@/Components/DateTimePicker';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 
 const ProfileForm = ({user, allUsers, departments, designations,setUser, open, closeModal }) => {
@@ -479,33 +480,21 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
                                     </Select>
                                 </div>
                                 <div>
-                                    <TextField.Root
+                                    <DateTimePicker
+                                        mode="date"
                                         label="Birth Date"
-                                        type="date"
                                         value={changedUserData.birthday || initialUserData.birthday || ''}
-                                        onChange={(e) => handleChange('birthday', e.target.value)}
-                                        isInvalid={Boolean(errors.birthday)}
-                                        errorMessage={errors.birthday}
-                                        variant="outline"
-                                        style={{
-                                            borderRadius: 'var(--borderRadius, 12px)',
-                                            fontFamily: 'var(--fontFamily, "Inter")'
-                                        }}
+                                        onChange={(v) => handleChange('birthday', v)}
+                                        error={errors.birthday}
                                     />
                                 </div>
                                 <div>
-                                    <TextField.Root
+                                    <DateTimePicker
+                                        mode="date"
                                         label="Joining Date"
-                                        type="date"
                                         value={changedUserData.date_of_joining || initialUserData.date_of_joining || ''}
-                                        onChange={(e) => handleChange('date_of_joining', e.target.value)}
-                                        isInvalid={Boolean(errors.date_of_joining)}
-                                        errorMessage={errors.date_of_joining}
-                                        variant="outline"
-                                        style={{
-                                            borderRadius: 'var(--borderRadius, 12px)',
-                                            fontFamily: 'var(--fontFamily, "Inter")'
-                                        }}
+                                        onChange={(v) => handleChange('date_of_joining', v)}
+                                        error={errors.date_of_joining}
                                     />
                                 </div>
 

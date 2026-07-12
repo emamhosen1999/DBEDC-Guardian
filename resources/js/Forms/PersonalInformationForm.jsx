@@ -3,6 +3,7 @@ import { Box, Button, Card, Flex, Grid, Text, TextField, Separator, Badge } from
 import { Pencil1Icon, CheckIcon, Cross2Icon } from '@radix-ui/react-icons';
 import axios from "axios";
 import { showToast } from "@/utils/toastUtils";
+import DateTimePicker from '@/Components/DateTimePicker';
 import InfoRow from "@/Components/InfoRow.jsx";
 
 const PersonalInformationForm = ({ user, setUser }) => {
@@ -89,8 +90,8 @@ const PersonalInformationForm = ({ user, setUser }) => {
                             <TextField.Root value={formData.passport_no} onChange={e => handleChange('passport_no', e.target.value)} />
                         </Box>
                         <Box>
-                            <Text size="1" weight="medium">Expiry Date</Text>
-                            <TextField.Root type="date" value={formData.passport_exp_date} onChange={e => handleChange('passport_exp_date', e.target.value)} />
+                            <Text size="1" weight="medium" mb="1" as="div">Expiry Date</Text>
+                            <DateTimePicker mode="date" value={formData.passport_exp_date} onChange={v => handleChange('passport_exp_date', v)} />
                         </Box>
                         <Box>
                             <Text size="1" weight="medium">NID No</Text>

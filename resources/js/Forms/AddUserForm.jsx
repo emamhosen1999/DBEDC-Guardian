@@ -20,6 +20,7 @@ import GlassDialog from '@/Components/GlassDialog.jsx';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const toastStyle = {
     backdropFilter: 'blur(16px) saturate(200%)',
@@ -327,18 +328,18 @@ const AddUserForm = ({ user, allUsers, departments, designations, setUser, open,
                             </Field>
 
                             <Field label="Birth Date" error={fieldError(errors, 'birthday')}>
-                                <TextField.Root
-                                    type="date"
+                                <DateTimePicker
+                                    mode="date"
                                     value={val('birthday')}
-                                    onChange={(e) => handleChange('birthday', e.target.value)}
+                                    onChange={(v) => handleChange('birthday', v)}
                                 />
                             </Field>
 
                             <Field label="Joining Date" error={fieldError(errors, 'date_of_joining')}>
-                                <TextField.Root
-                                    type="date"
+                                <DateTimePicker
+                                    mode="date"
                                     value={val('date_of_joining')}
-                                    onChange={(e) => handleChange('date_of_joining', e.target.value)}
+                                    onChange={(v) => handleChange('date_of_joining', v)}
                                 />
                             </Field>
 

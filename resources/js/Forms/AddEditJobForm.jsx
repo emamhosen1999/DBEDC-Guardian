@@ -19,6 +19,7 @@ import { showToast } from '@/utils/toastUtils';
 import GlassDialog from '@/Components/GlassDialog.jsx';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const toastStyle = {
     backdropFilter: 'blur(16px) saturate(200%)',
@@ -531,20 +532,20 @@ const AddEditJobForm = ({
                             </Field>
 
                             <Field label="Posted Date" error={fieldError(errors, 'posting_date')}>
-                                <TextField.Root
-                                    name="posting_date"
-                                    type="date"
+                                <DateTimePicker
+                                    mode="date"
                                     value={formData.posting_date}
-                                    onChange={handleChange}
+                                    onChange={(val) => handleChange({ target: { name: 'posting_date', value: val } })}
+                                    error={fieldError(errors, 'posting_date')}
                                 />
                             </Field>
 
                             <Field label="Closing Date" error={fieldError(errors, 'closing_date')}>
-                                <TextField.Root
-                                    name="closing_date"
-                                    type="date"
+                                <DateTimePicker
+                                    mode="date"
                                     value={formData.closing_date}
-                                    onChange={handleChange}
+                                    onChange={(val) => handleChange({ target: { name: 'closing_date', value: val } })}
+                                    error={fieldError(errors, 'closing_date')}
                                 />
                             </Field>
 

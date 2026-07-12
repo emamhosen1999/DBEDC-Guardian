@@ -20,6 +20,7 @@ import {
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import TablePagination from '@/Components/TablePagination.jsx';
+import DateTimePicker from '@/Components/DateTimePicker';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -570,38 +571,18 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                     <Flex direction="column" gap="3">
                                         <Box>
                                             <Text size="2" weight="medium" as="div" mb="1">Start Date & Time (Optional)</Text>
-                                            <input
-                                                type="datetime-local"
+                                            <DateTimePicker
+                                                mode="datetime"
                                                 value={logStartDate}
-                                                onChange={e => setLogStartDate(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    borderRadius: 'var(--radius-2)',
-                                                    border: '1px solid var(--gray-7)',
-                                                    background: 'var(--color-background)',
-                                                    color: 'var(--color-text)',
-                                                    fontSize: 'var(--font-size-2)',
-                                                    fontFamily: 'inherit',
-                                                }}
+                                                onChange={setLogStartDate}
                                             />
                                         </Box>
                                         <Box>
                                             <Text size="2" weight="medium" as="div" mb="1">End Date & Time (Optional)</Text>
-                                            <input
-                                                type="datetime-local"
+                                            <DateTimePicker
+                                                mode="datetime"
                                                 value={logEndDate}
-                                                onChange={e => setLogEndDate(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px 12px',
-                                                    borderRadius: 'var(--radius-2)',
-                                                    border: '1px solid var(--gray-7)',
-                                                    background: 'var(--color-background)',
-                                                    color: 'var(--color-text)',
-                                                    fontSize: 'var(--font-size-2)',
-                                                    fontFamily: 'inherit',
-                                                }}
+                                                onChange={setLogEndDate}
                                             />
                                         </Box>
                                         <Text size="1" color="gray" mt="1" as="div">

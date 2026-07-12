@@ -3,6 +3,7 @@ import { Dialog, Button, Badge, Separator, Box, Flex, Text, TextField, TextArea,
 import { FileTextIcon, CheckCircledIcon, ExclamationTriangleIcon, StarFilledIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 
 const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
@@ -377,10 +378,15 @@ const DailyWorkForm = ({ open, closeModal, currentRow, setData, modalType}) => {
                                     <Box>
                                         <Text size="1" color="gray" as="p" mb="1">RFI Date *</Text>
                                         <Flex align="center" gap="1">
-                                            <TextField.Root type="date" value={dailyWorkData.date} onChange={(e) => handleChange('date', e.target.value)} style={{ flex: 1, ...(errors.date ? { outline: '2px solid var(--red-8)', borderRadius: 6 } : {}) }} />
+                                            <DateTimePicker
+                                                mode="date"
+                                                value={dailyWorkData.date}
+                                                onChange={(val) => handleChange('date', val)}
+                                                style={{ flex: 1 }}
+                                                error={errors.date}
+                                            />
                                             {getValidationIcon('date')}
                                         </Flex>
-                                        {errors.date && <Text size="1" style={{ color: 'var(--red-11)' }} as="p" mt="1">{errors.date}</Text>}
                                     </Box>
 
                                     {/* RFI Number */}

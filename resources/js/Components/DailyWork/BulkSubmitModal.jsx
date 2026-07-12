@@ -11,6 +11,7 @@ import {
 } from "@radix-ui/react-icons";
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 /**
  * BulkSubmitModal - Modal for bulk RFI submission with objection warnings.
@@ -132,10 +133,12 @@ const BulkSubmitModal = ({
                                 <Flex direction="column" gap="4">
                                     {/* Submission Date */}
                                     <Flex direction="column" gap="1">
-                                        <Text as="label" size="1" weight="medium">RFI Submission Date</Text>
-                                        <TextField.Root type="date" value={submissionDate} onChange={(e) => setSubmissionDate(e.target.value)}>
-                                            <TextField.Slot><CalendarIcon style={{ width: 16, height: 16 }} /></TextField.Slot>
-                                        </TextField.Root>
+                                        <Text as="label" size="1" weight="medium" mb="1">RFI Submission Date</Text>
+                                        <DateTimePicker
+                                            mode="date"
+                                            value={submissionDate}
+                                            onChange={setSubmissionDate}
+                                        />
                                     </Flex>
 
                                     {/* Summary */}

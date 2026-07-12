@@ -15,6 +15,7 @@ import { showToast } from '@/utils/toastUtils';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
 import ShiftsSettings from './ShiftsSettings';
 import PoliciesManager from './Components/PoliciesManager';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 /* ── map imports (Leaflet — untouched) ───────────────────── */
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -743,16 +744,24 @@ const SettingsTab = () => {
                                     <Flex gap="4" wrap="wrap">
                                         <Box style={{ flex: '1 1 180px' }}>
                                             <Text size="2" weight="medium" as="div" mb="1">Start Time</Text>
-                                            <TextField.Root
-                                                type="time" size="2" name="office_start_time"
-                                                defaultValue={settings?.office_start_time || '09:00'}
+                                            <DateTimePicker
+                                                mode="time"
+                                                size="2"
+                                                name="office_start_time"
+                                                value={settings?.office_start_time || '09:00'}
+                                                onChange={(val) => setSettings(prev => ({ ...prev, office_start_time: val }))}
+                                                clearable={false}
                                             />
                                         </Box>
                                         <Box style={{ flex: '1 1 180px' }}>
                                             <Text size="2" weight="medium" as="div" mb="1">End Time</Text>
-                                            <TextField.Root
-                                                type="time" size="2" name="office_end_time"
-                                                defaultValue={settings?.office_end_time || '18:00'}
+                                            <DateTimePicker
+                                                mode="time"
+                                                size="2"
+                                                name="office_end_time"
+                                                value={settings?.office_end_time || '18:00'}
+                                                onChange={(val) => setSettings(prev => ({ ...prev, office_end_time: val }))}
+                                                clearable={false}
                                             />
                                         </Box>
                                         <Box style={{ flex: '1 1 180px' }}>
@@ -812,9 +821,13 @@ const SettingsTab = () => {
                                             {autoPunchOut && (
                                                 <Box style={{ flex: '1 1 180px' }}>
                                                     <Text size="2" weight="medium" as="div" mb="1">Auto Punch Out Time</Text>
-                                                    <TextField.Root
-                                                        type="time" size="2" name="auto_punch_out_time"
-                                                        defaultValue={settings?.auto_punch_out_time || '18:00'}
+                                                    <DateTimePicker
+                                                        mode="time"
+                                                        size="2"
+                                                        name="auto_punch_out_time"
+                                                        value={settings?.auto_punch_out_time || '18:00'}
+                                                        onChange={(val) => setSettings(prev => ({ ...prev, auto_punch_out_time: val }))}
+                                                        clearable={false}
                                                     />
                                                 </Box>
                                             )}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { TextField, Button, Flex, Text } from '@radix-ui/themes';
+import { Button, Flex } from '@radix-ui/themes';
 import { CheckIcon, Cross1Icon } from '@radix-ui/react-icons';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const AttendanceTimePicker = ({ 
     value, 
@@ -26,19 +27,17 @@ const AttendanceTimePicker = ({
 
     return (
         <Flex gap="2" align="center">
-            <TextField.Root 
-                type="time" 
+            <DateTimePicker
+                mode="time"
                 value={timeValue}
-                onChange={(e) => setTimeValue(e.target.value)}
+                onChange={setTimeValue}
                 onKeyDown={handleKeyDown}
                 size="1"
                 style={{ width: '140px' }}
                 autoFocus
-            >
-                <TextField.Slot side="right">
-                    <Text size="1" color="gray">{label}</Text>
-                </TextField.Slot>
-            </TextField.Root>
+                placeholder={label}
+                clearable={false}
+            />
             
             <Button size="1" color="green" onClick={handleSave}>
                 <CheckIcon width="14" height="14" />

@@ -22,6 +22,7 @@ import {
     CurrencyDollarIcon,
     CheckCircleIcon,
 } from '@heroicons/react/24/outline';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 import GlassDialog from './GlassDialog';
 import ProfileAvatar from '@/Components/Profile/ProfileAvatar';
@@ -268,14 +269,12 @@ const EmployeeFormModal = ({
                         </Field>
 
                         <Field label="Hire Date" error={touched.hire_date && fieldError(errors, 'hire_date')}>
-                            <TextField.Root
-                                type="date"
+                            <DateTimePicker
+                                mode="date"
                                 value={formData.hire_date}
-                                onChange={(e) => handleFieldChange('hire_date', e.target.value)}
+                                onChange={(val) => handleFieldChange('hire_date', val)}
                                 disabled={isView}
-                            >
-                                <TextField.Slot><CalendarIcon className="w-4 h-4" /></TextField.Slot>
-                            </TextField.Root>
+                            />
                         </Field>
 
                         <Box style={{ gridColumn: '1 / -1' }}>

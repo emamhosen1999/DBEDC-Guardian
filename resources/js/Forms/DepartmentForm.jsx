@@ -6,6 +6,7 @@ import {
 import { HomeIcon, PersonIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers = [], parentDepartments = [], readOnly = false }) => {
     const [loading, setLoading] = useState(false);
@@ -150,10 +151,10 @@ const DepartmentForm = ({ open, onClose, onSuccess, department = null, managers 
 
                         <Box>
                             <Text size="2" weight="medium" mb="1" as="div">Established Date</Text>
-                            <TextField.Root 
-                                type="date"
+                            <DateTimePicker
+                                mode="date"
                                 value={formData.established_date} 
-                                onChange={e => handleChange('established_date', e.target.value)} 
+                                onChange={v => handleChange('established_date', v)} 
                                 disabled={readOnly || loading} 
                             />
                         </Box>

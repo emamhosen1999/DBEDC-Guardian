@@ -20,6 +20,7 @@ import {
     Card,
     Tooltip
 } from '@radix-ui/themes';
+import DateTimePicker from '@/Components/DateTimePicker';
 import {
     CameraIcon,
     EyeOpenIcon,
@@ -369,10 +370,15 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Date of Birth</Text>
-                                            <TextField.Root type="date" value={form.data.birthday} onChange={(e) => handleChange('birthday', e.target.value)} onBlur={() => form.validate('birthday')} color={form.invalid('birthday') ? 'red' : undefined}>
-                                                <TextField.Slot><CalendarIcon /></TextField.Slot>
-                                                {form.errors.birthday && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.birthday}</Text></TextField.Slot>}
-                                            </TextField.Root>
+                                            <DateTimePicker
+                                                mode="date"
+                                                value={form.data.birthday}
+                                                onChange={(val) => {
+                                                    handleChange('birthday', val);
+                                                    form.validate('birthday');
+                                                }}
+                                                error={form.errors.birthday}
+                                            />
                                         </Box>
 
                                         <Box gridColumn={{ initial: '1', sm: '1 / -1' }}>
@@ -403,10 +409,15 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
 
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Date of Joining</Text>
-                                            <TextField.Root type="date" value={form.data.date_of_joining} onChange={(e) => handleChange('date_of_joining', e.target.value)} onBlur={() => form.validate('date_of_joining')} color={form.invalid('date_of_joining') ? 'red' : undefined}>
-                                                <TextField.Slot><CalendarIcon /></TextField.Slot>
-                                                {form.errors.date_of_joining && <TextField.Slot side="right"><Text color="red" size="1">{form.errors.date_of_joining}</Text></TextField.Slot>}
-                                            </TextField.Root>
+                                            <DateTimePicker
+                                                mode="date"
+                                                value={form.data.date_of_joining}
+                                                onChange={(val) => {
+                                                    handleChange('date_of_joining', val);
+                                                    form.validate('date_of_joining');
+                                                }}
+                                                error={form.errors.date_of_joining}
+                                            />
                                         </Box>
 
                                         <Box>

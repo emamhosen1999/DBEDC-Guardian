@@ -10,6 +10,7 @@ import { CalendarIcon, UserIcon, ClockIcon, MapPinIcon, UsersIcon } from 'lucide
 import { showToast } from "@/utils/toastUtils";
 import { usePage } from "@inertiajs/react";
 import axios from 'axios';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const TrainingForm = ({
     open,
@@ -334,34 +335,23 @@ const TrainingForm = ({
 
                             {/* Start Date */}
                             <div>
-                                <TextField.Root
+                                <DateTimePicker
+                                    mode="datetime"
                                     label="Start Date & Time"
-                                    type="datetime-local"
                                     value={formData.start_date}
-                                    onValueChange={(value) => handleChange('start_date', value)}
-                                    isInvalid={Boolean(errors.start_date)}
-                                    errorMessage={errors.start_date}
-                                    variant="outline"
-                                    size="sm"
-                                    radius={getThemeRadius()}
-                                    startContent={<CalendarIcon size={16} className="text-default-400" />}
-                                    isRequired
+                                    onChange={(value) => handleChange('start_date', value)}
+                                    error={errors.start_date}
                                 />
                             </div>
 
                             {/* End Date */}
                             <div>
-                                <TextField.Root
+                                <DateTimePicker
+                                    mode="datetime"
                                     label="End Date & Time"
-                                    type="datetime-local"
                                     value={formData.end_date}
-                                    onValueChange={(value) => handleChange('end_date', value)}
-                                    isInvalid={Boolean(errors.end_date)}
-                                    errorMessage={errors.end_date}
-                                    variant="outline"
-                                    size="sm"
-                                    radius={getThemeRadius()}
-                                    startContent={<CalendarIcon size={16} className="text-default-400" />}
+                                    onChange={(value) => handleChange('end_date', value)}
+                                    error={errors.end_date}
                                 />
                             </div>
 

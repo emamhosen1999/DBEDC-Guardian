@@ -4,6 +4,7 @@ import { CalendarIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { router } from '@inertiajs/react';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const BulkCompletionDateModal = ({ isOpen, onClose, selectedWorks = [], onSuccess }) => {
     const [completionDate, setCompletionDate] = useState('');
@@ -64,10 +65,10 @@ const BulkCompletionDateModal = ({ isOpen, onClose, selectedWorks = [], onSucces
                     {!clearDate && (
                         <Box>
                             <Text size="2" weight="bold" mb="2">Completion Date</Text>
-                            <TextField.Root 
-                                type="date" 
+                            <DateTimePicker 
+                                mode="date" 
                                 value={completionDate}
-                                onChange={(e) => setCompletionDate(e.target.value)}
+                                onChange={setCompletionDate}
                             />
                         </Box>
                     )}

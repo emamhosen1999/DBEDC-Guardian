@@ -10,6 +10,7 @@ import {
 } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const MONO = "'Roboto Mono', ui-monospace, monospace";
 const ROAD_KM = 48;
@@ -357,7 +358,7 @@ function NcrForm({ editing, options, onClose, onSaved }) {
                             <FormSelect value={form.status} onChange={set('status')} items={Object.entries(STATUS).map(([k, v]) => [k, v.label])} />
                         </FormRow>
                         <FormRow label="Detected" error={errors.detected_date}>
-                            <TextField.Root type="date" value={form.detected_date} onChange={set('detected_date')} />
+                            <DateTimePicker mode="date" value={form.detected_date} onChange={set('detected_date')} />
                         </FormRow>
                     </Grid>
                     <Grid columns="2" gap="3">

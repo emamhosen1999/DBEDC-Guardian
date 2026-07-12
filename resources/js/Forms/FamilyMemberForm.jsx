@@ -7,6 +7,7 @@ import {
 import React, {useEffect, useState} from "react";
 import { X, Users } from "lucide-react";
 import { showToast } from "@/utils/toastUtils";
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => {
     // Helper function to convert theme borderRadius to HeroUI radius values
@@ -238,23 +239,12 @@ const FamilyMemberForm = ({ user, open, closeModal, handleDelete, setUser }) => 
                             />
                         </div>
                         <div className="col-span-1">
-                            <TextField.Root
+                            <DateTimePicker
+                                mode="date"
                                 label="Date of Birth"
-                                variant="outline"
-                                type="date"
                                 value={changedUserData.family_member_dob || initialUserData.family_member_dob || ""}
-                                onChange={(e) => handleChange('family_member_dob', e.target.value)}
-                                isInvalid={Boolean(errors.family_member_dob)}
-                                errorMessage={errors.family_member_dob}
-                                size="sm"
-                                radius={getThemeRadius()}
-                                classNames={{
-                                    input: "text-small",
-                                    inputWrapper: "min-h-unit-10"
-                                }}
-                                style={{
-                                    fontFamily: `var(--fontFamily, "Inter")`,
-                                }}
+                                onChange={(val) => handleChange('family_member_dob', val)}
+                                error={errors.family_member_dob}
                             />
                         </div>
                         <div className="col-span-1">

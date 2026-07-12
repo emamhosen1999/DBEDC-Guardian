@@ -48,6 +48,10 @@ export default function DateTimePicker({
   placeholder = 'Select…',
   disabled = false,
   readOnly = false,
+  name,
+  autoFocus = false,
+  style,
+  onKeyDown,
 }) {
   const [open, setOpen] = useState(false);
   const isRange = RANGE_MODES.has(mode);
@@ -134,6 +138,15 @@ export default function DateTimePicker({
   return (
     <div>
       {label && <Text size="2" weight="medium" mb="1" as="div">{label}</Text>}
+      {name && isRange && (
+        <>
+          <input type="hidden" name={`${name}_start`} value={value?.start || ''} />
+          <input type="hidden" name={`${name}_end`} value={value?.end || ''} />
+        </>
+      )}
+      {name && !isRange && (
+        <input type="hidden" name={name} value={value || ''} />
+      )}
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger disabled={disabled || readOnly}>
           <TextField.Root
@@ -142,8 +155,10 @@ export default function DateTimePicker({
             placeholder={placeholder}
             readOnly
             disabled={disabled}
-            style={{ cursor: disabled ? 'default' : 'pointer' }}
+            style={{ cursor: disabled ? 'default' : 'pointer', ...style }}
             color={error ? 'red' : undefined}
+            autoFocus={autoFocus}
+            onKeyDown={onKeyDown}
           >
             <TextField.Slot>{hasDate ? <CalendarDays size={16} /> : <Clock size={16} />}</TextField.Slot>
             {showClear && (

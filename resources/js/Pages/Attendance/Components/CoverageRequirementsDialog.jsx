@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -82,8 +83,12 @@ export default function CoverageRequirementsDialog({ open, onOpenChange }) {
                             <Select.Content><Select.Item value="all">All days</Select.Item>{WEEKDAYS.map((w, i) => <Select.Item key={i} value={String(i)}>{w}</Select.Item>)}</Select.Content>
                         </Select.Root>
                     </Box>
-                    <Box><Text size="1" color="gray">Date (opt)</Text>
-                        <TextField.Root type="date" value={form.date} onChange={e => set('date', e.target.value)} />
+                    <Box><Text size="1" color="gray" mb="1">Date (opt)</Text>
+                        <DateTimePicker
+                            mode="date"
+                            value={form.date}
+                            onChange={v => set('date', v)}
+                        />
                     </Box>
                     <Button disabled={!canAdd || create.isPending} onClick={() => create.mutate()}>Add</Button>
                 </Flex>

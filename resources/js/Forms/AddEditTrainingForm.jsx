@@ -15,6 +15,7 @@ import {
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const fieldError = (errors, field) => {
     const e = errors[field];
@@ -314,24 +315,22 @@ const AddEditTrainingForm = ({ open, onClose, training = null, fetchData, curren
 
                         <Box>
                             <Text as="label" size="2" weight="medium" mb="1" display="block">Start Date</Text>
-                            <TextField.Root
-                                name="start_date"
-                                type="date"
+                            <DateTimePicker
+                                mode="date"
                                 value={formData.start_date}
-                                onChange={handleChange}
+                                onChange={(val) => handleChange({ target: { name: 'start_date', value: val } })}
+                                error={fieldError(errors, 'start_date')}
                             />
-                            {fieldError(errors, 'start_date') && <Text size="1" color="red" mt="1">{fieldError(errors, 'start_date')}</Text>}
                         </Box>
 
                         <Box>
                             <Text as="label" size="2" weight="medium" mb="1" display="block">End Date</Text>
-                            <TextField.Root
-                                name="end_date"
-                                type="date"
+                            <DateTimePicker
+                                mode="date"
                                 value={formData.end_date}
-                                onChange={handleChange}
+                                onChange={(val) => handleChange({ target: { name: 'end_date', value: val } })}
+                                error={fieldError(errors, 'end_date')}
                             />
-                            {fieldError(errors, 'end_date') && <Text size="1" color="red" mt="1">{fieldError(errors, 'end_date')}</Text>}
                         </Box>
                     </Grid>
 

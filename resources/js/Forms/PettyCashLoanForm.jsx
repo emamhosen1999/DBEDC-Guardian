@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Dialog, Flex, Text, Button, TextField, Box } from '@radix-ui/themes';
 import { DotsHorizontalIcon, CalendarIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
@@ -88,17 +89,12 @@ const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
                         </Flex>
 
                         <Flex direction="column" gap="1">
-                            <Text size="2" weight="bold">LOAN DATE</Text>
-                            <TextField.Root
-                                name="loan_date"
-                                type="date"
+                            <Text size="2" weight="bold" mb="1">LOAN DATE</Text>
+                            <DateTimePicker
+                                mode="date"
                                 value={formData.loan_date}
-                                onChange={handleChange}
-                            >
-                                <TextField.Slot>
-                                    <CalendarIcon />
-                                </TextField.Slot>
-                            </TextField.Root>
+                                onChange={(val) => handleChange({ target: { name: 'loan_date', value: val } })}
+                            />
                         </Flex>
 
                         <Flex direction="column" gap="1">

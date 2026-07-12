@@ -13,6 +13,7 @@ import {
     Progress,
     Separator,
 } from '@radix-ui/themes';
+import DateTimePicker from '@/Components/DateTimePicker';
 import {
     DownloadIcon,
     FileTextIcon,
@@ -247,26 +248,12 @@ const EnhancedDailyWorksExportForm = ({
                     {/* Date Range */}
                     <Flex direction="column" gap="2">
                         <Text size="2" weight="bold">Date Range</Text>
-                        <Flex gap="2">
-                            <Flex direction="column" gap="1" style={{ flex: 1 }}>
-                                <Text size="1">Start Date</Text>
-                                <input
-                                    type="date"
-                                    value={exportSettings.dateRange.start}
-                                    onChange={(e) => setExportSettings(prev => ({ ...prev, dateRange: { ...prev.dateRange, start: e.target.value } }))}
-                                    style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
-                                />
-                            </Flex>
-                            <Flex direction="column" gap="1" style={{ flex: 1 }}>
-                                <Text size="1">End Date</Text>
-                                <input
-                                    type="date"
-                                    value={exportSettings.dateRange.end}
-                                    onChange={(e) => setExportSettings(prev => ({ ...prev, dateRange: { ...prev.dateRange, end: e.target.value } }))}
-                                    style={{ fontSize: 13, border: '1px solid var(--gray-5)', borderRadius: 'var(--radius-1)', padding: '6px 8px', background: 'var(--color-panel-solid)', minHeight: 40 }}
-                                />
-                            </Flex>
-                        </Flex>
+                        <DateTimePicker
+                            mode="dateRange"
+                            value={{ start: exportSettings.dateRange.start, end: exportSettings.dateRange.end }}
+                            onChange={({ start, end }) => setExportSettings(prev => ({ ...prev, dateRange: { start, end } }))}
+                            size="2"
+                        />
                     </Flex>
 
                     {/* Filters */}

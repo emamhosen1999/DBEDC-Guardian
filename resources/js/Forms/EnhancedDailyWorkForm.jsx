@@ -3,6 +3,7 @@ import { Dialog, Button, Badge, Box, Flex, Text, TextField, Select } from '@radi
 import { ExclamationTriangleIcon, CheckCircledIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 import axios from 'axios';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalType }) => {
     const [dailyWorkData, setDailyWorkData] = useState({
@@ -223,8 +224,13 @@ const EnhancedDailyWorkForm = ({ open, closeModal, currentRow, setData, modalTyp
                             {/* RFI Date */}
                             <Box>
                                 <Text size="1" color="gray" as="p" mb="1">RFI Date <Text style={{ color: 'var(--red-9)' }}>*</Text></Text>
-                                <TextField.Root type="date" name="date" value={dailyWorkData.date} onChange={handleChange} style={fieldStyle('date')} />
-                                {getFieldError('date') && <Text size="1" style={{ color: 'var(--red-11)' }} as="p" mt="1">{getFieldError('date')}</Text>}
+                                <DateTimePicker
+                                    mode="date"
+                                    value={dailyWorkData.date}
+                                    onChange={(val) => handleChange({ target: { name: 'date', value: val } })}
+                                    style={fieldStyle('date')}
+                                    error={getFieldError('date')}
+                                />
                                 {!getFieldError('date') && <Text size="1" color="gray" as="p" mt="1">Date when the work was performed</Text>}
                             </Box>
 

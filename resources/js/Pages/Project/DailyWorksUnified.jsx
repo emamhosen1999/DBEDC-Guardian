@@ -15,6 +15,7 @@ import DailyWorkSummaryTable from '@/Tables/DailyWorkSummaryTable.jsx';
 import JurisdictionsManager from '@/Pages/Project/Jurisdictions/JurisdictionsManager.jsx';
 import { showToast } from '@/utils/toastUtils';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
+import DateTimePicker from '@/Components/DateTimePicker';
 import { Head, router } from "@inertiajs/react";
 import {
     BarChartIcon,
@@ -891,43 +892,25 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
                                     {/* Date Selector */}
                                     <Flex align="center" gap="3" flexGrow="1">
-                                       
                                         {isMobile ? (
-                                            <TextField.Root
-                                                type="date"
+                                            <DateTimePicker
+                                                mode="date"
                                                 value={selectedDate}
-                                                onChange={(e) => handleDateChange(e.target.value)}
+                                                onChange={handleDateChange}
                                                 min={dateBounds.min}
                                                 max={dateBounds.max}
                                                 size="2"
                                                 style={{ width: '100%' }}
                                             />
                                         ) : (
-                                            <Flex align="end" gap="3">
-                                                <Box>
-                                                    <Text size="2" color="gray" as="div" mb="1">From</Text>
-                                                    <TextField.Root
-                                                        type="date"
-                                                        value={dateRange.start}
-                                                        onChange={(e) => handleDateRangeChange({ ...dateRange, start: e.target.value })}
-                                                        min={dateBounds.min}
-                                                        max={dateBounds.max}
-                                                        size="2"
-                                                    />
-                                                </Box>
-                                                <Text color="gray" mb="1">—</Text>
-                                                <Box>
-                                                    <Text size="2" color="gray" as="div" mb="1">To</Text>
-                                                    <TextField.Root
-                                                        type="date"
-                                                        value={dateRange.end}
-                                                        onChange={(e) => handleDateRangeChange({ ...dateRange, end: e.target.value })}
-                                                        min={dateBounds.min}
-                                                        max={dateBounds.max}
-                                                        size="2"
-                                                    />
-                                                </Box>
-                                            </Flex>
+                                            <DateTimePicker
+                                                mode="dateRange"
+                                                value={{ start: dateRange.start, end: dateRange.end }}
+                                                onChange={handleDateRangeChange}
+                                                min={dateBounds.min}
+                                                max={dateBounds.max}
+                                                size="2"
+                                            />
                                         )}
                                     </Flex>
                                      {/* Filter Toggle */}

@@ -17,6 +17,7 @@ import { showToast } from '@/utils/toastUtils';
 import { router, usePage } from "@inertiajs/react";
 import { debounce } from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DateTimePicker from '@/Components/DateTimePicker';
 
 import {
     ArchiveIcon,
@@ -58,6 +59,48 @@ import {
 } from '@radix-ui/themes';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
+
+const CompletionTimeCellPicker = ({ work, debouncedUpdateCompletionTime }) => {
+    const formatted = work.completion_time
+        ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16)
+        : '';
+    const [val, setVal] = useState(formatted);
+    useEffect(() => {
+        setVal(formatted);
+    }, [formatted]);
+    return (
+        <DateTimePicker
+            mode="datetime"
+            size="1"
+            value={val}
+            onChange={(newVal) => {
+                setVal(newVal);
+                debouncedUpdateCompletionTime(work.id, newVal);
+            }}
+        />
+    );
+};
+
+const RfiSubmissionDateCellPicker = ({ work, debouncedUpdateSubmissionTime }) => {
+    const formatted = work.rfi_submission_date
+        ? new Date(work.rfi_submission_date).toISOString().slice(0, 10)
+        : '';
+    const [val, setVal] = useState(formatted);
+    useEffect(() => {
+        setVal(formatted);
+    }, [formatted]);
+    return (
+        <DateTimePicker
+            mode="date"
+            size="1"
+            value={val}
+            onChange={(newVal) => {
+                setVal(newVal);
+                debouncedUpdateSubmissionTime(work.id, newVal);
+            }}
+        />
+    );
+};
 
 // Utility function to highlight matching text in search results (supports multi-word search)
 const HighlightedText = ({ text, searchTerm }) => {
@@ -1682,12 +1725,9 @@ const WorkAccordionItem = ({ work, index, isExpanded, onToggle, openStatusModal,
                         {canUserUpdateCompletionTime(work) && (
                             <Flex direction="column" gap="1" width="100%">
                                 <Text size="1" color="gray">Completion:</Text>
-                                <TextField.Root 
-                                    size="1"
-                                    type="datetime-local"
-                                    defaultValue={work.completion_time ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16) : ''}
-                                    onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
-                                    style={{ width: '100%' }}
+                                <CompletionTimeCellPicker
+                                    work={work}
+                                    debouncedUpdateCompletionTime={debouncedUpdateCompletionTime}
                                 />
                             </Flex>
                         )}
@@ -1695,12 +1735,9 @@ const WorkAccordionItem = ({ work, index, isExpanded, onToggle, openStatusModal,
                         {shouldShowRfiColumn && (
                             <Flex direction="column" gap="1" width="100%">
                                 <Text size="1" color="gray">RFI Date:</Text>
-                                <TextField.Root 
-                                    size="1"
-                                    type="date"
-                                    defaultValue={work.rfi_submission_date ? new Date(work.rfi_submission_date).toISOString().slice(0, 10) : ''}
-                                    onChange={(e) => debouncedUpdateSubmissionTime(work.id, e.target.value)}
-                                    style={{ width: '100%' }}
+                                <RfiSubmissionDateCellPicker
+                                    work={work}
+                                    debouncedUpdateSubmissionTime={debouncedUpdateSubmissionTime}
                                 />
                             </Flex>
                         )}
@@ -2038,11 +2075,9 @@ const renderCell = useCallback((work, columnKey) => {
             return (
                 <RadixTable.Cell style={autoFitStyle}>
                     <Flex align="center" justify="center">
-                        <TextField.Root 
-                            type="datetime-local" 
-                            size="1" 
-                            defaultValue={work.completion_time ? new Date(work.completion_time).toLocaleString('sv-SE').replace(' ', 'T').slice(0, 16) : ''}
-                            onChange={(e) => debouncedUpdateCompletionTime(work.id, e.target.value)}
+                        <CompletionTimeCellPicker
+                            work={work}
+                            debouncedUpdateCompletionTime={debouncedUpdateCompletionTime}
                         />
                     </Flex>
                 </RadixTable.Cell>
@@ -2053,11 +2088,9 @@ const renderCell = useCallback((work, columnKey) => {
                 <RadixTable.Cell style={autoFitStyle}>
                     {userIsAdmin ? (
                         <Flex align="center" justify="center">
-                            <TextField.Root 
-                                type="date" 
-                                size="1" 
-                                defaultValue={work.rfi_submission_date ? new Date(work.rfi_submission_date).toISOString().slice(0, 10) : ''}
-                                onChange={(e) => debouncedUpdateSubmissionTime(work.id, e.target.value)}
+                            <RfiSubmissionDateCellPicker
+                                work={work}
+                                debouncedUpdateSubmissionTime={debouncedUpdateSubmissionTime}
                             />
                         </Flex>
                     ) : (

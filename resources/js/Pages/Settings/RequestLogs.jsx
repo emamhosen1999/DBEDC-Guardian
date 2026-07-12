@@ -4,6 +4,7 @@ import { route } from 'ziggy-js';
 import App from '@/Layouts/App';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
+import DateTimePicker from '@/Components/DateTimePicker';
 
 import * as useRequestLogsQuery from '@/api/queries/useRequestLogsQuery';
 import TablePagination from '@/Components/TablePagination.jsx';
@@ -411,20 +412,20 @@ const RequestLogs = ({ title }) => {
                                     {/* Start Date */}
                                     <Box style={{ flex: '0 1 160px', minWidth: 150 }}>
                                         <Text size="1" color="gray" mb="1" as="div">From Date</Text>
-                                        <TextField.Root
-                                            type="date"
+                                        <DateTimePicker
+                                            mode="date"
                                             value={filters.start_date}
-                                            onChange={e => handleFilterChange('start_date', e.target.value)}
+                                            onChange={val => handleFilterChange('start_date', val)}
                                         />
                                     </Box>
 
                                     {/* End Date */}
                                     <Box style={{ flex: '0 1 160px', minWidth: 150 }}>
                                         <Text size="1" color="gray" mb="1" as="div">To Date</Text>
-                                        <TextField.Root
-                                            type="date"
+                                        <DateTimePicker
+                                            mode="date"
                                             value={filters.end_date}
-                                            onChange={e => handleFilterChange('end_date', e.target.value)}
+                                            onChange={val => handleFilterChange('end_date', val)}
                                         />
                                     </Box>
 
