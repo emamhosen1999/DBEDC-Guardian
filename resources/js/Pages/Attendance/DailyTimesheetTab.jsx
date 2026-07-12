@@ -345,7 +345,7 @@ const DailyTimesheetTab = ({
 
     // Pagination state
     const [currentPage,  setCurrentPage]  = useState(1);
-    const [perPage,      setPerPage]      = useState(25);
+    const [perPage,      setPerPage]      = useState(20);
 
     // Range + filter state (Log mode)
     const [toDate, setToDate] = useState(selectedDate);

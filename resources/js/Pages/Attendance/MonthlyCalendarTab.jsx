@@ -405,7 +405,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
-    const [perPage, setPerPage] = useState(25);
+    const [perPage, setPerPage] = useState(20);
 
     useEffect(() => {
         setCurrentPage(1);

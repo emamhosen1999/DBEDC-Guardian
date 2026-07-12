@@ -2,6 +2,43 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '../client';
 import { useOptimisticMutation } from '../useOptimisticMutation';
 import { patchTimesheetPunch } from '@/Pages/Attendance/timesheetPatch';
+import dayjs from 'dayjs';
+
+const patchMonthlySummaryPunch = (oldData, userId, dateKey, punchin, punchout) => {
+  if (!oldData || !Array.isArray(oldData.data)) return oldData;
+  let changed = false;
+  const data = oldData.data.map((row) => {
+    if (String(row.user_id) !== String(userId)) return row;
+    changed = true;
+    const cell = row[dateKey] || { status: '√' };
+    const nextIn = punchin !== undefined ? punchin : cell.punch_in;
+    const nextOut = punchout !== undefined ? punchout : cell.punch_out;
+    
+    // calculate work hours
+    let hours = cell.total_work_hours;
+    if (nextIn && nextOut) {
+      try {
+        const t1 = dayjs(`2000-01-01T${nextIn.substring(nextIn.length - 8)}`);
+        const t2 = dayjs(`2000-01-01T${nextOut.substring(nextOut.length - 8)}`);
+        if (t2.isAfter(t1)) {
+          hours = (t2.diff(t1, 'minute') / 60).toFixed(2);
+        }
+      } catch (e) {}
+    }
+
+    return {
+      ...row,
+      [dateKey]: {
+        ...cell,
+        status: '√',
+        punch_in: nextIn ? nextIn.substring(nextIn.length - 8) : null,
+        punch_out: nextOut ? nextOut.substring(nextOut.length - 8) : null,
+        total_work_hours: hours,
+      }
+    };
+  });
+  return changed ? { ...oldData, data } : oldData;
+};
 
 // Secondary attendance aggregates that a punch correction can shift. They are
 // usually inactive on the timesheet screen, so invalidating them just marks
@@ -165,17 +202,80 @@ export const usePunchAttendance = () => {
 export const useUpdateTimeCorrection = () => {
   const queryClient = useQueryClient();
 
-  // Phase C: optimistic row-patch. The edited punch flips instantly in every
-  // cached daily-timesheet page (partial-key match), rolls back to the exact
-  // snapshot on error, and reconciles with the server on settle — instead of
-  // blocking the visible list on a full refetch.
-  return useOptimisticMutation({
+  return useMutation({
     mutationFn: ({ attendanceId, data }) => requestJson('post', `/attendance/${attendanceId}/correct`, data),
-    queryKey: ['attendance', 'daily-timesheet'],
-    partialMatch: true,
-    updateFn: patchTimesheetPunch,
+    onMutate: async ({ attendanceId, data }) => {
+      await queryClient.cancelQueries({ queryKey: ['attendance'] });
+
+      const snapshots = {
+        dailyTimesheets: queryClient.getQueriesData({ queryKey: ['attendance', 'daily-timesheet'] }),
+        monthlySummaries: queryClient.getQueriesData({ queryKey: ['attendance', 'monthly-summary'] }),
+        presentUsers: queryClient.getQueriesData({ queryKey: ['attendance', 'present-users'] }),
+      };
+
+      // Resolve user_id and date from cache
+      let userId = null;
+      let dateKey = null;
+      for (const [, cache] of snapshots.dailyTimesheets) {
+        if (cache && Array.isArray(cache.attendances)) {
+          const row = cache.attendances.find(
+            (att) => Array.isArray(att.punches) && att.punches.some((p) => p.id === attendanceId)
+          );
+          if (row) {
+            userId = row.user_id;
+            dateKey = row.date;
+            break;
+          }
+        }
+      }
+
+      const nextIn = data?.punchin;
+      const nextOut = data?.punchout;
+
+      // 1. Patch Daily Timesheet cache
+      queryClient.setQueriesData({ queryKey: ['attendance', 'daily-timesheet'] }, (old) => {
+        if (!old || !Array.isArray(old.attendances)) return old;
+        return {
+          ...old,
+          attendances: old.attendances.map((att) => {
+            if (!Array.isArray(att.punches) || !att.punches.some((p) => p.id === attendanceId)) return att;
+            return {
+              ...att,
+              punches: att.punches.map((p) => {
+                if (p.id !== attendanceId) return p;
+                return {
+                  ...p,
+                  ...(nextIn !== undefined ? { punch_in: nextIn } : {}),
+                  ...(nextOut !== undefined ? { punch_out: nextOut } : {}),
+                };
+              }),
+              ...(nextIn !== undefined ? { clockin_time: nextIn } : {}),
+              ...(nextOut !== undefined ? { clockout_time: nextOut } : {}),
+            };
+          }),
+        };
+      });
+
+      // 2. Patch Monthly Summary cache
+      if (userId && dateKey) {
+        queryClient.setQueriesData({ queryKey: ['attendance', 'monthly-summary'] }, (old) => {
+          return patchMonthlySummaryPunch(old, userId, dateKey, nextIn, nextOut);
+        });
+      }
+
+      return { snapshots };
+    },
+    onError: (err, variables, context) => {
+      if (context?.snapshots) {
+        context.snapshots.dailyTimesheets.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        context.snapshots.monthlySummaries.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        context.snapshots.presentUsers.forEach(([key, val]) => queryClient.setQueryData(key, val));
+      }
+    },
     onSettled: () => {
-      ATTENDANCE_AGGREGATE_KEYS.forEach((key) => queryClient.invalidateQueries({ queryKey: key }));
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users'] });
     },
   });
 };
@@ -192,17 +292,134 @@ export const useMarkAsPresent = () => {
       date,
       ...data
     }),
-    onSuccess: (data, variables) => {
-      const dateStr = variables.date || new Date().toLocaleDateString('en-CA');
+    onMutate: async ({ userId, date, data }) => {
+      const dateKey = date;
+      await queryClient.cancelQueries({ queryKey: ['attendance'] });
 
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users', dateStr] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users', dateStr] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'locations-today', dateStr] });
+      const snapshots = {
+        dailyTimesheets: queryClient.getQueriesData({ queryKey: ['attendance', 'daily-timesheet'] }),
+        monthlySummaries: queryClient.getQueriesData({ queryKey: ['attendance', 'monthly-summary'] }),
+        absentUsers: queryClient.getQueriesData({ queryKey: ['attendance', 'absent-users', dateKey] }),
+        presentUsers: queryClient.getQueriesData({ queryKey: ['attendance', 'present-users', dateKey] }),
+      };
+
+      // Retrieve user details from absent-users cache
+      let userName = 'Employee';
+      let profileImage = null;
+      for (const [, cache] of snapshots.absentUsers) {
+        if (cache) {
+          const u = cache.absent_users?.find(x => String(x.id) === String(userId)) ||
+                    cache.off_users?.find(x => String(x.id) === String(userId)) ||
+                    cache.upcoming_users?.find(x => String(x.id) === String(userId));
+          if (u) {
+            userName = u.name;
+            profileImage = u.profile_image || u.profile_image_url || null;
+            break;
+          }
+        }
+      }
+
+      const defaultTime = '09:00:00';
+      const newAttendanceRow = {
+        id: `temp_${Date.now()}`,
+        user_id: userId,
+        date: dateKey,
+        status: 'present',
+        clockin_time: defaultTime,
+        clockout_time: null,
+        user: {
+          id: userId,
+          name: userName,
+          profile_image: profileImage,
+          profile_image_url: profileImage,
+        },
+        punches: [
+          {
+            id: `temp_p_${Date.now()}`,
+            punch_in: defaultTime,
+            punch_out: null,
+          }
+        ]
+      };
+
+      // 1. Patch Daily Timesheet cache
+      queryClient.setQueriesData({ queryKey: ['attendance', 'daily-timesheet'] }, (old) => {
+        if (!old) return { attendances: [newAttendanceRow], total: 1 };
+        const list = Array.isArray(old.attendances) ? [...old.attendances] : [];
+        if (!list.some(x => String(x.user_id) === String(userId) && x.date === dateKey)) {
+          list.unshift(newAttendanceRow);
+        }
+        return {
+          ...old,
+          attendances: list,
+          total: (old.total || 0) + 1,
+        };
+      });
+
+      // 2. Patch Absent Users cache
+      queryClient.setQueriesData({ queryKey: ['attendance', 'absent-users', dateKey] }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          absent_users: (old.absent_users || []).filter(x => String(x.id) !== String(userId)),
+          off_users: (old.off_users || []).filter(x => String(x.id) !== String(userId)),
+          upcoming_users: (old.upcoming_users || []).filter(x => String(x.id) !== String(userId)),
+        };
+      });
+
+      // 3. Patch Present Users cache
+      queryClient.setQueriesData({ queryKey: ['attendance', 'present-users', dateKey] }, (old) => {
+        if (!old) return { attendances: [newAttendanceRow] };
+        const list = Array.isArray(old.attendances) ? [...old.attendances] : [];
+        if (!list.some(x => String(x.user_id) === String(userId))) {
+          list.unshift(newAttendanceRow);
+        }
+        return {
+          ...old,
+          attendances: list,
+        };
+      });
+
+      // 4. Patch Monthly Summary cache
+      queryClient.setQueriesData({ queryKey: ['attendance', 'monthly-summary'] }, (old) => {
+        if (!old || !Array.isArray(old.data)) return old;
+        return {
+          ...old,
+          data: old.data.map((row) => {
+            if (String(row.user_id) !== String(userId)) return row;
+            return {
+              ...row,
+              [dateKey]: {
+                status: '√',
+                punch_in: defaultTime,
+                punch_out: null,
+                total_work_hours: null,
+              }
+            };
+          }),
+        };
+      });
+
+      return { snapshots };
+    },
+    onError: (err, variables, context) => {
+      if (context?.snapshots) {
+        context.snapshots.dailyTimesheets.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        context.snapshots.monthlySummaries.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        if (context.snapshots.absentUsers) {
+          context.snapshots.absentUsers.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        }
+        if (context.snapshots.presentUsers) {
+          context.snapshots.presentUsers.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        }
+      }
+    },
+    onSettled: (data, error, variables) => {
+      const dateStr = variables.date;
       queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'my-monthly-stats'] });
       queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'history'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users', dateStr] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users', dateStr] });
     },
   });
 };
@@ -268,18 +485,99 @@ export const useUpdateAttendanceSettings = () => {
  */
 export const useDeleteAttendanceCorrection = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: (attendanceId) => requestJson('delete', route('attendance.correct.delete', { id: attendanceId })),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'locations-today'] });
+    onMutate: async (attendanceId) => {
+      await queryClient.cancelQueries({ queryKey: ['attendance'] });
+
+      const snapshots = {
+        dailyTimesheets: queryClient.getQueriesData({ queryKey: ['attendance', 'daily-timesheet'] }),
+        monthlySummaries: queryClient.getQueriesData({ queryKey: ['attendance', 'monthly-summary'] }),
+        absentUsers: queryClient.getQueriesData({ queryKey: ['attendance', 'absent-users'] }),
+        presentUsers: queryClient.getQueriesData({ queryKey: ['attendance', 'present-users'] }),
+      };
+
+      // Resolve user_id and date from cache
+      let userId = null;
+      let dateKey = null;
+      let userName = 'Employee';
+      let profileImage = null;
+
+      for (const [, cache] of snapshots.dailyTimesheets) {
+        if (cache && Array.isArray(cache.attendances)) {
+          const row = cache.attendances.find((a) => a.id === attendanceId);
+          if (row) {
+            userId = row.user_id;
+            dateKey = row.date;
+            userName = row.user?.name || 'Employee';
+            profileImage = row.user?.profile_image || row.user?.profile_image_url || null;
+            break;
+          }
+        }
+      }
+
+      // 1. Patch Daily Timesheet cache
+      queryClient.setQueriesData({ queryKey: ['attendance', 'daily-timesheet'] }, (old) => {
+        if (!old || !Array.isArray(old.attendances)) return old;
+        return {
+          ...old,
+          attendances: old.attendances.filter(x => x.id !== attendanceId),
+          total: Math.max(0, (old.total || 0) - 1),
+        };
+      });
+
+      if (userId && dateKey) {
+        const deletedUser = {
+          id: userId,
+          name: userName,
+          profile_image: profileImage,
+          profile_image_url: profileImage,
+        };
+
+        // 2. Patch Absent Users cache
+        queryClient.setQueriesData({ queryKey: ['attendance', 'absent-users', dateKey] }, (old) => {
+          if (!old) return old;
+          const list = Array.isArray(old.absent_users) ? [...old.absent_users] : [];
+          if (!list.some(x => String(x.id) === String(userId))) {
+            list.push(deletedUser);
+          }
+          return {
+            ...old,
+            absent_users: list,
+          };
+        });
+
+        // 3. Patch Present Users cache
+        queryClient.setQueriesData({ queryKey: ['attendance', 'present-users', dateKey] }, (old) => {
+          if (!old || !Array.isArray(old.attendances)) return old;
+          return {
+            ...old,
+            attendances: old.attendances.filter(x => String(x.user_id) !== String(userId)),
+          };
+        });
+
+        // 4. Patch Monthly Summary cache
+        queryClient.setQueriesData({ queryKey: ['attendance', 'monthly-summary'] }, (old) => {
+          return patchMonthlySummaryPunch(old, userId, dateKey, null, null, '▼');
+        });
+      }
+
+      return { snapshots };
+    },
+    onError: (err, variables, context) => {
+      if (context?.snapshots) {
+        context.snapshots.dailyTimesheets.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        context.snapshots.monthlySummaries.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        context.snapshots.absentUsers.forEach(([key, val]) => queryClient.setQueryData(key, val));
+        context.snapshots.presentUsers.forEach(([key, val]) => queryClient.setQueryData(key, val));
+      }
+    },
+    onSettled: (data, error, variables, context) => {
       queryClient.invalidateQueries({ queryKey: ['attendance', 'daily-timesheet'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'my-monthly-stats'] });
       queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance', 'history'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'absent-users'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'present-users'] });
     },
   });
 };

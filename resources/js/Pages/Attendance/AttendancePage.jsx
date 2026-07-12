@@ -184,98 +184,86 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                             </Tabs.List>
 
                             {/* ── Daily Timesheet Tab ───────────────────── */}
-                            <Tabs.Content value="timesheet">
-                                <Box mt="4">
-                                    <ErrorBoundary>
-                                        <DailyTimesheetTab
-                                            selectedDate={selectedDate}
-                                            onDateChange={handleDateChange}
-                                            isActive={activeTab === 'timesheet'}
-                                            departments={departments}
-                                            designations={designations}
-                                        />
-                                    </ErrorBoundary>
-                                </Box>
-                            </Tabs.Content>
+                            <Box mt="4" style={{ display: activeTab === 'timesheet' ? 'block' : 'none' }}>
+                                <ErrorBoundary>
+                                    <DailyTimesheetTab
+                                        selectedDate={selectedDate}
+                                        onDateChange={handleDateChange}
+                                        isActive={activeTab === 'timesheet'}
+                                        departments={departments}
+                                        designations={designations}
+                                    />
+                                </ErrorBoundary>
+                            </Box>
 
                             {/* ── Monthly Calendar Tab ──────────────────── */}
-                            <Tabs.Content value="monthly">
-                                <Box mt="4">
-                                    <ErrorBoundary>
-                                        <Suspense fallback={<Skeleton height="400px" />}>
-                                            <MonthlyCalendarTab
-                                                selectedMonth={selectedMonth}
-                                                onMonthChange={handleMonthChange}
-                                                departments={departments}
-                                            />
-                                        </Suspense>
-                                    </ErrorBoundary>
-                                </Box>
-                            </Tabs.Content>
+                            <Box mt="4" style={{ display: activeTab === 'monthly' ? 'block' : 'none' }}>
+                                <ErrorBoundary>
+                                    <Suspense fallback={<Skeleton height="400px" />}>
+                                        <MonthlyCalendarTab
+                                            selectedMonth={selectedMonth}
+                                            onMonthChange={handleMonthChange}
+                                            departments={departments}
+                                        />
+                                    </Suspense>
+                                </ErrorBoundary>
+                            </Box>
 
                             {/* ── Approvals Tab ─────────────────────────── */}
                             {canManage && (
-                                <Tabs.Content value="approvals">
-                                    <Box mt="4">
-                                        <ErrorBoundary>
-                                            <Suspense fallback={<Skeleton height="400px" />}>
-                                                <ApprovalsInbox />
-                                            </Suspense>
-                                        </ErrorBoundary>
-                                    </Box>
-                                </Tabs.Content>
+                                <Box mt="4" style={{ display: activeTab === 'approvals' ? 'block' : 'none' }}>
+                                    <ErrorBoundary>
+                                        <Suspense fallback={<Skeleton height="400px" />}>
+                                            <ApprovalsInbox />
+                                        </Suspense>
+                                    </ErrorBoundary>
+                                </Box>
                             )}
 
                             {/* ── Roster Tab ────────────────────────────── */}
                             {canSettings && (
-                                <Tabs.Content value="roster">
-                                    <Box mt="4">
-                                        <ErrorBoundary>
-                                            <Suspense fallback={<Skeleton height="400px" />}>
-                                                <RosterTab
-                                                    departments={departments}
-                                                    month={selectedMonth}
-                                                    onMonthChange={handleMonthChange}
-                                                    isActive={activeTab === 'roster'}
-                                                />
-                                            </Suspense>
-                                        </ErrorBoundary>
-                                    </Box>
-                                </Tabs.Content>
+                                <Box mt="4" style={{ display: activeTab === 'roster' ? 'block' : 'none' }}>
+                                    <ErrorBoundary>
+                                        <Suspense fallback={<Skeleton height="400px" />}>
+                                            <RosterTab
+                                                departments={departments}
+                                                month={selectedMonth}
+                                                onMonthChange={handleMonthChange}
+                                                isActive={activeTab === 'roster'}
+                                            />
+                                        </Suspense>
+                                    </ErrorBoundary>
+                                </Box>
                             )}
 
                             {/* ── Settings Tab ──────────────────────────── */}
                             {canSettings && (
-                                <Tabs.Content value="settings">
-                                    <Box mt="4">
-                                        <ErrorBoundary>
-                                            <Suspense fallback={<Skeleton height="400px" />}>
-                                                <SettingsTab />
-                                            </Suspense>
-                                        </ErrorBoundary>
-                                    </Box>
-                                </Tabs.Content>
+                                <Box mt="4" style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+                                    <ErrorBoundary>
+                                        <Suspense fallback={<Skeleton height="400px" />}>
+                                            <SettingsTab />
+                                        </Suspense>
+                                    </ErrorBoundary>
+                                </Box>
                             )}
 
                             {/* ── Biometric Devices Tab ───────────────── */}
                             {canSettings && (
-                                <Tabs.Content value="biometric">
-                                    <Box mt="4">
-                                        <ErrorBoundary>
-                                            <Suspense fallback={<Skeleton height="400px" />}>
-                                                <BiometricPanel
-                                                    initialDevices={devices}
-                                                    employees={[]}
-                                                    isMobile={isMobile}
-                                                    tick={0}
-                                                    onCountChange={() => {}}
-                                                    onSetHeaderActions={() => {}}
-                                                    isActive={activeTab === 'biometric'}
-                                                />
-                                            </Suspense>
-                                        </ErrorBoundary>
-                                    </Box>
-                                </Tabs.Content>
+                                <Box mt="4" style={{ display: activeTab === 'biometric' ? 'block' : 'none' }}>
+                                    <ErrorBoundary>
+                                        <Suspense fallback={<Skeleton height="400px" />}>
+                                            <BiometricPanel
+                                                initialDevices={devices}
+                                                employees={[]}
+                                                isMobile={isMobile}
+                                                tick={0}
+                                                onCountChange={() => {}}
+                                                onSetHeaderActions={() => {}}
+                                                isActive={activeTab === 'biometric'}
+                                            />
+                                        </Suspense>
+                                    </ErrorBoundary>
+                                </Box>
                             )}
                         </Tabs.Root>
 
