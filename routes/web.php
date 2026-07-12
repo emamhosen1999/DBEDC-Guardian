@@ -544,6 +544,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Employee attendance stats route
     Route::middleware(['permission:attendance.own.view'])->group(function () {
         Route::get('/attendance/my-monthly-stats', [AttendanceController::class, 'getMonthlyAttendanceStats'])->name('attendance.myMonthlyStats');
+        Route::get('/attendance/my-schedule-today', [AttendanceController::class, 'todaySchedule'])->name('attendance.myScheduleToday');
     });
 
     Route::middleware(['permission:attendance.settings'])->group(function () {

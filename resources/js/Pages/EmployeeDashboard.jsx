@@ -35,6 +35,13 @@ export default function EmployeeDashboard() {
         queryFn: () => requestJson('get', '/leaves-stats'),
     });
 
+    // Today's shift — rostered if assigned, else company default office hours
+    const { data: todaySchedule } = useQuery({
+        queryKey: ['my-schedule-today'],
+        queryFn: () => requestJson('get', route('attendance.myScheduleToday')),
+        staleTime: 5 * 60 * 1000,
+    });
+
     const handleSaved = () => {
         ['my-regularizations', 'my-overtime', 'my-comp-off', 'my-swaps', 'swaps', 'awaiting-me']
             .forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
@@ -108,8 +115,23 @@ export default function EmployeeDashboard() {
                                     <Text size="3" weight="bold">Shift Schedule</Text>
                                 </Flex>
                                 <Text size="1" color="gray">Today's Shift:</Text>
-                                <Heading size="4" mb="2" mt="1">09:00 AM - 06:00 PM (General Shift)</Heading>
-                                <Badge color="jade" variant="soft">On-Time expected</Badge>
+                                {todaySchedule?.is_working === false ? (
+                                    <>
+                                        <Heading size="4" mb="2" mt="1">Day off</Heading>
+                                        <Badge color="gray" variant="soft">Not scheduled today</Badge>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Heading size="4" mb="2" mt="1">
+                                            {todaySchedule
+                                                ? `${todaySchedule.start} – ${todaySchedule.end} (${todaySchedule.label})`
+                                                : '—'}
+                                        </Heading>
+                                        <Badge color={todaySchedule?.source === 'roster' ? 'indigo' : 'jade'} variant="soft">
+                                            {todaySchedule?.source === 'roster' ? 'Rostered shift' : 'Company default hours'}
+                                        </Badge>
+                                    </>
+                                )}
                             </Card>
 
                             {/* Assigned Daily Works & Tasks Widget */}

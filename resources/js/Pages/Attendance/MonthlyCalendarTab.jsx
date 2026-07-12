@@ -600,7 +600,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
                             weekendDays={weekendDays} loading={isLoading}
                           />
                     }
-                    {lastPage > 1 && !isLoading && (
+                    {(lastPage > 1 || currentPage > 1) && !isLoading && (
                         <Box mt="4">
                             <TablePagination
                                 pagination={{ currentPage, perPage, total: totalRows }}

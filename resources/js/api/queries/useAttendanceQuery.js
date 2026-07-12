@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { requestJson } from '../client';
 import { useOptimisticMutation } from '../useOptimisticMutation';
 import { patchTimesheetPunch } from '@/Pages/Attendance/timesheetPatch';
@@ -91,6 +91,7 @@ export const useMonthlySummary = (params = {}) => {
     queryFn: () => requestJson('get', '/attendances-admin-paginate', {
       params: { currentMonth, currentYear, page, per_page: perPage, employee, department_id: departmentId }
     }),
+    placeholderData: keepPreviousData, // keep prior page's data during page changes so pagination UI never flickers/disappears
     staleTime: 10 * 60 * 1000, // 10 minutes - summary doesn't change often
   });
 };
@@ -152,6 +153,7 @@ export const useDailyTimesheet = (params = {}) => {
       params: { date, page, perPage, employee }
     }),
     enabled: !!date,
+    placeholderData: keepPreviousData, // keep prior page during pagination so the pager stays put
     staleTime: 3 * 60 * 1000, // 3 minutes - timesheet changes during the day
   });
 };
@@ -171,6 +173,7 @@ export const useAttendanceLog = (params = {}) => {
       },
     }),
     enabled: !!from && !!to,
+    placeholderData: keepPreviousData,
     staleTime: 3 * 60 * 1000,
   });
 };

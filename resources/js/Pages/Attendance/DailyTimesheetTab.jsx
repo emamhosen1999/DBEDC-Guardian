@@ -43,6 +43,15 @@ const formatTime = (timeString, date) => {
     } catch { return 'Invalid'; }
 };
 
+/* Sticky header: keeps column labels visible while the page scrolls a tall (≤20-row) table. */
+const STICKY_HEAD = {
+    position: 'sticky',
+    top: 0,
+    zIndex: 2,
+    background: 'var(--color-panel-solid)',
+    boxShadow: 'inset 0 -1px 0 var(--gray-a5)',
+};
+
 /* ── table cell renderer ─────────────────────────────────────── */
 
 const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStartEdit, onCancelEdit, onSaveTime, onDelete, onHistory }) => {
@@ -597,6 +606,8 @@ const DailyTimesheetTab = ({
     /* ── render ─────────────────────────────────────────────── */
     return (
         <Box>
+            {/* Let our scroll wrapper be the sole scroll container so the sticky header pins correctly */}
+            <style>{`.attn-daily-scroll :where(.rt-TableRootTable){overflow:visible}`}</style>
             {/* Toolbar */}
             <Flex
                 justify="between"
@@ -764,16 +775,16 @@ const DailyTimesheetTab = ({
             {/* Body: range log table OR single-day table + sidebar */}
             {rangeMode ? (
                 <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
-                    <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+                    <Box className="attn-daily-scroll" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
                         <Table.Root size="2" variant="ghost" style={{ minWidth: 720 }}>
                             <Table.Header>
                                 <Table.Row>
-                                    <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Clock In</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Clock Out</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Work Hours</Table.ColumnHeaderCell>
-                                    <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={STICKY_HEAD}>Date</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={STICKY_HEAD}>Employee</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={STICKY_HEAD}>Clock In</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={STICKY_HEAD}>Clock Out</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={STICKY_HEAD}>Work Hours</Table.ColumnHeaderCell>
+                                    <Table.ColumnHeaderCell style={STICKY_HEAD}>Status</Table.ColumnHeaderCell>
                                 </Table.Row>
                             </Table.Header>
                             <Table.Body>
@@ -808,8 +819,8 @@ const DailyTimesheetTab = ({
                                 )}
                             </Table.Body>
                         </Table.Root>
-                    </ScrollArea>
-                    {(logData?.last_page ?? 1) > 1 && !isLoadingLog && (
+                    </Box>
+                    {((logData?.last_page ?? 1) > 1 || currentPage > 1) && !isLoadingLog && (
                         <TablePagination
                             pagination={{ currentPage, perPage, total: logData?.total ?? 0 }}
                             onPageChange={setCurrentPage}
@@ -844,12 +855,12 @@ const DailyTimesheetTab = ({
                             marginRight: (!isMobile && isAdminView && sidebarOpen) ? '320px' : 0
                         }}
                     >
-                        <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+                        <Box className="attn-daily-scroll" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
                             <Table.Root size="2" variant="ghost" style={{ minWidth: 520 }}>
                                 <Table.Header>
                                     <Table.Row>
                                         {columns.map(c => (
-                                            <Table.ColumnHeaderCell key={c.uid}>
+                                            <Table.ColumnHeaderCell key={c.uid} style={STICKY_HEAD}>
                                                 <Text size="2" weight="medium">{c.name}</Text>
                                             </Table.ColumnHeaderCell>
                                         ))}
@@ -899,9 +910,9 @@ const DailyTimesheetTab = ({
                                     }
                                 </Table.Body>
                             </Table.Root>
-                        </ScrollArea>
+                        </Box>
 
-                        {lastPage > 1 && isLoaded && (
+                        {(lastPage > 1 || currentPage > 1) && isLoaded && (
                             <TablePagination
                                 pagination={{ currentPage, perPage, total: totalRows }}
                                 onPageChange={setCurrentPage}

@@ -162,6 +162,40 @@ class AttendanceController extends Controller
         }
     }
 
+    /**
+     * Resolve the authenticated user's shift for today: the rostered shift if one
+     * is assigned, otherwise the company default office hours (or a day off).
+     */
+    public function todaySchedule(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $date = Carbon::today();
+        $schedule = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)->resolve($user->id, $date);
+        $shift = app(\App\Services\Attendance\RosterService::class)->resolveShift($user->id, $date);
+
+        if (! $schedule->isWorkingDay) {
+            return response()->json([
+                'is_working' => false,
+                'label'      => 'Day off',
+                'source'     => 'roster',
+            ]);
+        }
+
+        $rostered = $shift !== null;
+
+        return response()->json([
+            'is_working' => true,
+            'start'      => $schedule->start->format('g:i A'),
+            'end'        => $schedule->end->format('g:i A'),
+            'label'      => $rostered ? ($shift->name ?: 'Rostered shift') : 'Company office hours',
+            'source'     => $rostered ? 'roster' : 'default',
+        ]);
+    }
+
     public function updateAttendance(Request $request): JsonResponse
     {
         try {
