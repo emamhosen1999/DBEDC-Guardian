@@ -4,9 +4,8 @@ import dayjs from 'dayjs';
 import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 
 const NAME_W = 168;
-const CELL_W = 144; // Increased from 120 to 144 to align with reference layout
-const ROW_H = 48;   // Increased from 36 to 48 for larger visual chips and grid lines
-const HEADER_H = 56; // Increased from 46 to 56 to fit two rows of dates and hourly labels
+const CELL_W = 144; // Width of each day cell
+const HEADER_H = 56; // Header height to fit date and hourly labels
 const LINE = '1px solid var(--gray-a5)';
 
 const parseTimeToHours = (timeStr) => {
@@ -35,12 +34,14 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
     const gridWidth = NAME_W + days.length * CELL_W;
 
-    const nameCell = (children, { header = false, zIndex = 1 } = {}) => (
+    const nameCell = (children, { header = false, zIndex = 2, bg = 'var(--color-panel-background)' } = {}) => (
         <Box
             style={{
-                minWidth: NAME_W, width: NAME_W, height: header ? HEADER_H : ROW_H,
+                minWidth: NAME_W, width: NAME_W,
+                height: header ? HEADER_H : 'auto',
+                alignSelf: 'stretch',
                 position: 'sticky', left: 0, zIndex,
-                background: header ? 'var(--gray-a2)' : 'var(--color-panel)',
+                background: bg,
                 borderRight: LINE, borderBottom: LINE,
                 display: 'flex', alignItems: 'center', padding: '0 12px',
             }}
@@ -53,8 +54,8 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
         <Box style={{ overflowX: 'auto', border: LINE, borderRadius: 8 }}>
             <Box style={{ minWidth: gridWidth }}>
                 {/* ── Day header ─────────────────────────────── */}
-                <Flex style={{ background: 'var(--gray-a2)' }}>
-                    {nameCell(<Text size="2" weight="bold">Employee</Text>, { header: true, zIndex: 3 })}
+                <Flex style={{ background: 'var(--gray-3)' }}>
+                    {nameCell(<Text size="2" weight="bold">Employee</Text>, { header: true, zIndex: 3, bg: 'var(--gray-3)' })}
                     {days.map((d) => {
                         const wd = dayjs(d).day(); // 0 Sun … 6 Sat
                         const weekend = wd === 5 || wd === 6; // Fri/Sat (local week)
@@ -118,228 +119,237 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                 </Flex>
 
                 {/* ── Employee rows ──────────────────────────── */}
-                {rows.map(([userId, row], i) => (
-                    <Flex key={userId} style={{ background: i % 2 ? 'var(--gray-a1)' : 'transparent' }}>
-                        {nameCell(
-                            <Flex gap="2" align="center" style={{ width: '100%' }}>
-                                <Box style={{
-                                    width: 24, height: 24, borderRadius: '50%',
-                                    background: 'var(--accent-3)', color: 'var(--accent-11)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 10, fontWeight: 700, flexShrink: 0
-                                }}>
-                                    {getInitials(row.name)}
-                                </Box>
-                                <Text size="1" weight="medium" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {row.name || 'Unknown'}
-                                </Text>
-                            </Flex>,
-                            { zIndex: 1 }
-                        )}
-                        {days.map((d) => {
-                            const cell = row.days?.[d];
-                            const disp = resolveRosterCellDisplay(cell, holidays[d]);
-
-                            // Render Holiday (Full Width)
-                            if (disp.kind === 'holiday') {
-                                return (
-                                    <Box
-                                        key={d}
-                                        onClick={() => onCellClick?.(userId, d, cell)}
-                                        style={{
-                                            width: CELL_W, minWidth: CELL_W, height: ROW_H,
-                                            borderRight: LINE, borderBottom: LINE, padding: 4,
-                                            boxSizing: 'border-box',
-                                            background: 'var(--amber-a2)',
-                                            cursor: onCellClick ? 'pointer' : 'default',
-                                        }}
-                                    >
-                                        <Tooltip content={disp.tooltip}>
-                                            <Box
-                                                style={{
-                                                    width: '100%', height: '100%', borderRadius: 4,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    background: 'var(--amber-4)',
-                                                    color: 'var(--amber-11)',
-                                                    fontSize: 9, fontWeight: 700,
-                                                    textTransform: 'uppercase',
-                                                }}
-                                            >
-                                                Holiday
-                                            </Box>
-                                        </Tooltip>
+                {rows.map(([userId, row], i) => {
+                    const rowBg = i % 2 ? 'var(--gray-2)' : 'var(--gray-1)';
+                    return (
+                        <Flex key={userId} style={{ background: rowBg, alignSelf: 'stretch' }}>
+                            {nameCell(
+                                <Flex gap="2" align="center" style={{ width: '100%' }}>
+                                    <Box style={{
+                                        width: 24, height: 24, borderRadius: '50%',
+                                        background: 'var(--accent-3)', color: 'var(--accent-11)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: 10, fontWeight: 700, flexShrink: 0
+                                    }}>
+                                        {getInitials(row.name)}
                                     </Box>
-                                );
-                            }
+                                    <Text size="1" weight="medium" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {row.name || 'Unknown'}
+                                    </Text>
+                                </Flex>,
+                                { zIndex: 2, bg: rowBg }
+                            )}
+                            {days.map((d) => {
+                                const cell = row.days?.[d];
+                                const disp = resolveRosterCellDisplay(cell, holidays[d]);
 
-                            // Render Full Leave (Full Width)
-                            if (disp.kind === 'leave') {
-                                return (
-                                    <Box
-                                        key={d}
-                                        onClick={() => onCellClick?.(userId, d, cell)}
-                                        style={{
-                                            width: CELL_W, minWidth: CELL_W, height: ROW_H,
-                                            borderRight: LINE, borderBottom: LINE, padding: 4,
-                                            boxSizing: 'border-box',
-                                            cursor: onCellClick ? 'pointer' : 'default',
-                                        }}
-                                    >
-                                        <Tooltip content={disp.tooltip}>
-                                            <Box
-                                                style={{
-                                                    width: '100%', height: '100%', borderRadius: 4,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    background: 'var(--amber-9)',
-                                                    color: '#fff',
-                                                    fontSize: 9, fontWeight: 700,
-                                                    textTransform: 'uppercase',
-                                                    padding: '0 4px',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                }}
-                                            >
-                                                {disp.leaveType || 'On Leave'}
-                                            </Box>
-                                        </Tooltip>
-                                    </Box>
-                                );
-                            }
-
-                            const shift = shifts.find(s => s.code === cell?.code);
-
-                            return (
-                                <Box
-                                    key={d}
-                                    onClick={() => onCellClick?.(userId, d, cell)}
-                                    style={{
-                                        width: CELL_W, minWidth: CELL_W, height: ROW_H,
-                                        borderRight: LINE, borderBottom: LINE, padding: '4px 0px',
-                                        boxSizing: 'border-box',
-                                        cursor: onCellClick ? 'pointer' : 'default',
-                                    }}
-                                >
-                                    <Tooltip content={disp.tooltip}>
-                                        <Box style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(24, 1fr)',
-                                            position: 'relative'
-                                        }}>
-                                            {/* 24 visual columns background */}
-                                            {Array.from({ length: 24 }).map((_, hIndex) => {
-                                                if (hIndex === 0) return null;
-                                                return (
-                                                    <Box
-                                                        key={hIndex}
-                                                        style={{
-                                                            gridColumn: `${hIndex} / ${hIndex + 1}`,
-                                                            gridRow: 1,
-                                                            height: '100%',
-                                                            borderRight: '1px solid var(--gray-a3)',
-                                                            pointerEvents: 'none',
-                                                            zIndex: 0,
-                                                        }}
-                                                    />
-                                                );
-                                            })}
-
-                                            {/* Half-day Leave background overlay */}
-                                            {disp.kind === 'leave-half' && (
+                                // Render Holiday (Full Width)
+                                if (disp.kind === 'holiday') {
+                                    return (
+                                        <Box
+                                            key={d}
+                                            onClick={() => onCellClick?.(userId, d, cell)}
+                                            style={{
+                                                width: CELL_W, minWidth: CELL_W, minHeight: 36, height: 'auto',
+                                                borderRight: LINE, borderBottom: LINE, padding: 4,
+                                                boxSizing: 'border-box',
+                                                background: 'var(--amber-a2)',
+                                                cursor: onCellClick ? 'pointer' : 'default',
+                                                display: 'flex', alignItems: 'stretch'
+                                            }}
+                                        >
+                                            <Tooltip content={disp.tooltip}>
                                                 <Box
                                                     style={{
-                                                        gridColumn: disp.session === 'first_half' ? '1 / 13' : '13 / 25',
-                                                        gridRow: 1,
-                                                        height: '24px',
-                                                        alignSelf: 'center',
-                                                        background: 'var(--amber-a3)',
-                                                        border: '1px dashed var(--amber-8)',
-                                                        borderRadius: 4,
-                                                        zIndex: 1,
-                                                        margin: '0 2px',
+                                                        width: '100%', height: '100%', borderRadius: 4,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        background: 'var(--amber-4)',
+                                                        color: 'var(--amber-11)',
+                                                        fontSize: 9, fontWeight: 700,
+                                                        textTransform: 'uppercase',
+                                                        minHeight: 24,
                                                     }}
-                                                />
-                                            )}
+                                                >
+                                                    Holiday
+                                                </Box>
+                                            </Tooltip>
+                                        </Box>
+                                    );
+                                }
 
-                                            {/* Shift chip positioned absolutely in column range */}
-                                            {shift && (() => {
-                                                const hStart = Math.round(parseTimeToHours(shift.start_time));
-                                                const hEnd = Math.round(parseTimeToHours(shift.end_time));
-                                                const crosses = shift.crosses_midnight || hEnd < hStart;
+                                // Render Full Leave (Full Width)
+                                if (disp.kind === 'leave') {
+                                    return (
+                                        <Box
+                                            key={d}
+                                            onClick={() => onCellClick?.(userId, d, cell)}
+                                            style={{
+                                                width: CELL_W, minWidth: CELL_W, minHeight: 36, height: 'auto',
+                                                borderRight: LINE, borderBottom: LINE, padding: 4,
+                                                boxSizing: 'border-box',
+                                                cursor: onCellClick ? 'pointer' : 'default',
+                                                display: 'flex', alignItems: 'stretch'
+                                            }}
+                                        >
+                                            <Tooltip content={disp.tooltip}>
+                                                <Box
+                                                    style={{
+                                                        width: '100%', height: '100%', borderRadius: 4,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        background: 'var(--amber-9)',
+                                                        color: '#fff',
+                                                        fontSize: 9, fontWeight: 700,
+                                                        textTransform: 'uppercase',
+                                                        padding: '0 4px',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        minHeight: 24,
+                                                    }}
+                                                >
+                                                    {disp.leaveType || 'On Leave'}
+                                                </Box>
+                                            </Tooltip>
+                                        </Box>
+                                    );
+                                }
 
-                                                const renderChip = (startCol, endCol, key) => (
+                                const shift = shifts.find(s => s.code === cell?.code);
+
+                                return (
+                                    <Box
+                                        key={d}
+                                        onClick={() => onCellClick?.(userId, d, cell)}
+                                        style={{
+                                            width: CELL_W, minWidth: CELL_W, minHeight: 36, height: 'auto',
+                                            borderRight: LINE, borderBottom: LINE, padding: '4px 0px',
+                                            boxSizing: 'border-box',
+                                            cursor: onCellClick ? 'pointer' : 'default',
+                                            display: 'flex', alignItems: 'stretch'
+                                        }}
+                                    >
+                                        <Tooltip content={disp.tooltip}>
+                                            <Box style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                minHeight: 24,
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(24, 1fr)',
+                                                position: 'relative'
+                                            }}>
+                                                {/* 24 visual columns background */}
+                                                {Array.from({ length: 24 }).map((_, hIndex) => {
+                                                    if (hIndex === 0) return null;
+                                                    return (
+                                                        <Box
+                                                            key={hIndex}
+                                                            style={{
+                                                                gridColumn: `${hIndex} / ${hIndex + 1}`,
+                                                                gridRow: 1,
+                                                                height: '100%',
+                                                                borderRight: '1px solid var(--gray-a3)',
+                                                                pointerEvents: 'none',
+                                                                zIndex: 0,
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
+
+                                                {/* Half-day Leave background overlay */}
+                                                {disp.kind === 'leave-half' && (
                                                     <Box
-                                                        key={key}
                                                         style={{
-                                                            gridColumn: `${startCol} / ${endCol}`,
+                                                            gridColumn: disp.session === 'first_half' ? '1 / 13' : '13 / 25',
                                                             gridRow: 1,
                                                             height: '24px',
                                                             alignSelf: 'center',
-                                                            background: disp.color || 'var(--accent-9)',
+                                                            background: 'var(--amber-a3)',
+                                                            border: '1px dashed var(--amber-8)',
+                                                            borderRadius: 4,
+                                                            zIndex: 1,
+                                                            margin: '0 2px',
+                                                        }}
+                                                    />
+                                                )}
+
+                                                {/* Shift chip positioned absolutely in column range */}
+                                                {shift && (() => {
+                                                    const hStart = Math.round(parseTimeToHours(shift.start_time));
+                                                    const hEnd = Math.round(parseTimeToHours(shift.end_time));
+                                                    const crosses = shift.crosses_midnight || hEnd < hStart;
+
+                                                    const renderChip = (startCol, endCol, key) => (
+                                                        <Box
+                                                            key={key}
+                                                            style={{
+                                                                gridColumn: `${startCol} / ${endCol}`,
+                                                                gridRow: 1,
+                                                                height: '24px',
+                                                                alignSelf: 'center',
+                                                                background: disp.color || 'var(--accent-9)',
+                                                                borderRadius: 4,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                color: '#fff',
+                                                                boxShadow: 'var(--shadow-2)',
+                                                                zIndex: 1,
+                                                                overflow: 'hidden',
+                                                                whiteSpace: 'nowrap',
+                                                                padding: '0 4px',
+                                                                border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
+                                                                margin: '0 1px',
+                                                            }}
+                                                        >
+                                                            <Text style={{ fontSize: 9, fontWeight: 700 }}>
+                                                                {shift.code}
+                                                            </Text>
+                                                        </Box>
+                                                    );
+
+                                                    if (crosses) {
+                                                        return (
+                                                            <>
+                                                                {hStart < 24 && renderChip(hStart + 1, 25, 'part1')}
+                                                                {hEnd > 0 && renderChip(1, hEnd + 1, 'part2')}
+                                                            </>
+                                                        );
+                                                    } else {
+                                                        return renderChip(hStart + 1, hEnd + 1, 'full');
+                                                    }
+                                                })()}
+
+                                                {/* Fallback centered chip if shift config is missing */}
+                                                {!shift && (disp.kind === 'shift' || disp.kind === 'pending') && (
+                                                    <Box
+                                                        style={{
+                                                            gridColumn: '1 / 25',
+                                                            gridRow: 1,
+                                                            height: '24px',
+                                                            alignSelf: 'center',
                                                             borderRadius: 4,
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
+                                                            background: disp.color || 'var(--accent-9)',
                                                             color: '#fff',
-                                                            boxShadow: 'var(--shadow-2)',
-                                                            zIndex: 2,
-                                                            overflow: 'hidden',
-                                                            whiteSpace: 'nowrap',
-                                                            padding: '0 4px',
-                                                            border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
-                                                            margin: '0 1px',
+                                                            fontSize: 9,
+                                                            fontWeight: 700,
+                                                            zIndex: 1,
+                                                            margin: '0 4px',
                                                         }}
                                                     >
-                                                        <Text style={{ fontSize: 9, fontWeight: 700 }}>
-                                                            {shift.code}
-                                                        </Text>
+                                                        {disp.label}
                                                     </Box>
-                                                );
-
-                                                if (crosses) {
-                                                    return (
-                                                        <>
-                                                            {hStart < 24 && renderChip(hStart + 1, 25, 'part1')}
-                                                            {hEnd > 0 && renderChip(1, hEnd + 1, 'part2')}
-                                                        </>
-                                                    );
-                                                } else {
-                                                    return renderChip(hStart + 1, hEnd + 1, 'full');
-                                                }
-                                            })()}
-
-                                            {/* Fallback centered chip if shift config is missing */}
-                                            {!shift && (disp.kind === 'shift' || disp.kind === 'pending') && (
-                                                <Box
-                                                    style={{
-                                                        gridColumn: '1 / 25',
-                                                        gridRow: 1,
-                                                        height: '24px',
-                                                        alignSelf: 'center',
-                                                        borderRadius: 4,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        background: disp.color || 'var(--accent-9)',
-                                                        color: '#fff',
-                                                        fontSize: 9,
-                                                        fontWeight: 700,
-                                                        zIndex: 2,
-                                                        margin: '0 4px',
-                                                    }}
-                                                >
-                                                    {disp.label}
-                                                </Box>
-                                            )}
-                                        </Box>
-                                    </Tooltip>
-                                </Box>
-                            );
-                        })}
-                    </Flex>
-                ))}
+                                                )}
+                                            </Box>
+                                        </Tooltip>
+                                    </Box>
+                                );
+                            })}
+                        </Flex>
+                    );
+                })}
             </Box>
         </Box>
     );
