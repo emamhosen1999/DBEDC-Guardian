@@ -27,9 +27,9 @@ import {
 } from '@heroicons/react/24/outline';
 
 export const getPages = (roles, permissions, auth = null) => {
-  
   // 1. Define the condition
   const isOnlyEmployee = roles?.length === 1 && roles[0] === 'Employee';
+  const hasEmployeeRole = roles?.includes('Employee');
 
   // 2. Define the shared items list (so we don't write it twice)
   const workspaceItems = [
@@ -50,11 +50,26 @@ export const getPages = (roles, permissions, auth = null) => {
 
   return [
     // 1. Dashboard (ISO 9000 - Information Management)
-    ...(permissions.includes('core.dashboard.view') ? [{
+    ...(isOnlyEmployee ? [{
+      name: 'Employee Dashboard',
+      icon: <HomeIcon className="" />, 
+      route: 'employee-dashboard',
+      priority: 1,
+      module: 'core'
+    }] : permissions.includes('core.dashboard.view') ? [{
       name: 'Dashboard',
       icon: <HomeIcon className="" />, 
       route: 'dashboard',
       priority: 1,
+      module: 'core'
+    }] : []),
+
+    // 1b. Self-Service Dashboard for mixed roles (e.g. Admin + Employee)
+    ...(!isOnlyEmployee && hasEmployeeRole ? [{
+      name: 'Employee Dashboard',
+      icon: <HomeIcon className="" />, 
+      route: 'employee-dashboard',
+      priority: 2,
       module: 'core'
     }] : []),
 

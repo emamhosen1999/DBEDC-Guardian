@@ -19,8 +19,29 @@ class DashboardController extends Controller
         }
         $user = Auth::user();
 
+        // Check if the user has ONLY the Employee role
+        $roles = $user->roles->pluck('name')->toArray();
+        if (count($roles) === 1 && $roles[0] === 'Employee') {
+            return redirect()->route('employee-dashboard');
+        }
+
         return Inertia::render('Dashboard', [
             'title' => 'Dashboard',
+            'user' => $user,
+            'status' => session('status'),
+            'csrfToken' => session('csrfToken'),
+        ]);
+    }
+
+    public function employeeIndex()
+    {
+        if (! Auth::check()) {
+            return redirect()->route('login');
+        }
+        $user = Auth::user();
+
+        return Inertia::render('EmployeeDashboard', [
+            'title' => 'Employee Dashboard',
             'user' => $user,
             'status' => session('status'),
             'csrfToken' => session('csrfToken'),

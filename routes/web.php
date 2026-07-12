@@ -101,6 +101,9 @@ Route::middleware($middlewareStack)->group(function () {
         Route::get('/stats', [DashboardController::class, 'stats'])->name('stats');
     });
 
+    // Employee Dashboard route
+    Route::get('/employee-dashboard', [DashboardController::class, 'employeeIndex'])->name('employee-dashboard');
+
     // Quality — NCR register (full CRUD + status workflow)
     Route::middleware(['permission:quality.ncr.view'])->prefix('quality')->name('quality.')->group(function () {
         Route::get('/ncr', [NcrController::class, 'index'])->name('ncr.index');
