@@ -6,6 +6,7 @@ import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 const NAME_W = 168;
 const CELL_W = 64; // Increased from 46 to 64 for visual timeline room
 const ROW_H = 36;
+const HEADER_H = 46; // Dedicated header height to accommodate the ruler
 const LINE = '1px solid var(--gray-a5)';
 
 const parseTimeToHours = (timeStr) => {
@@ -32,7 +33,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
     const nameCell = (children, { header = false, zIndex = 1 } = {}) => (
         <Box
             style={{
-                minWidth: NAME_W, width: NAME_W, height: ROW_H,
+                minWidth: NAME_W, width: NAME_W, height: header ? HEADER_H : ROW_H,
                 position: 'sticky', left: 0, zIndex,
                 background: header ? 'var(--gray-a2)' : 'var(--color-panel)',
                 borderRight: LINE, borderBottom: LINE,
@@ -56,15 +57,35 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                             <Box
                                 key={d}
                                 style={{
-                                    width: CELL_W, minWidth: CELL_W, height: ROW_H,
+                                    width: CELL_W, minWidth: CELL_W, height: HEADER_H,
                                     borderRight: LINE, borderBottom: LINE,
                                     background: holidays[d] ? 'var(--amber-a3)' : (weekend ? 'var(--gray-a3)' : 'transparent'),
                                     display: 'flex', flexDirection: 'column',
-                                    alignItems: 'center', justifyContent: 'center', lineHeight: 1.1,
+                                    alignItems: 'center', justifyContent: 'flex-start',
+                                    paddingTop: 4, position: 'relative',
+                                    boxSizing: 'border-box',
                                 }}
                             >
-                                <Text size="1" weight="medium">{dayjs(d).format('D')}</Text>
-                                <Text size="1" color="gray" style={{ fontSize: 9 }}>{dayjs(d).format('dd')}</Text>
+                                <Text size="1" weight="medium" style={{ lineHeight: 1 }}>{dayjs(d).format('D')}</Text>
+                                <Text size="1" color="gray" style={{ fontSize: 9, lineHeight: 1, marginBottom: 2 }}>{dayjs(d).format('dd')}</Text>
+                                
+                                {/* Tiny ruler axis at the bottom */}
+                                <Box style={{ position: 'absolute', bottom: 2, left: 4, right: 4, height: 10 }}>
+                                    {/* Horizontal axis line */}
+                                    <Box style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 1, background: 'var(--gray-a6)' }} />
+                                    
+                                    {/* Ticks */}
+                                    <Box style={{ position: 'absolute', left: '0%', top: 0, width: 1, height: 3, background: 'var(--gray-a8)' }} />
+                                    <Box style={{ position: 'absolute', left: '25%', top: 0, width: 1, height: 2, background: 'var(--gray-a5)' }} />
+                                    <Box style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: 3, background: 'var(--gray-a8)' }} />
+                                    <Box style={{ position: 'absolute', left: '75%', top: 0, width: 1, height: 2, background: 'var(--gray-a5)' }} />
+                                    <Box style={{ position: 'absolute', left: '100%', top: 0, width: 1, height: 3, background: 'var(--gray-a8)' }} />
+                                    
+                                    {/* Labels */}
+                                    <span style={{ position: 'absolute', left: '0%', transform: 'translateX(-50%)', top: 3, fontSize: 7, color: 'var(--gray-8)', fontWeight: 600, lineHeight: 1 }}>0</span>
+                                    <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 3, fontSize: 7, color: 'var(--gray-8)', fontWeight: 600, lineHeight: 1 }}>12</span>
+                                    <span style={{ position: 'absolute', left: '100%', transform: 'translateX(-50%)', top: 3, fontSize: 7, color: 'var(--gray-8)', fontWeight: 600, lineHeight: 1 }}>24</span>
+                                </Box>
                             </Box>
                         );
                     })}
