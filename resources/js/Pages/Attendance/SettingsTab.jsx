@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
     Box, Flex, Text, Button, TextField, Select,
     Separator, Badge, Card, IconButton, Spinner,
-    ScrollArea, Checkbox, Switch, Table, Tooltip,
+    ScrollArea, Checkbox, Switch, Table, Tooltip, Tabs,
 } from '@radix-ui/themes';
 import {
     GearIcon, ClockIcon, CalendarIcon, PersonIcon,
@@ -585,6 +585,7 @@ const TypeModal = ({ open, onClose, editingType, onSave }) => {
 const SettingsTab = () => {
     const { attendanceSettings: initSettings, attendanceTypes: initTypes } = usePage().props;
 
+    const [activeSubTab, setActiveSubTab] = useState('general');
     const [settings,   setSettings]   = useState(initSettings || {});
     const [types,      setTypes]      = useState(initTypes    || []);
     const [search,     setSearch]     = useState('');
@@ -693,348 +694,381 @@ const SettingsTab = () => {
     /* ── render ─────────────────────────────────────────────── */
     return (
         <>
-            {/* ── General Settings ─────────────────────────────── */}
-            <Box mb="6">
-                <Flex align="center" gap="2" mb="4">
-                    <GearIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                    <Text size="4" weight="bold">General Settings</Text>
-                </Flex>
+            <Tabs.Root value={activeSubTab} onValueChange={setActiveSubTab}>
+                <Tabs.List
+                    style={{
+                        marginBottom: 'var(--space-4)',
+                        overflowX: 'auto',
+                        display: 'flex',
+                        flexWrap: 'nowrap',
+                    }}
+                >
+                    <Tabs.Trigger value="general">
+                        <Flex align="center" gap="2">
+                            <GearIcon />
+                            <Text size="2" weight="medium">General Settings</Text>
+                        </Flex>
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="types">
+                        <Flex align="center" gap="2">
+                            <GlobeIcon />
+                            <Text size="2" weight="medium">Attendance Methods</Text>
+                        </Flex>
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="shifts">
+                        <Flex align="center" gap="2">
+                            <ClockIcon />
+                            <Text size="2" weight="medium">Shift Management</Text>
+                        </Flex>
+                    </Tabs.Trigger>
+                    <Tabs.Trigger value="policies">
+                        <Flex align="center" gap="2">
+                            <LockClosedIcon />
+                            <Text size="2" weight="medium">Access Policies</Text>
+                        </Flex>
+                    </Tabs.Trigger>
+                </Tabs.List>
 
-                <form onSubmit={handleGeneralSave}>
-                    <Flex direction="column" gap="5">
-                        {/* Office Timing */}
-                        <Card size="2" style={{
-                            }}>
-                            <Flex align="center" gap="2" mb="3">
-                                <ClockIcon style={{ color: 'var(--accent-9)', width: 16 }} />
-                                <Text size="3" weight="bold">Office Timing</Text>
-                            </Flex>
-                            <Flex gap="4" wrap="wrap">
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="2" weight="medium" as="div" mb="1">Start Time</Text>
-                                    <TextField.Root
-                                        type="time" size="2" name="office_start_time"
-                                        defaultValue={settings?.office_start_time || '09:00'}
-                                    />
-                                </Box>
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="2" weight="medium" as="div" mb="1">End Time</Text>
-                                    <TextField.Root
-                                        type="time" size="2" name="office_end_time"
-                                        defaultValue={settings?.office_end_time || '18:00'}
-                                    />
-                                </Box>
-                                <Box style={{ flex: '1 1 180px' }}>
-                                    <Text size="2" weight="medium" as="div" mb="1">Break Duration (min)</Text>
-                                    <TextField.Root
-                                        type="number" size="2" name="break_time_duration"
-                                        min="0" max="480"
-                                        defaultValue={settings?.break_time_duration || 60}
-                                    />
-                                </Box>
-                            </Flex>
-                        </Card>
-
-                        {/* Attendance Policies */}
-                        <Card size="2" style={{
-                            }}>
-                            <Flex align="center" gap="2" mb="3">
-                                <GearIcon style={{ color: 'var(--accent-9)', width: 16 }} />
-                                <Text size="3" weight="bold">Attendance Policies</Text>
-                            </Flex>
-                            <Flex direction="column" gap="4">
-                                <Flex gap="4" wrap="wrap">
-                                    <Box style={{ flex: '1 1 180px' }}>
-                                        <Text size="2" weight="medium" as="div" mb="1">Late Mark After (min)</Text>
-                                        <TextField.Root
-                                            type="number" size="2" name="late_mark_after"
-                                            min="0" max="120"
-                                            defaultValue={settings?.late_mark_after || 15}
-                                        />
-                                    </Box>
-                                    <Box style={{ flex: '1 1 180px' }}>
-                                        <Text size="2" weight="medium" as="div" mb="1">Early Leave Before (min)</Text>
-                                        <TextField.Root
-                                            type="number" size="2" name="early_leave_before"
-                                            min="0" max="120"
-                                            defaultValue={settings?.early_leave_before || 30}
-                                        />
-                                    </Box>
-                                    <Box style={{ flex: '1 1 180px' }}>
-                                        <Text size="2" weight="medium" as="div" mb="1">Overtime After (min)</Text>
-                                        <TextField.Root
-                                            type="number" size="2" name="overtime_after"
-                                            min="0" max="480"
-                                            defaultValue={settings?.overtime_after || 30}
-                                        />
-                                    </Box>
-                                </Flex>
-
-                                <Flex gap="4" wrap="wrap" align="center">
-                                    <Flex align="center" gap="2" style={{ cursor: 'pointer', height: '100%', minHeight: 32 }}>
-                                        <Checkbox
-                                            size="2"
-                                            checked={autoPunchOut}
-                                            onCheckedChange={v => setAutoPunchOut(!!v)}
-                                        />
-                                        <Text size="2">Enable Auto Punch Out</Text>
+                {/* ── General Settings Tab ───────────────────── */}
+                <Tabs.Content value="general">
+                    <Box py="3">
+                        <form onSubmit={handleGeneralSave}>
+                            <Flex direction="column" gap="5">
+                                {/* Office Timing */}
+                                <Card size="2">
+                                    <Flex align="center" gap="2" mb="3">
+                                        <ClockIcon style={{ color: 'var(--accent-9)', width: 16 }} />
+                                        <Text size="3" weight="bold">Office Timing</Text>
                                     </Flex>
-                                    {autoPunchOut && (
+                                    <Flex gap="4" wrap="wrap">
                                         <Box style={{ flex: '1 1 180px' }}>
-                                            <Text size="2" weight="medium" as="div" mb="1">Auto Punch Out Time</Text>
+                                            <Text size="2" weight="medium" as="div" mb="1">Start Time</Text>
                                             <TextField.Root
-                                                type="time" size="2" name="auto_punch_out_time"
-                                                defaultValue={settings?.auto_punch_out_time || '18:00'}
+                                                type="time" size="2" name="office_start_time"
+                                                defaultValue={settings?.office_start_time || '09:00'}
                                             />
                                         </Box>
-                                    )}
-                                </Flex>
-                            </Flex>
-                        </Card>
-
-                        {/* Weekend */}
-                        <Card size="2" style={{
-                            }}>
-                            <Flex align="center" gap="2" mb="3">
-                                <CalendarIcon style={{ color: 'var(--accent-9)', width: 16 }} />
-                                <Text size="3" weight="bold">Weekend Days</Text>
-                            </Flex>
-                            <Flex gap="5" wrap="wrap">
-                                {['friday', 'saturday', 'sunday'].map(day => (
-                                    <Flex key={day} align="center" gap="2" style={{ cursor: 'pointer' }}>
-                                        <Checkbox
-                                            size="2"
-                                            checked={weekends[day]}
-                                            onCheckedChange={v => setWeekends(p => ({ ...p, [day]: !!v }))}
-                                        />
-                                        <Text size="2" style={{ textTransform: 'capitalize' }}>{day}</Text>
-                                    </Flex>
-                                ))}
-                            </Flex>
-                        </Card>
-
-                        {/* save button */}
-                        <Flex justify="end">
-                            <Button type="submit" size="2" variant="solid" color="accent" disabled={isMutating}>
-                                {isMutating ? <Spinner size="1" /> : null}
-                                Save Settings
-                            </Button>
-                        </Flex>
-                    </Flex>
-                </form>
-            </Box>
-
-            <Separator size="4" mb="5" />
-
-            {/* ── Attendance Types ──────────────────────────────── */}
-            <Box>
-                <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-                    <Flex align="center" gap="2">
-                        <PersonIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                        <Text size="4" weight="bold">Attendance Types</Text>
-                    </Flex>
-                    <TextField.Root
-                        size="2" placeholder="Search types…"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        style={{ width: 220 }}
-                    >
-                        <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
-                    </TextField.Root>
-                </Flex>
-
-                <Flex direction="column" gap="3">
-                    {Object.entries(CATEGORY_META).map(([slug, meta]) => {
-                        const catTypes = grouped[slug] || [];
-                        const isOpen   = openSections.includes(slug);
-
-                        return (
-                            <Card key={slug} size="2" style={{
-                                }}>
-                                {/* accordion header */}
-                                <Flex
-                                    align="center" justify="between"
-                                    style={{ cursor: 'pointer', userSelect: 'none' }}
-                                    onClick={() => toggleSection(slug)}
-                                >
-                                    <Flex align="center" gap="3">
-                                        <Box style={{ color: `var(--${meta.color}-9)` }}>{meta.icon}</Box>
-                                        <Box>
-                                            <Text size="3" weight="bold">{meta.title}</Text>
-                                            <Flex gap="2" mt="1">
-                                                <Badge color={meta.color} variant="soft" size="1">
-                                                    {catTypes.length} config{catTypes.length !== 1 ? 's' : ''}
-                                                </Badge>
-                                                <Badge color="green" variant="soft" size="1">
-                                                    {catTypes.filter(t => t.is_active).length} active
-                                                </Badge>
-                                                {meta.readonly && (
-                                                    <Badge color="gray" variant="soft" size="1">read-only</Badge>
-                                                )}
-                                            </Flex>
+                                        <Box style={{ flex: '1 1 180px' }}>
+                                            <Text size="2" weight="medium" as="div" mb="1">End Time</Text>
+                                            <TextField.Root
+                                                type="time" size="2" name="office_end_time"
+                                                defaultValue={settings?.office_end_time || '18:00'}
+                                            />
+                                        </Box>
+                                        <Box style={{ flex: '1 1 180px' }}>
+                                            <Text size="2" weight="medium" as="div" mb="1">Break Duration (min)</Text>
+                                            <TextField.Root
+                                                type="number" size="2" name="break_time_duration"
+                                                min="0" max="480"
+                                                defaultValue={settings?.break_time_duration || 60}
+                                            />
                                         </Box>
                                     </Flex>
-                                    <Flex align="center" gap="2">
-                                        {!meta.readonly && (
-                                            <Button
-                                                size="1" variant="soft" color={meta.color}
-                                                onClick={e => {
-                                                    e.stopPropagation();
-                                                    setTypeModal({ open: true, type: { id: null, slug, icon: meta.icon, config: {} } });
-                                                }}
-                                            >
-                                                <PlusIcon /> Add
-                                            </Button>
-                                        )}
-                                        <Text size="2" color="gray">{isOpen ? '▲' : '▼'}</Text>
+                                </Card>
+
+                                {/* Attendance Policies */}
+                                <Card size="2">
+                                    <Flex align="center" gap="2" mb="3">
+                                        <GearIcon style={{ color: 'var(--accent-9)', width: 16 }} />
+                                        <Text size="3" weight="bold">Attendance Policies</Text>
                                     </Flex>
+                                    <Flex direction="column" gap="4">
+                                        <Flex gap="4" wrap="wrap">
+                                            <Box style={{ flex: '1 1 180px' }}>
+                                                <Text size="2" weight="medium" as="div" mb="1">Late Mark After (min)</Text>
+                                                <TextField.Root
+                                                    type="number" size="2" name="late_mark_after"
+                                                    min="0" max="120"
+                                                    defaultValue={settings?.late_mark_after || 15}
+                                                />
+                                            </Box>
+                                            <Box style={{ flex: '1 1 180px' }}>
+                                                <Text size="2" weight="medium" as="div" mb="1">Early Leave Before (min)</Text>
+                                                <TextField.Root
+                                                    type="number" size="2" name="early_leave_before"
+                                                    min="0" max="120"
+                                                    defaultValue={settings?.early_leave_before || 30}
+                                                />
+                                            </Box>
+                                            <Box style={{ flex: '1 1 180px' }}>
+                                                <Text size="2" weight="medium" as="div" mb="1">Overtime After (min)</Text>
+                                                <TextField.Root
+                                                    type="number" size="2" name="overtime_after"
+                                                    min="0" max="480"
+                                                    defaultValue={settings?.overtime_after || 30}
+                                                />
+                                            </Box>
+                                        </Flex>
+
+                                        <Flex gap="4" wrap="wrap" align="center">
+                                            <Flex align="center" gap="2" style={{ cursor: 'pointer', height: '100%', minHeight: 32 }}>
+                                                <Checkbox
+                                                    size="2"
+                                                    checked={autoPunchOut}
+                                                    onCheckedChange={v => setAutoPunchOut(!!v)}
+                                                />
+                                                <Text size="2">Enable Auto Punch Out</Text>
+                                            </Flex>
+                                            {autoPunchOut && (
+                                                <Box style={{ flex: '1 1 180px' }}>
+                                                    <Text size="2" weight="medium" as="div" mb="1">Auto Punch Out Time</Text>
+                                                    <TextField.Root
+                                                        type="time" size="2" name="auto_punch_out_time"
+                                                        defaultValue={settings?.auto_punch_out_time || '18:00'}
+                                                    />
+                                                </Box>
+                                            )}
+                                        </Flex>
+                                    </Flex>
+                                </Card>
+
+                                {/* Weekend */}
+                                <Card size="2">
+                                    <Flex align="center" gap="2" mb="3">
+                                        <CalendarIcon style={{ color: 'var(--accent-9)', width: 16 }} />
+                                        <Text size="3" weight="bold">Weekend Days</Text>
+                                    </Flex>
+                                    <Flex gap="5" wrap="wrap">
+                                        {['friday', 'saturday', 'sunday'].map(day => (
+                                            <Flex key={day} align="center" gap="2" style={{ cursor: 'pointer' }}>
+                                                <Checkbox
+                                                    size="2"
+                                                    checked={weekends[day]}
+                                                    onCheckedChange={v => setWeekends(p => ({ ...p, [day]: !!v }))}
+                                                />
+                                                <Text size="2" style={{ textTransform: 'capitalize' }}>{day}</Text>
+                                            </Flex>
+                                        ))}
+                                    </Flex>
+                                </Card>
+
+                                {/* save button */}
+                                <Flex justify="end">
+                                    <Button type="submit" size="2" variant="solid" color="accent" disabled={isMutating}>
+                                        {isMutating ? <Spinner size="1" /> : null}
+                                        Save Settings
+                                    </Button>
                                 </Flex>
+                            </Flex>
+                        </form>
+                    </Box>
+                </Tabs.Content>
 
-                                {/* accordion body */}
-                                {isOpen && (
-                                    <Box mt="3">
-                                        <Separator size="4" mb="3" />
+                {/* ── Attendance Types Tab ───────────────────── */}
+                <Tabs.Content value="types">
+                    <Box py="3">
+                        <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
+                            <Flex align="center" gap="2">
+                                <PersonIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
+                                <Text size="3" weight="bold">Attendance Methods</Text>
+                            </Flex>
+                            <TextField.Root
+                                size="2" placeholder="Search types…"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                style={{ width: 220 }}
+                            >
+                                <TextField.Slot><MagnifyingGlassIcon /></TextField.Slot>
+                            </TextField.Root>
+                        </Flex>
 
-                                        {/* ── biometric: readonly view with devices ── */}
-                                        {meta.readonly ? (
-                                            catTypes.length === 0 ? (
-                                                <Flex direction="column" align="center" py="5" gap="2">
-                                                    <Text size="2" color="gray">No biometric attendance types yet.</Text>
-                                                    <Text size="1" color="gray">Create one from the Biometric Devices admin panel and assign devices to it.</Text>
-                                                </Flex>
-                                            ) : (
-                                                <>
-                                                    <Text size="1" color="gray" mb="3" as="p">
-                                                        Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.
-                                                    </Text>
-                                                    <Table.Root size="2" variant="ghost">
-                                                        <Table.Header>
-                                                            <Table.Row>
-                                                                <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
-                                                                <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
-                                                                <Table.ColumnHeaderCell><Text size="2">Assigned Devices</Text></Table.ColumnHeaderCell>
-                                                            </Table.Row>
-                                                        </Table.Header>
-                                                        <Table.Body>
-                                                            {catTypes.map(t => (
-                                                                <Table.Row key={t.id}>
-                                                                    <Table.Cell>
-                                                                        <Text size="2" weight="medium">{t.name}</Text>
-                                                                        {t.description && <Text size="1" color="gray" as="div">{t.description}</Text>}
-                                                                    </Table.Cell>
-                                                                    <Table.Cell>
-                                                                        <Badge
-                                                                            color={t.is_active ? 'green' : 'gray'}
-                                                                            variant="soft" size="1"
-                                                                        >
-                                                                            {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
-                                                                        </Badge>
-                                                                    </Table.Cell>
-                                                                    <Table.Cell>
-                                                                        {t.biometric_devices?.length > 0 ? (
-                                                                            <Flex gap="1" wrap="wrap">
-                                                                                {t.biometric_devices.map(d => (
-                                                                                    <Badge key={d.id} color="red" variant="soft" size="1">
-                                                                                        {d.name}{d.location ? ` — ${d.location}` : ''}
-                                                                                    </Badge>
-                                                                                ))}
-                                                                            </Flex>
-                                                                        ) : (
-                                                                            <Text size="1" color="gray">No devices assigned</Text>
-                                                                        )}
-                                                                    </Table.Cell>
+                        <Flex direction="column" gap="3">
+                            {Object.entries(CATEGORY_META).map(([slug, meta]) => {
+                                const catTypes = grouped[slug] || [];
+                                const isOpen   = openSections.includes(slug);
+
+                                return (
+                                    <Card key={slug} size="2">
+                                        {/* accordion header */}
+                                        <Flex
+                                            align="center" justify="between"
+                                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                                            onClick={() => toggleSection(slug)}
+                                        >
+                                            <Flex align="center" gap="3">
+                                                <Box style={{ color: `var(--${meta.color}-9)` }}>{meta.icon}</Box>
+                                                <Box>
+                                                    <Text size="3" weight="bold">{meta.title}</Text>
+                                                    <Flex gap="2" mt="1">
+                                                        <Badge color={meta.color} variant="soft" size="1">
+                                                            {catTypes.length} config{catTypes.length !== 1 ? 's' : ''}
+                                                        </Badge>
+                                                        <Badge color="green" variant="soft" size="1">
+                                                            {catTypes.filter(t => t.is_active).length} active
+                                                        </Badge>
+                                                        {meta.readonly && (
+                                                            <Badge color="gray" variant="soft" size="1">read-only</Badge>
+                                                        )}
+                                                    </Flex>
+                                                </Box>
+                                            </Flex>
+                                            <Flex align="center" gap="2">
+                                                {!meta.readonly && (
+                                                    <Button
+                                                        size="1" variant="soft" color={meta.color}
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            setTypeModal({ open: true, type: { id: null, slug, icon: meta.icon, config: {} } });
+                                                        }}
+                                                    >
+                                                        <PlusIcon /> Add
+                                                    </Button>
+                                                )}
+                                                <Text size="2" color="gray">{isOpen ? '▲' : '▼'}</Text>
+                                            </Flex>
+                                        </Flex>
+
+                                        {/* accordion body */}
+                                        {isOpen && (
+                                            <Box mt="3">
+                                                <Separator size="4" mb="3" />
+
+                                                {/* ── biometric: readonly view with devices ── */}
+                                                {meta.readonly ? (
+                                                    catTypes.length === 0 ? (
+                                                        <Flex direction="column" align="center" py="5" gap="2">
+                                                            <Text size="2" color="gray">No biometric attendance types yet.</Text>
+                                                            <Text size="1" color="gray">Create one from the Biometric Devices admin panel and assign devices to it.</Text>
+                                                        </Flex>
+                                                    ) : (
+                                                        <>
+                                                            <Text size="1" color="gray" mb="3" as="p">
+                                                                Biometric types are managed from the Biometric Devices admin panel. Devices listed here are assigned to this type.
+                                                            </Text>
+                                                            <Table.Root size="2" variant="ghost">
+                                                                <Table.Header>
+                                                                    <Table.Row>
+                                                                        <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
+                                                                        <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
+                                                                        <Table.ColumnHeaderCell><Text size="2">Assigned Devices</Text></Table.ColumnHeaderCell>
+                                                                    </Table.Row>
+                                                                </Table.Header>
+                                                                <Table.Body>
+                                                                    {catTypes.map(t => (
+                                                                        <Table.Row key={t.id}>
+                                                                            <Table.Cell>
+                                                                                <Text size="2" weight="medium">{t.name}</Text>
+                                                                                {t.description && <Text size="1" color="gray" as="div">{t.description}</Text>}
+                                                                            </Table.Cell>
+                                                                            <Table.Cell>
+                                                                                <Badge
+                                                                                    color={t.is_active ? 'green' : 'gray'}
+                                                                                    variant="soft" size="1"
+                                                                                >
+                                                                                    {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
+                                                                                </Badge>
+                                                                            </Table.Cell>
+                                                                            <Table.Cell>
+                                                                                {t.biometric_devices?.length > 0 ? (
+                                                                                    <Flex gap="1" wrap="wrap">
+                                                                                        {t.biometric_devices.map(d => (
+                                                                                            <Badge key={d.id} color="red" variant="soft" size="1">
+                                                                                                {d.name}{d.location ? ` — ${d.location}` : ''}
+                                                                                            </Badge>
+                                                                                        ))}
+                                                                                    </Flex>
+                                                                                ) : (
+                                                                                    <Text size="1" color="gray">No devices assigned</Text>
+                                                                                )}
+                                                                            </Table.Cell>
+                                                                        </Table.Row>
+                                                                    ))}
+                                                                </Table.Body>
+                                                            </Table.Root>
+                                                        </>
+                                                    )
+                                                ) : (
+                                                    /* ── normal editable categories ── */
+                                                    catTypes.length === 0 ? (
+                                                        <Flex direction="column" align="center" py="5" gap="2">
+                                                            <Text size="2" color="gray">No {meta.title.toLowerCase()} types yet.</Text>
+                                                            <Text size="1" color="gray">Click Add above to create one.</Text>
+                                                        </Flex>
+                                                    ) : (
+                                                        <Table.Root size="2" variant="ghost">
+                                                            <Table.Header>
+                                                                <Table.Row>
+                                                                    <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
+                                                                    <Table.ColumnHeaderCell><Text size="2">Description</Text></Table.ColumnHeaderCell>
+                                                                    <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
+                                                                    <Table.ColumnHeaderCell style={{ textAlign: 'right' }}><Text size="2">Actions</Text></Table.ColumnHeaderCell>
                                                                 </Table.Row>
-                                                            ))}
-                                                        </Table.Body>
-                                                    </Table.Root>
-                                                </>
-                                            )
-                                        ) : (
-                                            /* ── normal editable categories ── */
-                                            catTypes.length === 0 ? (
-                                                <Flex direction="column" align="center" py="5" gap="2">
-                                                    <Text size="2" color="gray">No {meta.title.toLowerCase()} types yet.</Text>
-                                                    <Text size="1" color="gray">Click Add above to create one.</Text>
-                                                </Flex>
-                                            ) : (
-                                                <Table.Root size="2" variant="ghost">
-                                                    <Table.Header>
-                                                        <Table.Row>
-                                                            <Table.ColumnHeaderCell><Text size="2">Name</Text></Table.ColumnHeaderCell>
-                                                            <Table.ColumnHeaderCell><Text size="2">Description</Text></Table.ColumnHeaderCell>
-                                                            <Table.ColumnHeaderCell><Text size="2">Status</Text></Table.ColumnHeaderCell>
-                                                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}><Text size="2">Actions</Text></Table.ColumnHeaderCell>
-                                                        </Table.Row>
-                                                    </Table.Header>
-                                                    <Table.Body>
-                                                        {catTypes.map(t => (
-                                                            <Table.Row key={t.id}>
-                                                                <Table.Cell>
-                                                                    <Text size="2" weight="medium">{t.name}</Text>
-                                                                </Table.Cell>
-                                                                <Table.Cell>
-                                                                    <Text size="2" color="gray">{t.description || '—'}</Text>
-                                                                </Table.Cell>
-                                                                <Table.Cell>
-                                                                    <Badge color={t.is_active ? 'green' : 'gray'} variant="soft" size="1">
-                                                                        {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
-                                                                    </Badge>
-                                                                </Table.Cell>
-                                                                <Table.Cell>
-                                                                    <Flex gap="1" justify="end">
-                                                                        <Tooltip content="Edit">
-                                                                            <IconButton size="1" variant="ghost" color="blue"
-                                                                                onClick={() => setTypeModal({ open: true, type: t })}>
-                                                                                <Pencil1Icon />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                        {slug === 'route_waypoint' && (
-                                                                            <Tooltip content="Configure Waypoints">
-                                                                                <IconButton size="1" variant="ghost" color="blue"
-                                                                                    onClick={() => setWaypointModal({ open: true, type: t })}>
-                                                                                    <SewingPinIcon />
-                                                                                </IconButton>
-                                                                            </Tooltip>
-                                                                        )}
-                                                                        {slug === 'geo_polygon' && (
-                                                                            <Tooltip content="Configure Polygon">
-                                                                                <IconButton size="1" variant="ghost" color="amber"
-                                                                                    onClick={() => setPolygonModal({ open: true, type: t })}>
-                                                                                    <GlobeIcon />
-                                                                                </IconButton>
-                                                                            </Tooltip>
-                                                                        )}
-                                                                        <Tooltip content="Delete">
-                                                                            <IconButton size="1" variant="ghost" color="red"
-                                                                                onClick={() => handleTypeDelete(t)}>
-                                                                                <TrashIcon />
-                                                                            </IconButton>
-                                                                        </Tooltip>
-                                                                    </Flex>
-                                                                </Table.Cell>
-                                                            </Table.Row>
-                                                        ))}
-                                                    </Table.Body>
-                                                </Table.Root>
-                                            )
+                                                            </Table.Header>
+                                                            <Table.Body>
+                                                                {catTypes.map(t => (
+                                                                    <Table.Row key={t.id}>
+                                                                        <Table.Cell>
+                                                                            <Text size="2" weight="medium">{t.name}</Text>
+                                                                        </Table.Cell>
+                                                                        <Table.Cell>
+                                                                            <Text size="2" color="gray">{t.description || '—'}</Text>
+                                                                        </Table.Cell>
+                                                                        <Table.Cell>
+                                                                            <Badge color={t.is_active ? 'green' : 'gray'} variant="soft" size="1">
+                                                                                {t.is_active ? <><CheckCircledIcon /> Active</> : <><CrossCircledIcon /> Inactive</>}
+                                                                            </Badge>
+                                                                        </Table.Cell>
+                                                                        <Table.Cell>
+                                                                            <Flex gap="1" justify="end">
+                                                                                <Tooltip content="Edit">
+                                                                                    <IconButton size="1" variant="ghost" color="blue"
+                                                                                        onClick={() => setTypeModal({ open: true, type: t })}>
+                                                                                        <Pencil1Icon />
+                                                                                    </IconButton>
+                                                                                </Tooltip>
+                                                                                {slug === 'route_waypoint' && (
+                                                                                    <Tooltip content="Configure Waypoints">
+                                                                                        <IconButton size="1" variant="ghost" color="blue"
+                                                                                            onClick={() => setWaypointModal({ open: true, type: t })}>
+                                                                                            <SewingPinIcon />
+                                                                                        </IconButton>
+                                                                                    </Tooltip>
+                                                                                )}
+                                                                                {slug === 'geo_polygon' && (
+                                                                                    <Tooltip content="Configure Polygon">
+                                                                                        <IconButton size="1" variant="ghost" color="amber"
+                                                                                            onClick={() => setPolygonModal({ open: true, type: t })}>
+                                                                                            <GlobeIcon />
+                                                                                        </IconButton>
+                                                                                    </Tooltip>
+                                                                                )}
+                                                                                <Tooltip content="Delete">
+                                                                                    <IconButton size="1" variant="ghost" color="red"
+                                                                                        onClick={() => handleTypeDelete(t)}>
+                                                                                        <TrashIcon />
+                                                                                    </IconButton>
+                                                                                </Tooltip>
+                                                                            </Flex>
+                                                                        </Table.Cell>
+                                                                    </Table.Row>
+                                                                ))}
+                                                            </Table.Body>
+                                                        </Table.Root>
+                                                    )
+                                                )}
+                                            </Box>
                                         )}
-                                    </Box>
-                                )}
-                            </Card>
-                        );
-                    })}
-                </Flex>
-            </Box>
+                                    </Card>
+                                );
+                            })}
+                        </Flex>
+                    </Box>
+                </Tabs.Content>
 
-            <Separator size="4" my="5" />
+                {/* ── Shifts Tab ─────────────────────────────── */}
+                <Tabs.Content value="shifts">
+                    <Box py="3">
+                        <ShiftsSettings />
+                    </Box>
+                </Tabs.Content>
 
-            {/* ── Shifts ─────────────────────────────────────────── */}
-            <ShiftsSettings />
-
-            <Separator size="4" my="5" />
-
-            {/* ── Policies ───────────────────────────────────────── */}
-            <PoliciesManager />
+                {/* ── Policies Tab ───────────────────────────── */}
+                <Tabs.Content value="policies">
+                    <Box py="3">
+                        <PoliciesManager />
+                    </Box>
+                </Tabs.Content>
+            </Tabs.Root>
 
             {/* ── modals ─────────────────────────────────────────── */}
             <TypeModal
