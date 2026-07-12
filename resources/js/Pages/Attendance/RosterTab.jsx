@@ -335,6 +335,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                                     roster={Object.fromEntries(paginatedRows)}
                                     days={days}
                                     holidays={holidays}
+                                    shifts={shifts}
                                     onCellClick={handleCellClick}
                                 />
                                 {rows.length > perPage && (

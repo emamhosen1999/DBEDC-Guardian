@@ -3,19 +3,20 @@ import { Box, Flex, Text, Tooltip } from '@radix-ui/themes';
 import dayjs from 'dayjs';
 import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 
-/**
- * Presentational employees × days roster grid.
- * roster: { [userId]: { name, days: { 'YYYY-MM-DD': { code, color, off } } } }
- *
- * Fixed-width columns + light grid borders so the day-number header aligns
- * exactly with the cells in every row.
- */
 const NAME_W = 168;
-const CELL_W = 46;
+const CELL_W = 64; // Increased from 46 to 64 for visual timeline room
 const ROW_H = 36;
 const LINE = '1px solid var(--gray-a5)';
 
-export default function RosterCalendar({ roster = {}, days = [], holidays = {}, onCellClick }) {
+const parseTimeToHours = (timeStr) => {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':');
+    const h = parseInt(parts[0] || 0, 10);
+    const m = parseInt(parts[1] || 0, 10);
+    return h + m / 60;
+};
+
+export default function RosterCalendar({ roster = {}, days = [], holidays = {}, shifts = [], onCellClick }) {
     const rows = Object.entries(roster);
 
     if (rows.length === 0) {
@@ -76,6 +77,70 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                         {days.map((d) => {
                             const cell = row.days?.[d];
                             const disp = resolveRosterCellDisplay(cell, holidays[d]);
+
+                            // Render Holiday
+                            if (disp.kind === 'holiday') {
+                                return (
+                                    <Box
+                                        key={d}
+                                        onClick={() => onCellClick?.(userId, d, cell)}
+                                        style={{
+                                            width: CELL_W, minWidth: CELL_W, height: ROW_H,
+                                            borderRight: LINE, borderBottom: LINE, padding: 4,
+                                            boxSizing: 'border-box',
+                                            background: 'var(--amber-a2)',
+                                            cursor: onCellClick ? 'pointer' : 'default',
+                                        }}
+                                    >
+                                        <Tooltip content={disp.tooltip}>
+                                            <Box
+                                                style={{
+                                                    width: '100%', height: '100%', borderRadius: 4,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    background: 'var(--amber-4)',
+                                                    color: 'var(--amber-11)',
+                                                    fontSize: 9, fontWeight: 700,
+                                                }}
+                                            >
+                                                H
+                                            </Box>
+                                        </Tooltip>
+                                    </Box>
+                                );
+                            }
+
+                            // Render Full Leave
+                            if (disp.kind === 'leave') {
+                                return (
+                                    <Box
+                                        key={d}
+                                        onClick={() => onCellClick?.(userId, d, cell)}
+                                        style={{
+                                            width: CELL_W, minWidth: CELL_W, height: ROW_H,
+                                            borderRight: LINE, borderBottom: LINE, padding: 4,
+                                            boxSizing: 'border-box',
+                                            cursor: onCellClick ? 'pointer' : 'default',
+                                        }}
+                                    >
+                                        <Tooltip content={disp.tooltip}>
+                                            <Box
+                                                style={{
+                                                    width: '100%', height: '100%', borderRadius: 4,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    background: 'var(--amber-9)',
+                                                    color: '#fff',
+                                                    fontSize: 9, fontWeight: 700,
+                                                }}
+                                            >
+                                                LV
+                                            </Box>
+                                        </Tooltip>
+                                    </Box>
+                                );
+                            }
+
+                            const shift = shifts.find(s => s.code === cell?.code);
+
                             return (
                                 <Box
                                     key={d}
@@ -84,29 +149,119 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                         width: CELL_W, minWidth: CELL_W, height: ROW_H,
                                         borderRight: LINE, borderBottom: LINE, padding: 4,
                                         boxSizing: 'border-box',
-                                        background: disp.kind === 'holiday' ? 'var(--amber-a2)' : 'transparent',
+                                        position: 'relative',
                                         cursor: onCellClick ? 'pointer' : 'default',
                                     }}
                                 >
                                     <Tooltip content={disp.tooltip}>
-                                        <Box
-                                            style={{
-                                                width: '100%', height: '100%', borderRadius: 4,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                background:
-                                                    disp.kind === 'leave' ? 'var(--amber-9)'
-                                                    : disp.kind === 'leave-half' ? `linear-gradient(135deg, ${disp.color || 'var(--accent-9)'} 50%, var(--amber-9) 50%)`
-                                                    : (disp.kind === 'shift' || disp.kind === 'pending') ? (disp.color || 'var(--accent-9)')
-                                                    : 'transparent',
-                                                border:
-                                                    disp.kind === 'off' ? '1px dashed var(--gray-a6)'
-                                                    : disp.kind === 'pending' ? '1px dashed var(--amber-8)'
-                                                    : 'none',
-                                                color: (disp.kind === 'shift' || disp.kind === 'pending' || disp.kind === 'leave' || disp.kind === 'leave-half') ? '#fff' : 'var(--gray-8)',
-                                                fontSize: 9, fontWeight: 700, letterSpacing: 0.2,
-                                            }}
-                                        >
-                                            {disp.label}
+                                        <Box style={{ width: '100%', height: '100%', position: 'relative' }}>
+                                            {/* 24-hour timeline track */}
+                                            <Box
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: 0,
+                                                    right: 0,
+                                                    top: 'calc(50% - 1.5px)',
+                                                    height: 3,
+                                                    background: 'var(--gray-a4)',
+                                                    borderRadius: 1.5,
+                                                    border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
+                                                }}
+                                            />
+
+                                            {/* Half-day Leave marker */}
+                                            {disp.kind === 'leave-half' && (
+                                                <Box
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: disp.session === 'first_half' ? '0%' : '50%',
+                                                        width: '50%',
+                                                        top: 'calc(50% - 1.5px)',
+                                                        height: 3,
+                                                        background: 'var(--amber-9)',
+                                                        borderRadius: 1.5,
+                                                    }}
+                                                />
+                                            )}
+
+                                            {/* Off-day dashed line */}
+                                            {disp.kind === 'off' && (
+                                                <Box
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: 0,
+                                                        right: 0,
+                                                        top: 'calc(50% - 1px)',
+                                                        height: 2,
+                                                        borderTop: '2px dashed var(--gray-a6)',
+                                                    }}
+                                                />
+                                            )}
+
+                                            {/* Shift chip positioned absolutely */}
+                                            {shift && (() => {
+                                                const hStart = parseTimeToHours(shift.start_time);
+                                                const hEnd = parseTimeToHours(shift.end_time);
+                                                const crosses = shift.crosses_midnight || hEnd < hStart;
+
+                                                const renderChip = (leftPct, widthPct) => (
+                                                    <Box
+                                                        style={{
+                                                            position: 'absolute',
+                                                            left: `${leftPct}%`,
+                                                            width: `${widthPct}%`,
+                                                            top: 'calc(50% - 9px)',
+                                                            height: 18,
+                                                            background: disp.color || 'var(--accent-9)',
+                                                            borderRadius: 3,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: '#fff',
+                                                            boxShadow: 'var(--shadow-1)',
+                                                        }}
+                                                    >
+                                                        <Text style={{ fontSize: 8, fontWeight: 700 }}>
+                                                            {shift.code.charAt(0)}
+                                                        </Text>
+                                                    </Box>
+                                                );
+
+                                                if (crosses) {
+                                                    const p1Width = 24 - hStart;
+                                                    return (
+                                                        <>
+                                                            {p1Width > 0 && renderChip((hStart / 24) * 100, (p1Width / 24) * 100)}
+                                                            {hEnd > 0 && renderChip(0, (hEnd / 24) * 100)}
+                                                        </>
+                                                    );
+                                                } else {
+                                                    return renderChip((hStart / 24) * 100, ((hEnd - hStart) / 24) * 100);
+                                                }
+                                            })()}
+
+                                            {/* Fallback centered chip if shift config is missing */}
+                                            {!shift && (disp.kind === 'shift' || disp.kind === 'pending') && (
+                                                <Box
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: 0,
+                                                        right: 0,
+                                                        top: 0,
+                                                        bottom: 0,
+                                                        borderRadius: 4,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        background: disp.color || 'var(--accent-9)',
+                                                        color: '#fff',
+                                                        fontSize: 9,
+                                                        fontWeight: 700,
+                                                    }}
+                                                >
+                                                    {disp.label}
+                                                </Box>
+                                            )}
                                         </Box>
                                     </Tooltip>
                                 </Box>
