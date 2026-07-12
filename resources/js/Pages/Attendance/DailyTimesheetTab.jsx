@@ -824,10 +824,26 @@ const DailyTimesheetTab = ({
                     <Text size="2" color="red">{error}</Text>
                 </Flex>
             ) : (
-                <Flex direction={isMobile ? 'column' : 'row'} gap="0" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
+                <Flex
+                    direction={isMobile ? 'column' : 'row'}
+                    gap="0"
+                    style={{
+                        position: 'relative',
+                        border: '1px solid var(--gray-a4)',
+                        borderRadius: 'var(--radius-3)',
+                        overflow: 'hidden'
+                    }}
+                >
 
                     {/* Present table */}
-                    <Box style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
+                    <Box
+                        style={{
+                            flex: '1 1 0',
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            marginRight: (!isMobile && isAdminView && sidebarOpen) ? '320px' : 0
+                        }}
+                    >
                         <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)' }}>
                             <Table.Root size="2" variant="ghost" style={{ minWidth: 520 }}>
                                 <Table.Header>
@@ -897,7 +913,18 @@ const DailyTimesheetTab = ({
 
                     {/* Absent sidebar — admin only */}
                     {isAdminView && sidebarOpen && (
-                        <Box style={{ width: isMobile ? '100%' : '320px', flexShrink: 0 }}>
+                        <Box
+                            style={{
+                                width: isMobile ? '100%' : '320px',
+                                flexShrink: 0,
+                                ...(!isMobile ? {
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                } : {})
+                            }}
+                        >
                             <AbsentSidebar
                                 absentUsers={absentUsers}
                                 offUsers={offUsers}

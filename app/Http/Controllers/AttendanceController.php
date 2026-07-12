@@ -326,7 +326,7 @@ class AttendanceController extends Controller
         try {
             $selectedDate = $request->query('date', now()->toDateString());
             $page = (int) $request->query('page', 1);
-            $perPage = (int) $request->query('perPage', 25);
+            $perPage = (int) $request->query('per_page', $request->query('perPage', 20));
             $employeeKeyword = trim((string) $request->query('employee', ''));
 
             $usersWithAttendanceQuery = User::query()
