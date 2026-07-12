@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Flex, Table, Button, Badge, Text, IconButton, Separator } from '@radix-ui/themes';
+import { Box, Flex, Table, Button, Badge, Text, IconButton, Tabs } from '@radix-ui/themes';
 import { Pencil1Icon, TrashIcon, PlusIcon, LayersIcon, SymbolIcon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
@@ -8,14 +8,22 @@ import { showToast } from '@/utils/toastUtils';
 import ShiftForm from '@/Forms/ShiftForm';
 import RotationPatternForm from '@/Forms/RotationPatternForm';
 import AssignmentManager from '@/Pages/Attendance/Components/AssignmentManager';
+import TablePagination from '@/Components/TablePagination.jsx';
 
 export default function ShiftsSettings() {
     const { employees = [], departments = [], designations = [] } = usePage().props;
     const qc = useQueryClient();
+    const [activeSubTab, setActiveSubTab] = useState('shifts');
     const [editing, setEditing] = useState(null);
     const [open, setOpen] = useState(false);
     const [patternOpen, setPatternOpen] = useState(false);
     const [editingPattern, setEditingPattern] = useState(null);
+
+    // Pagination states
+    const [shiftsPage, setShiftsPage] = useState(1);
+    const [shiftsPerPage, setShiftsPerPage] = useState(20);
+    const [patternsPage, setPatternsPage] = useState(1);
+    const [patternsPerPage, setPatternsPerPage] = useState(20);
 
     const { data, isLoading } = useQuery({
         queryKey: ['shifts'],
@@ -82,148 +90,188 @@ export default function ShiftsSettings() {
         });
     };
 
+    const paginatedShifts = shifts.slice((shiftsPage - 1) * shiftsPerPage, shiftsPage * shiftsPerPage);
+    const paginatedPatterns = patterns.slice((patternsPage - 1) * patternsPerPage, patternsPage * patternsPerPage);
+
     return (
-        <Box mt="6">
-            <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
-                <Flex align="center" gap="2">
-                    <LayersIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                    <Text size="4" weight="bold">Shifts</Text>
-                </Flex>
-                <Flex align="center" gap="2">
-                    <Button size="2" variant="soft" onClick={() => { setEditingPattern(null); setPatternOpen(true); }}>
-                        <SymbolIcon /> Add pattern
-                    </Button>
-                    <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
-                        <PlusIcon /> Add shift
-                    </Button>
-                </Flex>
-            </Flex>
+        <Box mt="4">
+            <Tabs.Root value={activeSubTab} onValueChange={setActiveSubTab}>
+                <Tabs.List size="2" mb="4">
+                    <Tabs.Trigger value="shifts">Shifts</Tabs.Trigger>
+                    <Tabs.Trigger value="patterns">Rotation Patterns</Tabs.Trigger>
+                    <Tabs.Trigger value="assignments">Shift Assignments</Tabs.Trigger>
+                </Tabs.List>
 
-            {isLoading ? (
-                <Text size="2" color="gray">Loading shifts…</Text>
-            ) : shifts.length === 0 ? (
-                <Flex direction="column" align="center" py="5" gap="2">
-                    <Text size="2" color="gray">No shifts yet.</Text>
-                    <Text size="1" color="gray">Click Add shift above to create one.</Text>
-                </Flex>
-            ) : (
-                <Table.Root size="2" variant="surface">
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Window</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {shifts.map(s => (
-                            <Table.Row key={s.id}>
-                                <Table.Cell>
-                                    <Text size="2" weight="medium">{s.name}</Text>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Badge style={{ background: s.color || undefined, color: s.color ? '#fff' : undefined }}>
-                                        {s.code}
-                                    </Badge>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Text size="2" color="gray">
-                                        {s.start_time}–{s.end_time}{s.crosses_midnight ? ' (+1)' : ''}
-                                    </Text>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    {s.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Flex gap="1" justify="end">
-                                        <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditing(s); setOpen(true); }}>
-                                            <Pencil1Icon />
-                                        </IconButton>
-                                        <IconButton size="1" variant="ghost" color="red" onClick={() => remove(s)}>
-                                            <TrashIcon />
-                                        </IconButton>
-                                    </Flex>
-                                </Table.Cell>
-                            </Table.Row>
-                        ))}
-                    </Table.Body>
-                </Table.Root>
-            )}
+                {/* Shifts Sub-tab */}
+                <Tabs.Content value="shifts">
+                    <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
+                        <Flex align="center" gap="2">
+                            <LayersIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
+                            <Text size="3" weight="bold">Manage Shifts</Text>
+                        </Flex>
+                        <Button size="2" onClick={() => { setEditing(null); setOpen(true); }}>
+                            <PlusIcon /> Add shift
+                        </Button>
+                    </Flex>
 
-            <Flex align="center" justify="between" gap="3" mt="6" mb="4" wrap="wrap">
-                <Flex align="center" gap="2">
-                    <SymbolIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
-                    <Text size="4" weight="bold">Rotation Patterns</Text>
-                </Flex>
-            </Flex>
+                    {isLoading ? (
+                        <Text size="2" color="gray">Loading shifts…</Text>
+                    ) : shifts.length === 0 ? (
+                        <Flex direction="column" align="center" py="5" gap="2">
+                            <Text size="2" color="gray">No shifts yet.</Text>
+                            <Text size="1" color="gray">Click Add shift above to create one.</Text>
+                        </Flex>
+                    ) : (
+                        <Box>
+                            <Table.Root size="2" variant="surface">
+                                <Table.Header>
+                                    <Table.Row>
+                                        <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Window</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
+                                    </Table.Row>
+                                </Table.Header>
+                                <Table.Body>
+                                    {paginatedShifts.map(s => (
+                                        <Table.Row key={s.id}>
+                                            <Table.Cell>
+                                                <Text size="2" weight="medium">{s.name}</Text>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Badge style={{ background: s.color || undefined, color: s.color ? '#fff' : undefined }}>
+                                                    {s.code}
+                                                </Badge>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Text size="2" color="gray">
+                                                    {s.start_time}–{s.end_time}{s.crosses_midnight ? ' (+1)' : ''}
+                                                </Text>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                {s.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Flex gap="1" justify="end">
+                                                    <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditing(s); setOpen(true); }}>
+                                                        <Pencil1Icon />
+                                                    </IconButton>
+                                                    <IconButton size="1" variant="ghost" color="red" onClick={() => remove(s)}>
+                                                        <TrashIcon />
+                                                    </IconButton>
+                                                </Flex>
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    ))}
+                                </Table.Body>
+                            </Table.Root>
+                            
+                            {shifts.length > 0 && (
+                                <Box mt="4">
+                                    <TablePagination
+                                        pagination={{ currentPage: shiftsPage, perPage: shiftsPerPage, total: shifts.length }}
+                                        onPageChange={setShiftsPage}
+                                        onRowsPerPageChange={(v) => { setShiftsPerPage(v); setShiftsPage(1); }}
+                                    />
+                                </Box>
+                            )}
+                        </Box>
+                    )}
+                </Tabs.Content>
 
-            {patternsLoading ? (
-                <Text size="2" color="gray">Loading rotation patterns…</Text>
-            ) : patterns.length === 0 ? (
-                <Flex direction="column" align="center" py="5" gap="2" style={{ border: '1px dashed var(--gray-6)', borderRadius: 'var(--radius-3)' }}>
-                    <Text size="2" color="gray">No rotation patterns yet.</Text>
-                    <Text size="1" color="gray">Click Add pattern above to create one.</Text>
-                </Flex>
-            ) : (
-                <Table.Root size="2" variant="surface">
-                    <Table.Header>
-                        <Table.Row>
-                            <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Cycle Length</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Sequence Preview</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
-                        </Table.Row>
-                    </Table.Header>
-                    <Table.Body>
-                        {patterns.map(p => (
-                            <Table.Row key={p.id}>
-                                <Table.Cell>
-                                    <Text size="2" weight="medium">{p.name}</Text>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Badge color="blue">{p.code}</Badge>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Text size="2">{p.cycle_length_days} days</Text>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Flex gap="1" wrap="wrap" align="center">
-                                        {formatSequence(p.definition)}
-                                    </Flex>
-                                </Table.Cell>
-                                <Table.Cell>
-                                    {p.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
-                                </Table.Cell>
-                                <Table.Cell>
-                                    <Flex gap="1" justify="end">
-                                        <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditingPattern(p); setPatternOpen(true); }}>
-                                            <Pencil1Icon />
-                                        </IconButton>
-                                        <IconButton size="1" variant="ghost" color="red" onClick={() => removePattern(p)}>
-                                            <TrashIcon />
-                                        </IconButton>
-                                    </Flex>
-                                </Table.Cell>
-                            </Table.Row>
-                        ))}
-                    </Table.Body>
-                </Table.Root>
-            )}
+                {/* Rotation Patterns Sub-tab */}
+                <Tabs.Content value="patterns">
+                    <Flex align="center" justify="between" gap="3" mb="4" wrap="wrap">
+                        <Flex align="center" gap="2">
+                            <SymbolIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
+                            <Text size="3" weight="bold">Rotation Patterns</Text>
+                        </Flex>
+                        <Button size="2" onClick={() => { setEditingPattern(null); setPatternOpen(true); }}>
+                            <PlusIcon /> Add pattern
+                        </Button>
+                    </Flex>
+
+                    {patternsLoading ? (
+                        <Text size="2" color="gray">Loading rotation patterns…</Text>
+                    ) : patterns.length === 0 ? (
+                        <Flex direction="column" align="center" py="5" gap="2" style={{ border: '1px dashed var(--gray-6)', borderRadius: 'var(--radius-3)' }}>
+                            <Text size="2" color="gray">No rotation patterns yet.</Text>
+                            <Text size="1" color="gray">Click Add pattern above to create one.</Text>
+                        </Flex>
+                    ) : (
+                        <Box>
+                            <Table.Root size="2" variant="surface">
+                                <Table.Header>
+                                    <Table.Row>
+                                        <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Cycle Length</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Sequence Preview</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                        <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
+                                    </Table.Row>
+                                </Table.Header>
+                                <Table.Body>
+                                    {paginatedPatterns.map(p => (
+                                        <Table.Row key={p.id}>
+                                            <Table.Cell>
+                                                <Text size="2" weight="medium">{p.name}</Text>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Badge color="blue">{p.code}</Badge>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Text size="2">{p.cycle_length_days} days</Text>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Flex gap="1" wrap="wrap" align="center">
+                                                    {formatSequence(p.definition)}
+                                                </Flex>
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                {p.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
+                                            </Table.Cell>
+                                            <Table.Cell>
+                                                <Flex gap="1" justify="end">
+                                                    <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditingPattern(p); setPatternOpen(true); }}>
+                                                        <Pencil1Icon />
+                                                    </IconButton>
+                                                    <IconButton size="1" variant="ghost" color="red" onClick={() => removePattern(p)}>
+                                                        <TrashIcon />
+                                                    </IconButton>
+                                                </Flex>
+                                            </Table.Cell>
+                                        </Table.Row>
+                                    ))}
+                                </Table.Body>
+                            </Table.Root>
+
+                            {patterns.length > 0 && (
+                                <Box mt="4">
+                                    <TablePagination
+                                        pagination={{ currentPage: patternsPage, perPage: patternsPerPage, total: patterns.length }}
+                                        onPageChange={setPatternsPage}
+                                        onRowsPerPageChange={(v) => { setPatternsPerPage(v); setPatternsPage(1); }}
+                                    />
+                                </Box>
+                            )}
+                        </Box>
+                    )}
+                </Tabs.Content>
+
+                {/* Assignments Sub-tab */}
+                <Tabs.Content value="assignments">
+                    <AssignmentManager
+                        employees={employees}
+                        departments={departments}
+                        designations={designations}
+                    />
+                </Tabs.Content>
+            </Tabs.Root>
 
             <ShiftForm open={open} onOpenChange={setOpen} initial={editing} onSaved={refresh} />
             <RotationPatternForm open={patternOpen} onOpenChange={setPatternOpen} initial={editingPattern} onSaved={refresh} />
-
-            <Separator size="4" my="5" />
-
-            <AssignmentManager
-                employees={employees}
-                departments={departments}
-                designations={designations}
-            />
         </Box>
     );
 }

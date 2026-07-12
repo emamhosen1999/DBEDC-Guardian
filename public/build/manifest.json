@@ -1007,7 +1007,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-Joqq0TH5.js",
+    "file": "assets/js/AttendancePage-COqmVu50.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1313,7 +1313,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab-BphheU9X.js",
+    "file": "assets/js/SettingsTab-2mso0gnV.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -1336,7 +1336,8 @@
       "_DateTimePicker-CjaVEETD.js",
       "_clsx-B-dksMZM.js",
       "resources/js/Pages/Attendance/ShiftsSettings.jsx",
-      "resources/js/Pages/Attendance/Components/AssignmentManager.jsx"
+      "resources/js/Pages/Attendance/Components/AssignmentManager.jsx",
+      "_TablePagination-D6HxfTID.js"
     ]
   },
   "resources/js/Pages/Attendance/ShiftsSettings.jsx": {
@@ -2336,7 +2337,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-uGdMnylN.js",
+    "file": "assets/js/app-CvvkLhCm.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

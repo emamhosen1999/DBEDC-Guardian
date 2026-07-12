@@ -764,7 +764,7 @@ const DailyTimesheetTab = ({
             {/* Body: range log table OR single-day table + sidebar */}
             {rangeMode ? (
                 <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
-                    <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+                    <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)', height: 'auto' }}>
                         <Table.Root size="2" variant="ghost" style={{ minWidth: 720 }}>
                             <Table.Header>
                                 <Table.Row>
@@ -824,19 +824,20 @@ const DailyTimesheetTab = ({
                     <Text size="2" color="red">{error}</Text>
                 </Flex>
             ) : (
-                <Flex
-                    direction={isMobile ? 'column' : 'row'}
-                    gap="0"
+                <div
                     style={{
+                        display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         position: 'relative',
                         border: '1px solid var(--gray-a4)',
                         borderRadius: 'var(--radius-3)',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        background: 'var(--color-surface)',
                     }}
                 >
 
                     {/* Present table */}
-                    <Box
+                    <div
                         style={{
                             flex: '1 1 0',
                             minWidth: 0,
@@ -844,7 +845,7 @@ const DailyTimesheetTab = ({
                             marginRight: (!isMobile && isAdminView && sidebarOpen) ? '320px' : 0
                         }}
                     >
-                        <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+                        <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)', height: 'auto' }}>
                             <Table.Root size="2" variant="ghost" style={{ minWidth: 520 }}>
                                 <Table.Header>
                                     <Table.Row>
@@ -909,11 +910,11 @@ const DailyTimesheetTab = ({
                                 loading={!isLoaded}
                             />
                         )}
-                    </Box>
+                    </div>
 
                     {/* Absent sidebar — admin only */}
                     {isAdminView && sidebarOpen && (
-                        <Box
+                        <div
                             style={{
                                 width: isMobile ? '100%' : '320px',
                                 flexShrink: 0,
@@ -939,9 +940,9 @@ const DailyTimesheetTab = ({
                                 presentCount={totalRows}
                                 leavesCount={leaves?.length || 0}
                             />
-                        </Box>
+                        </div>
                     )}
-                </Flex>
+                </div>
             )}
 
             {/* ── Map: admin only, single-day mode only ───────── */}
