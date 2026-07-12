@@ -763,7 +763,7 @@ const DailyTimesheetTab = ({
 
             {/* Body: range log table OR single-day table + sidebar */}
             {rangeMode ? (
-                <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden', minHeight: 400 }}>
+                <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
                     <ScrollArea scrollbars="both" style={{ maxHeight: 'calc(100vh - 340px)' }}>
                         <Table.Root size="2" variant="ghost" style={{ minWidth: 720 }}>
                             <Table.Header>
@@ -824,7 +824,7 @@ const DailyTimesheetTab = ({
                     <Text size="2" color="red">{error}</Text>
                 </Flex>
             ) : (
-                <Flex direction={isMobile ? 'column' : 'row'} gap="0" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden', minHeight: 400 }}>
+                <Flex direction={isMobile ? 'column' : 'row'} gap="0" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
 
                     {/* Present table */}
                     <Box style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
