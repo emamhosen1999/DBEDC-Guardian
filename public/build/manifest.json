@@ -70,8 +70,8 @@
       "_ExclamationTriangleIcon-DwfbyD7z.js"
     ]
   },
-  "_EmployeeTable-xo_D020o.js": {
-    "file": "assets/js/EmployeeTable-xo_D020o.js",
+  "_EmployeeTable-DaB8ReLW.js": {
+    "file": "assets/js/EmployeeTable-DaB8ReLW.js",
     "name": "EmployeeTable",
     "isDynamicEntry": true,
     "imports": [
@@ -1592,7 +1592,7 @@
     ]
   },
   "resources/js/Pages/Employees/EmployeesPage.jsx": {
-    "file": "assets/js/EmployeesPage-DYM5cLui.js",
+    "file": "assets/js/EmployeesPage-BF7Em6QU.js",
     "name": "EmployeesPage",
     "src": "resources/js/Pages/Employees/EmployeesPage.jsx",
     "isDynamicEntry": true,
@@ -1617,7 +1617,7 @@
       "_ClockIcon-DI4s8R_S.js",
       "_useQuery-W7fr5Mm7.js",
       "_useMutation-C48jhaie.js",
-      "_EmployeeTable-xo_D020o.js",
+      "_EmployeeTable-DaB8ReLW.js",
       "resources/js/Pages/Organization/Tabs/EmployeesTab.jsx",
       "_QueryState-B2jN9Y2m.js",
       "_useDepartmentsQuery-BAULbWoK.js",
@@ -2346,7 +2346,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-Dqo3GUmu.js",
+    "file": "assets/js/app-DBd7Y6nK.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -2411,7 +2411,7 @@
       "resources/js/Pages/Organization/Components/WorkLocationForm.jsx",
       "resources/js/Pages/Organization/Tables/DepartmentTable.jsx",
       "resources/js/Pages/Organization/Tables/DesignationTable.jsx",
-      "_EmployeeTable-xo_D020o.js",
+      "_EmployeeTable-DaB8ReLW.js",
       "resources/js/Pages/Organization/Tables/WorkLocationsTable.jsx",
       "resources/js/Pages/Organization/Tabs/DepartmentsTab.jsx",
       "resources/js/Pages/Organization/Tabs/DesignationsTab.jsx",
