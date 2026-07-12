@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 
 const NAME_W = 168;
-const CELL_W = 64; // Increased from 46 to 64 for visual timeline room
+const CELL_W = 120; // Increased from 64 to 120 for 24 segmented columns
 const ROW_H = 36;
 const HEADER_H = 46; // Dedicated header height to accommodate the ruler
 const LINE = '1px solid var(--gray-a5)';
@@ -69,22 +69,48 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                 <Text size="1" weight="medium" style={{ lineHeight: 1 }}>{dayjs(d).format('D')}</Text>
                                 <Text size="1" color="gray" style={{ fontSize: 9, lineHeight: 1, marginBottom: 2 }}>{dayjs(d).format('dd')}</Text>
                                 
-                                {/* Tiny ruler axis at the bottom */}
-                                <Box style={{ position: 'absolute', bottom: 2, left: 4, right: 4, height: 10 }}>
+                                {/* Timeline ruler axis at the bottom */}
+                                <Box style={{ position: 'absolute', bottom: 2, left: 2, right: 2, height: 10 }}>
                                     {/* Horizontal axis line */}
                                     <Box style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 1, background: 'var(--gray-a6)' }} />
                                     
-                                    {/* Ticks */}
-                                    <Box style={{ position: 'absolute', left: '0%', top: 0, width: 1, height: 3, background: 'var(--gray-a8)' }} />
-                                    <Box style={{ position: 'absolute', left: '25%', top: 0, width: 1, height: 2, background: 'var(--gray-a5)' }} />
-                                    <Box style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: 3, background: 'var(--gray-a8)' }} />
-                                    <Box style={{ position: 'absolute', left: '75%', top: 0, width: 1, height: 2, background: 'var(--gray-a5)' }} />
-                                    <Box style={{ position: 'absolute', left: '100%', top: 0, width: 1, height: 3, background: 'var(--gray-a8)' }} />
+                                    {/* Ticks at every 2 hours */}
+                                    {Array.from({ length: 13 }).map((_, index) => {
+                                        const h = index * 2;
+                                        const isMajor = h % 6 === 0;
+                                        return (
+                                            <Box
+                                                key={h}
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: `${(h / 24) * 100}%`,
+                                                    top: 0,
+                                                    width: 1,
+                                                    height: isMajor ? 3 : 2,
+                                                    background: isMajor ? 'var(--gray-a8)' : 'var(--gray-a5)',
+                                                }}
+                                            />
+                                        );
+                                    })}
                                     
-                                    {/* Labels */}
-                                    <span style={{ position: 'absolute', left: '0%', transform: 'translateX(-50%)', top: 3, fontSize: 7, color: 'var(--gray-8)', fontWeight: 600, lineHeight: 1 }}>0</span>
-                                    <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 3, fontSize: 7, color: 'var(--gray-8)', fontWeight: 600, lineHeight: 1 }}>12</span>
-                                    <span style={{ position: 'absolute', left: '100%', transform: 'translateX(-50%)', top: 3, fontSize: 7, color: 'var(--gray-8)', fontWeight: 600, lineHeight: 1 }}>24</span>
+                                    {/* Labels at 0, 6, 12, 18, 24 */}
+                                    {[0, 6, 12, 18, 24].map(h => (
+                                        <span
+                                            key={h}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${(h / 24) * 100}%`,
+                                                transform: 'translateX(-50%)',
+                                                top: 3,
+                                                fontSize: 7,
+                                                color: 'var(--gray-8)',
+                                                fontWeight: 600,
+                                                lineHeight: 1
+                                            }}
+                                        >
+                                            {h}
+                                        </span>
+                                    ))}
                                 </Box>
                             </Box>
                         );
@@ -99,7 +125,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                             const cell = row.days?.[d];
                             const disp = resolveRosterCellDisplay(cell, holidays[d]);
 
-                            // Render Holiday
+                            // Render Holiday (Full Width)
                             if (disp.kind === 'holiday') {
                                 return (
                                     <Box
@@ -121,16 +147,17 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                     background: 'var(--amber-4)',
                                                     color: 'var(--amber-11)',
                                                     fontSize: 9, fontWeight: 700,
+                                                    textTransform: 'uppercase',
                                                 }}
                                             >
-                                                H
+                                                Holiday
                                             </Box>
                                         </Tooltip>
                                     </Box>
                                 );
                             }
 
-                            // Render Full Leave
+                            // Render Full Leave (Full Width)
                             if (disp.kind === 'leave') {
                                 return (
                                     <Box
@@ -151,9 +178,14 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                     background: 'var(--amber-9)',
                                                     color: '#fff',
                                                     fontSize: 9, fontWeight: 700,
+                                                    textTransform: 'uppercase',
+                                                    padding: '0 4px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
                                                 }}
                                             >
-                                                LV
+                                                {disp.leaveType || 'On Leave'}
                                             </Box>
                                         </Tooltip>
                                     </Box>
@@ -168,71 +200,76 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                     onClick={() => onCellClick?.(userId, d, cell)}
                                     style={{
                                         width: CELL_W, minWidth: CELL_W, height: ROW_H,
-                                        borderRight: LINE, borderBottom: LINE, padding: 4,
+                                        borderRight: LINE, borderBottom: LINE, padding: '4px 2px',
                                         boxSizing: 'border-box',
-                                        position: 'relative',
                                         cursor: onCellClick ? 'pointer' : 'default',
                                     }}
                                 >
                                     <Tooltip content={disp.tooltip}>
-                                        <Box style={{ width: '100%', height: '100%', position: 'relative' }}>
-                                            {/* 24-hour timeline track */}
-                                            <Box
-                                                style={{
-                                                    position: 'absolute',
-                                                    left: 0,
-                                                    right: 0,
-                                                    top: 'calc(50% - 1.5px)',
-                                                    height: 3,
-                                                    background: 'var(--gray-a4)',
-                                                    borderRadius: 1.5,
-                                                    border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
-                                                }}
-                                            />
+                                        <Box style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(24, 1fr)',
+                                            position: 'relative'
+                                        }}>
+                                            {/* 24 visual columns background */}
+                                            {Array.from({ length: 24 }).map((_, hIndex) => (
+                                                <Box
+                                                    key={hIndex}
+                                                    style={{
+                                                        gridColumn: `${hIndex + 1} / ${hIndex + 2}`,
+                                                        gridRow: 1,
+                                                        height: '100%',
+                                                        borderRight: hIndex < 23 ? '1px solid var(--gray-a3)' : 'none',
+                                                        background: hIndex % 2 === 0 ? 'var(--gray-a1)' : 'transparent',
+                                                    }}
+                                                />
+                                            ))}
 
-                                            {/* Half-day Leave marker */}
+                                            {/* Half-day Leave background overlay */}
                                             {disp.kind === 'leave-half' && (
                                                 <Box
                                                     style={{
-                                                        position: 'absolute',
-                                                        left: disp.session === 'first_half' ? '0%' : '50%',
-                                                        width: '50%',
-                                                        top: 'calc(50% - 1.5px)',
-                                                        height: 3,
-                                                        background: 'var(--amber-9)',
-                                                        borderRadius: 1.5,
+                                                        gridColumn: disp.session === 'first_half' ? '1 / 13' : '13 / 25',
+                                                        gridRow: 1,
+                                                        height: '100%',
+                                                        background: 'var(--amber-a3)',
+                                                        border: '1px dashed var(--amber-8)',
+                                                        borderRadius: 3,
+                                                        zIndex: 0,
                                                     }}
                                                 />
                                             )}
 
-                                            {/* Off-day dashed line */}
+                                            {/* Off-day dashed line overlay */}
                                             {disp.kind === 'off' && (
                                                 <Box
                                                     style={{
-                                                        position: 'absolute',
-                                                        left: 0,
-                                                        right: 0,
-                                                        top: 'calc(50% - 1px)',
+                                                        gridColumn: '1 / 25',
+                                                        gridRow: 1,
                                                         height: 2,
+                                                        alignSelf: 'center',
                                                         borderTop: '2px dashed var(--gray-a6)',
+                                                        zIndex: 1,
                                                     }}
                                                 />
                                             )}
 
-                                            {/* Shift chip positioned absolutely */}
+                                            {/* Shift chip positioned absolutely in column range */}
                                             {shift && (() => {
-                                                const hStart = parseTimeToHours(shift.start_time);
-                                                const hEnd = parseTimeToHours(shift.end_time);
+                                                const hStart = Math.round(parseTimeToHours(shift.start_time));
+                                                const hEnd = Math.round(parseTimeToHours(shift.end_time));
                                                 const crosses = shift.crosses_midnight || hEnd < hStart;
 
-                                                const renderChip = (leftPct, widthPct) => (
+                                                const renderChip = (startCol, endCol, key) => (
                                                     <Box
+                                                        key={key}
                                                         style={{
-                                                            position: 'absolute',
-                                                            left: `${leftPct}%`,
-                                                            width: `${widthPct}%`,
-                                                            top: 'calc(50% - 9px)',
-                                                            height: 18,
+                                                            gridColumn: `${startCol} / ${endCol}`,
+                                                            gridRow: 1,
+                                                            height: 20,
+                                                            alignSelf: 'center',
                                                             background: disp.color || 'var(--accent-9)',
                                                             borderRadius: 3,
                                                             display: 'flex',
@@ -240,24 +277,28 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                             justifyContent: 'center',
                                                             color: '#fff',
                                                             boxShadow: 'var(--shadow-1)',
+                                                            zIndex: 2,
+                                                            overflow: 'hidden',
+                                                            whiteSpace: 'nowrap',
+                                                            padding: '0 2px',
+                                                            border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
                                                         }}
                                                     >
                                                         <Text style={{ fontSize: 8, fontWeight: 700 }}>
-                                                            {shift.code.charAt(0)}
+                                                            {shift.code}
                                                         </Text>
                                                     </Box>
                                                 );
 
                                                 if (crosses) {
-                                                    const p1Width = 24 - hStart;
                                                     return (
                                                         <>
-                                                            {p1Width > 0 && renderChip((hStart / 24) * 100, (p1Width / 24) * 100)}
-                                                            {hEnd > 0 && renderChip(0, (hEnd / 24) * 100)}
+                                                            {hStart < 24 && renderChip(hStart + 1, 25, 'part1')}
+                                                            {hEnd > 0 && renderChip(1, hEnd + 1, 'part2')}
                                                         </>
                                                     );
                                                 } else {
-                                                    return renderChip((hStart / 24) * 100, ((hEnd - hStart) / 24) * 100);
+                                                    return renderChip(hStart + 1, hEnd + 1, 'full');
                                                 }
                                             })()}
 
@@ -265,11 +306,8 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                             {!shift && (disp.kind === 'shift' || disp.kind === 'pending') && (
                                                 <Box
                                                     style={{
-                                                        position: 'absolute',
-                                                        left: 0,
-                                                        right: 0,
-                                                        top: 0,
-                                                        bottom: 0,
+                                                        gridColumn: '1 / 25',
+                                                        gridRow: 1,
                                                         borderRadius: 4,
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -278,6 +316,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                         color: '#fff',
                                                         fontSize: 9,
                                                         fontWeight: 700,
+                                                        zIndex: 2,
                                                     }}
                                                 >
                                                     {disp.label}
