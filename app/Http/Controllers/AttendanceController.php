@@ -368,7 +368,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($selectedDate) {
-                    $query->whereNotNull('punchin')
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                         ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $selectedDate);
                 });
@@ -386,7 +386,7 @@ class AttendanceController extends Controller
 
             $attendanceRecords = Attendance::query()
                 ->with(['user.designation'])
-                ->whereNotNull('punchin')
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                 ->where('policy_status', '!=', 'rejected')
                 ->whereDate('date', $selectedDate)
                 ->whereIn('user_id', $userIds)
@@ -563,7 +563,7 @@ class AttendanceController extends Controller
                     $query->where('name', 'Employee');
                 })
                 ->whereHas('attendances', function ($query) use ($date) {
-                    $query->whereNotNull('punchin')
+                    $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                         ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $date);
                 })
@@ -743,7 +743,7 @@ class AttendanceController extends Controller
             $totalEmployees = $employees->count();
 
             $attendanceQuery = Attendance::whereDate('date', $date)
-                ->whereNotNull('punchin')
+                ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                 ->where('policy_status', '!=', 'rejected');
             if ($departmentId) {
                 $attendanceQuery->whereHas('user', function ($q) use ($departmentId) {
