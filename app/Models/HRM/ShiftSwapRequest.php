@@ -21,8 +21,8 @@ class ShiftSwapRequest extends Model
         'counterparty_id' => 'integer',
         'requested_shift_id' => 'integer',
         'approved_by' => 'integer',
-        'requester_date' => 'date',
-        'counterparty_date' => 'date',
+        'requester_date' => 'date:Y-m-d',
+        'counterparty_date' => 'date:Y-m-d',
         'approval_chain' => 'array',
     ];
 

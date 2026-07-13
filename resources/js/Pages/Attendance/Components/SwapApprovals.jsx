@@ -12,7 +12,8 @@ const cpLabel = (s) => s.counterparty_status === 'pending' ? 'awaiting counterpa
 
 const formatDate = (dateStr) => {
     if (!dateStr) return '—';
-    const date = new Date(dateStr);
+    const normalized = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? `${dateStr}T00:00:00` : dateStr;
+    const date = new Date(normalized);
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 };
 

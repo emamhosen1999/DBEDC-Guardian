@@ -173,12 +173,23 @@ class AttendanceRequestController extends Controller
         if ($this->roster->effectiveShiftId($requesterId, $requesterDate) === null) {
             return ['requester_date', 'You are not scheduled to work on that date.'];
         }
+
+        // Counterparty cannot be busy on requester_date (must be off/free to take/cover the requester's shift)
+        if ($this->roster->effectiveShiftId($counterpartyId, $requesterDate) !== null) {
+            $field = $type === 'cover' ? 'counterparty_id' : 'counterparty_date';
+            return [$field, 'The counterparty is already scheduled to work on that date.'];
+        }
+
         if ($type === 'swap') {
             if (! $counterpartyDate) {
                 return ['counterparty_date', 'Select the shift you will take in return.'];
             }
             if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
                 return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
+            }
+            // Requester cannot be busy on counterparty_date (must be off/free to take the counterparty's shift)
+            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
+                return ['counterparty_date', 'You are already scheduled to work on that date.'];
             }
         }
 
@@ -345,6 +356,7 @@ class AttendanceRequestController extends Controller
         $employees = $query
             ->orderBy('users.name')
             ->get(['users.id', 'users.name'])
+            ->filter(fn ($u) => $this->roster->effectiveShiftId($u->id, $data['date']) === null)
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
             ->values();
 
