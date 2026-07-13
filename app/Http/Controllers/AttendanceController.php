@@ -854,11 +854,12 @@ class AttendanceController extends Controller
                 $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
                     ->resolve((int) $validated['user_id'], \Carbon\Carbon::parse($validated['date']));
                 $punchin = $shift->start;
+                $punchout = $shift->end;
                 $attendance = Attendance::updateOrCreate(
                     ['user_id' => $validated['user_id'], 'date' => $validated['date']],
-                    ['symbol' => '√', 'punchin' => $punchin]
+                    ['symbol' => '√', 'punchin' => $punchin, 'punchout' => $punchout]
                 );
-                $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
+                $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'punchout', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
             });
 
             // Realtime: notify the live attendance dashboard that this date's presence changed.
@@ -894,11 +895,12 @@ class AttendanceController extends Controller
                     $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
                         ->resolve((int) $userId, \Carbon\Carbon::parse($date));
                     $punchin = $shift->start;
+                    $punchout = $shift->end;
                     $attendance = Attendance::updateOrCreate(
                         ['user_id' => $userId, 'date' => $date],
-                        ['symbol' => '√', 'punchin' => $punchin]
+                        ['symbol' => '√', 'punchin' => $punchin, 'punchout' => $punchout]
                     );
-                    $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
+                    $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'punchout', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
                     $attendances[] = $attendance;
                 }
             });
@@ -1136,9 +1138,12 @@ class AttendanceController extends Controller
                 'punchout' => 'nullable|date_format:Y-m-d H:i:s',
             ]);
 
-            if (! empty($validated['punchin']) && ! empty($validated['punchout'])) {
-                $punchin = Carbon::parse($validated['punchin']);
-                $punchout = Carbon::parse($validated['punchout']);
+            $punchinVal = array_key_exists('punchin', $validated) ? $validated['punchin'] : $attendance->punchin;
+            $punchoutVal = array_key_exists('punchout', $validated) ? $validated['punchout'] : $attendance->punchout;
+
+            if (! empty($punchinVal) && ! empty($punchoutVal)) {
+                $punchin = Carbon::parse($punchinVal);
+                $punchout = Carbon::parse($punchoutVal);
                 if ($punchin->gte($punchout)) {
                     return response()->json([
                         'error' => 'Punch-in time must be before punch-out time',

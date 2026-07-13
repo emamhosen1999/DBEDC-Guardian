@@ -38,8 +38,8 @@ class AttendanceStatusService
         $onLeave = $fraction > 0;
 
         $sorted = $punches
-            ->filter(fn ($p) => $p->punchin !== null)
-            ->sortBy(fn ($p) => Carbon::parse($p->punchin)->getTimestamp())
+            ->filter(fn ($p) => $p->punchin !== null || (isset($p->symbol) && $p->symbol === '√'))
+            ->sortBy(fn ($p) => $p->punchin ? Carbon::parse($p->punchin)->getTimestamp() : Carbon::parse($shift->start)->getTimestamp())
             ->values();
 
         $flags = [];
@@ -49,10 +49,26 @@ class AttendanceStatusService
         $lastOut = null;
 
         foreach ($sorted as $p) {
+            if ($p->punchin === null && isset($p->symbol) && $p->symbol === '√') {
+                $in = $shift->start;
+                $out = $shift->end;
+                $firstIn ??= $in;
+                $workedMinutes += (int) round($in->diffInMinutes($out));
+                $lastOut = $out;
+                continue;
+            }
+
             $in = Carbon::parse($p->punchin);
             $firstIn ??= $in;
 
             if ($p->punchout === null) {
+                if (isset($p->symbol) && $p->symbol === '√') {
+                    $out = $shift->end;
+                    $workedMinutes += (int) round($in->diffInMinutes($out));
+                    $lastOut = $out;
+                    continue;
+                }
+
                 $isComplete = false;
                 $flags[] = 'missing_punch_out';
 

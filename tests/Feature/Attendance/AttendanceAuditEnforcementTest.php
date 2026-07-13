@@ -87,4 +87,25 @@ class AttendanceAuditEnforcementTest extends TestCase
             'attendance_id' => $a->id, 'action' => 'delete', 'actor_id' => $admin->id,
         ]);
     }
+
+    public function test_correcting_punchout_before_existing_punchin_fails_validation(): void
+    {
+        $admin = User::factory()->create(); $admin->assignRole('Admin');
+        $admin->givePermissionTo('attendance.correct');
+
+        $user = User::factory()->create();
+        $a = Attendance::factory()->for($user)->create([
+            'date' => '2026-06-19',
+            'punchin' => Carbon::parse('2026-06-19 09:00'),
+            'punchout' => Carbon::parse('2026-06-19 17:00'),
+        ]);
+
+        // Attempting to set punchout to 08:30 (before punchin 09:00)
+        $this->actingAs($admin)
+            ->postJson(route('attendance.correct.update', $a->id), [
+                'punchout' => '2026-06-19 08:30:00',
+                'reason' => 'invalid update',
+            ])
+            ->assertStatus(422);
+    }
 }

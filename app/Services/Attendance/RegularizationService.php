@@ -96,12 +96,21 @@ class RegularizationService
             $att = Attendance::where('user_id', $r->user_id)->whereDate('date', $r->date->toDateString())->latest()->first();
             $before = $att ? $att->only(['punchin', 'punchout', 'date']) : null;
 
+            $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
+                ->resolve((int) $r->user_id, \Carbon\Carbon::parse($r->date));
+
             $payload = ['user_id' => $r->user_id, 'date' => $r->date->toDateString()];
-            if ($r->requested_punchin) {
-                $payload['punchin'] = $r->requested_punchin;
-            }
-            if ($r->requested_punchout) {
-                $payload['punchout'] = $r->requested_punchout;
+            if ($r->type === 'missed_day') {
+                $payload['punchin'] = $shift->start;
+                $payload['punchout'] = $shift->end;
+                $payload['symbol'] = '√';
+            } else {
+                if ($r->requested_punchin) {
+                    $payload['punchin'] = $r->requested_punchin;
+                }
+                if ($r->requested_punchout) {
+                    $payload['punchout'] = $r->requested_punchout;
+                }
             }
 
             if ($att) {

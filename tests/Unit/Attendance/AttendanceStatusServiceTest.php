@@ -178,4 +178,26 @@ class AttendanceStatusServiceTest extends TestCase
         );
         $this->assertContains('outside_shift_window', $r->flags);
     }
+
+    public function test_present_when_manually_marked_present_without_punches(): void
+    {
+        $r = (new AttendanceStatusService)->resolve(
+            collect([(object) ['punchin' => null, 'punchout' => null, 'symbol' => '√']]),
+            $this->shift('2026-06-19'),
+        );
+        $this->assertSame(DayAttendance::PRESENT, $r->status);
+        $this->assertTrue($r->is_complete);
+        $this->assertSame(480, $r->worked_minutes); // 8 hours (09:00 to 17:00)
+    }
+
+    public function test_present_when_manually_marked_present_with_missing_punchout(): void
+    {
+        $r = (new AttendanceStatusService)->resolve(
+            collect([(object) ['punchin' => '2026-06-19 09:00', 'punchout' => null, 'symbol' => '√']]),
+            $this->shift('2026-06-19'),
+        );
+        $this->assertSame(DayAttendance::PRESENT, $r->status);
+        $this->assertTrue($r->is_complete);
+        $this->assertSame(480, $r->worked_minutes); // 8 hours
+    }
 }
