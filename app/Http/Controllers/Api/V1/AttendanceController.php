@@ -997,13 +997,15 @@ class AttendanceController extends Controller
                 }
             }
 
+            $scheduleResolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
             $workingDays = 0;
             $workingCursor = $rangeStart->copy()->startOfDay();
 
             while ($workingCursor->lte($analysisEnd)) {
                 $dateKey = $workingCursor->format('Y-m-d');
+                $schedule = $scheduleResolver->resolve($currentUser->id, $dateKey);
 
-                if (! $this->isWeekendByConfig($workingCursor, $normalizedWeekendDays) && ! isset($holidayDates[$dateKey])) {
+                if ($schedule->isWorkingDay && ! isset($holidayDates[$dateKey])) {
                     $workingDays++;
                 }
 
@@ -1098,8 +1100,9 @@ class AttendanceController extends Controller
 
                     while ($leaveCursor->lte($effectiveEnd)) {
                         $leaveDateKey = $leaveCursor->format('Y-m-d');
+                        $schedule = $scheduleResolver->resolve($currentUser->id, $leaveDateKey);
 
-                        if (! $this->isWeekendByConfig($leaveCursor, $normalizedWeekendDays) && ! isset($holidayDates[$leaveDateKey])) {
+                        if ($schedule->isWorkingDay && ! isset($holidayDates[$leaveDateKey])) {
                             $approvedLeaveDates[$leaveDateKey] = true;
                         }
 
