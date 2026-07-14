@@ -429,13 +429,51 @@ class ManagerDashboardController extends Controller
                 ->toArray();
         }
 
-        return User::query()
-            ->whereNull('deleted_at')
-            ->where('report_to', $user->id)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->toArray();
+        // Recursively collect all descendants in the reporting tree.
+        // A manager sees their direct reports AND everyone below them.
+        return $this->collectDescendantIds($user->id);
     }
+
+    /**
+     * Walk the report_to hierarchy recursively and collect all descendant user IDs.
+     * Depth-capped at 10 levels to guard against circular references.
+     */
+    private function collectDescendantIds(int $rootId, int $maxDepth = 10): array
+    {
+        $collected = [];
+        $currentLevelIds = [$rootId];
+        $visited = [$rootId => true];
+
+        for ($depth = 0; $depth < $maxDepth; $depth++) {
+            $children = User::query()
+                ->whereNull('deleted_at')
+                ->whereIn('report_to', $currentLevelIds)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => ! isset($visited[$id]))
+                ->values()
+                ->all();
+
+            if ($children === []) {
+                break;
+            }
+
+            foreach ($children as $childId) {
+                $visited[$childId] = true;
+                $collected[] = $childId;
+            }
+
+            $currentLevelIds = $children;
+
+            // Safety cap to prevent runaway queries in very large orgs.
+            if (count($collected) >= 500) {
+                break;
+            }
+        }
+
+        return $collected;
+    }
+
 
     private function countTeamOnLeaveToday(array $teamMemberIds, string $today): int
     {
