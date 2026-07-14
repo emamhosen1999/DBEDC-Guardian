@@ -233,6 +233,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::get('/leaves/pending-approvals', [MobileLeaveController::class, 'pendingApprovals'])->name('api.v1.leaves.pending-approvals');
     Route::get('/leaves/{leaveId}', [MobileLeaveController::class, 'show'])->whereNumber('leaveId')->name('api.v1.leaves.show');
     Route::get('/manager/dashboard-summary', [MobileManagerDashboardController::class, 'summary'])->name('api.v1.manager.dashboard.summary');
+    Route::get('/manager/team-members', [MobileManagerDashboardController::class, 'teamMembers'])->name('api.v1.manager.team-members');
     Route::post('/leaves', [MobileLeaveController::class, 'store'])->name('api.v1.leaves.store');
     Route::put('/leaves/{leaveId}', [MobileLeaveController::class, 'update'])->name('api.v1.leaves.update');
     Route::post('/leaves/{leaveId}/approve', [MobileLeaveController::class, 'approve'])->name('api.v1.leaves.approve');

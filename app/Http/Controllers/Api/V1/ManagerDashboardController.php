@@ -617,4 +617,29 @@ class ManagerDashboardController extends Controller
             'Administrator',
         ]);
     }
+
+    public function teamMembers(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $this->isManagerUser($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized.',
+            ], 403);
+        }
+
+        $teamMemberIds = $this->resolveTeamMemberIds($user);
+
+        $members = User::query()
+            ->whereIn('id', $teamMemberIds)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_id']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $members,
+        ]);
+    }
 }
