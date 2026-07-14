@@ -522,9 +522,9 @@ class AttendanceController extends Controller
             foreach ($absentUsers as $user) {
                 if ($parsedDate->isToday()) {
                     // Resolve schedules for today and tomorrow to check the next 24 hours window
-                    $scheduleToday = $scheduleResolver->resolve($user->id, $now->toDateString());
+                    $scheduleToday = $scheduleResolver->resolve($user->id, $now);
                     $tomorrow = $now->copy()->addDay();
-                    $scheduleTomorrow = $scheduleResolver->resolve($user->id, $tomorrow->toDateString());
+                    $scheduleTomorrow = $scheduleResolver->resolve($user->id, $tomorrow);
 
                     $upcomingShift = null;
                     $upcomingDate = null;
@@ -1003,7 +1003,7 @@ class AttendanceController extends Controller
 
             while ($workingCursor->lte($analysisEnd)) {
                 $dateKey = $workingCursor->format('Y-m-d');
-                $schedule = $scheduleResolver->resolve($currentUser->id, $dateKey);
+                $schedule = $scheduleResolver->resolve($currentUser->id, $workingCursor);
 
                 if ($schedule->isWorkingDay && ! isset($holidayDates[$dateKey])) {
                     $workingDays++;
@@ -1100,7 +1100,7 @@ class AttendanceController extends Controller
 
                     while ($leaveCursor->lte($effectiveEnd)) {
                         $leaveDateKey = $leaveCursor->format('Y-m-d');
-                        $schedule = $scheduleResolver->resolve($currentUser->id, $leaveDateKey);
+                        $schedule = $scheduleResolver->resolve($currentUser->id, $leaveCursor);
 
                         if ($schedule->isWorkingDay && ! isset($holidayDates[$leaveDateKey])) {
                             $approvedLeaveDates[$leaveDateKey] = true;

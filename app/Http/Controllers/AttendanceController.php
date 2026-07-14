@@ -585,9 +585,9 @@ class AttendanceController extends Controller
             foreach ($absentUsers as $user) {
                 if ($parsedDate->isToday()) {
                     // Resolve schedules for today and tomorrow to check the next 24 hours window
-                    $scheduleToday = $scheduleResolver->resolve($user->id, $now->toDateString());
+                    $scheduleToday = $scheduleResolver->resolve($user->id, $now);
                     $tomorrow = $now->copy()->addDay();
-                    $scheduleTomorrow = $scheduleResolver->resolve($user->id, $tomorrow->toDateString());
+                    $scheduleTomorrow = $scheduleResolver->resolve($user->id, $tomorrow);
 
                     $upcomingShift = null;
                     $upcomingDate = null;
