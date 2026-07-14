@@ -18,9 +18,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 
 class ManagerDashboardController extends Controller
 {
+    use ResolvesTeamMembers;
     use ApiResponse;
 
     protected AttendanceRepository $attendanceRepository;
@@ -427,54 +429,6 @@ class ManagerDashboardController extends Controller
         return 'other';
     }
 
-    private function resolveTeamMemberIds(User $user): array
-    {
-        // Recursively collect all descendants in the reporting tree.
-        // A manager sees their direct reports AND everyone below them.
-        return $this->collectDescendantIds($user->id);
-    }
-
-    /**
-     * Walk the report_to hierarchy recursively and collect all descendant user IDs.
-     * Depth-capped at 10 levels to guard against circular references.
-     */
-    private function collectDescendantIds(int $rootId, int $maxDepth = 10): array
-    {
-        $collected = [];
-        $currentLevelIds = [$rootId];
-        $visited = [$rootId => true];
-
-        for ($depth = 0; $depth < $maxDepth; $depth++) {
-            $children = User::query()
-                ->whereNull('deleted_at')
-                ->whereIn('report_to', $currentLevelIds)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn ($id) => ! isset($visited[$id]))
-                ->values()
-                ->all();
-
-            if ($children === []) {
-                break;
-            }
-
-            foreach ($children as $childId) {
-                $visited[$childId] = true;
-                $collected[] = $childId;
-            }
-
-            $currentLevelIds = $children;
-
-            // Safety cap to prevent runaway queries in very large orgs.
-            if (count($collected) >= 500) {
-                break;
-            }
-        }
-
-        return $collected;
-    }
-
-
     private function countTeamOnLeaveToday(array $teamMemberIds, string $today): int
     {
         if ($teamMemberIds === [] || ! Schema::hasTable('leaves')) {
@@ -592,30 +546,6 @@ class ManagerDashboardController extends Controller
         if (strtolower((string) $leave->status) === 'pending') {
             $leave->status = 'pending';
         }
-    }
-
-    private function isManagerUser(User $user): bool
-    {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'HR Manager',
-            'Project Manager',
-            'Consultant',
-            'Super Administrator',
-            'Administrator',
-        ]);
-    }
-
-    private function isAdminLikeUser(User $user): bool
-    {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'HR Manager',
-            'Super Administrator',
-            'Administrator',
-        ]);
     }
 
     public function teamMembers(Request $request): JsonResponse

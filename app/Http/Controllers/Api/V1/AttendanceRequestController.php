@@ -22,9 +22,11 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 
 class AttendanceRequestController extends Controller
 {
+    use ResolvesTeamMembers;
     use ApiResponse;
 
     public function __construct(
@@ -539,70 +541,6 @@ class AttendanceRequestController extends Controller
             ->values();
 
         return $this->successResponse($days);
-    }
-
-    private function isManagerUser(User $user): bool
-    {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'HR Manager',
-            'Project Manager',
-            'Consultant',
-            'Super Administrator',
-            'Administrator',
-        ]);
-    }
-
-    private function isAdminLikeUser(User $user): bool
-    {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'HR Manager',
-            'Super Administrator',
-            'Administrator',
-        ]);
-    }
-
-    private function resolveTeamMemberIds(User $user): array
-    {
-        return $this->collectDescendantIds($user->id);
-    }
-
-    private function collectDescendantIds(int $rootId, int $maxDepth = 10): array
-    {
-        $collected = [];
-        $currentLevelIds = [$rootId];
-        $visited = [$rootId => true];
-
-        for ($depth = 0; $depth < $maxDepth; $depth++) {
-            $children = User::query()
-                ->whereNull('deleted_at')
-                ->whereIn('report_to', $currentLevelIds)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn ($id) => ! isset($visited[$id]))
-                ->values()
-                ->all();
-
-            if ($children === []) {
-                break;
-            }
-
-            foreach ($children as $childId) {
-                $visited[$childId] = true;
-                $collected[] = $childId;
-            }
-
-            $currentLevelIds = $children;
-
-            if (count($collected) >= 500) {
-                break;
-            }
-        }
-
-        return $collected;
     }
 
     public function pendingSwaps(Request $request): JsonResponse

@@ -21,9 +21,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 
 class AttendanceController extends Controller
 {
+    use ResolvesTeamMembers;
     use ApiResponse;
 
     protected AttendanceRepository $attendanceRepository;
@@ -1281,71 +1283,6 @@ class AttendanceController extends Controller
             'checked_in' => $active,
             'completed' => max(0, $total - $active),
         ];
-    }
-
-    private function isManagerUser(User $user): bool
-    {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'HR Manager',
-            'Project Manager',
-            'Consultant',
-            'Super Administrator',
-            'Administrator',
-        ]);
-    }
-
-    private function resolveTeamMemberIds(User $user): array
-    {
-        // Recursively collect all descendants in the reporting tree.
-        return $this->collectDescendantIds($user->id);
-    }
-
-    private function collectDescendantIds(int $rootId, int $maxDepth = 10): array
-    {
-        $collected = [];
-        $currentLevelIds = [$rootId];
-        $visited = [$rootId => true];
-
-        for ($depth = 0; $depth < $maxDepth; $depth++) {
-            $children = User::query()
-                ->whereNull('deleted_at')
-                ->whereIn('report_to', $currentLevelIds)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn ($id) => ! isset($visited[$id]))
-                ->values()
-                ->all();
-
-            if ($children === []) {
-                break;
-            }
-
-            foreach ($children as $childId) {
-                $visited[$childId] = true;
-                $collected[] = $childId;
-            }
-
-            $currentLevelIds = $children;
-
-            if (count($collected) >= 500) {
-                break;
-            }
-        }
-
-        return $collected;
-    }
-
-    private function isAdminLikeUser(User $user): bool
-    {
-        return $user->hasRole([
-            'Super Admin',
-            'Admin',
-            'HR Manager',
-            'Super Administrator',
-            'Administrator',
-        ]);
     }
 
     private function normalizeWeekendDays(mixed $weekendDays): array
