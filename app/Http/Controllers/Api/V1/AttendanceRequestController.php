@@ -78,7 +78,7 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->approvals->forApprover($request->user(), AttendanceRegularization::class, $status)
-            ->load('user:id,name,employee_id,profile_image');
+            ->load(['user:id,name,employee_id', 'user.media']);
 
         return $this->successResponse($requests->values());
     }
@@ -164,7 +164,7 @@ class AttendanceRequestController extends Controller
         }
 
         $requests = $this->approvals->forApprover($request->user(), OvertimeRequest::class, $status)
-            ->load('user:id,name,employee_id,profile_image');
+            ->load(['user:id,name,employee_id', 'user.media']);
 
         return $this->successResponse($requests->values());
     }
@@ -490,12 +490,15 @@ class AttendanceRequestController extends Controller
                     $q->where('designations.hierarchy_level', '>=', $requesterLevel)
                       ->orWhereNull('users.designation_id');
                 })
-                ->select('users.id', 'users.name', 'users.profile_image');
+                ->select('users.id', 'users.name');
         }
 
+        // The avatar comes from the media library (profile_image_url accessor), NOT from a
+        // users.profile_image column — that column does not exist in the live schema.
         $employees = $query
+            ->with('media')
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name', 'users.profile_image'])
+            ->get(['users.id', 'users.name'])
             ->filter(fn ($u) => $this->roster->effectiveShiftId($u->id, $data['date']) === null)
             ->map(fn ($c) => [
                 'id' => $c->id,

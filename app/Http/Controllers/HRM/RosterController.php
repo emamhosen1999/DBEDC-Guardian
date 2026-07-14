@@ -29,7 +29,7 @@ class RosterController extends Controller
             'department_id' => 'nullable|integer',
         ]);
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name,profile_image'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
             ->whereBetween('date', [$data['from'], $data['to']])
             ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(
                 'user',
@@ -55,7 +55,7 @@ class RosterController extends Controller
             'to' => 'required|date|after_or_equal:from',
         ]);
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name,profile_image'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
             ->where('user_id', $request->user()->id)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->get();

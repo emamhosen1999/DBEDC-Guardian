@@ -561,11 +561,14 @@ class ManagerDashboardController extends Controller
 
         $teamMemberIds = $this->resolveTeamMemberIds($user);
 
+        // The avatar comes from the media library (profile_image_url accessor), NOT from a
+        // users.profile_image column — that column does not exist in the live schema.
         $members = User::query()
             ->whereIn('id', $teamMemberIds)
             ->whereNull('deleted_at')
+            ->with('media')
             ->orderBy('name')
-            ->get(['id', 'name', 'employee_id', 'profile_image'])
+            ->get(['id', 'name', 'employee_id'])
             ->map(fn (User $member) => [
                 'id' => (int) $member->id,
                 'name' => $member->name,

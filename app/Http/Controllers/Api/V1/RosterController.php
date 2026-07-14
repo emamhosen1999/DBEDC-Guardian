@@ -41,7 +41,7 @@ class RosterController extends Controller
             $userIds = [$currentUser->id];
         }
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name,profile_image'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
             ->whereIn('user_id', $userIds)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(
