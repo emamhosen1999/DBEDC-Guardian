@@ -567,15 +567,6 @@ class AttendanceRequestController extends Controller
 
     private function resolveTeamMemberIds(User $user): array
     {
-        if ($this->isAdminLikeUser($user)) {
-            return User::query()
-                ->whereNull('deleted_at')
-                ->where('id', '!=', $user->id)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->toArray();
-        }
-
         return $this->collectDescendantIds($user->id);
     }
 

@@ -64,8 +64,10 @@ class AttendanceController extends Controller
         }
 
         try {
+            $teamMemberIds = $isTeamScope ? $this->resolveTeamMemberIds($currentUser) : [];
             $filters = [
                 'user_id' => $isTeamScope ? null : $currentUser->id,
+                'team_member_ids' => $isTeamScope ? $teamMemberIds : null,
                 'currentMonth' => (int) $request->input('currentMonth', now()->month),
                 'currentYear' => (int) $request->input('currentYear', now()->year),
                 'scope' => $scope,
@@ -111,7 +113,10 @@ class AttendanceController extends Controller
         $employeeKeyword = trim((string) ($validated['employee'] ?? ''));
 
         try {
+            $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
             $usersWithAttendanceQuery = User::query()
+                ->whereIn('id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -329,7 +334,10 @@ class AttendanceController extends Controller
         $employeeKeyword = trim((string) ($validated['employee'] ?? ''));
 
         try {
+            $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
             $usersWithAttendanceQuery = User::query()
+                ->whereIn('id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -470,7 +478,10 @@ class AttendanceController extends Controller
         $employeeKeyword = trim((string) ($validated['employee'] ?? ''));
 
         try {
+            $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
             $allUsersQuery = User::query()
+                ->whereIn('id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 });
@@ -485,6 +496,7 @@ class AttendanceController extends Controller
             $allUsers = $allUsersQuery->get();
 
             $presentUserIds = User::query()
+                ->whereIn('id', $teamMemberIds)
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -652,7 +664,10 @@ class AttendanceController extends Controller
         }
 
         try {
+            $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
             $lastUpdate = Attendance::query()
+                ->whereIn('user_id', $teamMemberIds)
                 ->whereDate('date', $date)
                 ->max('updated_at');
 
@@ -704,20 +719,26 @@ class AttendanceController extends Controller
         }
 
         try {
-            $query = Attendance::query()->whereDate('date', $date);
+            $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
 
-            if ($month) {
-                $year = (int) substr($month, 0, 4);
-                $monthNumber = (int) substr($month, 5, 2);
+            $query = Attendance::query()
+                ->whereIn('user_id', $teamMemberIds)
+                ->where(function ($q) use ($date, $month) {
+                    $q->whereDate('date', $date);
 
-                $query->orWhere(function ($orQuery) use ($year, $monthNumber) {
-                    $orQuery->whereYear('date', $year)
-                        ->whereMonth('date', $monthNumber);
+                    if ($month) {
+                        $year = (int) substr($month, 0, 4);
+                        $monthNumber = (int) substr($month, 5, 2);
+
+                        $q->orWhere(function ($orQuery) use ($year, $monthNumber) {
+                            $orQuery->whereYear('date', $year)
+                                ->whereMonth('date', $monthNumber);
+                        });
+                    }
                 });
-            }
 
             $lastUpdate = $query->max('updated_at');
-            $hasRecords = Attendance::query()->whereDate('date', $date)->exists();
+            $hasRecords = Attendance::query()->whereIn('user_id', $teamMemberIds)->whereDate('date', $date)->exists();
 
             return response()->json([
                 'success' => true,
@@ -754,7 +775,10 @@ class AttendanceController extends Controller
         $selectedDate = (string) ($validated['date'] ?? now()->toDateString());
 
         try {
+            $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
             $attendances = Attendance::query()
+                ->whereIn('user_id', $teamMemberIds)
                 ->with(['user.designation', 'user.attendanceType', 'user.workLocation.attendanceType', 'media'])
                 ->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                 ->whereDate('date', $selectedDate)
@@ -1148,6 +1172,58 @@ class AttendanceController extends Controller
             'HR Manager',
             'Project Manager',
             'Consultant',
+            'Super Administrator',
+            'Administrator',
+        ]);
+    }
+
+    private function resolveTeamMemberIds(User $user): array
+    {
+        // Recursively collect all descendants in the reporting tree.
+        return $this->collectDescendantIds($user->id);
+    }
+
+    private function collectDescendantIds(int $rootId, int $maxDepth = 10): array
+    {
+        $collected = [];
+        $currentLevelIds = [$rootId];
+        $visited = [$rootId => true];
+
+        for ($depth = 0; $depth < $maxDepth; $depth++) {
+            $children = User::query()
+                ->whereNull('deleted_at')
+                ->whereIn('report_to', $currentLevelIds)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => ! isset($visited[$id]))
+                ->values()
+                ->all();
+
+            if ($children === []) {
+                break;
+            }
+
+            foreach ($children as $childId) {
+                $visited[$childId] = true;
+                $collected[] = $childId;
+            }
+
+            $currentLevelIds = $children;
+
+            if (count($collected) >= 500) {
+                break;
+            }
+        }
+
+        return $collected;
+    }
+
+    private function isAdminLikeUser(User $user): bool
+    {
+        return $user->hasRole([
+            'Super Admin',
+            'Admin',
+            'HR Manager',
             'Super Administrator',
             'Administrator',
         ]);

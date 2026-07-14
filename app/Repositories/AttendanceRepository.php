@@ -27,6 +27,11 @@ class AttendanceRepository extends BaseRepository
             $query->where('user_id', $filters['user_id']);
         }
 
+        // Filter by team member IDs
+        if (isset($filters['team_member_ids'])) {
+            $query->whereIn('user_id', $filters['team_member_ids']);
+        }
+
         // Filter by employee keyword (name or employee_id)
         if (! empty($filters['employee'])) {
             $query->whereHas('user', function ($q) use ($filters) {

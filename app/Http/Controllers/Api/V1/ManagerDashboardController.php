@@ -420,15 +420,6 @@ class ManagerDashboardController extends Controller
 
     private function resolveTeamMemberIds(User $user): array
     {
-        if ($this->isAdminLikeUser($user)) {
-            return User::query()
-                ->whereNull('deleted_at')
-                ->where('id', '!=', $user->id)
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->toArray();
-        }
-
         // Recursively collect all descendants in the reporting tree.
         // A manager sees their direct reports AND everyone below them.
         return $this->collectDescendantIds($user->id);
