@@ -148,4 +148,29 @@ class UpcomingShiftServiceTest extends TestCase
         $this->assertSame(['Off Person'], $result['off']->pluck('name')->all());
         $this->assertSame('M', $result['absent']->first()->shift_code);
     }
+
+    public function test_an_already_started_shift_with_no_roster_row_tomorrow_stays_absent_not_upcoming(): void
+    {
+        // Rostered 20:00-08:00 TODAY only — no roster/assignment row for tomorrow
+        // at all. Viewed an hour after the shift started and never punched in.
+        Carbon::setTestNow('2026-07-14 21:00:00');
+
+        $lateNightWorker = User::factory()->create(['name' => 'Late Night Worker']);
+        $this->roster($lateNightWorker, $this->shift('N', '20:00', '08:00', true), '2026-07-14');
+
+        $service = app(UpcomingShiftService::class);
+
+        // Must not be resurrected as upcoming by tomorrow's fabricated default
+        // 09:00-17:00 schedule (09:00 tomorrow falls inside the 12h window from
+        // 21:00 today, but the roster never assigned that shift).
+        $upcoming = $service->forDate(Carbon::now(), User::query()->get());
+        $this->assertSame([], $upcoming->pluck('name')->all());
+
+        // And partition() must therefore classify them as absent, not upcoming.
+        $all = collect([$lateNightWorker]);
+        $result = $service->partition(Carbon::now(), $all, $all);
+
+        $this->assertSame([], $result['upcoming']->pluck('name')->all());
+        $this->assertSame(['Late Night Worker'], $result['absent']->pluck('name')->all());
+    }
 }

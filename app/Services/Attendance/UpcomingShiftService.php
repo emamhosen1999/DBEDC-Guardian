@@ -97,6 +97,17 @@ class UpcomingShiftService
      * Shifts starting inside [now, now + 12h]. Today's shift is checked first,
      * then tomorrow's — that second check is what lets a late-evening window
      * reach across midnight.
+     *
+     * Asymmetry, deliberate: today's candidate is allowed to fall back to the
+     * DefaultScheduleResolver's fabricated 09:00-17:00 day (that fallback is a
+     * real obligation — it's what makes an unrostered employee count as absent
+     * after 09:00). Tomorrow's candidate is NOT allowed that fallback: it only
+     * counts when RosterService::resolveShift() proves the roster actually
+     * assigned tomorrow a shift. Without that guard, an employee with no
+     * roster row for tomorrow would get the fabricated 09:00 schedule, which
+     * can fall inside the window and wrongly resurrect them as "upcoming" —
+     * hiding an already-late employee from the absent list on a shift they
+     * were never given.
      */
     private function forToday(Collection $users): Collection
     {
@@ -105,12 +116,21 @@ class UpcomingShiftService
         $tomorrow = $now->copy()->addDay();
 
         $upcoming = $users->map(function (User $user) use ($now, $windowEnd, $tomorrow): ?User {
-            foreach ([$now, $tomorrow] as $candidateDate) {
-                $schedule = $this->schedules->resolve($user->id, $candidateDate);
+            $todaySchedule = $this->schedules->resolve($user->id, $now);
+            if ($this->startsInWindow($todaySchedule, $now, $windowEnd)) {
+                return $this->decorate($user, $now, $todaySchedule);
+            }
 
-                if ($this->startsInWindow($schedule, $now, $windowEnd)) {
-                    return $this->decorate($user, $candidateDate, $schedule);
-                }
+            // Tomorrow only counts against a REAL rostered/assigned shift — never
+            // a fabricated default. A null return means no assignment or an
+            // explicit off day; either way there is no upcoming shift tomorrow.
+            if ($this->roster->resolveShift($user->id, $tomorrow) === null) {
+                return null;
+            }
+
+            $tomorrowSchedule = $this->schedules->resolve($user->id, $tomorrow);
+            if ($this->startsInWindow($tomorrowSchedule, $now, $windowEnd)) {
+                return $this->decorate($user, $tomorrow, $tomorrowSchedule);
             }
 
             return null;

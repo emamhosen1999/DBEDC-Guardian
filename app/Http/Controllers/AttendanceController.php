@@ -578,12 +578,11 @@ class AttendanceController extends Controller
                 return ! $presentUserIds->contains($user->id);
             })->values();
 
-            $upcomingService = app(UpcomingShiftService::class);
             $parsedDate = Carbon::parse($date);
 
             // The upcoming / absent / off split lives in the service so the web and
             // the mobile API cannot drift apart again.
-            $partition = $upcomingService->partition($parsedDate, $allUsers, $absentUsers);
+            $partition = $this->upcomingShiftService->partition($parsedDate, $allUsers, $absentUsers);
 
             $upcomingUsers = $partition['upcoming'];
             $absentUsers = $partition['absent'];
@@ -689,7 +688,7 @@ class AttendanceController extends Controller
                 'absent_users' => $serializedAbsentUsers,
                 'off_users' => $serializedOffUsers,
                 'upcoming_users' => $serializedUpcomingUsers,
-                'upcoming_visible' => $upcomingService->isVisibleFor($parsedDate),
+                'upcoming_visible' => $this->upcomingShiftService->isVisibleFor($parsedDate),
                 'leaves' => $leaves,
                 'total_absent' => $serializedAbsentUsers->count(),
                 'total_off' => $serializedOffUsers->count(),
