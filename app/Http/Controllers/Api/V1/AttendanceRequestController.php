@@ -490,14 +490,18 @@ class AttendanceRequestController extends Controller
                     $q->where('designations.hierarchy_level', '>=', $requesterLevel)
                       ->orWhereNull('users.designation_id');
                 })
-                ->select('users.id', 'users.name');
+                ->select('users.id', 'users.name', 'users.profile_image');
         }
 
         $employees = $query
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name'])
+            ->get(['users.id', 'users.name', 'users.profile_image'])
             ->filter(fn ($u) => $this->roster->effectiveShiftId($u->id, $data['date']) === null)
-            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'profile_image_url' => $c->profile_image_url,
+            ])
             ->values();
 
         return $this->successResponse($employees);

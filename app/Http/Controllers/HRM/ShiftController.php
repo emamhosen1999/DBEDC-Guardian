@@ -17,7 +17,11 @@ class ShiftController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json(['shifts' => Shift::orderBy('name')->get()]);
+        // Start-time order (00-08 → 08-16 → 16-24) is the reading order everywhere:
+        // the roster legend, the roster cell popover and the swap forms all read this.
+        return response()->json([
+            'shifts' => Shift::orderBy('start_time')->orderBy('name')->get(),
+        ]);
     }
 
     public function store(Request $request): JsonResponse

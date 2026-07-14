@@ -565,7 +565,14 @@ class ManagerDashboardController extends Controller
             ->whereIn('id', $teamMemberIds)
             ->whereNull('deleted_at')
             ->orderBy('name')
-            ->get(['id', 'name', 'employee_id']);
+            ->get(['id', 'name', 'employee_id', 'profile_image'])
+            ->map(fn (User $member) => [
+                'id' => (int) $member->id,
+                'name' => $member->name,
+                'employee_id' => $member->employee_id,
+                'profile_image_url' => $member->profile_image_url,
+            ])
+            ->values();
 
         return response()->json([
             'success' => true,

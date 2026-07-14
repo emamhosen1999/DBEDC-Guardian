@@ -29,7 +29,7 @@ class RosterController extends Controller
             'department_id' => 'nullable|integer',
         ]);
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name,profile_image'])
             ->whereBetween('date', [$data['from'], $data['to']])
             ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(
                 'user',
@@ -55,7 +55,7 @@ class RosterController extends Controller
             'to' => 'required|date|after_or_equal:from',
         ]);
 
-        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name'])
+        $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name,profile_image'])
             ->where('user_id', $request->user()->id)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->get();
@@ -78,6 +78,7 @@ class RosterController extends Controller
 
             return [
                 'name' => $first->user?->name,
+                'profile_image_url' => $first->user?->profile_image_url,
                 'days' => $userRows->keyBy(fn ($row) => $row->date->format('Y-m-d'))
                     ->map(fn ($row) => [
                         'code' => $row->shift?->code,
@@ -103,6 +104,7 @@ class RosterController extends Controller
         // each user's entry (and its `days`) explicitly to plain arrays.
         $roster = $rosterCollection->map(fn ($user) => [
             'name' => $user['name'],
+            'profile_image_url' => $user['profile_image_url'],
             'days' => $user['days'] instanceof \Illuminate\Support\Collection
                 ? $user['days']->toArray()
                 : $user['days'],

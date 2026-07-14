@@ -62,11 +62,23 @@ class AttendanceQueryService
                 ->exists();
         }
 
+        $shift = app(\App\Services\Attendance\RosterService::class)
+            ->resolveShift($userId, Carbon::today());
+
         return [
             'punches' => $punches,
             'total_production_time' => gmdate('H:i:s', $totalProductionTime),
             'isUserOnLeave' => $isUserOnLeave,
             'is_user_on_leave' => $isUserOnLeave,
+            'today_shift' => [
+                'code' => $shift?->code,
+                'name' => $shift?->name,
+                'color' => $shift?->color,
+                'start' => $shift ? Carbon::parse($shift->start_time)->format('H:i') : null,
+                'end' => $shift ? Carbon::parse($shift->end_time)->format('H:i') : null,
+                'crosses_midnight' => (bool) ($shift?->crosses_midnight ?? false),
+                'off' => $shift === null,
+            ],
         ];
     }
 
@@ -286,8 +298,13 @@ class AttendanceQueryService
     public function getPresentUsersForDate(string $date, array $filters = []): array
     {
         $attendances = $this->attendanceRepository->getPresentUsersForDate($date, $filters);
+        $roster = app(\App\Services\Attendance\RosterService::class);
+        $parsedDate = Carbon::parse($date);
 
-        return $attendances->map(function ($attendance) {
+        return collect($attendances)->map(function ($attendance) use ($roster, $parsedDate) {
+            $shift = $roster->resolveShift($attendance->user_id, $parsedDate);
+            $start = $shift ? Carbon::parse($shift->start_time) : null;
+
             return [
                 'id' => $attendance->id,
                 'user_id' => $attendance->user_id,
@@ -295,12 +312,22 @@ class AttendanceQueryService
                     'id' => $attendance->user->id,
                     'name' => $attendance->user->name,
                     'employee_id' => $attendance->user->employee_id,
+                    'profile_image_url' => $attendance->user->profile_image_url,
                 ],
+                'shift_code' => $shift?->code,
+                'shift_name' => $shift?->name,
+                'shift_color' => $shift?->color,
+                'shift_start' => $start?->format('g:i A'),
+                'shift_end' => $shift ? Carbon::parse($shift->end_time)->format('g:i A') : null,
+                'shift_start_minutes' => $start ? $start->hour * 60 + $start->minute : PHP_INT_MAX,
                 'punchin_time' => $attendance->punchin->format('H:i:s'),
                 'punchin_location' => $attendance->punchin_location_array,
                 'punchout_time' => $attendance->punchout?->format('H:i:s'),
             ];
-        })->toArray();
+        })
+            ->sortBy(['shift_start_minutes', 'user.name'])
+            ->values()
+            ->toArray();
     }
 
     /**

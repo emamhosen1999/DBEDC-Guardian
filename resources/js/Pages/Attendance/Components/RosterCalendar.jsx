@@ -129,9 +129,19 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                         width: 24, height: 24, borderRadius: '50%',
                                         background: 'var(--accent-3)', color: 'var(--accent-11)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 10, fontWeight: 700, flexShrink: 0
+                                        fontSize: 10, fontWeight: 700, flexShrink: 0,
+                                        overflow: 'hidden',
                                     }}>
-                                        {getInitials(row.name)}
+                                        {row.profile_image_url ? (
+                                            <img
+                                                src={row.profile_image_url}
+                                                alt=""
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                            />
+                                        ) : (
+                                            getInitials(row.name)
+                                        )}
                                     </Box>
                                     <Text size="1" weight="medium" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {row.name || 'Unknown'}
