@@ -15,6 +15,9 @@ use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
 use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
+use App\Services\Attendance\AttendanceApprovalService;
+use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,6 +33,7 @@ class AttendanceRequestController extends Controller
         private readonly CompOffService $compOff,
         private readonly RosterService $roster,
         private readonly RosterOverlayService $overlay,
+        private readonly AttendanceApprovalService $approvals,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -60,6 +64,66 @@ class AttendanceRequestController extends Controller
         return $this->successResponse($items);
     }
 
+    public function pendingRegularizations(Request $request): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $status = $request->query('status', 'pending');
+        if (! in_array($status, ['pending', 'approved', 'rejected', 'all'], true)) {
+            $status = 'pending';
+        }
+
+        $requests = $this->approvals->forApprover($request->user(), AttendanceRegularization::class, $status)
+            ->load('user:id,name,employee_id,profile_image');
+
+        return $this->successResponse($requests->values());
+    }
+
+    public function approveRegularization(Request $request, int $id): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $r = AttendanceRegularization::findOrFail($id);
+        $res = $this->regularization->approve($r, $request->user(), $request->input('comments'));
+
+        if ($res['success'] ?? false) {
+            return $this->successResponse($res['request'] ?? $r, 'Regularization approved.');
+        }
+
+        return response()->json(['success' => false, 'message' => $res['message'] ?? 'Failed to approve regularization.'], 422);
+    }
+
+    public function rejectRegularization(Request $request, int $id): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $data = $request->validate(['reason' => 'required|string|max:500']);
+        $r = AttendanceRegularization::findOrFail($id);
+        $res = $this->approvals->reject($r, $request->user(), $data['reason']);
+
+        if ($res['success'] ?? false) {
+            $requesterUser = User::find($r->user_id);
+            if ($requesterUser) {
+                try {
+                    $requesterUser->notify(new TimeCorrectionDecidedNotification($r->id, 'rejected'));
+                } catch (\Throwable $exception) {
+                    Log::warning("TimeCorrectionDecidedNotification(rejected) failed for regularization #{$r->id}", [
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
+            return $this->successResponse($r, 'Regularization rejected.');
+        }
+
+        return response()->json(['success' => false, 'message' => $res['message'] ?? 'Failed to reject regularization.'], 422);
+    }
+
     // -------------------------------------------------------------------------
     // Overtime
     // -------------------------------------------------------------------------
@@ -84,6 +148,61 @@ class AttendanceRequestController extends Controller
             ->get();
 
         return $this->successResponse($items);
+    }
+
+    public function pendingOvertime(Request $request): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $status = $request->query('status', 'pending');
+        if (! in_array($status, ['pending', 'approved', 'rejected', 'all'], true)) {
+            $status = 'pending';
+        }
+
+        $requests = $this->approvals->forApprover($request->user(), OvertimeRequest::class, $status)
+            ->load('user:id,name,employee_id,profile_image');
+
+        return $this->successResponse($requests->values());
+    }
+
+    public function approveOvertime(Request $request, int $id): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $ot = OvertimeRequest::findOrFail($id);
+        $res = $this->overtime->approve(
+            $ot,
+            $request->user(),
+            $request->input('comments'),
+            $request->boolean('grant_comp_off')
+        );
+
+        if ($res['success'] ?? false) {
+            return $this->successResponse($res['request'] ?? $ot, 'Overtime approved.');
+        }
+
+        return response()->json(['success' => false, 'message' => $res['message'] ?? 'Failed to approve overtime.'], 422);
+    }
+
+    public function rejectOvertime(Request $request, int $id): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $data = $request->validate(['reason' => 'required|string|max:500']);
+        $ot = OvertimeRequest::findOrFail($id);
+        $res = $this->approvals->reject($ot, $request->user(), $data['reason']);
+
+        if ($res['success'] ?? false) {
+            return $this->successResponse($ot, 'Overtime rejected.');
+        }
+
+        return response()->json(['success' => false, 'message' => $res['message'] ?? 'Failed to reject overtime.'], 422);
     }
 
     // -------------------------------------------------------------------------
@@ -114,12 +233,31 @@ class AttendanceRequestController extends Controller
     public function myRoster(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'from' => 'required|date',
-            'to'   => 'required|date|after_or_equal:from',
+            'from'    => 'required|date',
+            'to'      => 'required|date|after_or_equal:from',
+            'user_id' => 'nullable|integer|exists:users,id',
         ]);
 
+        $targetUser = $request->user();
+
+        if ($request->filled('user_id')) {
+            $userId = (int) $data['user_id'];
+            if ($userId !== $request->user()->id) {
+                if (! $this->isManagerUser($request->user())) {
+                    return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+                }
+
+                $teamMemberIds = $this->resolveTeamMemberIds($request->user());
+                if (! in_array($userId, $teamMemberIds, true)) {
+                    return response()->json(['success' => false, 'message' => 'User is not in your team.'], 403);
+                }
+
+                $targetUser = User::findOrFail($userId);
+            }
+        }
+
         $rows = RosterDay::with(['shift:id,code,color,name,start_time,end_time,type,crosses_midnight', 'user:id,name'])
-            ->where('user_id', $request->user()->id)
+            ->where('user_id', $targetUser->id)
             ->whereBetween('date', [$data['from'], $data['to']])
             ->get();
 
@@ -137,10 +275,10 @@ class AttendanceRequestController extends Controller
                 'off'              => $row->shift_id === null,
             ]);
 
-        $overlay = $this->overlay->forRange([$request->user()->id], $data['from'], $data['to']);
+        $overlay = $this->overlay->forRange([$targetUser->id], $data['from'], $data['to']);
         $daysArr = $days->toArray();
 
-        foreach (($overlay['leave'][$request->user()->id] ?? []) as $date => $info) {
+        foreach (($overlay['leave'][$targetUser->id] ?? []) as $date => $info) {
             if (! isset($daysArr[$date])) {
                 $daysArr[$date] = [
                     'code' => null, 'name' => null, 'color' => null, 'type' => null,
@@ -151,7 +289,7 @@ class AttendanceRequestController extends Controller
         }
 
         return $this->successResponse([
-            'name' => $request->user()->name,
+            'name' => $targetUser->name,
             'days' => $daysArr,
             'holidays' => $overlay['holidays'],
         ]);
@@ -401,5 +539,78 @@ class AttendanceRequestController extends Controller
             ->values();
 
         return $this->successResponse($days);
+    }
+
+    private function isManagerUser(User $user): bool
+    {
+        return $user->hasRole([
+            'Super Admin',
+            'Admin',
+            'HR Manager',
+            'Project Manager',
+            'Consultant',
+            'Super Administrator',
+            'Administrator',
+        ]);
+    }
+
+    private function isAdminLikeUser(User $user): bool
+    {
+        return $user->hasRole([
+            'Super Admin',
+            'Admin',
+            'HR Manager',
+            'Super Administrator',
+            'Administrator',
+        ]);
+    }
+
+    private function resolveTeamMemberIds(User $user): array
+    {
+        if ($this->isAdminLikeUser($user)) {
+            return User::query()
+                ->whereNull('deleted_at')
+                ->where('id', '!=', $user->id)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->toArray();
+        }
+
+        return $this->collectDescendantIds($user->id);
+    }
+
+    private function collectDescendantIds(int $rootId, int $maxDepth = 10): array
+    {
+        $collected = [];
+        $currentLevelIds = [$rootId];
+        $visited = [$rootId => true];
+
+        for ($depth = 0; $depth < $maxDepth; $depth++) {
+            $children = User::query()
+                ->whereNull('deleted_at')
+                ->whereIn('report_to', $currentLevelIds)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => ! isset($visited[$id]))
+                ->values()
+                ->all();
+
+            if ($children === []) {
+                break;
+            }
+
+            foreach ($children as $childId) {
+                $visited[$childId] = true;
+                $collected[] = $childId;
+            }
+
+            $currentLevelIds = $children;
+
+            if (count($collected) >= 500) {
+                break;
+            }
+        }
+
+        return $collected;
     }
 }

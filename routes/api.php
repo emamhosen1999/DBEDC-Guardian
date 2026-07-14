@@ -209,8 +209,15 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::get('/attendance/my-roster', [MobileAttendanceRequestController::class, 'myRoster'])->name('api.v1.attendance.my-roster');
     Route::post('/attendance/regularizations', [MobileAttendanceRequestController::class, 'storeRegularization'])->name('api.v1.attendance.regularizations.store');
     Route::get('/attendance/regularizations/mine', [MobileAttendanceRequestController::class, 'myRegularizations'])->name('api.v1.attendance.regularizations.mine');
+    Route::get('/attendance/regularizations/pending', [MobileAttendanceRequestController::class, 'pendingRegularizations'])->name('api.v1.attendance.regularizations.pending');
+    Route::post('/attendance/regularizations/{id}/approve', [MobileAttendanceRequestController::class, 'approveRegularization'])->name('api.v1.attendance.regularizations.approve');
+    Route::post('/attendance/regularizations/{id}/reject', [MobileAttendanceRequestController::class, 'rejectRegularization'])->name('api.v1.attendance.regularizations.reject');
+    
     Route::post('/attendance/overtime', [MobileAttendanceRequestController::class, 'storeOvertime'])->name('api.v1.attendance.overtime.store');
     Route::get('/attendance/overtime/mine', [MobileAttendanceRequestController::class, 'myOvertime'])->name('api.v1.attendance.overtime.mine');
+    Route::get('/attendance/overtime/pending', [MobileAttendanceRequestController::class, 'pendingOvertime'])->name('api.v1.attendance.overtime.pending');
+    Route::post('/attendance/overtime/{id}/approve', [MobileAttendanceRequestController::class, 'approveOvertime'])->name('api.v1.attendance.overtime.approve');
+    Route::post('/attendance/overtime/{id}/reject', [MobileAttendanceRequestController::class, 'rejectOvertime'])->name('api.v1.attendance.overtime.reject');
     Route::get('/attendance/comp-off/mine', [MobileAttendanceRequestController::class, 'myCompOff'])->name('api.v1.attendance.compoff.mine');
     Route::post('/attendance/swaps', [MobileAttendanceRequestController::class, 'storeSwap'])->name('api.v1.attendance.swaps.store');
     Route::get('/attendance/swaps/mine', [MobileAttendanceRequestController::class, 'mySwaps'])->name('api.v1.attendance.swaps.mine');
