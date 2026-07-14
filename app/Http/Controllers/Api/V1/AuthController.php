@@ -124,6 +124,7 @@ class AuthController extends Controller
                 'os_version' => $device->os_version,
                 'last_used_at' => $device->last_used_at,
             ],
+            'realtime_config' => $this->getRealtimeConfig($user),
         ], 'Login successful.');
     }
 
@@ -138,7 +139,13 @@ class AuthController extends Controller
             'reportsTo',
         ]);
 
-        return $this->successResponse(new UserResource($user));
+        $response = [
+            'success' => true,
+            'data' => new UserResource($user),
+            'realtime_config' => $this->getRealtimeConfig($user),
+        ];
+
+        return response()->json($response);
     }
 
     public function logout(Request $request): JsonResponse
@@ -151,5 +158,31 @@ class AuthController extends Controller
         }
 
         return $this->successResponse(null, 'Logged out successfully.');
+    }
+
+    private function getRealtimeConfig(User $user): array
+    {
+        $firebaseToken = null;
+        $firebaseDbUrl = config('firebase.database.default_url');
+        $firebaseProjectId = config('firebase.project_id');
+
+        if (config('realtime.enabled') && class_exists(\Kreait\Firebase\Contract\Auth::class)) {
+            try {
+                if (app()->has(\Kreait\Firebase\Contract\Auth::class)) {
+                    $firebaseAuth = app(\Kreait\Firebase\Contract\Auth::class);
+                    $firebaseToken = $firebaseAuth->createCustomToken((string) $user->id)->toString();
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Firebase custom token creation failed: ' . $e->getMessage());
+            }
+        }
+
+        return [
+            'provider' => $firebaseToken ? 'firebase' : 'none',
+            'firebase_project_id' => $firebaseProjectId,
+            'firebase_database_url' => $firebaseDbUrl,
+            'firebase_custom_token' => $firebaseToken,
+            'namespace' => config('realtime.namespace'),
+        ];
     }
 }

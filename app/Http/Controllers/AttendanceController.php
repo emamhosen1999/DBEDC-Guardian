@@ -592,10 +592,10 @@ class AttendanceController extends Controller
                     $upcomingShift = null;
                     $upcomingDate = null;
 
-                    if ($scheduleToday->isWorkingDay && $scheduleToday->start->gte($now) && $scheduleToday->start->lte($now->copy()->addHours(24))) {
+                    if ($scheduleToday->isWorkingDay && $scheduleToday->start->gte($now) && $scheduleToday->start->lte($now->copy()->addHours(12))) {
                         $upcomingShift = $scheduleToday;
                         $upcomingDate = $now;
-                    } elseif ($scheduleTomorrow->isWorkingDay && $scheduleTomorrow->start->gte($now) && $scheduleTomorrow->start->lte($now->copy()->addHours(24))) {
+                    } elseif ($scheduleTomorrow->isWorkingDay && $scheduleTomorrow->start->gte($now) && $scheduleTomorrow->start->lte($now->copy()->addHours(12))) {
                         $upcomingShift = $scheduleTomorrow;
                         $upcomingDate = $tomorrow;
                     }
