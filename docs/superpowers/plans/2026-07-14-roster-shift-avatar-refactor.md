@@ -215,6 +215,7 @@ git commit -m "refactor(api): extract triplicated team-member resolution into Re
 - Produces:
   - `isVisibleFor(CarbonInterface $date): bool` — false when `$date` is in the past.
   - `forDate(CarbonInterface $date, Collection $users): Collection` — the decorated, sorted upcoming users.
+  - `partition(CarbonInterface $date, Collection $allUsers, Collection $absentUsers): array` — returns `['upcoming' => Collection, 'absent' => Collection, 'off' => Collection]`, each decorated and sorted. **This is the method both controllers call** — the whole upcoming/absent/off split lives here exactly once.
   - `decorate(User $user, CarbonInterface $shiftDate, ShiftSchedule $schedule): User` — clones the user and attaches `shift_code`, `shift_name`, `shift_color`, `shift_start`, `shift_end`, `shift_start_time`, `shift_start_minutes`.
   - `sortByShiftStart(Collection $users): Collection` — sorts by `shift_start_minutes` then `name`; users with a null `shift_start_minutes` sort last.
 
@@ -340,6 +341,32 @@ class UpcomingShiftServiceTest extends TestCase
         $this->assertFalse($service->isVisibleFor($past));
         $this->assertTrue($service->forDate($past, User::query()->get())->isEmpty());
     }
+
+    public function test_partition_splits_upcoming_absent_and_off(): void
+    {
+        Carbon::setTestNow('2026-07-14 09:00:00');
+
+        // Shift starts at 16:00 -> inside the 12h window -> upcoming, not absent.
+        $upcoming = User::factory()->create(['name' => 'Upcoming Person']);
+        $this->roster($upcoming, $this->shift('E', '16:00', '23:59'), '2026-07-14');
+
+        // Shift started at 08:00 and they never punched in -> absent.
+        $absent = User::factory()->create(['name' => 'Absent Person']);
+        $this->roster($absent, $this->shift('M', '08:00', '16:00'), '2026-07-14');
+
+        // No shift rostered today -> off.
+        $off = User::factory()->create(['name' => 'Off Person']);
+
+        $all = collect([$upcoming, $absent, $off]);
+
+        // Nobody punched in, so every user is in the not-present set.
+        $result = app(UpcomingShiftService::class)->partition(Carbon::now(), $all, $all);
+
+        $this->assertSame(['Upcoming Person'], $result['upcoming']->pluck('name')->all());
+        $this->assertSame(['Absent Person'], $result['absent']->pluck('name')->all());
+        $this->assertSame(['Off Person'], $result['off']->pluck('name')->all());
+        $this->assertSame('M', $result['absent']->first()->shift_code);
+    }
 }
 ```
 
@@ -403,6 +430,49 @@ class UpcomingShiftService
         return $date->copy()->startOfDay()->isToday()
             ? $this->forToday($users)
             : $this->forFutureDate($date, $users);
+    }
+
+    /**
+     * The whole upcoming / absent / off split, in one place. Both the web
+     * attendance page and the mobile team-attendance screen call this — the
+     * logic used to live twice and drifted.
+     *
+     * @param  Collection<int, User>  $allUsers      every employee in scope
+     * @param  Collection<int, User>  $absentUsers   those in scope with no punch-in for the date
+     * @return array{upcoming: Collection<int, User>, absent: Collection<int, User>, off: Collection<int, User>}
+     */
+    public function partition(CarbonInterface $date, Collection $allUsers, Collection $absentUsers): array
+    {
+        $upcoming = $this->forDate($date, $allUsers);
+        $upcomingIds = $upcoming->pluck('id')->all();
+
+        $absent = collect();
+        $off = collect();
+
+        foreach ($absentUsers as $user) {
+            // A user whose shift has not started yet belongs to Upcoming, not Absent.
+            if (in_array($user->id, $upcomingIds, true)) {
+                continue;
+            }
+
+            $schedule = $this->schedules->resolve($user->id, $date);
+
+            if (! $schedule->isWorkingDay) {
+                $off->push($user);
+
+                continue;
+            }
+
+            // Working day, not upcoming → the shift already started (or the date is
+            // in the past) and the user never punched in.
+            $absent->push($this->decorate($user, $date, $schedule));
+        }
+
+        return [
+            'upcoming' => $upcoming,
+            'absent' => $this->sortByShiftStart($absent),
+            'off' => $off->sortBy(fn (User $user) => (string) $user->name)->values(),
+        ];
     }
 
     /**
@@ -635,46 +705,22 @@ In `app/Http/Controllers/AttendanceController.php`, inject the service into the 
 use App\Services\Attendance\UpcomingShiftService;
 ```
 
-Then replace **everything** from `$scheduleResolver = app(...)` (the line after `$absentUsers = $allUsers->filter(...)->values();`) through the end of the `foreach ($absentUsers as $user)` loop that builds `$absentCollection` / `$offCollection` — i.e. the whole hand-rolled block, lines ~576-703 — with:
+Then replace **everything** from `$scheduleResolver = app(...)` (the line after `$absentUsers = $allUsers->filter(...)->values();`) through the end of the `foreach ($absentUsers as $user)` loop that builds `$absentCollection` / `$offCollection` — i.e. the whole hand-rolled block, lines ~576-703 — with a call to the service:
 
 ```php
-            $scheduleResolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
             $upcomingService = app(UpcomingShiftService::class);
             $parsedDate = Carbon::parse($date);
-            $now = Carbon::now();
 
-            // Upcoming is a live "what is about to start" list: now → now+12h on
-            // today, the whole day on a future date, nothing on a past date.
-            $upcomingUsers = $upcomingService->forDate($parsedDate, $allUsers);
-            $upcomingIds = $upcomingUsers->pluck('id')->all();
+            // The upcoming / absent / off split lives in the service so the web and
+            // the mobile API cannot drift apart again.
+            $partition = $upcomingService->partition($parsedDate, $allUsers, $absentUsers);
 
-            $absentCollection = collect();
-            $offCollection = collect();
-
-            foreach ($absentUsers as $user) {
-                // A user whose shift has not started yet belongs to Upcoming, not Absent.
-                if (in_array($user->id, $upcomingIds, true)) {
-                    continue;
-                }
-
-                $schedule = $scheduleResolver->resolve($user->id, $parsedDate);
-
-                if (! $schedule->isWorkingDay) {
-                    $offCollection->push($user);
-
-                    continue;
-                }
-
-                // Working day, not upcoming → the shift has already started (or the
-                // date is in the past) and the user never punched in.
-                $absentCollection->push($upcomingService->decorate($user, $parsedDate, $schedule));
-            }
-
-            $absentUsers = $upcomingService->sortByShiftStart($absentCollection);
-            $offUsers = $offCollection->sortBy(fn (User $user) => (string) $user->name)->values();
+            $upcomingUsers = $partition['upcoming'];
+            $absentUsers = $partition['absent'];
+            $offUsers = $partition['off'];
 ```
 
-Delete the now-unused `$rosterService = app(...RosterService::class);` line and the three `$absentUsers = $absentCollection; $offUsers = $offCollection; $upcomingUsers = $upcomingCollection;` assignment lines further down. `$now` stays — it is still used elsewhere in the method.
+Delete the now-unused `$rosterService = app(...RosterService::class);` line, the `$scheduleResolver` local, and the three `$absentUsers = $absentCollection; $offUsers = $offCollection; $upcomingUsers = $upcomingCollection;` assignment lines further down. Check whether `$now` is still used elsewhere in the method before removing it.
 
 - [ ] **Step 4: Add `upcoming_visible` to the response**
 
@@ -842,40 +888,20 @@ In `app/Http/Controllers/Api/V1/AttendanceController.php`, add the import:
 use App\Services\Attendance\UpcomingShiftService;
 ```
 
-Replace the whole hand-rolled block in `absentUsersForDate()` — from `$scheduleResolver = app(...)` through the end of the `foreach ($absentUsers as $user)` loop and the three `$absentUsers = $absentCollection; ...` reassignments (lines ~513-643) — with exactly the same block written in Task 3 Step 3, but using the mobile method's local variable name for the date string (`$selectedDate` instead of `$date`):
+Replace the whole hand-rolled block in `absentUsersForDate()` — from `$scheduleResolver = app(...)` through the end of the `foreach ($absentUsers as $user)` loop and the three `$absentUsers = $absentCollection; ...` reassignments (lines ~513-643) — with the same service call the web controller now makes, using this method's local name for the date string (`$selectedDate`, not `$date`):
 
 ```php
-            $scheduleResolver = app(\App\Services\Attendance\Contracts\ScheduleResolver::class);
             $upcomingService = app(UpcomingShiftService::class);
             $parsedDate = Carbon::parse($selectedDate);
 
-            $upcomingUsers = $upcomingService->forDate($parsedDate, $allUsers);
-            $upcomingIds = $upcomingUsers->pluck('id')->all();
+            $partition = $upcomingService->partition($parsedDate, $allUsers, $absentUsers);
 
-            $absentCollection = collect();
-            $offCollection = collect();
-
-            foreach ($absentUsers as $user) {
-                if (in_array($user->id, $upcomingIds, true)) {
-                    continue;
-                }
-
-                $schedule = $scheduleResolver->resolve($user->id, $parsedDate);
-
-                if (! $schedule->isWorkingDay) {
-                    $offCollection->push($user);
-
-                    continue;
-                }
-
-                $absentCollection->push($upcomingService->decorate($user, $parsedDate, $schedule));
-            }
-
-            $absentUsers = $upcomingService->sortByShiftStart($absentCollection);
-            $offUsers = $offCollection->sortBy(fn (User $user) => (string) $user->name)->values();
+            $upcomingUsers = $partition['upcoming'];
+            $absentUsers = $partition['absent'];
+            $offUsers = $partition['off'];
 ```
 
-Delete the now-unused `$rosterService` and `$now` locals **only if nothing else in the method uses them** (check with a search inside the method before deleting).
+The split itself lives in `UpcomingShiftService::partition()` (Task 2) — do **not** re-implement the loop here. Delete the now-unused `$scheduleResolver`, `$rosterService` and `$now` locals **only if nothing else in the method uses them** (search inside the method before deleting).
 
 - [ ] **Step 4: Add `upcoming_visible` to the response**
 
