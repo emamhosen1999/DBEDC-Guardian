@@ -595,12 +595,12 @@ class AttendanceController extends Controller
                     // Check if today's shift starts in the next 24 hours window
                     if ($scheduleToday->isWorkingDay && $scheduleToday->start->gte($now) && $scheduleToday->start->lte($now->copy()->addHours(24))) {
                         $upcomingShift = $scheduleToday;
-                        $upcomingDate = $now->toDateString();
+                        $upcomingDate = $now;
                     }
                     // If not, check if tomorrow's shift starts in the next 24 hours window
                     elseif ($scheduleTomorrow->isWorkingDay && $scheduleTomorrow->start->gte($now) && $scheduleTomorrow->start->lte($now->copy()->addHours(24))) {
                         $upcomingShift = $scheduleTomorrow;
-                        $upcomingDate = $tomorrow->toDateString();
+                        $upcomingDate = $tomorrow;
                     }
 
                     if ($upcomingShift) {
