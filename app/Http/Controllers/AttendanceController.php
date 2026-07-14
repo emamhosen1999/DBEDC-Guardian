@@ -584,32 +584,98 @@ class AttendanceController extends Controller
 
             foreach ($absentUsers as $user) {
                 $schedule = $scheduleResolver->resolve($user->id, $parsedDate);
-                if ($schedule->isWorkingDay) {
-                    $isUpcoming = $parsedDate->isFuture() || ($parsedDate->isToday() && $now->lt($schedule->start));
 
-                    $shift = $rosterService->resolveShift($user->id, $parsedDate);
-                    if ($shift) {
-                        $user->shift_code = $shift->code;
-                        $user->shift_name = $shift->name;
-                        $user->shift_color = $shift->color;
-                        $user->shift_start = Carbon::parse($shift->start_time)->format('g:i A');
-                        $user->shift_end = Carbon::parse($shift->end_time)->format('g:i A');
+                if ($parsedDate->isToday()) {
+                    if ($schedule->isWorkingDay) {
+                        if ($now->lt($schedule->start)) {
+                            // Shift starts later today -> Upcoming
+                            $shift = $rosterService->resolveShift($user->id, $parsedDate);
+                            if ($shift) {
+                                $user->shift_code = $shift->code;
+                                $user->shift_name = $shift->name;
+                                $user->shift_color = $shift->color;
+                                $user->shift_start = Carbon::parse($shift->start_time)->format('g:i A');
+                                $user->shift_end = Carbon::parse($shift->end_time)->format('g:i A');
+                            } else {
+                                $user->shift_code = null;
+                                $user->shift_name = null;
+                                $user->shift_color = null;
+                                $user->shift_start = $schedule->start->format('g:i A');
+                                $user->shift_end = $schedule->end->format('g:i A');
+                            }
+                            $user->shift_start_time = $user->shift_start;
+                            $upcomingCollection->push($user);
+                        } else {
+                            // Shift started earlier today and user didn't punch in -> Absent
+                            $shift = $rosterService->resolveShift($user->id, $parsedDate);
+                            if ($shift) {
+                                $user->shift_code = $shift->code;
+                                $user->shift_name = $shift->name;
+                                $user->shift_color = $shift->color;
+                                $user->shift_start = Carbon::parse($shift->start_time)->format('g:i A');
+                                $user->shift_end = Carbon::parse($shift->end_time)->format('g:i A');
+                            } else {
+                                $user->shift_code = null;
+                                $user->shift_name = null;
+                                $user->shift_color = null;
+                                $user->shift_start = $schedule->start->format('g:i A');
+                                $user->shift_end = $schedule->end->format('g:i A');
+                            }
+                            $absentCollection->push($user);
+                        }
                     } else {
-                        $user->shift_code = null;
-                        $user->shift_name = null;
-                        $user->shift_color = null;
-                        $user->shift_start = $schedule->start->format('g:i A');
-                        $user->shift_end = $schedule->end->format('g:i A');
-                    }
-
-                    if ($isUpcoming) {
-                        $user->shift_start_time = $user->shift_start;
-                        $upcomingCollection->push($user);
-                    } else {
-                        $absentCollection->push($user);
+                        // Off today. Check if they have an upcoming shift starting tomorrow within 24 hours of now.
+                        $tomorrow = $now->copy()->addDay();
+                        $scheduleTomorrow = $scheduleResolver->resolve($user->id, $tomorrow);
+                        if ($scheduleTomorrow->isWorkingDay && $scheduleTomorrow->start->lt($now->copy()->addHours(24))) {
+                            $shiftTomorrow = $rosterService->resolveShift($user->id, $tomorrow);
+                            if ($shiftTomorrow) {
+                                $user->shift_code = $shiftTomorrow->code;
+                                $user->shift_name = $shiftTomorrow->name;
+                                $user->shift_color = $shiftTomorrow->color;
+                                $user->shift_start = Carbon::parse($shiftTomorrow->start_time)->format('g:i A');
+                                $user->shift_end = Carbon::parse($shiftTomorrow->end_time)->format('g:i A');
+                            } else {
+                                $user->shift_code = null;
+                                $user->shift_name = null;
+                                $user->shift_color = null;
+                                $user->shift_start = $scheduleTomorrow->start->format('g:i A');
+                                $user->shift_end = $scheduleTomorrow->end->format('g:i A');
+                            }
+                            $user->shift_start_time = $user->shift_start;
+                            $upcomingCollection->push($user);
+                        } else {
+                            $offCollection->push($user);
+                        }
                     }
                 } else {
-                    $offCollection->push($user);
+                    // Selected date is not today (either past or future)
+                    if ($schedule->isWorkingDay) {
+                        $isUpcoming = $parsedDate->isFuture();
+                        $shift = $rosterService->resolveShift($user->id, $parsedDate);
+                        if ($shift) {
+                            $user->shift_code = $shift->code;
+                            $user->shift_name = $shift->name;
+                            $user->shift_color = $shift->color;
+                            $user->shift_start = Carbon::parse($shift->start_time)->format('g:i A');
+                            $user->shift_end = Carbon::parse($shift->end_time)->format('g:i A');
+                        } else {
+                            $user->shift_code = null;
+                            $user->shift_name = null;
+                            $user->shift_color = null;
+                            $user->shift_start = $schedule->start->format('g:i A');
+                            $user->shift_end = $schedule->end->format('g:i A');
+                        }
+
+                        if ($isUpcoming) {
+                            $user->shift_start_time = $user->shift_start;
+                            $upcomingCollection->push($user);
+                        } else {
+                            $absentCollection->push($user);
+                        }
+                    } else {
+                        $offCollection->push($user);
+                    }
                 }
             }
 
