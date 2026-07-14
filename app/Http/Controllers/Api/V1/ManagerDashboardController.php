@@ -70,6 +70,14 @@ class ManagerDashboardController extends Controller
         $onLeaveToday = $this->countTeamOnLeaveToday($teamMemberIds, $today);
         $pendingLeaveApprovals = $this->countPendingLeaveApprovals($user, $approvalService);
 
+        $pendingSwapApprovals = 0;
+        if ($teamMemberIds !== []) {
+            $pendingSwapApprovals = \App\Models\HRM\ShiftSwapRequest::whereIn('requester_id', $teamMemberIds)
+                ->where('status', 'pending')
+                ->where('counterparty_status', 'approved')
+                ->count();
+        }
+
         $dailyWorkBaseQuery = DailyWork::query();
         if ($workloadUserIds === []) {
             $dailyWorkBaseQuery->whereRaw('1 = 0');
@@ -99,6 +107,7 @@ class ManagerDashboardController extends Controller
                 ],
                 'approvals' => [
                     'pending_leave_approvals' => $pendingLeaveApprovals,
+                    'pending_swap_approvals' => $pendingSwapApprovals,
                 ],
                 'daily_works' => [
                     'total' => $dailyWorkTotal,

@@ -315,12 +315,16 @@ const AbsentSidebar = ({
                                                         >
                                                             {user.name || 'Unknown'}
                                                         </Text>
-                                                        <Flex align="center" gap="1">
+                                                        <Flex align="center" gap="1" wrap="wrap">
                                                             <CalendarIcon style={{ width: 10, height: 10, color: 'var(--indigo-9)' }} />
-                                                            <Text size="1" color="indigo">
-                                                                Starts at {user.shift_start_time || 'scheduled time'}
+                                                            <Text size="1" color="indigo" weight="medium">
+                                                                {user.shift_code ? `[${user.shift_code}] ` : ''}
+                                                                {user.shift_name || 'Scheduled'}
                                                             </Text>
                                                         </Flex>
+                                                        <Text size="1" color="gray" style={{ paddingLeft: 14 }}>
+                                                            {user.shift_start ? `${user.shift_start} - ${user.shift_end}` : `Starts at ${user.shift_start_time || 'scheduled time'}`}
+                                                        </Text>
                                                     </Flex>
                                                 </Flex>
                                             </Box>

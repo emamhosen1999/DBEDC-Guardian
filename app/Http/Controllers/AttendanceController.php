@@ -580,13 +580,30 @@ class AttendanceController extends Controller
             $absentCollection = collect();
             $offCollection = collect();
             $upcomingCollection = collect();
+            $rosterService = app(\App\Services\Attendance\RosterService::class);
 
             foreach ($absentUsers as $user) {
                 $schedule = $scheduleResolver->resolve($user->id, $parsedDate);
                 if ($schedule->isWorkingDay) {
                     $isUpcoming = $parsedDate->isFuture() || ($parsedDate->isToday() && $now->lt($schedule->start));
+
+                    $shift = $rosterService->resolveShift($user->id, $parsedDate);
+                    if ($shift) {
+                        $user->shift_code = $shift->code;
+                        $user->shift_name = $shift->name;
+                        $user->shift_color = $shift->color;
+                        $user->shift_start = Carbon::parse($shift->start_time)->format('g:i A');
+                        $user->shift_end = Carbon::parse($shift->end_time)->format('g:i A');
+                    } else {
+                        $user->shift_code = null;
+                        $user->shift_name = null;
+                        $user->shift_color = null;
+                        $user->shift_start = $schedule->start->format('g:i A');
+                        $user->shift_end = $schedule->end->format('g:i A');
+                    }
+
                     if ($isUpcoming) {
-                        $user->shift_start_time = $schedule->start->format('g:i A');
+                        $user->shift_start_time = $user->shift_start;
                         $upcomingCollection->push($user);
                     } else {
                         $absentCollection->push($user);
@@ -658,6 +675,11 @@ class AttendanceController extends Controller
                     'phone' => $user->phone,
                     'profile_image' => $user->profile_image,
                     'profile_image_url' => $user->profile_image_url,
+                    'shift_code' => $user->shift_code ?? null,
+                    'shift_name' => $user->shift_name ?? null,
+                    'shift_color' => $user->shift_color ?? null,
+                    'shift_start' => $user->shift_start ?? null,
+                    'shift_end' => $user->shift_end ?? null,
                 ];
             })->values();
 
@@ -683,6 +705,11 @@ class AttendanceController extends Controller
                     'profile_image' => $user->profile_image,
                     'profile_image_url' => $user->profile_image_url,
                     'shift_start_time' => $user->shift_start_time,
+                    'shift_code' => $user->shift_code ?? null,
+                    'shift_name' => $user->shift_name ?? null,
+                    'shift_color' => $user->shift_color ?? null,
+                    'shift_start' => $user->shift_start ?? null,
+                    'shift_end' => $user->shift_end ?? null,
                 ];
             })->values();
 

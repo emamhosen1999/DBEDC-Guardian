@@ -604,4 +604,173 @@ class AttendanceRequestController extends Controller
 
         return $collected;
     }
+
+    public function pendingSwaps(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access swap requests.',
+            ], 403);
+        }
+
+        $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
+        $swaps = ShiftSwapRequest::with(['requester.designation', 'counterparty.designation'])
+            ->whereIn('requester_id', $teamMemberIds)
+            ->where('status', 'pending')
+            ->where('counterparty_status', 'approved')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $shifts = \App\Models\HRM\Shift::all()->keyBy('id');
+
+        $swaps->map(function ($swap) use ($shifts) {
+            $reqDateStr = $swap->requester_date->toDateString();
+            $reqShiftId = $this->roster->effectiveShiftId($swap->requester_id, $reqDateStr);
+            $swap->requester_shift_code = $reqShiftId ? ($shifts[$reqShiftId]?->code ?? null) : 'OFF';
+
+            if ($swap->counterparty_id) {
+                $cpDateStr = $swap->counterparty_date ? $swap->counterparty_date->toDateString() : $reqDateStr;
+                $cpShiftId = $this->roster->effectiveShiftId($swap->counterparty_id, $cpDateStr);
+                $swap->counterparty_shift_code = $cpShiftId ? ($shifts[$cpShiftId]?->code ?? null) : 'OFF';
+            } else {
+                $swap->counterparty_shift_code = null;
+            }
+            return $swap;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $swaps,
+        ]);
+    }
+
+    public function approveSwap(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to approve swap requests.',
+            ], 403);
+        }
+
+        $swap = ShiftSwapRequest::findOrFail($id);
+        if ($swap->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This swap request has already been decided.',
+            ], 409);
+        }
+        if ($swap->counterparty_status === 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Awaiting the counterparty\'s confirmation before approval.',
+            ], 409);
+        }
+
+        if ($swap->counterparty_id) {
+            $problem = $this->rosterAvailabilityProblem(
+                $swap->type,
+                $swap->requester_id,
+                $swap->counterparty_id,
+                $swap->requester_date->toDateString(),
+                $swap->counterparty_date?->toDateString()
+            );
+
+            if ($problem) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The roster changed since this request was made: ' . $problem[1],
+                ], 409);
+            }
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($swap, $request) {
+            $chain = $swap->approval_chain ?? [];
+            $chain[] = [
+                'action' => 'manager_approved',
+                'user_id' => $request->user()->id,
+                'user_name' => $request->user()->name,
+                'timestamp' => now()->toIso8601String(),
+            ];
+
+            $swap->update([
+                'status' => 'approved',
+                'approved_by' => $request->user()->id,
+                'approval_chain' => $chain,
+            ]);
+
+            $this->roster->applySwap($swap->fresh());
+        });
+
+        $requesterUser = User::find($swap->requester_id);
+        if ($requesterUser) {
+            try {
+                $requesterUser->notify(new \App\Notifications\Attendance\ShiftSwapDecidedNotification($swap->id, 'approved'));
+            } catch (\Throwable $exception) {
+                Log::warning("ShiftSwapDecidedNotification(approved) failed for swap #{$swap->id}", [
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Swap approved and applied.',
+            'data' => $swap->fresh(),
+        ]);
+    }
+
+    public function rejectSwap(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to reject swap requests.',
+            ], 403);
+        }
+
+        $swap = ShiftSwapRequest::findOrFail($id);
+        if ($swap->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This swap request has already been decided.',
+            ], 409);
+        }
+
+        $chain = $swap->approval_chain ?? [];
+        $chain[] = [
+            'action' => 'manager_rejected',
+            'user_id' => $request->user()->id,
+            'user_name' => $request->user()->name,
+            'timestamp' => now()->toIso8601String(),
+        ];
+
+        $swap->update([
+            'status' => 'rejected',
+            'approved_by' => $request->user()->id,
+            'approval_chain' => $chain,
+        ]);
+
+        $requesterUser = User::find($swap->requester_id);
+        if ($requesterUser) {
+            try {
+                $requesterUser->notify(new \App\Notifications\Attendance\ShiftSwapDecidedNotification($swap->id, 'rejected'));
+            } catch (\Throwable $exception) {
+                Log::warning("ShiftSwapDecidedNotification(rejected) failed for swap #{$swap->id}", [
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Swap rejected.',
+            'data' => $swap->fresh(),
+        ]);
+    }
 }
