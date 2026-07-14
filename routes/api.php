@@ -207,6 +207,8 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::get('/attendance/history', [MobileAttendanceController::class, 'history'])->name('api.v1.attendance.history');
     Route::post('/attendance/punch', [MobileAttendanceController::class, 'punch'])->middleware('throttle:20,1')->name('api.v1.attendance.punch');
     Route::get('/attendance/my-roster', [MobileAttendanceRequestController::class, 'myRoster'])->name('api.v1.attendance.my-roster');
+    Route::get('/attendance/roster', [\App\Http\Controllers\Api\V1\RosterController::class, 'index'])->name('api.v1.attendance.roster');
+    Route::get('/attendance/shifts', [\App\Http\Controllers\Api\V1\RosterController::class, 'shifts'])->name('api.v1.attendance.shifts');
     Route::post('/attendance/regularizations', [MobileAttendanceRequestController::class, 'storeRegularization'])->name('api.v1.attendance.regularizations.store');
     Route::get('/attendance/regularizations/mine', [MobileAttendanceRequestController::class, 'myRegularizations'])->name('api.v1.attendance.regularizations.mine');
     Route::get('/attendance/regularizations/pending', [MobileAttendanceRequestController::class, 'pendingRegularizations'])->name('api.v1.attendance.regularizations.pending');

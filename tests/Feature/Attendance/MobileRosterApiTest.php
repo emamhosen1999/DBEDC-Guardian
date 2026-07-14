@@ -61,7 +61,9 @@ class MobileRosterApiTest extends TestCase
 
         $response = $this->getJson('/api/v1/attendance/roster?from=2026-07-01&to=2026-07-31')->assertOk();
 
-        $this->assertSame([(string) $employee->id], array_keys($response->json('data.roster')));
+        // PHP auto-coerces purely-numeric string array keys to int on json_decode,
+        // so cast back to compare against the userId-string keys documented in the payload shape.
+        $this->assertSame([(string) $employee->id], array_map('strval', array_keys($response->json('data.roster'))));
     }
 
     public function test_shifts_catalog_is_ordered_by_start_time(): void
