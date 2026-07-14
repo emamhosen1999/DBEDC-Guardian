@@ -35,6 +35,7 @@ const AbsentSidebar = ({
     absentUsers = [],
     offUsers = [],
     upcomingUsers = [],
+    upcomingVisible = true,
     getUserLeave,
     isLoaded = true,
     onMarkAsPresent,
@@ -279,7 +280,7 @@ const AbsentSidebar = ({
                             )}
 
                             {/* 2. Scheduled / Upcoming Employees */}
-                            {upcomingUsers.length > 0 && (
+                            {upcomingVisible && upcomingUsers.length > 0 && (
                                 <Flex direction="column" gap="1">
                                     <Text size="1" color="indigo" weight="bold" mb="1" px="1">
                                         UPCOMING SHIFTS ({upcomingUsers.length})
