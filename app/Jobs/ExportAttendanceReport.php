@@ -70,10 +70,16 @@ class ExportAttendanceReport implements ShouldQueue
 
             $filePath = 'exports/'.$this->filename;
 
+            $user = User::find($this->userId);
+            $departmentId = null;
+            if ($user && !$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
+                $departmentId = $user->department_id;
+            }
+
             if ($this->type === 'daily_excel') {
-                Excel::store(new AttendanceExport($this->date), $filePath, 'public');
+                Excel::store(new AttendanceExport($this->date, $departmentId), $filePath, 'public');
             } elseif ($this->type === 'daily_pdf') {
-                $rows = (new AttendanceExport($this->date))->collection();
+                $rows = (new AttendanceExport($this->date, $departmentId))->collection();
                 $pdf = PDF::loadView('attendance_pdf', [
                     'title' => 'Daily Timesheet - '.date('F d, Y', strtotime($this->date)),
                     'generatedOn' => now()->format('F d, Y h:i A'),
@@ -82,14 +88,14 @@ class ExportAttendanceReport implements ShouldQueue
 
                 Storage::disk('public')->put($filePath, $pdf->output());
             } elseif ($this->type === 'monthly_excel') {
-                (new AttendanceAdminExport)->saveToDisk($this->month, $filePath, 'public');
+                (new AttendanceAdminExport($departmentId))->saveToDisk($this->month, $filePath, 'public');
             } elseif ($this->type === 'monthly_pdf') {
                 $from = Carbon::parse($this->month.'-01');
                 $to = $from->copy()->endOfMonth();
                 $monthName = $from->format('F Y');
 
                 // Shared loader applies the same approved-leave / non-rejected-punch filters as the grid.
-                $users = $attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month);
+                $users = $attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $departmentId);
                 $leaveTypes = LeaveSetting::all();
                 $holidays = $attendanceReportService->getHolidaysForMonth($from->year, $from->month);
 
@@ -98,7 +104,7 @@ class ExportAttendanceReport implements ShouldQueue
                     $attendanceData[] = $attendanceReportService->getUserAttendanceData($user, $from->year, $from->month, $holidays, collect($leaveTypes));
                 }
 
-                $summary = $attendanceReportService->getPerEmployeeMonthlySummary($from->year, $from->month);
+                $summary = $attendanceReportService->getPerEmployeeMonthlySummary($from->year, $from->month, $departmentId);
 
                 $pdf = PDF::loadView('attendance_admin_pdf', [
                     'monthName' => $monthName,

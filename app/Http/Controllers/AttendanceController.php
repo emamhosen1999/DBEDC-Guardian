@@ -57,18 +57,29 @@ class AttendanceController extends Controller
 
     public function indexUnified(): Response
     {
+        $user = Auth::user();
+        $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+        $userDeptId = $user->department_id;
+
+        $departmentsQuery = Department::active();
+        $employeesQuery = User::role('Employee')
+            ->select('id', 'name', 'department_id', 'designation_id')
+            ->orderBy('name');
+
+        if (!$isGlobal && $userDeptId !== null) {
+            $departmentsQuery->where('id', $userDeptId);
+            $employeesQuery->where('department_id', $userDeptId);
+        }
+
         return Inertia::render('Attendance/AttendancePage', [
             'title' => 'Attendance',
             'attendanceSettings' => AttendanceSetting::first(),
             'attendanceTypes' => AttendanceType::with(['biometricDevices:id,name,serial_number,location'])->get(),
-            'departments' => Department::active()->get(['id', 'name']),
+            'departments' => $departmentsQuery->get(['id', 'name']),
             // Map to plain arrays so Inertia serialization does not invoke the models'
             // toArray() overrides/appended accessors (e.g. Designation appends department_name,
             // which lazy-loads `department` and 500s under preventLazyLoading in dev / N+1s in prod).
-            'employees' => User::role('Employee')
-                ->select('id', 'name', 'department_id', 'designation_id')
-                ->orderBy('name')
-                ->get()
+            'employees' => $employeesQuery->get()
                 ->map(fn ($u) => [
                     'id' => $u->id,
                     'name' => $u->name,
@@ -120,12 +131,20 @@ class AttendanceController extends Controller
     public function paginate(Request $request): JsonResponse
     {
         try {
+            $user = Auth::user();
+            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $user->department_id;
+
             $perPage = (int) $request->get('per_page', $request->get('perPage', 20));
             $page = (int) $request->get('page', 1);
             $employee = $request->get('employee');
             $currentMonth = (int) $request->get('currentMonth');
             $currentYear = (int) $request->get('currentYear');
             $departmentId = $request->get('department_id') ? (int) $request->get('department_id') : null;
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $departmentId = $userDeptId;
+            }
 
             $users = $this->attendanceReportService->getEmployeeUsersWithAttendanceAndLeaves($currentYear, $currentMonth, $departmentId);
             $leaveTypes = LeaveSetting::all();
@@ -732,6 +751,14 @@ class AttendanceController extends Controller
             $date = $request->query('date', now()->toDateString());
             $departmentId = $request->query('department_id') ? (int) $request->query('department_id') : null;
 
+            $user = Auth::user();
+            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $user->department_id;
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $departmentId = $userDeptId;
+            }
+
             $employeesQuery = User::query()->whereHas('roles', function ($q) {
                 $q->where('name', 'Employee');
             });
@@ -1095,11 +1122,20 @@ class AttendanceController extends Controller
                 ], 422);
             }
 
+            $user = Auth::user();
+            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $user->department_id;
+
+            $reqDeptId = $request->query('department_id') ? (int) $request->query('department_id') : null;
+            if (!$isGlobal && $userDeptId !== null) {
+                $reqDeptId = $userDeptId;
+            }
+
             $filters = array_filter([
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
                 'employee' => $request->query('employee'),
-                'department_id' => $request->query('department_id') ? (int) $request->query('department_id') : null,
+                'department_id' => $reqDeptId,
                 'designation_id' => $request->query('designation_id') ? (int) $request->query('designation_id') : null,
                 'status' => $request->query('status'),
             ], fn ($v) => $v !== null && $v !== '');

@@ -29,6 +29,11 @@ class RosterController extends Controller
             'department_id' => 'nullable|integer',
         ]);
 
+        $user = $request->user();
+        if (!$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
+            $data['department_id'] = $user->department_id;
+        }
+
         $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
             ->whereBetween('date', [$data['from'], $data['to']])
             ->when($data['department_id'] ?? null, fn ($q, $departmentId) => $q->whereHas(
@@ -137,6 +142,16 @@ class RosterController extends Controller
             'to' => 'required|date|after_or_equal:from',
         ]);
 
+        $user = $request->user();
+        if (!$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
+            $invalidCount = User::whereIn('id', $data['user_ids'])
+                ->where('department_id', '!=', $user->department_id)
+                ->count();
+            if ($invalidCount > 0) {
+                return response()->json(['error' => 'You can only generate rosters for your own department.'], 403);
+            }
+        }
+
         $count = $this->roster->generateRoster($data['user_ids'], $data['from'], $data['to']);
 
         $cursor = \Carbon\Carbon::parse($data['from'])->startOfMonth();
@@ -159,6 +174,14 @@ class RosterController extends Controller
             'note' => 'nullable|string|max:255',
             'expected_updated_at' => 'nullable|date',
         ]);
+
+        $user = $request->user();
+        if (!$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
+            $targetUser = User::find($data['user_id']);
+            if (!$targetUser || $targetUser->department_id !== $user->department_id) {
+                return response()->json(['error' => 'You can only update roster cells for your own department.'], 403);
+            }
+        }
 
         $existing = RosterDay::where('user_id', $data['user_id'])
             ->whereDate('date', $data['date'])

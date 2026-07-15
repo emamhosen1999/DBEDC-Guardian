@@ -19,16 +19,24 @@ class AttendanceExport implements FromCollection, ShouldAutoSize, WithEvents, Wi
 {
     protected $date;
 
-    public function __construct(string $date)
+    protected $departmentId;
+
+    public function __construct(string $date, ?int $departmentId = null)
     {
         $this->date = $date;
+        $this->departmentId = $departmentId;
     }
 
     public function collection()
     {
-        $users = User::join('designations', 'users.designation_id', '=', 'designations.id')
-            ->select('users.*', 'designations.title as designation_title')
-            ->get();
+        $query = User::join('designations', 'users.designation_id', '=', 'designations.id')
+            ->select('users.*', 'designations.title as designation_title');
+
+        if ($this->departmentId) {
+            $query->where('users.department_id', $this->departmentId);
+        }
+
+        $users = $query->get();
 
         $rows = collect();
         $counter = 1;

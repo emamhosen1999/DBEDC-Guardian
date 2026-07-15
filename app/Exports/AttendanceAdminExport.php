@@ -16,6 +16,13 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class AttendanceAdminExport
 {
+    protected ?int $departmentId;
+
+    public function __construct(?int $departmentId = null)
+    {
+        $this->departmentId = $departmentId;
+    }
+
     public function export($month)
     {
         try {
@@ -64,7 +71,7 @@ class AttendanceAdminExport
         // (attendances policy_status != rejected, leaves status = approved); loading the
         // relations directly would leak pending/rejected leaves + rejected punches into the sheet.
         $users = app(AttendanceReportService::class)
-            ->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month);
+            ->getEmployeeUsersWithAttendanceAndLeaves($from->year, $from->month, $this->departmentId);
 
         $leaveTypes = LeaveSetting::all();
         $holidays = Holiday::all();
@@ -154,7 +161,7 @@ class AttendanceAdminExport
         $sheet->setTitle('Calendar');
 
         $summary = app(AttendanceReportService::class)
-            ->getPerEmployeeMonthlySummary($from->year, $from->month);
+            ->getPerEmployeeMonthlySummary($from->year, $from->month, $this->departmentId);
         $summarySheet = $spreadsheet->createSheet();
         (new \App\Exports\AttendancePerEmployeeSummaryExport)->writeSheet($summarySheet, $summary);
 
