@@ -30,20 +30,14 @@ import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdate
 /* ── Responsive Stat Pill ── */
 function StatPill({ label, value, color = 'gray', icon: Icon, loading = false, active = false, onClick }) {
     return (
-        <Panel 
-            size="1" 
-            style={{ 
-                minWidth: '130px', 
+        <Panel
+            tinted
+            style={{
+                minWidth: '130px',
                 flex: '1 1 auto',
-                background: active 
-                    ? `linear-gradient(135deg, var(--${color}-9) 0%, var(--${color}-10) 100%)`
-                    : `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
-                border: active 
-                    ? `1px solid var(--${color}-8)`
-                    : `1px solid var(--${color}-a4)`,
-                boxShadow: active 
-                    ? `0 4px 12px var(--${color}-a3)`
-                    : 'var(--shadow-1)',
+                ...(active ? {
+                    background: `linear-gradient(135deg, var(--${color}-9) 0%, var(--${color}-10) 100%)`,
+                } : {}),
                 cursor: onClick ? 'pointer' : 'default',
                 transform: active ? 'translateY(-2px)' : 'none',
                 transition: 'all 0.2s ease',
@@ -340,7 +334,7 @@ export default function AdminLeavesPanel({
 
             {/* ── Advanced Filter Panel ── */}
             {showFilters && (
-                <Panel size="2" variant="surface" mb="4">
+                <Panel tinted mb="4">
                     <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4">
                         <Box>
                             <Text size="2" color="gray" weight="medium" as="div" mb="2">Status</Text>

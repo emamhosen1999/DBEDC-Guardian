@@ -31,7 +31,7 @@ export default function SwapResponses() {
     if (swaps.length === 0) return null;
 
     return (
-        <Panel>
+        <Panel tinted>
             <Flex align="center" gap="2" mb="3">
                 <Text size="3" weight="bold">Swap requests awaiting your response</Text>
                 <Badge color="amber" variant="soft">{swaps.length}</Badge>

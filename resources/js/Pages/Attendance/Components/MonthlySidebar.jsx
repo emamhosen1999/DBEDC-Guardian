@@ -93,7 +93,7 @@ export default function MonthlySidebar({
             </Flex>
 
             {/* Attendance Rate */}
-            <Panel style={{ padding: '12px' }}>
+            <Panel tinted style={{ padding: '12px' }}>
                 <Text size="1" color="gray" weight="bold" mb="2" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Attendance Rate
                 </Text>
@@ -158,7 +158,7 @@ export default function MonthlySidebar({
             </Panel>
 
             {/* Attendance Trend */}
-            <Panel style={{ padding: '12px' }}>
+            <Panel tinted style={{ padding: '12px' }}>
                 <Text size="1" color="gray" weight="bold" mb="2" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Attendance Trend (Daily Presents)
                 </Text>
@@ -194,7 +194,7 @@ export default function MonthlySidebar({
 
             {/* Leave Breakdown */}
             {leaveBreakdown.length > 0 && (
-                <Panel style={{ padding: '12px' }}>
+                <Panel tinted style={{ padding: '12px' }}>
                     <Text size="1" color="gray" weight="bold" mb="2" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Leaves Taken
                     </Text>

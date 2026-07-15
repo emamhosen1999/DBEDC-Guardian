@@ -143,11 +143,8 @@ function ProgressRow({ label, value, max, color = 'var(--accent-9)', badge, load
 /* ── Stat Card ── */
 function StatCard({ label, value, sub, color = 'blue', icon: Icon, loading = false }) {
     return (
-        <Panel size="2" style={{
+        <Panel tinted style={{
             background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
-            border: `1px solid var(--${color}-a4)`,
-            boxShadow: 'var(--shadow-2)',
-            borderRadius: 'var(--radius-3)'
         }}>
             <Flex align="center" gap="3">
                 <Box p="3" style={{ background: `var(--${color}-a3)`, borderRadius: 'var(--radius-3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -293,7 +290,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                     {/* ── Visual Analytics Grid ── */}
                     <Grid columns={{ initial: '1', md: '3' }} gap="4">
                         {/* Monthly Trend Bar Chart */}
-                        <Panel variant="surface">
+                        <Panel>
                             <Text size="3" weight="bold" as="div" mb="1">Monthly Leave Trends — {year}</Text>
                             <Text size="1" color="gray" mb="3">Monthly request volume and status splits</Text>
                             <BarChart
@@ -318,7 +315,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                         </Panel>
 
                         {/* Absenteeism Gauge Card */}
-                        <Panel variant="surface">
+                        <Panel>
                             <Text size="3" weight="bold" as="div" mb="1">Absenteeism Rate</Text>
                             <Text size="1" color="gray" mb="3">Ratio of leave days to total working days</Text>
                             <Flex align="center" justify="between" gap="4" py="2" style={{ height: 120 }}>
@@ -353,7 +350,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                         </Panel>
 
                         {/* Peak Periods & Status Distribution List Card */}
-                        <Panel variant="surface">
+                        <Panel>
                             <Text size="3" weight="bold" as="div" mb="1">Peak Periods & Split</Text>
                             <Text size="1" color="gray" mb="3">Months with highest approved volume</Text>
                             
@@ -405,7 +402,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
 
                     {/* ── Leave Type & Department Breakdown ── */}
                     <Grid columns={{ initial: '1', lg: '2' }} gap="4">
-                        <Panel variant="surface">
+                        <Panel>
                             <Text size="3" weight="bold" as="div" mb="4">By Leave Type</Text>
                             <Flex direction="column" gap="3">
                                 {loading ? Array.from({ length: 4 }).map((_, i) => <ProgressRow key={i} loading={true} />) 
@@ -422,7 +419,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                             </Flex>
                         </Panel>
 
-                        <Panel variant="surface">
+                        <Panel>
                             <Text size="3" weight="bold" as="div" mb="4">By Department</Text>
                             <Flex direction="column" gap="3">
                                 {loading ? Array.from({ length: 4 }).map((_, i) => <ProgressRow key={i} loading={true} />)
@@ -440,7 +437,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                     </Grid>
 
                     {/* ── Top Leave Takers Table ── */}
-                    <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                    <Panel p="0" style={{ overflow: 'hidden' }}>
                         <Box p="4" pb="2">
                             <Text size="3" weight="bold" as="div">Top Leave Takers — {year}</Text>
                         </Box>

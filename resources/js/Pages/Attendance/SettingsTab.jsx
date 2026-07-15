@@ -733,7 +733,7 @@ const SettingsTab = () => {
                         <form onSubmit={handleGeneralSave}>
                             <Flex direction="column" gap="5">
                                 {/* Office Timing */}
-                                <Panel size="2">
+                                <Panel>
                                     <Flex align="center" gap="2" mb="3">
                                         <ClockIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                         <Text size="3" weight="bold">Office Timing</Text>
@@ -773,7 +773,7 @@ const SettingsTab = () => {
                                 </Panel>
 
                                 {/* Attendance Policies */}
-                                <Panel size="2">
+                                <Panel>
                                     <Flex align="center" gap="2" mb="3">
                                         <GearIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                         <Text size="3" weight="bold">Attendance Policies</Text>
@@ -833,7 +833,7 @@ const SettingsTab = () => {
                                 </Panel>
 
                                 {/* Weekend */}
-                                <Panel size="2">
+                                <Panel>
                                     <Flex align="center" gap="2" mb="3">
                                         <CalendarIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                         <Text size="3" weight="bold">Weekend Days</Text>
@@ -888,7 +888,7 @@ const SettingsTab = () => {
                                 const isOpen   = openSections.includes(slug);
 
                                 return (
-                                    <Panel key={slug} size="2">
+                                    <Panel key={slug}>
                                         {/* accordion header */}
                                         <Flex
                                             align="center" justify="between"

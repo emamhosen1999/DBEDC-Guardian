@@ -5,7 +5,7 @@ import { CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon, CalendarIc
 import axios from 'axios';
 
 const StatCard = ({ title, value, icon: Icon, color, loading }) => (
-    <Panel style={{ height: '100%' }}>
+    <Panel tinted style={{ height: '100%' }}>
         <Flex direction="column" gap="3">
             <Flex align="center" gap="3">
                 <Box style={{
