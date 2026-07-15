@@ -305,7 +305,7 @@ export default function LeaveSettingsPanel({
                     </Box>
                 </Flex>
 
-                <Panel size="3" variant="surface">
+                <Panel>
                     <Flex direction="column" gap="5">
                         {/* Text Fields Grid */}
                         <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4">
@@ -453,7 +453,7 @@ export default function LeaveSettingsPanel({
                     </Box>
                 </Flex>
 
-                <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                <Panel p="0" style={{ overflow: 'hidden' }}>
                     <ScrollArea scrollbars="both" style={{ maxHeight: 600 }}>
                         <Table.Root size="2" variant="ghost">
                             <Table.Header style={{ backgroundColor: 'var(--gray-a2)', position: 'sticky', top: 0, zIndex: 1 }}>

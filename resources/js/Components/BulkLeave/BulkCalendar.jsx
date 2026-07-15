@@ -183,7 +183,7 @@ const BulkCalendar = ({
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-        <Panel variant="surface" p="0" style={{ overflow: 'hidden', position: 'relative' }}>
+        <Panel p="0" style={{ overflow: 'hidden', position: 'relative' }}>
             
             {/* Loading Overlay */}
             {fetchFromAPI && loading && (
@@ -196,8 +196,22 @@ const BulkCalendar = ({
             )}
 
             {/* Header */}
-            <Box px="4" pt="4" pb="3" style={{ borderBottom: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-a2)' }}>
-                <Flex justify="between" align="center">
+            <Box px="4" pt="4">
+                <Panel.Header
+                    actions={
+                        <Flex align="center" gap="2">
+                            <IconButton size="1" variant="soft" color="gray" onClick={goToPreviousMonth} disabled={loading} style={{ cursor: 'pointer' }}>
+                                <ChevronLeftIcon />
+                            </IconButton>
+                            <Button size="1" variant="soft" color="gray" onClick={goToToday} disabled={loading} style={{ cursor: 'pointer' }}>
+                                Today
+                            </Button>
+                            <IconButton size="1" variant="soft" color="gray" onClick={goToNextMonth} disabled={loading} style={{ cursor: 'pointer' }}>
+                                <ChevronRightIcon />
+                            </IconButton>
+                        </Flex>
+                    }
+                >
                     <Flex align="center" gap="2">
                         <CalendarIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
                         <Flex align="baseline" gap="2">
@@ -205,21 +219,10 @@ const BulkCalendar = ({
                             <Text size="3" color="gray">{yearLabel}</Text>
                         </Flex>
                     </Flex>
-                    <Flex align="center" gap="2">
-                        <IconButton size="1" variant="soft" color="gray" onClick={goToPreviousMonth} disabled={loading} style={{ cursor: 'pointer' }}>
-                            <ChevronLeftIcon />
-                        </IconButton>
-                        <Button size="1" variant="soft" color="gray" onClick={goToToday} disabled={loading} style={{ cursor: 'pointer' }}>
-                            Today
-                        </Button>
-                        <IconButton size="1" variant="soft" color="gray" onClick={goToNextMonth} disabled={loading} style={{ cursor: 'pointer' }}>
-                            <ChevronRightIcon />
-                        </IconButton>
-                    </Flex>
-                </Flex>
+                </Panel.Header>
             </Box>
 
-            <Box p="4">
+            <Box px="4" pb="4">
                 {/* Legend */}
                 <Flex gap="2" wrap="wrap" mb="4">
                     <Badge color="blue" variant="solid" radius="full">Selected</Badge>
@@ -301,7 +304,7 @@ const BulkCalendar = ({
 
                 {/* Selection Summary */}
                 {selectedDates.length > 0 && (
-                    <Box mt="4" p="3" style={{ background: 'var(--accent-a2)', borderRadius: 'var(--radius-3)', border: '1px solid var(--accent-a4)' }}>
+                    <Panel tinted mt="4" p="3">
                         <Flex justify="between" align="center" mb="2">
                             <Text size="2" weight="bold" color="indigo">
                                 {selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected
@@ -320,7 +323,7 @@ const BulkCalendar = ({
                                 <Badge color="indigo" variant="outline">+{selectedDates.length - 8} more</Badge>
                             )}
                         </Flex>
-                    </Box>
+                    </Panel>
                 )}
             </Box>
         </Panel>

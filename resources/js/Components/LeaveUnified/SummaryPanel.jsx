@@ -21,12 +21,10 @@ import { showToast } from '@/utils/toastUtils';
 /* ── Responsive Stat Pill (Aligned with AdminLeavesPanel) ── */
 function StatPill({ label, value, color = 'gray', icon: Icon, loading = false }) {
     return (
-        <Panel size="1" style={{ 
-            minWidth: '150px', 
-            flex: '1 1 auto', 
+        <Panel tinted style={{
+            minWidth: '150px',
+            flex: '1 1 auto',
             background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
-            border: `1px solid var(--${color}-a4)`,
-            boxShadow: 'var(--shadow-1)'
         }}>
             <Flex align="center" gap="3" p="1">
                 <Box p="2" style={{ backgroundColor: `var(--${color}-a3)`, borderRadius: 'var(--radius-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -233,7 +231,7 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                             <Text size="2" color="gray">Try adjusting your search or filters.</Text>
                         </Flex>
                     ) : (
-                        <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                        <Panel p="0" style={{ overflow: 'hidden' }}>
                             <ScrollArea type="auto" scrollbars="both" style={{ width: '100%', maxHeight: '600px' }}>
                                 <Table.Root size="2">
                                     <Table.Header style={{ backgroundColor: 'var(--gray-a2)', position: 'sticky', top: 0, zIndex: 1 }}>
@@ -289,7 +287,7 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                             <Text size="2" color="gray">No leave records match the current filters.</Text>
                         </Flex>
                     ) : (
-                        <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                        <Panel p="0" style={{ overflow: 'hidden' }}>
                             <ScrollArea type="auto" scrollbars="both" style={{ width: '100%', maxHeight: '600px' }}>
                                 <Table.Root size="2">
                                     <Table.Header style={{ backgroundColor: 'var(--gray-a2)', position: 'sticky', top: 0, zIndex: 1 }}>

@@ -24,7 +24,12 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const authUserId = auth?.user?.id ?? null;
     const [selectedCell, setSelectedCell] = useState(null); // { userId, date }
     const [popoverOpen, setPopoverOpen] = useState(false);
-    const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
+
+    const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
+    const userDeptId = auth?.user?.department_id;
+    const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
+
+    const [selectedDepartmentId, setSelectedDepartmentId] = useState(isNonGlobalManager ? String(userDeptId) : 'all');
     const [employeeQuery, setEmployeeQuery] = useState('');
     const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'employee'
@@ -262,7 +267,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         </TextField.Slot>
                     </TextField.Root>
 
-                    {departments?.length > 0 && (
+                    {!isNonGlobalManager && departments?.length > 0 && (
                         <Select.Root
                             value={selectedDepartmentId}
                             onValueChange={setSelectedDepartmentId}

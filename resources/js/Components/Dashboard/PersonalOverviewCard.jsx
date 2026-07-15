@@ -77,7 +77,7 @@ export default function PersonalOverviewCard({ permissions = [] }) {
     const meta = attendance?.meta;
 
     return (
-        <Panel style={{ height: '100%' }}>
+        <Panel tinted style={{ height: '100%' }}>
             <style dangerouslySetInnerHTML={{__html: `
                 .stat-box-interactive:hover {
                     background: var(--gray-a3) !important;

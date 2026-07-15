@@ -101,8 +101,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
             
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel size="4" style={{
-                        }}>
+                    <Panel>
                         {/* ── Page Header ── */}
                         <Box mb="5">
                             <Flex justify="between" align="center" direction={{ initial: 'column', sm: 'row' }} gap="4">
@@ -128,7 +127,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                         {/* ── Stats Row ── */}
                         <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
                             {statsCards.map((stat, idx) => (
-                                <Panel key={idx} variant="surface">
+                                <Panel key={idx} tinted>
                                     <Flex align="center" gap="3">
                                         <Box p="2" style={{ backgroundColor: stat.bg, color: stat.color, borderRadius: 'var(--radius-2)' }}>
                                             {stat.icon}

@@ -11,7 +11,7 @@ class UserPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo('users.view');
+        return $user->hasPermissionTo('users.view') || $user->hasPermissionTo('employees.view');
     }
 
     /**
@@ -20,7 +20,7 @@ class UserPolicy
     public function view(User $user, User $model): bool
     {
         // Users can view themselves, or if they have permission
-        return $user->id === $model->id || $user->hasPermissionTo('users.view');
+        return $user->id === $model->id || $user->hasPermissionTo('users.view') || $user->hasPermissionTo('employees.view');
     }
 
     /**
@@ -28,7 +28,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermissionTo('users.create');
+        return $user->hasPermissionTo('users.create') || $user->hasPermissionTo('employees.create');
     }
 
     /**
@@ -48,13 +48,13 @@ class UserPolicy
 
         // HR managers can update employees in their organization
         if ($user->hasRole(['Administrator', 'HR Manager'])) {
-            return $user->hasPermissionTo('users.update');
+            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
         }
 
         // Department managers can update users in their department
         if ($user->hasRole('Department Manager') &&
             $user->department_id === $model->department_id) {
-            return $user->hasPermissionTo('users.update');
+            return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
         }
 
         return false;
@@ -124,7 +124,7 @@ class UserPolicy
             return false;
         }
 
-        return $user->hasPermissionTo('users.update');
+        return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
     }
 
     /**
@@ -138,7 +138,7 @@ class UserPolicy
         }
 
         // Admins can manage any user's devices
-        return $user->hasPermissionTo('users.update');
+        return $user->hasPermissionTo('users.update') || $user->hasPermissionTo('employees.update');
     }
 
     /**

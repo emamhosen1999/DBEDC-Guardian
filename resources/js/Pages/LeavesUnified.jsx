@@ -44,11 +44,7 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
 
             <Flex justify="center" p={{ initial: '3', md: '5' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel size="3" style={{
-                        boxShadow: 'var(--shadow-3)',
-                        borderRadius: 'var(--radius-4)',
-                        border: '1px solid var(--gray-a3)'
-                    }}>
+                    <Panel>
 
                         {/* ── Page Header ── */}
                         <Box mb="5">

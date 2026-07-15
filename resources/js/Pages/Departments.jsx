@@ -122,9 +122,8 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
 
         return (
             <Panel
+                tinted
                 className="transition-all duration-200 cursor-pointer h-full"
-                style={{
-                    }}
                 onClick={() => openModal('view_department', department)}
             >
                 <Panel.Body className="p-4 flex flex-col h-full">

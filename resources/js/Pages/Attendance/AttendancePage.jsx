@@ -49,6 +49,8 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
     const isSuperAdmin = auth.isSuperAdmin || false;
     const canSettings = isSuperAdmin || auth.permissions?.includes('attendance.settings') || false;
     const canManage   = isSuperAdmin || auth.permissions?.includes('attendance.manage')   || false;
+    const isDeptManager = auth.roles?.includes('Department Manager') || false;
+    const canRoster = canSettings || isDeptManager;
 
     /* tab definitions */
     const tabs = [
@@ -58,7 +60,7 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
             ? [{ value: 'approvals', label: 'Approvals', icon: <CheckCircledIcon /> }]
             : []
         ),
-        ...(canSettings
+        ...(canRoster
             ? [{ value: 'roster',   label: 'Roster',   icon: <LayersIcon /> }]
             : []
         ),

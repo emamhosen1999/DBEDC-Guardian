@@ -399,7 +399,11 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
     // Zustand store for shared state
     const { employeeQuery, setEmployeeQuery } = useAttendanceStore();
 
-    const [selectedDepartmentId, setSelectedDepartmentId] = useState('all');
+    const isGlobalUser = auth.roles?.includes('Super Administrator') || auth.roles?.includes('Administrator') || auth.roles?.includes('HR Manager');
+    const userDeptId = auth.user?.department_id;
+    const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth.roles?.includes('Department Manager');
+
+    const [selectedDepartmentId, setSelectedDepartmentId] = useState(isNonGlobalManager ? String(userDeptId) : 'all');
     const [downloading, setDownloading] = useState('');
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -505,7 +509,7 @@ const MonthlyCalendarTab = ({ selectedMonth, onMonthChange, departments = [] }) 
                         </TextField.Root>
                     )}
 
-                    {isAdminView && departments?.length > 0 && (
+                    {isAdminView && !isNonGlobalManager && departments?.length > 0 && (
                         <Select.Root
                             value={selectedDepartmentId || 'all'}
                             onValueChange={val => setSelectedDepartmentId(val)}

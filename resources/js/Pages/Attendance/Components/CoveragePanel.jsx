@@ -81,7 +81,7 @@ export default function CoveragePanel({ from, to, isActive = true }) {
     }
 
     return (
-        <Panel mb="4">
+        <Panel tinted mb="4">
             <Flex justify="between" align="center" mb="3">
                 <Text size="2" weight="bold">Coverage — {from} → {to}</Text>
                 {gaps.length > 0 && <Badge color="red">{gaps.length} understaffed</Badge>}

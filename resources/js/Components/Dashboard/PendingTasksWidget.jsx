@@ -28,7 +28,7 @@ export default function PendingTasksWidget({ permissions = [] }) {
     const pending = stats?.pending || 0;
 
     return (
-        <Panel style={{ height: '105px', border: pending > 0 ? '1px solid var(--amber-a5)' : undefined }}>
+        <Panel tinted style={{ height: '105px', ...(pending > 0 ? { background: 'var(--amber-a3)' } : {}) }}>
             <Flex direction="column" justify="between" style={{ height: '100%' }}>
                 <Flex align="center" justify="between">
                     <Flex align="center" gap="2">

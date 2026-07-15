@@ -72,14 +72,12 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                     const pct = total > 0 ? Math.min(100, (taken / total) * 100) : 0;
 
                     return (
-                        <Panel 
-                            key={b.leave_type_id ?? b.type} 
-                            size="2"
+                        <Panel
+                            key={b.leave_type_id ?? b.type}
+                            tinted
                             style={{
                                 background: cfg.bg,
-                                border: cfg.border,
                                 transition: 'all 0.25s ease',
-                                boxShadow: 'var(--shadow-1)',
                             }}
                         >
                             <Flex align="center" gap="2" mb="3" justify="between">
@@ -145,14 +143,12 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                 const pct = totalDays > 0 ? Math.min(100, (usedDays / totalDays) * 100) : 0;
 
                 return (
-                    <Panel 
-                        key={type} 
-                        size="2"
+                    <Panel
+                        key={type}
+                        tinted
                         style={{
                             background: cfg.bg,
-                            border: cfg.border,
                             transition: 'all 0.25s ease',
-                            boxShadow: 'var(--shadow-1)',
                         }}
                     >
                         <Flex align="center" gap="2" mb="3">

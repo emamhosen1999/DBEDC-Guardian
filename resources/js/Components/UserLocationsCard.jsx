@@ -1210,21 +1210,21 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
                 {/* Stats */}
                 <Box p="4" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
                     <Grid columns="3" gap="3">
-                        <Panel variant="surface">
+                        <Panel tinted p="0">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <PersonIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
                                 <Text size="4" weight="bold" color="blue">{userStats.total}</Text>
                                 <Text size="1" color="gray">Total</Text>
                             </Flex>
                         </Panel>
-                        <Panel variant="surface">
+                        <Panel tinted p="0">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <ClockIcon style={{ color: 'var(--amber-9)', width: 20, height: 20 }} />
                                 <Text size="4" weight="bold" color="amber">{userStats.checkedIn}</Text>
                                 <Text size="1" color="gray">Active</Text>
                             </Flex>
                         </Panel>
-                        <Panel variant="surface">
+                        <Panel tinted p="0">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <CheckCircledIcon style={{ color: 'var(--green-9)', width: 20, height: 20 }} />
                                 <Text size="4" weight="bold" color="green">{userStats.completed}</Text>

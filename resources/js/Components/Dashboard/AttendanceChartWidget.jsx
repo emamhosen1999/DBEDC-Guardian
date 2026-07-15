@@ -179,7 +179,7 @@ export default function AttendanceChartWidget({ permissions = [] }) {
         <Box>
             <Flex gap={{ initial: '3', md: '4' }} style={{ flexWrap: 'wrap' }}>
                 {canPersonal && (
-                    <Panel style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
+                    <Panel tinted style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
                         <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }} style={{ flexShrink: 0 }}>
                             <Heading size={{ initial: '2', md: '3' }}>My Attendance</Heading>
                             <Badge variant="soft" color="gray" size="1">{monthLabel}</Badge>
@@ -191,7 +191,7 @@ export default function AttendanceChartWidget({ permissions = [] }) {
                 )}
 
                 {canTeam && (
-                    <Panel style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
+                    <Panel tinted style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
                         <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }} style={{ flexShrink: 0 }}>
                             <Heading size={{ initial: '2', md: '3' }}>Team Attendance</Heading>
                             <Badge variant="soft" color="gray" size="1">

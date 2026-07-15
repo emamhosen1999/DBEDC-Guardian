@@ -159,11 +159,8 @@ const LeaveEmployeeTable = React.forwardRef(({
 
     /* ── bulk bar ── */
     const bulkBar = isAdminView && selectedIds.size > 0 && (
-        <Flex align="center" gap="2" mb="2" p="2" style={{
-            background: 'var(--accent-a2)',
-            borderRadius: 'var(--radius-2)',
-            border: '1px solid var(--accent-a5)',
-        }}>
+        <Panel tinted mb="2" p="2">
+        <Flex align="center" gap="2">
             <Text size="2" weight="medium" style={{ marginRight: 'auto' }}>
                 {selectedIds.size} of {leaves.length} selected
             </Text>
@@ -190,13 +187,14 @@ const LeaveEmployeeTable = React.forwardRef(({
                 </Button>
             )}
         </Flex>
+        </Panel>
     );
 
     /* ── mobile card ── */
     const MobileLeaveCard = ({ leave }) => {
         const user = getUserInfo(leave.user_id);
         return (
-            <Panel mb="2">
+            <Panel tinted mb="2">
                 <Flex direction="column" gap="2" p="3">
                     <Flex justify="between" align="start">
                         <Flex align="center" gap="2" style={{ flex: 1 }}>

@@ -395,10 +395,10 @@ const BulkImportResponseStatusModal = ({
                                     {/* Parse Summary */}
                                     {parseSummary && (
                                         <Flex wrap="wrap" gap="2">
-                                            <Panel style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{parseSummary.total}</Text><Text size="1" color="gray" as="p">Total Found</Text></Box></Panel>
-                                            <Panel style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{parseSummary.clean}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Ready</Text></Box></Panel>
-                                            <Panel style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{parseSummary.objected}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Objected</Text></Box></Panel>
-                                            <Panel style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{parseSummary.notFound}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Not Found</Text></Box></Panel>
+                                            <Panel tinted p="0"><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{parseSummary.total}</Text><Text size="1" color="gray" as="p">Total Found</Text></Box></Panel>
+                                            <Panel tinted p="0" style={{ background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{parseSummary.clean}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Ready</Text></Box></Panel>
+                                            <Panel tinted p="0" style={{ background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{parseSummary.objected}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Objected</Text></Box></Panel>
+                                            <Panel tinted p="0" style={{ background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{parseSummary.notFound}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Not Found</Text></Box></Panel>
                                         </Flex>
                                     )}
 
@@ -444,12 +444,12 @@ const BulkImportResponseStatusModal = ({
                                     </Box>
 
                                     <Flex wrap="wrap" gap="3">
-                                        <Panel asChild><button onClick={handleSkipObjected} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', border: '2px solid var(--gray-a4)', borderRadius: 8 }}>
+                                        <Panel tinted p="0" asChild><button onClick={handleSkipObjected} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', borderRadius: 8 }}>
                                             <CheckCircledIcon style={{ width: 32, height: 32, color: 'var(--green-9)', margin: '0 auto 8px' }} />
                                             <Text weight="bold" as="p">Skip Objected RFIs</Text>
                                             <Text size="1" color="gray" as="p" mt="1">Update only {parseSummary?.clean || 0} RFI{(parseSummary?.clean || 0) !== 1 ? 's' : ''} without objections</Text>
                                         </button></Panel>
-                                        <Panel asChild><button onClick={overrideReason.trim() ? handleOverrideObjected : undefined} disabled={!overrideReason.trim()} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', opacity: overrideReason.trim() ? 1 : 0.6, border: `2px solid ${overrideReason.trim()?'var(--amber-a6)':'var(--gray-a4)'}`, borderRadius: 8 }}>
+                                        <Panel tinted p="0" asChild><button onClick={overrideReason.trim() ? handleOverrideObjected : undefined} disabled={!overrideReason.trim()} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', opacity: overrideReason.trim() ? 1 : 0.6, background: overrideReason.trim() ? 'var(--amber-a3)' : 'var(--gray-2)', borderRadius: 8 }}>
                                             <ExclamationTriangleIcon style={{ width: 32, height: 32, color: 'var(--amber-9)', margin: '0 auto 8px' }} />
                                             <Text weight="bold" as="p">Override & Update All</Text>
                                             <Text size="1" color="gray" as="p" mt="1">Update all {parseSummary?.total || 0} RFI{(parseSummary?.total || 0) !== 1 ? 's' : ''} including objected</Text>

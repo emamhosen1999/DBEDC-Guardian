@@ -266,7 +266,7 @@ const HolidayTable = ({
 
             {showFilters && (
                 <Box>
-                    <Panel style={{ padding: 16 }}>
+                    <Panel tinted p="4">
                         <Text size="2" weight="medium" mb="2" as="div">
                             Holiday Type
                         </Text>
@@ -396,7 +396,7 @@ const HolidayTable = ({
         const days = differenceInDays(new Date(holiday.to_date), new Date(holiday.from_date)) + 1;
 
         return (
-            <Panel mb="2">
+            <Panel tinted mb="2">
                 <Flex justify="between" align="start" gap="2" mb="3">
                     <Box style={{ flex: 1 }}>
                         <Text size="3" weight="bold">
@@ -463,7 +463,7 @@ const HolidayTable = ({
 
     if (holidaysData.length === 0) {
         return (
-            <Panel style={{ padding: 48, textAlign: 'center' }}>
+            <Panel tinted style={{ padding: 48, textAlign: 'center' }}>
                 <CalendarIcon style={{ width: 64, height: 64, color: 'var(--gray-8)', margin: '0 auto 16px auto' }} />
                 <Text size="4" weight="bold" mb="2" as="div">
                     No Holidays Found

@@ -6,9 +6,10 @@
  */
 import React, { useState, useMemo } from 'react';
 import {
-    Badge, Box, Button, Callout, Dialog, Flex,
+    Badge, Button, Callout, Dialog, Flex,
     Separator, Spinner, Text,
 } from '@radix-ui/themes';
+import { Panel } from '@/Components/ui/Panel';
 import {
     CheckCircledIcon, ClockIcon, CrossCircledIcon,
     ExclamationTriangleIcon, InfoCircledIcon,
@@ -105,11 +106,7 @@ export default function BulkStatusUpdateModal({
                 </Dialog.Description>
 
                 {/* Status breakdown */}
-                <Box mb="4" p="3" style={{
-                    background: 'var(--gray-a2)',
-                    borderRadius: 'var(--radius-2)',
-                    border: '1px solid var(--gray-a4)',
-                }}>
+                <Panel tinted mb="4" p="3">
                     <Text size="2" weight="medium" as="div" mb="2">Current Status Breakdown</Text>
                     <Flex gap="2" wrap="wrap">
                         {Object.entries(statusBreakdown).map(([status, count]) => {
@@ -121,7 +118,7 @@ export default function BulkStatusUpdateModal({
                             );
                         })}
                     </Flex>
-                </Box>
+                </Panel>
 
                 <Separator size="4" mb="4" />
 

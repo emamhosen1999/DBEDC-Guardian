@@ -11,12 +11,9 @@ const HolidayCard = () => {
                 {/* Upcoming Holiday Card */}
                 <div className="flex flex-col">
                     <div className="flex-1 flex flex-col">
-                        <Panel style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div className="p-4">
-                                <h3 className="text-lg font-semibold">Upcoming Holiday</h3>
-                            </div>
-                            <Separator size="4" style={{ margin: '0 0 1rem' }} />
-                            <div className="p-4 text-center flex-1 flex flex-col justify-center">
+                        <Panel tinted p="4" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <Panel.Header title="Upcoming Holiday" />
+                            <div className="text-center flex-1 flex flex-col justify-center">
                                 {upcomingHoliday ? (
                                     <>
                                         <h4 className="text-base font-medium mb-2">

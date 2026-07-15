@@ -1,13 +1,14 @@
 import React from 'react';
-import { Card, Flex, Box, Heading, Text, Badge, Grid } from '@radix-ui/themes';
+import { Flex, Box, Heading, Text, Badge, Grid } from '@radix-ui/themes';
 import {
     ComposedChart, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     AreaChart, Area, RadialBarChart, RadialBar, PolarAngleAxis, Cell, LabelList,
 } from 'recharts';
 import {
-    Panel, SectionLabel, Kpi, Spark, StatRow, DeltaChip, TONE, SERIES, MONO,
+    CommandCard, SectionLabel, Kpi, Spark, StatRow, DeltaChip, TONE, SERIES, MONO,
     fmtNum, fmtCr, chLabel, tooltipStyle,
 } from './kit.jsx';
+import { Panel } from '@/Components/ui/Panel';
 
 const ROAD_KM = 48;
 const ic = (path) => (
@@ -31,7 +32,7 @@ export function ProjectHero({ project, chainage = [], objections }) {
     (objections?.points || []).forEach((p) => { objByKm[p.km] = p.count; });
 
     return (
-        <Card className="cc-card cc-hero" style={{ gridColumn: '1 / -1' }}>
+        <Panel className="cc-card cc-hero" style={{ gridColumn: '1 / -1' }} tinted>
             <Flex align="end" justify="between" gap="5" wrap="wrap" mb="4">
                 <Box style={{ minWidth: 0 }}>
                     <Text size="1" style={{ fontFamily: MONO, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gray-11)' }}>
@@ -86,7 +87,7 @@ export function ProjectHero({ project, chainage = [], objections }) {
                     </Flex>
                 </Flex>
             </Box>
-        </Card>
+        </Panel>
     );
 }
 const HeroStat = ({ k, v, unit, tone }) => (
@@ -133,7 +134,7 @@ export function KpiBand({ kpis = {}, quality = {} }) {
 /* ══════════════════════════ RFI THROUGHPUT ═════════════════════════ */
 export function RfiThroughput({ data = [] }) {
     return (
-        <Panel title="RFI Throughput" sub="requests for inspection · monthly disposition" minHeight={300}
+        <CommandCard title="RFI Throughput" sub="requests for inspection · monthly disposition" minHeight={300}
             right={<Flex gap="3" style={{ fontFamily: MONO, fontSize: 11, color: 'var(--gray-11)' }}>
                 <Lg c={SERIES.completed} t="Approved" /><Lg c={SERIES.resubmission} t="Resubmitted" /><Lg c={SERIES.new} t="Pending" />
             </Flex>}>
@@ -152,7 +153,7 @@ export function RfiThroughput({ data = [] }) {
                 </BarChart>
             </ResponsiveContainer>
             <Text size="1" color="gray" style={{ fontFamily: MONO }}>% = approval rate of dispositioned RFIs that month</Text>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -161,7 +162,7 @@ export function QualitySignal({ quality = {} }) {
     const rate = quality.first_pass_rate ?? 0;
     const data = [{ name: 'first-pass', value: rate, fill: 'var(--jade-9)' }];
     return (
-        <Panel title="First-Pass Quality" sub="RFIs cleared without resubmission" minHeight={300}>
+        <CommandCard title="First-Pass Quality" sub="RFIs cleared without resubmission" minHeight={300}>
             <Box style={{ position: 'relative', height: 168 }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <RadialBarChart innerRadius="72%" outerRadius="100%" data={data} startAngle={90} endAngle={-270}>
@@ -179,7 +180,7 @@ export function QualitySignal({ quality = {} }) {
                 <StatRow dot="var(--amber-9)" name="Needed resubmission" value={fmtNum(quality.resubmitted)} />
                 <StatRow dot="var(--iris-9)" name="Inspections passed / failed" value={`${fmtNum(quality.inspection_pass)} / ${quality.inspection_fail}`} />
             </Box>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -187,7 +188,7 @@ export function QualitySignal({ quality = {} }) {
 export function DisciplineMix({ data = [] }) {
     const max = Math.max(1, ...data.map((d) => d.total));
     return (
-        <Panel title="Works by Discipline" sub="RFI volume & completion" minHeight={220}>
+        <CommandCard title="Works by Discipline" sub="RFI volume & completion" minHeight={220}>
             <Flex direction="column" gap="3" mt="1">
                 {data.map((d) => (
                     <Box key={d.name}>
@@ -206,7 +207,7 @@ export function DisciplineMix({ data = [] }) {
             <Flex gap="4" mt="3" pt="3" style={{ borderTop: '1px solid var(--gray-a3)', fontFamily: MONO, fontSize: 11, color: 'var(--gray-11)' }}>
                 <Lg c="var(--jade-9)" t="completed" /><Lg c="var(--blue-a5)" t="total raised" />
             </Flex>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -220,7 +221,7 @@ export function NcrPanel({ ncr = {} }) {
         ['IE-recommended (RHD consent)', ncr.consent, 'var(--jade-9)'],
     ];
     return (
-        <Panel title="Non-Conformance (NCR)" sub={`${ncr.issued} issued · ${ncr.closed} closed`} minHeight={220}
+        <CommandCard title="Non-Conformance (NCR)" sub={`${ncr.issued} issued · ${ncr.closed} closed`} minHeight={220}
             right={<Badge color="tomato" variant="soft">{ncr.open} open</Badge>}>
             <Flex gap="2" mb="3">
                 {[['critical', sev.critical, 'var(--tomato-9)'], ['major', sev.major, 'var(--amber-9)'], ['minor', sev.minor, 'var(--iris-9)']].map(([k, v, c]) => (
@@ -233,7 +234,7 @@ export function NcrPanel({ ncr = {} }) {
             {funnel.map(([label, val, color]) => (
                 <StatRow key={label} dot={color} name={label} value={val ?? 0} />
             ))}
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -241,7 +242,7 @@ export function NcrPanel({ ncr = {} }) {
 export function SiPanel({ si = {} }) {
     const deptColor = { 'Quality Control': 'var(--jade-9)', Pavement: 'var(--amber-9)', Structure: 'var(--iris-9)' };
     return (
-        <Panel title="Site Instructions (SI)" sub={`${si.issued} issued · ${si.closed} closed`} minHeight={220}
+        <CommandCard title="Site Instructions (SI)" sub={`${si.issued} issued · ${si.closed} closed`} minHeight={220}
             right={<Badge color="amber" variant="soft">{si.open} open</Badge>}>
             <Flex gap="2" mb="3">
                 {(si.by_department || []).map((d) => (
@@ -258,7 +259,7 @@ export function SiPanel({ si = {} }) {
                         sub={`${s.si_number} · ${s.location || 'project-wide'}`} />
                 ))}
             </Box>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -268,7 +269,7 @@ export function ObjectionHotspots({ objections = {} }) {
     const max = Math.max(1, ...points.map((p) => p.count));
     const W = 680, H = 74, y = 40;
     return (
-        <Panel title="Objection Hotspots" sub={`${objections.count} chainage objections mapped along the road`} minHeight={160}
+        <CommandCard title="Objection Hotspots" sub={`${objections.count} chainage objections mapped along the road`} minHeight={160}
             right={<Badge color="amber" variant="soft">{points.length} locations</Badge>}>
             <Box style={{ overflowX: 'auto' }}>
                 <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 520 }}>
@@ -292,7 +293,7 @@ export function ObjectionHotspots({ objections = {} }) {
                     })}
                 </svg>
             </Box>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -300,7 +301,7 @@ export function ObjectionHotspots({ objections = {} }) {
 export function BudgetBurndown({ budget = {} }) {
     const data = budget.series || [];
     return (
-        <Panel title="Budget Burn-down" sub="cumulative certified vs planned · ৳ crore" minHeight={300}
+        <CommandCard title="Budget Burn-down" sub="cumulative certified vs planned · ৳ crore" minHeight={300}
             right={<Flex gap="3" style={{ fontFamily: MONO, fontSize: 11, color: 'var(--gray-11)' }}>
                 <Lg c="var(--blue-9)" t="Planned" /><Lg c="var(--accent-9)" t="Certified" />
             </Flex>}>
@@ -320,7 +321,7 @@ export function BudgetBurndown({ budget = {} }) {
                     <Area type="monotone" dataKey="certified" name="Certified" stroke="var(--accent-9)" strokeWidth={2.4} fill="url(#ccCert)" dot={false} />
                 </AreaChart>
             </ResponsiveContainer>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -328,7 +329,7 @@ export function BudgetBurndown({ budget = {} }) {
 export function WorkforceTrend({ workforce = {} }) {
     const data = workforce.series || [];
     return (
-        <Panel title="Workforce Attendance" sub="last 14 days · staff present on site" minHeight={300}
+        <CommandCard title="Workforce Attendance" sub="last 14 days · staff present on site" minHeight={300}
             right={<Badge color="jade" variant="soft">{workforce.present_today} today</Badge>}>
             <ResponsiveContainer width="100%" height={230}>
                 <AreaChart data={data} margin={{ top: 10, right: 10, left: -12, bottom: 0 }}>
@@ -345,7 +346,7 @@ export function WorkforceTrend({ workforce = {} }) {
                     <Area type="monotone" dataKey="present" name="Present" stroke="var(--iris-9)" strokeWidth={2.4} fill="url(#ccWf)" dot={false} />
                 </AreaChart>
             </ResponsiveContainer>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -354,7 +355,7 @@ export function WorkPackages({ milestones = [] }) {
     const cmap = { completed: 'var(--jade-9)', in_progress: 'var(--amber-9)', not_started: 'var(--blue-9)', behind: 'var(--tomato-9)' };
     const smap = { completed: 'On track', in_progress: 'In progress', not_started: 'Not started', behind: 'Behind' };
     return (
-        <Panel title="Work Packages & Milestones" sub="programme against SPCD" minHeight={300}
+        <CommandCard title="Work Packages & Milestones" sub="programme against SPCD" minHeight={300}
             right={<Badge color="gray" variant="soft">{milestones.length} packages</Badge>}>
             <Flex direction="column" gap="3">
                 {milestones.map((m) => (
@@ -376,7 +377,7 @@ export function WorkPackages({ milestones = [] }) {
             <Flex gap="4" mt="3" pt="3" style={{ borderTop: '1px solid var(--gray-a3)', fontFamily: MONO, fontSize: 11, color: 'var(--gray-11)', flexWrap: 'wrap' }}>
                 {Object.entries(smap).map(([k, v]) => <Lg key={k} c={cmap[k]} t={v} />)}
             </Flex>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -393,7 +394,7 @@ export function OperationsFeed({ feed = [] }) {
         return `${Math.round(mins / 1440)}d`;
     };
     return (
-        <Panel title="Operations Feed" sub="latest field actions across disciplines" minHeight={300}>
+        <CommandCard title="Operations Feed" sub="latest field actions across disciplines" minHeight={300}>
             <Flex direction="column">
                 {feed.map((f, i) => (
                     <Flex key={i} gap="3" py="2" style={{ borderTop: i ? '1px solid var(--gray-a3)' : 'none' }}>
@@ -409,7 +410,7 @@ export function OperationsFeed({ feed = [] }) {
                     </Flex>
                 ))}
             </Flex>
-        </Panel>
+        </CommandCard>
     );
 }
 
@@ -417,7 +418,7 @@ export function OperationsFeed({ feed = [] }) {
 export function TodayPanel({ today = {}, project = {} }) {
     const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
     return (
-        <Panel title="Today on Site" sub={dateLabel} minHeight={300}>
+        <CommandCard title="Today on Site" sub={dateLabel} minHeight={300}>
             <TodayRow tone="jade" icon={ic(<path d="M20 6 9 17l-5-5" />)} name="On leave today"
                 sub={`${today.on_leave ?? 0} approved`} />
             <TodayRow tone="blue" icon={ic(<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>)}
@@ -426,7 +427,7 @@ export function TodayPanel({ today = {}, project = {} }) {
                 name="Current phase" sub={project.current_phase || '—'} />
             <TodayRow tone="iris" icon={ic(<><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></>)}
                 name="Schedule / cost index" sub={`SPI ${project.spi ?? '—'} · CPI ${project.cpi ?? '—'}`} />
-        </Panel>
+        </CommandCard>
     );
 }
 const TodayRow = ({ tone, icon, name, sub }) => (

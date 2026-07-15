@@ -163,7 +163,7 @@ const LeaveForm = ({
 
                 <Box px="5" py="4">
                     <form onSubmit={handleSubmit}>
-                        <Panel variant="surface" mb="4">
+                        <Panel mb="4">
                             <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                 <Box>
                                     <Text size="2" weight="medium" mb="1" display="block">Leave Type</Text>

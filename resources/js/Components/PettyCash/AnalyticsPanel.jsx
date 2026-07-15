@@ -99,7 +99,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
         <Box>
             {/* Summary Cards */}
             <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
-                <Panel style={{ 
+                <Panel tinted style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--blue-9)'
@@ -117,7 +117,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                     </Flex>
                 </Panel>
 
-                <Panel style={{ 
+                <Panel tinted style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--red-9)'
@@ -135,7 +135,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                     </Flex>
                 </Panel>
 
-                <Panel style={{ 
+                <Panel tinted style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--green-9)'
@@ -153,7 +153,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                     </Flex>
                 </Panel>
 
-                <Panel style={{ 
+                <Panel tinted style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--gray-9)'

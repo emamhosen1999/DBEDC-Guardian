@@ -38,7 +38,7 @@ const ValidationPreview = ({ validationResults = [], balanceImpact = null, isVal
 
     return (
         <Flex direction="column" gap="3" mt="2">
-            <Panel variant="surface" style={{ backgroundColor: 'var(--gray-a2)' }}>
+            <Panel tinted>
                 <Flex justify="between" align="center" mb="3">
                     <Text size="3" weight="bold">Validation Results</Text>
                     {isValidating && (
@@ -101,12 +101,13 @@ const ValidationPreview = ({ validationResults = [], balanceImpact = null, isVal
             </Panel>
 
             {validationResults.length > 0 && !isValidating && (
-                <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
-                    <Box px="3" py="2" style={{ borderBottom: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-a2)' }}>
-                        <Flex justify="between" align="center">
+                <Panel p="0" style={{ overflow: 'hidden' }}>
+                    <Box px="3" pt="2">
+                        <Panel.Header
+                            actions={<Badge color="gray" variant="soft">{validationResults.length} dates</Badge>}
+                        >
                             <Text size="2" weight="bold">Date Details</Text>
-                            <Badge color="gray" variant="soft">{validationResults.length} dates</Badge>
-                        </Flex>
+                        </Panel.Header>
                     </Box>
                     <ScrollArea type="auto" style={{ maxHeight: '200px' }}>
                         <Flex direction="column" p="2" gap="2">
@@ -302,7 +303,7 @@ export default function BulkLeaveModal({
                             <Flex direction="column" gap="4">
                                 <Box>
                                     <Text size="3" weight="bold" as="div" mb="3">2. Leave Details</Text>
-                                    <Panel variant="surface">
+                                    <Panel>
                                         <Flex direction="column" gap="3">
                                             {isAdmin && (
                                                 <DepartmentEmployeeSelector
@@ -355,7 +356,7 @@ export default function BulkLeaveModal({
                                                 />
                                             </Box>
 
-                                            <Box p="3" style={{ backgroundColor: 'var(--gray-a2)', borderRadius: 'var(--radius-2)', border: '1px solid var(--gray-a4)' }}>
+                                            <Panel tinted p="3">
                                                 <Flex align="center" justify="between">
                                                     <Box>
                                                         <Text size="2" weight="bold" display="block">Allow Partial Success</Text>
@@ -363,7 +364,7 @@ export default function BulkLeaveModal({
                                                     </Box>
                                                     <Switch size="2" checked={allowPartialSuccess} onCheckedChange={setAllowPartialSuccess} disabled={isSubmitting || isValidating} />
                                                 </Flex>
-                                            </Box>
+                                            </Panel>
                                         </Flex>
                                     </Panel>
                                 </Box>

@@ -29,7 +29,7 @@ export default function ProjectOverviewWidget({ permissions = [] }) {
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return (
-        <Panel style={{ height: '260px', display: 'flex', flexDirection: 'column' }}>
+        <Panel tinted style={{ height: '260px', display: 'flex', flexDirection: 'column' }}>
             <Flex direction="column" gap="3" style={{ height: '100%', justifyContent: 'space-between' }}>
                 <Flex align="center" gap="2">
                     <Box style={{

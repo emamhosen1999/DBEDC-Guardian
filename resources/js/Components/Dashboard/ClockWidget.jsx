@@ -101,7 +101,7 @@ export default function ClockWidget() {
     });
 
     return (
-        <Panel style={{ height: '100%' }}>
+        <Panel tinted style={{ height: '100%' }}>
             <Flex align="center" gap={{ initial: '2', sm: '3', md: '4' }} style={{ height: '100%' }}>
                 <AnalogFace time={time} size={clockSize} />
                 <Flex direction="column" gap="0" style={{ minWidth: 0, flex: 1, justifyContent: 'center' }}>

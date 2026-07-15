@@ -392,7 +392,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end" style={{ minWidth: 220 }}>
             {/* User info card */}
-            <Panel style={{ margin: '2px 2px 4px', padding: 0 }}>
+            <Panel tinted style={{ margin: '2px 2px 4px', padding: 0 }}>
               <Flex align="center" gap="3" px="3" py="3">
                 <Box style={{ position: 'relative', flexShrink: 0 }}>
                   <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="3" radius="full" />

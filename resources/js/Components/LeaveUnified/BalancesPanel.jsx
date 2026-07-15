@@ -5,7 +5,7 @@ import { Panel } from '@/Components/ui/Panel';
  * transaction history. Reads the Phase-3 ledger via /leave-balances + /leave-ledger.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Badge, Box, Flex, Select, Separator, Spinner, Table, Text, TextField } from '@radix-ui/themes';
+import { Badge, Box, Flex, ScrollArea, Select, Separator, Spinner, Table, Text, TextField } from '@radix-ui/themes';
 import { MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import LeaveBalanceCards from '@/Components/Leaves/LeaveBalanceCards.jsx';
@@ -95,11 +95,11 @@ export default function BalancesPanel({ allUsers = [], isActive = false }) {
                     {loading ? (
                         <Flex justify="center" py="8"><Spinner size="3" /></Flex>
                     ) : txns.length === 0 ? (
-                        <Panel style={{ padding: 24, textAlign: 'center', background: 'var(--gray-a2)', border: '1px dashed var(--gray-a6)' }}>
+                        <Panel tinted style={{ padding: 24, textAlign: 'center' }}>
                             <Text size="2" color="gray">No ledger transactions found for this employee/year.</Text>
                         </Panel>
                     ) : (
-                        <Panel size="2" style={{ p: 0, overflow: 'hidden', boxShadow: 'var(--shadow-1)' }}>
+                        <Panel p="0" style={{ overflow: 'hidden' }}>
                             <ScrollArea type="auto" scrollbars="horizontal">
                                 <Table.Root size="2" style={{ width: '100%', minWidth: 600 }}>
                                     <Table.Header style={{ backgroundColor: 'var(--gray-a2)' }}>

@@ -40,7 +40,7 @@ const ProfileCard = ({ user, setUser, canEdit, completion }) => {
     };
 
     return (
-        <Panel size="3" variant="surface" style={{ backgroundColor: 'var(--gray-a2)' }}>
+        <Panel tinted>
             <Flex align="center" gap="4" wrap="wrap">
                 
                 {/* Avatar with Inline Upload */}

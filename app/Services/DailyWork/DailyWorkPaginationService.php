@@ -178,6 +178,16 @@ class DailyWorkPaginationService
             return $baseQuery;
         }
 
+        if ($user->hasRole('Department Manager') && $user->department_id !== null) {
+            return $baseQuery->where(function ($q) use ($user) {
+                $q->whereHas('inchargeUser', function ($uq) use ($user) {
+                    $uq->where('department_id', $user->department_id);
+                })->orWhereHas('assignedUser', function ($uq) use ($user) {
+                    $uq->where('department_id', $user->department_id);
+                });
+            });
+        }
+
         if ($userDesignationTitle === 'Supervision Engineer') {
             return $baseQuery->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id);

@@ -41,10 +41,10 @@ export const fmtCr = (n) => (n == null ? '—' : '৳' + Number(n).toLocaleStrin
 export const chLabel = (km) => `Ch ${km}+000`;
 export const MONO = "'Roboto Mono', ui-monospace, 'Cascadia Code', monospace";
 
-/* ── panel (card with a header) ─────────────────────────────────────── */
-export function Panel({ title, sub, right, children, style, minHeight }) {
+/* ── command card (card with a header) ─────────────────────────────── */
+export function CommandCard({ title, sub, right, children, style, minHeight }) {
     return (
-        <Card className="cc-card" style={{ display: 'flex', flexDirection: 'column', minHeight, ...style }}>
+        <Box className="cc-card" style={{ display: 'flex', flexDirection: 'column', minHeight, ...style }}>
             {(title || right) && (
                 <Flex align="center" justify="between" gap="3" mb="3" style={{ flexShrink: 0 }}>
                     <Box style={{ minWidth: 0 }}>
@@ -55,7 +55,7 @@ export function Panel({ title, sub, right, children, style, minHeight }) {
                 </Flex>
             )}
             <Box style={{ flex: 1, minHeight: 0 }}>{children}</Box>
-        </Card>
+        </Box>
     );
 }
 

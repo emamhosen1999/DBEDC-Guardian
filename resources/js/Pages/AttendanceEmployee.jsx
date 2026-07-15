@@ -61,7 +61,7 @@ const MyRosterCard = ({ month }) => {
             {dayKeys.map(date => {
               const cell = days[date];
               return (
-                <Panel key={date} size="1" style={{ minWidth: 110 }}>
+                <Panel key={date} tinted p="2" style={{ minWidth: 110 }}>
                   <Text size="1" color="gray" as="div">{dayjs(date).format('ddd, MMM D')}</Text>
                   {cell.off || !cell.code ? (
                     <Badge color="gray" variant="soft" mt="1">Off</Badge>

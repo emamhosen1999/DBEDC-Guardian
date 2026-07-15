@@ -268,7 +268,7 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
 
             {/* Filter Panel */}
             {showFilters && (
-                <Panel mb="4" style={{ padding: '16px', background: 'var(--gray-a2)' }}>
+                <Panel tinted mb="4" style={{ padding: '16px' }}>
                     <Flex direction="column" gap="3">
                         {/* Search */}
                         <TextField.Root

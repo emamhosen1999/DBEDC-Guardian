@@ -268,7 +268,7 @@ const AttendanceEmployeeTable = ({
   return (
     <Box style={{ width: '100%' }}>
       {error ? (
-        <Panel size="2">
+        <Panel tinted style={{ background: 'var(--red-a2)' }}>
           <Flex align="center" gap="3">
             <ExclamationTriangleIcon style={{ width: 20, height: 20, color: 'var(--red-9)' }} />
             <Text size="2" color="red">{error}</Text>

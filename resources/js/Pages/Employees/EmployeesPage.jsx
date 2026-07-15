@@ -62,7 +62,7 @@ const EmployeesPage = ({
 
             <Flex justify="center" p={{ initial: '3', md: '4' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Panel size="4">
+                    <Panel>
                         
                         {/* ══ PAGE HEADER ════════════════════════════════ */}
                         <Box mb="4">

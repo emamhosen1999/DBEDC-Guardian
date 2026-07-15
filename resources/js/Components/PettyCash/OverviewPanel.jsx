@@ -40,7 +40,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
         return (
             <Box p="6">
                 {pendingLoans.map(pendingLoan => (
-                    <Panel key={pendingLoan.id} style={{ padding: '24px', maxWidth: '600px', margin: '0 auto 16px', textAlign: 'center' }}>
+                    <Panel key={pendingLoan.id} tinted style={{ padding: '24px', maxWidth: '600px', margin: '0 auto 16px', textAlign: 'center' }}>
                         <Flex direction="column" gap="4" align="center">
                             <Box p="3" style={{ background: 'var(--orange-a3)', borderRadius: 'var(--radius-3)' }}>
                                 <DotsHorizontalIcon style={{ width: 48, height: 48, color: 'var(--orange-9)' }} />
@@ -188,7 +188,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
                 {stats.map((stat, index) => {
                     const Icon = stat.icon;
                     return (
-                        <Panel key={index} style={{ padding: '16px' }}>
+                        <Panel key={index} tinted style={{ padding: '16px' }}>
                             <Flex direction="column" gap="2">
                                 <Flex align="center" gap="2">
                                     <Icon style={{ width: 20, height: 20, color: `var(--${stat.color}-9)` }} />
@@ -206,7 +206,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
             </Grid>
 
             {/* Transaction Count */}
-            <Panel style={{ padding: '16px' }}>
+            <Panel tinted style={{ padding: '16px' }}>
                 <Flex align="center" justify="between">
                     <Flex align="center" gap="2">
                         <FileTextIcon style={{ width: 20, height: 20, color: 'var(--gray-9)' }} />

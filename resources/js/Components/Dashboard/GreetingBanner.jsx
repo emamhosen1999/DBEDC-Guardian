@@ -26,11 +26,10 @@ export default function GreetingBanner({ user }) {
     });
 
     return (
-        <Panel style={{ 
-            height: '100%', 
-            background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a1) 100%)', 
-            border: '1px solid var(--accent-a5)',
-            boxShadow: 'var(--shadow-1)',
+        <Panel style={{
+            height: '100%',
+            background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a1) 100%)',
+            borderRadius: 'var(--radius-3)',
             backdropFilter: 'blur(8px)',
         }}>
             <Flex direction="column" justify="center" gap="2" style={{ height: '100%', padding: '4px 0' }}>

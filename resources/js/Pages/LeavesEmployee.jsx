@@ -587,22 +587,35 @@ const LeavesEmployee = ({ title, allUsers }) => {
       )}
 
       <Box p={{ initial: '3', md: '5' }}>
-        <Panel size="3" style={{
-            boxShadow: 'var(--shadow-3)',
-            borderRadius: 'var(--radius-4)',
-            border: '1px solid var(--gray-a3)'
-        }}>
-          <Flex align="center" justify="between" wrap="wrap" gap="3" pb="4" mb="5"
-            style={{ borderBottom: '1px solid var(--gray-a3)' }}
+        <Panel>
+          <Panel.Header
+            actions={
+              <Flex gap="2">
+                <Button
+                  onClick={() => openModal('add_leave')}
+                  size="2"
+                  style={{
+                      cursor: 'pointer',
+                      background: 'linear-gradient(135deg, var(--accent-9) 0%, var(--accent-10) 100%)',
+                      boxShadow: '0 2px 8px var(--accent-a3)'
+                  }}
+                >
+                  <PlusIcon /> Add Leave
+                </Button>
+                <Button variant="soft" color="gray" onClick={() => openModal('bulk_leave')} size="2" style={{ cursor: 'pointer' }}>
+                  <CalendarIcon /> Bulk Add
+                </Button>
+              </Flex>
+            }
           >
             <Flex align="center" gap="3">
               <Box style={{
-                padding: 12, 
-                background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a2) 100%)', 
+                padding: 12,
+                background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a2) 100%)',
                 borderRadius: 'var(--radius-3)',
-                border: '1px solid var(--accent-a5)', 
-                display: 'flex', 
-                alignItems: 'center', 
+                border: '1px solid var(--accent-a5)',
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 12px var(--accent-a2)'
               }}>
@@ -613,25 +626,10 @@ const LeavesEmployee = ({ title, allUsers }) => {
                 <Text size="2" color="gray" style={{ display: 'block', mt: 0.5 }}>Your leave requests and balances</Text>
               </Box>
             </Flex>
-            <Flex gap="2">
-              <Button 
-                onClick={() => openModal('add_leave')} 
-                size="2" 
-                style={{ 
-                    cursor: 'pointer',
-                    background: 'linear-gradient(135deg, var(--accent-9) 0%, var(--accent-10) 100%)',
-                    boxShadow: '0 2px 8px var(--accent-a3)'
-                }}
-              >
-                <PlusIcon /> Add Leave
-              </Button>
-              <Button variant="soft" color="gray" onClick={() => openModal('bulk_leave')} size="2" style={{ cursor: 'pointer' }}>
-                <CalendarIcon /> Bulk Add
-              </Button>
-            </Flex>
-          </Flex>
+          </Panel.Header>
 
-          <Flex gap="3" mb="5" align="end" wrap="wrap" style={{ background: 'var(--gray-a2)', padding: 12, borderRadius: 'var(--radius-3)', border: '1px solid var(--gray-a3)' }}>
+          <Panel tinted mb="5">
+            <Flex gap="3" align="end" wrap="wrap">
             <Box style={{ minWidth: 120 }}>
               <Text as="label" size="1" weight="bold" color="gray" style={{ display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Select Year</Text>
               <select
@@ -654,7 +652,8 @@ const LeavesEmployee = ({ title, allUsers }) => {
                 {isLoading ? <Spinner size="1" /> : <ReloadIcon />} Refresh
               </Button>
             </Box>
-          </Flex>
+            </Flex>
+          </Panel>
 
           <Box mb="5">
             <Flex align="center" gap="2" mb="3">
