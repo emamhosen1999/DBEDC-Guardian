@@ -3,10 +3,7 @@ import { usePage } from "@inertiajs/react";
 import axios from "axios";
 import { showToast } from "@/utils/toastUtils";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import { 
-    Box, Flex, Text, Button, TextField, 
-    Spinner, Badge, IconButton, Grid, Card, Separator 
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Button, TextField, Spinner, Badge, IconButton, Grid, Separator } from '@radix-ui/themes';
 import { 
     SewingPinIcon, PlusIcon, MagnifyingGlassIcon, 
     Cross2Icon, ReloadIcon

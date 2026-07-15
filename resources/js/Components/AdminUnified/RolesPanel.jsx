@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * RolesPanel.jsx
  * Roles & Permissions tab.
@@ -8,11 +9,7 @@
  * Pure Radix UI.
  */
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import {
-    Badge, Box, Button, Card, Dialog, DropdownMenu, Flex,
-    Grid, IconButton, ScrollArea, Select, Separator,
-    Spinner, Switch, Table, Tabs, Text, TextField,
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Dialog, DropdownMenu, Flex, Grid, IconButton, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text, TextField } from '@radix-ui/themes';
 import {
     CheckboxIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
     Cross2Icon, DotsVerticalIcon, GearIcon, LockClosedIcon,
@@ -487,7 +484,7 @@ function AssignmentTab({ roles, permissions, permissionsGrouped, getRolePermissi
                         const granted = modulePerms.filter(p => localPerms[p.name]).length;
                         const allGranted = granted === modulePerms.length;
                         return (
-                            <Card key={moduleKey} variant="surface">
+                            <Panel key={moduleKey} variant="surface">
                                 <Flex justify="between" align="center" mb="3">
                                     <Flex align="center" gap="2">
                                         <Text weight="bold" size="2" style={{ textTransform: 'capitalize' }}>
@@ -519,7 +516,7 @@ function AssignmentTab({ roles, permissions, permissionsGrouped, getRolePermissi
                                         </Flex>
                                     ))}
                                 </Flex>
-                            </Card>
+                            </Panel>
                         );
                     })}
                 </Grid>

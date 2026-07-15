@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import App from '@/Layouts/App';
@@ -8,17 +9,7 @@ import {
     useMarkRead,
     useMarkAllRead,
 } from '@/api/queries/useNotificationsQuery';
-import {
-    Box,
-    Flex,
-    Text,
-    Heading,
-    Button,
-    Card,
-    Badge,
-    Spinner,
-    Separator,
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Button, Badge, Spinner, Separator } from '@radix-ui/themes';
 import { BellIcon, CheckCircledIcon } from '@radix-ui/react-icons';
 
 const NotificationsIndex = ({ title }) => {
@@ -77,7 +68,7 @@ const NotificationsIndex = ({ title }) => {
                             </Button>
                         </Flex>
 
-                        <Card>
+                        <Panel>
                             {isLoading && (
                                 <Flex justify="center" py="6">
                                     <Spinner size="3" />
@@ -143,7 +134,7 @@ const NotificationsIndex = ({ title }) => {
                                 onPageChange={setPage}
                                 onRowsPerPageChange={(n) => { setPerPage(n); setPage(1); }}
                             />
-                        </Card>
+                        </Panel>
                     </Flex>
                 </ErrorBoundary>
             </div>

@@ -1,10 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * HistoryPanel.jsx
  * Displays historical closed, settled, or rejected loans.
  * Pure Radix UI.
  */
 import React, { useState, useEffect } from 'react';
-import { Box, Card, Flex, Table, Badge, Button, Text, Dialog } from '@radix-ui/themes';
+import { Box, Flex, Table, Badge, Button, Text, Dialog } from '@radix-ui/themes';
 import { EyeOpenIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import TransactionsPanel from './TransactionsPanel';
@@ -42,7 +43,7 @@ const HistoryPanel = ({ isMobile }) => {
 
     return (
         <Box>
-            <Card>
+            <Panel>
                 <Table.Root>
                     <Table.Header>
                         <Table.Row>
@@ -97,7 +98,7 @@ const HistoryPanel = ({ isMobile }) => {
                         )}
                     </Table.Body>
                 </Table.Root>
-            </Card>
+            </Panel>
 
             {/* Past Loan Transactions Modal */}
             {selectedLoan && (

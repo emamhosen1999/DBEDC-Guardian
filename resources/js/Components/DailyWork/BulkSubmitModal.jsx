@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, Button, Badge, Separator, Card, Box, Flex, TextArea, Text, TextField, ScrollArea } from '@radix-ui/themes';
+import { Dialog, Button, Badge, Separator, Box, Flex, TextArea, Text, TextField, ScrollArea } from '@radix-ui/themes';
 import {
     ExclamationTriangleIcon,
     CalendarIcon,
@@ -143,7 +144,7 @@ const BulkSubmitModal = ({
 
                                     {/* Summary */}
                                     <Flex wrap="wrap" gap="3">
-                                        <Card style={{ background: 'var(--green-3)', border: '1px solid var(--green-6)' }}>
+                                        <Panel style={{ background: 'var(--green-3)', border: '1px solid var(--green-6)' }}>
                                             <Box p="3">
                                                 <Flex align="center" gap="2" mb="1">
                                                     <CheckCircledIcon style={{ width: 16, height: 16, flexShrink: 0, color: 'var(--green-9)' }} />
@@ -158,9 +159,9 @@ const BulkSubmitModal = ({
                                                     RFIs without active objections
                                                 </Text>
                                             </Box>
-                                        </Card>
+                                        </Panel>
 
-                                        <Card style={{ background: worksWithObjections.length > 0 ? 'var(--amber-3)' : 'var(--gray-a2)', border: `1px solid ${worksWithObjections.length > 0 ? 'var(--amber-6)' : 'var(--gray-a4)'}` }}>
+                                        <Panel style={{ background: worksWithObjections.length > 0 ? 'var(--amber-3)' : 'var(--gray-a2)', border: `1px solid ${worksWithObjections.length > 0 ? 'var(--amber-6)' : 'var(--gray-a4)'}` }}>
                                             <Box p="3">
                                                 <Flex align="center" gap="2" mb="1">
                                                     <ExclamationTriangleIcon style={{ width: 16, height: 16, flexShrink: 0, color: worksWithObjections.length > 0 ? 'var(--amber-9)' : 'var(--gray-9)' }} />
@@ -175,7 +176,7 @@ const BulkSubmitModal = ({
                                                     RFIs with active objections
                                                 </Text>
                                             </Box>
-                                        </Card>
+                                        </Panel>
                                     </Flex>
 
                                     {/* Objection Warning */}
@@ -262,20 +263,20 @@ const BulkSubmitModal = ({
 
                                     {/* Action Buttons */}
                                     <Flex wrap="wrap" gap="3">
-                                        <Card style={{ cursor: 'pointer', border: '2px solid var(--gray-a4)' }} onClick={handleSkipObjected}>
+                                        <Panel style={{ cursor: 'pointer', border: '2px solid var(--gray-a4)' }} onClick={handleSkipObjected}>
                                             <Box p="3" style={{ textAlign: 'center' }}>
                                                 <CheckCircledIcon style={{ width: 28, height: 28, color: 'var(--green-9)', margin: '0 auto 8px' }} />
                                                 <Text weight="bold" size={{ initial: '2', sm: '3' }} as="p">Skip Objected RFIs</Text>
                                                 <Text size="1" color="gray" as="p" mt="1">Submit only {cleanWorks.length} RFI{cleanWorks.length!==1?'s':''} without objections</Text>
                                             </Box>
-                                        </Card>
-                                        <Card style={{ cursor: overrideReason.trim() ? 'pointer' : 'not-allowed', opacity: overrideReason.trim() ? 1 : 0.6, border: `2px solid ${overrideReason.trim() ? 'var(--amber-6)' : 'var(--gray-a4)'}` }} onClick={overrideReason.trim() ? handleOverrideObjected : undefined}>
+                                        </Panel>
+                                        <Panel style={{ cursor: overrideReason.trim() ? 'pointer' : 'not-allowed', opacity: overrideReason.trim() ? 1 : 0.6, border: `2px solid ${overrideReason.trim() ? 'var(--amber-6)' : 'var(--gray-a4)'}` }} onClick={overrideReason.trim() ? handleOverrideObjected : undefined}>
                                             <Box p="3" style={{ textAlign: 'center' }}>
                                                 <ExclamationTriangleIcon style={{ width: 28, height: 28, color: 'var(--amber-9)', margin: '0 auto 8px' }} />
                                                 <Text weight="bold" size={{ initial: '2', sm: '3' }} as="p">Override &amp; Submit All</Text>
                                                 <Text size="1" color="gray" as="p" mt="1">Submit all {selectedWorks.length} RFI{selectedWorks.length!==1?'s':''} including objected</Text>
                                             </Box>
-                                        </Card>
+                                        </Panel>
                                     </Flex>
                                 </Flex>
                             )}
@@ -294,9 +295,9 @@ const BulkSubmitModal = ({
 
                                     {/* Results Grid */}
                                     <Flex wrap="wrap" gap="2">
-                                        <Card style={{ background: 'var(--green-3)', border: '1px solid var(--green-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--green-11)' }}>{result.submitted_count}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Submitted</Text></Box></Card>
-                                        <Card style={{ background: 'var(--amber-3)', border: '1px solid var(--amber-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--amber-11)' }}>{result.skipped_count}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Skipped</Text></Box></Card>
-                                        <Card style={{ background: 'var(--red-3)', border: '1px solid var(--red-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--red-11)' }}>{result.failed_count}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Failed</Text></Box></Card>
+                                        <Panel style={{ background: 'var(--green-3)', border: '1px solid var(--green-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--green-11)' }}>{result.submitted_count}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Submitted</Text></Box></Panel>
+                                        <Panel style={{ background: 'var(--amber-3)', border: '1px solid var(--amber-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--amber-11)' }}>{result.skipped_count}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Skipped</Text></Box></Panel>
+                                        <Panel style={{ background: 'var(--red-3)', border: '1px solid var(--red-6)' }}><Box p="3" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--red-11)' }}>{result.failed_count}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Failed</Text></Box></Panel>
                                     </Flex>
 
                                     {/* Submitted List */}

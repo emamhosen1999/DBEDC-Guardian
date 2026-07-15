@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, Button, Badge, Separator, Card, Box, Flex, TextArea, Text, ScrollArea } from '@radix-ui/themes';
+import { Dialog, Button, Badge, Separator, Box, Flex, TextArea, Text, ScrollArea } from '@radix-ui/themes';
 import {
     ExclamationTriangleIcon,
     FileTextIcon,
@@ -398,10 +399,10 @@ const BulkImportSubmitModal = ({
                                     {/* Parse Summary */}
                                     {parseSummary && (
                                         <Flex wrap="wrap" gap="2">
-                                            <Card style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{parseSummary.total}</Text><Text size="1" color="gray" as="p">Total Parsed</Text></Box></Card>
-                                            <Card style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{parseSummary.clean}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Ready</Text></Box></Card>
-                                            <Card style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{parseSummary.objected}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Objected</Text></Box></Card>
-                                            <Card style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{parseSummary.notFound + parseSummary.invalid}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Issues</Text></Box></Card>
+                                            <Panel style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{parseSummary.total}</Text><Text size="1" color="gray" as="p">Total Parsed</Text></Box></Panel>
+                                            <Panel style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{parseSummary.clean}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Ready</Text></Box></Panel>
+                                            <Panel style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{parseSummary.objected}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Objected</Text></Box></Panel>
+                                            <Panel style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{parseSummary.notFound + parseSummary.invalid}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Issues</Text></Box></Panel>
                                         </Flex>
                                     )}
 
@@ -441,7 +442,7 @@ const BulkImportSubmitModal = ({
                                     <Separator size="4" />
 
                                     <Flex wrap="wrap" gap="4">
-                                        <Card asChild><button onClick={handleSkipObjected} style={{ padding: 16, textAlign: 'left', width: '100%', cursor: 'pointer', transition: 'opacity', border: '2px solid var(--gray-a4)', borderRadius: 8 }}>
+                                        <Panel asChild><button onClick={handleSkipObjected} style={{ padding: 16, textAlign: 'left', width: '100%', cursor: 'pointer', transition: 'opacity', border: '2px solid var(--gray-a4)', borderRadius: 8 }}>
                                             <Flex direction="column" gap="2">
                                                 <Flex align="center" gap="2">
                                                     <CheckCircledIcon style={{ width: 24, height: 24, color: 'var(--green-9)' }} />
@@ -449,15 +450,15 @@ const BulkImportSubmitModal = ({
                                                 </Flex>
                                                 <Text size="1" color="gray" as="p">Submit only {parseSummary?.clean || 0} RFI{(parseSummary?.clean || 0) !== 1 ? 's' : ''} without objections</Text>
                                             </Flex>
-                                        </button></Card>
-                                        <Card style={{ padding: 16, border: '2px solid var(--gray-a4)', borderRadius: 8 }}>
+                                        </button></Panel>
+                                        <Panel style={{ padding: 16, border: '2px solid var(--gray-a4)', borderRadius: 8 }}>
                                             <Flex direction="column" gap="2">
                                                 <Text size="1" color="gray" as="p" mb="1">Override Reason (required to submit objected RFIs)</Text>
                                                 <TextArea placeholder="Explain why you're submitting RFIs that have active objections..." value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} rows={2} />
                                                 <Text size="1" color="gray" as="p" mt="1">This reason will be logged for audit purposes.</Text>
                                                 <Button color="amber" style={{ width: '100%', marginTop: 8 }} onClick={handleOverrideObjected} loading={loading} disabled={!overrideReason.trim()}>Override & Submit All</Button>
                                             </Flex>
-                                        </Card>
+                                        </Panel>
                                     </Flex>
                                 </Flex>
                             )}
@@ -466,11 +467,11 @@ const BulkImportSubmitModal = ({
                             {step === 'result' && result && (
                                 <Flex direction="column" gap="4">
                                     <Flex wrap="wrap" gap="2">
-                                        <Card style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{result.submitted_count}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Submitted</Text></Box></Card>
-                                        <Card style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{result.skipped_count}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Skipped</Text></Box></Card>
-                                        <Card style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{result.failed_count}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Failed</Text></Box></Card>
-                                        <Card style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{result.not_found_count || 0}</Text><Text size="1" color="gray" as="p">Not Found</Text></Box></Card>
-                                        <Card style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{result.invalid_count || 0}</Text><Text size="1" color="gray" as="p">Invalid</Text></Box></Card>
+                                        <Panel style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{result.submitted_count}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Submitted</Text></Box></Panel>
+                                        <Panel style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{result.skipped_count}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Skipped</Text></Box></Panel>
+                                        <Panel style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{result.failed_count}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Failed</Text></Box></Panel>
+                                        <Panel style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{result.not_found_count || 0}</Text><Text size="1" color="gray" as="p">Not Found</Text></Box></Panel>
+                                        <Panel style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{result.invalid_count || 0}</Text><Text size="1" color="gray" as="p">Invalid</Text></Box></Panel>
                                     </Flex>
 
                                     {/* Submitted List */}

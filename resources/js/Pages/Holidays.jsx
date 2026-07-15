@@ -1,6 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { Box, Button, Card, Flex, Heading, Separator, Text } from '@radix-ui/themes';
+import { Box, Button, Flex, Heading, Separator, Text } from '@radix-ui/themes';
 import {
     CalendarIcon,
     PlusIcon,
@@ -99,7 +100,7 @@ const Holidays = ({ title }) => {
 
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card>
+                    <Panel>
                         {/* ── Page Header ── */}
                         <Box mb="4">
                             <Flex
@@ -167,7 +168,7 @@ const Holidays = ({ title }) => {
                                 </ErrorBoundary>
                             </Box>
                         </Box>
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
         </>

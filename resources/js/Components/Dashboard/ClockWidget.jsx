@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Card, Flex, Text } from '@radix-ui/themes';
+import { Box, Flex, Text } from '@radix-ui/themes';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 
 function AnalogFace({ time, size = 96 }) {
@@ -100,7 +101,7 @@ export default function ClockWidget() {
     });
 
     return (
-        <Card style={{ height: '100%' }}>
+        <Panel style={{ height: '100%' }}>
             <Flex align="center" gap={{ initial: '2', sm: '3', md: '4' }} style={{ height: '100%' }}>
                 <AnalogFace time={time} size={clockSize} />
                 <Flex direction="column" gap="0" style={{ minWidth: 0, flex: 1, justifyContent: 'center' }}>
@@ -119,6 +120,6 @@ export default function ClockWidget() {
                     <Text size="1" color="gray" style={{ marginTop: 6 }} truncate>{dateStr}</Text>
                 </Flex>
             </Flex>
-        </Card>
+        </Panel>
     );
 }

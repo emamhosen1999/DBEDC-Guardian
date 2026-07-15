@@ -1,7 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useMemo } from 'react';
-import {
-    Box, Card, Flex, Text, Heading, Badge, Avatar, Button, Spinner, TextField,
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Badge, Avatar, Button, Spinner, TextField } from '@radix-ui/themes';
 import {
     MagnifyingGlassIcon,
     CalendarIcon,
@@ -121,7 +120,7 @@ export const AbsentUsersInlineCard = React.memo(({ absentUsers, selectedDate, ge
                     {filteredAbsentUsers.slice(0, visibleUsersCount).map((user) => {
                         const userLeave = getUserLeave(user.id);
                         return (
-                            <Card key={user.id} variant="surface" style={{ padding: 0 }}>
+                            <Panel key={user.id} variant="surface" style={{ padding: 0 }}>
                                 <Box p="3">
                                     <Flex direction="column" gap="2">
                                         <Flex align="start" justify="between" gap="2">
@@ -180,7 +179,7 @@ export const AbsentUsersInlineCard = React.memo(({ absentUsers, selectedDate, ge
                                         )}
                                     </Flex>
                                 </Box>
-                            </Card>
+                            </Panel>
                         );
                     })}
                 </Flex>

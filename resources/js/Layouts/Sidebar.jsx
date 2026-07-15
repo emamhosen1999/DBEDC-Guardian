@@ -1,20 +1,9 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, usePage } from "@inertiajs/react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { useRadixTheme } from '@/Contexts/RadixThemeContext';
-import {
-  Avatar,
-  Badge,
-  Box,
-  Card,
-  Flex,
-  IconButton,
-  ScrollArea,
-  Separator,
-  Text,
-  TextField,
-  Tooltip,
-} from '@radix-ui/themes';
+import { Avatar, Badge, Box, Flex, IconButton, ScrollArea, Separator, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
   ChevronRightIcon,
   MagnifyingGlassIcon,
@@ -337,7 +326,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
     ));
 
   return (
-    <Card
+    <Panel
       style={{
         width: isMobile ? 260 : (collapsed ? 56 : 240),
         height: '100vh',
@@ -464,7 +453,7 @@ const Sidebar = React.memo(({ toggleSideBar, pages, url, sideBarOpen }) => {
         )}
       </Box>
 
-    </Card>
+    </Panel>
   );
 });
 

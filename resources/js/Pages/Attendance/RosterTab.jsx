@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useMemo, useState, useEffect } from 'react';
-import { Box, Flex, Button, Text, Card, TextField, Select, SegmentedControl } from '@radix-ui/themes';
+import { Box, Flex, Button, Text, TextField, Select, SegmentedControl } from '@radix-ui/themes';
 import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon, GridIcon } from '@radix-ui/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
@@ -224,7 +225,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     };
 
     return (
-        <Card>
+        <Panel>
             {/* Toolbar */}
             <Flex justify="between" align="center" mb="4" wrap="wrap" gap="3">
                 {/* Left: Month Nav, Search, Department */}
@@ -362,6 +363,6 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         />
                     </>
                 )}
-        </Card>
+        </Panel>
     );
 }

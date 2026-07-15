@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect } from 'react';
-import { Dialog, Button, Badge, Card, Box, Flex, Text, TextField, ScrollArea, Tabs, Callout, Checkbox, Separator } from '@radix-ui/themes';
+import { Dialog, Button, Badge, Box, Flex, Text, TextField, ScrollArea, Tabs, Callout, Checkbox, Separator } from '@radix-ui/themes';
 import {
     ExclamationTriangleIcon,
     FileIcon,
@@ -193,7 +194,7 @@ const ObjectionsModal = ({
     const renderAttachedObjectionCard = (objection) => {
         const isActive = ['draft', 'submitted', 'under_review'].includes(objection.status);
         return (
-            <Card key={objection.id} style={{ borderLeft: `4px solid ${isActive ? 'var(--amber-8)' : 'var(--green-8)'}`, marginBottom: 12 }}>
+            <Panel key={objection.id} style={{ borderLeft: `4px solid ${isActive ? 'var(--amber-8)' : 'var(--green-8)'}`, marginBottom: 12 }}>
                 <Box p="3">
                     <Flex justify="between" gap="2" mb="2">
                         <Box style={{ flex: 1, minWidth: 0 }}>
@@ -248,7 +249,7 @@ const ObjectionsModal = ({
                         <Text size="1" color="gray">{new Date(objection.created_at).toLocaleDateString()}</Text>
                     </Flex>
                 </Box>
-            </Card>
+            </Panel>
         );
     };
 
@@ -347,7 +348,7 @@ const ObjectionsModal = ({
                                                 {filteredAvailableObjections.map((objection) => {
                                                     const isSelected = selectedObjections.includes(String(objection.id));
                                                     return (
-                                                        <Card
+                                                        <Panel
                                                             key={objection.id}
                                                             variant={isSelected ? 'surface' : 'ghost'}
                                                             style={{ border: `1px solid ${isSelected ? 'var(--accent-9)' : 'var(--gray-a4)'}`, cursor: 'pointer', background: isSelected ? 'var(--accent-a3)' : undefined }}
@@ -374,7 +375,7 @@ const ObjectionsModal = ({
                                                                     <Text size="1" color="gray" as="p" mt="1" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{objection.description}</Text>
                                                                 </Box>
                                                             </Flex>
-                                                        </Card>
+                                                        </Panel>
                                                     );
                                                 })}
                                             </Flex>

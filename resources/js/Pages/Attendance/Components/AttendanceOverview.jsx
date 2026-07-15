@@ -1,10 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect } from 'react';
-import { Card, Flex, Grid, Heading, Box, Text, Skeleton } from '@radix-ui/themes';
+import { Flex, Grid, Heading, Box, Text, Skeleton } from '@radix-ui/themes';
 import { CheckCircledIcon, CrossCircledIcon, ExclamationTriangleIcon, CalendarIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
 const StatCard = ({ title, value, icon: Icon, color, loading }) => (
-    <Card style={{ height: '100%' }}>
+    <Panel style={{ height: '100%' }}>
         <Flex direction="column" gap="3">
             <Flex align="center" gap="3">
                 <Box style={{
@@ -30,7 +31,7 @@ const StatCard = ({ title, value, icon: Icon, color, loading }) => (
                 </Flex>
             )}
         </Flex>
-    </Card>
+    </Panel>
 );
 
 export default function AttendanceOverview({ date, mode = 'daily', month, scope = 'all' }) {

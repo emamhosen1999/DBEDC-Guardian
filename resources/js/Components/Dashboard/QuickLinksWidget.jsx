@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, Flex, Heading, Box, Text } from '@radix-ui/themes';
+import { Flex, Heading, Box, Text } from '@radix-ui/themes';
 import { 
     ClockIcon, 
     FileTextIcon, 
@@ -44,7 +45,7 @@ export default function QuickLinksWidget({ permissions = [] }) {
     const { auth } = usePage().props;
     
     return (
-        <Card style={{ height: '100%' }}>
+        <Panel style={{ height: '100%' }}>
             <style dangerouslySetInnerHTML={{__html: `
                 .quick-link-item:hover {
                     transform: translateY(-2px);
@@ -93,6 +94,6 @@ export default function QuickLinksWidget({ permissions = [] }) {
                     )}
                 </Flex>
             </Flex>
-        </Card>
+        </Panel>
     );
 }

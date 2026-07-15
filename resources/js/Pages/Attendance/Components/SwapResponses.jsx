@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, Flex, Text, Table, Button, Badge } from '@radix-ui/themes';
+import { Flex, Text, Table, Button, Badge } from '@radix-ui/themes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
@@ -30,7 +31,7 @@ export default function SwapResponses() {
     if (swaps.length === 0) return null;
 
     return (
-        <Card>
+        <Panel>
             <Flex align="center" gap="2" mb="3">
                 <Text size="3" weight="bold">Swap requests awaiting your response</Text>
                 <Badge color="amber" variant="soft">{swaps.length}</Badge>
@@ -62,6 +63,6 @@ export default function SwapResponses() {
                     ))}
                 </Table.Body>
             </Table.Root>
-        </Card>
+        </Panel>
     );
 }

@@ -1,10 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * AnalyticsPanel.jsx
  * Displays petty cash analytics with interactive charts and summary statistics.
  * Pure Radix UI with Recharts for visualizations.
  */
 import React, { useState, useEffect } from 'react';
-import { Box, Card, Flex, Grid, Text, Badge } from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Badge } from '@radix-ui/themes';
 import { 
     Banknote, ShoppingBag, ArrowUpRight, ArrowDownLeft,
     PieChart as PieIcon, BarChart3
@@ -98,7 +99,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
         <Box>
             {/* Summary Cards */}
             <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
-                <Card style={{ 
+                <Panel style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--blue-9)'
@@ -114,9 +115,9 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                             <Banknote style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
                         </Box>
                     </Flex>
-                </Card>
+                </Panel>
 
-                <Card style={{ 
+                <Panel style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--red-9)'
@@ -132,9 +133,9 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                             <ShoppingBag style={{ width: 22, height: 22, color: 'var(--red-9)' }} />
                         </Box>
                     </Flex>
-                </Card>
+                </Panel>
 
-                <Card style={{ 
+                <Panel style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--green-9)'
@@ -150,9 +151,9 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                             <ArrowUpRight style={{ width: 22, height: 22, color: 'var(--green-9)' }} />
                         </Box>
                     </Flex>
-                </Card>
+                </Panel>
 
-                <Card style={{ 
+                <Panel style={{ 
                     padding: '20px', 
                     borderRadius: 'var(--radius-3)',
                     borderLeft: '4px solid var(--gray-9)'
@@ -168,13 +169,13 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                             <ArrowDownLeft style={{ width: 22, height: 22, color: 'var(--gray-9)' }} />
                         </Box>
                     </Flex>
-                </Card>
+                </Panel>
             </Grid>
 
             {/* Charts Section */}
             <Grid columns={{ initial: '1', lg: '2' }} gap="4" mb="4">
                 {/* Expenses by Category (Pie Chart) */}
-                <Card style={{ padding: '24px', borderRadius: 'var(--radius-3)' }}>
+                <Panel style={{ padding: '24px', borderRadius: 'var(--radius-3)' }}>
                     <Flex direction="column" gap="4">
                         <Flex align="center" gap="2">
                             <PieIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
@@ -225,10 +226,10 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                             </Flex>
                         )}
                     </Flex>
-                </Card>
+                </Panel>
 
                 {/* Monthly Trends (Grouped Bar Chart) */}
-                <Card style={{ padding: '24px', borderRadius: 'var(--radius-3)' }}>
+                <Panel style={{ padding: '24px', borderRadius: 'var(--radius-3)' }}>
                     <Flex direction="column" gap="4">
                         <Flex align="center" gap="2">
                             <BarChart3 style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
@@ -258,7 +259,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                             </Box>
                         )}
                     </Flex>
-                </Card>
+                </Panel>
             </Grid>
         </Box>
     );

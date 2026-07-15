@@ -1,9 +1,10 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, Flex, Text, Box } from '@radix-ui/themes';
+import { Flex, Text, Box } from '@radix-ui/themes';
 import ProfileAvatar from './Profile/ProfileAvatar';
 
 const EnhancedProfileCard = ({ user, actions, ...rest }) => (
-  <Card>
+  <Panel>
     <Flex align="center" gap="3">
       <ProfileAvatar src={user?.profile_image_url || user?.profile_image} name={user?.name} size="lg" />
       <Box style={{ minWidth: 0 }}>
@@ -12,7 +13,7 @@ const EnhancedProfileCard = ({ user, actions, ...rest }) => (
       </Box>
       {actions && <Box style={{ marginLeft: 'auto' }}>{actions}</Box>}
     </Flex>
-  </Card>
+  </Panel>
 );
 
 export default EnhancedProfileCard;

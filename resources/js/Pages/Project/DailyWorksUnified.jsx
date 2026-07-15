@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 import ErrorBoundary from "@/Components/Common/ErrorBoundary.jsx";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { lazy, Suspense } from 'react';
@@ -37,22 +38,7 @@ import {
     TargetIcon,
     UploadIcon
 } from '@radix-ui/react-icons';
-import {
-    Badge,
-    Box,
-    Button,
-    Card,
-    DropdownMenu,
-    Flex,
-    Grid,
-    IconButton,
-    Select,
-    Separator,
-    Spinner,
-    Tabs,
-    Text,
-    TextField
-} from '@radix-ui/themes';
+import { Badge, Box, Button, DropdownMenu, Flex, Grid, IconButton, Select, Separator, Spinner, Tabs, Text, TextField } from '@radix-ui/themes';
 import * as useDailyWorksQuery from '@/api/queries/useDailyWorksQuery';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -816,7 +802,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card>
+                    <Panel>
                         <Box mb="4">
                             <Flex
                                 direction={{ initial: 'column', md: 'row' }}
@@ -928,7 +914,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
 
                                 {/* Filter Selection Panel */}
                                 {showFilters && (
-                                    <Card size="2" variant="surface" mb="4">
+                                    <Panel size="2" variant="surface" mb="4">
                                         <Grid columns={{ initial: '1', sm: '2', md: userIsAdmin ? '4' : '2' }} gap="4" align="end">
                                             
                                             {/* Status Select */}
@@ -1049,7 +1035,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                 </Button>
                                             </Flex>
                                         </Grid>
-                                    </Card>
+                                    </Panel>
                                 )}
 
                                 {/* Applied Filter Chips (Badges) Row - Passive Indicators */}
@@ -1287,7 +1273,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                         <Text size="2" color="gray" mb="5">Review, resolve, and manage RFI objections with file attachments.</Text>
                                         
                                         {/* Placeholder for Objections content - needs HeroUI to Radix UI migration */}
-                                        <Card style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gray-a2)' }}>
+                                        <Panel style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gray-a2)' }}>
                                             <Flex direction="column" align="center" gap="4" p="6">
                                                 <ExclamationTriangleIcon style={{ width: 64, height: 64, color: 'var(--accent-9)' }} />
                                                 <Text size="5" weight="bold" color="gray">Objections Tab Coming Soon</Text>
@@ -1303,7 +1289,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                                     Go to Original Objections Page
                                                 </Button>
                                             </Flex>
-                                        </Card>
+                                        </Panel>
                                     </Box>
                                 </Tabs.Content>
 
@@ -1321,7 +1307,7 @@ const DailyWorksUnified = ({ auth, title, allData, jurisdictions, users, reports
                                 )}
                             </Tabs.Root>
                         </Box>
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
         </>

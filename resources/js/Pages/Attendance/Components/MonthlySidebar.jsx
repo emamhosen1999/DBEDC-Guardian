@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Box, Flex, Text, Card, Skeleton } from '@radix-ui/themes';
+import { Box, Flex, Text, Skeleton } from '@radix-ui/themes';
 import { CalendarIcon, BarChartIcon, InfoCircledIcon } from '@radix-ui/react-icons';
 import { PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import dayjs from 'dayjs';
@@ -92,7 +93,7 @@ export default function MonthlySidebar({
             </Flex>
 
             {/* Attendance Rate */}
-            <Card style={{ padding: '12px' }}>
+            <Panel style={{ padding: '12px' }}>
                 <Text size="1" color="gray" weight="bold" mb="2" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Attendance Rate
                 </Text>
@@ -154,10 +155,10 @@ export default function MonthlySidebar({
                         </Flex>
                     </Flex>
                 </Flex>
-            </Card>
+            </Panel>
 
             {/* Attendance Trend */}
-            <Card style={{ padding: '12px' }}>
+            <Panel style={{ padding: '12px' }}>
                 <Text size="1" color="gray" weight="bold" mb="2" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Attendance Trend (Daily Presents)
                 </Text>
@@ -189,11 +190,11 @@ export default function MonthlySidebar({
                 ) : (
                     <Text size="1" color="gray">No data to display trend</Text>
                 )}
-            </Card>
+            </Panel>
 
             {/* Leave Breakdown */}
             {leaveBreakdown.length > 0 && (
-                <Card style={{ padding: '12px' }}>
+                <Panel style={{ padding: '12px' }}>
                     <Text size="1" color="gray" weight="bold" mb="2" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         Leaves Taken
                     </Text>
@@ -215,7 +216,7 @@ export default function MonthlySidebar({
                             </BarChart>
                         </ResponsiveContainer>
                     </Box>
-                </Card>
+                </Panel>
             )}
         </Flex>
     );

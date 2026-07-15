@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import { Card, Flex, Heading, Text, Skeleton, Box } from '@radix-ui/themes';
+import { Flex, Heading, Text, Skeleton, Box } from '@radix-ui/themes';
 import { CheckCircledIcon, LightningBoltIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
@@ -28,7 +29,7 @@ export default function ProjectOverviewWidget({ permissions = [] }) {
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return (
-        <Card style={{ height: '260px', display: 'flex', flexDirection: 'column' }}>
+        <Panel style={{ height: '260px', display: 'flex', flexDirection: 'column' }}>
             <Flex direction="column" gap="3" style={{ height: '100%', justifyContent: 'space-between' }}>
                 <Flex align="center" gap="2">
                     <Box style={{
@@ -78,6 +79,6 @@ export default function ProjectOverviewWidget({ permissions = [] }) {
                     </>
                 )}
             </Flex>
-        </Card>
+        </Panel>
     );
 }

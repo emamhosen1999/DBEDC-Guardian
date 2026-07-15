@@ -1,16 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import {
-    Box,
-    Button,
-    Card,
-    Flex,
-    Grid,
-    Heading,
-    Select,
-    Separator,
-    Text,
-    TextField,
-} from '@radix-ui/themes';
+import { Box, Button, Flex, Grid, Heading, Select, Separator, Text, TextField } from '@radix-ui/themes';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { getCountries } from '@/Props/countries.jsx';
@@ -91,7 +81,7 @@ const CompanyInformationForm = ({ settings, setSettings }) => {
     );
 
     return (
-        <Card size="3" style={{ width: '100%', maxWidth: 960 }}>
+        <Panel size="3" style={{ width: '100%', maxWidth: 960 }}>
             <form onSubmit={handleSubmit}>
                 <Box p="4">
                     <Heading size="4" mb="4">Company information</Heading>
@@ -166,7 +156,7 @@ const CompanyInformationForm = ({ settings, setSettings }) => {
                     </Button>
                 </Flex>
             </form>
-        </Card>
+        </Panel>
     );
 };
 

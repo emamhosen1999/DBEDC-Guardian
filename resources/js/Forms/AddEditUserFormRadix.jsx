@@ -1,25 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from "react";
-import {
-    Dialog,
-    Button,
-    TextField,
-    Select,
-    Flex,
-    Box,
-    Text,
-    Avatar,
-    Switch,
-    Grid,
-    Badge,
-    ScrollArea,
-    IconButton,
-    Checkbox,
-    Spinner,
-    Heading,
-    Separator,
-    Card,
-    Tooltip
-} from '@radix-ui/themes';
+import { Dialog, Button, TextField, Select, Flex, Box, Text, Avatar, Switch, Grid, Badge, ScrollArea, IconButton, Checkbox, Spinner, Heading, Separator, Tooltip } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import {
     CameraIcon,
@@ -322,7 +303,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             {/* SECTION 2: Personal Information */}
                             <Box>
                                 <Heading size="3" mb="3" color="indigo">Personal Details</Heading>
-                                <Card variant="surface">
+                                <Panel variant="surface">
                                     <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Full Name <Text color="red">*</Text></Text>
@@ -389,7 +370,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                             </TextField.Root>
                                         </Box>
                                     </Grid>
-                                </Card>
+                                </Panel>
                             </Box>
 
                             <Separator size="4" />
@@ -397,7 +378,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             {/* SECTION 3: Organization Info */}
                             <Box>
                                 <Heading size="3" mb="3" color="indigo">Organization details</Heading>
-                                <Card variant="surface">
+                                <Panel variant="surface">
                                     <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                         <Box>
                                             <Text as="label" size="2" weight="medium" mb="1" display="block">Employee ID</Text>
@@ -575,7 +556,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                             {form.errors.attendance_type_ids && <Text color="red" size="1" mt="1" display="block">{form.errors.attendance_type_ids}</Text>}
                                         </Box>
                                     </Grid>
-                                </Card>
+                                </Panel>
                             </Box>
                             </>)}
 
@@ -585,7 +566,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                             {/* SECTION 4: Access & Roles */}
                             <Box>
                                 <Heading size="3" mb="3" color="indigo">Access & Security</Heading>
-                                <Card variant="surface">
+                                <Panel variant="surface">
                                     <Flex direction="column" gap="5">
                                         
                                         {/* Roles Grid */}
@@ -666,7 +647,7 @@ const AddEditUserFormRadix = ({ user, allUsers, departments, designations, roles
                                             </Box>
                                         )}
                                     </Flex>
-                                </Card>
+                                </Panel>
                             </Box>
                             </>)}
                         </form>

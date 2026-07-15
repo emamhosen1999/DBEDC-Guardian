@@ -1,22 +1,9 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useCallback } from 'react';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { usePage, router } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
-import {
-    Table,
-    Badge,
-    Tooltip,
-    IconButton,
-    DropdownMenu,
-    Button,
-    Flex,
-    Text,
-    Box,
-    Card,
-    Separator,
-    ScrollArea,
-    Spinner,
-} from '@radix-ui/themes';
+import { Table, Badge, Tooltip, IconButton, DropdownMenu, Button, Flex, Text, Box, Separator, ScrollArea, Spinner } from '@radix-ui/themes';
 import {
     MapPinIcon,
     UserIcon,
@@ -169,7 +156,7 @@ const WorkLocationsTable = ({
         const status = getLocationStatus(location);
 
         return (
-            <Card key={location.id} mb="3">
+            <Panel key={location.id} mb="3">
                 <Box p="3" pb="2">
                     <Flex align="start" justify="between" gap="2">
                         <Flex align="center" gap="3" style={{ flex: 1, minWidth: 0 }}>
@@ -240,7 +227,7 @@ const WorkLocationsTable = ({
                         </Flex>
                     </Flex>
                 </Box>
-            </Card>
+            </Panel>
         );
     };
 

@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
-import { Dialog, Button, Badge, Separator, Card, Box, Flex, TextArea, Text } from '@radix-ui/themes';
+import { Dialog, Button, Badge, Separator, Box, Flex, TextArea, Text } from '@radix-ui/themes';
 import {
     ExclamationTriangleIcon,
     CalendarIcon,
@@ -83,7 +84,7 @@ const ObjectionWarningModal = ({
                     </Box>
 
                     {/* RFI Details */}
-                    <Card mb="4">
+                    <Panel mb="4">
                         <Box p="3">
                             <Flex align="center" justify="between" wrap="wrap" gap="2">
                                 <Flex align="center" gap="2">
@@ -109,7 +110,7 @@ const ObjectionWarningModal = ({
                                 </Flex>
                             </Flex>
                         </Box>
-                    </Card>
+                    </Panel>
 
                     {/* Active Objections List */}
                     {activeObjections.length > 0 && (

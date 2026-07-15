@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 import SwipeableCard from '@/Components/Common/SwipeableCard';
 import BulkImportResponseStatusModal from '@/Components/DailyWork/BulkImportResponseStatusModal';
 import BulkImportSubmitModal from '@/Components/DailyWork/BulkImportSubmitModal';
@@ -41,22 +42,7 @@ import {
     TrashIcon,
     UploadIcon
 } from '@radix-ui/react-icons';
-import {
-    Badge, Box,
-    Button,
-    Card,
-    Flex,
-    IconButton,
-    Table as RadixTable,
-    ScrollArea,
-    Select,
-    Separator,
-    Skeleton,
-    Text,
-    TextField,
-    Tooltip,
-    Tabs
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Flex, IconButton, Table as RadixTable, ScrollArea, Select, Separator, Skeleton, Text, TextField, Tooltip, Tabs } from '@radix-ui/themes';
 import axios from 'axios';
 import { jsPDF } from "jspdf";
 
@@ -1566,7 +1552,7 @@ const WorkAccordionItem = ({ work, index, isExpanded, onToggle, openStatusModal,
     );
 
     return (
-        <Card 
+        <Panel 
             size="1"
             variant="surface"
             style={{
@@ -1776,7 +1762,7 @@ const WorkAccordionItem = ({ work, index, isExpanded, onToggle, openStatusModal,
                     </Flex>
                 </Box>
             )}
-        </Card>
+        </Panel>
     );
 };
 
@@ -2227,7 +2213,7 @@ const renderCell = useCallback((work, columnKey) => {
         {/* Skeleton rows in tab content */}
         <Flex direction="column" gap="2" pt="3" pb="2">
             {Array.from({ length: 5 }).map((_, index) => (
-                <Card key={index} size="1" variant="surface">
+                <Panel key={index} size="1" variant="surface">
                     <Flex align="center" gap="3">
                         {/* Main description line skeleton */}
                         <Skeleton style={{ flexGrow: 1, height: '14px' }} />
@@ -2238,7 +2224,7 @@ const renderCell = useCallback((work, columnKey) => {
                         {/* Avatar/Action icon skeleton */}
                         <Skeleton style={{ width: '20px', height: '20px', borderRadius: 'var(--radius-full)' }} />
                     </Flex>
-                </Card>
+                </Panel>
             ))}
         </Flex>
     </Box>

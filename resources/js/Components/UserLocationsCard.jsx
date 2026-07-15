@@ -1,8 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import {
-    Box, Card, Flex, Grid, Text, Heading, Badge, Separator, Spinner, Button,
-} from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Heading, Badge, Separator, Spinner, Button } from '@radix-ui/themes';
 import {
     GlobeIcon,
     ClockIcon,
@@ -1189,7 +1188,7 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
 
     return (
         <Box>
-            <Card mb="4">
+            <Panel mb="4">
                 {/* Header */}
                 <Box p="4" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
                     <Flex justify="between" align="center" gap="3" wrap="wrap">
@@ -1211,27 +1210,27 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
                 {/* Stats */}
                 <Box p="4" style={{ borderBottom: '1px solid var(--gray-a4)' }}>
                     <Grid columns="3" gap="3">
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <PersonIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
                                 <Text size="4" weight="bold" color="blue">{userStats.total}</Text>
                                 <Text size="1" color="gray">Total</Text>
                             </Flex>
-                        </Card>
-                        <Card variant="surface">
+                        </Panel>
+                        <Panel variant="surface">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <ClockIcon style={{ color: 'var(--amber-9)', width: 20, height: 20 }} />
                                 <Text size="4" weight="bold" color="amber">{userStats.checkedIn}</Text>
                                 <Text size="1" color="gray">Active</Text>
                             </Flex>
-                        </Card>
-                        <Card variant="surface">
+                        </Panel>
+                        <Panel variant="surface">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <CheckCircledIcon style={{ color: 'var(--green-9)', width: 20, height: 20 }} />
                                 <Text size="4" weight="bold" color="green">{userStats.completed}</Text>
                                 <Text size="1" color="gray">Completed</Text>
                             </Flex>
-                        </Card>
+                        </Panel>
                     </Grid>
                 </Box>
 
@@ -1301,7 +1300,7 @@ const UserLocationsCard = React.memo(({ updateMap, selectedDate }) => {
                         </Flex>
                     )}
                 </Box>
-            </Card>
+            </Panel>
 
             {/* Fullscreen Photo Overlay */}
             {fullscreenPhotoUrl && (

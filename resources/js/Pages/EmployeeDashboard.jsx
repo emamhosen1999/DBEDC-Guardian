@@ -1,6 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, usePage, Link } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Card, Grid, Badge, Avatar, Progress, Separator, Button } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Grid, Badge, Avatar, Progress, Separator, Button } from '@radix-ui/themes';
 import { CalendarIcon, CheckCircledIcon, BackpackIcon, LightningBoltIcon, ShadowIcon, ArrowRightIcon, PlusIcon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -53,7 +54,7 @@ export default function EmployeeDashboard() {
             <Box p={{ initial: '3', sm: '4', md: '5' }}>
                 
                 {/* ── Greeting Banner ── */}
-                <Card mb="4" style={{ background: 'linear-gradient(135deg, var(--accent-a2) 0%, var(--accent-a1) 100%)', borderRadius: 16 }}>
+                <Panel mb="4" style={{ background: 'linear-gradient(135deg, var(--accent-a2) 0%, var(--accent-a1) 100%)', borderRadius: 16 }}>
                     <Flex gap="4" align="center" wrap="wrap">
                         <Avatar
                             size="6"
@@ -84,7 +85,7 @@ export default function EmployeeDashboard() {
                             </Text>
                         </Box>
                     </Flex>
-                </Card>
+                </Panel>
 
                 {/* ── Attendance Overview (Stats for current month) ── */}
                 <ErrorBoundary>
@@ -109,7 +110,7 @@ export default function EmployeeDashboard() {
                             </ErrorBoundary>
 
                             {/* Today's Shift/Roster Card */}
-                            <Card className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
                                 <Flex align="center" gap="2" mb="3">
                                     <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
                                     <Text size="3" weight="bold">Shift Schedule</Text>
@@ -132,10 +133,10 @@ export default function EmployeeDashboard() {
                                         </Badge>
                                     </>
                                 )}
-                            </Card>
+                            </Panel>
 
                             {/* Assigned Daily Works & Tasks Widget */}
-                            <Card className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
                                 <Flex justify="between" align="center" mb="3">
                                     <Flex align="center" gap="2">
                                         <CheckCircledIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
@@ -163,7 +164,7 @@ export default function EmployeeDashboard() {
                                         date="Tomorrow"
                                     />
                                 </Flex>
-                            </Card>
+                            </Panel>
 
                         </Flex>
                     </Box>
@@ -173,7 +174,7 @@ export default function EmployeeDashboard() {
                         <Flex direction="column" gap="4">
 
                             {/* Quick Actions Panel */}
-                            <Card className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
                                 <Flex align="center" gap="2" mb="3">
                                     <LightningBoltIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
                                     <Text size="3" weight="bold">Quick Workspace Actions</Text>
@@ -194,10 +195,10 @@ export default function EmployeeDashboard() {
                                         </Link>
                                     </Button>
                                 </Grid>
-                            </Card>
+                            </Panel>
                             
                             {/* Leave Balances Widget */}
-                            <Card className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
                                 <Flex align="center" gap="2" mb="3">
                                     <BackpackIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
                                     <Text size="3" weight="bold">Time Off Summary</Text>
@@ -223,10 +224,10 @@ export default function EmployeeDashboard() {
                                         color="amber"
                                     />
                                 </Grid>
-                            </Card>
+                            </Panel>
 
                             {/* My Requests (Swaps, Regularizations, Overtime) */}
-                            <Card className="cc-card" style={{ borderRadius: 16 }}>
+                            <Panel className="cc-card" style={{ borderRadius: 16 }}>
                                 <Flex align="center" gap="2" mb="3">
                                     <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
                                     <Text size="3" weight="bold">My Requests</Text>
@@ -234,7 +235,7 @@ export default function EmployeeDashboard() {
                                 <ErrorBoundary>
                                     <MyRequests />
                                 </ErrorBoundary>
-                            </Card>
+                            </Panel>
 
                         </Flex>
                     </Box>
@@ -254,7 +255,7 @@ export default function EmployeeDashboard() {
 function LeaveTrackerItem({ title, used, total, color }) {
     const pct = Math.min(100, (used / total) * 100);
     return (
-        <Card size="1" style={{ background: 'var(--gray-a2)' }}>
+        <Panel size="1" style={{ background: 'var(--gray-a2)' }}>
             <Text size="1" color="gray" weight="medium">{title}</Text>
             <Heading size="4" mt="1" style={{ color: `var(--${color}-11)` }}>
                 {total - used} <Text size="1" color="gray">left</Text>
@@ -263,7 +264,7 @@ function LeaveTrackerItem({ title, used, total, color }) {
             <Text size="1" color="gray" mt="1" style={{ fontSize: 10, display: 'block' }}>
                 {used} / {total} days used
             </Text>
-        </Card>
+        </Panel>
     );
 }
 

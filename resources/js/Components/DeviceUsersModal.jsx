@@ -1,12 +1,10 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * DeviceUsersModal.jsx
  * Modal for managing biometric device users - fetches from device, shows linked users, allows linking/unlinking
  */
 import React, { useState, useEffect } from 'react';
-import {
-    Badge, Box, Button, Card, Code, Dialog, Flex,
-    IconButton, Select, Spinner, Table, Text, TextField, Tooltip,
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Code, Dialog, Flex, IconButton, Select, Spinner, Table, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
     CheckCircledIcon, MinusIcon, Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon,
 } from '@radix-ui/react-icons';
@@ -116,7 +114,7 @@ export default function DeviceUsersModal({ open, onOpenChange, device, employees
                 <Flex direction="column" gap="4" mt="4">
                     {/* Actions */}
                     {device?.protocol === 'adms' && (
-                        <Card variant="surface" style={{ backgroundColor: 'var(--accent-a3)' }}>
+                        <Panel variant="surface" style={{ backgroundColor: 'var(--accent-a3)' }}>
                             <Flex justify="between" align="center">
                                 <Box>
                                     <Text size="2" weight="medium">Fetch Users from Device</Text>
@@ -133,7 +131,7 @@ export default function DeviceUsersModal({ open, onOpenChange, device, employees
                                     {fetchingFromDevice ? 'Fetching...' : 'Fetch Users'}
                                 </Button>
                             </Flex>
-                        </Card>
+                        </Panel>
                     )}
 
                     {/* Linked Users */}
@@ -146,11 +144,11 @@ export default function DeviceUsersModal({ open, onOpenChange, device, employees
                                 <Spinner size="3" />
                             </Flex>
                         ) : linkedUsers.length === 0 ? (
-                            <Card variant="surface">
+                            <Panel variant="surface">
                                 <Flex justify="center" py="4">
                                     <Text size="2" color="gray">No linked users yet.</Text>
                                 </Flex>
-                            </Card>
+                            </Panel>
                         ) : (
                             <Box style={{ overflowX: 'auto' }}>
                                 <Table.Root variant="surface">
@@ -271,7 +269,7 @@ export default function DeviceUsersModal({ open, onOpenChange, device, employees
 
                     {/* Link User Dialog */}
                     {linkingEntry && (
-                        <Card variant="surface" style={{ border: '2px solid var(--accent-9)' }}>
+                        <Panel variant="surface" style={{ border: '2px solid var(--accent-9)' }}>
                             <Flex direction="column" gap="3">
                                 <Text size="2" weight="medium">
                                     Link Device User {linkingEntry.device_user_id} to Employee
@@ -303,7 +301,7 @@ export default function DeviceUsersModal({ open, onOpenChange, device, employees
                                     </Button>
                                 </Flex>
                             </Flex>
-                        </Card>
+                        </Panel>
                     )}
                 </Flex>
 

@@ -1,9 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import {
-    Box, Flex, Text, Button, TextField, Select,
-    Separator, Badge, Card, IconButton, Spinner,
-    ScrollArea, Checkbox, Switch, Table, Tooltip, Tabs,
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Button, TextField, Select, Separator, Badge, IconButton, Spinner, ScrollArea, Checkbox, Switch, Table, Tooltip, Tabs } from '@radix-ui/themes';
 import {
     GearIcon, ClockIcon, CalendarIcon, PersonIcon,
     PlusIcon, TrashIcon, Pencil1Icon, CheckCircledIcon,
@@ -736,7 +733,7 @@ const SettingsTab = () => {
                         <form onSubmit={handleGeneralSave}>
                             <Flex direction="column" gap="5">
                                 {/* Office Timing */}
-                                <Card size="2">
+                                <Panel size="2">
                                     <Flex align="center" gap="2" mb="3">
                                         <ClockIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                         <Text size="3" weight="bold">Office Timing</Text>
@@ -773,10 +770,10 @@ const SettingsTab = () => {
                                             />
                                         </Box>
                                     </Flex>
-                                </Card>
+                                </Panel>
 
                                 {/* Attendance Policies */}
-                                <Card size="2">
+                                <Panel size="2">
                                     <Flex align="center" gap="2" mb="3">
                                         <GearIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                         <Text size="3" weight="bold">Attendance Policies</Text>
@@ -833,10 +830,10 @@ const SettingsTab = () => {
                                             )}
                                         </Flex>
                                     </Flex>
-                                </Card>
+                                </Panel>
 
                                 {/* Weekend */}
-                                <Card size="2">
+                                <Panel size="2">
                                     <Flex align="center" gap="2" mb="3">
                                         <CalendarIcon style={{ color: 'var(--accent-9)', width: 16 }} />
                                         <Text size="3" weight="bold">Weekend Days</Text>
@@ -853,7 +850,7 @@ const SettingsTab = () => {
                                             </Flex>
                                         ))}
                                     </Flex>
-                                </Card>
+                                </Panel>
 
                                 {/* save button */}
                                 <Flex justify="end">
@@ -891,7 +888,7 @@ const SettingsTab = () => {
                                 const isOpen   = openSections.includes(slug);
 
                                 return (
-                                    <Card key={slug} size="2">
+                                    <Panel key={slug} size="2">
                                         {/* accordion header */}
                                         <Flex
                                             align="center" justify="between"
@@ -1061,7 +1058,7 @@ const SettingsTab = () => {
                                                 )}
                                             </Box>
                                         )}
-                                    </Card>
+                                    </Panel>
                                 );
                             })}
                         </Flex>
@@ -1107,7 +1104,6 @@ const SettingsTab = () => {
 };
 
 export default SettingsTab;
-
 
 
 

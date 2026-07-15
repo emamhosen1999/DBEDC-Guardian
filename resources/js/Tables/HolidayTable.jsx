@@ -1,18 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import {
-    Table,
-    Badge,
-    Button,
-    Card,
-    Flex,
-    Text,
-    Box,
-    TextField,
-    ScrollArea,
-    DropdownMenu,
-    IconButton,
-    Spinner,
-} from '@radix-ui/themes';
+import { Table, Badge, Button, Flex, Text, Box, TextField, ScrollArea, DropdownMenu, IconButton, Spinner } from '@radix-ui/themes';
 import {
     CalendarIcon,
     MagnifyingGlassIcon,
@@ -278,7 +266,7 @@ const HolidayTable = ({
 
             {showFilters && (
                 <Box>
-                    <Card style={{ padding: 16 }}>
+                    <Panel style={{ padding: 16 }}>
                         <Text size="2" weight="medium" mb="2" as="div">
                             Holiday Type
                         </Text>
@@ -389,7 +377,7 @@ const HolidayTable = ({
                                     ))}
                                 </Flex>
                             )}
-                    </Card>
+                    </Panel>
                 </Box>
             )}
 
@@ -408,7 +396,7 @@ const HolidayTable = ({
         const days = differenceInDays(new Date(holiday.to_date), new Date(holiday.from_date)) + 1;
 
         return (
-            <Card mb="2">
+            <Panel mb="2">
                 <Flex justify="between" align="start" gap="2" mb="3">
                     <Box style={{ flex: 1 }}>
                         <Text size="3" weight="bold">
@@ -469,13 +457,13 @@ const HolidayTable = ({
                         </Box>
                     )}
                 </Flex>
-            </Card>
+            </Panel>
         );
     };
 
     if (holidaysData.length === 0) {
         return (
-            <Card style={{ padding: 48, textAlign: 'center' }}>
+            <Panel style={{ padding: 48, textAlign: 'center' }}>
                 <CalendarIcon style={{ width: 64, height: 64, color: 'var(--gray-8)', margin: '0 auto 16px auto' }} />
                 <Text size="4" weight="bold" mb="2" as="div">
                     No Holidays Found
@@ -483,7 +471,7 @@ const HolidayTable = ({
                 <Text size="2" color="gray">
                     No company holidays have been configured yet.
                 </Text>
-            </Card>
+            </Panel>
         );
     }
 

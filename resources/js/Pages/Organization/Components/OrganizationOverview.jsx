@@ -1,9 +1,10 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, Flex, Grid, Heading, Box, Text } from '@radix-ui/themes';
+import { Flex, Grid, Heading, Box, Text } from '@radix-ui/themes';
 import { PersonIcon, HomeIcon, LayersIcon, SewingPinIcon } from '@radix-ui/react-icons';
 
 const StatCard = ({ title, value, icon: Icon, color }) => (
-    <Card style={{ height: '100%' }}>
+    <Panel style={{ height: '100%' }}>
         <Flex direction="column" gap="3">
             <Flex align="center" gap="3">
                 <Box style={{
@@ -23,7 +24,7 @@ const StatCard = ({ title, value, icon: Icon, color }) => (
                 {value ?? 0}
             </Text>
         </Flex>
-    </Card>
+    </Panel>
 );
 
 export default function OrganizationOverview({ stats }) {

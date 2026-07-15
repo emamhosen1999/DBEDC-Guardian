@@ -1,8 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Box, Flex, Text, Card, Table, Badge, Button, IconButton, Tooltip,
-    Dialog, TextField, Select, Grid, Spinner, AlertDialog, TextField as RTextField
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Table, Badge, Button, IconButton, Tooltip, Dialog, TextField, Select, Grid, Spinner, AlertDialog, TextField as RTextField } from '@radix-ui/themes';
 import {
     PlusIcon, Pencil1Icon, TrashIcon, SewingPinIcon, MagnifyingGlassIcon
 } from '@radix-ui/react-icons';
@@ -121,7 +119,7 @@ const JurisdictionsManager = ({ jurisdictions: initial = [], users = [], canMana
                 </Flex>
             </Flex>
 
-            <Card variant="surface">
+            <Panel variant="surface">
                 <Box style={{ overflowX: 'auto' }}>
                     <Table.Root variant="ghost">
                         <Table.Header>
@@ -173,7 +171,7 @@ const JurisdictionsManager = ({ jurisdictions: initial = [], users = [], canMana
                         </Table.Body>
                     </Table.Root>
                 </Box>
-            </Card>
+            </Panel>
 
             {/* Add / Edit modal */}
             <Dialog.Root open={modalOpen} onOpenChange={(v) => { if (!v && !saving) setModalOpen(false); }}>

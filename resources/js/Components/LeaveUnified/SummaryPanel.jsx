@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * SummaryPanel.jsx
  * "Summary" tab — per-employee pivot + per-department breakdown.
@@ -9,11 +10,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
-import {
-    Badge, Box, Button, Card, Flex,
-    Select, Spinner, Table,
-    Tabs, Text, TextField, ScrollArea, Skeleton
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Flex, Select, Spinner, Table, Tabs, Text, TextField, ScrollArea, Skeleton } from '@radix-ui/themes';
 import {
     HomeIcon, CalendarIcon, CheckCircledIcon, ClockIcon,
     DownloadIcon, MagnifyingGlassIcon, PersonIcon,
@@ -24,7 +21,7 @@ import { showToast } from '@/utils/toastUtils';
 /* ── Responsive Stat Pill (Aligned with AdminLeavesPanel) ── */
 function StatPill({ label, value, color = 'gray', icon: Icon, loading = false }) {
     return (
-        <Card size="1" style={{ 
+        <Panel size="1" style={{ 
             minWidth: '150px', 
             flex: '1 1 auto', 
             background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
@@ -42,7 +39,7 @@ function StatPill({ label, value, color = 'gray', icon: Icon, loading = false })
                     <Text size="1" color="gray" weight="medium" style={{ display: 'block', marginTop: 4 }}>{label}</Text>
                 </Box>
             </Flex>
-        </Card>
+        </Panel>
     );
 }
 
@@ -236,7 +233,7 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                             <Text size="2" color="gray">Try adjusting your search or filters.</Text>
                         </Flex>
                     ) : (
-                        <Card variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                        <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
                             <ScrollArea type="auto" scrollbars="both" style={{ width: '100%', maxHeight: '600px' }}>
                                 <Table.Root size="2">
                                     <Table.Header style={{ backgroundColor: 'var(--gray-a2)', position: 'sticky', top: 0, zIndex: 1 }}>
@@ -279,7 +276,7 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                                     </Table.Body>
                                 </Table.Root>
                             </ScrollArea>
-                        </Card>
+                        </Panel>
                     )}
                 </Tabs.Content>
 
@@ -292,7 +289,7 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                             <Text size="2" color="gray">No leave records match the current filters.</Text>
                         </Flex>
                     ) : (
-                        <Card variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                        <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
                             <ScrollArea type="auto" scrollbars="both" style={{ width: '100%', maxHeight: '600px' }}>
                                 <Table.Root size="2">
                                     <Table.Header style={{ backgroundColor: 'var(--gray-a2)', position: 'sticky', top: 0, zIndex: 1 }}>
@@ -346,7 +343,7 @@ export default function SummaryPanel({ summaryData, isMobile, isActive, onSetHea
                                     </Table.Body>
                                 </Table.Root>
                             </ScrollArea>
-                        </Card>
+                        </Panel>
                     )}
                 </Tabs.Content>
             </Tabs.Root>

@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
-import { Box, Button, Card, Flex, Grid, Text, TextField, IconButton } from '@radix-ui/themes';
+import { Box, Button, Flex, Grid, Text, TextField, IconButton } from '@radix-ui/themes';
 import { Pencil1Icon, Cross2Icon, PlusIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 
@@ -39,7 +40,7 @@ const EducationInformationForm = ({ user, setUser }) => {
     };
 
     return (
-        <Card variant="surface" size="2">
+        <Panel variant="surface" size="2">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Education History</Text>
                 {!isEditing ? (
@@ -62,7 +63,7 @@ const EducationInformationForm = ({ user, setUser }) => {
                 <form onSubmit={handleSubmit}>
                     <Flex direction="column" gap="4" mb="4">
                         {educationList.map((ed, i) => (
-                            <Card key={i} variant="classic">
+                            <Panel key={i} variant="classic">
                                 <Flex justify="between" mb="2">
                                     <Text size="1" weight="bold">Item {i + 1}</Text>
                                     <IconButton size="1" variant="ghost" color="red" onClick={() => handleRemove(i)}><Cross2Icon /></IconButton>
@@ -71,14 +72,14 @@ const EducationInformationForm = ({ user, setUser }) => {
                                     <TextField.Root placeholder="Institution" value={ed.institution} onChange={e => handleUpdate(i, 'institution', e.target.value)} />
                                     <TextField.Root placeholder="Degree" value={ed.degree} onChange={e => handleUpdate(i, 'degree', e.target.value)} />
                                 </Grid>
-                            </Card>
+                            </Panel>
                         ))}
                         <Button type="button" variant="soft" onClick={handleAdd}><PlusIcon /> Add Item</Button>
                     </Flex>
                     <Flex justify="end"><Button type="submit" disabled={processing}>Save All</Button></Flex>
                 </form>
             )}
-        </Card>
+        </Panel>
     );
 };
 export default EducationInformationForm;

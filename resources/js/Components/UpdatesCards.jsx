@@ -1,8 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import {
-    Avatar, Badge, Box, Card, Flex, Grid, Heading,
-    Popover, Separator, Skeleton, Text,
-} from '@radix-ui/themes';
+import { Avatar, Badge, Box, Flex, Grid, Heading, Popover, Separator, Skeleton, Text } from '@radix-ui/themes';
 import {
     CalendarIcon,
     ClockIcon,
@@ -98,7 +96,7 @@ const LeavePopover = ({ leave, user, children }) => (
 );
 
 const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => (
-    <Card style={{ height: '220px', display: 'flex', flexDirection: 'column' }}>
+    <Panel style={{ height: '220px', display: 'flex', flexDirection: 'column' }}>
         <Box pb="2" mb="2" style={{ borderBottom: '1px solid var(--gray-a4)', flexShrink: 0 }}>
             <Flex align="center" gap="3">
                 <Box style={{
@@ -163,7 +161,7 @@ const UpdateSection = ({ title, items, users, icon: IconComponent, color }) => (
                 );
             })}
         </Flex>
-    </Card>
+    </Panel>
 );
 
 const UpdatesCards = () => {
@@ -312,10 +310,10 @@ const UpdatesCards = () => {
         return (
             <Grid columns={{ initial: '1', sm: '2', md: '3' }} gap="4" aria-label="Employee updates loading">
                 {[1, 2, 3].map((_, idx) => (
-                    <Card key={idx}>
+                    <Panel key={idx}>
                         <Skeleton style={{ height: 24, width: '60%', borderRadius: 4, marginBottom: 12 }} />
                         <Skeleton style={{ height: 120, width: '100%', borderRadius: 4 }} />
-                    </Card>
+                    </Panel>
                 ))}
             </Grid>
         );
@@ -323,12 +321,12 @@ const UpdatesCards = () => {
 
     if (error) {
         return (
-            <Card style={{ borderColor: 'var(--red-a7)' }}>
+            <Panel style={{ borderColor: 'var(--red-a7)' }}>
                 <Flex align="center" gap="3">
                     <ExclamationTriangleIcon style={{ color: 'var(--red-9)', width: 20, height: 20 }} />
                     <Text size="2" color="red">Failed to load updates: {error}</Text>
                 </Flex>
-            </Card>
+            </Panel>
         );
     }
 

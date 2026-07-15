@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useMemo } from 'react';
-import { Box, Card, Flex, Text } from '@radix-ui/themes';
+import { Box, Flex, Text } from '@radix-ui/themes';
 
 const GREETINGS = [
     { range: [5,  12], text: 'Good morning',  emoji: '🌅' },
@@ -25,7 +26,7 @@ export default function GreetingBanner({ user }) {
     });
 
     return (
-        <Card style={{ 
+        <Panel style={{ 
             height: '100%', 
             background: 'linear-gradient(135deg, var(--accent-a3) 0%, var(--accent-a1) 100%)', 
             border: '1px solid var(--accent-a5)',
@@ -43,6 +44,6 @@ export default function GreetingBanner({ user }) {
                     </Flex>
                 </Flex>
             </Flex>
-        </Card>
+        </Panel>
     );
 }

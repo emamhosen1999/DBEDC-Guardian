@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import { route } from 'ziggy-js';
@@ -8,24 +9,7 @@ import DateTimePicker from '@/Components/DateTimePicker';
 
 import * as useRequestLogsQuery from '@/api/queries/useRequestLogsQuery';
 import TablePagination from '@/Components/TablePagination.jsx';
-import {
-    Box,
-    Flex,
-    Text,
-    Button,
-    TextField,
-    Select,
-    Table,
-    Badge,
-    Tooltip,
-    Dialog,
-    Code,
-    Separator,
-    Spinner,
-    IconButton,
-    ScrollArea,
-    Card,
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Button, TextField, Select, Table, Badge, Tooltip, Dialog, Code, Separator, Spinner, IconButton, ScrollArea } from '@radix-ui/themes';
 import {
     TrashIcon,
     ReloadIcon,
@@ -248,7 +232,7 @@ const RequestLogs = ({ title }) => {
                 <ErrorBoundary>
                 <Flex justify="center" p="4">
                     <Box style={{ width: '100%', maxWidth: 2000 }}>
-                        <Card>
+                        <Panel>
 
                             {/* ── Page Header ─────────────────────────────────── */}
                             <Box mb="4">
@@ -622,7 +606,7 @@ const RequestLogs = ({ title }) => {
                                     />
                                 </Flex>
                             )}
-                        </Card>
+                        </Panel>
                     </Box>
                 </Flex>
 

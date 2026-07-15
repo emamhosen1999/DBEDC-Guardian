@@ -1,9 +1,8 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, lazy, Suspense } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import App from '@/Layouts/App';
-import {
-    Box, Flex, Text, Card, Tabs, Skeleton,
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Tabs, Skeleton } from '@radix-ui/themes';
 import {
     ClockIcon, CalendarIcon, GearIcon, LayersIcon, CheckCircledIcon,
     DesktopIcon,
@@ -80,7 +79,7 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
 
             <Flex justify="center" p={{ initial: '3', md: '4' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card style={{
+                    <Panel style={{
                         }}>
 
                         {/* ══ PAGE HEADER ════════════════════════════════ */}
@@ -267,7 +266,7 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                             )}
                         </Tabs.Root>
 
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
             <style dangerouslySetInnerHTML={{__html: `

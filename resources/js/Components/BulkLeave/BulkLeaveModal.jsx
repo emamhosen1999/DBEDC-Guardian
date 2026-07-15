@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * BulkLeaveModal.jsx
  * Unified modal for bulk leave selection, validation, and submission.
@@ -9,10 +10,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import {
-    Box, Button, Dialog, Flex, Select, Spinner, Switch, Text, TextArea, TextField,
-    Grid, ScrollArea, Card, Badge, Separator
-} from '@radix-ui/themes';
+import { Box, Button, Dialog, Flex, Select, Spinner, Switch, Text, TextArea, TextField, Grid, ScrollArea, Badge, Separator } from '@radix-ui/themes';
 import {
     CalendarIcon, CheckCircledIcon, Cross2Icon, ExclamationTriangleIcon,
     MagnifyingGlassIcon, PersonIcon, CrossCircledIcon, InfoCircledIcon
@@ -40,7 +38,7 @@ const ValidationPreview = ({ validationResults = [], balanceImpact = null, isVal
 
     return (
         <Flex direction="column" gap="3" mt="2">
-            <Card variant="surface" style={{ backgroundColor: 'var(--gray-a2)' }}>
+            <Panel variant="surface" style={{ backgroundColor: 'var(--gray-a2)' }}>
                 <Flex justify="between" align="center" mb="3">
                     <Text size="3" weight="bold">Validation Results</Text>
                     {isValidating && (
@@ -100,10 +98,10 @@ const ValidationPreview = ({ validationResults = [], balanceImpact = null, isVal
                         )}
                     </>
                 )}
-            </Card>
+            </Panel>
 
             {validationResults.length > 0 && !isValidating && (
-                <Card variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
                     <Box px="3" py="2" style={{ borderBottom: '1px solid var(--gray-a4)', backgroundColor: 'var(--gray-a2)' }}>
                         <Flex justify="between" align="center">
                             <Text size="2" weight="bold">Date Details</Text>
@@ -133,7 +131,7 @@ const ValidationPreview = ({ validationResults = [], balanceImpact = null, isVal
                             ))}
                         </Flex>
                     </ScrollArea>
-                </Card>
+                </Panel>
             )}
         </Flex>
     );
@@ -304,7 +302,7 @@ export default function BulkLeaveModal({
                             <Flex direction="column" gap="4">
                                 <Box>
                                     <Text size="3" weight="bold" as="div" mb="3">2. Leave Details</Text>
-                                    <Card variant="surface">
+                                    <Panel variant="surface">
                                         <Flex direction="column" gap="3">
                                             {isAdmin && (
                                                 <DepartmentEmployeeSelector
@@ -367,7 +365,7 @@ export default function BulkLeaveModal({
                                                 </Flex>
                                             </Box>
                                         </Flex>
-                                    </Card>
+                                    </Panel>
                                 </Box>
 
                                 <Box>

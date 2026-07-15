@@ -1,6 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { Box, Button, Card, Flex, Heading, Text } from '@radix-ui/themes';
+import { Box, Button, Flex, Heading, Text } from '@radix-ui/themes';
 import { LockClosedIcon, ArrowLeftIcon } from '@radix-ui/react-icons';
 
 export default function Register() {
@@ -13,7 +14,7 @@ export default function Register() {
                 padding: 16, background: 'var(--color-background)',
             }}>
                 <Box style={{ width: '100%', maxWidth: 400 }}>
-                    <Card size="4">
+                    <Panel size="4">
                         <Flex direction="column" align="center" gap="3">
                             <Box style={{
                                 width: 56, height: 56, borderRadius: '50%',
@@ -33,7 +34,7 @@ export default function Register() {
                                 </Link>
                             </Button>
                         </Flex>
-                    </Card>
+                    </Panel>
                 </Box>
             </Box>
         </>

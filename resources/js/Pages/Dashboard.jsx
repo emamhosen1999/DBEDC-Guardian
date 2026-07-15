@@ -1,6 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import { Head } from '@inertiajs/react';
 import React from 'react';
-import { Box, Flex, Text, Heading, Skeleton, Button, Card } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Skeleton, Button } from '@radix-ui/themes';
 
 import App from '@/Layouts/App.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
@@ -35,11 +36,11 @@ export default function Dashboard({ auth }) {
                 </Flex>
 
                 {isError ? (
-                    <Card style={{ padding: 32, textAlign: 'center' }}>
+                    <Panel style={{ padding: 32, textAlign: 'center' }}>
                         <Heading size="4" mb="2">Command center unavailable</Heading>
                         <Text color="gray" size="2" as="p" mb="4">We couldn’t load the project data. Check your connection and try again.</Text>
                         <Button onClick={() => refetch()}>Retry</Button>
-                    </Card>
+                    </Panel>
                 ) : isLoading ? (
                     <LoadingState />
                 ) : (

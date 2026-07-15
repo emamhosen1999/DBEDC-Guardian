@@ -1,9 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
-import {
-    Box, Button, Callout, Card, Flex, Heading,
-    IconButton, Spinner, Text, TextField,
-} from '@radix-ui/themes';
+import { Box, Button, Callout, Flex, Heading, IconButton, Spinner, Text, TextField } from '@radix-ui/themes';
 import {
     CheckCircledIcon, ExclamationTriangleIcon,
     EyeNoneIcon, EyeOpenIcon, LockClosedIcon,
@@ -115,7 +113,7 @@ export default function ResetPassword({ token, email }) {
                 position: 'relative', zIndex: 1, overflowX: 'hidden',
             }}>
                 <Box style={{ width: '100%', maxWidth: 440 }}>
-                    <Card size="4" style={{
+                    <Panel size="4" style={{
                         }}>
                         <Flex direction="column" align="center" gap="2" mb="5">
                             <Box style={{
@@ -207,11 +205,11 @@ export default function ResetPassword({ token, email }) {
                                 />
 
                                 <Button type="submit" size="3" disabled={processing} style={{ cursor: processing ? 'not-allowed' : 'pointer' }}>
-                                    {processing ? <><Spinner size="1" /> Resetting…</> : 'Reset password'}
+                                    {processing ? <><Spinner size="1" /> Resettingï¿½</> : 'Reset password'}
                                 </Button>
                             </Flex>
                         </form>
-                    </Card>
+                    </Panel>
                 </Box>
             </Box>
         </>

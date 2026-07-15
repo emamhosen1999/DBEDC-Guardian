@@ -1,11 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card } from '@radix-ui/themes';
 
 const GlassCard = ({ children, className, style, ...rest }) => {
   return (
-    <Card style={style} className={className} {...rest}>
+    <Panel style={style} className={className} {...rest}>
       {children}
-    </Card>
+    </Panel>
   );
 };
 

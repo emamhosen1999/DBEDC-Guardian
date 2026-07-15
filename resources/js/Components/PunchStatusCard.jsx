@@ -1,8 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-    Box, Card, Flex, Grid, Text, Heading, Badge, Separator,
-    Skeleton, Avatar, Button, TextField, Dialog, Tooltip, Spinner,
-} from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Heading, Badge, Separator, Skeleton, Avatar, Button, TextField, Dialog, Tooltip, Spinner } from '@radix-ui/themes';
 import {
     ClockIcon,
     DrawingPinIcon,
@@ -1085,7 +1083,7 @@ const PunchStatusCard = React.memo(() => {
 
     return (
         <Box style={{ height: '100%' }}>
-            <Card style={{ height: '100%', opacity: attendanceState.loading ? 0.7 : 1, display: 'flex', flexDirection: 'column' }}>
+            <Panel style={{ height: '100%', opacity: attendanceState.loading ? 0.7 : 1, display: 'flex', flexDirection: 'column' }}>
                 <Box p={{ initial: '3', md: '4' }} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     {/* Header: Avatar + Name + Time */}
                     <Flex align="center" justify="between" mb={{ initial: '3', md: '4' }}>
@@ -1128,7 +1126,7 @@ const PunchStatusCard = React.memo(() => {
 
                     {/* Work Stats */}
                     <Grid columns="2" gap={{ initial: '2', md: '3' }} mb={{ initial: '3', md: '4' }}>
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <ClockIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
                                 <Text size="3" weight="bold" style={{ fontFamily: 'monospace', color: 'var(--accent-9)' }}>
@@ -1136,8 +1134,8 @@ const PunchStatusCard = React.memo(() => {
                                 </Text>
                                 <Text size="1" color="gray">Hours Today</Text>
                             </Flex>
-                        </Card>
-                        <Card variant="surface">
+                        </Panel>
+                        <Panel variant="surface">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <HomeIcon style={{ color: 'var(--accent-9)', width: 20, height: 20 }} />
                                 <Text size="3" weight="bold" style={{ color: 'var(--accent-9)' }}>
@@ -1145,7 +1143,7 @@ const PunchStatusCard = React.memo(() => {
                                 </Text>
                                 <Text size="1" color="gray">Sessions</Text>
                             </Flex>
-                        </Card>
+                        </Panel>
                     </Grid>
 
                     {/* Main Action Button */}
@@ -1166,7 +1164,7 @@ const PunchStatusCard = React.memo(() => {
 
                     {/* Biometric Device Info Card */}
                     {isBiometricUser && (
-                        <Card mb="3" style={{ borderColor: 'var(--accent-a7)', background: 'var(--accent-a2)' }}>
+                        <Panel mb="3" style={{ borderColor: 'var(--accent-a7)', background: 'var(--accent-a2)' }}>
                             <Flex align="center" gap="3" p="3">
                                 <Flex align="center" justify="center" style={{
                                     width: 40, height: 40, borderRadius: '50%',
@@ -1196,7 +1194,7 @@ const PunchStatusCard = React.memo(() => {
                                     </Text>
                                 </Box>
                             </Flex>
-                        </Card>
+                        </Panel>
                     )}
 
                     {/* QR Code Input */}
@@ -1274,17 +1272,17 @@ const PunchStatusCard = React.memo(() => {
 
                     {/* Location Error */}
                     {requiresLocationForPunch && locationState.error && locationState.status !== GPS_STATUS.ACTIVE && (
-                        <Card mb="3" style={{ borderColor: 'var(--red-a7)' }}>
+                        <Panel mb="3" style={{ borderColor: 'var(--red-a7)' }}>
                             <Flex align="start" gap="2" p="2">
                                 <ExclamationTriangleIcon style={{ color: 'var(--red-9)', flexShrink: 0, marginTop: 2 }} />
                                 <Text size="1" color="red">{locationState.error}</Text>
                             </Flex>
-                        </Card>
+                        </Panel>
                     )}
 
                     {/* Leave Alert */}
                     {attendanceState.userOnLeave && (
-                        <Card mb="3" style={{ borderColor: 'var(--amber-a7)', background: 'var(--amber-a2)' }}>
+                        <Panel mb="3" style={{ borderColor: 'var(--amber-a7)', background: 'var(--amber-a2)' }}>
                             <Flex align="center" gap="2" p="3">
                                 <ExclamationTriangleIcon style={{ color: 'var(--amber-9)', width: 20, height: 20, flexShrink: 0 }} />
                                 <Box>
@@ -1296,7 +1294,7 @@ const PunchStatusCard = React.memo(() => {
                                     </Text>
                                 </Box>
                             </Flex>
-                        </Card>
+                        </Panel>
                     )}
 
                     {/* Today's Activity Collapsible */}
@@ -1323,7 +1321,7 @@ const PunchStatusCard = React.memo(() => {
                                 {attendanceState.todayPunches.length > 0 ? (
                                     <Flex direction="column" gap="2">
                                         {attendanceState.todayPunches.map((punch, index) => (
-                                            <Card key={punch.id ?? punch.punchin_time ?? index} variant="surface">
+                                            <Panel key={punch.id ?? punch.punchin_time ?? index} variant="surface">
                                                 <Box p="3">
                                                     <Grid columns="2" gap="3">
                                                         <Box>
@@ -1369,22 +1367,22 @@ const PunchStatusCard = React.memo(() => {
                                                         </Flex>
                                                     )}
                                                 </Box>
-                                            </Card>
+                                            </Panel>
                                         ))}
                                     </Flex>
                                 ) : (
-                                    <Card variant="surface">
+                                    <Panel variant="surface">
                                         <Flex direction="column" align="center" p="4" gap="2">
                                             <InfoCircledIcon style={{ color: 'var(--accent-9)', width: 32, height: 32 }} />
                                             <Text size="2" color="gray">No activity recorded today</Text>
                                         </Flex>
-                                    </Card>
+                                    </Panel>
                                 )}
                             </Box>
                         )}
                     </Box>
                 </Box>
-            </Card>
+            </Panel>
 
             {/* Session Success Dialog */}
             <Dialog.Root open={uiState.sessionDialogOpen} onOpenChange={(open) => setUiState(prev => ({ ...prev, sessionDialogOpen: open }))}>
@@ -1399,27 +1397,27 @@ const PunchStatusCard = React.memo(() => {
                         Your attendance has been successfully captured
                     </Dialog.Description>
                     <Grid columns="2" gap="3" my="3">
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <GlobeIcon style={{ color: 'var(--accent-9)', width: 24, height: 24 }} />
                                 <Text size="2" weight="medium" color="blue">{systemState.sessionInfo.ip}</Text>
                                 <Text size="1" color="gray">IP Address</Text>
                             </Flex>
-                        </Card>
-                        <Card variant="surface">
+                        </Panel>
+                        <Panel variant="surface">
                             <Flex direction="column" align="center" p="3" gap="1">
                                 <DrawingPinIcon style={{ color: 'var(--green-9)', width: 24, height: 24 }} />
                                 <Text size="2" weight="medium" color="green">{systemState.sessionInfo.accuracy}</Text>
                                 <Text size="1" color="gray">GPS Accuracy</Text>
                             </Flex>
-                        </Card>
+                        </Panel>
                     </Grid>
-                    <Card variant="surface" mb="3">
+                    <Panel variant="surface" mb="3">
                         <Flex align="center" justify="center" gap="2" p="3">
                             <ClockIcon />
                             <Text size="2">Recorded at: {systemState.sessionInfo.timestamp}</Text>
                         </Flex>
-                    </Card>
+                    </Panel>
                     <Flex justify="end">
                         <Dialog.Close>
                             <Button color="blue" size="2" style={{ width: '100%' }}>Continue</Button>
@@ -1479,7 +1477,7 @@ const PunchStatusCard = React.memo(() => {
                             </Box>
                         )}
                     </Box>
-                    <Card variant="surface" mt="3" mb="3">
+                    <Panel variant="surface" mt="3" mb="3">
                         <Flex align="center" gap="2" p="2">
                             <InfoCircledIcon style={{ color: 'var(--accent-9)' }} />
                             <Text size="2">
@@ -1488,7 +1486,7 @@ const PunchStatusCard = React.memo(() => {
                                     : 'Position yourself clearly in the frame and capture the photo.'}
                             </Text>
                         </Flex>
-                    </Card>
+                    </Panel>
                     <Flex gap="2" justify="end">
                         <Button color="red" variant="soft" onClick={stopCamera}>Cancel</Button>
                         {cameraState.capturedPhoto ? (

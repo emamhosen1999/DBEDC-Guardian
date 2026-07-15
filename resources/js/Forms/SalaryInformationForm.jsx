@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect } from 'react';
-import { Box, Button, Card, Flex, Grid, Text, TextField, Select } from '@radix-ui/themes';
+import { Box, Button, Flex, Grid, Text, TextField, Select } from '@radix-ui/themes';
 import { Pencil1Icon, Cross2Icon, CircleIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
@@ -64,7 +65,7 @@ const SalaryInformationForm = ({ user, setUser }) => {
     };
 
     return (
-        <Card variant="surface" size="2">
+        <Panel variant="surface" size="2">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Salary & Statutory Info</Text>
                 {!isEditing ? (
@@ -115,7 +116,7 @@ const SalaryInformationForm = ({ user, setUser }) => {
                     </Flex>
                 </form>
             )}
-        </Card>
+        </Panel>
     );
 };
 

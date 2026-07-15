@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * BulkCalendar.jsx
  * Interactive multi-date selector for bulk leave requests.
@@ -7,7 +8,7 @@
  * - Better Interactive States: Improved hover, focus, and disabled states for better accessibility.
  */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Badge, Box, Button, Flex, IconButton, Spinner, Text, Card, Grid } from '@radix-ui/themes';
+import { Badge, Box, Button, Flex, IconButton, Spinner, Text, Grid } from '@radix-ui/themes';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
@@ -182,7 +183,7 @@ const BulkCalendar = ({
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-        <Card variant="surface" p="0" style={{ overflow: 'hidden', position: 'relative' }}>
+        <Panel variant="surface" p="0" style={{ overflow: 'hidden', position: 'relative' }}>
             
             {/* Loading Overlay */}
             {fetchFromAPI && loading && (
@@ -322,7 +323,7 @@ const BulkCalendar = ({
                     </Box>
                 )}
             </Box>
-        </Card>
+        </Panel>
     );
 };
 

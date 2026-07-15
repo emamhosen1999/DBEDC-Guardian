@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, Separator, Text } from '@radix-ui/themes';
+import { Separator, Text } from '@radix-ui/themes';
 import { usePage } from "@inertiajs/react";
 
 const HolidayCard = () => {
@@ -10,7 +11,7 @@ const HolidayCard = () => {
                 {/* Upcoming Holiday Card */}
                 <div className="flex flex-col">
                     <div className="flex-1 flex flex-col">
-                        <Card style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Panel style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                             <div className="p-4">
                                 <h3 className="text-lg font-semibold">Upcoming Holiday</h3>
                             </div>
@@ -49,7 +50,7 @@ const HolidayCard = () => {
                                 )}
 
                             </div>
-                        </Card>
+                        </Panel>
                     </div>
                 </div>
             </div>

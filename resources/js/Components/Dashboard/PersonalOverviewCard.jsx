@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import { Badge, Box, Card, Flex, Grid, Heading, Separator, Skeleton, Text } from '@radix-ui/themes';
+import { Badge, Box, Flex, Grid, Heading, Separator, Skeleton, Text } from '@radix-ui/themes';
 import {
     CheckCircledIcon, ClockIcon, CrossCircledIcon, ExclamationTriangleIcon,
     FileTextIcon, LapTimerIcon, PersonIcon, StackIcon,
@@ -76,7 +77,7 @@ export default function PersonalOverviewCard({ permissions = [] }) {
     const meta = attendance?.meta;
 
     return (
-        <Card style={{ height: '100%' }}>
+        <Panel style={{ height: '100%' }}>
             <style dangerouslySetInnerHTML={{__html: `
                 .stat-box-interactive:hover {
                     background: var(--gray-a3) !important;
@@ -158,6 +159,6 @@ export default function PersonalOverviewCard({ permissions = [] }) {
                     </Flex>
                 )}
             </Flex>
-        </Card>
+        </Panel>
     );
 }

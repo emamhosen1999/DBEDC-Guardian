@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import { Badge, Box, Card, Flex, Grid, Separator, Text } from '@radix-ui/themes';
+import { Badge, Box, Flex, Grid, Separator, Text } from '@radix-ui/themes';
 import axios from 'axios';
 
 const getLeaveTypeConfig = (type) => {
@@ -71,7 +72,7 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                     const pct = total > 0 ? Math.min(100, (taken / total) * 100) : 0;
 
                     return (
-                        <Card 
+                        <Panel 
                             key={b.leave_type_id ?? b.type} 
                             size="2"
                             style={{
@@ -117,7 +118,7 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                                     }} />
                                 </Box>
                             )}
-                        </Card>
+                        </Panel>
                     );
                 })}
             </Grid>
@@ -144,7 +145,7 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                 const pct = totalDays > 0 ? Math.min(100, (usedDays / totalDays) * 100) : 0;
 
                 return (
-                    <Card 
+                    <Panel 
                         key={type} 
                         size="2"
                         style={{
@@ -182,7 +183,7 @@ export function LeaveBalanceCards({ leaveTypes, userLeaveCounts, userId, year })
                                 }} />
                             </Box>
                         )}
-                    </Card>
+                    </Panel>
                 );
             })}
         </Grid>

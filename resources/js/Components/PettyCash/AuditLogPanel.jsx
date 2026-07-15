@@ -1,9 +1,10 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * AuditLogPanel.jsx
  * Timeline-style audit trail for petty cash actions.
  */
 import React, { useState, useEffect } from 'react';
-import { Box, Card, Flex, Text, Badge, Button, Separator } from '@radix-ui/themes';
+import { Box, Flex, Text, Badge, Button, Separator } from '@radix-ui/themes';
 import { ActivityLogIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
@@ -119,7 +120,7 @@ const AuditLogPanel = ({ loanId, isMobile }) => {
 
             <Flex direction="column" gap="2">
                 {logs.map((log) => (
-                    <Card
+                    <Panel
                         key={log.id}
                         style={{
                             padding: '12px 16px',
@@ -146,7 +147,7 @@ const AuditLogPanel = ({ loanId, isMobile }) => {
                         </Flex>
 
                         {expandedLog === log.id && renderChanges(log)}
-                    </Card>
+                    </Panel>
                 ))}
             </Flex>
 

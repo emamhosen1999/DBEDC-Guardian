@@ -1,9 +1,5 @@
-import {
-    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
-    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
-    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
-    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
-} from '@radix-ui/themes';
+import { Panel } from '@/Components/ui/Panel';
+import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 
@@ -125,13 +121,13 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
         const parent = department.parent;
 
         return (
-            <Card
+            <Panel
                 className="transition-all duration-200 cursor-pointer h-full"
                 style={{
                     }}
                 onClick={() => openModal('view_department', department)}
             >
-                <CardBody className="p-4 flex flex-col h-full">
+                <Panel.Body className="p-4 flex flex-col h-full">
                     {/* Card Header with Department Info */}
                     <div className="flex items-start gap-3 mb-3 pb-3 border-b border-white/10">
                         <div className="flex justify-center items-center h-10 w-10 rounded-lg bg-primary/20 text-primary shrink-0">
@@ -233,8 +229,8 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                             </Badge>
                         )}
                     </div>
-                </CardBody>
-            </Card>
+                </Panel.Body>
+            </Panel>
         );
     };
     
@@ -304,7 +300,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
             
             <div className="flex justify-center p-2">
                 <div>
-                    <Card>
+                    <Panel>
                         <PageHeader
                             title="Department Management"
                             subtitle="Manage company departments, hierarchies, and organizational structure"
@@ -537,7 +533,7 @@ const Departments = ({ title, departments: initialDepartments, managers, parentD
                                 </div>
                             </div>
                         </PageHeader>
-                    </Card>
+                    </Panel>
                 </div>
             </div>
             

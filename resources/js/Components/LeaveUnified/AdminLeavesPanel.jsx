@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * AdminLeavesPanel.jsx
  * "All Leaves" tab — admin view.
@@ -10,11 +11,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import axios from 'axios';
-import {
-    Badge, Box, Button, Callout, Card, Flex, Grid,
-    IconButton, Select, Separator, Spinner, Text, TextField,
-    Skeleton, ScrollArea
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Callout, Flex, Grid, IconButton, Select, Separator, Spinner, Text, TextField, Skeleton, ScrollArea } from '@radix-ui/themes';
 import {
     CalendarIcon, CheckCircledIcon, ClockIcon, Cross2Icon,
     CrossCircledIcon, ExclamationTriangleIcon,
@@ -33,7 +30,7 @@ import BulkStatusUpdateModal    from '@/Components/LeaveUnified/BulkStatusUpdate
 /* ── Responsive Stat Pill ── */
 function StatPill({ label, value, color = 'gray', icon: Icon, loading = false, active = false, onClick }) {
     return (
-        <Card 
+        <Panel 
             size="1" 
             style={{ 
                 minWidth: '130px', 
@@ -74,7 +71,7 @@ function StatPill({ label, value, color = 'gray', icon: Icon, loading = false, a
                     <Text size="1" color={active ? 'white' : 'gray'} weight="medium" style={{ display: 'block', marginTop: 4, opacity: active ? 0.9 : 1 }}>{label}</Text>
                 </Box>
             </Flex>
-        </Card>
+        </Panel>
     );
 }
 
@@ -343,7 +340,7 @@ export default function AdminLeavesPanel({
 
             {/* ── Advanced Filter Panel ── */}
             {showFilters && (
-                <Card size="2" variant="surface" mb="4">
+                <Panel size="2" variant="surface" mb="4">
                     <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4">
                         <Box>
                             <Text size="2" color="gray" weight="medium" as="div" mb="2">Status</Text>
@@ -425,7 +422,7 @@ export default function AdminLeavesPanel({
                             })}
                         </Flex>
                     )}
-                </Card>
+                </Panel>
             )}
 
             {/* ── Content ── */}

@@ -1,9 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useMemo, useState } from 'react';
 import { Head, Link } from "@inertiajs/react";
-import {
-  Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
-  Dialog, Select, TextField, TextArea, Switch, Badge, Spinner, Table, Tooltip
-} from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, Select, TextField, TextArea, Switch, Badge, Spinner, Table, Tooltip } from '@radix-ui/themes';
 import {
   ArrowLeftIcon, ReloadIcon, CheckCircledIcon, ClockIcon, DesktopIcon,
   MobileIcon, ExclamationTriangleIcon, EyeOpenIcon, MixerHorizontalIcon,
@@ -329,7 +327,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
           <Flex direction="column" gap="4">
 
             {/* ── Lock & Reset Controls Card ── */}
-            <Card variant="surface">
+            <Panel variant="surface">
               <Flex direction={{ initial: 'column', lg: 'row' }} align={{ initial: 'start', lg: 'center' }} justify="between" gap="4" mb="4">
                 <Box>
                   <Heading size="4" mb="1">Access & Security Controls</Heading>
@@ -357,22 +355,22 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
               </Flex>
 
               <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="3" mb="4">
-                <Card variant="surface" style={{ background: 'var(--gray-2)' }}>
+                <Panel variant="surface" style={{ background: 'var(--gray-2)' }}>
                   <Text size="2" color="gray">Total Devices</Text>
                   <Heading size="6">{summary.total}</Heading>
-                </Card>
-                <Card variant="surface" style={{ background: 'var(--green-2)' }}>
+                </Panel>
+                <Panel variant="surface" style={{ background: 'var(--green-2)' }}>
                   <Text size="2" color="green">Active Devices</Text>
                   <Heading size="6" color="green">{summary.active}</Heading>
-                </Card>
-                <Card variant="surface" style={{ background: 'var(--gray-2)' }}>
+                </Panel>
+                <Panel variant="surface" style={{ background: 'var(--gray-2)' }}>
                   <Text size="2" color="gray">Inactive Devices</Text>
                   <Heading size="6">{summary.inactive}</Heading>
-                </Card>
-                <Card variant="surface" style={{ background: 'var(--blue-2)' }}>
+                </Panel>
+                <Panel variant="surface" style={{ background: 'var(--blue-2)' }}>
                   <Text size="2" color="blue">Trusted Devices</Text>
                   <Heading size="6" color="blue">{summary.trusted}</Heading>
-                </Card>
+                </Panel>
               </Grid>
 
               <Separator size="4" mb="3" />
@@ -392,10 +390,10 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                   </Text>
                 )}
               </Flex>
-            </Card>
+            </Panel>
 
             {/* ── Device History List ── */}
-            <Card variant="surface">
+            <Panel variant="surface">
               <Box mb="4">
                 <Heading size="4" mb="1">Device History</Heading>
                 <Text size="2" color="gray">Track login devices with detailed hardware, app, and activity metadata.</Text>
@@ -556,7 +554,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                       {filteredDevices.map((device) => {
                         const details = getDeviceDetails(device);
                         return (
-                          <Card key={device.id} variant="surface">
+                          <Panel key={device.id} variant="surface">
                             <Flex justify="between" align="start" mb="3">
                               <Flex gap="2" align="start">
                                 <Box style={{ marginTop: '2px' }}>{getDeviceIcon(device)}</Box>
@@ -596,14 +594,14 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                                 Deactivate
                               </Button>
                             </Flex>
-                          </Card>
+                          </Panel>
                         );
                       })}
                     </Flex>
                   </Box>
                 </>
               )}
-            </Card>
+            </Panel>
           </Flex>
         </Box>
 
@@ -682,32 +680,32 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                   </Flex>
 
                   <Grid columns={{ initial: '1', md: '2' }} gap="3">
-                    <Card variant="surface" size="1">
+                    <Panel variant="surface" size="1">
                       <Text size="1" color="gray" weight="bold" as="div" mb="2">IDENTITY</Text>
                       <Text size="1" as="div">Device ID: <Text style={{ fontFamily: 'monospace' }}>{getSafeText(selectedDevice.device_id)}</Text></Text>
                       <Text size="1" as="div">Type: {getSafeText(selectedDevice.device_type)}</Text>
                       <Text size="1" as="div">Model: {details.model}</Text>
                       <Text size="1" as="div">Manufacturer: {details.manufacturer}</Text>
                       <Text size="1" as="div">Brand: {details.brand}</Text>
-                    </Card>
+                    </Panel>
 
-                    <Card variant="surface" size="1">
+                    <Panel variant="surface" size="1">
                       <Text size="1" color="gray" weight="bold" as="div" mb="2">ENVIRONMENT</Text>
                       <Text size="1" as="div">OS Version: {details.osVersion}</Text>
                       <Text size="1" as="div">App Version: {details.appVersion}</Text>
                       <Text size="1" as="div">Build Version: {details.buildVersion}</Text>
                       <Text size="1" as="div">IP Address: {getSafeText(selectedDevice.ip_address)}</Text>
                       <Text size="1" as="div">MAC Address: {details.macAddress}</Text>
-                    </Card>
+                    </Panel>
 
-                    <Card variant="surface" size="1" style={{ gridColumn: '1 / -1' }}>
+                    <Panel variant="surface" size="1" style={{ gridColumn: '1 / -1' }}>
                       <Text size="1" color="gray" weight="bold" as="div" mb="2">SECURITY FINGERPRINTS</Text>
                       <Text size="1" as="div">Hardware ID: <Text style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{details.hardwareId}</Text></Text>
                       <Text size="1" as="div">Raw Signature: <Text style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{details.rawSignature}</Text></Text>
                       <Text size="1" as="div">Signature Hash: <Text style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{details.signatureHash}</Text></Text>
-                    </Card>
+                    </Panel>
 
-                    <Card variant="surface" size="1" style={{ gridColumn: '1 / -1' }}>
+                    <Panel variant="surface" size="1" style={{ gridColumn: '1 / -1' }}>
                       <Text size="1" color="gray" weight="bold" as="div" mb="2">LIFECYCLE</Text>
                       <Grid columns={{ initial: '1', sm: '2' }} gap="2">
                         <Text size="1" as="div">Status: {selectedDevice.is_active ? 'Active' : 'Inactive'}</Text>
@@ -716,9 +714,9 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                         <Text size="1" as="div">Registered: {formatExact(selectedDevice.created_at)}</Text>
                         <Text size="1" as="div">Updated: {formatExact(selectedDevice.updated_at)}</Text>
                       </Grid>
-                    </Card>
+                    </Panel>
 
-                    <Card variant="surface" size="1" style={{ gridColumn: '1 / -1' }}>
+                    <Panel variant="surface" size="1" style={{ gridColumn: '1 / -1' }}>
                       <Flex align="center" gap="1" mb="2">
                         <InfoCircledIcon color="var(--gray-9)" />
                         <Text size="1" color="gray" weight="bold">USER AGENT</Text>
@@ -726,7 +724,7 @@ const UserDevices = ({ user, devices, userState: initialUserState = null }) => {
                       <Text size="1" style={{ fontFamily: 'monospace', wordBreak: 'break-all', display: 'block' }}>
                         {getSafeText(selectedDevice.user_agent, 'No user agent recorded')}
                       </Text>
-                    </Card>
+                    </Panel>
                   </Grid>
                 </Flex>
               );

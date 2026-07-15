@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, Button, Badge, Separator, Card, Box, Flex, TextArea, Text, ScrollArea } from '@radix-ui/themes';
+import { Dialog, Button, Badge, Separator, Box, Flex, TextArea, Text, ScrollArea } from '@radix-ui/themes';
 import {
     ExclamationTriangleIcon,
     CheckCircledIcon,
@@ -394,10 +395,10 @@ const BulkImportResponseStatusModal = ({
                                     {/* Parse Summary */}
                                     {parseSummary && (
                                         <Flex wrap="wrap" gap="2">
-                                            <Card style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{parseSummary.total}</Text><Text size="1" color="gray" as="p">Total Found</Text></Box></Card>
-                                            <Card style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{parseSummary.clean}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Ready</Text></Box></Card>
-                                            <Card style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{parseSummary.objected}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Objected</Text></Box></Card>
-                                            <Card style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{parseSummary.notFound}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Not Found</Text></Box></Card>
+                                            <Panel style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" color="gray">{parseSummary.total}</Text><Text size="1" color="gray" as="p">Total Found</Text></Box></Panel>
+                                            <Panel style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--green-11)' }}>{parseSummary.clean}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Ready</Text></Box></Panel>
+                                            <Panel style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--amber-11)' }}>{parseSummary.objected}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Objected</Text></Box></Panel>
+                                            <Panel style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="4" weight="bold" style={{ color: 'var(--red-11)' }}>{parseSummary.notFound}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Not Found</Text></Box></Panel>
                                         </Flex>
                                     )}
 
@@ -443,16 +444,16 @@ const BulkImportResponseStatusModal = ({
                                     </Box>
 
                                     <Flex wrap="wrap" gap="3">
-                                        <Card asChild><button onClick={handleSkipObjected} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', border: '2px solid var(--gray-a4)', borderRadius: 8 }}>
+                                        <Panel asChild><button onClick={handleSkipObjected} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', border: '2px solid var(--gray-a4)', borderRadius: 8 }}>
                                             <CheckCircledIcon style={{ width: 32, height: 32, color: 'var(--green-9)', margin: '0 auto 8px' }} />
                                             <Text weight="bold" as="p">Skip Objected RFIs</Text>
                                             <Text size="1" color="gray" as="p" mt="1">Update only {parseSummary?.clean || 0} RFI{(parseSummary?.clean || 0) !== 1 ? 's' : ''} without objections</Text>
-                                        </button></Card>
-                                        <Card asChild><button onClick={overrideReason.trim() ? handleOverrideObjected : undefined} disabled={!overrideReason.trim()} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', opacity: overrideReason.trim() ? 1 : 0.6, border: `2px solid ${overrideReason.trim()?'var(--amber-a6)':'var(--gray-a4)'}`, borderRadius: 8 }}>
+                                        </button></Panel>
+                                        <Panel asChild><button onClick={overrideReason.trim() ? handleOverrideObjected : undefined} disabled={!overrideReason.trim()} style={{ padding: 16, textAlign: 'center', width: '100%', cursor: 'pointer', transition: 'opacity', opacity: overrideReason.trim() ? 1 : 0.6, border: `2px solid ${overrideReason.trim()?'var(--amber-a6)':'var(--gray-a4)'}`, borderRadius: 8 }}>
                                             <ExclamationTriangleIcon style={{ width: 32, height: 32, color: 'var(--amber-9)', margin: '0 auto 8px' }} />
                                             <Text weight="bold" as="p">Override & Update All</Text>
                                             <Text size="1" color="gray" as="p" mt="1">Update all {parseSummary?.total || 0} RFI{(parseSummary?.total || 0) !== 1 ? 's' : ''} including objected</Text>
-                                        </button></Card>
+                                        </button></Panel>
                                     </Flex>
                                 </Flex>
                             )}
@@ -470,11 +471,11 @@ const BulkImportResponseStatusModal = ({
                                     </Flex>
 
                                     <Flex wrap="wrap" gap="2">
-                                        <Card style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--green-11)' }}>{result.updated_count}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Updated</Text></Box></Card>
-                                        <Card style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--amber-11)' }}>{result.skipped_count}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Skipped</Text></Box></Card>
-                                        <Card style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--red-11)' }}>{result.failed_count}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Failed</Text></Box></Card>
-                                        <Card style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}>
-                                            <Text size="5" weight="bold" color="gray">{result.not_found_count}</Text><Text size="1" color="gray" as="p">Not Found</Text></Box></Card>
+                                        <Panel style={{ border: '1px solid var(--green-a6)', background: 'var(--green-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--green-11)' }}>{result.updated_count}</Text><Text size="1" style={{ color: 'var(--green-11)' }} as="p">Updated</Text></Box></Panel>
+                                        <Panel style={{ border: '1px solid var(--amber-a6)', background: 'var(--amber-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--amber-11)' }}>{result.skipped_count}</Text><Text size="1" style={{ color: 'var(--amber-11)' }} as="p">Skipped</Text></Box></Panel>
+                                        <Panel style={{ border: '1px solid var(--red-a6)', background: 'var(--red-a2)' }}><Box p="2" style={{ textAlign: 'center' }}><Text size="5" weight="bold" style={{ color: 'var(--red-11)' }}>{result.failed_count}</Text><Text size="1" style={{ color: 'var(--red-11)' }} as="p">Failed</Text></Box></Panel>
+                                        <Panel style={{ border: '1px solid var(--gray-a4)' }}><Box p="2" style={{ textAlign: 'center' }}>
+                                            <Text size="5" weight="bold" color="gray">{result.not_found_count}</Text><Text size="1" color="gray" as="p">Not Found</Text></Box></Panel>
                                     </Flex>
 
                                     {/* Updated List */}

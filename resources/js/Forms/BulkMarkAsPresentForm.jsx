@@ -1,9 +1,5 @@
-import {
-    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
-    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
-    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
-    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
-} from '@radix-ui/themes';
+import { Panel } from '@/Components/ui/Panel';
+import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
@@ -302,8 +298,8 @@ const BulkMarkAsPresentForm = ({
                                             </Checkbox>
                                         </div>
                                         
-                                        <Card>
-                                            <CardBody className="p-4">
+                                        <Panel>
+                                            <Panel.Body className="p-4">
                                                 <ScrollShadow className="max-h-64">
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                         {availableUsers.map((user) => (
@@ -335,8 +331,8 @@ const BulkMarkAsPresentForm = ({
                                                         ))}
                                                     </div>
                                                 </ScrollShadow>
-                                            </CardBody>
-                                        </Card>
+                                            </Panel.Body>
+                                        </Panel>
                                         
                                         {errors.user_ids && (
                                             <p className="text-danger text-sm">{errors.user_ids}</p>

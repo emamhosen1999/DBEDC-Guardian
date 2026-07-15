@@ -1,8 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import {
-    Box, Button, Callout, Card, Flex, Heading, Spinner, Text,
-} from '@radix-ui/themes';
+import { Box, Button, Callout, Flex, Heading, Spinner, Text } from '@radix-ui/themes';
 import {
     CheckCircledIcon, EnvelopeClosedIcon, ExitIcon,
 } from '@radix-ui/react-icons';
@@ -47,7 +46,7 @@ export default function VerifyEmail({ status }) {
                 position: 'relative', zIndex: 1, overflowX: 'hidden',
             }}>
                 <Box style={{ width: '100%', maxWidth: 420 }}>
-                    <Card size="4" style={{
+                    <Panel size="4" style={{
                         }}>
                         <Flex direction="column" align="center" gap="3">
                             <Box style={{
@@ -81,7 +80,7 @@ export default function VerifyEmail({ status }) {
                                 </Link>
                             </Button>
                         </Flex>
-                    </Card>
+                    </Panel>
                 </Box>
             </Box>
         </>

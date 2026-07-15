@@ -1,18 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect } from 'react';
-import {
-    Dialog,
-    Button,
-    Select,
-    Checkbox,
-    Card,
-    Box,
-    Flex,
-    Text,
-    RadioGroup,
-    Badge,
-    Progress,
-    Separator,
-} from '@radix-ui/themes';
+import { Dialog, Button, Select, Checkbox, Box, Flex, Text, RadioGroup, Badge, Progress, Separator } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import {
     DownloadIcon,
@@ -221,7 +209,7 @@ const EnhancedDailyWorksExportForm = ({
 
                 <Flex direction="column" gap="4" mt="4">
                     {/* Export Format */}
-                    <Card>
+                    <Panel>
                         <Box p="3">
                             <Text size="2" weight="bold" mb="3">Export Format</Text>
                             <RadioGroup.Root
@@ -243,7 +231,7 @@ const EnhancedDailyWorksExportForm = ({
                                 </Flex>
                             </RadioGroup.Root>
                         </Box>
-                    </Card>
+                    </Panel>
 
                     {/* Date Range */}
                     <Flex direction="column" gap="2">
@@ -322,7 +310,7 @@ const EnhancedDailyWorksExportForm = ({
                     </Flex>
 
                     {/* Export Summary */}
-                    <Card style={{ background: 'var(--accent-a2)' }}>
+                    <Panel style={{ background: 'var(--accent-a2)' }}>
                         <Box p="3">
                             <Flex align="start" gap="2">
                                 <InfoCircledIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
@@ -340,7 +328,7 @@ const EnhancedDailyWorksExportForm = ({
                                 </Flex>
                             </Flex>
                         </Box>
-                    </Card>
+                    </Panel>
                 </Flex>
 
                 <Flex gap="2" justify="end" mt="4">

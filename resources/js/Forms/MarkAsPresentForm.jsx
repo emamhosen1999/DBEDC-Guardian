@@ -1,9 +1,4 @@
-import {
-    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
-    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
-    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
-    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
-} from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePage } from '@inertiajs/react';
@@ -20,7 +15,6 @@ import { format } from 'date-fns';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import LocationPickerMap from '@/Components/LocationPickerMap';
-
 
 const MarkAsPresentForm = ({ 
     open, 
@@ -80,8 +74,7 @@ const MarkAsPresentForm = ({
             }));
         }
     }, [currentUser, selectedDate]); // Add dependency array to prevent infinite re-renders
-            
-       
+
 
     // Handle location change from map
     const handleLocationChange = useCallback((locationData) => {

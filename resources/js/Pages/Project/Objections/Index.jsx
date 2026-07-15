@@ -1,16 +1,5 @@
-import {
-    Box, Flex, Grid, Text, Heading, IconButton, Card, Separator,
-    Checkbox, Switch, RadioGroup, Radio, Spinner, Skeleton, ScrollArea,
-    Tabs, Tooltip, Progress, Callout, Inset,
-    Dialog as RadixDialog,
-    Select as RadixSelect,
-    TextField as RadixTextField,
-    TextArea,
-    Table as RadixTable,
-    DropdownMenu as RadixDropdownMenu,
-    Button as RadixButton,
-    Badge as RadixBadge,
-} from '@radix-ui/themes';
+import { Panel } from '@/Components/ui/Panel';
+import { Box, Flex, Grid, Text, Heading, IconButton, Separator, Checkbox, Switch, RadioGroup, Radio, Spinner, Skeleton, ScrollArea, Tabs, Tooltip, Progress, Callout, Inset, Dialog as RadixDialog, Select as RadixSelect, TextField as RadixTextField, TextArea, Table as RadixTable, DropdownMenu as RadixDropdownMenu, Button as RadixButton, Badge as RadixBadge } from '@radix-ui/themes';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 
 const CardHeader = ({ children, className, ...props }) => (
@@ -1922,7 +1911,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                     transition={{ duration: 0.3 }}
                     className="w-full max-w-[2000px]"
                 >
-                    <Card
+                    <Panel
                         className="transition-all duration-200"
                         style={{
                             borderRadius: `var(--borderRadius, 12px)`,
@@ -1931,7 +1920,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                         }}
                     >
                         {/* Main Card Header */}
-                        <CardHeader
+                        <Panel.Header
                             className="border-b p-0"
                             style={{
                                 borderColor: `var(--theme-divider, #E4E4E7)`,
@@ -2019,9 +2008,9 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     </div>
                                 </div>
                             </div>
-                        </CardHeader>
+                        </Panel.Header>
 
-                        <CardBody className="pt-6">
+                        <Panel.Body className="pt-6">
                             {/* Quick Stats */}
                             <ObjectionsStatsSection
                                 apiStats={apiStats}
@@ -2048,7 +2037,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                             />
 
                             {/* Objections Table/List */}
-                            <Card
+                            <Panel
                                 radius={getThemeRadius()}
                                 className="bg-content2/50 backdrop-blur-md border border-divider/30"
                                 style={{
@@ -2058,7 +2047,7 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                     borderColor: 'var(--theme-divider)',
                                 }}
                             >
-                                <CardBody className="p-4">
+                                <Panel.Body className="p-4">
                                     <ErrorBoundary
                                         fallbackTitle="Unable to load objections"
                                         fallbackDescription="There was an error loading the objections. Please try refreshing."
@@ -2153,10 +2142,10 @@ const ObjectionsIndex = ({ objections: initialObjections, filters, statuses, cat
                                             </div>
                                         )}
                                     </ErrorBoundary>
-                                </CardBody>
-                            </Card>
-                        </CardBody>
-                    </Card>
+                                </Panel.Body>
+                            </Panel>
+                        </Panel.Body>
+                    </Panel>
                 </div>
             </div>
         </>

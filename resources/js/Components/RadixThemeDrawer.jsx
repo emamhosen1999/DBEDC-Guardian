@@ -1,8 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Avatar, Badge, Box, Button, Card, Dialog, Flex,
-  Heading, ScrollArea, Select, Separator, Text, TextField, Tooltip,
-} from '@radix-ui/themes';
+import { Avatar, Badge, Box, Button, Dialog, Flex, Heading, ScrollArea, Select, Separator, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
   useRadixTheme,
   ACCENT_COLORS,
@@ -27,7 +24,6 @@ const GRAY_BG = {
   olive: 'var(--olive-9)',
   sand: 'var(--sand-9)',
 };
-
 
 export default function RadixThemeDrawer({ open, onClose }) {
   const { settings, updateSettings, resetSettings, toggleAppearance } = useRadixTheme();
@@ -64,7 +60,6 @@ export default function RadixThemeDrawer({ open, onClose }) {
           <ScrollArea scrollbars="vertical" style={{ maxHeight: '80vh', overflowX: 'hidden' }}>
             <Flex direction="column" pb="2" style={{ minWidth: 0, width: '100%' }}>
 
-           
 
               {/* ── Accent color ─────────────────────────────────────── */}
               <Text id="accent-title" size="2" weight="medium" mt="1" mb="3">Accent color</Text>

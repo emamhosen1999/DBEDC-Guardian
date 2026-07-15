@@ -1,9 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import {
-    Badge, Box, Button, Callout, Card, Checkbox, Flex,
-    Heading, IconButton, Separator, Spinner, Text, TextField, Tooltip,
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Callout, Checkbox, Flex, Heading, IconButton, Separator, Spinner, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
     ArrowRightIcon, CheckCircledIcon, ClockIcon, Cross2Icon,
     DesktopIcon, EnvelopeClosedIcon, ExclamationTriangleIcon,
@@ -472,7 +470,7 @@ export default function Login({
                 transition: 'opacity 0.35s ease, transform 0.35s ease',
             }}>
                 <Box style={{ width: '100%', maxWidth: 420 }}>
-                    <Card size="4">
+                    <Panel size="4">
                         {/* Logo + Title */}
                         <Flex direction="column" align="center" gap="2" mb="5">
                             <img src="/assets/images/logo.png" alt="Logo" style={{ width: 96, height: 96, objectFit: 'contain' }}
@@ -592,7 +590,7 @@ export default function Login({
                        
 
                        
-                    </Card>
+                    </Panel>
 
                    
                 </Box>

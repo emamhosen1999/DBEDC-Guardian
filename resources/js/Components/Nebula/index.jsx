@@ -1,6 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 // Nebula → Radix UI compatibility shim
 import React from 'react';
-import { Box, Card } from '@radix-ui/themes';
+import { Box } from '@radix-ui/themes';
 
 export const GlassContainer = ({ children, className, style, ...rest }) => (
   <Box style={style} {...rest}>{children}</Box>
@@ -8,9 +9,9 @@ export const GlassContainer = ({ children, className, style, ...rest }) => (
 
 export const GlassCard = ({ children, className, style, ...rest }) => {
   return (
-    <Card style={style} className={className} {...rest}>
+    <Panel style={style} className={className} {...rest}>
       {children}
-    </Card>
+    </Panel>
   );
 };
 

@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import { Box, Card, Flex, Skeleton, Text, Badge } from '@radix-ui/themes';
+import { Box, Flex, Skeleton, Text, Badge } from '@radix-ui/themes';
 
 const WMO = {
     0:  { label: 'Clear sky',       emoji: '☀️',  color: 'amber'  },
@@ -93,12 +94,12 @@ export default function WeatherWidget() {
 
     if (state.status === 'error') {
         return (
-            <Card style={{ height: '100%' }}>
+            <Panel style={{ height: '100%' }}>
                 <Flex direction="column" justify="center" style={{ height: '100%' }}>
                     <Text size="4" style={{ lineHeight: 1 }}>📍</Text>
                     <Text size="2" color="gray" mt="2">{state.error}</Text>
                 </Flex>
-            </Card>
+            </Panel>
         );
     }
 
@@ -106,7 +107,7 @@ export default function WeatherWidget() {
     const glowClass = wmo ? `weather-glow-${wmo.color}` : '';
 
     return (
-        <Card className={glowClass} style={{ height: '100%', transition: 'all 0.3s ease' }}>
+        <Panel className={glowClass} style={{ height: '100%', transition: 'all 0.3s ease' }}>
             <Flex direction="column" gap="2" style={{ height: '100%' }}>
                 <Flex align="center" justify="between">
                     <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -157,6 +158,6 @@ export default function WeatherWidget() {
                     </>
                 )}
             </Flex>
-        </Card>
+        </Panel>
     );
 }

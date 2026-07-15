@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { Box, Button, Callout, Card, Flex, Heading, Text } from '@radix-ui/themes';
+import { Box, Button, Callout, Flex, Heading, Text } from '@radix-ui/themes';
 import { ArrowLeftIcon, HomeIcon, LockClosedIcon } from '@radix-ui/react-icons';
 import App from '@/Layouts/App.jsx';
 

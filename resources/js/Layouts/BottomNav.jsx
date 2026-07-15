@@ -1,6 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { Box, Card, Flex, IconButton, Text, Tooltip } from '@radix-ui/themes';
+import { Box, Flex, IconButton, Text, Tooltip } from '@radix-ui/themes';
 import {
   HomeIcon,
   PersonIcon,
@@ -41,7 +42,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
   }, [toggleThemeDrawer]);
 
   return (
-    <Card
+    <Panel
       as="nav"
       style={{
         position: 'fixed',
@@ -107,7 +108,7 @@ const BottomNav = ({ toggleThemeDrawer }) => {
           </Tooltip>
         );
       })}
-    </Card>
+    </Panel>
   );
 };
 

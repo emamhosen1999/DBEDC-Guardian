@@ -1,17 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import {
-    Table as RadixTable,
-    Badge,
-    Card,
-    Separator,
-    ScrollArea,
-    Progress,
-    Button,
-    Flex,
-    Box,
-    Text,
-} from '@radix-ui/themes';
+import { Table as RadixTable, Badge, Separator, ScrollArea, Progress, Button, Flex, Box, Text } from '@radix-ui/themes';
 import {
     CalendarIcon,
     ActivityLogIcon,
@@ -103,7 +93,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
             )}
             <ScrollArea>
                 {Array.from({ length: 6 }).map((_, i) => (
-                    <Card key={i} mb="3" style={{ padding: 16 }}>
+                    <Panel key={i} mb="3" style={{ padding: 16 }}>
                         <Flex direction="column" gap="3">
                             <Box style={{ width: 120, height: 20, borderRadius: 'var(--radius-1)', background: 'var(--gray-a4)' }} />
                             <Flex gap="2">
@@ -119,7 +109,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                                 <Box style={{ flex: 1, height: 16, borderRadius: 'var(--radius-1)', background: 'var(--gray-a3)' }} />
                             </Flex>
                         </Flex>
-                    </Card>
+                    </Panel>
                 ))}
             </ScrollArea>
         </Box>
@@ -165,7 +155,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
         const pending = summary.totalDailyWorks - summary.completed;
 
         return (
-            <Card mb="2">
+            <Panel mb="2">
                 <Box p="3">
                     <Flex align="start" justify="between" mb="3">
                         <Box>
@@ -223,7 +213,7 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                         </Flex>
                     </Flex>
                 </Box>
-            </Card>
+            </Panel>
         );
     };
 
@@ -358,13 +348,13 @@ const DailyWorkSummaryTable = ({ filteredData, onRefresh, loading = false }) => 
                             <MobileSummaryCard key={index} summary={summary} />
                         ))
                     ) : (
-                        <Card>
+                        <Panel>
                             <Flex direction="column" align="center" p="8" gap="2">
                                 <ActivityLogIcon style={{ width: 48, height: 48, color: 'var(--gray-8)', opacity: 0.5 }} />
                                 <Text size="4" weight="medium" color="gray">No summary data found</Text>
                                 <Text size="2" color="gray">No work summary available for the selected period</Text>
                             </Flex>
-                        </Card>
+                        </Panel>
                     )}
                 </ScrollArea>
             </Box>

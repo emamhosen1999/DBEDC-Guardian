@@ -1,10 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * OverviewPanel.jsx
  * Displays petty cash fund summary with stats cards.
  * Supports multiple funds. Currency: BDT (৳).
  */
 import React, { useState } from 'react';
-import { Box, Card, Flex, Grid, Text, Badge, Button, Separator } from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Badge, Button, Separator } from '@radix-ui/themes';
 import {
     DotsHorizontalIcon, ArrowDownIcon, ArrowUpIcon, CheckIcon,
     PlusIcon, FileTextIcon
@@ -39,7 +40,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
         return (
             <Box p="6">
                 {pendingLoans.map(pendingLoan => (
-                    <Card key={pendingLoan.id} style={{ padding: '24px', maxWidth: '600px', margin: '0 auto 16px', textAlign: 'center' }}>
+                    <Panel key={pendingLoan.id} style={{ padding: '24px', maxWidth: '600px', margin: '0 auto 16px', textAlign: 'center' }}>
                         <Flex direction="column" gap="4" align="center">
                             <Box p="3" style={{ background: 'var(--orange-a3)', borderRadius: 'var(--radius-3)' }}>
                                 <DotsHorizontalIcon style={{ width: 48, height: 48, color: 'var(--orange-9)' }} />
@@ -77,7 +78,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
                                 STATUS: PENDING APPROVAL
                             </Badge>
                         </Flex>
-                    </Card>
+                    </Panel>
                 ))}
                 <Flex justify="center" mt="4">
                     <Button onClick={onCreateLoan} style={{ cursor: 'pointer' }}>
@@ -187,7 +188,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
                 {stats.map((stat, index) => {
                     const Icon = stat.icon;
                     return (
-                        <Card key={index} style={{ padding: '16px' }}>
+                        <Panel key={index} style={{ padding: '16px' }}>
                             <Flex direction="column" gap="2">
                                 <Flex align="center" gap="2">
                                     <Icon style={{ width: 20, height: 20, color: `var(--${stat.color}-9)` }} />
@@ -199,13 +200,13 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
                                     ৳{parseFloat(stat.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </Text>
                             </Flex>
-                        </Card>
+                        </Panel>
                     );
                 })}
             </Grid>
 
             {/* Transaction Count */}
-            <Card style={{ padding: '16px' }}>
+            <Panel style={{ padding: '16px' }}>
                 <Flex align="center" justify="between">
                     <Flex align="center" gap="2">
                         <FileTextIcon style={{ width: 20, height: 20, color: 'var(--gray-9)' }} />
@@ -213,7 +214,7 @@ const OverviewPanel = ({ activeLoan, pendingLoans = [], allActiveLoans = [], isM
                     </Flex>
                     <Text size="4" weight="bold">{activeLoan.transaction_count}</Text>
                 </Flex>
-            </Card>
+            </Panel>
         </Box>
     );
 };

@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
-import { Card, Flex, Text, Box, Badge, IconButton, Spinner } from '@radix-ui/themes';
+import { Flex, Text, Box, Badge, IconButton, Spinner } from '@radix-ui/themes';
 import { CameraIcon } from '@radix-ui/react-icons';
 import ProfileAvatar from './ProfileAvatar';
 import axios from 'axios';
@@ -39,7 +40,7 @@ const ProfileCard = ({ user, setUser, canEdit, completion }) => {
     };
 
     return (
-        <Card size="3" variant="surface" style={{ backgroundColor: 'var(--gray-a2)' }}>
+        <Panel size="3" variant="surface" style={{ backgroundColor: 'var(--gray-a2)' }}>
             <Flex align="center" gap="4" wrap="wrap">
                 
                 {/* Avatar with Inline Upload */}
@@ -102,7 +103,7 @@ const ProfileCard = ({ user, setUser, canEdit, completion }) => {
                 </Box>
 
             </Flex>
-        </Card>
+        </Panel>
     );
 };
 

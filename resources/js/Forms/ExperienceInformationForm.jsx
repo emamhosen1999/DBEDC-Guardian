@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
-import { Box, Button, Card, Flex, Grid, Text, TextField, TextArea } from '@radix-ui/themes';
+import { Box, Button, Flex, Grid, Text, TextField, TextArea } from '@radix-ui/themes';
 import { Pencil1Icon, Cross2Icon, PlusIcon } from '@radix-ui/react-icons';
 import { showToast } from '@/utils/toastUtils';
 
@@ -33,7 +34,7 @@ const ExperienceInformationForm = ({ user, setUser }) => {
     };
 
     return (
-        <Card variant="surface" size="2">
+        <Panel variant="surface" size="2">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Work Experience</Text>
                 {!isEditing ? (
@@ -54,15 +55,15 @@ const ExperienceInformationForm = ({ user, setUser }) => {
             ) : (
                 <form onSubmit={handleSubmit}>
                     {experienceList.map((ex, i) => (
-                        <Card key={i} mb="3">
+                        <Panel key={i} mb="3">
                             <TextField.Root mb="2" placeholder="Company" value={ex.company_name} onChange={e => handleUpdate(i, 'company_name', e.target.value)} />
                             <TextField.Root placeholder="Position" value={ex.job_position} onChange={e => handleUpdate(i, 'job_position', e.target.value)} />
-                        </Card>
+                        </Panel>
                     ))}
                     <Button type="submit" disabled={processing}>Save All</Button>
                 </form>
             )}
-        </Card>
+        </Panel>
     );
 };
 export default ExperienceInformationForm;

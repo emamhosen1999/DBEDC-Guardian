@@ -1,7 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import {
-    Box, Button, Card, Separator, Badge,
-} from '@radix-ui/themes';
+import { Box, Button, Separator, Badge } from '@radix-ui/themes';
 import {
     ShieldExclamationIcon,
     MapPinIcon,
@@ -33,7 +32,7 @@ export default function ObjectionAccordionItem({
     const statusConf = statusConfig[objection.status] || statusConfig['draft'];
 
     return (
-        <Card
+        <Panel
             style={{
                 borderRadius: 'var(--radius-3)',
                 border: objection.is_active
@@ -124,7 +123,7 @@ export default function ObjectionAccordionItem({
                         </Box>
                     </div>
                 )}
-        </Card>
+        </Panel>
     );
 }
 

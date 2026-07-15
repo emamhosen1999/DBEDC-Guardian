@@ -1,10 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * ManagerPanel.jsx
  * Admin view for managing all employee petty cash funds.
  * Supports approval comments (Phase 5). Currency: BDT (৳).
  */
 import React, { useState, useEffect } from 'react';
-import { Box, Card, Flex, Table, Badge, Button, Text, Select, Dialog, TextField } from '@radix-ui/themes';
+import { Box, Flex, Table, Badge, Button, Text, Select, Dialog, TextField } from '@radix-ui/themes';
 import { CheckIcon, Cross1Icon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
@@ -104,7 +105,7 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                 </Select.Root>
             </Flex>
 
-            <Card>
+            <Panel>
                 <Table.Root>
                     <Table.Header>
                         <Table.Row>
@@ -193,7 +194,7 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                         )}
                     </Table.Body>
                 </Table.Root>
-            </Card>
+            </Panel>
 
             {/* Approval Comment Dialog */}
             <Dialog.Root open={commentDialog.open} onOpenChange={(open) => !open && setCommentDialog({ open: false, loanId: null, action: null })}>

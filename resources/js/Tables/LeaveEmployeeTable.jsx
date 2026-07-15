@@ -1,12 +1,9 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback } from "react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import { usePage } from "@inertiajs/react";
 import { showToast } from '@/utils/toastUtils';
-import {
-    Avatar, Badge, Box, Button, Card,
-    DropdownMenu, Flex, IconButton, ScrollArea,
-    Separator, Spinner, Table, Text, Tooltip,
-} from '@radix-ui/themes';
+import { Avatar, Badge, Box, Button, DropdownMenu, Flex, IconButton, ScrollArea, Separator, Spinner, Table, Text, Tooltip } from '@radix-ui/themes';
 import {
     CalendarIcon, CheckCircledIcon,
     ClockIcon, CrossCircledIcon, DotsVerticalIcon,
@@ -16,7 +13,6 @@ import {
 import axios from 'axios';
 import ApprovalActions from '@/Components/Leave/ApprovalActions.jsx';
 import TablePagination from '@/Components/TablePagination.jsx';
-
 
 
 
@@ -200,7 +196,7 @@ const LeaveEmployeeTable = React.forwardRef(({
     const MobileLeaveCard = ({ leave }) => {
         const user = getUserInfo(leave.user_id);
         return (
-            <Card mb="2">
+            <Panel mb="2">
                 <Flex direction="column" gap="2" p="3">
                     <Flex justify="between" align="start">
                         <Flex align="center" gap="2" style={{ flex: 1 }}>
@@ -277,7 +273,7 @@ const LeaveEmployeeTable = React.forwardRef(({
                         </>
                     )}
                 </Flex>
-            </Card>
+            </Panel>
         );
     };
 

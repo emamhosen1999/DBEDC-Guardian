@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import { Card, Flex, Text, Skeleton, Box, Badge } from '@radix-ui/themes';
+import { Flex, Text, Skeleton, Box, Badge } from '@radix-ui/themes';
 import { SunIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
@@ -35,7 +36,7 @@ export default function UpcomingHolidaysWidget({ permissions = [] }) {
     if (!canViewHolidays) return null;
 
     return (
-        <Card style={{ height: '105px' }}>
+        <Panel style={{ height: '105px' }}>
             <Flex direction="column" gap="2" style={{ height: '100%' }}>
                 <Flex align="center" justify="between" mb="1" style={{ flexShrink: 0 }}>
                     <Flex align="center" gap="2">
@@ -76,6 +77,6 @@ export default function UpcomingHolidaysWidget({ permissions = [] }) {
                     )}
                 </Box>
             </Flex>
-        </Card>
+        </Panel>
     );
 }

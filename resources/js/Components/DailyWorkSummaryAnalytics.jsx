@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useMemo, useState, useRef, forwardRef, useImperativeHandle } from "react";
-import { Card, Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
     TriangleUpIcon,
     TriangleDownIcon,
@@ -55,7 +56,7 @@ const PALETTE = {
  * for inclusion in the PDF export.
  */
 const ChartCard = ({ id, title, subtitle, icon, children }) => (
-    <Card data-chart-id={id}>
+    <Panel data-chart-id={id}>
         <Box px="3" pt="3" pb="1">
             <Flex align="center" gap="2">
                 {icon && <Box p="1" style={{ borderRadius: 'var(--radius-1)', background: 'var(--accent-a3)' }}>{icon}</Box>}
@@ -66,7 +67,7 @@ const ChartCard = ({ id, title, subtitle, icon, children }) => (
             </Flex>
         </Box>
         <Box px="3" pb="3" pt="2">{children}</Box>
-    </Card>
+    </Panel>
 );
 
 const radixColorMap = { primary: 'indigo', success: 'green', warning: 'orange', danger: 'red', secondary: 'violet' };
@@ -74,7 +75,7 @@ const radixColorMap = { primary: 'indigo', success: 'green', warning: 'orange', 
 const KpiCard = ({ label, value, sub, icon, color = 'primary', trend = null }) => {
     const rc = radixColorMap[color] || 'indigo';
     return (
-        <Card>
+        <Panel>
             <Box p="3">
                 <Flex align="start" justify="between" gap="2">
                     <Box style={{ flex: 1, minWidth: 0 }}>
@@ -93,7 +94,7 @@ const KpiCard = ({ label, value, sub, icon, color = 'primary', trend = null }) =
                     </Box>
                 </Flex>
             </Box>
-        </Card>
+        </Panel>
     );
 };
 
@@ -247,13 +248,13 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
 
     if (!analytics || kpi.totalWorks === 0) {
         return (
-            <Card>
+            <Panel>
                 <Flex direction="column" align="center" py="9" gap="2" style={{ textAlign: 'center' }}>
                     <BarChartIcon style={{ width: 48, height: 48, color: 'var(--gray-8)' }} />
                     <Text size="3" weight="medium" color="gray" as="p">No analytics data available</Text>
                     <Text size="2" color="gray" as="p">Adjust your filters or import daily works to see analytics</Text>
                 </Flex>
-            </Card>
+            </Panel>
         );
     }
 
@@ -277,7 +278,7 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
 
             {/* Highlights Row */}
             {(highlights.bestDay || highlights.busiestDay || highlights.topIncharge) && (
-                <Card>
+                <Panel>
                     <Box px="3" pt="3" pb="1">
                         <Flex align="center" gap="2">
                             <StarIcon style={{ width: 14, height: 14, color: 'var(--orange-9)' }} />
@@ -292,7 +293,7 @@ const DailyWorkSummaryAnalytics = forwardRef(function DailyWorkSummaryAnalytics(
                             {highlights.mostCommonType && <Box style={{ flex: '1 1 160px' }}><HighlightTile label="Most Common Type" value={highlights.mostCommonType.name} sub={`${highlights.mostCommonType.value} works`} color="primary" /></Box>}
                         </Flex>
                     </Box>
-                </Card>
+                </Panel>
             )}
 
             {/* Chart 1: Daily Trend (full width) */}

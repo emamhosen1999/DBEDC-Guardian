@@ -1,9 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { 
-    Box, Card, Flex, Grid, Heading, Text, 
-    Button, TextField, Select, Separator, Spinner 
-} from '@radix-ui/themes';
+import { Box, Flex, Grid, Heading, Text, Button, TextField, Select, Separator, Spinner } from '@radix-ui/themes';
 import { 
     LayersIcon, CheckCircledIcon, CrossCircledIcon, 
     PersonIcon, MagnifyingGlassIcon, PlusIcon 
@@ -103,7 +101,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
             
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card size="4" style={{
+                    <Panel size="4" style={{
                         }}>
                         {/* ── Page Header ── */}
                         <Box mb="5">
@@ -130,7 +128,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                         {/* ── Stats Row ── */}
                         <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
                             {statsCards.map((stat, idx) => (
-                                <Card key={idx} variant="surface">
+                                <Panel key={idx} variant="surface">
                                     <Flex align="center" gap="3">
                                         <Box p="2" style={{ backgroundColor: stat.bg, color: stat.color, borderRadius: 'var(--radius-2)' }}>
                                             {stat.icon}
@@ -140,7 +138,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                                             <Text size="5" weight="bold">{stat.value}</Text>
                                         </Box>
                                     </Flex>
-                                </Card>
+                                </Panel>
                             ))}
                         </Grid>
 
@@ -205,7 +203,7 @@ const Designations = ({ title, initialDesignations, departments, allDesignations
                             )}
                         </Box>
 
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
 

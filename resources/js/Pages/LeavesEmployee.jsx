@@ -1,11 +1,9 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Head, usePage, router } from '@inertiajs/react';
 import dayjs from 'dayjs';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import {
-    Badge, Box, Button, Callout, Card, Flex, Grid,
-    Heading, Separator, Spinner, Text,
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Callout, Flex, Grid, Heading, Separator, Spinner, Text } from '@radix-ui/themes';
 import {
     BarChartIcon, CalendarIcon, ExclamationTriangleIcon,
     PlusIcon, ReloadIcon, TableIcon,
@@ -589,7 +587,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
       )}
 
       <Box p={{ initial: '3', md: '5' }}>
-        <Card size="3" style={{
+        <Panel size="3" style={{
             boxShadow: 'var(--shadow-3)',
             borderRadius: 'var(--radius-4)',
             border: '1px solid var(--gray-a3)'
@@ -719,7 +717,7 @@ const LeavesEmployee = ({ title, allUsers }) => {
               </Flex>
             )}
           </Box>
-        </Card>
+        </Panel>
       </Box>
     </>
   );

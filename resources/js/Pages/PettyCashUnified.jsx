@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * PettyCashUnified.jsx
  * Petty Cash Management shell — tabbed, multi-fund, pure Radix UI.
@@ -5,10 +6,7 @@
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
-import {
-    Badge, Box, Card, Flex, Heading,
-    Separator, Tabs, Text, ScrollArea, Select
-} from '@radix-ui/themes';
+import { Badge, Box, Flex, Heading, Separator, Tabs, Text, ScrollArea, Select } from '@radix-ui/themes';
 import {
     DashboardIcon, ListBulletIcon, BarChartIcon,
     ReaderIcon, LayersIcon, PlusIcon, BackpackIcon,
@@ -71,7 +69,7 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
 
             <Flex justify="center" p={{ initial: '3', md: '5' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card size="3" style={{
+                    <Panel size="3" style={{
                         boxShadow: 'var(--shadow-3)',
                         borderRadius: 'var(--radius-4)',
                         border: '1px solid var(--gray-a3)'
@@ -285,7 +283,7 @@ const PettyCashUnified = ({ title, activeLoans = [], pendingLoans = [], canAppro
                             )}
 
                         </Tabs.Root>
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
 

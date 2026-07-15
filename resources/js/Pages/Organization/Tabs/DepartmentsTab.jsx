@@ -1,12 +1,10 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { showToast } from '@/utils/toastUtils';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import {
-    Box, Flex, Text, Button, Grid, Separator, Card,
-    TextField, Select, Badge, Spinner, IconButton
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Button, Grid, Separator, TextField, Select, Badge, Spinner, IconButton } from '@radix-ui/themes';
 import {
     HomeIcon, CheckCircledIcon, CrossCircledIcon, PersonIcon,
     MagnifyingGlassIcon, PlusIcon, Cross2Icon, MixerHorizontalIcon,
@@ -31,7 +29,7 @@ const StatPill = ({ label, value, color = 'gray' }) => (
 /* ─── Grid Card Component ─── */
 const DepartmentCard = ({ department, onEdit, onView }) => {
     return (
-        <Card size="2" style={{ cursor: 'pointer', transition: 'border-color 0.2s' }} onClick={() => onView(department)}>
+        <Panel size="2" style={{ cursor: 'pointer', transition: 'border-color 0.2s' }} onClick={() => onView(department)}>
             <Flex direction="column" gap="3">
                 <Flex align="start" justify="between">
                     <Flex gap="3" align="center">
@@ -70,7 +68,7 @@ const DepartmentCard = ({ department, onEdit, onView }) => {
                     {department.parent && <Badge color="indigo" variant="soft" size="1">{department.parent.name}</Badge>}
                 </Flex>
             </Flex>
-        </Card>
+        </Panel>
     );
 };
 

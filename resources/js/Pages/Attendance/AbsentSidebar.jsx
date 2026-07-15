@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-    Box, Flex, Text, Badge, Avatar, Button,
-    ScrollArea, Skeleton, Card, Spinner,
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Badge, Avatar, Button, ScrollArea, Skeleton, Spinner } from '@radix-ui/themes';
 import {
     CrossCircledIcon,
     PersonIcon,

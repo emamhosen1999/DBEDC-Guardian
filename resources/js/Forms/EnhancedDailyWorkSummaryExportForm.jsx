@@ -1,15 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useRef } from 'react';
-import {
-    Dialog,
-    Button,
-    Checkbox,
-    Card,
-    Box,
-    Flex,
-    Text,
-    RadioGroup,
-    Separator,
-} from '@radix-ui/themes';
+import { Dialog, Button, Checkbox, Box, Flex, Text, RadioGroup, Separator } from '@radix-ui/themes';
 import {
     DownloadIcon,
     FileTextIcon,
@@ -289,7 +280,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
 
                 <Flex direction="column" gap="4" mt="4">
                     {/* Export Format */}
-                    <Card>
+                    <Panel>
                         <Box p="3">
                             <Text size="2" weight="bold" mb="3">Export Format</Text>
                             <RadioGroup.Root
@@ -322,7 +313,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
                                 <Text size="1" color="gray" ml="6">Charts will be generated server-side and included in the export</Text>
                             )}
                         </Box>
-                    </Card>
+                    </Panel>
 
                     {/* Grouping Options - Only for Excel/CSV */}
                     {exportSettings.format !== 'pdf' && (
@@ -376,7 +367,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
                     )}
 
                     {/* Export Summary */}
-                    <Card style={{ background: 'var(--accent-a2)' }}>
+                    <Panel style={{ background: 'var(--accent-a2)' }}>
                         <Box p="3">
                             <Flex align="start" gap="2">
                                 <InfoCircledIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
@@ -397,7 +388,7 @@ const EnhancedDailyWorkSummaryExportForm = ({
                                 </Flex>
                             </Flex>
                         </Box>
-                    </Card>
+                    </Panel>
                 </Flex>
 
                 <Flex gap="2" justify="end" mt="4">

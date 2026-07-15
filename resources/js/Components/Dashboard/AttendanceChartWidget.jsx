@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import { Badge, Box, Card, Flex, Heading, Skeleton, Text } from '@radix-ui/themes';
+import { Badge, Box, Flex, Heading, Skeleton, Text } from '@radix-ui/themes';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -178,7 +179,7 @@ export default function AttendanceChartWidget({ permissions = [] }) {
         <Box>
             <Flex gap={{ initial: '3', md: '4' }} style={{ flexWrap: 'wrap' }}>
                 {canPersonal && (
-                    <Card style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
+                    <Panel style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
                         <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }} style={{ flexShrink: 0 }}>
                             <Heading size={{ initial: '2', md: '3' }}>My Attendance</Heading>
                             <Badge variant="soft" color="gray" size="1">{monthLabel}</Badge>
@@ -186,11 +187,11 @@ export default function AttendanceChartWidget({ permissions = [] }) {
                         <Box style={{ flex: 1, minHeight: 0 }}>
                             <PersonalChart data={personal} loading={loading} height={170} />
                         </Box>
-                    </Card>
+                    </Panel>
                 )}
 
                 {canTeam && (
-                    <Card style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
+                    <Panel style={{ flex: '1 1 240px', minWidth: 0, height: '260px', display: 'flex', flexDirection: 'column' }}>
                         <Flex align="center" justify="between" mb={{ initial: '2', md: '3' }} style={{ flexShrink: 0 }}>
                             <Heading size={{ initial: '2', md: '3' }}>Team Attendance</Heading>
                             <Badge variant="soft" color="gray" size="1">
@@ -200,7 +201,7 @@ export default function AttendanceChartWidget({ permissions = [] }) {
                         <Box style={{ flex: 1, minHeight: 0 }}>
                             <TeamChart data={team} loading={loading} height={170} />
                         </Box>
-                    </Card>
+                    </Panel>
                 )}
             </Flex>
         </Box>

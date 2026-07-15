@@ -1,12 +1,10 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * LeaveForm.jsx
  * Full Radix UI refactor.
  */
 import React, { useState, useEffect } from 'react';
-import {
-    Box, Button, Dialog, Flex, Grid, Select,
-    Spinner, Text, TextArea, TextField, Card
-} from '@radix-ui/themes';
+import { Box, Button, Dialog, Flex, Grid, Select, Spinner, Text, TextArea, TextField } from '@radix-ui/themes';
 import DateTimePicker from '@/Components/DateTimePicker';
 import { useForm } from '@inertiajs/react';
 import { showToast } from "@/utils/toastUtils";
@@ -165,7 +163,7 @@ const LeaveForm = ({
 
                 <Box px="5" py="4">
                     <form onSubmit={handleSubmit}>
-                        <Card variant="surface" mb="4">
+                        <Panel variant="surface" mb="4">
                             <Grid columns={{ initial: '1', sm: '2' }} gap="4">
                                 <Box>
                                     <Text size="2" weight="medium" mb="1" display="block">Leave Type</Text>
@@ -274,7 +272,7 @@ const LeaveForm = ({
                                     )}
                                 </Box>
                             </Grid>
-                        </Card>
+                        </Panel>
 
                         <Flex justify="end" gap="3">
                             <Button variant="soft" color="gray" onClick={closeModal} disabled={processing}>Cancel</Button>

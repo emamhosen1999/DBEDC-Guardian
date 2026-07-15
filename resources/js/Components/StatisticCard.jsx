@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, Flex, Box, Text, Skeleton } from '@radix-ui/themes';
+import { Flex, Box, Text, Skeleton } from '@radix-ui/themes';
 
 const parseColor = (colorClass) => {
   if (!colorClass) return 'gray';
@@ -24,7 +25,7 @@ export default function StatisticCard({
   const radixColor = parseColor(color);
 
   return (
-    <Card style={{ flex: '1 1 200px', minWidth: 200 }}>
+    <Panel style={{ flex: '1 1 200px', minWidth: 200 }}>
       <Flex align="center" justify="between" mb="2">
         <Text size="1" color="gray" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           {title}
@@ -60,6 +61,6 @@ export default function StatisticCard({
           )}
         </Flex>
       )}
-    </Card>
+    </Panel>
   );
 }

@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * LeavesUnified.jsx
  * Single-page Leave Management shell — tabbed, pure Radix UI.
@@ -5,10 +6,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import {
-    Badge, Box, Card, Flex, Heading,
-    Separator, Tabs, Text, ScrollArea
-} from '@radix-ui/themes';
+import { Badge, Box, Flex, Heading, Separator, Tabs, Text, ScrollArea } from '@radix-ui/themes';
 import {
     BarChartIcon, CalendarIcon, CheckCircledIcon,
     GearIcon, LayersIcon, BackpackIcon,
@@ -46,7 +44,7 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
 
             <Flex justify="center" p={{ initial: '3', md: '5' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card size="3" style={{
+                    <Panel size="3" style={{
                         boxShadow: 'var(--shadow-3)',
                         borderRadius: 'var(--radius-4)',
                         border: '1px solid var(--gray-a3)'
@@ -217,7 +215,7 @@ const LeavesUnified = ({ title, allUsers, summaryData, leaveTypes }) => {
                             )}
 
                         </Tabs.Root>
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
         </>

@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, CardBody } from '@nextui-org/react';
+
 import { 
     UserGroupIcon, 
     KeyIcon, 
@@ -48,11 +49,11 @@ const StatsCards = ({ stats }) => {
             {statItems.map((item, index) => {
                 const IconComponent = item.icon;
                 return (
-                    <Card 
+                    <Panel 
                         key={index}
                         className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-md border border-white/20 dark:border-gray-700/20"
                     >
-                        <CardBody className="p-6">
+                        <Panel.Body className="p-6">
                             <div className="flex items-center gap-4">
                                 <div className={`p-3 rounded-lg ${item.bgColor}`}>
                                     <IconComponent className={`w-6 h-6 ${item.textColor}`} />
@@ -66,8 +67,8 @@ const StatsCards = ({ stats }) => {
                                     </h3>
                                 </div>
                             </div>
-                        </CardBody>
-                    </Card>
+                        </Panel.Body>
+                    </Panel>
                 );
             })}
         </div>

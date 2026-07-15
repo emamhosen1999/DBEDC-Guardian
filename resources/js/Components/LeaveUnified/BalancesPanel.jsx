@@ -1,12 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * BalancesPanel.jsx
  * Admin view of a selected employee's leave balances (ledger cards) + immutable
  * transaction history. Reads the Phase-3 ledger via /leave-balances + /leave-ledger.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-    Badge, Box, Card, Flex, Select, Separator, Spinner, Table, Text, TextField,
-} from '@radix-ui/themes';
+import { Badge, Box, Flex, Select, Separator, Spinner, Table, Text, TextField } from '@radix-ui/themes';
 import { MagnifyingGlassIcon, PersonIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import LeaveBalanceCards from '@/Components/Leaves/LeaveBalanceCards.jsx';
@@ -96,11 +95,11 @@ export default function BalancesPanel({ allUsers = [], isActive = false }) {
                     {loading ? (
                         <Flex justify="center" py="8"><Spinner size="3" /></Flex>
                     ) : txns.length === 0 ? (
-                        <Card style={{ padding: 24, textAlign: 'center', background: 'var(--gray-a2)', border: '1px dashed var(--gray-a6)' }}>
+                        <Panel style={{ padding: 24, textAlign: 'center', background: 'var(--gray-a2)', border: '1px dashed var(--gray-a6)' }}>
                             <Text size="2" color="gray">No ledger transactions found for this employee/year.</Text>
-                        </Card>
+                        </Panel>
                     ) : (
-                        <Card size="2" style={{ p: 0, overflow: 'hidden', boxShadow: 'var(--shadow-1)' }}>
+                        <Panel size="2" style={{ p: 0, overflow: 'hidden', boxShadow: 'var(--shadow-1)' }}>
                             <ScrollArea type="auto" scrollbars="horizontal">
                                 <Table.Root size="2" style={{ width: '100%', minWidth: 600 }}>
                                     <Table.Header style={{ backgroundColor: 'var(--gray-a2)' }}>
@@ -147,7 +146,7 @@ export default function BalancesPanel({ allUsers = [], isActive = false }) {
                                     </Table.Body>
                                 </Table.Root>
                             </ScrollArea>
-                        </Card>
+                        </Panel>
                     )}
                 </>
             )}

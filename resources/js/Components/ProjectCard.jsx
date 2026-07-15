@@ -1,8 +1,9 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Card, Flex, Text, Badge, Box } from '@radix-ui/themes';
+import { Flex, Text, Badge, Box } from '@radix-ui/themes';
 
 const ProjectCard = ({ project, onClick, ...rest }) => (
-  <Card onClick={onClick} style={{ cursor: onClick ? 'pointer' : undefined }}>
+  <Panel onClick={onClick} style={{ cursor: onClick ? 'pointer' : undefined }}>
     <Flex direction="column" gap="2">
       <Flex align="center" justify="between">
         <Text size="3" weight="bold">{project?.name || project?.title || 'Untitled'}</Text>
@@ -10,7 +11,7 @@ const ProjectCard = ({ project, onClick, ...rest }) => (
       </Flex>
       {project?.description && <Text size="2" color="gray">{project.description}</Text>}
     </Flex>
-  </Card>
+  </Panel>
 );
 
 export default ProjectCard;

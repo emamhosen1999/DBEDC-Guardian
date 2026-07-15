@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * LeaveSettingsPanel.jsx
  * Leave types CRUD — pure Radix UI.
@@ -7,11 +8,7 @@
  * - Responsive Grid Layouts: Forms and switches elegantly stack into single columns on small screens.
  */
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import {
-    Box, Flex, Text, Button, TextField, Switch, Select,
-    Table, Badge, Tooltip, IconButton, Separator,
-    ScrollArea, Spinner, Card, Grid,
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Button, TextField, Switch, Select, Table, Badge, Tooltip, IconButton, Separator, ScrollArea, Spinner, Grid } from '@radix-ui/themes';
 import {
     PlusIcon, Pencil1Icon, TrashIcon, Cross2Icon,
     ReloadIcon, MagnifyingGlassIcon, CheckCircledIcon,
@@ -308,7 +305,7 @@ export default function LeaveSettingsPanel({
                     </Box>
                 </Flex>
 
-                <Card size="3" variant="surface">
+                <Panel size="3" variant="surface">
                     <Flex direction="column" gap="5">
                         {/* Text Fields Grid */}
                         <Grid columns={{ initial: '1', sm: '2', lg: '3' }} gap="4">
@@ -432,7 +429,7 @@ export default function LeaveSettingsPanel({
                             </Button>
                         </Flex>
                     </Flex>
-                </Card>
+                </Panel>
             </Box>
 
             <Separator size="4" mb="5" />
@@ -456,7 +453,7 @@ export default function LeaveSettingsPanel({
                     </Box>
                 </Flex>
 
-                <Card variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
                     <ScrollArea scrollbars="both" style={{ maxHeight: 600 }}>
                         <Table.Root size="2" variant="ghost">
                             <Table.Header style={{ backgroundColor: 'var(--gray-a2)', position: 'sticky', top: 0, zIndex: 1 }}>
@@ -546,7 +543,7 @@ export default function LeaveSettingsPanel({
                             </Table.Body>
                         </Table.Root>
                     </ScrollArea>
-                </Card>
+                </Panel>
             </Box>
 
             {/* ── Delete Confirm Modal ── */}

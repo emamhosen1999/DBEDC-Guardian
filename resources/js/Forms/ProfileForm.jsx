@@ -1,9 +1,4 @@
-import {
-    Box, Flex, Grid, Text, Heading, Button, IconButton, Card, Separator,
-    Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch,
-    RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table,
-    Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset,
-} from '@radix-ui/themes';
+import { Box, Flex, Grid, Text, Heading, Button, IconButton, Separator, Dialog, AlertDialog, Select, TextField, TextArea, Checkbox, Switch, RadioGroup, Radio, Badge, Spinner, Skeleton, ScrollArea, Table, Tabs, Tooltip, DropdownMenu, Progress, Callout, Inset } from '@radix-ui/themes';
 import React, {useEffect, useState} from "react";
 import { X, Camera } from 'lucide-react';
 import { showToast } from "@/utils/toastUtils";
@@ -27,13 +22,11 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
         report_to: user.report_to_id || user.report_to || '',
     });
 
-
     const [changedUserData, setChangedUserData] = useState({
         id: user.id,
     });
 
     const [dataChanged, setDataChanged] = useState(false);
-
 
     const [errors, setErrors] = useState({});
     const [processing, setProcessing] = useState(false);
@@ -41,7 +34,6 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
     const [selectedImage, setSelectedImage] = useState(null);
     const [allDesignations, setAllDesignations] = useState(designations);
     const [allReportTo, setAllReportTo] = useState(allUsers);
-
 
     const handleImageChange = (event) => {
         const file = event.target.files[0];
@@ -242,7 +234,6 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
 
     }, [initialUserData, changedUserData]);
 
-
     const handleSubmit = async (event) => {
         event.preventDefault();
         setProcessing(true);
@@ -336,7 +327,6 @@ const ProfileForm = ({user, allUsers, departments, designations,setUser, open, c
             setProcessing(false);
         }
     };
-
 
     return (
         <Dialog 

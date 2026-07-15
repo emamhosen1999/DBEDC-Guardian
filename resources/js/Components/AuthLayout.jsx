@@ -1,8 +1,9 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect } from 'react';
 import {
     ShieldCheckIcon
 } from '@heroicons/react/24/outline';
-import { Card } from '@radix-ui/themes';
+
 import { useRadixTheme } from '@/Contexts/RadixThemeContext';
 
 import logo from '../../../public/assets/images/logo.png';
@@ -80,7 +81,7 @@ const AuthLayout = ({ children, title, subtitle }) => {
                     <div
                         className="w-full max-w-[420px]"
                     >
-                        <Card 
+                        <Panel 
                             className="p-3 sm:p-4 md:p-6 relative overflow-visible w-full rounded-2xl sm:rounded-3xl"
                             style={{
                                 borderRadius: `var(--borderRadius, 24px)`,
@@ -183,7 +184,7 @@ const AuthLayout = ({ children, title, subtitle }) => {
                                     transform: `scale(var(--scale, 1))`
                                 }}
                             />
-                        </Card>
+                        </Panel>
                     </div>
                 </div>
             </div>

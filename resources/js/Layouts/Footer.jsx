@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Box, Card, Flex, Separator, Text } from '@radix-ui/themes';
+import { Box, Flex, Separator, Text } from '@radix-ui/themes';
 import { HeartFilledIcon, GlobeIcon, EnvelopeClosedIcon, MobileIcon } from '@radix-ui/react-icons';
 import { Link, usePage } from '@inertiajs/react';
 
@@ -28,7 +29,7 @@ const Footer = () => {
     return (
         <Box as="footer" role="contentinfo" pt="8" mt="auto" style={{ borderTop: '1px solid var(--gray-a6)' }}>
             <Box px="6" style={{ maxWidth: 1280, margin: '0 auto' }}>
-                <Card>
+                <Panel>
                     <Box p="8">
                         <Flex gap="8" wrap="wrap">
                             {/* Brand */}
@@ -94,7 +95,7 @@ const Footer = () => {
                             </Flex>
                         </Flex>
                     </Box>
-                </Card>
+                </Panel>
             </Box>
         </Box>
     );

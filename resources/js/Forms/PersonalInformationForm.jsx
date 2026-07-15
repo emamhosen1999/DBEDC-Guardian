@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from "react";
-import { Box, Button, Card, Flex, Grid, Text, TextField, Separator, Badge } from '@radix-ui/themes';
+import { Box, Button, Flex, Grid, Text, TextField, Separator, Badge } from '@radix-ui/themes';
 import { Pencil1Icon, CheckIcon, Cross2Icon } from '@radix-ui/react-icons';
 import axios from "axios";
 import { showToast } from "@/utils/toastUtils";
@@ -55,7 +56,7 @@ const PersonalInformationForm = ({ user, setUser }) => {
     };
 
     return (
-        <Card size="2" variant="surface">
+        <Panel size="2" variant="surface">
             <Flex justify="between" align="center" mb="4">
                 <Text size="3" weight="bold">Personal Information</Text>
                 {!isEditing ? (
@@ -107,7 +108,7 @@ const PersonalInformationForm = ({ user, setUser }) => {
                     </Flex>
                 </form>
             )}
-        </Card>
+        </Panel>
     );
 };
 

@@ -1,8 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import {
-  Box, Flex, Text, Card, Separator, TextField, Button, Badge
-} from '@radix-ui/themes';
+import { Box, Flex, Text, Separator, TextField, Button, Badge } from '@radix-ui/themes';
 import { DashboardIcon, CalendarIcon, LayersIcon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -42,7 +41,7 @@ const MyRosterCard = ({ month }) => {
 
   return (
     <>
-      <Card>
+      <Panel>
         <Flex justify="between" align="center" mb="3" wrap="wrap" gap="2">
           <Flex align="center" gap="2">
             <LayersIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
@@ -62,7 +61,7 @@ const MyRosterCard = ({ month }) => {
             {dayKeys.map(date => {
               const cell = days[date];
               return (
-                <Card key={date} size="1" style={{ minWidth: 110 }}>
+                <Panel key={date} size="1" style={{ minWidth: 110 }}>
                   <Text size="1" color="gray" as="div">{dayjs(date).format('ddd, MMM D')}</Text>
                   {cell.off || !cell.code ? (
                     <Badge color="gray" variant="soft" mt="1">Off</Badge>
@@ -71,12 +70,12 @@ const MyRosterCard = ({ month }) => {
                       {cell.code}
                     </Badge>
                   )}
-                </Card>
+                </Panel>
               );
             })}
           </Flex>
         )}
-      </Card>
+      </Panel>
 
       <SwapRequestForm
         open={swapOpen}
@@ -106,7 +105,7 @@ const RequestsCard = () => {
 
   return (
     <>
-      <Card>
+      <Panel>
         <Flex justify="between" align="center" mb="3" wrap="wrap" gap="2">
           <Flex align="center" gap="2">
             <CalendarIcon style={{ color: 'var(--accent-9)', width: 18, height: 18 }} />
@@ -125,7 +124,7 @@ const RequestsCard = () => {
         <ErrorBoundary>
           <MyRequests />
         </ErrorBoundary>
-      </Card>
+      </Panel>
 
       <RegularizationForm open={regOpen} onOpenChange={setRegOpen} onSaved={handleSaved} />
       <OvertimeRequestForm open={otOpen} onOpenChange={setOtOpen} onSaved={handleSaved} />
@@ -170,7 +169,7 @@ const AttendanceEmployee = React.memo(({ title }) => {
       
       <Flex justify="center" p={{ initial: '3', md: '4' }}>
         <Box style={{ width: '100%', maxWidth: 2000 }}>
-          <Card>
+          <Panel>
             
             {/* ── Page Header ── */}
             <Box mb="4">
@@ -269,7 +268,7 @@ const AttendanceEmployee = React.memo(({ title }) => {
               </ErrorBoundary>
             </Box>
 
-          </Card>
+          </Panel>
         </Box>
       </Flex>
     </>

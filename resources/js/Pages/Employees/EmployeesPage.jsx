@@ -1,7 +1,8 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import App from '@/Layouts/App';
-import { Box, Flex, Text, Card, Tabs, Separator } from '@radix-ui/themes';
+import { Box, Flex, Text, Tabs, Separator } from '@radix-ui/themes';
 import { 
     PersonIcon, 
     HomeIcon, 
@@ -61,7 +62,7 @@ const EmployeesPage = ({
 
             <Flex justify="center" p={{ initial: '3', md: '4' }}>
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card size="4">
+                    <Panel size="4">
                         
                         {/* ══ PAGE HEADER ════════════════════════════════ */}
                         <Box mb="4">
@@ -195,7 +196,7 @@ const EmployeesPage = ({
 
                         </Tabs.Root>
 
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
             <style dangerouslySetInnerHTML={{__html: `

@@ -1,10 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * TransactionsPanel.jsx
  * Transaction history with server-side search, filters, date range, and CRUD.
  * Currency: BDT (৳). Categories from server.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Card, Flex, Text, Button, Select, TextField, Table, Badge, Link, IconButton, Tooltip } from '@radix-ui/themes';
+import { Box, Flex, Text, Button, Select, TextField, Table, Badge, Link, IconButton, Tooltip } from '@radix-ui/themes';
 import { DownloadIcon, FileTextIcon, TrashIcon, PlusIcon, Pencil1Icon, UploadIcon, Cross1Icon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { handleExportResponse } from '@/utils/exportUtils';
@@ -267,7 +268,7 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
 
             {/* Filter Panel */}
             {showFilters && (
-                <Card mb="4" style={{ padding: '16px', background: 'var(--gray-a2)' }}>
+                <Panel mb="4" style={{ padding: '16px', background: 'var(--gray-a2)' }}>
                     <Flex direction="column" gap="3">
                         {/* Search */}
                         <TextField.Root
@@ -350,11 +351,11 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
                             </Flex>
                         )}
                     </Flex>
-                </Card>
+                </Panel>
             )}
 
             {/* Transactions Table */}
-            <Card>
+            <Panel>
                 <Table.Root>
                     <Table.Header>
                         <Table.Row>
@@ -507,7 +508,7 @@ const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan, categories = {} })
                         </Button>
                     </Flex>
                 )}
-            </Card>
+            </Panel>
 
             <input
                 type="file"

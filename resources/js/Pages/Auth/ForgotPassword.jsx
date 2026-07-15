@@ -1,9 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import {
-    Box, Button, Callout, Card, Flex, Heading,
-    Spinner, Text, TextField,
-} from '@radix-ui/themes';
+import { Box, Button, Callout, Flex, Heading, Spinner, Text, TextField } from '@radix-ui/themes';
 import {
     ArrowLeftIcon, CheckCircledIcon, EnvelopeClosedIcon, ExclamationTriangleIcon,
 } from '@radix-ui/react-icons';
@@ -56,7 +54,7 @@ export default function ForgotPassword({ status }) {
                 position: 'relative', zIndex: 1, overflowX: 'hidden',
             }}>
                 <Box style={{ width: '100%', maxWidth: 420 }}>
-                    <Card size="4" style={{
+                    <Panel size="4" style={{
                         }}>
                         {/* Icon + title */}
                         <Flex direction="column" align="center" gap="2" mb="5">
@@ -110,7 +108,7 @@ export default function ForgotPassword({ status }) {
                                 </Flex>
 
                                 <Button type="submit" size="3" disabled={processing} style={{ cursor: processing ? 'not-allowed' : 'pointer' }}>
-                                    {processing ? <><Spinner size="1" /> Sending…</> : 'Send reset link'}
+                                    {processing ? <><Spinner size="1" /> Sendingï¿½</> : 'Send reset link'}
                                 </Button>
                             </Flex>
                         </form>
@@ -122,7 +120,7 @@ export default function ForgotPassword({ status }) {
                                 </Link>
                             </Button>
                         </Flex>
-                    </Card>
+                    </Panel>
                 </Box>
             </Box>
         </>

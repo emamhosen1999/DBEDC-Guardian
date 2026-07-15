@@ -1,14 +1,11 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * BiometricPanel.jsx
  * Biometric Devices tab — sub-tabs: Devices | ADMS Logs | Webhook Config
  * Pure Radix UI.
  */
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import {
-    Badge, Box, Button, Card, Checkbox, Code, Dialog, Flex, Grid,
-    IconButton, ScrollArea, Select, Separator, Spinner,
-    Switch, Table, Tabs, Text, TextField, Tooltip,
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Checkbox, Code, Dialog, Flex, Grid, IconButton, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
     ActivityLogIcon, ArrowRightIcon, CheckCircledIcon, ChevronLeftIcon,
     ChevronRightIcon, CopyIcon, Cross2Icon, DesktopIcon, DotsVerticalIcon,
@@ -291,7 +288,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
 
             {/* Bulk Actions Toolbar */}
             {selectedIds.length > 0 && (
-                <Card size="2" variant="surface" mb="3" style={{ background: 'var(--indigo-a3)', border: '1px solid var(--indigo-a7)' }}>
+                <Panel size="2" variant="surface" mb="3" style={{ background: 'var(--indigo-a3)', border: '1px solid var(--indigo-a7)' }}>
                     <Flex align="center" justify="between" gap="3">
                         <Flex align="center" gap="2">
                             <CheckIcon style={{ color: 'var(--indigo-9)' }} />
@@ -314,7 +311,7 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                             </IconButton>
                         </Flex>
                     </Flex>
-                </Card>
+                </Panel>
             )}
 
             {devices.length === 0 ? (
@@ -481,14 +478,14 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                     <Dialog.Description size="2" color="gray">
                         Save this token. It will not be shown again.
                     </Dialog.Description>
-                    <Card variant="surface" mt="3" style={{ background: 'var(--amber-a3)' }}>
+                    <Panel variant="surface" mt="3" style={{ background: 'var(--amber-a3)' }}>
                         <Flex align="start" gap="2">
                             <ExclamationTriangleIcon style={{ color: 'var(--amber-11)', flexShrink: 0, marginTop: 2 }} />
                             <Text size="2" color="amber">
                                 Configure your device to send this as the <Code>X-Device-Token</Code> header.
                             </Text>
                         </Flex>
-                    </Card>
+                    </Panel>
                     <Flex align="center" gap="2" mt="3">
                         <Code size="2" style={{ flex: 1, background: 'var(--gray-a4)', borderRadius: 'var(--radius-2)', padding: '8px 12px', wordBreak: 'break-all' }}>
                             {tokenDialog.token}
@@ -628,11 +625,11 @@ function DevicesTab({ devices, setDevices, employees, isMobile }) {
                                     <Spinner size="3" />
                                 </Flex>
                             ) : commandHistory.length === 0 ? (
-                                <Card variant="surface">
+                                <Panel variant="surface">
                                     <Flex justify="center" py="4">
                                         <Text size="2" color="gray">No commands sent yet.</Text>
                                     </Flex>
-                                </Card>
+                                </Panel>
                             ) : (
                                 <Box style={{ overflowX: 'auto' }}>
                                     <Table.Root variant="surface">
@@ -1060,7 +1057,7 @@ function WebhookTab() {
         <Flex direction="column" gap="4">
 
             {/* Push SDK */}
-            <Card variant="surface">
+            <Panel variant="surface">
                 <Flex direction="column" gap="3">
                     <Flex align="center" gap="2">
                         <Badge color="blue" variant="soft">Push SDK</Badge>
@@ -1102,10 +1099,10 @@ function WebhookTab() {
                         </Tooltip>
                     </Flex>
                 </Flex>
-            </Card>
+            </Panel>
 
             {/* ADMS */}
-            <Card variant="surface">
+            <Panel variant="surface">
                 <Flex direction="column" gap="3">
                     <Flex align="center" gap="2">
                         <Badge color="green" variant="soft">ADMS</Badge>
@@ -1183,7 +1180,7 @@ function WebhookTab() {
                     </Box>
 
                     {/* DHCP warning */}
-                    <Card variant="surface" style={{ backgroundColor: 'var(--amber-a3)' }}>
+                    <Panel variant="surface" style={{ backgroundColor: 'var(--amber-a3)' }}>
                         <Flex align="start" gap="2">
                             <ExclamationTriangleIcon
                                 width={16}
@@ -1202,12 +1199,12 @@ function WebhookTab() {
                                 </Text>
                             </Flex>
                         </Flex>
-                    </Card>
+                    </Panel>
                 </Flex>
-            </Card>
+            </Panel>
 
             {/* Integration Checklist */}
-            <Card variant="surface">
+            <Panel variant="surface">
                 <Text size="2" weight="medium" as="div" mb="3">Integration Checklist</Text>
                 <Flex direction="column" gap="2">
                     {[
@@ -1223,7 +1220,7 @@ function WebhookTab() {
                         </Flex>
                     ))}
                 </Flex>
-            </Card>
+            </Panel>
         </Flex>
     );
 }
@@ -1275,38 +1272,38 @@ function HealthTab({ isMobile }) {
         <Box>
             {/* Summary cards */}
             <Grid columns={{ initial: '2', sm: '4' }} gap="3" mb="4">
-                <Card variant="surface">
+                <Panel variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Overall Health</Text>
                         <Text size="4" weight="bold" color={healthData.summary.overall_health_score >= 80 ? 'green' : healthData.summary.overall_health_score >= 50 ? 'amber' : 'red'}>
                             {healthData.summary.overall_health_score ?? 0}%
                         </Text>
                     </Flex>
-                </Card>
-                <Card variant="surface">
+                </Panel>
+                <Panel variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Online</Text>
                         <Text size="4" weight="bold" color="green">
                             {healthData.summary.online ?? 0}
                         </Text>
                     </Flex>
-                </Card>
-                <Card variant="surface">
+                </Panel>
+                <Panel variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Offline</Text>
                         <Text size="4" weight="bold" color="red">
                             {healthData.summary.offline ?? 0}
                         </Text>
                     </Flex>
-                </Card>
-                <Card variant="surface">
+                </Panel>
+                <Panel variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Total Devices</Text>
                         <Text size="4" weight="bold">
                             {healthData.summary.total ?? 0}
                         </Text>
                     </Flex>
-                </Card>
+                </Panel>
             </Grid>
 
             {/* Filter toolbar */}
@@ -1757,24 +1754,24 @@ function DownloadsTab({ isMobile, devices = [] }) {
         <Box>
             {/* Stats Summary Cards */}
             <Grid columns={{ initial: '3', sm: '3' }} gap="3" mb="4">
-                <Card variant="surface">
+                <Panel variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Total Sessions</Text>
                         <Text size="4" weight="bold">{stats.total}</Text>
                     </Flex>
-                </Card>
-                <Card variant="surface">
+                </Panel>
+                <Panel variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">In Progress / Pending</Text>
                         <Text size="4" weight="bold" color="blue">{stats.inProgress}</Text>
                     </Flex>
-                </Card>
-                <Card variant="surface">
+                </Panel>
+                <Panel variant="surface">
                     <Flex direction="column" gap="1">
                         <Text size="1" color="gray">Completed Successfully</Text>
                         <Text size="4" weight="bold" color="green">{stats.completed}</Text>
                     </Flex>
-                </Card>
+                </Panel>
             </Grid>
 
             {/* Filter toolbar */}

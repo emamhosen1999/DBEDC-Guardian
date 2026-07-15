@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useMemo } from 'react';
-import { Box, Flex, Text, Card, Tooltip, Badge } from '@radix-ui/themes';
+import { Box, Flex, Text, Tooltip, Badge } from '@radix-ui/themes';
 import { useQuery } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
@@ -80,7 +81,7 @@ export default function CoveragePanel({ from, to, isActive = true }) {
     }
 
     return (
-        <Card mb="4">
+        <Panel mb="4">
             <Flex justify="between" align="center" mb="3">
                 <Text size="2" weight="bold">Coverage — {from} → {to}</Text>
                 {gaps.length > 0 && <Badge color="red">{gaps.length} understaffed</Badge>}
@@ -128,6 +129,6 @@ export default function CoveragePanel({ from, to, isActive = true }) {
                     <Text size="1" color="gray">Understaffed: {gaps.slice(0, 12).map(g => `${g.date} ${locName(g.locId)}/${shiftCode(g.shiftId)}${g.role ? ` [${roleName(g.role)}]` : ''} (${g.assigned}/${g.required})`).join(' · ')}{gaps.length > 12 ? ' …' : ''}</Text>
                 </Box>
             )}
-        </Card>
+        </Panel>
     );
 }

@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useEffect, useState } from 'react';
-import { Card, Flex, Skeleton, Box, Badge, Text } from '@radix-ui/themes';
+import { Flex, Skeleton, Box, Badge, Text } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, DoubleArrowRightIcon } from '@radix-ui/react-icons';
 import { Link } from '@inertiajs/react';
 import axios from 'axios';
@@ -27,7 +28,7 @@ export default function PendingTasksWidget({ permissions = [] }) {
     const pending = stats?.pending || 0;
 
     return (
-        <Card style={{ height: '105px', border: pending > 0 ? '1px solid var(--amber-a5)' : undefined }}>
+        <Panel style={{ height: '105px', border: pending > 0 ? '1px solid var(--amber-a5)' : undefined }}>
             <Flex direction="column" justify="between" style={{ height: '100%' }}>
                 <Flex align="center" justify="between">
                     <Flex align="center" gap="2">
@@ -61,6 +62,6 @@ export default function PendingTasksWidget({ permissions = [] }) {
                     </Link>
                 </Flex>
             </Flex>
-        </Card>
+        </Panel>
     );
 }

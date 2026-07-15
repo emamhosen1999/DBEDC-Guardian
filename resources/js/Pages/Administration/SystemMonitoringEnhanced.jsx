@@ -1,22 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import {
-    Badge,
-    Box,
-    Button,
-    Card,
-    Flex,
-    Grid,
-    Heading,
-    ScrollArea,
-    Select,
-    Separator,
-    Spinner,
-    Switch,
-    Table,
-    Tabs,
-    Text,
-} from '@radix-ui/themes';
+import { Badge, Box, Button, Flex, Grid, Heading, ScrollArea, Select, Separator, Spinner, Switch, Table, Tabs, Text } from '@radix-ui/themes';
 import {
     ArrowPathIcon,
     ChartBarIcon,
@@ -41,7 +26,7 @@ const statusColor = (status) => {
 };
 
 const JsonPanel = ({ data, empty = 'No data available.' }) => (
-    <Card style={{
+    <Panel style={{
         }}>
         <Box p="4">
             {data && Object.keys(data).length > 0 ? (
@@ -54,7 +39,7 @@ const JsonPanel = ({ data, empty = 'No data available.' }) => (
                 <Text size="2" color="gray">{empty}</Text>
             )}
         </Box>
-    </Card>
+    </Panel>
 );
 
 const SystemMonitoringEnhanced = ({ title, initialData }) => {
@@ -137,7 +122,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
         switch (selectedTab) {
             case 'database':
                 return (
-                    <Card>
+                    <Panel>
                         <Box p="4">
                             <Heading size="4" mb="3">Table analysis</Heading>
                             <ScrollArea scrollbars="horizontal">
@@ -166,7 +151,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                                 <Text size="1" color="gray" mt="2">Showing first 50 of {tables.length} tables.</Text>
                             )}
                         </Box>
-                    </Card>
+                    </Panel>
                 );
             case 'performance':
                 return <JsonPanel data={data.performance_summary} empty="No performance metrics." />;
@@ -178,18 +163,18 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                 return (
                     <Grid columns={{ initial: '1', sm: '2', lg: '4' }} gap="4">
                         {overviewStats.map((stat) => (
-                            <Card key={stat.title}>
+                            <Panel key={stat.title}>
                                 <Box p="4">
                                     <Text size="2" color="gray" mb="1">{stat.title}</Text>
                                     <Heading size="6">
                                         <Badge color={stat.color} variant="soft">{stat.value}</Badge>
                                     </Heading>
                                 </Box>
-                            </Card>
+                            </Panel>
                         ))}
                         {data.system_health?.checks && (
                             <Box style={{ gridColumn: '1 / -1' }}>
-                                <Card>
+                                <Panel>
                                     <Box p="4">
                                         <Heading size="4" mb="3">Health checks</Heading>
                                         <Flex direction="column" gap="2">
@@ -204,7 +189,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                                             ))}
                                         </Flex>
                                     </Box>
-                                </Card>
+                                </Panel>
                             </Box>
                         )}
                     </Grid>
@@ -216,7 +201,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
         <>
             <Head title={title} />
             <Box p={{ initial: '3', md: '5' }}>
-                <Card>
+                <Panel>
                     <PageHeader
                         title="Enterprise System Monitoring"
                         subtitle="System health, database, performance, security, and compliance"
@@ -236,7 +221,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                         ]}
                     >
                         <Box p="4">
-                            <Card mb="4">
+                            <Panel mb="4">
                                 <Flex direction={{ initial: 'column', lg: 'row' }} gap="4" p="4" align={{ lg: 'center' }} justify="between">
                                     <Flex align="center" gap="3" wrap="wrap">
                                         <Flex align="center" gap="2">
@@ -265,7 +250,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                                         </Select.Content>
                                     </Select.Root>
                                 </Flex>
-                            </Card>
+                            </Panel>
 
                             <Tabs.Root value={selectedTab} onValueChange={setSelectedTab}>
                                 <Tabs.List mb="4" wrap="wrap">
@@ -319,7 +304,7 @@ const SystemMonitoringEnhanced = ({ title, initialData }) => {
                             </Grid>
                         </Box>
                     </PageHeader>
-                </Card>
+                </Panel>
             </Box>
         </>
     );

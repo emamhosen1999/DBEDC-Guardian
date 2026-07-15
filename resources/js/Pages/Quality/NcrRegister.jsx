@@ -1,10 +1,8 @@
+import { Panel } from '@/Components/ui/Panel';
 import { Head, router } from '@inertiajs/react';
 import React, { useMemo, useState } from 'react';
 import axios from 'axios';
-import {
-    Card, Flex, Box, Grid, Heading, Text, Badge, Button, IconButton, TextField, TextArea,
-    Select, Dialog, Table, ScrollArea, Separator, Tooltip,
-} from '@radix-ui/themes';
+import { Flex, Box, Grid, Heading, Text, Badge, Button, IconButton, TextField, TextArea, Select, Dialog, Table, ScrollArea, Separator, Tooltip } from '@radix-ui/themes';
 import {
     MagnifyingGlassIcon, PlusIcon, Pencil1Icon, TrashIcon, Cross2Icon, DotsHorizontalIcon,
 } from '@radix-ui/react-icons';
@@ -109,7 +107,7 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
                 </Flex>
 
                 {/* Register table */}
-                <Card>
+                <Panel>
                     <ScrollArea>
                         <Table.Root variant="ghost" size="1">
                             <Table.Header>
@@ -146,7 +144,7 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
                             </Table.Body>
                         </Table.Root>
                     </ScrollArea>
-                </Card>
+                </Panel>
             </Box>
 
             {/* Detail drawer */}
@@ -166,18 +164,18 @@ export default function NcrRegister({ ncrs = [], stats = {}, options = {}, can =
 /* ── KPI + severity ─────────────────────────────────────────────── */
 function Kpi({ label, value, tone }) {
     return (
-        <Card>
+        <Panel>
             <Flex direction="column" gap="1">
                 <Text size="1" style={{ fontFamily: MONO, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--gray-11)' }}>{label}</Text>
                 <Text style={{ fontFamily: MONO, fontWeight: 700, fontSize: 26, letterSpacing: '-0.03em', color: `var(--${tone}-11)` }}>{value ?? 0}</Text>
             </Flex>
-        </Card>
+        </Panel>
     );
 }
 function SeverityCard({ sev = {} }) {
     const rows = [['critical', sev.critical], ['major', sev.major], ['minor', sev.minor]];
     return (
-        <Card>
+        <Panel>
             <Text size="2" weight="medium" mb="2" style={{ display: 'block' }}>Open by severity</Text>
             <Flex direction="column" gap="2">
                 {rows.map(([k, v]) => (
@@ -188,7 +186,7 @@ function SeverityCard({ sev = {} }) {
                     </Flex>
                 ))}
             </Flex>
-        </Card>
+        </Panel>
     );
 }
 
@@ -197,7 +195,7 @@ function ChainageMap({ ncrs, onPick }) {
     const pts = ncrs.filter((n) => n.chainage_m != null);
     const W = 680, H = 92, y = 52;
     return (
-        <Card style={{ height: '100%' }}>
+        <Panel style={{ height: '100%' }}>
             <Flex align="baseline" justify="between" gap="2">
                 <Box>
                     <Text size="2" weight="medium" style={{ display: 'block' }}>NCRs mapped by chainage</Text>
@@ -232,7 +230,7 @@ function ChainageMap({ ncrs, onPick }) {
                     )}
                 </svg>
             </Box>
-        </Card>
+        </Panel>
     );
 }
 

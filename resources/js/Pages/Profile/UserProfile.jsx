@@ -1,9 +1,7 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import {
-    Badge, Box, Card, Flex, Heading,
-    Separator, Tabs, Text, ScrollArea, Button
-} from '@radix-ui/themes';
+import { Badge, Box, Flex, Heading, Separator, Tabs, Text, ScrollArea, Button } from '@radix-ui/themes';
 import {
     PersonIcon, DownloadIcon, FileTextIcon, BackpackIcon, HeartIcon
 } from '@radix-ui/react-icons';
@@ -36,7 +34,7 @@ const UserProfile = ({ title, allUsers, departments, designations }) => {
 
             <Flex justify="center" p="4">
                 <Box style={{ width: '100%', maxWidth: 2000 }}>
-                    <Card>
+                    <Panel>
                         {/* ── Page Header ── */}
                         <Box mb="4">
                             <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
@@ -107,7 +105,7 @@ const UserProfile = ({ title, allUsers, departments, designations }) => {
                             </Tabs.Root>
                         </Box>
 
-                    </Card>
+                    </Panel>
                 </Box>
             </Flex>
         </>

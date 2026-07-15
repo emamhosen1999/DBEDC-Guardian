@@ -1,5 +1,6 @@
+import { Panel } from '@/Components/ui/Panel';
 import React from 'react';
-import { Button, Box, Flex, Text, Card } from '@radix-ui/themes';
+import { Button, Box, Flex, Text } from '@radix-ui/themes';
 import { ExclamationTriangleIcon, ReloadIcon, HomeIcon } from '@radix-ui/react-icons';
 import { router } from '@inertiajs/react';
 
@@ -103,7 +104,7 @@ class ErrorBoundary extends React.Component {
 
             if (isWidget) {
                 return (
-                    <Card style={{ height: '100%', borderColor: 'var(--red-a7)', background: 'var(--red-a1)' }}>
+                    <Panel style={{ height: '100%', borderColor: 'var(--red-a7)', background: 'var(--red-a1)' }}>
                         <Flex direction="column" justify="center" align="center" gap="2" style={{ height: '100%', minHeight: 120, textAlign: 'center', padding: 12 }}>
                             <ExclamationTriangleIcon style={{ width: 24, height: 24, color: 'var(--red-9)' }} />
                             <Box>
@@ -114,14 +115,14 @@ class ErrorBoundary extends React.Component {
                                 <ReloadIcon style={{ width: 10, height: 10 }} /> Retry Widget
                             </Button>
                         </Flex>
-                    </Card>
+                    </Panel>
                 );
             }
 
             return (
                 <Flex align="center" justify="center" style={{ minHeight: '100vh', background: 'radial-gradient(circle, var(--gray-1) 0%, var(--gray-3) 100%)', padding: 24 }}>
                     <Box style={{ maxWidth: 520, width: '100%' }}>
-                        <Card style={{ padding: 32, borderTop: '4px solid var(--red-9)', boxShadow: 'var(--shadow-4)' }}>
+                        <Panel style={{ padding: 32, borderTop: '4px solid var(--red-9)', boxShadow: 'var(--shadow-4)' }}>
                             <Flex direction="column" align="center" gap="4" style={{ textAlign: 'center' }}>
                                 <Box style={{ padding: 16, borderRadius: '50%', background: 'var(--red-a3)' }}>
                                     <ExclamationTriangleIcon style={{ width: 48, height: 48, color: 'var(--red-9)' }} />
@@ -135,14 +136,14 @@ class ErrorBoundary extends React.Component {
                                     </Text>
                                 </Box>
 
-                                <Card style={{ width: '100%', borderLeft: '3px solid var(--blue-9)', background: 'var(--blue-a1)', textAlign: 'left' }}>
+                                <Panel style={{ width: '100%', borderLeft: '3px solid var(--blue-9)', background: 'var(--blue-a1)', textAlign: 'left' }}>
                                     <Flex direction="column" gap="1" p="2">
                                         <Text size="1" color="gray">DIAGNOSTIC REFERENCE ID</Text>
                                         <Text size="2" weight="bold" style={{ fontFamily: 'monospace', fontVariantNumeric: 'tabular-nums' }}>
                                             {errorId}
                                         </Text>
                                     </Flex>
-                                </Card>
+                                </Panel>
 
                                 <Flex gap="3" justify="center" wrap="wrap" style={{ width: '100%' }}>
                                     <Button color="indigo" size="2" onClick={this.handleRetry} style={{ flex: 1, minWidth: 120 }}>
@@ -177,7 +178,7 @@ class ErrorBoundary extends React.Component {
                                     </Box>
                                 )}
                             </Flex>
-                        </Card>
+                        </Panel>
                     </Box>
                 </Flex>
             );

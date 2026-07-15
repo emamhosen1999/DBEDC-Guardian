@@ -1,20 +1,8 @@
+import { Panel } from '@/Components/ui/Panel';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, usePage, router } from "@inertiajs/react";
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
-import {
-  Avatar,
-  Badge,
-  Box,
-  Card,
-  DropdownMenu,
-  Flex,
-  IconButton,
-  Kbd,
-  Separator,
-  Text,
-  TextField,
-  Tooltip,
-} from '@radix-ui/themes';
+import { Avatar, Badge, Box, DropdownMenu, Flex, IconButton, Kbd, Separator, Text, TextField, Tooltip } from '@radix-ui/themes';
 import {
   HamburgerMenuIcon,
   MagnifyingGlassIcon,
@@ -126,7 +114,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
   // ── Mobile full-width search overlay ──────────────────────────────────────
   if (isMobile && searchOpen) {
     return (
-      <Card
+      <Panel
         as="header"
         style={{
           height: 56, display: 'flex', alignItems: 'center',
@@ -157,12 +145,12 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
             <Cross1Icon />
           </IconButton>
         </form>
-      </Card>
+      </Panel>
     );
   }
 
   return (
-    <Card
+    <Panel
       as="header"
       style={{
         height: 56,
@@ -404,7 +392,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end" style={{ minWidth: 220 }}>
             {/* User info card */}
-            <Card style={{ margin: '2px 2px 4px', padding: 0 }}>
+            <Panel style={{ margin: '2px 2px 4px', padding: 0 }}>
               <Flex align="center" gap="3" px="3" py="3">
                 <Box style={{ position: 'relative', flexShrink: 0 }}>
                   <Avatar src={avatarSrc} fallback={userName.charAt(0).toUpperCase()} size="3" radius="full" />
@@ -422,7 +410,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
                   )}
                 </Box>
               </Flex>
-            </Card>
+            </Panel>
             <DropdownMenu.Item asChild>
               <Link href={auth?.user?.id ? route('profile', { user: auth.user.id }) : '#'}>
                 <PersonIcon style={{ marginRight: 8 }} /> Profile
@@ -444,7 +432,7 @@ const Header = React.memo(({ toggleSideBar, sideBarOpen, toggleThemeDrawer }) =>
         </DropdownMenu.Root>
 
       </Flex>
-    </Card>
+    </Panel>
   );
 });
 

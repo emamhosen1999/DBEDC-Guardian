@@ -1,3 +1,4 @@
+import { Panel } from '@/Components/ui/Panel';
 /**
  * AnalyticsPanel.jsx
  * "Analytics" tab — monthly trends, leave-type breakdown, department bars.
@@ -8,11 +9,7 @@
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import {
-    Badge, Box, Card, Flex, Grid,
-    IconButton, Select, Separator, Text,
-    Skeleton, ScrollArea, Table
-} from '@radix-ui/themes';
+import { Badge, Box, Flex, Grid, IconButton, Select, Separator, Text, Skeleton, ScrollArea, Table } from '@radix-ui/themes';
 import {
     BarChartIcon, HomeIcon, CalendarIcon,
     CheckCircledIcon, ClockIcon, CrossCircledIcon, ReloadIcon,
@@ -146,7 +143,7 @@ function ProgressRow({ label, value, max, color = 'var(--accent-9)', badge, load
 /* ── Stat Card ── */
 function StatCard({ label, value, sub, color = 'blue', icon: Icon, loading = false }) {
     return (
-        <Card size="2" style={{
+        <Panel size="2" style={{
             background: `linear-gradient(135deg, var(--${color}-a2) 0%, var(--color-surface) 100%)`,
             border: `1px solid var(--${color}-a4)`,
             boxShadow: 'var(--shadow-2)',
@@ -164,7 +161,7 @@ function StatCard({ label, value, sub, color = 'blue', icon: Icon, loading = fal
                     {sub && <Text size="1" color="gray" style={{ display: 'block', mt: 1 }}>{sub}</Text>}
                 </Box>
             </Flex>
-        </Card>
+        </Panel>
     );
 }
 
@@ -296,7 +293,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                     {/* ── Visual Analytics Grid ── */}
                     <Grid columns={{ initial: '1', md: '3' }} gap="4">
                         {/* Monthly Trend Bar Chart */}
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Text size="3" weight="bold" as="div" mb="1">Monthly Leave Trends — {year}</Text>
                             <Text size="1" color="gray" mb="3">Monthly request volume and status splits</Text>
                             <BarChart
@@ -318,10 +315,10 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                                     ))}
                                 </Flex>
                             )}
-                        </Card>
+                        </Panel>
 
                         {/* Absenteeism Gauge Card */}
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Text size="3" weight="bold" as="div" mb="1">Absenteeism Rate</Text>
                             <Text size="1" color="gray" mb="3">Ratio of leave days to total working days</Text>
                             <Flex align="center" justify="between" gap="4" py="2" style={{ height: 120 }}>
@@ -353,10 +350,10 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                                     </Box>
                                 </Box>
                             </Flex>
-                        </Card>
+                        </Panel>
 
                         {/* Peak Periods & Status Distribution List Card */}
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Text size="3" weight="bold" as="div" mb="1">Peak Periods & Split</Text>
                             <Text size="1" color="gray" mb="3">Months with highest approved volume</Text>
                             
@@ -403,12 +400,12 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                                     </Flex>
                                 );
                             })()}
-                        </Card>
+                        </Panel>
                     </Grid>
 
                     {/* ── Leave Type & Department Breakdown ── */}
                     <Grid columns={{ initial: '1', lg: '2' }} gap="4">
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Text size="3" weight="bold" as="div" mb="4">By Leave Type</Text>
                             <Flex direction="column" gap="3">
                                 {loading ? Array.from({ length: 4 }).map((_, i) => <ProgressRow key={i} loading={true} />) 
@@ -423,9 +420,9 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                                     />
                                 )) : <Text size="2" color="gray">No leave types recorded.</Text>}
                             </Flex>
-                        </Card>
+                        </Panel>
 
-                        <Card variant="surface">
+                        <Panel variant="surface">
                             <Text size="3" weight="bold" as="div" mb="4">By Department</Text>
                             <Flex direction="column" gap="3">
                                 {loading ? Array.from({ length: 4 }).map((_, i) => <ProgressRow key={i} loading={true} />)
@@ -439,11 +436,11 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                                     />
                                 )) : <Text size="2" color="gray">No department data available.</Text>}
                             </Flex>
-                        </Card>
+                        </Panel>
                     </Grid>
 
                     {/* ── Top Leave Takers Table ── */}
-                    <Card variant="surface" p="0" style={{ overflow: 'hidden' }}>
+                    <Panel variant="surface" p="0" style={{ overflow: 'hidden' }}>
                         <Box p="4" pb="2">
                             <Text size="3" weight="bold" as="div">Top Leave Takers — {year}</Text>
                         </Box>
@@ -484,7 +481,7 @@ export default function AnalyticsPanel({ isMobile, isActive, onSetHeaderActions 
                         ) : (
                             <Box p="4"><Text size="2" color="gray">No leave takers found.</Text></Box>
                         )}
-                    </Card>
+                    </Panel>
 
                 </Flex>
             )}
