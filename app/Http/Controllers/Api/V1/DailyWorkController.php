@@ -310,10 +310,10 @@ class DailyWorkController extends Controller
             ], 404);
         }
 
-        if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
+        if (! $this->canUpdateStatus($request->user(), $dailyWork)) {
             return response()->json([
                 'success' => false,
-                'message' => 'You are not authorized to update this daily work.',
+                'message' => 'You are not authorized to update the status of this daily work.',
             ], 403);
         }
 
@@ -1179,9 +1179,22 @@ class DailyWorkController extends Controller
             ->count();
     }
 
+    /**
+     * Authorize a STATUS mutation. This is deliberately distinct from
+     * canAccessDailyWork() (read visibility): being able to VIEW a daily work
+     * — e.g. because your manager (report_to) is its incharge — must NOT grant
+     * the right to change it. Mirrors the web DailyWorkPolicy@updateStatus
+     * intent so web and mobile agree: a privileged manager, or the record's own
+     * incharge/assigned worker, may mutate; a mere viewer may not.
+     */
     private function canUpdateStatus(User $user, DailyWork $dailyWork): bool
     {
-        return $this->canAccessDailyWork($user, $dailyWork);
+        if ($this->isPrivilegedUser($user)) {
+            return true;
+        }
+
+        return (int) $dailyWork->incharge === (int) $user->id
+            || (int) $dailyWork->assigned === (int) $user->id;
     }
 
     private function canUpdateIncharge(User $user): bool
