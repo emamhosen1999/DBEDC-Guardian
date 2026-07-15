@@ -1058,7 +1058,15 @@ class DailyWorkController extends Controller
             ->all();
 
         if (count($normalized) > 0) {
-            $query->whereIn('date', $normalized);
+            // Compare on the DATE part only. The `date` column is cast to 'date'
+            // (serialized as 'Y-m-d 00:00:00'), so an exact whereIn on 'Y-m-d'
+            // strings misses on stores that keep the time component. whereDate is
+            // DB-agnostic (DATE(date) = ?) and matches the pattern used elsewhere.
+            $query->where(function (Builder $dateQuery) use ($normalized): void {
+                foreach ($normalized as $date) {
+                    $dateQuery->orWhereDate('date', $date);
+                }
+            });
         }
     }
 
