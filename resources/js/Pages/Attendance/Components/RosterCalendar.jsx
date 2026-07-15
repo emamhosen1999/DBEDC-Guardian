@@ -226,6 +226,14 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
                                 const shift = shifts.find(s => s.code === cell?.code);
 
+                                // Previous day's shift for midnight crossing part2 rendering
+                                const prevDate = dayjs(d).subtract(1, 'day').format('YYYY-MM-DD');
+                                const cellYesterday = row.days?.[prevDate];
+                                const dispYesterday = cellYesterday ? resolveRosterCellDisplay(cellYesterday, holidays[prevDate]) : null;
+                                const shiftYesterday = cellYesterday && dispYesterday && (dispYesterday.kind === 'shift' || dispYesterday.kind === 'pending')
+                                    ? shifts.find(s => s.code === cellYesterday.code)
+                                    : null;
+
                                 return (
                                     <Box
                                         key={d}
@@ -283,12 +291,8 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                 )}
 
                                                 {/* Shift chip positioned absolutely in column range */}
-                                                {shift && (() => {
-                                                    const hStart = Math.round(parseTimeToHours(shift.start_time));
-                                                    const hEnd = Math.round(parseTimeToHours(shift.end_time));
-                                                    const crosses = shift.crosses_midnight || hEnd < hStart;
-
-                                                    const renderChip = (startCol, endCol, key) => (
+                                                {(() => {
+                                                    const renderChip = (startCol, endCol, color, code, isPending, key) => (
                                                         <Box
                                                             key={key}
                                                             style={{
@@ -296,7 +300,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                                 gridRow: 1,
                                                                 height: '24px',
                                                                 alignSelf: 'center',
-                                                                background: disp.color || 'var(--accent-9)',
+                                                                background: color || 'var(--accent-9)',
                                                                 borderRadius: 4,
                                                                 display: 'flex',
                                                                 alignItems: 'center',
@@ -307,26 +311,46 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                                 overflow: 'hidden',
                                                                 whiteSpace: 'nowrap',
                                                                 padding: '0 4px',
-                                                                border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
+                                                                border: isPending ? '1px dashed var(--amber-8)' : 'none',
                                                                 margin: '0 1px',
                                                             }}
                                                         >
                                                             <Text style={{ fontSize: 9, fontWeight: 700 }}>
-                                                                {shift.code}
+                                                                {code}
                                                             </Text>
                                                         </Box>
                                                     );
 
-                                                    if (crosses) {
-                                                        return (
-                                                            <>
-                                                                {hStart < 24 && renderChip(hStart + 1, 25, 'part1')}
-                                                                {hEnd > 0 && renderChip(1, hEnd + 1, 'part2')}
-                                                            </>
-                                                        );
-                                                    } else {
-                                                        return renderChip(hStart + 1, hEnd + 1, 'full');
+                                                    const chips = [];
+
+                                                    // 1. Today's shift (full or part1)
+                                                    if (shift) {
+                                                        const hStart = Math.round(parseTimeToHours(shift.start_time));
+                                                        const hEnd = Math.round(parseTimeToHours(shift.end_time));
+                                                        const crosses = shift.crosses_midnight || hEnd < hStart;
+
+                                                        if (crosses) {
+                                                            if (hStart < 24) {
+                                                                chips.push(renderChip(hStart + 1, 25, disp.color, shift.code, disp.kind === 'pending', 'part1'));
+                                                            }
+                                                        } else {
+                                                            chips.push(renderChip(hStart + 1, hEnd + 1, disp.color, shift.code, disp.kind === 'pending', 'full'));
+                                                        }
                                                     }
+
+                                                    // 2. Yesterday's shift (part2)
+                                                    if (shiftYesterday) {
+                                                        const hStartYes = Math.round(parseTimeToHours(shiftYesterday.start_time));
+                                                        const hEndYes = Math.round(parseTimeToHours(shiftYesterday.end_time));
+                                                        const crossesYes = shiftYesterday.crosses_midnight || hEndYes < hStartYes;
+
+                                                        if (crossesYes && hEndYes > 0) {
+                                                            const isPendingYes = dispYesterday?.kind === 'pending';
+                                                            chips.push(renderChip(1, hEndYes + 1, dispYesterday?.color, shiftYesterday.code, isPendingYes, 'part2'));
+                                                        }
+                                                    }
+
+                                                    return <>{chips}</>;
                                                 })()}
 
                                                 {/* Fallback centered chip if shift config is missing */}
