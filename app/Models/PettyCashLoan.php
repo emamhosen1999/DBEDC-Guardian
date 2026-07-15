@@ -10,6 +10,7 @@ class PettyCashLoan extends Model
 {
     protected $fillable = [
         'user_id',
+        'fund_name',
         'loan_amount',
         'original_amount',
         'current_balance',
@@ -17,6 +18,10 @@ class PettyCashLoan extends Model
         'loan_date',
         'closed_date',
         'notes',
+        'approved_by',
+        'approval_comment',
+        'approved_at',
+        'rejected_at',
     ];
 
     protected $casts = [
@@ -25,6 +30,8 @@ class PettyCashLoan extends Model
         'current_balance' => 'decimal:2',
         'loan_date' => 'date',
         'closed_date' => 'date',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -32,9 +39,19 @@ class PettyCashLoan extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function transactions(): HasMany
     {
         return $this->hasMany(PettyCashTransaction::class);
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(PettyCashAuditLog::class);
     }
 
     public function calculateBalance(): string

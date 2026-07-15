@@ -29,6 +29,10 @@ class SyncPushRequest extends FormRequest
                 'reject_objection',
             ])],
             'mutations.*.payload' => ['present', 'array'],
+            // Optional client wall-clock capture time for offline-queued writes
+            // (notably attendance.punch). The service applies the authoritative
+            // 72h/not-future bound; this is a cheap shape gate only.
+            'mutations.*.payload.captured_at' => ['sometimes', 'nullable', 'date'],
         ];
     }
 }

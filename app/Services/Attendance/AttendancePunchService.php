@@ -19,6 +19,10 @@ class AttendancePunchService
 
     private const MAX_CLOCK_DRIFT_HOURS = 2;
 
+    private const SYNC_CAPTURE_FUTURE_SKEW_MINUTES = 2;
+
+    private const SYNC_CAPTURE_MAX_AGE_HOURS = 72;
+
     /**
      * Process punch in/out for a user
      */
@@ -122,6 +126,22 @@ class AttendancePunchService
      */
     private function resolvePunchTime(Request $request): Carbon
     {
+        // Bounded offline-capture channel (sync push only). The `sync_capture`
+        // attribute is set server-side by DataSyncService and can never come from
+        // client input, so a human punch request (which is additionally scrubbed by
+        // GuardsServerAuthoritativePunchTime) can never reach this branch. The
+        // capture time here has already been bounded/rejected upstream; the same
+        // window is re-checked defensively before it is trusted.
+        if ($request->attributes->get('sync_capture') === true) {
+            $captured = $this->boundedSyncCaptureTime($request->input('captured_at'));
+
+            if ($captured !== null) {
+                return $captured;
+            }
+
+            return Carbon::now();
+        }
+
         $raw = $request->input('punch_time');
         $source = $request->input('source');
 
@@ -147,6 +167,36 @@ class AttendancePunchService
         }
 
         return Carbon::now();
+    }
+
+    /**
+     * Bound a client-asserted offline capture time for the sync channel.
+     * Returns null when unparseable, in the future beyond a small skew, or older
+     * than the offline window — callers then fall back to server time.
+     */
+    private function boundedSyncCaptureTime($raw): ?Carbon
+    {
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        try {
+            $parsed = Carbon::parse($raw);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        $now = Carbon::now();
+
+        if ($parsed->greaterThan($now->copy()->addMinutes(self::SYNC_CAPTURE_FUTURE_SKEW_MINUTES))) {
+            return null;
+        }
+
+        if ($parsed->lessThan($now->copy()->subHours(self::SYNC_CAPTURE_MAX_AGE_HOURS))) {
+            return null;
+        }
+
+        return $parsed;
     }
 
     /**
@@ -210,6 +260,8 @@ class AttendancePunchService
             'punchout_location' => $this->formatLocation($request),
         ]);
 
+        $this->stampOfflineFlag($attendance, $request);
+
         // Handle photo upload for polygon/route types
         $this->handlePhotoUpload($attendance, $request, 'punchout_photo', $user);
 
@@ -232,6 +284,8 @@ class AttendancePunchService
             'punchin' => $punchTime,
             'punchin_location' => $this->formatLocation($request),
         ]);
+
+        $this->stampOfflineFlag($attendance, $request);
 
         // Handle photo upload for polygon/route types
         $this->handlePhotoUpload($attendance, $request, 'punchin_photo', $user);
@@ -463,6 +517,19 @@ class AttendancePunchService
         }
 
         return $this->punchIn($user, $punchDate, $request, $punchTime);
+    }
+
+    /**
+     * Flag an attendance row that was captured offline and replayed through the
+     * bounded sync channel. Keeps the audit trail honest: the punch is attributed
+     * to its real capture moment but marked as device-asserted. forceFill is used
+     * because `was_offline` is intentionally not mass-assignable.
+     */
+    private function stampOfflineFlag(Attendance $attendance, Request $request): void
+    {
+        if ($request->attributes->get('sync_capture') === true) {
+            $attendance->forceFill(['was_offline' => true])->save();
+        }
     }
 
     /**

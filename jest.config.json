@@ -5,7 +5,7 @@
   "setupFilesAfterEnv": [
     "<rootDir>/tests/unit/frontend/setup.js"
   ],
-  "moduleNameMapping": {
+  "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/resources/js/$1",
     "^@frontend/(.*)$": "<rootDir>/resources/js/$1",
     "^@components/(.*)$": "<rootDir>/resources/js/Components/$1",

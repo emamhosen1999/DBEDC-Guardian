@@ -1,7 +1,7 @@
 /**
  * PettyCashEditTransactionForm.jsx
  * Dialog form for editing a transaction.
- * Pure Radix UI.
+ * Pure Radix UI. Currency: BDT (৳).
  */
 import React, { useState, useEffect } from 'react';
 import { Dialog, Flex, Text, Button, TextField, Select, Box } from '@radix-ui/themes';
@@ -9,7 +9,21 @@ import { Pencil1Icon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import DateTimePicker from '@/Components/DateTimePicker';
 
-const PettyCashEditTransactionForm = ({ open, onClose, onSuccess, transaction }) => {
+const DEFAULT_CATEGORIES = {
+    fuel: 'Fuel',
+    office_supplies: 'Office Supplies',
+    meeting_supplies: 'Meeting Supplies',
+    office_maintenance: 'Office Maintenance',
+    services: 'Services',
+    transport: 'Transport',
+    utilities: 'Utilities',
+    food_beverage: 'Food & Beverage',
+    miscellaneous: 'Miscellaneous',
+};
+
+const PettyCashEditTransactionForm = ({ open, onClose, onSuccess, transaction, categories: propCategories = {} }) => {
+    const categories = Object.keys(propCategories).length > 0 ? propCategories : DEFAULT_CATEGORIES;
+
     const [formData, setFormData] = useState({
         transaction_id: '',
         amount: '',
@@ -25,7 +39,7 @@ const PettyCashEditTransactionForm = ({ open, onClose, onSuccess, transaction })
             setFormData({
                 transaction_id: transaction.id,
                 amount: transaction.amount,
-                category: transaction.category || '',
+                category: transaction.category || 'none',
                 description: transaction.description || '',
                 transaction_date: transaction.transaction_date,
             });
@@ -42,7 +56,7 @@ const PettyCashEditTransactionForm = ({ open, onClose, onSuccess, transaction })
             const response = await axios.put('/petty-cash/transaction', {
                 ...formData,
                 amount: parseFloat(formData.amount),
-                category: formData.category || null,
+                category: formData.category === 'none' ? null : formData.category,
             });
 
             if (response.data.success) {
@@ -103,7 +117,7 @@ const PettyCashEditTransactionForm = ({ open, onClose, onSuccess, transaction })
                                 placeholder="0.00"
                             >
                                 <TextField.Slot>
-                                    <Text color="gray">$</Text>
+                                    <Text color="gray">৳</Text>
                                 </TextField.Slot>
                             </TextField.Root>
                         </Flex>
@@ -114,10 +128,10 @@ const PettyCashEditTransactionForm = ({ open, onClose, onSuccess, transaction })
                                 <Select.Root name="category" value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
                                     <Select.Trigger placeholder="Select category" />
                                     <Select.Content>
-                                        <Select.Item value="office_supplies">Office Supplies</Select.Item>
-                                        <Select.Item value="meeting_supplies">Meeting Supplies</Select.Item>
-                                        <Select.Item value="office_maintenance">Office Maintenance</Select.Item>
-                                        <Select.Item value="services">Services</Select.Item>
+                                        <Select.Item value="none">None</Select.Item>
+                                        {Object.entries(categories).map(([key, label]) => (
+                                            <Select.Item key={key} value={key}>{label}</Select.Item>
+                                        ))}
                                     </Select.Content>
                                 </Select.Root>
                             </Flex>

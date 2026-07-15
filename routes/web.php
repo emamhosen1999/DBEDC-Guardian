@@ -837,9 +837,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/petty-cash/upload-bill', [PettyCashController::class, 'uploadBill'])->name('petty-cash.upload-bill');
     Route::post('/petty-cash/delete-bill', [PettyCashController::class, 'deleteBill'])->name('petty-cash.delete-bill');
     Route::get('/petty-cash/export', [PettyCashController::class, 'exportData'])->name('petty-cash.export');
+    Route::get('/petty-cash/export-pdf', [PettyCashController::class, 'exportPdf'])->name('petty-cash.export-pdf');
     Route::get('/petty-cash/export/status/{filename}', [PettyCashController::class, 'checkExportStatus'])->name('petty-cash.export.status');
     Route::get('/petty-cash/history', [PettyCashController::class, 'getHistory'])->name('petty-cash.history');
     Route::get('/petty-cash/admin/overview', [PettyCashController::class, 'getAdminOverview'])->name('petty-cash.admin.overview');
+    Route::get('/petty-cash/categories', [PettyCashController::class, 'getCategories'])->name('petty-cash.categories');
+    Route::get('/petty-cash/audit-log', [PettyCashController::class, 'getAuditLog'])->name('petty-cash.audit-log');
 });
 
 // Notification Settings Routes (admin)

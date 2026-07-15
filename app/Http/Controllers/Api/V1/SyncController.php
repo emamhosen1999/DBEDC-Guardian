@@ -8,7 +8,6 @@ use App\Http\Requests\Api\V1\SyncPullRequest;
 use App\Http\Requests\Api\V1\SyncPushRequest;
 use App\Http\Responses\ApiResponse;
 use App\Services\Sync\DataSyncService;
-use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
 class SyncController extends Controller
@@ -27,33 +26,29 @@ class SyncController extends Controller
         $user = $request->user();
         $limit = (int) $request->input('limit', 25);
         $modules = $this->syncService->resolveModules($request->input('modules', []));
-        $cursor = now()->toAtomString();
 
         $moduleData = [];
+        $cursor = [];
+        $hasMore = [];
 
         foreach ($modules as $module) {
-            if ($module === 'attendance') {
-                $moduleData['attendance'] = $this->syncService->bootstrapAttendance($user, $limit);
+            $bootstrap = $this->syncService->bootstrapModule($user, $module, $limit);
 
-                continue;
-            }
-
-            if ($module === 'leaves') {
-                $moduleData['leaves'] = $this->syncService->bootstrapLeaves($user, $limit);
-
-                continue;
-            }
-
-            if ($module === 'daily_works') {
-                $moduleData['daily_works'] = $this->syncService->bootstrapDailyWorks($user, $limit);
-            }
+            $moduleData[$module] = [
+                'records' => $bootstrap['records'],
+                'total' => $bootstrap['total'],
+            ];
+            $cursor[$module] = $bootstrap['cursor'];
+            $hasMore[$module] = $bootstrap['has_more'];
         }
 
         return response()->json([
             'success' => true,
             'data' => [
+                // Per-module continuation token; feed each back to /sync/pull as cursor[module].
                 'cursor' => $cursor,
-                'server_time' => $cursor,
+                'has_more' => $hasMore,
+                'server_time' => now()->toAtomString(),
                 'modules' => $moduleData,
             ],
         ]);
@@ -64,43 +59,35 @@ class SyncController extends Controller
         $user = $request->user();
         $limit = (int) $request->input('limit', 100);
         $modules = $this->syncService->resolveModules($request->input('modules', []));
-        $cursor = Carbon::parse((string) $request->input('cursor'));
-        $nextCursor = now()->toAtomString();
+        $cursors = $this->resolveCursors($request->input('cursor'));
 
         $changes = [];
         $counts = [];
+        $nextCursor = [];
+        $hasMore = [];
 
         foreach ($modules as $module) {
-            if ($module === 'attendance') {
-                $records = $this->syncService->pullAttendance($user, $cursor, $limit);
-                $changes['attendance'] = $records;
-                $counts['attendance'] = count($records);
+            // A per-module token is preferred; a scalar cursor (legacy) applies to all.
+            $token = $cursors[$module] ?? $cursors['*'] ?? null;
 
-                continue;
-            }
+            $result = $this->syncService->pullModule($user, $module, $token, $limit);
 
-            if ($module === 'leaves') {
-                $records = $this->syncService->pullLeaves($user, $cursor, $limit);
-                $changes['leaves'] = $records;
-                $counts['leaves'] = count($records);
-
-                continue;
-            }
-
-            if ($module === 'daily_works') {
-                $records = $this->syncService->pullDailyWorks($user, $cursor, $limit);
-                $changes['daily_works'] = $records;
-                $counts['daily_works'] = count($records);
-            }
+            $changes[$module] = $result['changes'];
+            $counts[$module] = $result['count'];
+            $nextCursor[$module] = $result['next_cursor'];
+            $hasMore[$module] = $result['has_more'];
         }
 
         return response()->json([
             'success' => true,
             'data' => [
-                'cursor' => $cursor->toAtomString(),
-                'next_cursor' => $nextCursor,
                 'changes' => $changes,
                 'counts' => $counts,
+                // Echo each module's continuation token; the client loops while any
+                // has_more is true, feeding next_cursor back as cursor[module].
+                'next_cursor' => $nextCursor,
+                'has_more' => $hasMore,
+                'server_time' => now()->toAtomString(),
             ],
         ]);
     }
@@ -119,11 +106,12 @@ class SyncController extends Controller
             $idempotencyKey = (string) ($mutation['idempotency_key'] ?? '');
             $module = (string) ($mutation['module'] ?? '');
             $action = (string) ($mutation['action'] ?? '');
-            $payload = is_array($mutation['payload'] ?? null) ? $mutation['payload'] : [];
 
-            $existingResult = $this->syncService->findStoredMutationResult((int) $user->id, $idempotencyKey);
+            $processed = $this->syncService->processMutation($user, $mutation);
+            $outcome = (string) ($processed['outcome'] ?? 'applied');
+            $result = is_array($processed['result'] ?? null) ? $processed['result'] : ['status' => 'failed'];
 
-            if ($existingResult !== null) {
+            if ($outcome === 'duplicate') {
                 $duplicates++;
 
                 $results[] = [
@@ -132,21 +120,17 @@ class SyncController extends Controller
                     'action' => $action,
                     'status' => 'duplicate',
                     'message' => 'Mutation already processed.',
-                    'result' => $existingResult,
+                    'result' => $result,
                 ];
 
                 continue;
             }
-
-            $result = $this->syncService->applyMutation($user, $module, $action, $payload);
 
             if (($result['status'] ?? 'failed') === 'applied') {
                 $applied++;
             } else {
                 $failed++;
             }
-
-            $this->syncService->storeMutationResult((int) $user->id, $idempotencyKey, $module, $action, $result);
 
             $results[] = [
                 'idempotency_key' => $idempotencyKey,
@@ -166,8 +150,33 @@ class SyncController extends Controller
                     'duplicate' => $duplicates,
                     'failed' => $failed,
                 ],
-                'next_cursor' => now()->toAtomString(),
             ],
         ]);
+    }
+
+    /**
+     * Normalize the incoming cursor into a module => token map.
+     * Accepts a per-module object (`cursor[attendance]=...`) or a single scalar
+     * watermark applied to every module (`*`).
+     *
+     * @return array<string, ?string>
+     */
+    private function resolveCursors(mixed $cursor): array
+    {
+        if (is_array($cursor)) {
+            $out = [];
+
+            foreach ($cursor as $key => $value) {
+                $out[(string) $key] = is_scalar($value) ? (string) $value : null;
+            }
+
+            return $out;
+        }
+
+        if (is_string($cursor) && $cursor !== '') {
+            return ['*' => $cursor];
+        }
+
+        return [];
     }
 }

@@ -65,10 +65,15 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
     const typeDistribution = analytics.type_distribution || {};
 
     const categoryColors = {
+        fuel: 'red',
         office_supplies: 'purple',
         meeting_supplies: 'orange',
         office_maintenance: 'yellow',
         services: 'cyan',
+        transport: 'blue',
+        utilities: 'green',
+        food_beverage: 'pink',
+        miscellaneous: 'gray',
     };
 
     // Format data for Recharts Pie
@@ -102,7 +107,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                         <Flex direction="column" gap="1">
                             <Text size="1" weight="bold" color="gray">INITIAL FUNDS</Text>
                             <Text size="5" weight="bold" color="blue">
-                                ${parseFloat(typeDistribution.loan_taken || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{parseFloat(typeDistribution.loan_taken || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
                         <Box p="2" style={{ background: 'var(--blue-a2)', borderRadius: '50%' }}>
@@ -120,7 +125,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                         <Flex direction="column" gap="1">
                             <Text size="1" weight="bold" color="gray">TOTAL EXPENSES</Text>
                             <Text size="5" weight="bold" color="red">
-                                ${parseFloat(typeDistribution.expense || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{parseFloat(typeDistribution.expense || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
                         <Box p="2" style={{ background: 'var(--red-a2)', borderRadius: '50%' }}>
@@ -138,7 +143,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                         <Flex direction="column" gap="1">
                             <Text size="1" weight="bold" color="gray">TOTAL REIMBURSEMENTS</Text>
                             <Text size="5" weight="bold" color="green">
-                                ${parseFloat(typeDistribution.reimbursement || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{parseFloat(typeDistribution.reimbursement || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
                         <Box p="2" style={{ background: 'var(--green-a2)', borderRadius: '50%' }}>
@@ -156,7 +161,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                         <Flex direction="column" gap="1">
                             <Text size="1" weight="bold" color="gray">TOTAL REPAYMENTS</Text>
                             <Text size="5" weight="bold" color="gray">
-                                ${parseFloat(typeDistribution.repayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ৳{parseFloat(typeDistribution.repayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
                         </Flex>
                         <Box p="2" style={{ background: 'var(--gray-a2)', borderRadius: '50%' }}>
@@ -198,7 +203,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
                                             </Pie>
-                                            <RechartsTooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                                            <RechartsTooltip formatter={(value) => `৳${value.toFixed(2)}`} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 </Box>
@@ -212,7 +217,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                                                 backgroundColor: COLORS[index % COLORS.length] 
                                             }} />
                                             <Text size="1" weight="medium" color="gray">
-                                                {entry.name}: <span style={{ fontWeight: 'bold', color: 'var(--gray-12)' }}>${entry.value.toFixed(2)}</span>
+                                                {entry.name}: <span style={{ fontWeight: 'bold', color: 'var(--gray-12)' }}>৳{entry.value.toFixed(2)}</span>
                                             </Text>
                                         </Flex>
                                     ))}
@@ -244,7 +249,7 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                         <XAxis dataKey="monthName" fontSize={11} tickLine={false} />
                                         <YAxis fontSize={11} tickLine={false} axisLine={false} />
-                                        <RechartsTooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                                        <RechartsTooltip formatter={(value) => `৳${value.toFixed(2)}`} />
                                         <Legend verticalAlign="top" height={36} fontSize={11} iconType="circle" />
                                         <Bar dataKey="reimbursements" name="Reimbursements" fill="#82ca9d" radius={[4, 4, 0, 0]} />
                                         <Bar dataKey="expenses" name="Expenses" fill="#8884d8" radius={[4, 4, 0, 0]} />

@@ -21,9 +21,14 @@ class ListDailyWorksRequest extends FormRequest
             'search' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', Rule::in(DailyWork::$statuses)],
             'type' => ['nullable', 'string', Rule::in(DailyWork::$types)],
+            'inspection_result' => ['nullable', 'string', Rule::in([...DailyWork::$inspectionResults, 'none'])],
+            'rfi_response_status' => ['nullable', 'string', Rule::in([...DailyWork::$rfiResponseStatuses, 'none'])],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'dates' => ['nullable', 'array'],
+            'dates.*' => ['date'],
             'only_with_objections' => ['nullable', 'boolean'],
+            'include_summary' => ['nullable', 'boolean'],
         ];
     }
 }

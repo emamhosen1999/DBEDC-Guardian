@@ -1,10 +1,10 @@
 /**
  * ManagerPanel.jsx
- * Admin view for managing all employee petty cash loans and requests.
- * Pure Radix UI.
+ * Admin view for managing all employee petty cash funds.
+ * Supports approval comments (Phase 5). Currency: BDT (৳).
  */
 import React, { useState, useEffect } from 'react';
-import { Box, Card, Flex, Table, Badge, Button, Text, Select } from '@radix-ui/themes';
+import { Box, Card, Flex, Table, Badge, Button, Text, Select, Dialog, TextField } from '@radix-ui/themes';
 import { CheckIcon, Cross1Icon } from '@radix-ui/react-icons';
 import axios from 'axios';
 
@@ -12,6 +12,11 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
     const [loans, setLoans] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('all');
+
+    // Approval comment dialog
+    const [commentDialog, setCommentDialog] = useState({ open: false, loanId: null, action: null });
+    const [comment, setComment] = useState('');
+    const [processing, setProcessing] = useState(false);
 
     const fetchLoans = async () => {
         try {
@@ -33,33 +38,32 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
         fetchLoans();
     }, [filterStatus]);
 
-    const handleApprove = async (loanId) => {
-        if (!window.confirm('Are you sure you want to approve this petty cash loan?')) return;
-        try {
-            const response = await axios.post('/petty-cash/loan/approve', { loan_id: loanId });
-            if (response.data.success) {
-                fetchLoans();
-                if (onRefresh) onRefresh();
-            } else {
-                alert(response.data.error || 'Failed to approve loan');
-            }
-        } catch (error) {
-            alert(error.response?.data?.error || 'Failed to approve loan');
-        }
+    const openCommentDialog = (loanId, action) => {
+        setCommentDialog({ open: true, loanId, action });
+        setComment('');
     };
 
-    const handleReject = async (loanId) => {
-        if (!window.confirm('Are you sure you want to reject this petty cash loan request?')) return;
+    const handleAction = async () => {
+        const { loanId, action } = commentDialog;
+        setProcessing(true);
+
         try {
-            const response = await axios.post('/petty-cash/loan/reject', { loan_id: loanId });
+            const endpoint = action === 'approve' ? '/petty-cash/loan/approve' : '/petty-cash/loan/reject';
+            const response = await axios.post(endpoint, {
+                loan_id: loanId,
+                comment: comment || null,
+            });
             if (response.data.success) {
+                setCommentDialog({ open: false, loanId: null, action: null });
                 fetchLoans();
                 if (onRefresh) onRefresh();
             } else {
-                alert(response.data.error || 'Failed to reject loan');
+                alert(response.data.error || `Failed to ${action} loan`);
             }
         } catch (error) {
-            alert(error.response?.data?.error || 'Failed to reject loan');
+            alert(error.response?.data?.error || `Failed to ${action} loan`);
+        } finally {
+            setProcessing(false);
         }
     };
 
@@ -86,7 +90,7 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
         <Box>
             {/* Filter */}
             <Flex mb="4" justify="between" align="center">
-                <Text size="2" color="gray" weight="bold">MANAGE EMPLOYEE LOANS</Text>
+                <Text size="2" color="gray" weight="bold">MANAGE EMPLOYEE FUNDS</Text>
                 <Select.Root value={filterStatus} onValueChange={setFilterStatus}>
                     <Select.Trigger placeholder="Filter by Status" />
                     <Select.Content>
@@ -105,17 +109,18 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                     <Table.Header>
                         <Table.Row>
                             <Table.ColumnHeaderCell>Employee</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Requested Date</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Fund</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Date</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Amount</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
-                            <Table.ColumnHeaderCell>Notes</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell>Approval</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
                         {loans.length === 0 ? (
                             <Table.Row>
-                                <Table.Cell colSpan={6} style={{ textAlign: 'center', padding: '32px' }}>
+                                <Table.Cell colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>
                                     <Text color="gray">No requests found</Text>
                                 </Table.Cell>
                             </Table.Row>
@@ -129,10 +134,13 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                                         </Flex>
                                     </Table.Cell>
                                     <Table.Cell>
+                                        <Badge variant="soft" size="1">{loan.fund_name || 'General Fund'}</Badge>
+                                    </Table.Cell>
+                                    <Table.Cell>
                                         <Text size="2">{new Date(loan.loan_date).toLocaleDateString()}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text weight="bold">${parseFloat(loan.original_amount).toFixed(2)}</Text>
+                                        <Text weight="bold">৳{parseFloat(loan.original_amount).toLocaleString()}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <Badge color={getStatusColor(loan.status)} variant="soft">
@@ -140,27 +148,36 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                                         </Badge>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text size="1" style={{ maxWidth: '150px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {loan.notes || '-'}
-                                        </Text>
+                                        {loan.approver_name ? (
+                                            <Flex direction="column">
+                                                <Text size="1" color="gray">By: {loan.approver_name}</Text>
+                                                {loan.approval_comment && (
+                                                    <Text size="1" color="gray" style={{ fontStyle: 'italic' }}>
+                                                        "{loan.approval_comment}"
+                                                    </Text>
+                                                )}
+                                            </Flex>
+                                        ) : (
+                                            <Text size="1" color="gray">—</Text>
+                                        )}
                                     </Table.Cell>
                                     <Table.Cell style={{ textAlign: 'right' }}>
                                         {loan.status === 'pending_approval' ? (
                                             <Flex gap="2" justify="end">
-                                                <Button 
-                                                    size="1" 
-                                                    color="green" 
-                                                    onClick={() => handleApprove(loan.id)}
+                                                <Button
+                                                    size="1"
+                                                    color="green"
+                                                    onClick={() => openCommentDialog(loan.id, 'approve')}
                                                     style={{ cursor: 'pointer' }}
                                                 >
                                                     <CheckIcon style={{ marginRight: '4px' }} />
                                                     Approve
                                                 </Button>
-                                                <Button 
-                                                    size="1" 
-                                                    color="red" 
+                                                <Button
+                                                    size="1"
+                                                    color="red"
                                                     variant="soft"
-                                                    onClick={() => handleReject(loan.id)}
+                                                    onClick={() => openCommentDialog(loan.id, 'reject')}
                                                     style={{ cursor: 'pointer' }}
                                                 >
                                                     <Cross1Icon style={{ marginRight: '4px' }} />
@@ -177,6 +194,40 @@ const ManagerPanel = ({ isMobile, onRefresh }) => {
                     </Table.Body>
                 </Table.Root>
             </Card>
+
+            {/* Approval Comment Dialog */}
+            <Dialog.Root open={commentDialog.open} onOpenChange={(open) => !open && setCommentDialog({ open: false, loanId: null, action: null })}>
+                <Dialog.Content style={{ maxWidth: 400, padding: '24px' }}>
+                    <Dialog.Title>
+                        {commentDialog.action === 'approve' ? '✓ Approve Fund Request' : '✗ Reject Fund Request'}
+                    </Dialog.Title>
+                    <Dialog.Description size="2" color="gray" mb="4">
+                        Add an optional comment explaining your decision.
+                    </Dialog.Description>
+
+                    <Flex direction="column" gap="3">
+                        <TextField.Root
+                            placeholder="Optional comment (e.g., 'Approved for office supplies')"
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                            maxLength={1000}
+                        />
+
+                        <Flex gap="3" justify="end">
+                            <Dialog.Close>
+                                <Button variant="soft" disabled={processing}>Cancel</Button>
+                            </Dialog.Close>
+                            <Button
+                                color={commentDialog.action === 'approve' ? 'green' : 'red'}
+                                onClick={handleAction}
+                                disabled={processing}
+                            >
+                                {processing ? 'Processing...' : (commentDialog.action === 'approve' ? 'Approve' : 'Reject')}
+                            </Button>
+                        </Flex>
+                    </Flex>
+                </Dialog.Content>
+            </Dialog.Root>
         </Box>
     );
 };

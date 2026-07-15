@@ -61,35 +61,62 @@ class DailyWorkController extends Controller
     {
         $user = $request->user();
         $perPage = (int) $request->input('perPage', 10);
+        $type = $request->input('type');
 
-        $query = $this->buildFilteredDailyWorksQuery($user, $request)
+        // Build the visibility/status/date/search/objection-filtered query WITHOUT the
+        // type filter so the cross-type summary counts (type-tab badges, overview) stay
+        // accurate. The type filter is applied only to the paginated list below.
+        $baseQuery = $this->dailyWorkService
+            ->buildFilteredDailyWorksQuery($user, $request->except('type'));
+
+        $this->applyDatesFilter($baseQuery, $request);
+        $this->applyInspectionAndResponseFilters($baseQuery, $request);
+
+        $listQuery = (clone $baseQuery)
+            ->when($type !== null && $type !== '', function (Builder $query) use ($type): void {
+                $query->where('type', $type);
+            })
             ->with([
                 'inchargeUser:id,name',
                 'assignedUser:id,name',
             ])
-            ->withCount(['activeObjections']);
-
-        $dailyWorks = $query
+            ->withCount(['activeObjections'])
             ->orderByDesc('date')
-            ->orderByDesc('id')
+            ->orderByDesc('id');
+
+        $dailyWorks = $listQuery
             ->paginate($perPage)
             ->appends($request->query());
 
+        $rows = $dailyWorks->getCollection();
+
+        $payload = [
+            'daily_works' => $rows
+                ->map(function (DailyWork $dailyWork) use ($user) {
+                    return $this->transformDailyWork($dailyWork, $user);
+                })
+                ->values(),
+            'pagination' => [
+                'current_page' => $dailyWorks->currentPage(),
+                'last_page' => $dailyWorks->lastPage(),
+                'per_page' => $dailyWorks->perPage(),
+                'total' => $dailyWorks->total(),
+            ],
+            // Candidate lists are returned ONCE per response (not embedded per row) to
+            // avoid duplicating the same supervisor/assignee arrays across every record.
+            'assignment_options' => $this->buildTopLevelAssignmentOptions($rows, $user),
+        ];
+
+        // The aggregate summary is expensive relative to a single page, so it is only
+        // computed when the client explicitly asks for it (filter/date changes), not on
+        // every pagination step.
+        if ($request->boolean('include_summary')) {
+            $payload['summary'] = $this->buildDailyWorksSummary(clone $baseQuery);
+        }
+
         return response()->json([
             'success' => true,
-            'data' => [
-                'daily_works' => $dailyWorks->getCollection()
-                    ->map(function (DailyWork $dailyWork) use ($user) {
-                        return $this->transformDailyWork($dailyWork, $user);
-                    })
-                    ->values(),
-                'pagination' => [
-                    'current_page' => $dailyWorks->currentPage(),
-                    'last_page' => $dailyWorks->lastPage(),
-                    'per_page' => $dailyWorks->perPage(),
-                    'total' => $dailyWorks->total(),
-                ],
-            ],
+            'data' => $payload,
         ]);
     }
 
@@ -1010,6 +1037,207 @@ class DailyWorkController extends Controller
         return $this->dailyWorkService->buildFilteredDailyWorksQuery($user, $request->all());
     }
 
+    /**
+     * Constrain the query to an explicit set of dates (multi-date selection). This lets
+     * the mobile client select non-contiguous dates in a single request instead of
+     * pulling every page for each date and merging client-side.
+     */
+    private function applyDatesFilter(Builder $query, ListDailyWorksRequest $request): void
+    {
+        $dates = $request->input('dates');
+
+        if (! is_array($dates)) {
+            return;
+        }
+
+        $normalized = collect($dates)
+            ->map(fn ($value) => $this->normalizeDate($value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (count($normalized) > 0) {
+            $query->whereIn('date', $normalized);
+        }
+    }
+
+    /**
+     * Apply the inspection-result and RFI-response filters server-side. The sentinel
+     * value "none" matches records with no result recorded (null/empty).
+     */
+    private function applyInspectionAndResponseFilters(Builder $query, ListDailyWorksRequest $request): void
+    {
+        $inspection = $request->input('inspection_result');
+
+        if ($inspection !== null && $inspection !== '') {
+            if ($inspection === 'none') {
+                $query->where(function (Builder $sub): void {
+                    $sub->whereNull('inspection_result')->orWhere('inspection_result', '');
+                });
+            } else {
+                $query->where('inspection_result', $inspection);
+            }
+        }
+
+        $response = $request->input('rfi_response_status');
+
+        if ($response !== null && $response !== '') {
+            if ($response === 'none') {
+                $query->where(function (Builder $sub): void {
+                    $sub->whereNull('rfi_response_status')->orWhere('rfi_response_status', '');
+                });
+            } else {
+                $query->where('rfi_response_status', $response);
+            }
+        }
+    }
+
+    /**
+     * Build the assignment option lists ONCE per response instead of embedding them on
+     * every row. The incharge candidate list is global (only exposed to privileged
+     * users); assignee candidates are keyed by the in-charge id and only built for the
+     * in-charges present on the current page that this user is allowed to reassign.
+     *
+     * @param  \Illuminate\Support\Collection<int, DailyWork>  $dailyWorks
+     * @return array{incharge_candidates: array<int, array{id:int,name:string}>, assigned_candidates_by_incharge: array<int, array<int, array{id:int,name:string}>>}
+     */
+    private function buildTopLevelAssignmentOptions($dailyWorks, User $user): array
+    {
+        $inchargeCandidates = $this->canUpdateIncharge($user)
+            ? $this->getInchargeCandidates()
+            : [];
+
+        $assignedByIncharge = [];
+
+        foreach ($dailyWorks as $dailyWork) {
+            if (! $this->canUpdateAssigned($user, $dailyWork)) {
+                continue;
+            }
+
+            $inchargeId = $dailyWork->incharge ? (int) $dailyWork->incharge : null;
+
+            if (! $inchargeId || array_key_exists($inchargeId, $assignedByIncharge)) {
+                continue;
+            }
+
+            $assignedByIncharge[$inchargeId] = $this->getAssigneeCandidatesForIncharge($inchargeId);
+        }
+
+        return [
+            'incharge_candidates' => $inchargeCandidates,
+            'assigned_candidates_by_incharge' => $assignedByIncharge,
+        ];
+    }
+
+    /**
+     * Compute the aggregate summary (overview + breakdowns) across ALL matching rows
+     * (every type) for the current filters, using grouped COUNT queries rather than
+     * loading rows into memory. Mirrors the buckets the mobile client previously
+     * computed client-side after pulling every page.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildDailyWorksSummary(Builder $baseQuery): array
+    {
+        $total = (int) (clone $baseQuery)->count();
+
+        $statusRaw = (clone $baseQuery)
+            ->select('status')
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $inspectionRaw = (clone $baseQuery)
+            ->select('inspection_result')
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy('inspection_result')
+            ->pluck('aggregate', 'inspection_result');
+
+        $responseRaw = (clone $baseQuery)
+            ->select('rfi_response_status')
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy('rfi_response_status')
+            ->pluck('aggregate', 'rfi_response_status');
+
+        $typeRaw = (clone $baseQuery)
+            ->select('type')
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy('type')
+            ->pluck('aggregate', 'type');
+
+        $status = [
+            'new' => (int) ($statusRaw['new'] ?? 0),
+            'in_progress' => (int) ($statusRaw['in-progress'] ?? 0),
+            'pending' => (int) ($statusRaw['pending'] ?? 0),
+            'completed' => (int) ($statusRaw['completed'] ?? 0),
+            'rejected' => (int) ($statusRaw['rejected'] ?? 0),
+            'resubmission' => (int) ($statusRaw['resubmission'] ?? 0),
+            'emergency' => (int) ($statusRaw['emergency'] ?? 0),
+        ];
+
+        $inspectionKnownKeys = ['pass', 'fail', 'conditional', 'pending', 'approved', 'rejected'];
+        $inspection = [];
+        $inspectionKnownTotal = 0;
+        foreach ($inspectionKnownKeys as $key) {
+            $count = (int) ($inspectionRaw[$key] ?? 0);
+            $inspection[$key] = $count;
+            $inspectionKnownTotal += $count;
+        }
+        // Anything without a recognised inspection result (incl. null/empty) is "none".
+        $inspection['none'] = max($total - $inspectionKnownTotal, 0);
+
+        $responseKnownKeys = ['approved', 'rejected', 'returned', 'concurred', 'not_concurred'];
+        $response = [];
+        $responseKnownTotal = 0;
+        foreach ($responseKnownKeys as $key) {
+            $count = (int) ($responseRaw[$key] ?? 0);
+            $response[$key] = $count;
+            $responseKnownTotal += $count;
+        }
+        $response['none'] = max($total - $responseKnownTotal, 0);
+
+        $type = [
+            'structure' => (int) ($typeRaw[DailyWork::TYPE_STRUCTURE] ?? 0),
+            'embankment' => (int) ($typeRaw[DailyWork::TYPE_EMBANKMENT] ?? 0),
+            'pavement' => (int) ($typeRaw[DailyWork::TYPE_PAVEMENT] ?? 0),
+        ];
+        $type['other'] = max($total - ($type['structure'] + $type['embankment'] + $type['pavement']), 0);
+
+        $assigned = (int) (clone $baseQuery)->whereNotNull('assigned')->count();
+        $missingIncharge = (int) (clone $baseQuery)->whereNull('incharge')->count();
+        $objections = (int) (clone $baseQuery)->whereHas('activeObjections')->count();
+        $totalResubmissions = (int) (clone $baseQuery)->sum('resubmission_count');
+
+        $completed = $status['completed'];
+        $pipeline = $status['in_progress'] + $status['pending'] + $status['resubmission'];
+        $pending = max($total - $completed, 0);
+        $completionRate = $total > 0 ? (int) round(($completed / $total) * 100) : 0;
+        $avgResubmissions = $total > 0 ? round($totalResubmissions / $total, 1) : 0;
+
+        return [
+            'overview' => [
+                'total' => $total,
+                'completed' => $completed,
+                'pending' => $pending,
+                'in_progress' => $pipeline,
+                'objections' => $objections,
+                'completion_rate' => $completionRate,
+                'total_resubmissions' => $totalResubmissions,
+                'avg_resubmissions' => $avgResubmissions,
+            ],
+            'status' => $status,
+            'inspection' => $inspection,
+            'response' => $response,
+            'type' => $type,
+            'assignment' => [
+                'assigned' => $assigned,
+                'unassigned' => max($total - $assigned, 0),
+                'missing_incharge' => $missingIncharge,
+            ],
+        ];
+    }
+
     private function canAccessDailyWork(User $user, DailyWork $dailyWork): bool
     {
         return $this->dailyWorkService->canAccessDailyWork($user, $dailyWork);
@@ -1053,38 +1281,6 @@ class DailyWorkController extends Controller
         $canViewIncharge = $this->canViewIncharge($user);
         $canViewAssigned = $this->canViewAssigned($user, $dailyWork);
 
-        $inchargeCandidates = $canUpdateIncharge ? $this->getInchargeCandidates() : [];
-
-        if ($canUpdateIncharge && $dailyWork->inchargeUser) {
-            $hasCurrentIncharge = collect($inchargeCandidates)->contains(function (array $candidate) use ($dailyWork): bool {
-                return (int) $candidate['id'] === (int) $dailyWork->inchargeUser->id;
-            });
-
-            if (! $hasCurrentIncharge) {
-                $inchargeCandidates[] = [
-                    'id' => (int) $dailyWork->inchargeUser->id,
-                    'name' => $dailyWork->inchargeUser->name,
-                ];
-            }
-        }
-
-        $assignedCandidates = $canUpdateAssigned
-            ? $this->getAssigneeCandidatesForIncharge($dailyWork->incharge ? (int) $dailyWork->incharge : null)
-            : [];
-
-        if ($canUpdateAssigned && $dailyWork->assignedUser) {
-            $hasCurrentAssigned = collect($assignedCandidates)->contains(function (array $candidate) use ($dailyWork): bool {
-                return (int) $candidate['id'] === (int) $dailyWork->assignedUser->id;
-            });
-
-            if (! $hasCurrentAssigned) {
-                $assignedCandidates[] = [
-                    'id' => (int) $dailyWork->assignedUser->id,
-                    'name' => $dailyWork->assignedUser->name,
-                ];
-            }
-        }
-
         return [
             'id' => (int) $dailyWork->id,
             'date' => $this->normalizeDate($dailyWork->date),
@@ -1122,10 +1318,6 @@ class DailyWorkController extends Controller
                 'can_update_assigned' => $canUpdateAssigned,
                 'can_view_incharge' => $canViewIncharge,
                 'can_view_assigned' => $canViewAssigned,
-            ],
-            'assignment_options' => [
-                'incharge_candidates' => $inchargeCandidates,
-                'assigned_candidates' => $assignedCandidates,
             ],
             'created_at' => $this->normalizeDateTime($dailyWork->created_at),
             'updated_at' => $this->normalizeDateTime($dailyWork->updated_at),

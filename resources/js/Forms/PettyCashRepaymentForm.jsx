@@ -1,7 +1,7 @@
 /**
  * PettyCashRepaymentForm.jsx
  * Dialog form for adding a repayment.
- * Pure Radix UI.
+ * Pure Radix UI. Currency: BDT (৳).
  */
 import React, { useState, useEffect } from 'react';
 import { Dialog, Flex, Text, Button, TextField, Box } from '@radix-ui/themes';
@@ -92,7 +92,7 @@ const PettyCashRepaymentForm = ({ open, onClose, onSuccess, loanId }) => {
                                 placeholder="0.00"
                             >
                                 <TextField.Slot>
-                                    <Text color="gray">$</Text>
+                                    <Text color="gray">৳</Text>
                                 </TextField.Slot>
                             </TextField.Root>
                         </Flex>

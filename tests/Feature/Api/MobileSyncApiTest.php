@@ -93,14 +93,15 @@ class MobileSyncApiTest extends TestCase
         $this->assertNotEmpty($response->json('data.next_cursor'));
     }
 
-    public function test_sync_pull_requires_cursor_and_valid_modules(): void
+    public function test_sync_pull_allows_missing_cursor_and_rejects_invalid_modules(): void
     {
         $user = User::factory()->create([]);
         Sanctum::actingAs($user);
 
+        // A missing cursor is now valid — it means "sync from the beginning".
         $this->getJson('/api/v1/sync/pull')
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['cursor']);
+            ->assertOk()
+            ->assertJsonPath('success', true);
 
         $this->getJson('/api/v1/sync/pull?cursor='.urlencode(now()->toAtomString()).'&modules[]=unknown')
             ->assertStatus(422)

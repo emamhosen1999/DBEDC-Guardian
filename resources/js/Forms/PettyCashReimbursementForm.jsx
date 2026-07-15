@@ -1,19 +1,33 @@
 /**
  * PettyCashReimbursementForm.jsx
- * Dialog form for adding a reimbursement.
- * Pure Radix UI.
+ * Dialog form for adding a reimbursement with dynamic categories.
+ * Currency: BDT (৳).
  */
 import React, { useState, useEffect } from 'react';
 import { Dialog, Flex, Text, Button, TextField, Select, Box } from '@radix-ui/themes';
-import { ArrowUpIcon, FileTextIcon, CalendarIcon } from '@radix-ui/react-icons';
+import { ArrowUpIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import DateTimePicker from '@/Components/DateTimePicker';
 
-const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
+const DEFAULT_CATEGORIES = {
+    fuel: 'Fuel',
+    office_supplies: 'Office Supplies',
+    meeting_supplies: 'Meeting Supplies',
+    office_maintenance: 'Office Maintenance',
+    services: 'Services',
+    transport: 'Transport',
+    utilities: 'Utilities',
+    food_beverage: 'Food & Beverage',
+    miscellaneous: 'Miscellaneous',
+};
+
+const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId, categories: propCategories = {} }) => {
+    const categories = Object.keys(propCategories).length > 0 ? propCategories : DEFAULT_CATEGORIES;
+
     const [formData, setFormData] = useState({
         loan_id: loanId,
         amount: '',
-        category: '',
+        category: 'none',
         description: '',
         transaction_date: new Date().toISOString().split('T')[0],
     });
@@ -39,6 +53,7 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
                 ...formData,
                 loan_id: loanId,
                 amount: parseFloat(formData.amount),
+                category: formData.category === 'none' ? null : formData.category,
             });
 
             if (response.data.success) {
@@ -104,7 +119,7 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
                                 placeholder="0.00"
                             >
                                 <TextField.Slot>
-                                    <Text color="gray">$</Text>
+                                    <Text color="gray">৳</Text>
                                 </TextField.Slot>
                             </TextField.Root>
                         </Flex>
@@ -114,11 +129,10 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
                             <Select.Root name="category" value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
                                 <Select.Trigger placeholder="Select category (optional)" />
                                 <Select.Content>
-                                    <Select.Item value="">None</Select.Item>
-                                    <Select.Item value="office_supplies">Office Supplies</Select.Item>
-                                    <Select.Item value="meeting_supplies">Meeting Supplies</Select.Item>
-                                    <Select.Item value="office_maintenance">Office Maintenance</Select.Item>
-                                    <Select.Item value="services">Services</Select.Item>
+                                    <Select.Item value="none">None</Select.Item>
+                                    {Object.entries(categories).map(([key, label]) => (
+                                        <Select.Item key={key} value={key}>{label}</Select.Item>
+                                    ))}
                                 </Select.Content>
                             </Select.Root>
                         </Flex>

@@ -1,15 +1,29 @@
 /**
  * PettyCashExpenseForm.jsx
- * Dialog form for adding an expense.
- * Pure Radix UI.
+ * Dialog form for adding an expense with dynamic categories.
+ * Currency: BDT (৳).
  */
 import React, { useState, useEffect } from 'react';
 import { Dialog, Flex, Text, Button, TextField, Select, Box } from '@radix-ui/themes';
-import { ArrowDownIcon, FileTextIcon, CalendarIcon } from '@radix-ui/react-icons';
+import { ArrowDownIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import DateTimePicker from '@/Components/DateTimePicker';
 
-const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
+const DEFAULT_CATEGORIES = {
+    fuel: 'Fuel',
+    office_supplies: 'Office Supplies',
+    meeting_supplies: 'Meeting Supplies',
+    office_maintenance: 'Office Maintenance',
+    services: 'Services',
+    transport: 'Transport',
+    utilities: 'Utilities',
+    food_beverage: 'Food & Beverage',
+    miscellaneous: 'Miscellaneous',
+};
+
+const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId, categories: propCategories = {} }) => {
+    const categories = Object.keys(propCategories).length > 0 ? propCategories : DEFAULT_CATEGORIES;
+
     const [formData, setFormData] = useState({
         loan_id: loanId,
         amount: '',
@@ -104,7 +118,7 @@ const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
                                 placeholder="0.00"
                             >
                                 <TextField.Slot>
-                                    <Text color="gray">$</Text>
+                                    <Text color="gray">৳</Text>
                                 </TextField.Slot>
                             </TextField.Root>
                         </Flex>
@@ -114,10 +128,9 @@ const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
                             <Select.Root name="category" value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
                                 <Select.Trigger placeholder="Select category" />
                                 <Select.Content>
-                                    <Select.Item value="office_supplies">Office Supplies</Select.Item>
-                                    <Select.Item value="meeting_supplies">Meeting Supplies</Select.Item>
-                                    <Select.Item value="office_maintenance">Office Maintenance</Select.Item>
-                                    <Select.Item value="services">Services</Select.Item>
+                                    {Object.entries(categories).map(([key, label]) => (
+                                        <Select.Item key={key} value={key}>{label}</Select.Item>
+                                    ))}
                                 </Select.Content>
                             </Select.Root>
                         </Flex>

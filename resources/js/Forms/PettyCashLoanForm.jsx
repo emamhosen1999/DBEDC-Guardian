@@ -1,17 +1,18 @@
 /**
  * PettyCashLoanForm.jsx
- * Dialog form for creating a new petty cash loan.
- * Pure Radix UI.
+ * Dialog form for creating a new petty cash fund.
+ * Supports fund_name for multi-fund. Currency: BDT (৳).
  */
 import React, { useState } from 'react';
 import { Dialog, Flex, Text, Button, TextField, Box } from '@radix-ui/themes';
-import { DotsHorizontalIcon, CalendarIcon } from '@radix-ui/react-icons';
+import { BackpackIcon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import DateTimePicker from '@/Components/DateTimePicker';
 
 const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         amount: '',
+        fund_name: '',
         loan_date: new Date().toISOString().split('T')[0],
         notes: '',
     });
@@ -32,7 +33,7 @@ const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
             if (response.data.success) {
                 onSuccess(response.data.loan);
             } else {
-                setError(response.data.error || 'Failed to create loan');
+                setError(response.data.error || 'Failed to create fund');
             }
         } catch (err) {
             setError(err.response?.data?.error || 'An error occurred');
@@ -53,13 +54,13 @@ const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
             <Dialog.Content style={{ maxWidth: 450, padding: '24px' }}>
                 <Dialog.Title>
                     <Flex align="center" gap="2">
-                        <DotsHorizontalIcon style={{ width: 24, height: 24 }} />
-                        Create Petty Cash Loan
+                        <BackpackIcon style={{ width: 24, height: 24 }} />
+                        Create Petty Cash Fund
                     </Flex>
                 </Dialog.Title>
 
                 <Dialog.Description size="2" color="gray" mb="4">
-                    Enter the loan amount and details to start tracking your petty cash expenses.
+                    Create a named fund to track expenses. You can have multiple funds active simultaneously.
                 </Dialog.Description>
 
                 <form onSubmit={handleSubmit}>
@@ -71,7 +72,19 @@ const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
                         )}
 
                         <Flex direction="column" gap="1">
-                            <Text size="2" weight="bold">LOAN AMOUNT *</Text>
+                            <Text size="2" weight="bold">FUND NAME</Text>
+                            <TextField.Root
+                                name="fund_name"
+                                value={formData.fund_name}
+                                onChange={handleChange}
+                                placeholder="e.g. Fuel Fund, Office Fund, General Fund"
+                                maxLength={255}
+                            />
+                            <Text size="1" color="gray">Leave empty for "General Fund"</Text>
+                        </Flex>
+
+                        <Flex direction="column" gap="1">
+                            <Text size="2" weight="bold">AMOUNT *</Text>
                             <TextField.Root
                                 name="amount"
                                 type="number"
@@ -83,13 +96,13 @@ const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
                                 placeholder="0.00"
                             >
                                 <TextField.Slot>
-                                    <Text color="gray">$</Text>
+                                    <Text color="gray">৳</Text>
                                 </TextField.Slot>
                             </TextField.Root>
                         </Flex>
 
                         <Flex direction="column" gap="1">
-                            <Text size="2" weight="bold" mb="1">LOAN DATE</Text>
+                            <Text size="2" weight="bold" mb="1">DATE</Text>
                             <DateTimePicker
                                 mode="date"
                                 value={formData.loan_date}
@@ -103,7 +116,7 @@ const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
                                 name="notes"
                                 value={formData.notes}
                                 onChange={handleChange}
-                                placeholder="Optional notes about this loan"
+                                placeholder="Optional notes about this fund"
                                 maxLength={1000}
                             />
                         </Flex>
@@ -115,7 +128,7 @@ const PettyCashLoanForm = ({ open, onClose, onSuccess }) => {
                                 </Button>
                             </Dialog.Close>
                             <Button type="submit" disabled={loading}>
-                                {loading ? 'Creating...' : 'Create Loan'}
+                                {loading ? 'Creating...' : 'Create Fund'}
                             </Button>
                         </Flex>
                     </Flex>

@@ -11,6 +11,7 @@ use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceValidatorFactory;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -18,6 +19,11 @@ use Illuminate\Support\Facades\Validator;
 
 class DataSyncService
 {
+    /** Offline capture-time bounds for the sync push channel. */
+    private const CAPTURE_FUTURE_SKEW_MINUTES = 2;
+
+    private const CAPTURE_MAX_AGE_HOURS = 72;
+
     // ──────────────────────────────────────────────
     //  Module resolution
     // ──────────────────────────────────────────────
@@ -42,84 +48,31 @@ class DataSyncService
     //  Bootstrap payloads
     // ──────────────────────────────────────────────
 
-    public function bootstrapAttendance(User $user, int $limit): array
+    /**
+     * First page of a fresh full sync for one module.
+     *
+     * Rows are ordered ASC by the monotonic (updated_at, id) cursor so the client
+     * can page forward to `pull` without ever skipping a row (the historic DESC +
+     * limit + cursor=now() bug permanently dropped every row beyond the first N).
+     * The returned `cursor` also parks the tombstone watermark at the current max,
+     * so a brand-new device is never handed deletes for rows it has never seen.
+     */
+    public function bootstrapModule(User $user, string $module, int $limit): array
     {
-        if (! Schema::hasTable('attendances')) {
-            return [
-                'records' => [],
-                'total' => 0,
-            ];
-        }
+        [$records, $lastTs, $lastId, $saturated] = $this->pullModuleRows($user, $module, null, 0, $limit);
 
-        $records = Attendance::query()
-            ->where('user_id', $user->id)
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->limit($limit)
-            ->get(['id', 'user_id', 'date', 'punchin', 'punchout', 'updated_at'])
-            ->map(fn (Attendance $attendance): array => $this->transformAttendanceRecord($attendance))
-            ->values()
-            ->all();
+        $maxTombstone = Schema::hasTable('sync_tombstones')
+            ? (int) DB::table('sync_tombstones')
+                ->where('user_id', $user->id)
+                ->where('module', $module)
+                ->max('id')
+            : 0;
 
         return [
             'records' => $records,
             'total' => count($records),
-        ];
-    }
-
-    public function bootstrapLeaves(User $user, int $limit): array
-    {
-        if (! Schema::hasTable('leaves')) {
-            return [
-                'records' => [],
-                'total' => 0,
-            ];
-        }
-
-        if (! $this->resolveLeavesUserColumn()) {
-            return [
-                'records' => [],
-                'total' => 0,
-            ];
-        }
-
-        $records = $this->baseLeavesQuery($user)
-            ->orderByDesc('leaves.updated_at')
-            ->orderByDesc('leaves.id')
-            ->limit($limit)
-            ->get()
-            ->map(fn ($leave): array => $this->transformLeaveRecord($leave))
-            ->values()
-            ->all();
-
-        return [
-            'records' => $records,
-            'total' => count($records),
-        ];
-    }
-
-    public function bootstrapDailyWorks(User $user, int $limit): array
-    {
-        if (! Schema::hasTable('daily_works')) {
-            return [
-                'records' => [],
-                'total' => 0,
-            ];
-        }
-
-        $records = $this->baseDailyWorksQuery($user)
-            ->withCount(['activeObjections'])
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->limit($limit)
-            ->get()
-            ->map(fn (DailyWork $dailyWork): array => $this->transformDailyWorkRecord($dailyWork))
-            ->values()
-            ->all();
-
-        return [
-            'records' => $records,
-            'total' => count($records),
+            'cursor' => $this->buildCursorToken($lastTs, $lastId, $maxTombstone),
+            'has_more' => $saturated,
         ];
     }
 
@@ -127,66 +80,247 @@ class DataSyncService
     //  Pull (delta) payloads
     // ──────────────────────────────────────────────
 
-    public function pullAttendance(User $user, Carbon $cursor, int $limit): array
+    /**
+     * Delta pull for one module against an opaque per-module cursor token.
+     *
+     * Correctness rules (fixing the historic silent-data-loss bugs):
+     *   1. Rows are ordered ASC by the composite (updated_at, id) cursor.
+     *   2. `next_cursor` is the LAST RETURNED row's (updated_at, id) — never now() —
+     *      so a page boundary never advances past unseen rows.
+     *   3. `has_more` is true whenever a page came back full; the client loops
+     *      until it is false before considering itself in sync.
+     *   4. Deletions surface as `{id, deleted:true}` tombstones drawn from the
+     *      append-only `sync_tombstones` log, paged by its own monotonic id.
+     *
+     * @return array{changes: array<int, array>, next_cursor: string, has_more: bool, count: int}
+     */
+    public function pullModule(User $user, string $module, ?string $token, int $limit): array
     {
-        if (! Schema::hasTable('attendances')) {
-            return [];
+        $cursor = $this->parseCursorToken($token);
+
+        [$rows, $lastTs, $lastId, $rowsSaturated] = $this->pullModuleRows(
+            $user,
+            $module,
+            $cursor['ts'],
+            $cursor['id'],
+            $limit
+        );
+
+        [$tombstones, $lastTombstoneId, $tombstonesSaturated] = $this->pullModuleTombstones(
+            $user,
+            $module,
+            $cursor['tombstone'],
+            $limit
+        );
+
+        $changes = array_merge($rows, $tombstones);
+
+        return [
+            'changes' => $changes,
+            'next_cursor' => $this->buildCursorToken($lastTs, $lastId, $lastTombstoneId),
+            'has_more' => $rowsSaturated || $tombstonesSaturated,
+            'count' => count($changes),
+        ];
+    }
+
+    /**
+     * Fetch one ASC page of changed rows for a module.
+     *
+     * @return array{0: array<int, array>, 1: ?string, 2: int, 3: bool}
+     *               [records, lastUpdatedAt, lastId, pageWasFull]
+     */
+    private function pullModuleRows(User $user, string $module, ?string $ts, int $id, int $limit): array
+    {
+        $records = [];
+        $lastTs = $ts;   // If nothing comes back the cursor must not move.
+        $lastId = $id;
+
+        if ($module === 'attendance') {
+            if (! Schema::hasTable('attendances')) {
+                return [[], $lastTs, $lastId, false];
+            }
+
+            $query = Attendance::query()->where('user_id', $user->id);
+            $this->applyCompositeCursor($query, 'updated_at', 'id', $ts, $id);
+
+            $models = $query
+                ->orderBy('updated_at', 'asc')
+                ->orderBy('id', 'asc')
+                ->limit($limit)
+                ->get(['id', 'user_id', 'date', 'punchin', 'punchout', 'updated_at']);
+
+            foreach ($models as $model) {
+                $records[] = $this->transformAttendanceRecord($model);
+                $lastTs = $this->cursorTimestamp($model->updated_at);
+                $lastId = (int) $model->id;
+            }
+
+            return [$records, $lastTs, $lastId, $models->count() === $limit];
         }
 
-        return Attendance::query()
+        if ($module === 'leaves') {
+            if (! Schema::hasTable('leaves') || ! $this->resolveLeavesUserColumn()) {
+                return [[], $lastTs, $lastId, false];
+            }
+
+            $hasUpdatedAt = Schema::hasColumn('leaves', 'updated_at');
+            $query = $this->baseLeavesQuery($user);
+
+            if ($hasUpdatedAt) {
+                $this->applyCompositeCursor($query, 'leaves.updated_at', 'leaves.id', $ts, $id);
+                $query->orderBy('leaves.updated_at', 'asc');
+            }
+
+            $rows = $query->orderBy('leaves.id', 'asc')->limit($limit)->get();
+
+            foreach ($rows as $row) {
+                $records[] = $this->transformLeaveRecord($row);
+                $lastTs = $hasUpdatedAt ? $this->cursorTimestamp($row->updated_at) : $lastTs;
+                $lastId = (int) $row->id;
+            }
+
+            return [$records, $lastTs, $lastId, $rows->count() === $limit];
+        }
+
+        if ($module === 'daily_works') {
+            if (! Schema::hasTable('daily_works')) {
+                return [[], $lastTs, $lastId, false];
+            }
+
+            $query = $this->baseDailyWorksQuery($user)->withCount(['activeObjections']);
+            $this->applyCompositeCursor($query, 'daily_works.updated_at', 'daily_works.id', $ts, $id);
+
+            $models = $query
+                ->orderBy('daily_works.updated_at', 'asc')
+                ->orderBy('daily_works.id', 'asc')
+                ->limit($limit)
+                ->get();
+
+            foreach ($models as $model) {
+                $records[] = $this->transformDailyWorkRecord($model);
+                $lastTs = $this->cursorTimestamp($model->updated_at);
+                $lastId = (int) $model->id;
+            }
+
+            return [$records, $lastTs, $lastId, $models->count() === $limit];
+        }
+
+        return [[], $lastTs, $lastId, false];
+    }
+
+    /**
+     * Fetch one ASC page of tombstones (deletions) for a module.
+     *
+     * @return array{0: array<int, array{id:int, deleted:bool}>, 1: int, 2: bool}
+     *               [tombstones, lastTombstoneId, pageWasFull]
+     */
+    private function pullModuleTombstones(User $user, string $module, int $afterId, int $limit): array
+    {
+        if (! Schema::hasTable('sync_tombstones')) {
+            return [[], $afterId, false];
+        }
+
+        $rows = DB::table('sync_tombstones')
             ->where('user_id', $user->id)
-            ->where('updated_at', '>', $cursor->toDateTimeString())
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
+            ->where('module', $module)
+            ->where('id', '>', $afterId)
+            ->orderBy('id', 'asc')
             ->limit($limit)
-            ->get(['id', 'user_id', 'date', 'punchin', 'punchout', 'updated_at'])
-            ->map(fn (Attendance $attendance): array => $this->transformAttendanceRecord($attendance))
-            ->values()
-            ->all();
+            ->get(['id', 'entity_id']);
+
+        $tombstones = [];
+        $lastId = $afterId;
+
+        foreach ($rows as $row) {
+            $tombstones[] = [
+                'id' => (int) $row->entity_id,
+                'deleted' => true,
+            ];
+            $lastId = (int) $row->id;
+        }
+
+        return [$tombstones, $lastId, $rows->count() === $limit];
     }
 
-    public function pullLeaves(User $user, Carbon $cursor, int $limit): array
+    /**
+     * Append a compare-and-swap style (updated_at, id) predicate so a page never
+     * re-reads a row it already emitted and never skips a row that shares the
+     * boundary second with the last row of the previous page.
+     */
+    private function applyCompositeCursor($query, string $tsColumn, string $idColumn, ?string $ts, int $id): void
     {
-        if (! Schema::hasTable('leaves')) {
-            return [];
+        if ($ts === null) {
+            return;
         }
 
-        if (! $this->resolveLeavesUserColumn()) {
-            return [];
-        }
-
-        $query = $this->baseLeavesQuery($user);
-
-        if (Schema::hasColumn('leaves', 'updated_at')) {
-            $query->where('leaves.updated_at', '>', $cursor->toDateTimeString());
-        }
-
-        return $query
-            ->orderByDesc('leaves.updated_at')
-            ->orderByDesc('leaves.id')
-            ->limit($limit)
-            ->get()
-            ->map(fn ($leave): array => $this->transformLeaveRecord($leave))
-            ->values()
-            ->all();
+        $query->where(function ($outer) use ($tsColumn, $idColumn, $ts, $id) {
+            $outer->where($tsColumn, '>', $ts)
+                ->orWhere(function ($inner) use ($tsColumn, $idColumn, $ts, $id) {
+                    $inner->where($tsColumn, '=', $ts)->where($idColumn, '>', $id);
+                });
+        });
     }
 
-    public function pullDailyWorks(User $user, Carbon $cursor, int $limit): array
+    private function cursorTimestamp(mixed $value): string
     {
-        if (! Schema::hasTable('daily_works')) {
-            return [];
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
         }
 
-        return $this->baseDailyWorksQuery($user)
-            ->withCount(['activeObjections'])
-            ->where('updated_at', '>', $cursor->toDateTimeString())
-            ->orderByDesc('updated_at')
-            ->orderByDesc('id')
-            ->limit($limit)
-            ->get()
-            ->map(fn (DailyWork $dailyWork): array => $this->transformDailyWorkRecord($dailyWork))
-            ->values()
-            ->all();
+        if (is_string($value) && $value !== '') {
+            try {
+                return Carbon::parse($value)->toDateTimeString();
+            } catch (\Throwable) {
+                return '1970-01-01 00:00:00';
+            }
+        }
+
+        return '1970-01-01 00:00:00';
+    }
+
+    private function buildCursorToken(?string $ts, int $id, int $tombstoneId): string
+    {
+        return ($ts ?? '0').'|'.$id.'|'.$tombstoneId;
+    }
+
+    /**
+     * Parse an opaque cursor token "<updated_at>|<id>|<tombstoneId>".
+     * A bare timestamp (legacy) or "0"/empty (initial sync) are both accepted.
+     *
+     * @return array{ts: ?string, id: int, tombstone: int}
+     */
+    private function parseCursorToken(?string $token): array
+    {
+        $token = trim((string) $token);
+
+        if ($token === '' || $token === '0') {
+            return ['ts' => null, 'id' => 0, 'tombstone' => 0];
+        }
+
+        $parts = explode('|', $token);
+
+        if (count($parts) === 1) {
+            return ['ts' => $this->normalizeCursorTimestamp($parts[0]), 'id' => 0, 'tombstone' => 0];
+        }
+
+        $ts = ($parts[0] === '0' || $parts[0] === '')
+            ? null
+            : $this->normalizeCursorTimestamp($parts[0]);
+
+        return [
+            'ts' => $ts,
+            'id' => (int) ($parts[1] ?? 0),
+            'tombstone' => (int) ($parts[2] ?? 0),
+        ];
+    }
+
+    private function normalizeCursorTimestamp(string $raw): ?string
+    {
+        try {
+            return Carbon::parse($raw)->toDateTimeString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -234,49 +368,125 @@ class DataSyncService
     }
 
     // ──────────────────────────────────────────────
-    //  Idempotency storage
+    //  Idempotent mutation processing (atomic reserve-then-apply)
     // ──────────────────────────────────────────────
 
-    public function findStoredMutationResult(int $userId, string $idempotencyKey): ?array
+    /**
+     * Process one pushed mutation exactly once.
+     *
+     * The idempotency guarantee is ATOMIC: the unique (user_id, idempotency_key)
+     * row is INSERTED as the very first act inside a single DB transaction — that
+     * insert IS the lock. Apply and the terminal-result write happen in the SAME
+     * transaction, so the historic check→apply→store race (request dies after
+     * apply but before store ⇒ double-apply on retry) cannot occur:
+     *   - duplicate key  → the mutation already ran; return the stored result.
+     *   - transient crash → the whole transaction (including the reservation row)
+     *     rolls back, so a retry is free to apply cleanly.
+     *   - business rejection (validation/authorization) is a deterministic,
+     *     terminal outcome, so it is committed as the idempotent result.
+     *
+     * @return array{outcome: string, result: array}
+     */
+    public function processMutation(User $user, array $mutation): array
     {
-        if (! Schema::hasTable('mobile_sync_mutations')) {
-            return null;
+        $idempotencyKey = (string) ($mutation['idempotency_key'] ?? '');
+        $module = (string) ($mutation['module'] ?? '');
+        $action = (string) ($mutation['action'] ?? '');
+        $payload = is_array($mutation['payload'] ?? null) ? $mutation['payload'] : [];
+
+        // No idempotency store / no key: degrade to a best-effort single apply.
+        if ($idempotencyKey === '' || ! Schema::hasTable('mobile_sync_mutations')) {
+            return [
+                'outcome' => 'applied',
+                'result' => $this->applyMutation($user, $module, $action, $payload),
+            ];
         }
 
-        $mutation = DB::table('mobile_sync_mutations')
+        try {
+            return DB::transaction(function () use ($user, $idempotencyKey, $module, $action, $payload) {
+                // 1. Reserve. The unique index is the mutex.
+                try {
+                    DB::table('mobile_sync_mutations')->insert([
+                        'user_id' => (int) $user->id,
+                        'idempotency_key' => $idempotencyKey,
+                        'module' => $module,
+                        'action' => $action,
+                        'status' => 'in_progress',
+                        'result' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } catch (QueryException $exception) {
+                    if (! $this->isUniqueViolation($exception)) {
+                        throw $exception;
+                    }
+
+                    return [
+                        'outcome' => 'duplicate',
+                        'result' => $this->fetchStoredResult((int) $user->id, $idempotencyKey),
+                    ];
+                }
+
+                // 2. Apply inside the same transaction.
+                $result = $this->applyMutation($user, $module, $action, $payload);
+
+                // 3. Persist the terminal result atomically with the apply.
+                DB::table('mobile_sync_mutations')
+                    ->where('user_id', (int) $user->id)
+                    ->where('idempotency_key', $idempotencyKey)
+                    ->update([
+                        'status' => (string) ($result['status'] ?? 'failed'),
+                        'result' => json_encode($result),
+                        'updated_at' => now(),
+                    ]);
+
+                return ['outcome' => 'applied', 'result' => $result];
+            });
+        } catch (\Throwable $exception) {
+            // Transient/unexpected failure: the transaction rolled back, taking the
+            // reservation row with it, so the client may safely retry the same key.
+            report($exception);
+
+            return [
+                'outcome' => 'transient_error',
+                'result' => [
+                    'status' => 'failed',
+                    'message' => 'A temporary error occurred while applying this change. Please retry.',
+                ],
+            ];
+        }
+    }
+
+    private function fetchStoredResult(int $userId, string $idempotencyKey): array
+    {
+        $row = DB::table('mobile_sync_mutations')
             ->where('user_id', $userId)
             ->where('idempotency_key', $idempotencyKey)
             ->first();
 
-        if (! $mutation || ! $mutation->result) {
-            return null;
+        if ($row && $row->result) {
+            $decoded = json_decode((string) $row->result, true);
+
+            if (is_array($decoded)) {
+                return $decoded;
+            }
         }
 
-        $decoded = json_decode((string) $mutation->result, true);
-
-        return is_array($decoded) ? $decoded : null;
+        // Reserved by a concurrent request that has not yet committed its result.
+        return ['status' => (string) ($row->status ?? 'in_progress')];
     }
 
-    public function storeMutationResult(int $userId, string $idempotencyKey, string $module, string $action, array $result): void
+    private function isUniqueViolation(QueryException $exception): bool
     {
-        if (! Schema::hasTable('mobile_sync_mutations')) {
-            return;
+        if ((string) $exception->getCode() === '23000') {
+            return true;
         }
 
-        DB::table('mobile_sync_mutations')->updateOrInsert(
-            [
-                'user_id' => $userId,
-                'idempotency_key' => $idempotencyKey,
-            ],
-            [
-                'module' => $module,
-                'action' => $action,
-                'status' => (string) ($result['status'] ?? 'failed'),
-                'result' => json_encode($result),
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]
-        );
+        $message = strtolower($exception->getMessage());
+
+        return str_contains($message, 'unique')
+            || str_contains($message, 'duplicate')
+            || str_contains($message, 'integrity constraint');
     }
 
     // ──────────────────────────────────────────────
@@ -296,6 +506,30 @@ class DataSyncService
 
         $syncRequest = HttpRequest::create('/api/v1/sync/push', 'POST', $payload);
         $syncRequest->setUserResolver(static fn () => $user);
+
+        // Mark this as the sync offline-capture channel. This attribute is set ONLY
+        // here (server-side) and can never originate from client input, so it does
+        // not weaken GuardsServerAuthoritativePunchTime — a human punch request has
+        // no way to reach the captured_at branch of resolvePunchTime().
+        $syncRequest->attributes->set('sync_capture', true);
+
+        // A queued offline punch carries the REAL moment it was captured. Honour it,
+        // but only when it is plausible: not in the future and not older than the
+        // offline window. An out-of-bounds capture time is rejected outright rather
+        // than silently recorded at server time (which would corrupt worked-minutes,
+        // late flags, OT and overnight detection).
+        if (array_key_exists('captured_at', $payload) && $payload['captured_at'] !== null && $payload['captured_at'] !== '') {
+            $capturedAt = $this->boundedCaptureTime((string) $payload['captured_at']);
+
+            if ($capturedAt === null) {
+                return [
+                    'status' => 'failed',
+                    'message' => 'captured_at is outside the allowed offline window (must be within the last 72h and not in the future).',
+                ];
+            }
+
+            $syncRequest->merge(['captured_at' => $capturedAt->toDateTimeString()]);
+        }
 
         try {
             $validator = AttendanceValidatorFactory::create($attendanceType, $syncRequest);
@@ -520,6 +754,11 @@ class DataSyncService
         }
 
         DB::table('leaves')->where('id', $leaveId)->delete();
+
+        // Hard deletes leave no trace for an already-synced device to act on, so
+        // emit a tombstone the pull can return. Without this the cancelled leave
+        // lives forever in the client's local store.
+        $this->recordTombstone((int) $user->id, 'leaves', $leaveId);
 
         return [
             'status' => 'applied',
@@ -1075,6 +1314,50 @@ class DataSyncService
         }
 
         return null;
+    }
+
+    /**
+     * Append a deletion tombstone so a pull can tell already-synced devices to
+     * evict a row that no longer exists (or is no longer visible) to the user.
+     */
+    private function recordTombstone(int $userId, string $module, int $entityId): void
+    {
+        if (! Schema::hasTable('sync_tombstones')) {
+            return;
+        }
+
+        DB::table('sync_tombstones')->insert([
+            'user_id' => $userId,
+            'module' => $module,
+            'entity_id' => $entityId,
+            'created_at' => now(),
+        ]);
+    }
+
+    /**
+     * Bound a client-asserted offline capture time. Returns null (⇒ reject) when
+     * the timestamp is unparseable, in the future beyond a small skew, or older
+     * than the maximum offline window.
+     */
+    private function boundedCaptureTime(string $raw): ?Carbon
+    {
+        try {
+            $parsed = Carbon::parse($raw);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $now = Carbon::now();
+
+        if ($parsed->greaterThan($now->copy()->addMinutes(self::CAPTURE_FUTURE_SKEW_MINUTES))) {
+            return null;
+        }
+
+        if ($parsed->lessThan($now->copy()->subHours(self::CAPTURE_MAX_AGE_HOURS))) {
+            return null;
+        }
+
+        return $parsed;
     }
 
     // ──────────────────────────────────────────────

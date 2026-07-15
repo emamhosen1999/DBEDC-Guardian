@@ -15,7 +15,11 @@ class SyncPullRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cursor' => ['required', 'date'],
+            // Opaque continuation token. Optional (absent ⇒ sync from the beginning).
+            // Accepts either a single scalar watermark applied to every module, or a
+            // per-module object: cursor[attendance]=<token>&cursor[leaves]=<token>.
+            'cursor' => ['nullable'],
+            'cursor.*' => ['sometimes', 'nullable', 'string', 'max:191'],
             'modules' => ['nullable', 'array'],
             'modules.*' => ['string', Rule::in(['attendance', 'leaves', 'daily_works'])],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],

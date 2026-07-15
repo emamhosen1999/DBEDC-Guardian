@@ -70,7 +70,7 @@ const HistoryPanel = ({ isMobile }) => {
                                         <Text size="2">{loan.closed_date ? new Date(loan.closed_date).toLocaleDateString() : 'N/A'}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        <Text weight="bold">${parseFloat(loan.original_amount).toFixed(2)}</Text>
+                                        <Text weight="bold">৳{parseFloat(loan.original_amount).toFixed(2)}</Text>
                                     </Table.Cell>
                                     <Table.Cell>
                                         <Badge color={loan.status === 'settled' ? 'blue' : loan.status === 'rejected' ? 'red' : 'gray'} variant="soft">
@@ -104,7 +104,7 @@ const HistoryPanel = ({ isMobile }) => {
                 <Dialog.Root open={!!selectedLoan} onOpenChange={() => setSelectedLoan(null)}>
                     <Dialog.Content style={{ maxWidth: 850, padding: '24px' }}>
                         <Dialog.Title>
-                            Past Loan Ledger - ${parseFloat(selectedLoan.original_amount).toFixed(2)} ({new Date(selectedLoan.loan_date).toLocaleDateString()})
+                            Past Loan Ledger - ৳{parseFloat(selectedLoan.original_amount).toFixed(2)} ({new Date(selectedLoan.loan_date).toLocaleDateString()})
                         </Dialog.Title>
                         <Dialog.Description size="2" color="gray" mb="4">
                             Detailed transaction history for this closed petty cash loan.
