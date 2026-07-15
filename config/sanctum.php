@@ -45,21 +45,36 @@ return [
     |--------------------------------------------------------------------------
     |
     | This value controls the number of minutes until an issued token will be
-    | considered expired. This will override any values set in the token's
-    | "expires_at" attribute, but first-party sessions are not affected.
+    | considered expired, measured from the token's created_at. It is an
+    | ABSOLUTE lifetime backstop.
     |
-    | Kept NULL on purpose. This global value is an ABSOLUTE lifetime measured
-    | from the token's created_at, which would force a re-login a fixed time
-    | after login regardless of activity. Instead we enforce a SLIDING idle
-    | window (matching config('session.lifetime')) via each token's per-token
-    | "expires_at": set at login in App\Http\Controllers\Api\V1\AuthController and
-    | extended on every authenticated request by the SlideTokenExpiration
-    | middleware. This gives mobile the SAME idle-timeout semantics as web.
-    | See docs/session-expiry-policy.md.
+    | NOTE ON COMBINED SEMANTICS (verified against laravel/sanctum v4.3.2
+    | Guard::isValidAccessToken, lines 121-130): the stock comment above that
+    | says this "overrides" the per-token expires_at is INACCURATE for this
+    | version. The global expiration and each token's own expires_at are ANDed
+    | -- BOTH must pass for a token to authenticate:
+    |     (! expiration || created_at > now()->subMinutes(expiration))
+    |         && (! expires_at || ! expires_at->isPast())
+    |
+    | So this global value does NOT disturb the SLIDING idle window we already
+    | enforce per-token: each token gets expires_at = now + session.lifetime at
+    | login (App\Http\Controllers\Api\V1\AuthController) and that expires_at is
+    | pushed forward on every authenticated request by the SlideTokenExpiration
+    | middleware. The idle window (8h) still governs normal expiry and still
+    | slides untouched.
+    |
+    | What this adds is a hard, non-sliding cap from token creation. Previously
+    | NULL meant an actively-used (or scripted keep-alive) token never expired
+    | at all (see AUDIT-02 finding 2.3). We now default this to 30 days
+    | (SANCTUM_EXPIRATION=43200 minutes) so a stolen-but-kept-alive token dies
+    | at most 30 days after it was issued, while honest users still see the same
+    | 8h sliding idle behaviour. Set SANCTUM_EXPIRATION=0 (or empty) to restore
+    | the old never-expire behaviour. See docs/session-expiry-policy.md and
+    | docs/deploy/cpanel-queue-scheduler-and-token-ttl.md.
     |
     */
 
-    'expiration' => null,
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 43200),
 
     /*
     |--------------------------------------------------------------------------
