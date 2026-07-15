@@ -1,8 +1,20 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
     "signals": {
-      ".read": "auth !== null",
-      ".write": false
+      "notif": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": false
+        }
+      },
+      "$ns": {
+        "$entity": {
+          ".read": "auth != null",
+          ".write": false
+        }
+      }
     }
   }
 }
