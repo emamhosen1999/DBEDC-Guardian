@@ -74,7 +74,7 @@ export function SectionLabel({ children, right }) {
 export function Kpi({ icon, label, value, unit, foot, tone = 'accent', spark }) {
     const t = TONE[tone] ?? TONE.accent;
     return (
-        <Card className="cc-card cc-kpi">
+        <Box className="cc-card cc-kpi">
             <Flex direction="column" gap="2" style={{ height: '100%' }}>
                 <Flex align="center" gap="2">
                     <Flex align="center" justify="center" style={{ width: 28, height: 28, borderRadius: 8,
@@ -92,7 +92,7 @@ export function Kpi({ icon, label, value, unit, foot, tone = 'accent', spark }) 
                     {spark && <Box style={{ flex: 1, height: 26, minWidth: 0 }}>{spark}</Box>}
                 </Flex>
             </Flex>
-        </Card>
+        </Box>
     );
 }
 
