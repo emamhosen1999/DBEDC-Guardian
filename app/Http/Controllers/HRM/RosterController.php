@@ -143,7 +143,7 @@ class RosterController extends Controller
         ]);
 
         $user = $request->user();
-        if (!$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
+        if ($user && !$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
             $invalidCount = User::whereIn('id', $data['user_ids'])
                 ->where('department_id', '!=', $user->department_id)
                 ->count();
@@ -176,7 +176,7 @@ class RosterController extends Controller
         ]);
 
         $user = $request->user();
-        if (!$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
+        if ($user && !$user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $user->department_id !== null) {
             $targetUser = User::find($data['user_id']);
             if (!$targetUser || $targetUser->department_id !== $user->department_id) {
                 return response()->json(['error' => 'You can only update roster cells for your own department.'], 403);

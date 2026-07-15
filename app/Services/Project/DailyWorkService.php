@@ -483,6 +483,14 @@ class DailyWorkService
 
         if ($this->isPrivilegedUser($user)) {
             // Managers and admin roles can access all daily works.
+        } elseif ($user->hasRole('Department Manager') && $user->department_id !== null) {
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('inchargeUser', function ($uq) use ($user) {
+                    $uq->where('department_id', $user->department_id);
+                })->orWhereHas('assignedUser', function ($uq) use ($user) {
+                    $uq->where('department_id', $user->department_id);
+                });
+            });
         } else {
             if ($userDesignationTitle === 'Supervision Engineer') {
                 $query->where(function ($q) use ($user) {
