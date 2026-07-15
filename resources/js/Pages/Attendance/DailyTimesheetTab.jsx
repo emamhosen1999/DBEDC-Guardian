@@ -359,7 +359,11 @@ const DailyTimesheetTab = ({
     // Range + filter state (Log mode)
     const [toDate, setToDate] = useState(selectedDate);
     const [preset, setPreset] = useState('today');
-    const [deptFilter, setDeptFilter] = useState('');
+    const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
+    const userDeptId = auth?.user?.department_id;
+    const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
+
+    const [deptFilter, setDeptFilter] = useState(isNonGlobalManager ? String(userDeptId) : '');
     const [desigFilter, setDesigFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
 
@@ -676,15 +680,17 @@ const DailyTimesheetTab = ({
                                 </Select.Content>
                             </Select.Root>
 
-                            <Select.Root value={deptFilter || 'all'} onValueChange={v => { setDeptFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
-                                <Select.Trigger size="2" placeholder="Department" style={{ width: 150 }} />
-                                <Select.Content>
-                                    <Select.Item value="all">All departments</Select.Item>
-                                    {departments.map(d => (
-                                        <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
+                            {!isNonGlobalManager && (
+                                <Select.Root value={deptFilter || 'all'} onValueChange={v => { setDeptFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                                    <Select.Trigger size="2" placeholder="Department" style={{ width: 150 }} />
+                                    <Select.Content>
+                                        <Select.Item value="all">All departments</Select.Item>
+                                        {departments.map(d => (
+                                            <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                                        ))}
+                                    </Select.Content>
+                                </Select.Root>
+                            )}
 
                             <Select.Root value={desigFilter || 'all'} onValueChange={v => { setDesigFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
                                 <Select.Trigger size="2" placeholder="Designation" style={{ width: 150 }} />

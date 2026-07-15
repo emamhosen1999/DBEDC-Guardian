@@ -42,22 +42,32 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        // 1. Workforce & Organization base data
-        $departments = Department::select('id', 'name', 'code', 'parent_id', 'is_active')->get();
-        $designations = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')
+        $authUser = Auth::user();
+        $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+        $userDeptId = $authUser->department_id;
+
+        $departmentsQuery = Department::select('id', 'name', 'code', 'parent_id', 'is_active');
+        $designationsQuery = Designation::select('id', 'title', 'department_id', 'hierarchy_level', 'parent_id', 'is_active')
             ->with('department:id,name') // department_name is appended in Designation::toArray(); avoid lazy-load violation
-            ->orderBy('hierarchy_level', 'asc')
-            ->get();
-        
+            ->orderBy('hierarchy_level', 'asc');
+        $usersQuery = User::select('id', 'name', 'email', 'department_id', 'designation_id')
+            ->whereNull('deleted_at');
+
+        if (!$isGlobal && $userDeptId !== null) {
+            $departmentsQuery->where('id', $userDeptId);
+            $designationsQuery->where('department_id', $userDeptId);
+            $usersQuery->where('department_id', $userDeptId);
+        }
+
+        $departments = $departmentsQuery->get();
+        $designations = $designationsQuery->get();
         $roles = Role::with('permissions')->get();
 
         $attendanceTypes = AttendanceType::select('id', 'name', 'slug', 'config', 'is_active')
             ->with(['biometricDevices:id,name,serial_number,location'])
             ->get();
 
-        $activeUsers = User::select('id', 'name', 'email', 'department_id', 'designation_id')
-            ->whereNull('deleted_at')
-            ->get();
+        $activeUsers = $usersQuery->get();
 
         $workLocations = \App\Models\WorkLocation::with(['attendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number'])->get();
 
@@ -69,9 +79,17 @@ class UserController extends Controller
             'inactive' => $departments->where('is_active', false)->count(),
             'parent_departments' => $parentDepartments->count(),
         ];
-        $initialDepartments = Department::with(['manager:id,name,email', 'parent:id,name'])
-            ->withCount('employees')
-            ->paginate(10);
+        $departmentsPaginateQuery = Department::with(['manager:id,name,email', 'parent:id,name'])
+            ->withCount('employees');
+        $designationsPaginateQuery = Designation::with('department:id,name')
+            ->withCount(['users as employee_count']);
+
+        if (!$isGlobal && $userDeptId !== null) {
+            $departmentsPaginateQuery->where('id', $userDeptId);
+            $designationsPaginateQuery->where('department_id', $userDeptId);
+        }
+
+        $initialDepartments = $departmentsPaginateQuery->paginate(10);
 
         // 3. Designation Tab Stats & Pagination
         $designationStats = [
@@ -80,9 +98,7 @@ class UserController extends Controller
             'inactive' => $designations->where('is_active', false)->count(),
             'parent_designations' => $designations->whereNull('parent_id')->count(),
         ];
-        $initialDesignations = Designation::with('department:id,name')
-            ->withCount(['users as employee_count'])
-            ->paginate(10);
+        $initialDesignations = $designationsPaginateQuery->paginate(10);
 
         $overviewStats = [
             'total_employees' => $activeUsers->count(),
@@ -153,6 +169,15 @@ class UserController extends Controller
             $roles = $request->input('roles');
             $profileImage = $request->file('profile_image');
 
+            $authUser = Auth::user();
+            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $authUser->department_id;
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $validated['department_id'] = $userDeptId;
+                $roles = ['Employee'];
+            }
+
             $user = $this->userService->createUser($validated, $roles, $profileImage);
 
             Log::info('User created', [
@@ -193,6 +218,20 @@ class UserController extends Controller
             $roles = $request->input('roles');
             $hasRoles = $request->has('roles');
             $profileImage = $request->file('profile_image');
+
+            $authUser = Auth::user();
+            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $authUser->department_id;
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $targetUser = User::findOrFail($id);
+                if ($targetUser->department_id !== $userDeptId) {
+                    abort(403, 'Unauthorized to update users outside your department.');
+                }
+                $validated['department_id'] = $userDeptId;
+                $roles = ['Employee'];
+                $hasRoles = true;
+            }
 
             $user = $this->userService->updateUser($id, $validated, $roles, $hasRoles, $profileImage);
 

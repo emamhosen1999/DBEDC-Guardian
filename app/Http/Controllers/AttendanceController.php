@@ -387,6 +387,10 @@ class AttendanceController extends Controller
             $perPage = (int) $request->query('per_page', $request->query('perPage', 20));
             $employeeKeyword = trim((string) $request->query('employee', ''));
 
+            $user = Auth::user();
+            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $user->department_id;
+
             $usersWithAttendanceQuery = User::query()
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
@@ -396,6 +400,10 @@ class AttendanceController extends Controller
                         ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $selectedDate);
                 });
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $usersWithAttendanceQuery->where('department_id', $userDeptId);
+            }
 
             if ($employeeKeyword !== '') {
                 $usersWithAttendanceQuery->where(function ($query) use ($employeeKeyword) {
@@ -549,7 +557,16 @@ class AttendanceController extends Controller
     {
         try {
             $date = $request->query('date', now()->toDateString());
-            $users = $this->attendanceQueryService->getPresentUsersForDate($date);
+            $user = Auth::user();
+            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $user->department_id;
+
+            $filters = [];
+            if (!$isGlobal && $userDeptId !== null) {
+                $filters['department_id'] = $userDeptId;
+            }
+
+            $users = $this->attendanceQueryService->getPresentUsersForDate($date, $filters);
 
             return response()->json([
                 'users' => $users,
@@ -568,10 +585,18 @@ class AttendanceController extends Controller
             $date = $request->query('date', now()->toDateString());
             $employeeKeyword = trim((string) $request->query('employee', ''));
 
+            $user = Auth::user();
+            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $user->department_id;
+
             $allUsersQuery = User::query()
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 });
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $allUsersQuery->where('department_id', $userDeptId);
+            }
 
             if ($employeeKeyword !== '') {
                 $allUsersQuery->where(function ($query) use ($employeeKeyword) {
@@ -582,7 +607,7 @@ class AttendanceController extends Controller
 
             $allUsers = $allUsersQuery->get();
 
-            $presentUserIds = User::query()
+            $presentUserIdsQuery = User::query()
                 ->whereHas('roles', function ($query) {
                     $query->where('name', 'Employee');
                 })
@@ -590,8 +615,13 @@ class AttendanceController extends Controller
                     $query->where(fn ($q) => $q->whereNotNull('punchin')->orWhere('symbol', '√'))
                         ->where('policy_status', '!=', 'rejected')
                         ->whereDate('date', $date);
-                })
-                ->pluck('id');
+                });
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $presentUserIdsQuery->where('department_id', $userDeptId);
+            }
+
+            $presentUserIds = $presentUserIdsQuery->pluck('id');
 
             $absentUsers = $allUsers->filter(function (User $user) use ($presentUserIds) {
                 return ! $presentUserIds->contains($user->id);

@@ -89,7 +89,19 @@ const EmployeesTab = ({ isActive }) => {
     const [showFilters, setShowFilters] = useState(false);
 
     /* ── filters ── */
-    const [filters, setFilters] = useState({ search: '', department: 'all', designation: 'all', attendanceType: 'all', role: 'all', status: 'all', showDeleted: false });
+    const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
+    const userDeptId = auth?.user?.department_id;
+    const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
+
+    const [filters, setFilters] = useState({ 
+        search: '', 
+        department: isNonGlobalManager ? String(userDeptId) : 'all', 
+        designation: 'all', 
+        attendanceType: 'all', 
+        role: 'all', 
+        status: 'all', 
+        showDeleted: false 
+    });
     const [pagination, setPagination] = useState({ currentPage: 1, perPage: 10, total: 0 });
 
     /* ── React Query hooks ── */
@@ -206,16 +218,18 @@ const EmployeesTab = ({ isActive }) => {
             {showFilters && (
                 <Box p="4" mb="4" style={{ background: 'var(--gray-a2)', borderRadius: 'var(--radius-3)', border: '1px solid var(--gray-a4)' }}>
                     <Grid columns={{ initial: '1', sm: '2', md: '3', lg: '6' }} gap="4" align="end">
-                        <Box>
-                            <Text size="2" color="gray" mb="1" as="div">Department</Text>
-                            <Select.Root size="2" value={filters.department} onValueChange={handleDeptChange}>
-                                <Select.Trigger style={{ width: '100%' }} placeholder="All Departments" />
-                                <Select.Content>
-                                    <Select.Item value="all">All Departments</Select.Item>
-                                    {departments?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>)}
-                                </Select.Content>
-                            </Select.Root>
-                        </Box>
+                        {!isNonGlobalManager && (
+                            <Box>
+                                <Text size="2" color="gray" mb="1" as="div">Department</Text>
+                                <Select.Root size="2" value={filters.department} onValueChange={handleDeptChange}>
+                                    <Select.Trigger style={{ width: '100%' }} placeholder="All Departments" />
+                                    <Select.Content>
+                                        <Select.Item value="all">All Departments</Select.Item>
+                                        {departments?.map(d => <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>)}
+                                    </Select.Content>
+                                </Select.Root>
+                            </Box>
+                        )}
                         <Box>
                             <Text size="2" color="gray" mb="1" as="div">Designation</Text>
                             <Select.Root size="2" value={filters.designation} onValueChange={v => { setFilters(p => ({ ...p, designation: v })); setPagination(p => ({ ...p, currentPage: 1 })); }} disabled={filters.department === 'all'}>

@@ -143,6 +143,16 @@ class DepartmentController extends Controller
     public function update(Request $request, $id)
     {
         try {
+            $authUser = auth()->user();
+            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $authUser->department_id;
+
+            if (!$isGlobal && $userDeptId !== null) {
+                if ((int)$id !== (int)$userDeptId) {
+                    abort(403, 'Unauthorized to modify other departments.');
+                }
+            }
+
             $department = Department::findOrFail($id);
 
             // Validate request data
@@ -192,6 +202,16 @@ class DepartmentController extends Controller
     public function destroy($id)
     {
         try {
+            $authUser = auth()->user();
+            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $authUser->department_id;
+
+            if (!$isGlobal && $userDeptId !== null) {
+                if ((int)$id !== (int)$userDeptId) {
+                    abort(403, 'Unauthorized to delete other departments.');
+                }
+            }
+
             $department = Department::findOrFail($id);
 
             // Check if department has employees
@@ -227,6 +247,18 @@ class DepartmentController extends Controller
     public function updateUserDepartment(Request $request, $id)
     {
         try {
+            $authUser = auth()->user();
+            $isGlobal = $authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $authUser->department_id;
+
+            if (!$isGlobal && $userDeptId !== null) {
+                $targetUser = User::findOrFail($id);
+                $newDeptId = (int) $request->input('department');
+                if ($targetUser->department_id !== $userDeptId || $newDeptId !== (int) $userDeptId) {
+                    abort(403, 'Unauthorized to move users outside your department.');
+                }
+            }
+
             $request->validate([
                 'department' => 'required|integer|exists:departments,id',
             ]);

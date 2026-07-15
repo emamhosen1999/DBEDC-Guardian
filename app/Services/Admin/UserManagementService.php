@@ -459,6 +459,11 @@ class UserManagementService
         $status = $filters['status'] ?? null;
         $showDeleted = filter_var($filters['showDeleted'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
+        $authUser = auth()->user();
+        if ($authUser && !$authUser->hasRole(['Super Administrator', 'Administrator', 'HR Manager']) && $authUser->department_id !== null) {
+            $department = $authUser->department_id;
+        }
+
         $query = User::withTrashed()
             ->with(['department', 'designation', 'attendanceType', 'media', 'roles', 'workLocation.attendanceType', 'employeeAttendanceType', 'attendanceTypes:id,name,slug', 'biometricDevices:id,name,serial_number']);
 
