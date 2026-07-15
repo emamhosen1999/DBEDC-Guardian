@@ -28,6 +28,11 @@ class PolygonLocationValidator extends BaseAttendanceValidator
             }
         }
 
+        // GPS trust: reject an implausibly coarse fix when the client reports accuracy.
+        if ($accuracyError = $this->gpsAccuracyError()) {
+            return $accuracyError;
+        }
+
         // Filter active polygons
         $activePolygons = array_filter($polygons, fn ($p) => ($p['is_active'] ?? true));
 
@@ -63,6 +68,13 @@ class PolygonLocationValidator extends BaseAttendanceValidator
             : count($validPolygons) > 0;
 
         if (! $isValid) {
+            $this->logRejection('outside all allowed polygon boundaries', [
+                'lat' => $lat,
+                'lng' => $lng,
+                'validation_mode' => $validationMode,
+                'checked_polygons' => $checkedPolygons,
+            ]);
+
             return $this->errorResponse('You are not within any allowed location boundary.', 403);
         }
 

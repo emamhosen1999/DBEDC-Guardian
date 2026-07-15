@@ -25,6 +25,13 @@ class AttendancePunchService
     public function processPunch($user, Request $request): array
     {
         try {
+            // Anti-falsification: a field method that structurally requires a capture
+            // photo (geo-polygon / route-waypoint) must not accept a photo-less punch.
+            // Covers BOTH the web and mobile punch paths (both delegate here).
+            if ($photoError = $this->guardRequiredPhoto($user, $request)) {
+                return $photoError;
+            }
+
             $punchTime = $this->resolvePunchTime($request);
             $punchDate = $punchTime->copy()->startOfDay();
 
@@ -260,6 +267,67 @@ class AttendancePunchService
         }
 
         return $result;
+    }
+
+    /**
+     * Reject a photo-less punch when the user's resolved attendance methods ALL
+     * require a verification photo (geo-polygon / route-waypoint).
+     *
+     * Conservative by design: if the user holds ANY non-photo method (wifi/IP,
+     * QR, biometric), the punch is allowed through with no photo — they may have
+     * used that method. Photo is therefore never blanket-required, and the whole
+     * check is behind a config kill-switch for staged rollout.
+     */
+    private function guardRequiredPhoto($user, Request $request): ?array
+    {
+        if (! config('attendance.require_photo_for_field_methods', true)) {
+            return null;
+        }
+
+        $types = method_exists($user, 'resolvedAttendanceTypes')
+            ? $user->resolvedAttendanceTypes()
+            : collect();
+
+        if ($types->isEmpty()) {
+            return null;
+        }
+
+        $allRequirePhoto = $types->every(fn ($type) => $type && $this->typeRequiresPhoto($type));
+        if (! $allRequirePhoto) {
+            return null;
+        }
+
+        $photo = $request->input('photo');
+        if (is_string($photo) && trim($photo) !== '') {
+            return null;
+        }
+
+        try {
+            Log::warning('Attendance punch rejected: verification photo required but absent', [
+                'user_id' => $user->id,
+                'ip' => $request->ip(),
+            ]);
+        } catch (\Throwable) {
+            // A logging/disk failure must never turn a rejected punch into a 500.
+        }
+
+        return [
+            'status' => 'error',
+            'message' => 'A verification photo is required for this attendance method. Please capture a photo and try again.',
+            'code' => 422,
+        ];
+    }
+
+    /**
+     * Whether an attendance type structurally requires a capture photo.
+     * Mirrors the geo_polygon / route_waypoint taxonomy used by handlePhotoUpload()
+     * and the team-locations `requires_photo` flag.
+     */
+    private function typeRequiresPhoto($type): bool
+    {
+        $baseSlug = preg_replace('/_\d+$/', '', (string) ($type->slug ?? ''));
+
+        return in_array($baseSlug, ['geo_polygon', 'route_waypoint'], true);
     }
 
     /**

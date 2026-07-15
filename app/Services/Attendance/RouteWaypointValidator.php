@@ -31,6 +31,11 @@ class RouteWaypointValidator extends BaseAttendanceValidator
             }
         }
 
+        // GPS trust: reject an implausibly coarse fix when the client reports accuracy.
+        if ($accuracyError = $this->gpsAccuracyError()) {
+            return $accuracyError;
+        }
+
         // Filter active routes
         $activeRoutes = array_filter($routes, fn ($r) => ($r['is_active'] ?? true));
 
@@ -87,6 +92,13 @@ class RouteWaypointValidator extends BaseAttendanceValidator
             $message = $closestRoute
                 ? "You are {$minDistance}m away from the nearest route ({$closestRoute['name']}). Please move closer to an authorized route."
                 : 'You are not on any authorized route.';
+
+            $this->logRejection('outside all authorized routes', [
+                'lat' => $userLat,
+                'lng' => $userLng,
+                'validation_mode' => $validationMode,
+                'checked_routes' => $checkedRoutes,
+            ]);
 
             return $this->errorResponse($message, 403);
         }
