@@ -11,6 +11,8 @@ use App\Services\DeviceAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
@@ -23,15 +25,31 @@ class AuthController extends Controller
     {
         $credentials = $request->validated();
 
+        // Per-account (email + IP) brute-force protection. Sits on top of the
+        // global "throttle:api" per-IP limiter as defense in depth. Blocks a
+        // sustained password-guessing attack against a single account even when
+        // the attacker rotates IPs slowly enough to slip past the IP limiter.
+        $throttleKey = $this->loginThrottleKey($request, (string) $credentials['email']);
+
+        if ($lockout = $this->ensureLoginNotRateLimited($throttleKey)) {
+            return $lockout;
+        }
+
         $user = User::query()->where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            RateLimiter::hit($throttleKey, $this->loginDecaySeconds());
+
             return $this->errorResponse(
                 'The provided credentials are incorrect.',
                 'INVALID_CREDENTIALS',
                 401
             );
         }
+
+        // Correct credentials: the brute-force window is over for this key, so
+        // clear the counter before any downstream (device) checks run.
+        RateLimiter::clear($throttleKey);
 
         $deviceId = (string) ($credentials['device_id'] ?? '');
         $deviceName = trim((string) ($credentials['device_name'] ?? ''));
@@ -126,6 +144,52 @@ class AuthController extends Controller
             ],
             'realtime_config' => $this->getRealtimeConfig($user),
         ], 'Login successful.');
+    }
+
+    /**
+     * Build the per-account rate-limit key from the email and client IP so a
+     * distributed guess on one account is still throttled, while a single
+     * attacker cannot trivially lock every user out from one IP.
+     */
+    private function loginThrottleKey(Request $request, string $email): string
+    {
+        return 'mobile-login|'.Str::transliterate(Str::lower(trim($email))).'|'.$request->ip();
+    }
+
+    /**
+     * Max failed attempts allowed before lockout (config-driven, safe default).
+     */
+    private function loginMaxAttempts(): int
+    {
+        return max(1, (int) config('security.mobile_login.max_attempts', 5));
+    }
+
+    /**
+     * Lockout cooldown window in seconds (config-driven, safe default).
+     */
+    private function loginDecaySeconds(): int
+    {
+        return max(1, (int) config('security.mobile_login.decay_seconds', 60));
+    }
+
+    /**
+     * Return a 429 lockout response (with Retry-After) when the key has
+     * exceeded the failed-attempt threshold, otherwise null.
+     */
+    private function ensureLoginNotRateLimited(string $throttleKey): ?JsonResponse
+    {
+        if (! RateLimiter::tooManyAttempts($throttleKey, $this->loginMaxAttempts())) {
+            return null;
+        }
+
+        $seconds = RateLimiter::availableIn($throttleKey);
+
+        return $this->errorResponse(
+            "Too many login attempts. Please try again in {$seconds} seconds.",
+            'TOO_MANY_ATTEMPTS',
+            429,
+            ['retry_after' => $seconds]
+        )->header('Retry-After', (string) $seconds);
     }
 
     public function me(Request $request): JsonResponse
