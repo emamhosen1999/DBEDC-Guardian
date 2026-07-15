@@ -824,14 +824,22 @@ Route::get('/service-worker.js', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/petty-cash', [PettyCashController::class, 'index'])->name('petty-cash.index');
     Route::post('/petty-cash/loan', [PettyCashController::class, 'createLoan'])->name('petty-cash.loan');
+    Route::post('/petty-cash/loan/approve', [PettyCashController::class, 'approveLoan'])->name('petty-cash.loan.approve');
+    Route::post('/petty-cash/loan/reject', [PettyCashController::class, 'rejectLoan'])->name('petty-cash.loan.reject');
+    Route::post('/petty-cash/loan/close', [PettyCashController::class, 'closeLoan'])->name('petty-cash.loan.close');
     Route::post('/petty-cash/expense', [PettyCashController::class, 'addExpense'])->name('petty-cash.expense');
     Route::post('/petty-cash/reimbursement', [PettyCashController::class, 'addReimbursement'])->name('petty-cash.reimbursement');
     Route::post('/petty-cash/repayment', [PettyCashController::class, 'addRepayment'])->name('petty-cash.repayment');
+    Route::put('/petty-cash/transaction', [PettyCashController::class, 'updateTransaction'])->name('petty-cash.transaction.update');
+    Route::delete('/petty-cash/transaction', [PettyCashController::class, 'deleteTransaction'])->name('petty-cash.transaction.delete');
     Route::get('/petty-cash/transactions', [PettyCashController::class, 'getTransactions'])->name('petty-cash.transactions');
     Route::get('/petty-cash/analytics', [PettyCashController::class, 'getAnalytics'])->name('petty-cash.analytics');
     Route::post('/petty-cash/upload-bill', [PettyCashController::class, 'uploadBill'])->name('petty-cash.upload-bill');
     Route::post('/petty-cash/delete-bill', [PettyCashController::class, 'deleteBill'])->name('petty-cash.delete-bill');
     Route::get('/petty-cash/export', [PettyCashController::class, 'exportData'])->name('petty-cash.export');
+    Route::get('/petty-cash/export/status/{filename}', [PettyCashController::class, 'checkExportStatus'])->name('petty-cash.export.status');
+    Route::get('/petty-cash/history', [PettyCashController::class, 'getHistory'])->name('petty-cash.history');
+    Route::get('/petty-cash/admin/overview', [PettyCashController::class, 'getAdminOverview'])->name('petty-cash.admin.overview');
 });
 
 // Notification Settings Routes (admin)

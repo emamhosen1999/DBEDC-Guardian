@@ -3,16 +3,17 @@
  * Displays transaction history table with filters and CRUD actions.
  * Pure Radix UI.
  */
-import React, { useState, useEffect } from 'react';
-import { Box, Card, Flex, Text, Button, Select, TextField, Table, Badge, Link } from '@radix-ui/themes';
-import { DownloadIcon, FileTextIcon, TrashIcon, PlusIcon } from '@radix-ui/react-icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Card, Flex, Text, Button, Select, TextField, Table, Badge, Link, IconButton, Tooltip } from '@radix-ui/themes';
+import { DownloadIcon, FileTextIcon, TrashIcon, PlusIcon, Pencil1Icon, UploadIcon, Cross1Icon } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { handleExportResponse } from '@/utils/exportUtils';
 import PettyCashExpenseForm from '@/Forms/PettyCashExpenseForm.jsx';
 import PettyCashReimbursementForm from '@/Forms/PettyCashReimbursementForm.jsx';
 import PettyCashRepaymentForm from '@/Forms/PettyCashRepaymentForm.jsx';
+import PettyCashEditTransactionForm from '@/Forms/PettyCashEditTransactionForm.jsx';
 
-const TransactionsPanel = ({ loanId, isMobile }) => {
+const TransactionsPanel = ({ loanId, isMobile, onRefreshLoan }) => {
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -21,6 +22,11 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
     const [showExpenseForm, setShowExpenseForm] = useState(false);
     const [showReimbursementForm, setShowReimbursementForm] = useState(false);
     const [showRepaymentForm, setShowRepaymentForm] = useState(false);
+    const [showEditForm, setShowEditForm] = useState(false);
+    const [selectedTransaction, setSelectedTransaction] = useState(null);
+    const [uploadingTransactionId, setUploadingTransactionId] = useState(null);
+    
+    const fileInputRef = useRef(null);
 
     const fetchTransactions = async () => {
         if (!loanId) {
@@ -70,7 +76,64 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
             console.error('Failed to export:', error);
         }
     };
+    const handleUploadBill = async (transactionId, file) => {
+        if (!file) return;
+        try {
+            const formData = new FormData();
+            formData.append('transaction_id', transactionId);
+            formData.append('bill', file);
+            await axios.post('/petty-cash/upload-bill', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            fetchTransactions();
+        } catch (error) {
+            console.error('Failed to upload bill:', error);
+        }
+    };
 
+    const handleDeleteBill = async (transactionId, mediaId) => {
+        if (!window.confirm('Are you sure you want to delete this bill?')) return;
+        try {
+            await axios.post('/petty-cash/delete-bill', {
+                transaction_id: transactionId,
+                media_id: mediaId,
+            });
+            fetchTransactions();
+        } catch (error) {
+            console.error('Failed to delete bill:', error);
+        }
+    };
+
+    const handleDeleteTransaction = async (transactionId) => {
+        if (!window.confirm('Are you sure you want to delete this transaction? This will adjust your loan balance.')) return;
+        try {
+            const response = await axios.delete('/petty-cash/transaction', {
+                data: { transaction_id: transactionId }
+            });
+            if (response.data.success) {
+                fetchTransactions();
+                if (onRefreshLoan) onRefreshLoan();
+            } else {
+                alert(response.data.error || 'Failed to delete transaction');
+            }
+        } catch (error) {
+            alert(error.response?.data?.error || 'Failed to delete transaction');
+        }
+    };
+
+    const triggerUploadBillClick = (transactionId) => {
+        setUploadingTransactionId(transactionId);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+            fileInputRef.current.click();
+        }
+    };
+
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            handleUploadBill(uploadingTransactionId, e.target.files[0]);
+        }
+    };
     const getTypeColor = (type) => {
         switch (type) {
             case 'expense': return 'red';
@@ -136,15 +199,15 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                 <Flex gap="2">
                     <Button onClick={() => setShowExpenseForm(true)} variant="solid">
                         <PlusIcon style={{ marginRight: '8px' }} />
-                        {!isMobile && 'Expense'}
+                        {!isMobile && 'Log Expense'}
                     </Button>
                     <Button onClick={() => setShowReimbursementForm(true)} variant="solid">
                         <PlusIcon style={{ marginRight: '8px' }} />
-                        {!isMobile && 'Reimbursement'}
+                        {!isMobile && 'Receive Cash (Reimbursement)'}
                     </Button>
                     <Button onClick={() => setShowRepaymentForm(true)} variant="solid">
                         <PlusIcon style={{ marginRight: '8px' }} />
-                        {!isMobile && 'Repayment'}
+                        {!isMobile && 'Return Cash (Repayment)'}
                     </Button>
                     <Button onClick={handleExport} variant="soft">
                         <DownloadIcon style={{ marginRight: '8px' }} />
@@ -164,12 +227,13 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                             <Table.ColumnHeaderCell>Amount</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Description</Table.ColumnHeaderCell>
                             <Table.ColumnHeaderCell>Bills</Table.ColumnHeaderCell>
+                            <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
                         </Table.Row>
                     </Table.Header>
                     <Table.Body>
                         {filteredTransactions.length === 0 ? (
                             <Table.Row>
-                                <Table.Cell colSpan={6} style={{ textAlign: 'center', padding: '32px' }}>
+                                <Table.Cell colSpan={7} style={{ textAlign: 'center', padding: '32px' }}>
                                     <Text color="gray">No transactions found</Text>
                                 </Table.Cell>
                             </Table.Row>
@@ -204,16 +268,72 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                                         </Text>
                                     </Table.Cell>
                                     <Table.Cell>
-                                        {transaction.has_bills ? (
-                                            <Flex gap="2">
-                                                {transaction.bills.map((bill) => (
-                                                    <Link key={bill.id} href={bill.url} target="_blank" rel="noopener noreferrer">
-                                                        <FileTextIcon style={{ width: 16, height: 16 }} />
-                                                    </Link>
-                                                ))}
+                                        <Flex gap="2" align="center" wrap="wrap">
+                                            {transaction.bills && transaction.bills.length > 0 ? (
+                                                transaction.bills.map((bill) => (
+                                                    <Flex key={bill.id} align="center" gap="1" style={{ background: 'var(--gray-a3)', borderRadius: 'var(--radius-1)', padding: '2px 6px' }}>
+                                                        <Link href={bill.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center' }}>
+                                                            <FileTextIcon style={{ width: 14, height: 14 }} />
+                                                        </Link>
+                                                        <IconButton 
+                                                            size="1" 
+                                                            variant="ghost" 
+                                                            color="red"
+                                                            onClick={() => handleDeleteBill(transaction.id, bill.id)}
+                                                            style={{ cursor: 'pointer' }}
+                                                        >
+                                                            <Cross1Icon style={{ width: 10, height: 10 }} />
+                                                        </IconButton>
+                                                    </Flex>
+                                                ))
+                                            ) : (
+                                                <Text size="1" color="gray">No bills</Text>
+                                            )}
+                                        </Flex>
+                                    </Table.Cell>
+                                    <Table.Cell style={{ textAlign: 'right' }}>
+                                        {transaction.type !== 'loan_taken' ? (
+                                            <Flex gap="2" justify="end">
+                                                {(transaction.type === 'expense' || transaction.type === 'reimbursement') && (
+                                                    <Tooltip content="Upload Receipt">
+                                                        <IconButton
+                                                            size="1"
+                                                            variant="soft"
+                                                            onClick={() => triggerUploadBillClick(transaction.id)}
+                                                            style={{ cursor: 'pointer' }}
+                                                        >
+                                                            <UploadIcon style={{ width: 14, height: 14 }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                                <Tooltip content="Edit">
+                                                    <IconButton
+                                                        size="1"
+                                                        variant="soft"
+                                                        color="gray"
+                                                        onClick={() => {
+                                                            setSelectedTransaction(transaction);
+                                                            setShowEditForm(true);
+                                                        }}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <Pencil1Icon style={{ width: 14, height: 14 }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                                <Tooltip content="Delete">
+                                                    <IconButton
+                                                        size="1"
+                                                        variant="soft"
+                                                        color="red"
+                                                        onClick={() => handleDeleteTransaction(transaction.id)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <TrashIcon style={{ width: 14, height: 14 }} />
+                                                    </IconButton>
+                                                </Tooltip>
                                             </Flex>
                                         ) : (
-                                            <Text color="gray">No bills</Text>
+                                            <Text size="1" color="gray">System Log</Text>
                                         )}
                                     </Table.Cell>
                                 </Table.Row>
@@ -246,6 +366,14 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                 )}
             </Card>
 
+            <input 
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/jpeg,image/png,image/jpg,application/pdf"
+                onChange={handleFileChange}
+            />
+
             {/* Transaction Forms */}
             <PettyCashExpenseForm
                 open={showExpenseForm}
@@ -253,6 +381,7 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                 onSuccess={() => {
                     setShowExpenseForm(false);
                     fetchTransactions();
+                    if (onRefreshLoan) onRefreshLoan();
                 }}
                 loanId={loanId}
             />
@@ -262,6 +391,7 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                 onSuccess={() => {
                     setShowReimbursementForm(false);
                     fetchTransactions();
+                    if (onRefreshLoan) onRefreshLoan();
                 }}
                 loanId={loanId}
             />
@@ -271,8 +401,23 @@ const TransactionsPanel = ({ loanId, isMobile }) => {
                 onSuccess={() => {
                     setShowRepaymentForm(false);
                     fetchTransactions();
+                    if (onRefreshLoan) onRefreshLoan();
                 }}
                 loanId={loanId}
+            />
+            <PettyCashEditTransactionForm
+                open={showEditForm}
+                onClose={() => {
+                    setShowEditForm(false);
+                    setSelectedTransaction(null);
+                }}
+                onSuccess={() => {
+                    setShowEditForm(false);
+                    setSelectedTransaction(null);
+                    fetchTransactions();
+                    if (onRefreshLoan) onRefreshLoan();
+                }}
+                transaction={selectedTransaction}
             />
         </Box>
     );

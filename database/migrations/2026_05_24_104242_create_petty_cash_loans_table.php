@@ -17,7 +17,7 @@ return new class extends Migration
             $table->decimal('loan_amount', 10, 2);
             $table->decimal('original_amount', 10, 2);
             $table->decimal('current_balance', 10, 2)->default(0);
-            $table->enum('status', ['active', 'closed', 'settled'])->default('active');
+            $table->enum('status', ['pending_approval', 'approved', 'rejected', 'active', 'closed', 'settled'])->default('pending_approval');
             $table->date('loan_date');
             $table->date('closed_date')->nullable();
             $table->text('notes')->nullable();

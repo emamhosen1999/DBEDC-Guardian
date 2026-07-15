@@ -63,12 +63,12 @@ const PettyCashRepaymentForm = ({ open, onClose, onSuccess, loanId }) => {
                 <Dialog.Title>
                     <Flex align="center" gap="2">
                         <CheckIcon style={{ width: 24, height: 24 }} />
-                        Add Repayment
+                        Return Cash / Repayment
                     </Flex>
                 </Dialog.Title>
 
                 <Dialog.Description size="2" color="gray" mb="4">
-                    Record a repayment toward your loan balance.
+                    Record returning leftover cash to the boss.
                 </Dialog.Description>
 
                 <form onSubmit={handleSubmit}>
@@ -125,7 +125,7 @@ const PettyCashRepaymentForm = ({ open, onClose, onSuccess, loanId }) => {
                                 </Button>
                             </Dialog.Close>
                             <Button type="submit" disabled={loading}>
-                                {loading ? 'Adding...' : 'Add Repayment'}
+                                {loading ? 'Logging...' : 'Log Cash Returned'}
                             </Button>
                         </Flex>
                     </Flex>

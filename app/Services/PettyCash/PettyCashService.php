@@ -16,18 +16,10 @@ class PettyCashService
                 'user_id' => Auth::id(),
                 'loan_amount' => $data['amount'],
                 'original_amount' => $data['amount'],
-                'current_balance' => $data['amount'],
-                'status' => 'active',
+                'current_balance' => 0.00,
+                'status' => 'pending_approval',
                 'loan_date' => $data['loan_date'] ?? now()->toDateString(),
                 'notes' => $data['notes'] ?? null,
-            ]);
-
-            // Create initial loan_taken transaction
-            $loan->transactions()->create([
-                'type' => 'loan_taken',
-                'amount' => $data['amount'],
-                'description' => 'Initial loan amount',
-                'transaction_date' => $data['loan_date'] ?? now()->toDateString(),
             ]);
 
             return $loan;
@@ -36,6 +28,10 @@ class PettyCashService
 
     public function addExpense(PettyCashLoan $loan, array $data): PettyCashTransaction
     {
+        if ($loan->status !== 'active') {
+            throw new \Exception('Cannot add expense to a non-active loan.');
+        }
+
         return DB::transaction(function () use ($loan, $data) {
             $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
             $transaction = $loan->transactions()->create([
@@ -54,6 +50,10 @@ class PettyCashService
 
     public function addReimbursement(PettyCashLoan $loan, array $data): PettyCashTransaction
     {
+        if ($loan->status !== 'active') {
+            throw new \Exception('Cannot add reimbursement to a non-active loan.');
+        }
+
         return DB::transaction(function () use ($loan, $data) {
             $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
             $transaction = $loan->transactions()->create([
@@ -72,6 +72,10 @@ class PettyCashService
 
     public function addRepayment(PettyCashLoan $loan, array $data): PettyCashTransaction
     {
+        if ($loan->status !== 'active') {
+            throw new \Exception('Cannot add repayment to a non-active loan.');
+        }
+
         return DB::transaction(function () use ($loan, $data) {
             $loan = PettyCashLoan::lockForUpdate()->find($loan->id);
             $transaction = $loan->transactions()->create([
@@ -198,5 +202,126 @@ class PettyCashService
     public function getUserActiveLoan(int $userId): ?PettyCashLoan
     {
         return PettyCashLoan::forUser($userId)->active()->first();
+    }
+
+    public function getUserPendingLoan(int $userId): ?PettyCashLoan
+    {
+        return PettyCashLoan::forUser($userId)->where('status', 'pending_approval')->first();
+    }
+
+    public function approveLoan(PettyCashLoan $loan): PettyCashLoan
+    {
+        return DB::transaction(function () use ($loan) {
+            $loan = PettyCashLoan::lockForUpdate()->findOrFail($loan->id);
+            if ($loan->status !== 'pending_approval') {
+                throw new \Exception('Only pending loans can be approved.');
+            }
+
+            $loan->update([
+                'status' => 'active',
+                'current_balance' => $loan->original_amount,
+            ]);
+
+            // Create initial loan_taken transaction
+            $loan->transactions()->create([
+                'type' => 'loan_taken',
+                'amount' => $loan->original_amount,
+                'description' => 'Initial loan amount',
+                'transaction_date' => $loan->loan_date ?? now()->toDateString(),
+            ]);
+
+            return $loan;
+        });
+    }
+
+    public function rejectLoan(PettyCashLoan $loan): PettyCashLoan
+    {
+        return DB::transaction(function () use ($loan) {
+            $loan = PettyCashLoan::lockForUpdate()->findOrFail($loan->id);
+            if ($loan->status !== 'pending_approval') {
+                throw new \Exception('Only pending loans can be rejected.');
+            }
+
+            $loan->update([
+                'status' => 'rejected',
+                'closed_date' => now()->toDateString(),
+            ]);
+
+            return $loan;
+        });
+    }
+
+    public function updateTransaction(PettyCashTransaction $transaction, array $data): PettyCashTransaction
+    {
+        return DB::transaction(function () use ($transaction, $data) {
+            $loan = PettyCashLoan::lockForUpdate()->findOrFail($transaction->petty_cash_loan_id);
+            if ($loan->status !== 'active') {
+                throw new \Exception('Transactions can only be updated on active loans.');
+            }
+
+            $transaction->update([
+                'category' => $data['category'] ?? $transaction->category,
+                'amount' => $data['amount'] ?? $transaction->amount,
+                'description' => $data['description'] ?? $transaction->description,
+                'transaction_date' => $data['transaction_date'] ?? $transaction->transaction_date,
+            ]);
+
+            $loan->updateBalance();
+
+            return $transaction;
+        });
+    }
+
+    public function deleteTransaction(PettyCashTransaction $transaction): void
+    {
+        DB::transaction(function () use ($transaction) {
+            $loan = PettyCashLoan::lockForUpdate()->findOrFail($transaction->petty_cash_loan_id);
+            if ($loan->status !== 'active') {
+                throw new \Exception('Transactions can only be deleted on active loans.');
+            }
+
+            // Also delete any associated media
+            $transaction->clearMediaCollection('bills');
+            $transaction->delete();
+
+            $loan->updateBalance();
+        });
+    }
+
+    public function getUserLoanHistory(int $userId): array
+    {
+        return PettyCashLoan::forUser($userId)
+            ->whereIn('status', ['closed', 'settled', 'rejected'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($loan) {
+                return $this->getLoanSummary($loan);
+            })
+            ->toArray();
+    }
+
+    public function getAdminOverview(string $status = null): array
+    {
+        $query = PettyCashLoan::with('user')->orderBy('created_at', 'desc');
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        return $query->get()->map(function ($loan) {
+            return [
+                'id' => $loan->id,
+                'user' => [
+                    'id' => $loan->user->id,
+                    'name' => $loan->user->name,
+                    'email' => $loan->user->email,
+                ],
+                'original_amount' => $loan->original_amount,
+                'current_balance' => $loan->current_balance,
+                'status' => $loan->status,
+                'loan_date' => $loan->loan_date,
+                'closed_date' => $loan->closed_date,
+                'notes' => $loan->notes,
+            ];
+        })->toArray();
     }
 }

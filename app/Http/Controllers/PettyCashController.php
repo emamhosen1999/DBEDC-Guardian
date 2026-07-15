@@ -29,10 +29,29 @@ class PettyCashController extends Controller
     {
         $user = Auth::user();
         $activeLoan = $this->pettyCashService->getUserActiveLoan($user->id);
+        $pendingLoan = $this->pettyCashService->getUserPendingLoan($user->id);
+
+        $canApprove = false;
+        try {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']) || 
+                          $user->hasPermissionTo('petty-cash.approve');
+        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']);
+        }
 
         return Inertia::render('PettyCashUnified', [
             'title' => 'Petty Cash Management',
             'activeLoan' => $activeLoan ? $this->pettyCashService->getLoanSummary($activeLoan) : null,
+            'pendingLoan' => $pendingLoan ? [
+                'id' => $pendingLoan->id,
+                'original_amount' => $pendingLoan->original_amount,
+                'status' => $pendingLoan->status,
+                'loan_date' => $pendingLoan->loan_date ? $pendingLoan->loan_date->toDateString() : null,
+                'notes' => $pendingLoan->notes,
+            ] : null,
+            'canApprove' => $canApprove,
         ]);
     }
 
@@ -44,13 +63,37 @@ class PettyCashController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        $user = Auth::user();
+
+        // Check if there is an active loan
+        if ($this->pettyCashService->getUserActiveLoan($user->id)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You already have an active loan. Please close or repay it before requesting a new one.',
+            ], 422);
+        }
+
+        // Check if there is a pending loan
+        if ($this->pettyCashService->getUserPendingLoan($user->id)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You already have a loan request pending approval.',
+            ], 422);
+        }
+
         try {
             $loan = $this->pettyCashService->createLoan($request->all());
 
             return response()->json([
                 'success' => true,
-                'message' => 'Loan created successfully',
-                'loan' => $this->pettyCashService->getLoanSummary($loan),
+                'message' => 'Loan request submitted successfully and is pending approval.',
+                'loan' => [
+                    'id' => $loan->id,
+                    'original_amount' => $loan->original_amount,
+                    'status' => $loan->status,
+                    'loan_date' => $loan->loan_date ? $loan->loan_date->toDateString() : null,
+                    'notes' => $loan->notes,
+                ],
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -215,8 +258,19 @@ class PettyCashController extends Controller
         try {
             $loan = PettyCashLoan::findOrFail($request->loan_id);
 
-            // Ensure user owns this loan
-            if ($loan->user_id !== Auth::id()) {
+            // Ensure user owns this loan OR is manager/admin
+            $user = Auth::user();
+            $canApprove = false;
+            try {
+                $canApprove = $user->hasRole('Super Administrator') || 
+                              $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']) || 
+                              $user->hasPermissionTo('petty-cash.approve');
+            } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+                $canApprove = $user->hasRole('Super Administrator') || 
+                              $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']);
+            }
+
+            if ($loan->user_id !== $user->id && !$canApprove) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized access to this loan',
@@ -343,5 +397,256 @@ class PettyCashController extends Controller
                 'error' => 'Failed to export data: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    public function approveLoan(Request $request)
+    {
+        $request->validate([
+            'loan_id' => 'required|exists:petty_cash_loans,id',
+        ]);
+
+        $user = Auth::user();
+        $canApprove = false;
+        try {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']) || 
+                          $user->hasPermissionTo('petty-cash.approve');
+        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']);
+        }
+
+        if (! $canApprove) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthorized. Only admins or managers can approve loans.',
+            ], 403);
+        }
+
+        try {
+            $loan = PettyCashLoan::findOrFail($request->loan_id);
+            $approved = $this->pettyCashService->approveLoan($loan);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Loan approved successfully',
+                'loan' => $this->pettyCashService->getLoanSummary($approved),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to approve loan: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function rejectLoan(Request $request)
+    {
+        $request->validate([
+            'loan_id' => 'required|exists:petty_cash_loans,id',
+        ]);
+
+        $user = Auth::user();
+        $canApprove = false;
+        try {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']) || 
+                          $user->hasPermissionTo('petty-cash.approve');
+        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']);
+        }
+
+        if (! $canApprove) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthorized. Only admins or managers can reject loans.',
+            ], 403);
+        }
+
+        try {
+            $loan = PettyCashLoan::findOrFail($request->loan_id);
+            $rejected = $this->pettyCashService->rejectLoan($loan);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Loan rejected successfully',
+                'loan' => [
+                    'id' => $rejected->id,
+                    'status' => $rejected->status,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to reject loan: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function updateTransaction(Request $request)
+    {
+        $request->validate([
+            'transaction_id' => 'required|exists:petty_cash_transactions,id',
+            'amount' => 'required|numeric|min:0.01',
+            'category' => 'nullable|in:office_supplies,meeting_supplies,office_maintenance,services',
+            'description' => 'required|string|max:1000',
+            'transaction_date' => 'nullable|date',
+        ]);
+
+        try {
+            $transaction = PettyCashTransaction::findOrFail($request->transaction_id);
+            $loan = $transaction->pettyCashLoan;
+
+            if ($loan->user_id !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized access to this transaction',
+                ], 403);
+            }
+
+            $updated = $this->pettyCashService->updateTransaction($transaction, $request->all());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction updated successfully',
+                'transaction' => $updated,
+                'loan_summary' => $this->pettyCashService->getLoanSummary($loan),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to update transaction: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deleteTransaction(Request $request)
+    {
+        $request->validate([
+            'transaction_id' => 'required|exists:petty_cash_transactions,id',
+        ]);
+
+        try {
+            $transaction = PettyCashTransaction::findOrFail($request->transaction_id);
+            $loan = $transaction->pettyCashLoan;
+
+            if ($loan->user_id !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized access to this transaction',
+                ], 403);
+            }
+
+            $this->pettyCashService->deleteTransaction($transaction);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction deleted successfully',
+                'loan_summary' => $this->pettyCashService->getLoanSummary($loan),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to delete transaction: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function closeLoan(Request $request)
+    {
+        $request->validate([
+            'loan_id' => 'required|exists:petty_cash_loans,id',
+        ]);
+
+        try {
+            $loan = PettyCashLoan::findOrFail($request->loan_id);
+
+            if ($loan->user_id !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized access to this loan',
+                ], 403);
+            }
+
+            $closed = $this->pettyCashService->closeLoan($loan);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Loan closed successfully',
+                'loan' => $this->pettyCashService->getLoanSummary($closed),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to close loan: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getHistory()
+    {
+        try {
+            $history = $this->pettyCashService->getUserLoanHistory(Auth::id());
+
+            return response()->json([
+                'success' => true,
+                'history' => $history,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch history: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function getAdminOverview(Request $request)
+    {
+        $user = Auth::user();
+        $canApprove = false;
+        try {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']) || 
+                          $user->hasPermissionTo('petty-cash.approve');
+        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+            $canApprove = $user->hasRole('Super Administrator') || 
+                          $user->hasAnyRole(['Manager', 'Accountant', 'Finance Manager']);
+        }
+
+        if (! $canApprove) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthorized. Only admins or managers can access the admin overview.',
+            ], 403);
+        }
+
+        try {
+            $status = $request->query('status');
+            $overview = $this->pettyCashService->getAdminOverview($status);
+
+            return response()->json([
+                'success' => true,
+                'loans' => $overview,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch admin overview: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function checkExportStatus($filename)
+    {
+        $exists = \Illuminate\Support\Facades\Storage::disk('public')->exists('exports/'.$filename);
+        if ($exists) {
+            return response()->json([
+                'status' => 'ready',
+                'url' => asset('storage/exports/'.$filename)
+            ]);
+        }
+
+        return response()->json(['status' => 'processing'], 202);
     }
 }

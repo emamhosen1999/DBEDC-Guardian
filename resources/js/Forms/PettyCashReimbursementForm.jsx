@@ -17,6 +17,7 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
         description: '',
         transaction_date: new Date().toISOString().split('T')[0],
     });
+    const [billFile, setBillFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -25,7 +26,8 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
             ...prev,
             loan_id: loanId,
         }));
-    }, [loanId]);
+        setBillFile(null);
+    }, [loanId, open]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -40,7 +42,16 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
             });
 
             if (response.data.success) {
-                onSuccess(response.data.transaction);
+                const transaction = response.data.transaction;
+                if (billFile) {
+                    const uploadData = new FormData();
+                    uploadData.append('transaction_id', transaction.id);
+                    uploadData.append('bill', billFile);
+                    await axios.post('/petty-cash/upload-bill', uploadData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                }
+                onSuccess(transaction);
             } else {
                 setError(response.data.error || 'Failed to add reimbursement');
             }
@@ -64,12 +75,12 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
                 <Dialog.Title>
                     <Flex align="center" gap="2">
                         <ArrowUpIcon style={{ width: 24, height: 24 }} />
-                        Add Reimbursement
+                        Receive Cash / Reimbursement
                     </Flex>
                 </Dialog.Title>
 
                 <Dialog.Description size="2" color="gray" mb="4">
-                    Record a reimbursement with bill attachment.
+                    Record additional cash received from the boss or top-ups.
                 </Dialog.Description>
 
                 <form onSubmit={handleSubmit}>
@@ -133,6 +144,21 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
                             />
                         </Flex>
 
+                        <Flex direction="column" gap="1">
+                            <Text size="2" weight="bold">ATTACH RECEIPT (OPTIONAL)</Text>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/jpg,application/pdf"
+                                onChange={(e) => setBillFile(e.target.files[0])}
+                                style={{
+                                    padding: '8px',
+                                    border: '1px solid var(--gray-a6)',
+                                    borderRadius: 'var(--radius-2)',
+                                    fontSize: '14px',
+                                }}
+                            />
+                        </Flex>
+
                         <Flex gap="3" mt="2" justify="end">
                             <Dialog.Close>
                                 <Button variant="soft" disabled={loading}>
@@ -140,7 +166,7 @@ const PettyCashReimbursementForm = ({ open, onClose, onSuccess, loanId }) => {
                                 </Button>
                             </Dialog.Close>
                             <Button type="submit" disabled={loading}>
-                                {loading ? 'Adding...' : 'Add Reimbursement'}
+                                {loading ? 'Logging...' : 'Log Funds Received'}
                             </Button>
                         </Flex>
                     </Flex>

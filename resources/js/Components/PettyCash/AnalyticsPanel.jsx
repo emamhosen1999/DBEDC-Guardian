@@ -1,12 +1,22 @@
 /**
  * AnalyticsPanel.jsx
- * Displays petty cash analytics with charts and summary statistics.
+ * Displays petty cash analytics with interactive charts and summary statistics.
  * Pure Radix UI with Recharts for visualizations.
  */
 import React, { useState, useEffect } from 'react';
 import { Box, Card, Flex, Grid, Text, Badge } from '@radix-ui/themes';
-import { PieChartIcon, ArrowUpIcon, DotsHorizontalIcon } from '@radix-ui/react-icons';
+import { 
+    Banknote, ShoppingBag, ArrowUpRight, ArrowDownLeft,
+    PieChart as PieIcon, BarChart3
+} from 'lucide-react';
 import axios from 'axios';
+import { 
+    PieChart, Pie, Cell, ResponsiveContainer, 
+    Tooltip as RechartsTooltip, BarChart, Bar, 
+    XAxis, YAxis, Legend, CartesianGrid 
+} from 'recharts';
+
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#00c49f', '#ff8042', '#a4de6c'];
 
 const AnalyticsPanel = ({ loanId, isMobile }) => {
     const [analytics, setAnalytics] = useState(null);
@@ -61,134 +71,190 @@ const AnalyticsPanel = ({ loanId, isMobile }) => {
         services: 'cyan',
     };
 
+    // Format data for Recharts Pie
+    const categoryPieData = Object.entries(categoryBreakdown)
+        .map(([key, value]) => ({
+            name: key.replace('_', ' ').toUpperCase(),
+            value: parseFloat(value || 0)
+        }))
+        .filter(item => item.value > 0);
+
+    // Format data for Recharts Bar
+    const trendsBarData = Object.entries(monthlyTrends)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, data]) => ({
+            monthName: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+            expenses: parseFloat(data.expenses || 0),
+            reimbursements: parseFloat(data.reimbursements || 0),
+            repayments: parseFloat(data.repayments || 0),
+        }));
+
     return (
         <Box>
             {/* Summary Cards */}
             <Grid columns={{ initial: '1', sm: '2', md: '4' }} gap="4" mb="6">
-                <Card style={{ padding: '16px' }}>
-                    <Flex direction="column" gap="2">
-                        <Flex align="center" gap="2">
-                            <DotsHorizontalIcon style={{ width: 20, height: 20, color: 'var(--blue-9)' }} />
-                            <Text size="1" weight="bold" color="gray">LOAN TAKEN</Text>
+                <Card style={{ 
+                    padding: '20px', 
+                    borderRadius: 'var(--radius-3)',
+                    borderLeft: '4px solid var(--blue-9)'
+                }}>
+                    <Flex justify="between" align="center">
+                        <Flex direction="column" gap="1">
+                            <Text size="1" weight="bold" color="gray">INITIAL FUNDS</Text>
+                            <Text size="5" weight="bold" color="blue">
+                                ${parseFloat(typeDistribution.loan_taken || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
                         </Flex>
-                        <Text size="5" weight="bold" color="blue">
-                            ${parseFloat(typeDistribution.loan_taken || 0).toFixed(2)}
-                        </Text>
+                        <Box p="2" style={{ background: 'var(--blue-a2)', borderRadius: '50%' }}>
+                            <Banknote style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                        </Box>
                     </Flex>
                 </Card>
 
-                <Card style={{ padding: '16px' }}>
-                    <Flex direction="column" gap="2">
-                        <Flex align="center" gap="2">
-                            <DotsHorizontalIcon style={{ width: 20, height: 20, color: 'var(--red-9)' }} />
+                <Card style={{ 
+                    padding: '20px', 
+                    borderRadius: 'var(--radius-3)',
+                    borderLeft: '4px solid var(--red-9)'
+                }}>
+                    <Flex justify="between" align="center">
+                        <Flex direction="column" gap="1">
                             <Text size="1" weight="bold" color="gray">TOTAL EXPENSES</Text>
+                            <Text size="5" weight="bold" color="red">
+                                ${parseFloat(typeDistribution.expense || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
                         </Flex>
-                        <Text size="5" weight="bold" color="red">
-                            ${parseFloat(typeDistribution.expense || 0).toFixed(2)}
-                        </Text>
+                        <Box p="2" style={{ background: 'var(--red-a2)', borderRadius: '50%' }}>
+                            <ShoppingBag style={{ width: 22, height: 22, color: 'var(--red-9)' }} />
+                        </Box>
                     </Flex>
                 </Card>
 
-                <Card style={{ padding: '16px' }}>
-                    <Flex direction="column" gap="2">
-                        <Flex align="center" gap="2">
-                            <ArrowUpIcon style={{ width: 20, height: 20, color: 'var(--green-9)' }} />
-                            <Text size="1" weight="bold" color="gray">REIMBURSEMENTS</Text>
+                <Card style={{ 
+                    padding: '20px', 
+                    borderRadius: 'var(--radius-3)',
+                    borderLeft: '4px solid var(--green-9)'
+                }}>
+                    <Flex justify="between" align="center">
+                        <Flex direction="column" gap="1">
+                            <Text size="1" weight="bold" color="gray">TOTAL REIMBURSEMENTS</Text>
+                            <Text size="5" weight="bold" color="green">
+                                ${parseFloat(typeDistribution.reimbursement || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
                         </Flex>
-                        <Text size="5" weight="bold" color="green">
-                            ${parseFloat(typeDistribution.reimbursement || 0).toFixed(2)}
-                        </Text>
+                        <Box p="2" style={{ background: 'var(--green-a2)', borderRadius: '50%' }}>
+                            <ArrowUpRight style={{ width: 22, height: 22, color: 'var(--green-9)' }} />
+                        </Box>
                     </Flex>
                 </Card>
 
-                <Card style={{ padding: '16px' }}>
-                    <Flex direction="column" gap="2">
-                        <Flex align="center" gap="2">
-                            <PieChartIcon style={{ width: 20, height: 20, color: 'var(--gray-9)' }} />
-                            <Text size="1" weight="bold" color="gray">REPAYMENTS</Text>
+                <Card style={{ 
+                    padding: '20px', 
+                    borderRadius: 'var(--radius-3)',
+                    borderLeft: '4px solid var(--gray-9)'
+                }}>
+                    <Flex justify="between" align="center">
+                        <Flex direction="column" gap="1">
+                            <Text size="1" weight="bold" color="gray">TOTAL REPAYMENTS</Text>
+                            <Text size="5" weight="bold" color="gray">
+                                ${parseFloat(typeDistribution.repayment || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
                         </Flex>
-                        <Text size="5" weight="bold" color="gray">
-                            ${parseFloat(typeDistribution.repayment || 0).toFixed(2)}
-                        </Text>
+                        <Box p="2" style={{ background: 'var(--gray-a2)', borderRadius: '50%' }}>
+                            <ArrowDownLeft style={{ width: 22, height: 22, color: 'var(--gray-9)' }} />
+                        </Box>
                     </Flex>
                 </Card>
             </Grid>
 
-            {/* Category Breakdown */}
-            <Card style={{ padding: '16px', marginBottom: '16px' }}>
-                <Flex direction="column" gap="4">
-                    <Flex align="center" gap="2">
-                        <PieChartIcon style={{ width: 20, height: 20 }} />
-                        <Text size="4" weight="bold">EXPENSES BY CATEGORY</Text>
-                    </Flex>
-
-                    {Object.keys(categoryBreakdown).length === 0 ? (
-                        <Text color="gray">No expense data available</Text>
-                    ) : (
-                        <Flex direction="column" gap="3">
-                            {Object.entries(categoryBreakdown).map(([category, amount]) => (
-                                <Flex key={category} align="center" justify="between">
-                                    <Flex align="center" gap="2">
-                                        <Badge color={categoryColors[category] || 'gray'} variant="soft">
-                                            {category.replace('_', ' ').toUpperCase()}
-                                        </Badge>
-                                    </Flex>
-                                    <Text weight="bold">${parseFloat(amount).toFixed(2)}</Text>
-                                </Flex>
-                            ))}
+            {/* Charts Section */}
+            <Grid columns={{ initial: '1', lg: '2' }} gap="4" mb="4">
+                {/* Expenses by Category (Pie Chart) */}
+                <Card style={{ padding: '24px', borderRadius: 'var(--radius-3)' }}>
+                    <Flex direction="column" gap="4">
+                        <Flex align="center" gap="2">
+                            <PieIcon style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
+                            <Text size="3" weight="bold">EXPENSES BY CATEGORY</Text>
                         </Flex>
-                    )}
-                </Flex>
-            </Card>
 
-            {/* Monthly Trends */}
-            <Card style={{ padding: '16px' }}>
-                <Flex direction="column" gap="4">
-                    <Flex align="center" gap="2">
-                        <ArrowUpIcon style={{ width: 20, height: 20 }} />
-                        <Text size="4" weight="bold">MONTHLY TRENDS</Text>
-                    </Flex>
-
-                    {Object.keys(monthlyTrends).length === 0 ? (
-                        <Text color="gray">No trend data available</Text>
-                    ) : (
-                        <Flex direction="column" gap="3">
-                            {Object.entries(monthlyTrends)
-                                .sort(([a], [b]) => b.localeCompare(a))
-                                .slice(0, 6)
-                                .map(([month, data]) => (
-                                    <Card key={month} style={{ padding: '12px' }}>
-                                        <Flex direction="column" gap="2">
-                                            <Text size="2" weight="bold" color="gray">
-                                                {new Date(month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}
+                        {categoryPieData.length === 0 ? (
+                            <Box py="8" style={{ textAlign: 'center' }}>
+                                <Text color="gray">No expense data available</Text>
+                            </Box>
+                        ) : (
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align="center" gap="4" justify="center">
+                                <Box style={{ width: '100%', maxWidth: '280px', height: '240px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={categoryPieData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={90}
+                                                paddingAngle={4}
+                                                dataKey="value"
+                                            >
+                                                {categoryPieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </Box>
+                                <Flex direction="column" gap="2" style={{ minWidth: '150px' }}>
+                                    {categoryPieData.map((entry, index) => (
+                                        <Flex key={entry.name} align="center" gap="2">
+                                            <Box style={{ 
+                                                width: '12px', 
+                                                height: '12px', 
+                                                borderRadius: '3px',
+                                                backgroundColor: COLORS[index % COLORS.length] 
+                                            }} />
+                                            <Text size="1" weight="medium" color="gray">
+                                                {entry.name}: <span style={{ fontWeight: 'bold', color: 'var(--gray-12)' }}>${entry.value.toFixed(2)}</span>
                                             </Text>
-                                            <Flex gap="4" wrap="wrap">
-                                                <Flex align="center" gap="1">
-                                                    <Text size="1" color="gray">Expenses:</Text>
-                                                    <Text size="2" weight="bold" color="red">
-                                                        ${parseFloat(data.expenses || 0).toFixed(2)}
-                                                    </Text>
-                                                </Flex>
-                                                <Flex align="center" gap="1">
-                                                    <Text size="1" color="gray">Reimbursements:</Text>
-                                                    <Text size="2" weight="bold" color="green">
-                                                        ${parseFloat(data.reimbursements || 0).toFixed(2)}
-                                                    </Text>
-                                                </Flex>
-                                                <Flex align="center" gap="1">
-                                                    <Text size="1" color="gray">Repayments:</Text>
-                                                    <Text size="2" weight="bold" color="blue">
-                                                        ${parseFloat(data.repayments || 0).toFixed(2)}
-                                                    </Text>
-                                                </Flex>
-                                            </Flex>
                                         </Flex>
-                                    </Card>
-                                ))}
+                                    ))}
+                                </Flex>
+                            </Flex>
+                        )}
+                    </Flex>
+                </Card>
+
+                {/* Monthly Trends (Grouped Bar Chart) */}
+                <Card style={{ padding: '24px', borderRadius: 'var(--radius-3)' }}>
+                    <Flex direction="column" gap="4">
+                        <Flex align="center" gap="2">
+                            <BarChart3 style={{ width: 20, height: 20, color: 'var(--accent-9)' }} />
+                            <Text size="3" weight="bold">MONTHLY FLOWS</Text>
                         </Flex>
-                    )}
-                </Flex>
-            </Card>
+
+                        {trendsBarData.length === 0 ? (
+                            <Box py="8" style={{ textAlign: 'center' }}>
+                                <Text color="gray">No chronological data available</Text>
+                            </Box>
+                        ) : (
+                            <Box style={{ width: '100%', height: '240px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        data={trendsBarData}
+                                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis dataKey="monthName" fontSize={11} tickLine={false} />
+                                        <YAxis fontSize={11} tickLine={false} axisLine={false} />
+                                        <RechartsTooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                                        <Legend verticalAlign="top" height={36} fontSize={11} iconType="circle" />
+                                        <Bar dataKey="reimbursements" name="Reimbursements" fill="#82ca9d" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="expenses" name="Expenses" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </Box>
+                        )}
+                    </Flex>
+                </Card>
+            </Grid>
         </Box>
     );
 };

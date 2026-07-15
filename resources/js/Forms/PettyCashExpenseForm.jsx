@@ -17,6 +17,7 @@ const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
         description: '',
         transaction_date: new Date().toISOString().split('T')[0],
     });
+    const [billFile, setBillFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -25,7 +26,8 @@ const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
             ...prev,
             loan_id: loanId,
         }));
-    }, [loanId]);
+        setBillFile(null);
+    }, [loanId, open]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -40,7 +42,16 @@ const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
             });
 
             if (response.data.success) {
-                onSuccess(response.data.transaction);
+                const transaction = response.data.transaction;
+                if (billFile) {
+                    const uploadData = new FormData();
+                    uploadData.append('transaction_id', transaction.id);
+                    uploadData.append('bill', billFile);
+                    await axios.post('/petty-cash/upload-bill', uploadData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                }
+                onSuccess(transaction);
             } else {
                 setError(response.data.error || 'Failed to add expense');
             }
@@ -129,6 +140,21 @@ const PettyCashExpenseForm = ({ open, onClose, onSuccess, loanId }) => {
                                 mode="date"
                                 value={formData.transaction_date}
                                 onChange={(val) => handleChange({ target: { name: 'transaction_date', value: val } })}
+                            />
+                        </Flex>
+
+                        <Flex direction="column" gap="1">
+                            <Text size="2" weight="bold">ATTACH RECEIPT (OPTIONAL)</Text>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/jpg,application/pdf"
+                                onChange={(e) => setBillFile(e.target.files[0])}
+                                style={{
+                                    padding: '8px',
+                                    border: '1px solid var(--gray-a6)',
+                                    borderRadius: 'var(--radius-2)',
+                                    fontSize: '14px',
+                                }}
                             />
                         </Flex>
 
