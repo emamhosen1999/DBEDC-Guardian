@@ -270,4 +270,51 @@ class LeaveModuleTest extends TestCase
                 'message',
             ]);
     }
+
+    /** @test */
+    public function it_returns_leave_balances_on_dashboard_stats_endpoint()
+    {
+        $this->actingAs($this->user);
+
+        // Seed opening balance on the ledger
+        app(\App\Services\Leave\LeaveLedgerService::class)->post(
+            $this->user->id,
+            $this->leaveSetting->id,
+            now()->year,
+            'opening',
+            15.0,
+            reason: 'Opening Balance'
+        );
+
+        // Consume some leave
+        app(\App\Services\Leave\LeaveLedgerService::class)->post(
+            $this->user->id,
+            $this->leaveSetting->id,
+            now()->year,
+            'consumption',
+            -3.0,
+            reason: 'Vacation'
+        );
+
+        // Update leave setting type to 'Casual Leave' so it matches the dashboard filter
+        $this->leaveSetting->update(['type' => 'Casual Leave']);
+
+        $response = $this->getJson(route('leaves.stats'));
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'stats',
+                'balances' => [
+                    'casual' => [
+                        'used',
+                        'total',
+                    ],
+                    'sick',
+                    'earned',
+                ],
+            ]);
+
+        $this->assertEquals(3.0, $response->json('balances.casual.used'));
+        $this->assertEquals(15.0, $response->json('balances.casual.total'));
+    }
 }

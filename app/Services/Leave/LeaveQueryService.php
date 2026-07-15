@@ -5,6 +5,7 @@ namespace App\Services\Leave;
 use App\Models\HRM\Holiday;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
+use App\Models\HRM\LeaveLedger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -443,5 +444,75 @@ class LeaveQueryService
         ];
 
         return $stats;
+    }
+
+    /**
+     * Get leave balances for the dashboard
+     */
+    public function getLeaveBalancesForDashboard(Request $request): array
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return [];
+        }
+
+        $year = (int) $request->get('year', now()->year);
+        $requestedUserId = (int) ($request->get('user_id') ?: $user->id);
+
+        // Authorization check: Only self or manager/approver can view
+        if ($requestedUserId !== $user->id
+            && !$user->can('leaves.approve') && !$user->can('leaves.manage')) {
+            $requestedUserId = (int) $user->id;
+        }
+
+        $rows = LeaveLedger::query()
+            ->where('user_id', $requestedUserId)
+            ->where('period_year', $year)
+            ->get();
+
+        $byType = $rows->groupBy('leave_type');
+        $types = LeaveSetting::whereIn('id', $byType->keys())->get()->keyBy('id');
+
+        $balances = [
+            'casual' => ['used' => 0, 'total' => 0],
+            'sick' => ['used' => 0, 'total' => 0],
+            'earned' => ['used' => 0, 'total' => 0],
+        ];
+
+        foreach ($byType as $typeId => $txns) {
+            $typeSetting = $types[$typeId] ?? null;
+            if (!$typeSetting) {
+                continue;
+            }
+
+            $typeName = strtolower($typeSetting->type);
+
+            $sum = fn (array $kinds) => (float) $txns->whereIn('txn_type', $kinds)->sum('amount');
+            $entitled = $sum(['opening']);
+            $accrued = $sum(['accrual']);
+            $carried = $sum(['carry_forward']);
+            $taken = -$sum(['consumption', 'consumption_reversal']); // positive = days used
+
+            $total = $entitled + $accrued + $carried;
+            $used = $taken;
+
+            $key = null;
+            if (str_contains($typeName, 'casual') || str_contains($typeName, 'personal')) {
+                $key = 'casual';
+            } elseif (str_contains($typeName, 'sick') || str_contains($typeName, 'medical')) {
+                $key = 'sick';
+            } elseif (str_contains($typeName, 'earned') || str_contains($typeName, 'annual') || str_contains($typeName, 'vacation')) {
+                $key = 'earned';
+            }
+
+            if ($key) {
+                $balances[$key] = [
+                    'used' => round($used, 1),
+                    'total' => round($total, 1),
+                ];
+            }
+        }
+
+        return $balances;
     }
 }

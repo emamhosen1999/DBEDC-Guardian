@@ -117,9 +117,11 @@ class LeaveController extends Controller
     {
         try {
             $stats = $this->queryService->getLeaveStatistics($request);
+            $balances = $this->queryService->getLeaveBalancesForDashboard($request);
 
             return response()->json([
                 'stats' => $stats,
+                'balances' => $balances,
             ]);
         } catch (\Throwable $e) {
             report($e);

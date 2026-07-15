@@ -96,6 +96,13 @@ class AuthController extends Controller
             );
         }
 
+        // Mint a fresh per-device HMAC secret and bind this device as the user's
+        // current active device. Runs on EVERY login regardless of the
+        // enforcement flag so the fleet enrolls immediately; hard rejection is
+        // still gated behind AUTH_DEVICE_BINDING_STRICT in the middleware.
+        $deviceSecret = $this->deviceAuthService->issueDeviceSecret($user, $device);
+        $user->forceFill(['current_device_id' => $device->device_id])->save();
+
         $tokenName = $deviceName !== '' ? $deviceName : ($device->device_name ?: 'mobile-app');
 
         // Idle-timeout parity with web sessions: issue the token with a sliding
@@ -142,6 +149,8 @@ class AuthController extends Controller
                 'os_version' => $device->os_version,
                 'last_used_at' => $device->last_used_at,
             ],
+            'device_secret' => $deviceSecret,
+            'device_secret_issued_at' => optional($device->device_secret_issued_at)->toIso8601String(),
             'realtime_config' => $this->getRealtimeConfig($user),
         ], 'Login successful.');
     }

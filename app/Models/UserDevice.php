@@ -29,6 +29,8 @@ class UserDevice extends Model
         'mac_address',
         'signature_hash',
         'signature_payload',
+        'device_secret',
+        'device_secret_issued_at',
         'ip_address',
         'user_agent',
         'is_active',
@@ -45,6 +47,8 @@ class UserDevice extends Model
             'last_used_at' => 'datetime',
             'verified_at' => 'datetime',
             'signature_payload' => 'array',
+            'device_secret' => 'encrypted',
+            'device_secret_issued_at' => 'datetime',
         ];
     }
 

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserDevice;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -427,6 +428,132 @@ class DeviceAuthService
         $device->update($updatePayload);
 
         return true;
+    }
+
+    /**
+     * Mint a fresh cryptographically-random secret for this device, store it
+     * ENCRYPTED at rest (Laravel `encrypted` cast → AES-256-GCM under APP_KEY),
+     * and return the plaintext exactly once for the login response.
+     *
+     * Encrypted-at-rest (reversible) rather than a one-way hash: HMAC
+     * verification requires the server to hold the same secret the client holds;
+     * a hash cannot regenerate it.
+     */
+    public function issueDeviceSecret(User $user, UserDevice $device): string
+    {
+        $bytes = max(16, (int) config('security.device_binding.secret_bytes', 32));
+        $secret = bin2hex(random_bytes($bytes));
+
+        $device->forceFill([
+            'device_secret' => $secret,
+            'device_secret_issued_at' => Carbon::now(),
+        ])->save();
+
+        return $secret;
+    }
+
+    public function buildCanonicalString(string $method, string $path, string $timestamp, string $nonce): string
+    {
+        return implode("\n", [
+            strtoupper(trim($method)),
+            $this->canonicalPath($path),
+            trim($timestamp),
+            trim($nonce),
+        ]);
+    }
+
+    public function computeHmac(string $secret, string $canonical): string
+    {
+        return hash_hmac('sha256', $canonical, $secret);
+    }
+
+    protected function canonicalPath(string $path): string
+    {
+        $path = trim($path);
+        $queryPos = strpos($path, '?');
+
+        if ($queryPos !== false) {
+            $path = substr($path, 0, $queryPos);
+        }
+
+        if ($path === '' || $path[0] !== '/') {
+            $path = '/'.$path;
+        }
+
+        return $path;
+    }
+
+    /**
+     * Verify the per-request HMAC device binding.
+     *
+     * Returns enrolled/valid/reason. 'enrolled' is false for legacy devices that
+     * have no stored secret yet (they predate the rollout) — callers must treat
+     * those as tolerated, never rejected, so nobody is stranded.
+     *
+     * @return array{enrolled: bool, valid: bool, reason: string}
+     */
+    public function verifyDeviceBinding(User $user, Request $request): array
+    {
+        $deviceId = $this->resolveDeviceId($request);
+
+        if (! $deviceId || ! $this->isValidUuid($deviceId)) {
+            return ['enrolled' => false, 'valid' => false, 'reason' => 'no_device'];
+        }
+
+        $device = UserDevice::where('user_id', $user->id)
+            ->where('device_id', $deviceId)
+            ->where('is_active', true)
+            ->first();
+
+        $secret = $device ? trim((string) $device->device_secret) : '';
+
+        if (! $device || $secret === '') {
+            return ['enrolled' => false, 'valid' => false, 'reason' => 'no_secret'];
+        }
+
+        // From here the device IS enrolled: any failure is a real rejection
+        // candidate (observe logs it, strict enforces it).
+        $timestamp = trim((string) $request->header('X-Device-Timestamp'));
+        $nonce = trim((string) $request->header('X-Device-Nonce'));
+        $signature = trim((string) $request->header('X-Device-HMAC'));
+
+        if ($timestamp === '' || $nonce === '' || $signature === '') {
+            return ['enrolled' => true, 'valid' => false, 'reason' => 'missing_headers'];
+        }
+
+        $tolerance = max(1, (int) config('security.device_binding.timestamp_tolerance', 300));
+
+        if (! ctype_digit($timestamp) || abs(time() - (int) $timestamp) > $tolerance) {
+            return ['enrolled' => true, 'valid' => false, 'reason' => 'stale'];
+        }
+
+        $canonical = $this->buildCanonicalString(
+            (string) $request->getMethod(),
+            (string) $request->path(),
+            $timestamp,
+            $nonce
+        );
+        $expected = $this->computeHmac($secret, $canonical);
+
+        if (! hash_equals($expected, $signature)) {
+            return ['enrolled' => true, 'valid' => false, 'reason' => 'bad_signature'];
+        }
+
+        // Single active device: the presenting device must be the one the user
+        // most recently logged in from.
+        if (trim((string) $user->current_device_id) !== '' && $user->current_device_id !== $deviceId) {
+            return ['enrolled' => true, 'valid' => false, 'reason' => 'wrong_device'];
+        }
+
+        // Replay guard: a (device, nonce) pair may be used once within the TTL.
+        $nonceKey = 'dev_nonce:'.$device->id.':'.hash('sha256', $nonce);
+        $ttl = max($tolerance, (int) config('security.device_binding.nonce_ttl', 600));
+
+        if (! Cache::add($nonceKey, 1, $ttl)) {
+            return ['enrolled' => true, 'valid' => false, 'reason' => 'replay'];
+        }
+
+        return ['enrolled' => true, 'valid' => true, 'reason' => 'ok'];
     }
 
     public function signatureHashFromPayload(?array $signature): string
