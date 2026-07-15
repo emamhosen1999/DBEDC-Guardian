@@ -470,46 +470,86 @@ class LeaveQueryService
             ->where('period_year', $year)
             ->get();
 
-        $byType = $rows->groupBy('leave_type');
-        $types = LeaveSetting::whereIn('id', $byType->keys())->get()->keyBy('id');
-
         $balances = [
             'casual' => ['used' => 0, 'total' => 0],
             'sick' => ['used' => 0, 'total' => 0],
             'earned' => ['used' => 0, 'total' => 0],
         ];
 
-        foreach ($byType as $typeId => $txns) {
-            $typeSetting = $types[$typeId] ?? null;
-            if (!$typeSetting) {
-                continue;
+        if (!$rows->isEmpty()) {
+            $byType = $rows->groupBy('leave_type');
+            $types = LeaveSetting::whereIn('id', $byType->keys())->get()->keyBy('id');
+
+            foreach ($byType as $typeId => $txns) {
+                $typeSetting = $types[$typeId] ?? null;
+                if (!$typeSetting) {
+                    continue;
+                }
+
+                $typeName = strtolower($typeSetting->type);
+
+                $sum = fn (array $kinds) => (float) $txns->whereIn('txn_type', $kinds)->sum('amount');
+                $entitled = $sum(['opening']);
+                $accrued = $sum(['accrual']);
+                $carried = $sum(['carry_forward']);
+                $taken = -$sum(['consumption', 'consumption_reversal']); // positive = days used
+
+                $total = $entitled + $accrued + $carried;
+                $used = $taken;
+
+                $key = null;
+                if (str_contains($typeName, 'casual') || str_contains($typeName, 'personal')) {
+                    $key = 'casual';
+                } elseif (str_contains($typeName, 'sick') || str_contains($typeName, 'medical')) {
+                    $key = 'sick';
+                } elseif (str_contains($typeName, 'earned') || str_contains($typeName, 'annual') || str_contains($typeName, 'vacation')) {
+                    $key = 'earned';
+                }
+
+                if ($key) {
+                    $balances[$key] = [
+                        'used' => round($used, 1),
+                        'total' => round($total, 1),
+                    ];
+                }
             }
+        } else {
+            // Fallback: Calculate from leaves table and LeaveSetting defaults
+            $allSettings = LeaveSetting::all();
+            
+            // Get user leaves for the year
+            $userLeaves = Leave::where('user_id', $requestedUserId)
+                ->whereYear('from_date', $year)
+                ->where('status', 'approved') // Only count approved leaves
+                ->get()
+                ->groupBy('leave_type');
 
-            $typeName = strtolower($typeSetting->type);
+            foreach ($allSettings as $setting) {
+                $typeName = strtolower($setting->type);
+                
+                // Sum the no_of_days for approved leaves of this type
+                $used = 0.0;
+                if ($userLeaves->has($setting->id)) {
+                    $used = (float) $userLeaves->get($setting->id)->sum('no_of_days');
+                }
+                
+                $total = (float) $setting->days;
 
-            $sum = fn (array $kinds) => (float) $txns->whereIn('txn_type', $kinds)->sum('amount');
-            $entitled = $sum(['opening']);
-            $accrued = $sum(['accrual']);
-            $carried = $sum(['carry_forward']);
-            $taken = -$sum(['consumption', 'consumption_reversal']); // positive = days used
+                $key = null;
+                if (str_contains($typeName, 'casual') || str_contains($typeName, 'personal')) {
+                    $key = 'casual';
+                } elseif (str_contains($typeName, 'sick') || str_contains($typeName, 'medical')) {
+                    $key = 'sick';
+                } elseif (str_contains($typeName, 'earned') || str_contains($typeName, 'annual') || str_contains($typeName, 'vacation')) {
+                    $key = 'earned';
+                }
 
-            $total = $entitled + $accrued + $carried;
-            $used = $taken;
-
-            $key = null;
-            if (str_contains($typeName, 'casual') || str_contains($typeName, 'personal')) {
-                $key = 'casual';
-            } elseif (str_contains($typeName, 'sick') || str_contains($typeName, 'medical')) {
-                $key = 'sick';
-            } elseif (str_contains($typeName, 'earned') || str_contains($typeName, 'annual') || str_contains($typeName, 'vacation')) {
-                $key = 'earned';
-            }
-
-            if ($key) {
-                $balances[$key] = [
-                    'used' => round($used, 1),
-                    'total' => round($total, 1),
-                ];
+                if ($key) {
+                    $balances[$key] = [
+                        'used' => round($used, 1),
+                        'total' => round($total, 1),
+                    ];
+                }
             }
         }
 

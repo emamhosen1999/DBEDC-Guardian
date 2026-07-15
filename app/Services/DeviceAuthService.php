@@ -540,8 +540,13 @@ class DeviceAuthService
         }
 
         // Single active device: the presenting device must be the one the user
-        // most recently logged in from.
-        if (trim((string) $user->current_device_id) !== '' && $user->current_device_id !== $deviceId) {
+        // most recently logged in from. Read current_device_id fresh from the DB
+        // rather than trusting the (possibly cached) request-user attribute, so
+        // the decision is correct even when the User model was loaded earlier in
+        // the request lifecycle.
+        $currentDeviceId = trim((string) User::whereKey($user->id)->value('current_device_id'));
+
+        if ($currentDeviceId !== '' && $currentDeviceId !== $deviceId) {
             return ['enrolled' => true, 'valid' => false, 'reason' => 'wrong_device'];
         }
 
