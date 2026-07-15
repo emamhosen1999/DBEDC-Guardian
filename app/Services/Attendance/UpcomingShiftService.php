@@ -13,14 +13,14 @@ use Illuminate\Support\Collection;
  * The single definition of "upcoming shift", shared by the web attendance page
  * and the mobile team-attendance screen.
  *
- *  - today   → shifts starting in [now, now + 12h]; the window crosses midnight,
+ *  - today   → shifts starting in [now, now + 24h]; the window crosses midnight,
  *              so at 22:00 tomorrow's 00-08 shift is upcoming.
  *  - future  → every working shift on that date (the whole day is ahead).
  *  - past    → nothing at all; the section is hidden, not rendered empty.
  */
 class UpcomingShiftService
 {
-    public const WINDOW_HOURS = 12;
+    public const WINDOW_HOURS = 24;
 
     public function __construct(
         private readonly ScheduleResolver $schedules,
@@ -94,7 +94,7 @@ class UpcomingShiftService
     }
 
     /**
-     * Shifts starting inside [now, now + 12h]. Today's shift is checked first,
+     * Shifts starting inside [now, now + 24h]. Today's shift is checked first,
      * then tomorrow's — that second check is what lets a late-evening window
      * reach across midnight.
      *
