@@ -18,13 +18,20 @@
  * No CSRF middleware is applied because ZKTeco devices are not browsers
  * and cannot send CSRF tokens. The api middleware group (which includes
  * Sanctum and auth:sanctum) is also not applied here — these are public
- * device-to-server endpoints identified solely by serial number.
+ * device-to-server endpoints.
+ *
+ * Serial-only trust is NOT sufficient (serials are printed on the device and
+ * are not secret), so every route below is guarded by EnsureAdmsDeviceAuthorized,
+ * which enforces a registered+active allowlist plus an optional, staged
+ * per-device shared secret. The middleware is referenced by FQCN so it needs no
+ * alias registration in bootstrap/app.php.
  */
 
 use App\Http\Controllers\Api\BiometricWebhookController;
+use App\Http\Middleware\EnsureAdmsDeviceAuthorized;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('throttle:300,1')->group(function () {
+Route::middleware(['throttle:300,1', EnsureAdmsDeviceAuthorized::class])->group(function () {
     Route::get('/iclock/cdata', [BiometricWebhookController::class, 'admsHandshake'])
         ->name('biometric.adms.handshake');
     Route::post('/iclock/cdata', [BiometricWebhookController::class, 'admsPush'])

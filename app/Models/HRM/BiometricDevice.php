@@ -15,6 +15,7 @@ class BiometricDevice extends Model
         'port',
         'location',
         'auth_token',
+        'adms_token',
         'protocol',
         'is_active',
         'last_heartbeat_at',

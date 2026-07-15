@@ -335,6 +335,20 @@ class BiometricWebhookController extends Controller
 
         // Handle User Enrollment from Device
         if ($table === 'USERINFO') {
+            // Defense in depth: EnsureAdmsDeviceAuthorized already gates USERINFO,
+            // but re-check here so device-initiated enrollment can never create or
+            // rewrite users without a verified per-device token even if the route
+            // middleware is ever detached. USERINFO is far higher risk than a punch.
+            if (config('attendance.adms_enrollment_requires_token', true)
+                && ! $request->attributes->get('adms_token_verified', false)) {
+                Log::warning('ADMS push: USERINFO enrollment blocked (device token not verified)', [
+                    'serial' => $serialNumber,
+                    'device_id' => $device->id,
+                ]);
+
+                return response('ERROR', 401)->header('Content-Type', 'text/plain');
+            }
+
             $result = $this->biometricService->processUserEnrollment($rawData, $serialNumber, $device);
 
             return $result['success']
