@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 use App\Http\Controllers\Controller;
+use App\Http\Responses\ApiResponse;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Services\Attendance\RosterOverlayService;
@@ -18,6 +19,7 @@ use Illuminate\Support\Collection;
  */
 class RosterController extends Controller
 {
+    use ApiResponse;
     use ResolvesTeamMembers;
 
     public function __construct(private readonly RosterOverlayService $overlay) {}
@@ -50,27 +52,21 @@ class RosterController extends Controller
             ))
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $this->withOverlay(
-                $this->formatRoster($rows),
-                $rows->pluck('user_id')->unique()->values()->all(),
-                $data['from'],
-                $data['to'],
-            ),
-        ]);
+        return $this->successResponse($this->withOverlay(
+            $this->formatRoster($rows),
+            $rows->pluck('user_id')->unique()->values()->all(),
+            $data['from'],
+            $data['to'],
+        ));
     }
 
     public function shifts(): JsonResponse
     {
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'shifts' => Shift::query()
-                    ->orderBy('start_time')
-                    ->orderBy('name')
-                    ->get(['id', 'code', 'name', 'color', 'type', 'start_time', 'end_time', 'crosses_midnight']),
-            ],
+        return $this->successResponse([
+            'shifts' => Shift::query()
+                ->orderBy('start_time')
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'color', 'type', 'start_time', 'end_time', 'crosses_midnight']),
         ]);
     }
 

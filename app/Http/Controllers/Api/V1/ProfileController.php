@@ -6,20 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Http\Requests\Api\V1\UploadProfileImageRequest;
 use App\Http\Resources\UserResource;
+use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ProfileController extends Controller
 {
+    use ApiResponse;
+
     public function show(Request $request): JsonResponse
     {
         $user = $this->loadProfileRelations($request);
 
-        return response()->json([
-            'success' => true,
-            'data' => new UserResource($user),
-        ]);
+        return $this->successResponse(new UserResource($user));
     }
 
     public function update(UpdateProfileRequest $request): JsonResponse
@@ -32,11 +32,7 @@ class ProfileController extends Controller
 
         $user = $this->loadProfileRelations($request);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile updated successfully.',
-            'data' => new UserResource($user),
-        ]);
+        return $this->successResponse(new UserResource($user), 'Profile updated successfully.');
     }
 
     public function uploadImage(UploadProfileImageRequest $request): JsonResponse
@@ -58,11 +54,7 @@ class ProfileController extends Controller
 
         $user = $this->loadProfileRelations($request);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile image uploaded successfully.',
-            'data' => new UserResource($user),
-        ]);
+        return $this->successResponse(new UserResource($user), 'Profile image uploaded successfully.');
     }
 
     public function removeImage(Request $request): JsonResponse
@@ -79,11 +71,10 @@ class ProfileController extends Controller
 
         $user = $this->loadProfileRelations($request);
 
-        return response()->json([
-            'success' => true,
-            'message' => $hadProfileImage ? 'Profile image removed successfully.' : 'No profile image to remove.',
-            'data' => new UserResource($user),
-        ]);
+        return $this->successResponse(
+            new UserResource($user),
+            $hadProfileImage ? 'Profile image removed successfully.' : 'No profile image to remove.'
+        );
     }
 
     private function loadProfileRelations(Request $request): User

@@ -114,10 +114,7 @@ class DailyWorkController extends Controller
             $payload['summary'] = $this->buildDailyWorksSummary(clone $baseQuery);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $payload,
-        ]);
+        return $this->successResponse($payload);
     }
 
     public function selectableDates(ListDailyWorksRequest $request): JsonResponse
@@ -139,13 +136,10 @@ class DailyWorkController extends Controller
 
         $latestDate = $dates->last();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'dates' => $dates,
-                'latest_date' => $latestDate,
-                'total_dates' => $dates->count(),
-            ],
+        return $this->successResponse([
+            'dates' => $dates,
+            'latest_date' => $latestDate,
+            'total_dates' => $dates->count(),
         ]);
     }
 
@@ -193,20 +187,17 @@ class DailyWorkController extends Controller
 
         $statistics = $this->buildObjectionStatistics($baseQuery);
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'objections' => $objections->getCollection()
-                    ->map(fn (RfiObjection $objection): array => $this->transformObjectionForMobileList($objection, $user))
-                    ->values(),
-                'pagination' => [
-                    'current_page' => $objections->currentPage(),
-                    'last_page' => $objections->lastPage(),
-                    'per_page' => $objections->perPage(),
-                    'total' => $objections->total(),
-                ],
-                'statistics' => $statistics,
+        return $this->successResponse([
+            'objections' => $objections->getCollection()
+                ->map(fn (RfiObjection $objection): array => $this->transformObjectionForMobileList($objection, $user))
+                ->values(),
+            'pagination' => [
+                'current_page' => $objections->currentPage(),
+                'last_page' => $objections->lastPage(),
+                'per_page' => $objections->perPage(),
+                'total' => $objections->total(),
             ],
+            'statistics' => $statistics,
         ]);
     }
 
@@ -215,10 +206,7 @@ class DailyWorkController extends Controller
         $user = $request->user();
 
         if (! $this->canReviewObjection($user)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access objection queue.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access objection queue.', null, 403);
         }
 
         $perPage = (int) $request->input('perPage', 10);
@@ -278,21 +266,18 @@ class DailyWorkController extends Controller
             })
             ->values();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'objections' => $objections->getCollection()
-                    ->map(fn (RfiObjection $objection): array => $this->transformObjectionForMobileList($objection, $user))
-                    ->values(),
-                'pagination' => [
-                    'current_page' => $objections->currentPage(),
-                    'last_page' => $objections->lastPage(),
-                    'per_page' => $objections->perPage(),
-                    'total' => $objections->total(),
-                ],
-                'statistics' => $this->buildObjectionStatistics($baseQuery),
-                'creators' => $creatorOptions,
+        return $this->successResponse([
+            'objections' => $objections->getCollection()
+                ->map(fn (RfiObjection $objection): array => $this->transformObjectionForMobileList($objection, $user))
+                ->values(),
+            'pagination' => [
+                'current_page' => $objections->currentPage(),
+                'last_page' => $objections->lastPage(),
+                'per_page' => $objections->perPage(),
+                'total' => $objections->total(),
             ],
+            'statistics' => $this->buildObjectionStatistics($baseQuery),
+            'creators' => $creatorOptions,
         ]);
     }
 
@@ -307,23 +292,14 @@ class DailyWorkController extends Controller
             ->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access this daily work.', null, 403);
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $this->transformDailyWork($dailyWork, $request->user()),
-        ]);
+        return $this->successResponse($this->transformDailyWork($dailyWork, $request->user()));
     }
 
     public function updateStatus(UpdateDailyWorkStatusRequest $request, int $dailyWorkId): JsonResponse
@@ -331,17 +307,11 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canUpdateStatus($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to update the status of this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to update the status of this daily work.', null, 403);
         }
 
         $status = (string) $request->input('status');
@@ -358,11 +328,10 @@ class DailyWorkController extends Controller
             'assignedUser:id,name',
         ])->loadCount(['activeObjections']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Daily work status updated successfully.',
-            'data' => $this->transformDailyWork($dailyWork, $request->user()),
-        ]);
+        return $this->successResponse(
+            $this->transformDailyWork($dailyWork, $request->user()),
+            'Daily work status updated successfully.'
+        );
     }
 
     public function updateIncharge(UpdateDailyWorkInchargeRequest $request, int $dailyWorkId): JsonResponse
@@ -370,17 +339,11 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canUpdateIncharge($request->user())) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to update incharge for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to update incharge for this daily work.', null, 403);
         }
 
         $this->dailyWorkService->updateIncharge($dailyWork, $request->input('incharge'));
@@ -390,11 +353,10 @@ class DailyWorkController extends Controller
             'assignedUser:id,name',
         ])->loadCount(['activeObjections']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Daily work incharge updated successfully.',
-            'data' => $this->transformDailyWork($dailyWork, $request->user()),
-        ]);
+        return $this->successResponse(
+            $this->transformDailyWork($dailyWork, $request->user()),
+            'Daily work incharge updated successfully.'
+        );
     }
 
     public function updateAssigned(UpdateDailyWorkAssignedRequest $request, int $dailyWorkId): JsonResponse
@@ -402,17 +364,11 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canUpdateAssigned($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to update assigned user for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to update assigned user for this daily work.', null, 403);
         }
 
         $this->dailyWorkService->updateAssigned($dailyWork, $request->input('assigned'));
@@ -422,11 +378,10 @@ class DailyWorkController extends Controller
             'assignedUser:id,name',
         ])->loadCount(['activeObjections']);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Daily work assigned user updated successfully.',
-            'data' => $this->transformDailyWork($dailyWork, $request->user()),
-        ]);
+        return $this->successResponse(
+            $this->transformDailyWork($dailyWork, $request->user()),
+            'Daily work assigned user updated successfully.'
+        );
     }
 
     public function objections(ListDailyWorkObjectionsRequest $request, int $dailyWorkId): JsonResponse
@@ -434,17 +389,11 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access objections for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access objections for this daily work.', null, 403);
         }
 
         $perPage = (int) $request->input('perPage', 10);
@@ -473,20 +422,17 @@ class DailyWorkController extends Controller
             ->paginate($perPage)
             ->appends($request->query());
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'objections' => $objections->getCollection()
-                    ->map(function (RfiObjection $objection) {
-                        return $this->transformObjection($objection);
-                    })
-                    ->values(),
-                'pagination' => [
-                    'current_page' => $objections->currentPage(),
-                    'last_page' => $objections->lastPage(),
-                    'per_page' => $objections->perPage(),
-                    'total' => $objections->total(),
-                ],
+        return $this->successResponse([
+            'objections' => $objections->getCollection()
+                ->map(function (RfiObjection $objection) {
+                    return $this->transformObjection($objection);
+                })
+                ->values(),
+            'pagination' => [
+                'current_page' => $objections->currentPage(),
+                'last_page' => $objections->lastPage(),
+                'per_page' => $objections->perPage(),
+                'total' => $objections->total(),
             ],
         ]);
     }
@@ -496,34 +442,21 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to create objections for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to create objections for this daily work.', null, 403);
         }
 
         try {
             $objection = $this->dailyWorkService->storeObjection($dailyWork, $request->all(), $request->user());
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Objection created successfully.',
-                'data' => $this->transformObjection($objection),
-            ], 201);
+            return $this->successResponse($this->transformObjection($objection), 'Objection created successfully.', 201);
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create objection.',
-            ], 500);
+            return $this->errorResponse('Failed to create objection.', null, 500);
         }
     }
 
@@ -532,55 +465,33 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access this daily work.', null, 403);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canSubmitObjection($request->user(), $objection)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to submit this objection.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to submit this objection.', null, 403);
         }
 
         try {
             $objection = $this->dailyWorkService->submitObjection($objection);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Objection submitted for review.',
-                'data' => $this->transformObjection($objection),
-            ]);
+            return $this->successResponse($this->transformObjection($objection), 'Objection submitted for review.');
         } catch (\InvalidArgumentException $exception) {
-            return response()->json([
-                'success' => false,
-                'message' => $exception->getMessage(),
-            ], 422);
+            return $this->errorResponse($exception->getMessage(), null, 422);
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to submit objection.',
-            ], 500);
+            return $this->errorResponse('Failed to submit objection.', null, 500);
         }
     }
 
@@ -589,55 +500,33 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access this daily work.', null, 403);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canReviewObjection($request->user())) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to review this objection.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to review this objection.', null, 403);
         }
 
         try {
             $objection = $this->dailyWorkService->startReviewObjection($objection);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Objection is now under review.',
-                'data' => $this->transformObjection($objection),
-            ]);
+            return $this->successResponse($this->transformObjection($objection), 'Objection is now under review.');
         } catch (\InvalidArgumentException $exception) {
-            return response()->json([
-                'success' => false,
-                'message' => $exception->getMessage(),
-            ], 422);
+            return $this->errorResponse($exception->getMessage(), null, 422);
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to start objection review.',
-            ], 500);
+            return $this->errorResponse('Failed to start objection review.', null, 500);
         }
     }
 
@@ -646,55 +535,33 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access this daily work.', null, 403);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canReviewObjection($request->user())) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to review this objection.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to review this objection.', null, 403);
         }
 
         try {
             $objection = $this->dailyWorkService->resolveObjection($objection, $request->input('resolution_notes'));
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Objection resolved successfully.',
-                'data' => $this->transformObjection($objection),
-            ]);
+            return $this->successResponse($this->transformObjection($objection), 'Objection resolved successfully.');
         } catch (\InvalidArgumentException $exception) {
-            return response()->json([
-                'success' => false,
-                'message' => $exception->getMessage(),
-            ], 422);
+            return $this->errorResponse($exception->getMessage(), null, 422);
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to resolve objection.',
-            ], 500);
+            return $this->errorResponse('Failed to resolve objection.', null, 500);
         }
     }
 
@@ -703,56 +570,34 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         if (! $this->canAccessDailyWork($request->user(), $dailyWork)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access this daily work.', null, 403);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canReviewObjection($request->user())) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to review this objection.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to review this objection.', null, 403);
         }
 
         try {
             $reason = $request->input('resolution_notes', $request->input('rejection_reason'));
             $objection = $this->dailyWorkService->rejectObjection($objection, $reason);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Objection rejected.',
-                'data' => $this->transformObjection($objection),
-            ]);
+            return $this->successResponse($this->transformObjection($objection), 'Objection rejected.');
         } catch (\InvalidArgumentException $exception) {
-            return response()->json([
-                'success' => false,
-                'message' => $exception->getMessage(),
-            ], 422);
+            return $this->errorResponse($exception->getMessage(), null, 422);
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to reject objection.',
-            ], 500);
+            return $this->errorResponse('Failed to reject objection.', null, 500);
         }
     }
 
@@ -761,26 +606,17 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canViewObjectionFiles($request->user(), $dailyWork, $objection)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to view objection files for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to view objection files for this daily work.', null, 403);
         }
 
         $files = $objection->getMedia('objection_files')
@@ -789,12 +625,9 @@ class DailyWorkController extends Controller
             })
             ->values();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'files' => $files,
-                'total' => $files->count(),
-            ],
+        return $this->successResponse([
+            'files' => $files,
+            'total' => $files->count(),
         ]);
     }
 
@@ -803,26 +636,17 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canManageObjectionFiles($request->user(), $dailyWork, $objection)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to upload objection files for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to upload objection files for this daily work.', null, 403);
         }
 
         $uploadedFiles = [];
@@ -833,21 +657,18 @@ class DailyWorkController extends Controller
                 $uploadedFiles[] = $this->transformObjectionFile($media);
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => count($uploadedFiles).' file(s) uploaded successfully.',
-                'data' => [
+            return $this->successResponse(
+                [
                     'files' => $uploadedFiles,
                     'total_files' => $this->countObjectionFiles($objection),
                 ],
-            ], 201);
+                count($uploadedFiles).' file(s) uploaded successfully.',
+                201
+            );
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to upload objection files.',
-            ], 500);
+            return $this->errorResponse('Failed to upload objection files.', null, 500);
         }
     }
 
@@ -856,54 +677,36 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canManageObjectionFiles($request->user(), $dailyWork, $objection)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to delete objection files for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to delete objection files for this daily work.', null, 403);
         }
 
         $media = $objection->getMedia('objection_files')->where('id', $mediaId)->first();
 
         if (! $media) {
-            return response()->json([
-                'success' => false,
-                'message' => 'File not found.',
-            ], 404);
+            return $this->errorResponse('File not found.', null, 404);
         }
 
         try {
             $media->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'File deleted successfully.',
-                'data' => [
-                    'total_files' => $this->countObjectionFiles($objection),
-                ],
-            ]);
+            return $this->successResponse(
+                ['total_files' => $this->countObjectionFiles($objection)],
+                'File deleted successfully.'
+            );
         } catch (\Throwable $exception) {
             report($exception);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete objection file.',
-            ], 500);
+            return $this->errorResponse('Failed to delete objection file.', null, 500);
         }
     }
 
@@ -912,35 +715,23 @@ class DailyWorkController extends Controller
         $dailyWork = DailyWork::query()->find($dailyWorkId);
 
         if (! $dailyWork) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Daily work not found.',
-            ], 404);
+            return $this->errorResponse('Daily work not found.', null, 404);
         }
 
         $objection = $this->findObjectionForDailyWork($dailyWorkId, $objectionId);
 
         if (! $objection) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Objection not found for this daily work.',
-            ], 404);
+            return $this->errorResponse('Objection not found for this daily work.', null, 404);
         }
 
         if (! $this->canViewObjectionFiles($request->user(), $dailyWork, $objection)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to download objection files for this daily work.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to download objection files for this daily work.', null, 403);
         }
 
         $media = $objection->getMedia('objection_files')->where('id', $mediaId)->first();
 
         if (! $media) {
-            return response()->json([
-                'success' => false,
-                'message' => 'File not found.',
-            ], 404);
+            return $this->errorResponse('File not found.', null, 404);
         }
 
         return response()->download($media->getPath(), $media->file_name);
@@ -948,28 +739,25 @@ class DailyWorkController extends Controller
 
     public function objectionMetadata(): JsonResponse
     {
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'categories' => collect(RfiObjection::$categories)->map(function (string $category) {
-                    return [
-                        'value' => $category,
-                        'label' => RfiObjection::$categoryLabels[$category] ?? ucfirst(str_replace('_', ' ', $category)),
-                    ];
-                })->values(),
-                'statuses' => collect(RfiObjection::$statuses)->map(function (string $status) {
-                    return [
-                        'value' => $status,
-                        'label' => RfiObjection::$statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $status)),
-                    ];
-                })->values(),
-                'types' => collect(RfiObjection::$types)->map(function (string $type) {
-                    return [
-                        'value' => $type,
-                        'label' => $type,
-                    ];
-                })->values(),
-            ],
+        return $this->successResponse([
+            'categories' => collect(RfiObjection::$categories)->map(function (string $category) {
+                return [
+                    'value' => $category,
+                    'label' => RfiObjection::$categoryLabels[$category] ?? ucfirst(str_replace('_', ' ', $category)),
+                ];
+            })->values(),
+            'statuses' => collect(RfiObjection::$statuses)->map(function (string $status) {
+                return [
+                    'value' => $status,
+                    'label' => RfiObjection::$statusLabels[$status] ?? ucfirst(str_replace('_', ' ', $status)),
+                ];
+            })->values(),
+            'types' => collect(RfiObjection::$types)->map(function (string $type) {
+                return [
+                    'value' => $type,
+                    'label' => $type,
+                ];
+            })->values(),
         ]);
     }
 

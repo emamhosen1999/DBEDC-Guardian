@@ -46,10 +46,7 @@ class ManagerDashboardController extends Controller
         $user = $request->user();
 
         if (! $this->isManagerUser($user)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to access manager dashboard summary.',
-            ], 403);
+            return $this->errorResponse('You are not authorized to access manager dashboard summary.', null, 403);
         }
 
         $today = now()->toDateString();
@@ -99,31 +96,28 @@ class ManagerDashboardController extends Controller
         $leaveWindows = $this->buildTeamLeaveWindows($teamMemberIds, $today);
         $upcomingHolidays = $this->buildUpcomingHolidays($today);
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'team' => [
-                    'total_members' => count($teamMemberIds),
-                    'present_today' => $presentToday,
-                    'on_leave_today' => $onLeaveToday,
-                ],
-                'approvals' => [
-                    'pending_leave_approvals' => $pendingLeaveApprovals,
-                    'pending_swap_approvals' => $pendingSwapApprovals,
-                ],
-                'daily_works' => [
-                    'total' => $dailyWorkTotal,
-                    'completed' => $dailyWorkCompleted,
-                    'pending' => $dailyWorkPending,
-                ],
-                'objections' => [
-                    'submitted' => $objectionStats['submitted'],
-                    'under_review' => $objectionStats['under_review'],
-                    'total_active' => $objectionStats['total_active'],
-                ],
-                'leave_windows' => $leaveWindows,
-                'upcoming_holidays' => $upcomingHolidays,
+        return $this->successResponse([
+            'team' => [
+                'total_members' => count($teamMemberIds),
+                'present_today' => $presentToday,
+                'on_leave_today' => $onLeaveToday,
             ],
+            'approvals' => [
+                'pending_leave_approvals' => $pendingLeaveApprovals,
+                'pending_swap_approvals' => $pendingSwapApprovals,
+            ],
+            'daily_works' => [
+                'total' => $dailyWorkTotal,
+                'completed' => $dailyWorkCompleted,
+                'pending' => $dailyWorkPending,
+            ],
+            'objections' => [
+                'submitted' => $objectionStats['submitted'],
+                'under_review' => $objectionStats['under_review'],
+                'total_active' => $objectionStats['total_active'],
+            ],
+            'leave_windows' => $leaveWindows,
+            'upcoming_holidays' => $upcomingHolidays,
         ]);
     }
 
@@ -553,10 +547,7 @@ class ManagerDashboardController extends Controller
         $user = $request->user();
 
         if (! $this->isManagerUser($user)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized.',
-            ], 403);
+            return $this->errorResponse('Unauthorized.', null, 403);
         }
 
         $teamMemberIds = $this->resolveTeamMemberIds($user);
@@ -577,9 +568,6 @@ class ManagerDashboardController extends Controller
             ])
             ->values();
 
-        return response()->json([
-            'success' => true,
-            'data' => $members,
-        ]);
+        return $this->successResponse($members);
     }
 }
