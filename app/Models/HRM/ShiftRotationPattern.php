@@ -9,7 +9,12 @@ class ShiftRotationPattern extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'code', 'cycle_length_days', 'definition', 'is_active'];
+    protected $fillable = ['name', 'code', 'cycle_length_days', 'definition', 'is_active', 'created_by'];
+
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
 
     protected $casts = [
         'definition' => 'array',

@@ -5,7 +5,7 @@ import App from '@/Layouts/App';
 import { Box, Flex, Text, Tabs, Skeleton } from '@radix-ui/themes';
 import {
     ClockIcon, CalendarIcon, GearIcon, LayersIcon, CheckCircledIcon,
-    DesktopIcon,
+    DesktopIcon, SymbolIcon, UpdateIcon
 } from '@radix-ui/react-icons';
 import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import DailyTimesheetTab  from './DailyTimesheetTab';
 const MonthlyCalendarTab = lazy(() => import('./MonthlyCalendarTab'));
 const RosterTab          = lazy(() => import('./RosterTab'));
+const ShiftsSettings     = lazy(() => import('./ShiftsSettings'));
 const SettingsTab        = lazy(() => import('./SettingsTab'));
 const ApprovalsInbox     = lazy(() => import('./Components/ApprovalsInbox'));
 const BiometricPanel     = lazy(() => import('@/Components/AdminUnified/BiometricPanel'));
@@ -62,6 +63,10 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
         ),
         ...(canRoster
             ? [{ value: 'roster',   label: 'Roster',   icon: <LayersIcon /> }]
+            : []
+        ),
+        ...(canRoster
+            ? [{ value: 'shifts',   label: 'Shift Management', icon: <SymbolIcon /> }]
             : []
         ),
         ...(canSettings
@@ -222,7 +227,7 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                             )}
 
                             {/* ── Roster Tab ────────────────────────────── */}
-                            {canSettings && (
+                            {canRoster && (
                                 <Box mt="4" style={{ display: activeTab === 'roster' ? 'block' : 'none' }}>
                                     <ErrorBoundary>
                                         <Suspense fallback={<Skeleton height="400px" />}>
@@ -232,6 +237,17 @@ const AttendancePage = ({ title, departments = [], designations = [], devices = 
                                                 onMonthChange={handleMonthChange}
                                                 isActive={activeTab === 'roster'}
                                             />
+                                        </Suspense>
+                                    </ErrorBoundary>
+                                </Box>
+                            )}
+
+                            {/* ── Shifts Tab ────────────────────────────── */}
+                            {canRoster && (
+                                <Box mt="4" style={{ display: activeTab === 'shifts' ? 'block' : 'none' }}>
+                                    <ErrorBoundary>
+                                        <Suspense fallback={<Skeleton height="400px" />}>
+                                            <ShiftsSettings />
                                         </Suspense>
                                     </ErrorBoundary>
                                 </Box>

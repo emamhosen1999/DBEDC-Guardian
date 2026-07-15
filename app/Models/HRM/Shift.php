@@ -16,8 +16,13 @@ class Shift extends Model
         'name', 'code', 'type', 'start_time', 'end_time', 'crosses_midnight',
         'break_minutes', 'grace_in_minutes', 'grace_out_minutes',
         'full_day_minutes', 'half_day_minutes', 'min_present_minutes',
-        'core_start_time', 'core_end_time', 'color', 'is_active',
+        'core_start_time', 'core_end_time', 'color', 'is_active', 'created_by',
     ];
+
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
+    }
 
     protected $casts = [
         'crosses_midnight' => 'boolean',

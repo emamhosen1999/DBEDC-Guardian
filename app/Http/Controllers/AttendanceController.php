@@ -66,9 +66,12 @@ class AttendanceController extends Controller
             ->select('id', 'name', 'department_id', 'designation_id')
             ->orderBy('name');
 
+        $designationsQuery = Designation::select('id', 'title', 'department_id')->orderBy('title');
+
         if (!$isGlobal && $userDeptId !== null) {
             $departmentsQuery->where('id', $userDeptId);
             $employeesQuery->where('department_id', $userDeptId);
+            $designationsQuery->where('department_id', $userDeptId);
         }
 
         return Inertia::render('Attendance/AttendancePage', [
@@ -87,9 +90,7 @@ class AttendanceController extends Controller
                     'designation_id' => $u->designation_id,
                 ])
                 ->values(),
-            'designations' => Designation::select('id', 'title')
-                ->orderBy('title')
-                ->get()
+            'designations' => $designationsQuery->get()
                 ->map(fn ($d) => ['id' => $d->id, 'title' => $d->title])
                 ->values(),
             // Biometric Devices tab

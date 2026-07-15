@@ -359,7 +359,7 @@ const DailyTimesheetTab = ({
     // Range + filter state (Log mode)
     const [toDate, setToDate] = useState(selectedDate);
     const [preset, setPreset] = useState('today');
-    const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
+    const isGlobalUser = auth?.isSuperAdmin || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager') || auth?.permissions?.includes('attendance.settings');
     const userDeptId = auth?.user?.department_id;
     const isNonGlobalManager = !isGlobalUser && userDeptId !== null && auth?.roles?.includes('Department Manager');
 

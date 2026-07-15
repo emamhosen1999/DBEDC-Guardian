@@ -31,4 +31,9 @@ class ShiftAssignment extends Model
     {
         return $this->belongsTo(ShiftRotationPattern::class);
     }
+
+    public function assigner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'assigned_by');
+    }
 }

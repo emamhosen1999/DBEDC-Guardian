@@ -592,7 +592,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('settings/request-logs/bulk-delete', [RequestLogController::class, 'bulkDelete'])->name('request-logs.bulk-delete');
         Route::post('settings/request-logs/clear-all', [RequestLogController::class, 'clearAll'])->name('request-logs.clear-all');
         Route::get('settings/request-logs/export', [RequestLogController::class, 'export'])->name('request-logs.export');
+    });
 
+    Route::middleware(['permission:attendance.view|attendance.settings'])->group(function () {
         // Shift management routes
         Route::get('/attendance/shifts', [\App\Http\Controllers\HRM\ShiftController::class, 'index'])->name('attendance.shifts.index');
         Route::post('/attendance/shifts', [\App\Http\Controllers\HRM\ShiftController::class, 'store'])->name('attendance.shifts.store');
@@ -612,6 +614,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/roster', [\App\Http\Controllers\HRM\RosterController::class, 'index'])->name('attendance.roster.index');
         Route::post('/attendance/roster/generate', [\App\Http\Controllers\HRM\RosterController::class, 'generate'])->name('attendance.roster.generate');
         Route::put('/attendance/roster/cell', [\App\Http\Controllers\HRM\RosterController::class, 'updateCell'])->name('attendance.roster.cell');
+    });
+
+    Route::middleware(['permission:attendance.settings'])->group(function () {
 
         // Coverage (Phase 2)
         Route::get('/attendance/coverage', [\App\Http\Controllers\HRM\CoverageController::class, 'index'])->name('attendance.coverage.index');

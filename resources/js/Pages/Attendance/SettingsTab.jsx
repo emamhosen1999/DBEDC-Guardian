@@ -10,7 +10,6 @@ import {
 import { usePage } from '@inertiajs/react';
 import { showToast } from '@/utils/toastUtils';
 import * as useAttendanceQuery from '@/api/queries/useAttendanceQuery';
-import ShiftsSettings from './ShiftsSettings';
 import PoliciesManager from './Components/PoliciesManager';
 import DateTimePicker from '@/Components/DateTimePicker';
 
@@ -713,12 +712,6 @@ const SettingsTab = () => {
                             <Text size="2" weight="medium">Attendance Methods</Text>
                         </Flex>
                     </Tabs.Trigger>
-                    <Tabs.Trigger value="shifts">
-                        <Flex align="center" gap="2">
-                            <ClockIcon />
-                            <Text size="2" weight="medium">Shift Management</Text>
-                        </Flex>
-                    </Tabs.Trigger>
                     <Tabs.Trigger value="policies">
                         <Flex align="center" gap="2">
                             <LockClosedIcon />
@@ -1065,12 +1058,7 @@ const SettingsTab = () => {
                     </Box>
                 </Tabs.Content>
 
-                {/* ── Shifts Tab ─────────────────────────────── */}
-                <Tabs.Content value="shifts">
-                    <Box py="3">
-                        <ShiftsSettings />
-                    </Box>
-                </Tabs.Content>
+
 
                 {/* ── Policies Tab ───────────────────────────── */}
                 <Tabs.Content value="policies">

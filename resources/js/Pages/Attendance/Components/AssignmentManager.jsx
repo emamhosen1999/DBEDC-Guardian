@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { Box, Flex, Table, Button, IconButton, Text, Badge } from '@radix-ui/themes';
 import { PlusIcon, TrashIcon, Pencil1Icon } from '@radix-ui/react-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePage } from '@inertiajs/react';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import ShiftAssignmentForm from '@/Forms/ShiftAssignmentForm';
 import TablePagination from '@/Components/TablePagination.jsx';
 
 export default function AssignmentManager({ employees = [], departments = [], designations = [] }) {
+    const { auth } = usePage().props;
+    const isGlobalUser = auth?.isSuperAdmin || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager') || auth?.permissions?.includes('attendance.settings');
     const qc = useQueryClient();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState(null);
@@ -67,13 +70,14 @@ export default function AssignmentManager({ employees = [], departments = [], de
                                 <Table.ColumnHeaderCell>Shift</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Effective</Table.ColumnHeaderCell>
                                 <Table.ColumnHeaderCell>Priority</Table.ColumnHeaderCell>
+                                {isGlobalUser && <Table.ColumnHeaderCell>Assigned By</Table.ColumnHeaderCell>}
                                 <Table.ColumnHeaderCell style={{ textAlign: 'right' }}></Table.ColumnHeaderCell>
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
                             {assignments.length === 0 ? (
                                 <Table.Row>
-                                    <Table.Cell colSpan={5}>
+                                    <Table.Cell colSpan={isGlobalUser ? 6 : 5}>
                                         <Text color="gray" size="2">No assignments yet.</Text>
                                     </Table.Cell>
                                 </Table.Row>
@@ -98,6 +102,11 @@ export default function AssignmentManager({ employees = [], departments = [], de
                                     <Table.Cell>
                                         <Text size="2">{a.priority ?? 0}</Text>
                                     </Table.Cell>
+                                    {isGlobalUser && (
+                                        <Table.Cell>
+                                            <Text size="2" color="gray">{a.assigner?.name || 'System'}</Text>
+                                        </Table.Cell>
+                                    )}
                                     <Table.Cell>
                                         <Flex justify="end" gap="1">
                                             <IconButton size="1" variant="ghost" color="gray" onClick={() => { setEditing(a); setOpen(true); }} title="Edit / end-date">

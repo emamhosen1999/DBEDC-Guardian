@@ -11,7 +11,8 @@ import AssignmentManager from '@/Pages/Attendance/Components/AssignmentManager';
 import TablePagination from '@/Components/TablePagination.jsx';
 
 export default function ShiftsSettings() {
-    const { employees = [], departments = [], designations = [] } = usePage().props;
+    const { auth, employees = [], departments = [], designations = [] } = usePage().props;
+    const isGlobalUser = auth?.isSuperAdmin || auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager') || auth?.permissions?.includes('attendance.settings');
     const qc = useQueryClient();
     const [activeSubTab, setActiveSubTab] = useState('shifts');
     const [editing, setEditing] = useState(null);
@@ -130,6 +131,7 @@ export default function ShiftsSettings() {
                                         <Table.ColumnHeaderCell>Code</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Window</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                        {isGlobalUser && <Table.ColumnHeaderCell>Created By</Table.ColumnHeaderCell>}
                                         <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
                                     </Table.Row>
                                 </Table.Header>
@@ -152,6 +154,11 @@ export default function ShiftsSettings() {
                                             <Table.Cell>
                                                 {s.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
                                             </Table.Cell>
+                                            {isGlobalUser && (
+                                                <Table.Cell>
+                                                    <Text size="2" color="gray">{s.creator?.name || 'System'}</Text>
+                                                </Table.Cell>
+                                            )}
                                             <Table.Cell>
                                                 <Flex gap="1" justify="end">
                                                     <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditing(s); setOpen(true); }}>
@@ -209,6 +216,7 @@ export default function ShiftsSettings() {
                                         <Table.ColumnHeaderCell>Cycle Length</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Sequence Preview</Table.ColumnHeaderCell>
                                         <Table.ColumnHeaderCell>Status</Table.ColumnHeaderCell>
+                                        {isGlobalUser && <Table.ColumnHeaderCell>Created By</Table.ColumnHeaderCell>}
                                         <Table.ColumnHeaderCell style={{ textAlign: 'right' }}>Actions</Table.ColumnHeaderCell>
                                     </Table.Row>
                                 </Table.Header>
@@ -232,6 +240,11 @@ export default function ShiftsSettings() {
                                             <Table.Cell>
                                                 {p.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
                                             </Table.Cell>
+                                            {isGlobalUser && (
+                                                <Table.Cell>
+                                                    <Text size="2" color="gray">{p.creator?.name || 'System'}</Text>
+                                                </Table.Cell>
+                                            )}
                                             <Table.Cell>
                                                 <Flex gap="1" justify="end">
                                                     <IconButton size="1" variant="ghost" color="blue" onClick={() => { setEditingPattern(p); setPatternOpen(true); }}>

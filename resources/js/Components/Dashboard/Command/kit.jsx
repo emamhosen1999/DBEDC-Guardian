@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Card, Flex, Box, Heading, Text, Skeleton } from '@radix-ui/themes';
+import { Flex, Box, Heading, Text, Skeleton } from '@radix-ui/themes';
 
 /* ── data ───────────────────────────────────────────────────────────── */
 export function useCommandData() {
