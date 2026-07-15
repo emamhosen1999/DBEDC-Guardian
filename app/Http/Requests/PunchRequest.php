@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\GuardsServerAuthoritativePunchTime;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PunchRequest extends FormRequest
 {
+    use GuardsServerAuthoritativePunchTime;
+
     public function authorize(): bool
     {
         return auth()->check();
@@ -34,6 +37,9 @@ class PunchRequest extends FormRequest
 
     protected function prepareForValidation()
     {
+        // A browser punch is always server-timed; it can never claim a device source.
+        $this->stripDeviceTrustedPunchFields();
+
         // Sanitize inputs
         if ($this->has('qr_code')) {
             $this->merge([

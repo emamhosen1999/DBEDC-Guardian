@@ -167,6 +167,53 @@ class MobileAttendanceApiTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_mobile_punch_ignores_client_supplied_punch_time_and_source(): void
+    {
+        // A human punch must always be stamped with the server clock. If the
+        // endpoint honoured a client `punch_time` + `source`, any authenticated
+        // user could back-date a punch and defeat late / overtime math.
+        Carbon::setTestNow(Carbon::parse('2026-06-19 09:00:00'));
+
+        try {
+            $attendanceType = AttendanceType::factory()->wifiIp()->create([
+                'is_active' => true,
+                'config' => [
+                    'ip_locations' => [],
+                    'validation_mode' => 'any',
+                    'allow_without_network' => true,
+                ],
+            ]);
+
+            $user = User::factory()->create([
+                'attendance_type_id' => $attendanceType->id,
+            ]);
+
+            Sanctum::actingAs($user);
+
+            $response = $this->postJson('/api/v1/attendance/punch', [
+                'source' => 'biometric',
+                'punch_time' => '2026-01-01 08:00:00',
+            ]);
+
+            $response->assertOk()
+                ->assertJsonPath('success', true)
+                ->assertJsonPath('action', 'punch_in');
+
+            $attendance = Attendance::query()
+                ->where('user_id', $user->id)
+                ->latest('id')
+                ->first();
+
+            $this->assertNotNull($attendance);
+            // Recorded on the server date, not the injected 2026-01-01.
+            $this->assertSame('2026-06-19', Carbon::parse($attendance->date)->toDateString());
+            // Recorded at the server moment (09:00), not the injected 08:00.
+            $this->assertSame('2026-06-19 09:00', Carbon::parse($attendance->punchin)->format('Y-m-d H:i'));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_mobile_punch_requires_active_attendance_type(): void
     {
         $user = User::factory()->create([

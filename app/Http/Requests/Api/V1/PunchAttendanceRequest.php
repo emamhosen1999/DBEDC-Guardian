@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Http\Requests\Concerns\GuardsServerAuthoritativePunchTime;
 use Illuminate\Foundation\Http\FormRequest;
 
 class PunchAttendanceRequest extends FormRequest
 {
+    use GuardsServerAuthoritativePunchTime;
+
     public function authorize(): bool
     {
         return (bool) $this->user();
@@ -20,5 +23,10 @@ class PunchAttendanceRequest extends FormRequest
             'qr_code' => ['nullable', 'string', 'max:512'],
             'photo' => ['nullable', 'string'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->stripDeviceTrustedPunchFields();
     }
 }
