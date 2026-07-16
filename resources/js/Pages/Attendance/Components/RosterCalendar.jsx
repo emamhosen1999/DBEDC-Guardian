@@ -292,7 +292,11 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
                                                 {/* Shift chip positioned absolutely in column range */}
                                                 {(() => {
-                                                    const renderChip = (startCol, endCol, color, code, isPending, key) => (
+                                                    // edge: 'both' (default) rounds all corners; 'right-open' /
+                                                    // 'left-open' square the side that continues into the adjacent
+                                                    // day cell, so a cross-midnight shift reads as ONE bar running
+                                                    // through the cell border instead of two spliced chips.
+                                                    const renderChip = (startCol, endCol, color, code, isPending, key, edge = 'both', showLabel = true) => (
                                                         <Box
                                                             key={key}
                                                             style={{
@@ -301,7 +305,8 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                                 height: '24px',
                                                                 alignSelf: 'center',
                                                                 background: color || 'var(--accent-9)',
-                                                                borderRadius: 4,
+                                                                borderRadius: edge === 'right-open' ? '4px 0 0 4px'
+                                                                    : edge === 'left-open' ? '0 4px 4px 0' : 4,
                                                                 display: 'flex',
                                                                 alignItems: 'center',
                                                                 justifyContent: 'center',
@@ -310,14 +315,17 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                                 zIndex: 1,
                                                                 overflow: 'hidden',
                                                                 whiteSpace: 'nowrap',
-                                                                padding: '0 4px',
+                                                                padding: showLabel ? '0 4px' : 0,
                                                                 border: isPending ? '1px dashed var(--amber-8)' : 'none',
-                                                                margin: '0 1px',
+                                                                margin: edge === 'right-open' ? '0 0 0 1px'
+                                                                    : edge === 'left-open' ? '0 1px 0 0' : '0 1px',
                                                             }}
                                                         >
-                                                            <Text style={{ fontSize: 9, fontWeight: 700 }}>
-                                                                {code}
-                                                            </Text>
+                                                            {showLabel && (
+                                                                <Text style={{ fontSize: 9, fontWeight: 700 }}>
+                                                                    {code}
+                                                                </Text>
+                                                            )}
                                                         </Box>
                                                     );
 
@@ -331,7 +339,10 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
                                                         if (crosses) {
                                                             if (hStart < 24) {
-                                                                chips.push(renderChip(hStart + 1, 25, disp.color, shift.code, disp.kind === 'pending', 'part1'));
+                                                                // Label the segment only when it is the longer half,
+                                                                // so a 1-hour sliver (e.g. NGT 23:00) never clips text.
+                                                                const beforeMidnight = 24 - hStart;
+                                                                chips.push(renderChip(hStart + 1, 25, disp.color, shift.code, disp.kind === 'pending', 'part1', 'right-open', beforeMidnight >= hEnd));
                                                             }
                                                         } else {
                                                             chips.push(renderChip(hStart + 1, hEnd + 1, disp.color, shift.code, disp.kind === 'pending', 'full'));
@@ -346,7 +357,8 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
                                                         if (crossesYes && hEndYes > 0) {
                                                             const isPendingYes = dispYesterday?.kind === 'pending';
-                                                            chips.push(renderChip(1, hEndYes + 1, dispYesterday?.color, shiftYesterday.code, isPendingYes, 'part2'));
+                                                            const beforeMidnightYes = 24 - hStartYes;
+                                                            chips.push(renderChip(1, hEndYes + 1, dispYesterday?.color, shiftYesterday.code, isPendingYes, 'part2', 'left-open', hEndYes > beforeMidnightYes));
                                                         }
                                                     }
 
