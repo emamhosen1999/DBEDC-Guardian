@@ -149,7 +149,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                 </Flex>,
                                 { zIndex: 2, bg: rowBg }
                             )}
-                            {days.map((d) => {
+                            {days.map((d, dayIndex) => {
                                 const cell = row.days?.[d];
                                 const disp = resolveRosterCellDisplay(cell, holidays[d]);
 
@@ -339,10 +339,39 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
                                                         if (crosses) {
                                                             if (hStart < 24) {
-                                                                // Label the segment only when it is the longer half,
-                                                                // so a 1-hour sliver (e.g. NGT 23:00) never clips text.
-                                                                const beforeMidnight = 24 - hStart;
-                                                                chips.push(renderChip(hStart + 1, 25, disp.color, shift.code, disp.kind === 'pending', 'part1', 'right-open', beforeMidnight >= hEnd));
+                                                                // ONE unbroken chip: absolutely positioned from the
+                                                                // start hour, overflowing the cell into the next day
+                                                                // (the sibling cell's content sits at a lower z-index,
+                                                                // so the chip paints over its border and hour lines).
+                                                                const spanHours = (24 - hStart) + hEnd;
+                                                                chips.push(
+                                                                    <Box
+                                                                        key="cross"
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            left: `calc(${(hStart / 24) * 100}% + 1px)`,
+                                                                            width: `calc(${(spanHours / 24) * 100}% - 2px)`,
+                                                                            top: '50%',
+                                                                            transform: 'translateY(-50%)',
+                                                                            height: '24px',
+                                                                            background: disp.color || 'var(--accent-9)',
+                                                                            borderRadius: 4,
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            color: '#fff',
+                                                                            boxShadow: 'var(--shadow-2)',
+                                                                            zIndex: 2,
+                                                                            whiteSpace: 'nowrap',
+                                                                            padding: '0 4px',
+                                                                            border: disp.kind === 'pending' ? '1px dashed var(--amber-8)' : 'none',
+                                                                        }}
+                                                                    >
+                                                                        <Text style={{ fontSize: 9, fontWeight: 700 }}>
+                                                                            {shift.code}
+                                                                        </Text>
+                                                                    </Box>
+                                                                );
                                                             }
                                                         } else {
                                                             chips.push(renderChip(hStart + 1, hEnd + 1, disp.color, shift.code, disp.kind === 'pending', 'full'));
@@ -355,10 +384,12 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                         const hEndYes = Math.round(parseTimeToHours(shiftYesterday.end_time));
                                                         const crossesYes = shiftYesterday.crosses_midnight || hEndYes < hStartYes;
 
-                                                        if (crossesYes && hEndYes > 0) {
+                                                        // Only needed when yesterday's cell is not rendered in this
+                                                        // month view (first column): otherwise yesterday's own chip
+                                                        // already overflows across the boundary as one piece.
+                                                        if (crossesYes && hEndYes > 0 && dayIndex === 0) {
                                                             const isPendingYes = dispYesterday?.kind === 'pending';
-                                                            const beforeMidnightYes = 24 - hStartYes;
-                                                            chips.push(renderChip(1, hEndYes + 1, dispYesterday?.color, shiftYesterday.code, isPendingYes, 'part2', 'left-open', hEndYes > beforeMidnightYes));
+                                                            chips.push(renderChip(1, hEndYes + 1, dispYesterday?.color, shiftYesterday.code, isPendingYes, 'part2', 'left-open', true));
                                                         }
                                                     }
 
