@@ -62,7 +62,7 @@ All sections executed on prod (backup `dbedc-erp-preshiftfix-20260716-065605.sql
 - **Pattern v2** (`MC3V2`, id 15, `EVN→NGT→OFF→OFF→MRN` ×7) live; old assignments end-dated 2026-07-18; new anchors Amzad 07-19 / Elias 07-12 / Zidan 07-05 / Tanvir 06-28 / Kashab 06-21; roster regenerated Jul 19 → Aug 22.
 - **Legacy doubles fixed:** Jul 17 Zidan → OFF (Kashab keeps NGT), Jul 18 Tanvir → OFF (Kashab keeps NGT).
 - **Stale future overrides voided** from Jul 19 (roster republication); swap request records kept and annotated.
-- **Debt settlements:** #5 → Kashab works Elias's NGT **Jul 23**, Elias off. #7 → 3-way on **Jul 27**: Amzad takes Tanvir's MRN, Tanvir takes Elias's EVN, Elias off (direct transfer proven rest-illegal on this pattern). Pending #13/#16 rejected as moot (off-days under new rotation).
+- **Debt settlements:** #5 → Kashab works Elias's NGT **Jul 23**, Elias off. #7 → 3-way on **Jul 27**: Amzad takes Tanvir's MRN, Tanvir takes Elias's EVN, Elias off (direct transfer proven rest-illegal on this pattern). #14 → Jul-31 leg impossible (Tanvir OFF under new rotation); settled **Jul 22**: Amzad works Tanvir's MRN, Tanvir off. Pending #13/#16 rejected as moot (off-days under new rotation).
 - **Final verification:** coverage Jul 16 → Aug 22 = exactly one MRN+EVN+NGT every day; `WorkTimeComplianceService` = **0 violations** for all five officers Jul 19 → Aug 22; live UI checked in browser (chip fix visible, 0 console errors).
 - **Known cosmetic limit:** the roster calendar draws pre-Jul-16 chips with current shift times (frontend receives one shifts catalog, not per-date versions). Scoring is version-correct; drawing-only drift. Candidate follow-up: per-cell effective times in the roster payload.
 
