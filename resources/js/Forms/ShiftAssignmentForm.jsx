@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog, Flex, Box, Select, TextField, Button, Text, Callout, SegmentedControl } from '@radix-ui/themes';
-import { InfoCircledIcon } from '@radix-ui/react-icons';
+import { InfoCircledIcon, ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useQuery } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
 import { showToast } from '@/utils/toastUtils';
 import DateTimePicker from '@/Components/DateTimePicker';
 import SearchableMultiSelect from '@/Components/SearchableMultiSelect';
+import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } from '@/Pages/Attendance/complianceViolations';
 
 export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assignment = null, employees = [], departments = [], designations = [] }) {
     const isEdit = !!assignment;
@@ -23,7 +24,12 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
     const [assignmentType, setAssignmentType] = useState('shift'); // 'shift' or 'pattern'
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
+    // Compliance warnings returned by the last successful save — shown under the
+    // form (non-blocking); the dialog stays open until the user dismisses them.
+    const [savedViolations, setSavedViolations] = useState([]);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const employeesById = useMemo(() => keyEmployeesById(employees), [employees]);
 
     // Read-only scope label shown when editing an existing assignment.
     const scopeText = useMemo(() => {
@@ -57,6 +63,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
             setAssignmentType('shift');
         }
         setError('');
+        setSavedViolations([]);
     }, [open, assignment]);
 
     const { data: shiftsData } = useQuery({
@@ -88,6 +95,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
         setError('');
         setSaving(true);
         try {
+            let res;
             if (isEdit) {
                 // Editing supersedes in place (e.g. set an end-date). Scope is fixed.
                 const payload = {
@@ -98,13 +106,9 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
                     effective_from: form.effective_from,
                     effective_to: form.effective_to || null,
                 };
-                await requestJson('put', `/attendance/shift-assignments/${assignment.id}`, { data: payload });
+                res = await requestJson('put', `/attendance/shift-assignments/${assignment.id}`, { data: payload });
                 showToast.success('Assignment updated.');
-                onSaved?.();
-                onOpenChange(false);
-                return;
-            }
-            if (form.scope_type === 'org') {
+            } else if (form.scope_type === 'org') {
                 // Org-wide = single assignment, use original endpoint
                 const payload = {
                     scope_type: 'org',
@@ -116,7 +120,7 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
                     effective_from: form.effective_from,
                     effective_to: form.effective_to || null,
                 };
-                await requestJson('post', '/attendance/shift-assignments', { data: payload });
+                res = await requestJson('post', '/attendance/shift-assignments', { data: payload });
                 showToast.success('Organization-wide shift assignment saved.');
             } else {
                 // Multi-select: use bulk endpoint
@@ -130,12 +134,22 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
                     effective_from: form.effective_from,
                     effective_to: form.effective_to || null,
                 };
-                const res = await requestJson('post', '/attendance/shift-assignments/bulk', { data: payload });
+                res = await requestJson('post', '/attendance/shift-assignments/bulk', { data: payload });
                 const msg = res?.message || `${form.scope_ids.length} assignment(s) created.`;
                 showToast.success(msg);
             }
+
             onSaved?.();
-            onOpenChange(false);
+
+            // Working-time compliance is informational only here (never blocks the
+            // save): if the response carries warnings, keep the dialog open and
+            // show them under the form instead of closing immediately.
+            const violations = violationsFromResult(res);
+            if (violations.length > 0) {
+                setSavedViolations(groupViolationsByEmployee(violations, employeesById));
+            } else {
+                onOpenChange(false);
+            }
         } catch (e) {
             const msg = e?.message || 'Failed to save assignment.';
             setError(msg);
@@ -294,16 +308,42 @@ export default function ShiftAssignmentForm({ open, onOpenChange, onSaved, assig
 
                     {error && <Text color="red" size="2">{error}</Text>}
 
+                    {savedViolations.length > 0 && (
+                        <Callout.Root color="amber" size="1">
+                            <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                            <Callout.Text>
+                                <Text weight="medium" as="div" mb="1">
+                                    Assignment saved — working-time compliance warnings for review:
+                                </Text>
+                                <Flex direction="column" gap="1">
+                                    {savedViolations.flatMap((g) => g.violations.map((v, i) => (
+                                        <Text key={`${g.userId}-${i}`} as="div" size="1">
+                                            <Text weight="medium">{g.name}</Text>: {v.date} — {v.message}
+                                        </Text>
+                                    )))}
+                                </Flex>
+                            </Callout.Text>
+                        </Callout.Root>
+                    )}
+
                     <Flex justify="end" gap="2" mt="2">
-                        <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button onClick={save} disabled={saving || !canSave}>
-                            {saving ? 'Saving…' : isEdit ? 'Save changes'
-                                : form.scope_type !== 'org' && form.scope_ids.length > 1
-                                    ? `Assign to ${form.scope_ids.length} ${scopeLabel}`
-                                    : 'Save'}
-                        </Button>
+                        {savedViolations.length > 0 ? (
+                            <Button onClick={() => { setSavedViolations([]); onOpenChange(false); }}>
+                                Done
+                            </Button>
+                        ) : (
+                            <>
+                                <Button variant="soft" color="gray" onClick={() => onOpenChange(false)} disabled={saving}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={save} disabled={saving || !canSave}>
+                                    {saving ? 'Saving…' : isEdit ? 'Save changes'
+                                        : form.scope_type !== 'org' && form.scope_ids.length > 1
+                                            ? `Assign to ${form.scope_ids.length} ${scopeLabel}`
+                                            : 'Save'}
+                                </Button>
+                            </>
+                        )}
                     </Flex>
                 </Flex>
             </Dialog.Content>

@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Popover, Flex, Box, Button, Text, Callout, Select } from '@radix-ui/themes';
 
-/** shifts: [{id,code,name,color}]; onPick(shiftIdOrNull, workLocationIdOrNull) */
-export default function RosterCellPopover({ open, onOpenChange, anchor, shifts = [], notice = null, workLocations = [], selectedLocationId = null, onPick }) {
+/**
+ * shifts: [{id,code,name,color}]; onPick(shiftIdOrNull, workLocationIdOrNull)
+ * violations: Violation[]|null — working-time compliance results for the last write
+ *   attempt on this cell (either a 200-with-warnings or a 422-blocked response).
+ * violationsBlocked: true when the write was rejected (422) and did not apply.
+ */
+export default function RosterCellPopover({ open, onOpenChange, anchor, shifts = [], notice = null, violations = null, violationsBlocked = false, workLocations = [], selectedLocationId = null, onPick }) {
     const [locId, setLocId] = useState(selectedLocationId ? String(selectedLocationId) : 'home');
     useEffect(() => { setLocId(selectedLocationId ? String(selectedLocationId) : 'home'); }, [selectedLocationId, open]);
 
@@ -11,10 +16,22 @@ export default function RosterCellPopover({ open, onOpenChange, anchor, shifts =
     return (
         <Popover.Root open={open} onOpenChange={onOpenChange}>
             <Popover.Trigger>{anchor}</Popover.Trigger>
-            <Popover.Content width="220px">
+            <Popover.Content width="260px">
                 {notice && (
                     <Callout.Root color="amber" size="1" mb="2">
                         <Callout.Text>{notice}</Callout.Text>
+                    </Callout.Root>
+                )}
+                {violations && violations.length > 0 && (
+                    <Callout.Root color={violationsBlocked ? 'red' : 'amber'} size="1" mb="2">
+                        <Callout.Text>
+                            <Text weight="medium" as="div" mb="1">
+                                {violationsBlocked ? 'Blocked by working-time rules:' : 'Compliance warning:'}
+                            </Text>
+                            {violations.map((v, i) => (
+                                <Text key={i} as="div" size="1">{v.date} — {v.message}</Text>
+                            ))}
+                        </Callout.Text>
                     </Callout.Root>
                 )}
                 {workLocations.length > 0 && (

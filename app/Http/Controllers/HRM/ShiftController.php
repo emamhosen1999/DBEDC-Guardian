@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
-use App\Models\HRM\Shift;
-use App\Models\HRM\ShiftRotationPattern;
-use App\Models\HRM\ShiftAssignment;
 use App\Models\HRM\Designation;
+use App\Models\HRM\RosterDay;
+use App\Models\HRM\Shift;
+use App\Models\HRM\ShiftAssignment;
+use App\Models\HRM\ShiftRotationPattern;
 use App\Models\User;
 use App\Services\Attendance\ShiftService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +27,7 @@ class ShiftController extends Controller
 
         $query = Shift::with('creator:id,name')->orderBy('start_time')->orderBy('name');
 
-        if (!$isGlobal) {
+        if (! $isGlobal) {
             $query->where('created_by', $user->id);
         }
 
@@ -62,19 +64,33 @@ class ShiftController extends Controller
         return response()->json(['message' => 'Shift created.', 'shift' => $shift->load('creator:id,name')], 201);
     }
 
+    /**
+     * Columns whose value determines HOW a day is scored (present/late/half-day/etc).
+     * Changing any of these must be versioned so past attendance is never
+     * silently re-scored against the new definition.
+     */
+    private const TIME_BEHAVIOR_FIELDS = [
+        'start_time', 'end_time', 'crosses_midnight', 'grace_in_minutes',
+        'grace_out_minutes', 'full_day_minutes', 'half_day_minutes',
+        'min_present_minutes', 'break_minutes',
+    ];
+
+    /** Sentinel "since forever" effective date, mirrors the versions-table migration backfill. */
+    private const SENTINEL_EFFECTIVE_FROM = '2000-01-01';
+
     public function update(Request $request, int $id): JsonResponse
     {
         $user = auth()->user();
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $shift = Shift::findOrFail($id);
 
-        if (!$isGlobal && $shift->created_by !== $user->id) {
+        if (! $isGlobal && $shift->created_by !== $user->id) {
             abort(403, 'Unauthorized to update shifts created by other users.');
         }
 
         $data = $request->validate([
             'name' => 'sometimes|string|max:100',
-            'code' => 'sometimes|string|max:20|unique:shifts,code,' . $id,
+            'code' => 'sometimes|string|max:20|unique:shifts,code,'.$id,
             'type' => 'sometimes|in:fixed,flexible,open',
             'start_time' => 'sometimes|date_format:H:i',
             'end_time' => 'sometimes|date_format:H:i',
@@ -89,11 +105,105 @@ class ShiftController extends Controller
             'core_end_time' => 'sometimes|nullable|date_format:H:i',
             'color' => 'sometimes|nullable|string|max:20',
             'is_active' => 'sometimes|boolean',
+            'effective_from' => 'sometimes|date',
         ]);
 
-        DB::transaction(fn () => $shift->update($data));
+        $today = Carbon::today();
+        $effectiveFrom = isset($data['effective_from'])
+            ? Carbon::parse($data['effective_from'])->startOfDay()
+            : $today->copy();
 
-        return response()->json(['message' => 'Shift updated.', 'shift' => $shift->fresh()->load('creator:id,name')]);
+        if ($effectiveFrom->gt($today->copy()->addYear())) {
+            return response()->json(['message' => 'effective_from cannot be more than one year in the future.'], 422);
+        }
+
+        $latestVersion = $shift->versions()->orderByDesc('effective_from')->first();
+
+        if ($latestVersion && $effectiveFrom->lt($latestVersion->effective_from)) {
+            return response()->json([
+                'message' => 'effective_from cannot be earlier than the shift\'s current version date ('
+                    .$latestVersion->effective_from->toDateString().').',
+            ], 422);
+        }
+
+        unset($data['effective_from']);
+
+        $timeData = array_intersect_key($data, array_flip(self::TIME_BEHAVIOR_FIELDS));
+        $otherData = array_diff_key($data, $timeData);
+
+        $normalizeTime = static fn ($value) => Carbon::parse($value)->format('H:i:s');
+
+        $hasTimeBehaviorChange = false;
+        foreach ($timeData as $field => $incoming) {
+            $current = $shift->{$field};
+
+            if (in_array($field, ['start_time', 'end_time'], true)) {
+                $changed = $normalizeTime($incoming) !== $normalizeTime($current);
+            } elseif ($field === 'crosses_midnight') {
+                $changed = (bool) $incoming !== (bool) $current;
+            } else {
+                $changed = (int) $incoming !== (int) $current;
+            }
+
+            if ($changed) {
+                $hasTimeBehaviorChange = true;
+                break;
+            }
+        }
+
+        DB::transaction(function () use ($shift, $otherData, $timeData, $hasTimeBehaviorChange, $effectiveFrom, $today) {
+            if (! empty($otherData)) {
+                $shift->update($otherData);
+            }
+
+            if ($hasTimeBehaviorChange) {
+                // If this shift has never been versioned, seed a "since forever" baseline
+                // version with the OLD (pre-edit) values first. Without this, any date
+                // before the new version's effective_from would have no version to
+                // resolve against and would fall back to the shift's live mirror columns
+                // — which are about to be overwritten by this very edit.
+                if (! $shift->versions()->exists()) {
+                    $shift->versions()->create([
+                        'effective_from' => self::SENTINEL_EFFECTIVE_FROM,
+                        'start_time' => $shift->start_time,
+                        'end_time' => $shift->end_time,
+                        'crosses_midnight' => (bool) $shift->crosses_midnight,
+                        'grace_in_minutes' => $shift->grace_in_minutes,
+                        'grace_out_minutes' => $shift->grace_out_minutes,
+                        'full_day_minutes' => $shift->full_day_minutes,
+                        'half_day_minutes' => $shift->half_day_minutes,
+                        'min_present_minutes' => $shift->min_present_minutes,
+                        'break_minutes' => $shift->break_minutes,
+                    ]);
+                }
+
+                $versionValues = [];
+                foreach (self::TIME_BEHAVIOR_FIELDS as $field) {
+                    $versionValues[$field] = array_key_exists($field, $timeData) ? $timeData[$field] : $shift->{$field};
+                }
+                $versionValues['crosses_midnight'] = (bool) $versionValues['crosses_midnight'];
+
+                $shift->versions()->updateOrCreate(
+                    ['effective_from' => $effectiveFrom->toDateString()],
+                    $versionValues
+                );
+
+                if ($effectiveFrom->lte($today)) {
+                    $shift->update($versionValues);
+                }
+            }
+        });
+
+        $shift->refresh();
+
+        return response()->json([
+            'message' => 'Shift updated.',
+            'shift' => $shift->load('creator:id,name'),
+            'versions_count' => $shift->versions()->count(),
+            'historical_days_affected' => RosterDay::where('shift_id', $shift->id)
+                ->where('date', '<', $effectiveFrom->toDateString())
+                ->count(),
+        ]);
     }
 
     public function destroy(int $id): JsonResponse
@@ -102,7 +212,7 @@ class ShiftController extends Controller
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $shift = Shift::findOrFail($id);
 
-        if (!$isGlobal && $shift->created_by !== $user->id) {
+        if (! $isGlobal && $shift->created_by !== $user->id) {
             abort(403, 'Unauthorized to delete shifts created by other users.');
         }
 
@@ -118,7 +228,7 @@ class ShiftController extends Controller
 
         $query = ShiftRotationPattern::with('creator:id,name')->orderBy('name');
 
-        if (!$isGlobal) {
+        if (! $isGlobal) {
             $query->where('created_by', $user->id);
         }
 
@@ -150,13 +260,13 @@ class ShiftController extends Controller
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $pattern = ShiftRotationPattern::findOrFail($id);
 
-        if (!$isGlobal && $pattern->created_by !== $user->id) {
+        if (! $isGlobal && $pattern->created_by !== $user->id) {
             abort(403, 'Unauthorized to update rotation patterns created by other users.');
         }
 
         $data = $request->validate([
             'name' => 'sometimes|string|max:100',
-            'code' => 'sometimes|string|max:20|unique:shift_rotation_patterns,code,' . $id,
+            'code' => 'sometimes|string|max:20|unique:shift_rotation_patterns,code,'.$id,
             'cycle_length_days' => 'sometimes|integer|min:1',
             'definition' => 'sometimes|array',
             'is_active' => 'sometimes|boolean',
@@ -173,7 +283,7 @@ class ShiftController extends Controller
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $pattern = ShiftRotationPattern::findOrFail($id);
 
-        if (!$isGlobal && $pattern->created_by !== $user->id) {
+        if (! $isGlobal && $pattern->created_by !== $user->id) {
             abort(403, 'Unauthorized to delete rotation patterns created by other users.');
         }
 
@@ -190,7 +300,7 @@ class ShiftController extends Controller
 
         if ($scopeType === 'department') {
             foreach ($scopeIds as $id) {
-                if ((int)$id !== $userDeptId) {
+                if ((int) $id !== $userDeptId) {
                     abort(403, 'Unauthorized to assign shifts for other departments.');
                 }
             }
@@ -232,7 +342,7 @@ class ShiftController extends Controller
         $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
         $userDeptId = $user->department_id;
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $this->validateScopeForManager($data['scope_type'], [$data['scope_id']], $userDeptId);
         }
 
@@ -244,7 +354,17 @@ class ShiftController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['message' => 'Assignment created.', 'assignment' => $assignment], 201);
+        // Working-time compliance is informational only here (never blocks):
+        // an assignment can target a whole department/designation/org at
+        // once, so hard-blocking on one affected employee's edge case would
+        // be too disruptive. Surfaced for HR/manager review.
+        $complianceViolations = $this->shifts->complianceForAssignment($assignment);
+
+        return response()->json([
+            'message' => 'Assignment created.',
+            'assignment' => $assignment,
+            'compliance_violations' => $complianceViolations,
+        ], 201);
     }
 
     public function storeBulkAssignment(Request $request): JsonResponse
@@ -272,7 +392,7 @@ class ShiftController extends Controller
             return response()->json(['message' => 'No scope items selected.'], 422);
         }
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $this->validateScopeForManager($scopeType, $scopeIds, $userDeptId);
         }
 
@@ -280,7 +400,7 @@ class ShiftController extends Controller
         $errors = [];
 
         try {
-            DB::transaction(function () use ($scopeIds, $data, $scopeType, $user, &$created, &$errors) {
+            DB::transaction(function () use ($scopeIds, $data, $user, &$created, &$errors) {
                 foreach ($scopeIds as $scopeId) {
                     $row = $data;
                     $row['scope_id'] = $scopeId;
@@ -301,10 +421,19 @@ class ShiftController extends Controller
         $total = count($created);
         $failed = count($errors);
 
+        // Working-time compliance is informational only here (never blocks),
+        // same as storeAssignment. Merge each created assignment's violations
+        // (keyed by user_id) into a single payload for the caller.
+        $complianceViolations = [];
+        foreach ($created as $assignment) {
+            $complianceViolations += $this->shifts->complianceForAssignment($assignment);
+        }
+
         return response()->json([
-            'message' => "{$total} assignment(s) created." . ($failed > 0 ? " {$failed} skipped." : ''),
+            'message' => "{$total} assignment(s) created.".($failed > 0 ? " {$failed} skipped." : ''),
             'created_count' => $total,
             'skipped' => $errors,
+            'compliance_violations' => $complianceViolations,
         ], $total > 0 ? 201 : 422);
     }
 
@@ -317,7 +446,7 @@ class ShiftController extends Controller
         $query = ShiftAssignment::with(['shift:id,code,name', 'rotationPattern:id,name', 'assigner:id,name'])
             ->orderByDesc('created_at');
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $query->where(function ($q) use ($userDeptId, $user) {
                 $q->where(function ($sub) use ($userDeptId) {
                     $sub->where('scope_type', 'user')
@@ -356,7 +485,7 @@ class ShiftController extends Controller
 
         $assignment = ShiftAssignment::findOrFail($id);
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $isAuthorized = false;
             if ($assignment->assigned_by === $user->id) {
                 $isAuthorized = true;
@@ -365,7 +494,7 @@ class ShiftController extends Controller
                 if ($scopedUser && $scopedUser->department_id === $userDeptId) {
                     $isAuthorized = true;
                 }
-            } elseif ($assignment->scope_type === 'department' && (int)$assignment->scope_id === $userDeptId) {
+            } elseif ($assignment->scope_type === 'department' && (int) $assignment->scope_id === $userDeptId) {
                 $isAuthorized = true;
             } elseif ($assignment->scope_type === 'designation') {
                 $scopedDesig = Designation::find($assignment->scope_id);
@@ -374,7 +503,7 @@ class ShiftController extends Controller
                 }
             }
 
-            if (!$isAuthorized) {
+            if (! $isAuthorized) {
                 abort(403, 'Unauthorized to update this shift assignment.');
             }
 
@@ -400,7 +529,15 @@ class ShiftController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['message' => 'Assignment updated.', 'assignment' => $assignment]);
+        // Working-time compliance is informational only here (never blocks),
+        // same as storeAssignment.
+        $complianceViolations = $this->shifts->complianceForAssignment($assignment);
+
+        return response()->json([
+            'message' => 'Assignment updated.',
+            'assignment' => $assignment,
+            'compliance_violations' => $complianceViolations,
+        ]);
     }
 
     public function destroyAssignment(int $id): JsonResponse
@@ -411,7 +548,7 @@ class ShiftController extends Controller
 
         $assignment = ShiftAssignment::findOrFail($id);
 
-        if (!$isGlobal && $userDeptId !== null) {
+        if (! $isGlobal && $userDeptId !== null) {
             $isAuthorized = false;
             if ($assignment->assigned_by === $user->id) {
                 $isAuthorized = true;
@@ -420,7 +557,7 @@ class ShiftController extends Controller
                 if ($scopedUser && $scopedUser->department_id === $userDeptId) {
                     $isAuthorized = true;
                 }
-            } elseif ($assignment->scope_type === 'department' && (int)$assignment->scope_id === $userDeptId) {
+            } elseif ($assignment->scope_type === 'department' && (int) $assignment->scope_id === $userDeptId) {
                 $isAuthorized = true;
             } elseif ($assignment->scope_type === 'designation') {
                 $scopedDesig = Designation::find($assignment->scope_id);
@@ -429,7 +566,7 @@ class ShiftController extends Controller
                 }
             }
 
-            if (!$isAuthorized) {
+            if (! $isAuthorized) {
                 abort(403, 'Unauthorized to delete this shift assignment.');
             }
         }

@@ -1,7 +1,7 @@
 import { Panel } from '@/Components/ui/Panel';
 import React, { useMemo, useState, useEffect } from 'react';
-import { Box, Flex, Button, Text, TextField, Select, SegmentedControl } from '@radix-ui/themes';
-import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon, GridIcon } from '@radix-ui/react-icons';
+import { Box, Flex, Button, Text, TextField, Select, SegmentedControl, Callout, IconButton } from '@radix-ui/themes';
+import { ReloadIcon, ChevronLeftIcon, ChevronRightIcon, CalendarIcon, PersonIcon, GridIcon, ExclamationTriangleIcon, Cross2Icon } from '@radix-ui/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
@@ -15,6 +15,7 @@ import CoveragePanel from './Components/CoveragePanel';
 import CoverageRequirementsDialog from './Components/CoverageRequirementsDialog';
 import RosterCellPopover from './Components/RosterCellPopover';
 import { handleCellConflict } from './rosterCellConflict';
+import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } from './complianceViolations';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import TablePagination from '@/Components/TablePagination.jsx';
 
@@ -24,6 +25,10 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     const authUserId = auth?.user?.id ?? null;
     const [selectedCell, setSelectedCell] = useState(null); // { userId, date }
     const [popoverOpen, setPopoverOpen] = useState(false);
+    const [cellViolations, setCellViolations] = useState(null); // { userId, date, blocked, violations }
+    const [generateViolations, setGenerateViolations] = useState([]); // grouped-by-employee, dismissible
+
+    const employeesById = useMemo(() => keyEmployeesById(employees), [employees]);
 
     const isGlobalUser = auth?.roles?.includes('Super Administrator') || auth?.roles?.includes('Administrator') || auth?.roles?.includes('HR Manager');
     const userDeptId = auth?.user?.department_id;
@@ -158,9 +163,12 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 data: { user_ids: userIds, from, to },
             });
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             showToast.success('Roster generated.');
             qc.invalidateQueries({ queryKey: ['roster', from, to] });
+
+            const violations = violationsFromResult(data);
+            setGenerateViolations(violations.length > 0 ? groupViolationsByEmployee(violations, employeesById) : []);
         },
         onError: (err) => {
             showToast.error(err?.message || 'Failed to generate roster.');
@@ -204,20 +212,42 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 roster: newRoster,
             };
         },
-        onError: (err) => {
+        onSuccess: (data, variables) => {
+            // Working-time compliance: never blocks here (a 200 always means the
+            // write happened) but surfaces non-blocking warnings for review.
+            const violations = violationsFromResult(data);
+            if (violations.length > 0) {
+                setCellViolations({ userId: variables.userId, date: variables.date, blocked: false, violations });
+                setSelectedCell({ userId: variables.userId, date: variables.date });
+                setPopoverOpen(true);
+            }
+        },
+        onError: (err, variables) => {
             if (handleCellConflict(err, showToast)) return; // 409 → warning + auto-revert + revalidate
+
+            // 422 = blocked by working-time compliance enforcement; the write did not happen.
+            const violations = violationsFromResult(err);
+            if (err?.status === 422 && violations.length > 0) {
+                setCellViolations({ userId: variables.userId, date: variables.date, blocked: true, violations });
+                setSelectedCell({ userId: variables.userId, date: variables.date });
+                setPopoverOpen(true);
+                return;
+            }
+
             showToast.error(err?.message || 'Failed to update roster cell.');
         },
     });
 
     const handleCellClick = (userId, date) => {
         setSelectedCell({ userId, date });
+        setCellViolations(null);
         setPopoverOpen(true);
     };
 
     const handlePick = (shiftId, workLocationId) => {
         if (!selectedCell) return;
         setPopoverOpen(false);
+        setCellViolations(null);
         const { userId, date } = selectedCell;
         const expectedUpdatedAt = roster?.[userId]?.days?.[date]?.updated_at ?? null;
         updateCell.mutate({ userId, date, shiftId, workLocationId, expectedUpdatedAt });
@@ -317,6 +347,33 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                 </Flex>
             </Flex>
 
+            {generateViolations.length > 0 && (
+                <Callout.Root color="amber" size="1" mb="3">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Flex justify="between" align="start" gap="3" width="100%">
+                        <Box>
+                            <Text size="2" weight="medium" as="div" mb="1">
+                                Working-time compliance warnings ({generateViolations.reduce((n, g) => n + g.violations.length, 0)})
+                            </Text>
+                            <Flex direction="column" gap="1">
+                                {generateViolations.map((group) => (
+                                    <Box key={group.userId ?? group.name}>
+                                        {group.violations.map((v, i) => (
+                                            <Text key={i} as="div" size="1" color="gray">
+                                                <Text weight="medium">{group.name}</Text>: {v.date} — {v.message}
+                                            </Text>
+                                        ))}
+                                    </Box>
+                                ))}
+                            </Flex>
+                        </Box>
+                        <IconButton size="1" variant="ghost" color="gray" onClick={() => setGenerateViolations([])} aria-label="Dismiss">
+                            <Cross2Icon />
+                        </IconButton>
+                    </Flex>
+                </Callout.Root>
+            )}
+
             {isLoading
                 ? <Text size="2" color="gray">Loading roster…</Text>
                 : (
@@ -358,10 +415,18 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                         )}
                         <RosterCellPopover
                             open={popoverOpen}
-                            onOpenChange={(o) => { if (!o) setPopoverOpen(false); }}
+                            onOpenChange={(o) => { if (!o) { setPopoverOpen(false); setCellViolations(null); } }}
                             anchor={<span />}
                             shifts={shifts}
                             notice={selectedNotice}
+                            violations={
+                                selectedCell && cellViolations
+                                    && String(cellViolations.userId) === String(selectedCell.userId)
+                                    && cellViolations.date === selectedCell.date
+                                    ? cellViolations.violations
+                                    : null
+                            }
+                            violationsBlocked={cellViolations?.blocked}
                             workLocations={workLocations}
                             selectedLocationId={selectedCell ? (roster?.[selectedCell.userId]?.days?.[selectedCell.date]?.work_location_id ?? null) : null}
                             onPick={handlePick}

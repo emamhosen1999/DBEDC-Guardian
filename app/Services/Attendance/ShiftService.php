@@ -3,10 +3,18 @@
 namespace App\Services\Attendance;
 
 use App\Models\HRM\ShiftAssignment;
+use App\Models\User;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use InvalidArgumentException;
 
 class ShiftService
 {
+    public function __construct(
+        private readonly RosterService $rosterService,
+        private readonly WorkTimeComplianceService $compliance,
+    ) {}
+
     public function createAssignment(array $data): ShiftAssignment
     {
         $hasShift = ! empty($data['shift_id']);
@@ -80,5 +88,69 @@ class ShiftService
 
             return $newToOk && $existingToOk;
         });
+    }
+
+    /**
+     * Working-time compliance for every user affected by an assignment
+     * (already persisted), over the first 35 days of its effective window
+     * (capped by effective_to if it ends sooner). The day-by-day shift is
+     * derived via RosterService::resolveShift() — the same resolution the
+     * roster grid uses — rather than roster_days, since generation may not
+     * have materialized this assignment yet.
+     *
+     * @return array<int, array<int, array{date: string, rule: string, message: string, severity: string, details: array}>> keyed by user_id
+     */
+    public function complianceForAssignment(ShiftAssignment $assignment): array
+    {
+        $userIds = $this->affectedUserIds($assignment);
+        if (empty($userIds)) {
+            return [];
+        }
+
+        $from = $this->toCarbonDate($assignment->effective_from);
+        $to = $from->copy()->addDays(34);
+
+        if ($assignment->effective_to) {
+            $effectiveTo = $this->toCarbonDate($assignment->effective_to);
+            if ($effectiveTo->lessThan($to)) {
+                $to = $effectiveTo;
+            }
+        }
+
+        $violations = [];
+        foreach ($userIds as $userId) {
+            $days = [];
+            for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+                $days[] = ['date' => $d->toDateString(), 'shift' => $this->rosterService->resolveShift($userId, $d)];
+            }
+
+            $userViolations = $this->compliance->evaluateSequence($days);
+            if ($userViolations) {
+                $violations[$userId] = $userViolations;
+            }
+        }
+
+        return $violations;
+    }
+
+    private function toCarbonDate(CarbonInterface|string $value): Carbon
+    {
+        return ($value instanceof CarbonInterface ? Carbon::parse($value) : Carbon::parse($value))->startOfDay();
+    }
+
+    /**
+     * Resolve the concrete user ids an assignment scope applies to.
+     *
+     * @return array<int, int>
+     */
+    private function affectedUserIds(ShiftAssignment $assignment): array
+    {
+        return match ($assignment->scope_type) {
+            'user' => $assignment->scope_id ? [(int) $assignment->scope_id] : [],
+            'department' => User::where('department_id', $assignment->scope_id)->pluck('id')->map(fn ($id) => (int) $id)->all(),
+            'designation' => User::where('designation_id', $assignment->scope_id)->pluck('id')->map(fn ($id) => (int) $id)->all(),
+            'org' => User::pluck('id')->map(fn ($id) => (int) $id)->all(),
+            default => [],
+        };
     }
 }

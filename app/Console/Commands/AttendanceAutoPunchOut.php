@@ -32,7 +32,10 @@ class AttendanceAutoPunchOut extends Command
         foreach ($rows as $row) {
             $in = Carbon::parse($row->punchin);
             $shift = $schedules->resolve($row->user_id, $in);
-            $end = $shift->isWorkingDay ? $shift->end->copy() : $in->copy()->endOfDay();
+            // Non-working (off-day) rows have no scheduled end to anchor on: the old
+            // endOfDay() fallback produced near-24h phantom rows. Credit at most an
+            // 8-hour shift, and never stamp a punchout in the future.
+            $end = $shift->isWorkingDay ? $shift->end->copy() : $in->copy()->addHours(8)->min($now);
             if ($now->lessThan($end)) {
                 continue; // still on shift
             }

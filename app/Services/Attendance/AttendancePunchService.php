@@ -3,7 +3,9 @@
 namespace App\Services\Attendance;
 
 use App\Models\HRM\Attendance;
+use App\Services\Attendance\Contracts\ScheduleResolver;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +26,13 @@ class AttendancePunchService
     private const SYNC_CAPTURE_MAX_AGE_HOURS = 72;
 
     /**
+     * Tolerance window (minutes) used when deciding whether a post-midnight
+     * punch-in belongs to the PRIOR business day's overnight shift. Mirrors
+     * the spirit of AttendanceStatusService::OUTSIDE_WINDOW_MINUTES.
+     */
+    private const REBIND_TOLERANCE_MINUTES = 120;
+
+    /**
      * Process punch in/out for a user
      */
     public function processPunch($user, Request $request): array
@@ -37,7 +46,7 @@ class AttendancePunchService
             }
 
             $punchTime = $this->resolvePunchTime($request);
-            $punchDate = $punchTime->copy()->startOfDay();
+            $punchDate = $this->resolveBusinessDate($user->id, $punchTime);
 
             // Honour explicit check_type sent by biometric devices (ZKTeco: in/out/break_*).
             // Absent check_type falls back to the original toggle behaviour (for manual punches).
@@ -113,6 +122,79 @@ class AttendancePunchService
             ->whereDate('date', $date)
             ->latest()
             ->first();
+    }
+
+    /**
+     * Resolve the correct BUSINESS date (attendances.date) for a punch-in moment.
+     *
+     * A shift that crosses midnight is rostered on day D but its window runs into
+     * D+1. Without this, a punch-in captured after midnight (e.g. a late-arriving
+     * night-shift officer at 00:15) is floored to the CALENDAR date of the punch
+     * (D+1) instead of the ROSTERED date (D) — leaving the officer wrongly marked
+     * ABSENT on D and creating a phantom unscheduled row on D+1.
+     *
+     * Rule: if YESTERDAY's resolved schedule (relative to the punch) is a working
+     * day, crosses midnight, and the punch falls inside that shift's window
+     * (start - REBIND_TOLERANCE_MINUTES through end) — and there is no already
+     * COMPLETED attendance row for yesterday covering it — bind the punch to
+     * yesterday's date instead of today's. An OPEN prior-day row is intentionally
+     * still eligible for rebind so the "already punched in" collision check
+     * (which reads the resolved date) correctly finds it, rather than creating a
+     * second row on the wrong day.
+     *
+     * Ties are broken in favour of TODAY's own schedule when the punch is also
+     * plausibly an early arrival for today's shift and today's start is closer.
+     *
+     * Day-shift users are entirely unaffected: yesterday never crosses midnight,
+     * so the very first check returns today's calendar date unchanged.
+     */
+    private function resolveBusinessDate(int $userId, Carbon $punchTime): Carbon
+    {
+        $today = $punchTime->copy()->startOfDay();
+        $prevDay = $today->copy()->subDay();
+
+        $resolver = app(ScheduleResolver::class);
+        $prevSchedule = $resolver->resolve($userId, $prevDay);
+
+        if (! $prevSchedule->isWorkingDay || ! $prevSchedule->crossesMidnight) {
+            return $today;
+        }
+
+        $prevWindowStart = $prevSchedule->start->copy()->subMinutes(self::REBIND_TOLERANCE_MINUTES);
+        $prevWindowEnd = $prevSchedule->end->copy();
+
+        if ($punchTime->lessThan($prevWindowStart) || $punchTime->greaterThan($prevWindowEnd)) {
+            return $today;
+        }
+
+        // A COMPLETED row already covers yesterday's shift — this punch is a
+        // distinct, unscheduled event and must not be folded into that closed day.
+        $prevRow = $this->getExistingAttendance($userId, $prevDay);
+        if ($prevRow && $prevRow->punchout !== null) {
+            return $today;
+        }
+
+        // Tie-break: today may ALSO have a legitimate claim (e.g. an early
+        // arrival for today's own shift). Prefer whichever start is closer.
+        $todaySchedule = $resolver->resolve($userId, $today);
+        if ($todaySchedule->isWorkingDay) {
+            $todayWindowStart = $todaySchedule->start->copy()->subMinutes(self::REBIND_TOLERANCE_MINUTES);
+            $todayWindowEnd = $todaySchedule->end->copy();
+
+            $nearToday = $punchTime->greaterThanOrEqualTo($todayWindowStart)
+                && $punchTime->lessThanOrEqualTo($todayWindowEnd);
+
+            if ($nearToday) {
+                $distPrev = abs($punchTime->diffInSeconds($prevSchedule->start));
+                $distToday = abs($punchTime->diffInSeconds($todaySchedule->start));
+
+                if ($distToday < $distPrev) {
+                    return $today;
+                }
+            }
+        }
+
+        return $prevDay;
     }
 
     /**
@@ -208,7 +290,7 @@ class AttendancePunchService
      * that punch-in. This only changes WHICH open row an out-punch closes —
      * it never blocks capture.
      */
-    private function findOpenAttendanceToClose(int $userId, \Carbon\CarbonInterface $punchMoment, bool $lock = false): ?Attendance
+    private function findOpenAttendanceToClose(int $userId, CarbonInterface $punchMoment, bool $lock = false): ?Attendance
     {
         // 1) Today's open row — existing behavior.
         $todayQuery = Attendance::where('user_id', $userId)
@@ -237,7 +319,11 @@ class AttendancePunchService
         if ($in->diffInHours($punchMoment) > self::MAX_OVERNIGHT_HOURS) {
             return null;
         }
-        $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)->resolve($userId, $in);
+        // Resolve against the row's BUSINESS date (attendances.date), not the raw
+        // punch-in timestamp: after cross-midnight rebinding the two can differ
+        // (a late arrival keeps its real capture time but is dated to the shift's
+        // rostered day), and the business date is what the roster is keyed on.
+        $shift = app(ScheduleResolver::class)->resolve($userId, $prior->date);
 
         return $shift->crossesMidnight ? $prior : null;
     }
@@ -291,7 +377,7 @@ class AttendancePunchService
         $this->handlePhotoUpload($attendance, $request, 'punchin_photo', $user);
 
         try {
-            $assessment = app(\App\Services\Attendance\PunchPolicyGuard::class)->assess($user->id, $punchTime);
+            $assessment = app(PunchPolicyGuard::class)->assess($user->id, $punchTime);
             $attendance->forceFill([
                 'policy_status' => $assessment['policy_status'],
                 'needs_approval' => $assessment['needs_approval'],
@@ -447,7 +533,7 @@ class AttendancePunchService
     private function processPunchInTransaction($user, Request $request): array
     {
         $punchTime = $this->resolvePunchTime($request);
-        $punchDate = $punchTime->copy()->startOfDay();
+        $punchDate = $this->resolveBusinessDate($user->id, $punchTime);
 
         // Honour explicit check_type sent by biometric devices (ZKTeco: in/out/break_*).
         // Absent check_type falls back to the original toggle behaviour (for manual punches).

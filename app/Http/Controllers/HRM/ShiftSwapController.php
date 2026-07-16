@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
+use App\Models\HRM\Designation;
 use App\Models\HRM\RosterDay;
+use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
 use App\Notifications\Attendance\ShiftSwapDecidedNotification;
 use App\Notifications\Attendance\ShiftSwapRequestedNotification;
 use App\Services\Attendance\RosterService;
+use App\Services\Attendance\WorkTimeComplianceService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +21,10 @@ use Illuminate\Validation\ValidationException;
 
 class ShiftSwapController extends Controller
 {
-    public function __construct(private readonly RosterService $roster) {}
+    public function __construct(
+        private readonly RosterService $roster,
+        private readonly WorkTimeComplianceService $compliance,
+    ) {}
 
     /**
      * Roster-availability check shared by store (request time) and approve (apply time).
@@ -36,6 +42,7 @@ class ShiftSwapController extends Controller
         // Counterparty cannot be busy on requester_date (must be off/free to take/cover the requester's shift)
         if ($this->roster->effectiveShiftId($counterpartyId, $requesterDate) !== null) {
             $field = $type === 'cover' ? 'counterparty_id' : 'counterparty_date';
+
             return [$field, 'The counterparty is already scheduled to work on that date.'];
         }
 
@@ -57,7 +64,7 @@ class ShiftSwapController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $shifts = \App\Models\HRM\Shift::all()->keyBy('id');
+        $shifts = Shift::all()->keyBy('id');
 
         $swaps = ShiftSwapRequest::with(['requester', 'counterparty'])
             ->orderByDesc('created_at')
@@ -74,6 +81,7 @@ class ShiftSwapController extends Controller
                 } else {
                     $swap->counterparty_shift_code = null;
                 }
+
                 return $swap;
             });
 
@@ -128,7 +136,7 @@ class ShiftSwapController extends Controller
                     'user_id' => $requester->id,
                     'user_name' => $requester->name,
                     'timestamp' => now()->toIso8601String(),
-                ]
+                ],
             ],
         ]));
 
@@ -165,14 +173,14 @@ class ShiftSwapController extends Controller
 
         // Only show teammates with same or lower designation (higher hierarchy_level number)
         $requesterLevel = $user->designation_id
-            ? \App\Models\HRM\Designation::where('id', $user->designation_id)->value('hierarchy_level')
+            ? Designation::where('id', $user->designation_id)->value('hierarchy_level')
             : null;
 
         if ($requesterLevel !== null) {
             $query->leftJoin('designations', 'users.designation_id', '=', 'designations.id')
                 ->where(function ($q) use ($requesterLevel) {
                     $q->where('designations.hierarchy_level', '>=', $requesterLevel)
-                      ->orWhereNull('users.designation_id');
+                        ->orWhereNull('users.designation_id');
                 })
                 ->select('users.id', 'users.name');
         }
@@ -311,23 +319,52 @@ class ShiftSwapController extends Controller
             abort(409, 'The roster changed since this request was made: '.$problem[1].' Please ask the employee to resubmit.');
         }
 
-        DB::transaction(function () use ($swap, $request) {
-            $chain = $swap->approval_chain ?? [];
-            $chain[] = [
-                'action' => 'manager_approved',
-                'user_id' => $request->user()->id,
-                'user_name' => $request->user()->name,
-                'timestamp' => now()->toIso8601String(),
-            ];
+        $complianceViolations = [];
+        $blockedByCompliance = false;
 
-            $swap->update([
-                'status' => 'approved',
-                'approved_by' => $request->user()->id,
-                'approval_chain' => $chain,
-            ]);
+        try {
+            DB::transaction(function () use ($swap, $request, &$complianceViolations, &$blockedByCompliance) {
+                $chain = $swap->approval_chain ?? [];
+                $chain[] = [
+                    'action' => 'manager_approved',
+                    'user_id' => $request->user()->id,
+                    'user_name' => $request->user()->name,
+                    'timestamp' => now()->toIso8601String(),
+                ];
 
-            $this->roster->applySwap($swap->fresh());
-        });
+                $swap->update([
+                    'status' => 'approved',
+                    'approved_by' => $request->user()->id,
+                    'approval_chain' => $chain,
+                ]);
+
+                $this->roster->applySwap($swap->fresh());
+
+                // Working-time compliance: validate every affected party's
+                // surrounding +/-7 day window against the roster as it now
+                // stands (still inside this transaction). Enforce mode rolls
+                // the whole swap back for a severity=error violation;
+                // warnings are always returned but never block.
+                $complianceViolations = $this->evaluateSwapCompliance($swap->fresh());
+                $hasBlockingError = collect($complianceViolations)
+                    ->flatten(1)
+                    ->contains(fn (array $v) => ($v['severity'] ?? null) === 'error');
+
+                if (config('attendance.compliance.enforce') && $hasBlockingError) {
+                    $blockedByCompliance = true;
+                    throw new \RuntimeException('Swap blocked by working-time compliance.');
+                }
+            });
+        } catch (\RuntimeException $exception) {
+            if ($blockedByCompliance) {
+                return response()->json([
+                    'message' => 'This swap violates working-time compliance rules and was not applied.',
+                    'compliance_violations' => $complianceViolations,
+                ], 422);
+            }
+
+            throw $exception;
+        }
 
         // Notify the requester that their swap was approved
         $requesterUser = User::find($swap->requester_id);
@@ -341,7 +378,41 @@ class ShiftSwapController extends Controller
             }
         }
 
-        return response()->json(['message' => 'Swap approved and applied.', 'swap' => $swap->fresh()]);
+        return response()->json([
+            'message' => 'Swap approved and applied.',
+            'swap' => $swap->fresh(),
+            'compliance_violations' => $complianceViolations,
+        ]);
+    }
+
+    /**
+     * Working-time compliance for both parties of an (already applied) swap,
+     * over each party's surrounding +/-7 day window around the swap dates.
+     *
+     * @return array<int, array<int, array{date: string, rule: string, message: string, severity: string, details: array}>>
+     */
+    private function evaluateSwapCompliance(ShiftSwapRequest $swap): array
+    {
+        $dates = array_filter([
+            $swap->requester_date?->toDateString(),
+            $swap->counterparty_date?->toDateString(),
+        ]);
+        if (empty($dates)) {
+            return [];
+        }
+
+        $from = Carbon::parse(min($dates))->subDays(7)->toDateString();
+        $to = Carbon::parse(max($dates))->addDays(7)->toDateString();
+
+        $violations = [];
+        foreach (array_filter([$swap->requester_id, $swap->counterparty_id]) as $userId) {
+            $userViolations = $this->compliance->evaluate((int) $userId, $from, $to);
+            if ($userViolations) {
+                $violations[$userId] = $userViolations;
+            }
+        }
+
+        return $violations;
     }
 
     public function reject(Request $request, int $id): JsonResponse

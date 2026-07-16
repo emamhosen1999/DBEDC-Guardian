@@ -1,7 +1,10 @@
-import React from 'react';
-import { Box, Flex, Table, Button, Badge, Text } from '@radix-ui/themes';
+import React, { useState } from 'react';
+import { Box, Flex, Table, Button, Badge, Text, Callout, IconButton } from '@radix-ui/themes';
+import { ExclamationTriangleIcon, Cross2Icon } from '@radix-ui/react-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { requestJson } from '@/api/client';
+import { showToast } from '@/utils/toastUtils';
+import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } from '../complianceViolations';
 
 const statusColor = { pending: 'amber', approved: 'green', rejected: 'red', cancelled: 'gray' };
 const cpColor = { pending: 'amber', accepted: 'green', declined: 'red' };
@@ -38,16 +41,40 @@ const getTimelineEvents = (chain) => {
 export default function SwapApprovals({ status = 'pending' }) {
     const qc = useQueryClient();
     const { data } = useQuery({ queryKey: ['swaps'], queryFn: () => requestJson('get', '/attendance/swaps') });
+    // Dismissible working-time compliance banner for the most recently approved swap:
+    // { swapId, blocked, groups } — blocked=true means the 422 rejected it (not applied).
+    const [actionViolations, setActionViolations] = useState(null);
+
+    const allSwaps = data?.swaps || [];
 
     const act = useMutation({
         mutationFn: ({ id, decision }) => requestJson('post', `/attendance/swaps/${id}/${decision}`),
-        onSuccess: () => {
+        onSuccess: (result, variables) => {
             qc.invalidateQueries({ queryKey: ['swaps'] });
             qc.invalidateQueries({ queryKey: ['roster'] });
+
+            if (variables.decision !== 'approve') return;
+            const swap = allSwaps.find(s => s.id === variables.id);
+            const employeesById = keyEmployeesById([swap?.requester, swap?.counterparty].filter(Boolean));
+            const violations = violationsFromResult(result);
+            setActionViolations(violations.length > 0
+                ? { swapId: variables.id, blocked: false, groups: groupViolationsByEmployee(violations, employeesById) }
+                : null);
+        },
+        onError: (err, variables) => {
+            if (variables.decision === 'approve' && err?.status === 422) {
+                const violations = violationsFromResult(err);
+                if (violations.length > 0) {
+                    const swap = allSwaps.find(s => s.id === variables.id);
+                    const employeesById = keyEmployeesById([swap?.requester, swap?.counterparty].filter(Boolean));
+                    setActionViolations({ swapId: variables.id, blocked: true, groups: groupViolationsByEmployee(violations, employeesById) });
+                    showToast.error(err?.message || 'This swap violates working-time compliance rules and was not applied.');
+                    return;
+                }
+            }
+            showToast.error(err?.message || 'Failed to update swap request.');
         },
     });
-
-    const allSwaps = data?.swaps || [];
     // Admin acts only on swaps past the peer-consent stage. Hide peer-pending ones from the
     // 'pending' queue (they're the counterparty's concern); 'all' still shows them for visibility.
     const byStatus = status && status !== 'all' ? allSwaps.filter(s => s.status === status) : allSwaps;
@@ -58,6 +85,32 @@ export default function SwapApprovals({ status = 'pending' }) {
     return (
         <Box mt="5">
             <Text size="3" weight="bold">Swap Requests</Text>
+
+            {actionViolations && (
+                <Callout.Root color={actionViolations.blocked ? 'red' : 'amber'} size="1" mt="2">
+                    <Callout.Icon><ExclamationTriangleIcon /></Callout.Icon>
+                    <Flex justify="between" align="start" gap="3" width="100%">
+                        <Box>
+                            <Text size="2" weight="medium" as="div" mb="1">
+                                {actionViolations.blocked
+                                    ? 'Blocked by working-time rules — swap was not applied:'
+                                    : 'Swap approved — compliance warnings for review:'}
+                            </Text>
+                            <Flex direction="column" gap="1">
+                                {actionViolations.groups.flatMap((g) => g.violations.map((v, i) => (
+                                    <Text key={`${g.userId}-${i}`} as="div" size="1" color="gray">
+                                        <Text weight="medium">{g.name}</Text>: {v.date} — {v.message}
+                                    </Text>
+                                )))}
+                            </Flex>
+                        </Box>
+                        <IconButton size="1" variant="ghost" color="gray" onClick={() => setActionViolations(null)} aria-label="Dismiss">
+                            <Cross2Icon />
+                        </IconButton>
+                    </Flex>
+                </Callout.Root>
+            )}
+
             <Table.Root variant="surface" mt="2">
                 <Table.Header>
                     <Table.Row>
