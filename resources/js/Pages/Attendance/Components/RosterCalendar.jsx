@@ -55,7 +55,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
             <Box style={{ minWidth: gridWidth }}>
                 {/* ── Day header ─────────────────────────────── */}
                 <Flex style={{ background: 'var(--gray-3)' }}>
-                    {nameCell(<Text size="2" weight="bold">Employee</Text>, { header: true, zIndex: 3, bg: 'var(--gray-3)' })}
+                    {nameCell(<Text size="2" weight="bold">Employee</Text>, { header: true, zIndex: 5, bg: 'var(--gray-3)' })}
                     {days.map((d) => {
                         const wd = dayjs(d).day(); // 0 Sun … 6 Sat
                         const weekend = wd === 5 || wd === 6; // Fri/Sat (local week)
@@ -147,7 +147,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                         {row.name || 'Unknown'}
                                     </Text>
                                 </Flex>,
-                                { zIndex: 2, bg: rowBg }
+                                { zIndex: 4, bg: rowBg }
                             )}
                             {days.map((d, dayIndex) => {
                                 const cell = row.days?.[d];
