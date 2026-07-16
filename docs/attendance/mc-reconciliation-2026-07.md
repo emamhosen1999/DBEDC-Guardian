@@ -1,6 +1,6 @@
 # MC Attendance Reconciliation — July 2026 transition
 
-**Status: DRAFT — nothing applied. Requires Boss sign-off.**
+**Status: EXECUTED 2026-07-16 (Boss full-GO).** Outcome log at the bottom.
 Backup taken before any change: `~/demo-backups/dbedc-erp-preshiftfix-20260716-065605.sql.gz`.
 
 ## Ground rules used
@@ -50,6 +50,21 @@ Proposed outs are shift-end estimates (conservative: exact shift end, no OT cred
 ## D. What the version backfill fixes with no row edits
 
 Every MC night Jul 1–15 currently scored against 23–07 (showing ~22h "early leave", `outside_shift_window`) re-scores automatically against the correct era times: Kashab Jul 13/14, Zidan Jul 13/14/15(first row), Elias Jul 2/4/9 MCNS nights, all MCD/MCR days — verified list available on request.
+
+## Outcome log (2026-07-16)
+
+All sections executed on prod (backup `dbedc-erp-preshiftfix-20260716-065605.sql.gz` taken first):
+
+- **A + C3:** 7 phantom rows deleted (counts all =1, logged).
+- **B1–B7:** 7 pending regularizations filed (attendance_ids 8948/8952/8977/9114/9129/9150 + one unlinked) — awaiting manager approval in-app.
+- **C4:** Amzad Jul-12 roster cell → OFF (manual, locked).
+- **Version backfill:** shifts 6/7/8 sentinel rows = old times (08–16 / 16–24 / 00–08), new times effective **2026-07-16**. All pre-Jul-16 scoring self-corrected.
+- **Pattern v2** (`MC3V2`, id 15, `EVN→NGT→OFF→OFF→MRN` ×7) live; old assignments end-dated 2026-07-18; new anchors Amzad 07-19 / Elias 07-12 / Zidan 07-05 / Tanvir 06-28 / Kashab 06-21; roster regenerated Jul 19 → Aug 22.
+- **Legacy doubles fixed:** Jul 17 Zidan → OFF (Kashab keeps NGT), Jul 18 Tanvir → OFF (Kashab keeps NGT).
+- **Stale future overrides voided** from Jul 19 (roster republication); swap request records kept and annotated.
+- **Debt settlements:** #5 → Kashab works Elias's NGT **Jul 23**, Elias off. #7 → 3-way on **Jul 27**: Amzad takes Tanvir's MRN, Tanvir takes Elias's EVN, Elias off (direct transfer proven rest-illegal on this pattern). Pending #13/#16 rejected as moot (off-days under new rotation).
+- **Final verification:** coverage Jul 16 → Aug 22 = exactly one MRN+EVN+NGT every day; `WorkTimeComplianceService` = **0 violations** for all five officers Jul 19 → Aug 22; live UI checked in browser (chip fix visible, 0 console errors).
+- **Known cosmetic limit:** the roster calendar draws pre-Jul-16 chips with current shift times (frontend receives one shifts catalog, not per-date versions). Scoring is version-correct; drawing-only drift. Candidate follow-up: per-cell effective times in the roster payload.
 
 ## Execution order (after sign-off)
 
