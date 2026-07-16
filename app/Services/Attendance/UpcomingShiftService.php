@@ -186,13 +186,26 @@ class UpcomingShiftService
 
         $decorated->shift_start_time = $decorated->shift_start;
 
+        // Absolute start moment, so a mixed today+tomorrow list sorts by how
+        // soon each shift actually begins (tonight 23:00 before tomorrow 07:00),
+        // not by clock time of day.
+        $startClock = $shift ? Carbon::parse($shift->start_time) : $schedule->start;
+        $decorated->shift_starts_at = $shiftDate->copy()->startOfDay()
+            ->setTime($startClock->hour, $startClock->minute)
+            ->getTimestamp();
+
         return $decorated;
     }
 
     /**
-     * Shift start clock time ascending (00-08 → 08-16 → 16-24), then name.
-     * A midnight-crossing shift sorts by its START. Users with no resolvable
-     * shift sort last.
+     * Soonest shift first: sorted by the shift's absolute start moment, so in a
+     * mixed today+tomorrow window tonight's 23:00 precedes tomorrow's 07:00.
+     * Falls back to clock-time-of-day for callers that never set the absolute
+     * key; users with no resolvable shift sort last, ties break on name.
+     *
+     * NOTE: a single callback returning a tuple — an ARRAY of closures would hit
+     * Collection::sortByMany, which invokes each closure as a two-arg comparator
+     * and misreads a key extractor's return value as the comparison result.
      *
      * @param  Collection<int, User>  $users
      * @return Collection<int, User>
@@ -200,9 +213,9 @@ class UpcomingShiftService
     public function sortByShiftStart(Collection $users): Collection
     {
         return $users
-            ->sortBy([
-                fn (User $user) => $user->shift_start_minutes ?? PHP_INT_MAX,
-                fn (User $user) => (string) $user->name,
+            ->sortBy(fn (User $user) => [
+                $user->shift_starts_at ?? $user->shift_start_minutes ?? PHP_INT_MAX,
+                (string) $user->name,
             ])
             ->values();
     }

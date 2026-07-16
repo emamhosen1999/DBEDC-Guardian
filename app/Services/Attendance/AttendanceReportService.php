@@ -190,6 +190,20 @@ class AttendanceReportService
                 $effective, $ctx['holiday'], $ctx['leave'], $leaveTypes, $date, $worked
             );
 
+            // A rostered day is only ABSENT once it can no longer be worked. Future
+            // days — and today's shift while its window is still open — are
+            // "scheduled", not absences.
+            if ($effective === DayAttendance::ABSENT) {
+                $isFuture = $date->copy()->startOfDay()->greaterThan(now()->startOfDay());
+                $stillOpen = $date->isToday()
+                    && $ctx['schedule']->isWorkingDay
+                    && $ctx['schedule']->end->isFuture();
+                if ($isFuture || $stillOpen) {
+                    [$symbol, $remarks] = ['·', $isFuture ? 'Scheduled' : 'Shift not started'];
+                    $effective = 'scheduled';
+                }
+            }
+
             $attendanceData[$dateString] = [
                 'status' => $symbol,
                 'status_code' => $effective,

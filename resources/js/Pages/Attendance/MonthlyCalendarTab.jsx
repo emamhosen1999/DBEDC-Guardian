@@ -24,6 +24,7 @@ const STATUS_MAP = {
     '▼': { color: 'red',    bg: 'var(--red-a3)',    label: 'Absent'  },
     '#': { color: 'amber',  bg: 'var(--amber-a3)',  label: 'Holiday' },
     '/': { color: 'blue',   bg: 'var(--blue-a3)',   label: 'Leave'   },
+    '·': { color: 'gray',   bg: 'transparent',       label: 'Scheduled' },
 };
 const getStatus = s => STATUS_MAP[s] || { color: 'gray', bg: 'var(--gray-a3)', label: 'No data' };
 
@@ -187,7 +188,7 @@ const DesktopMonthTable = ({ rows, days, month, year, leaveTypes, leaveCounts, w
                                                         }}
                                                     >
                                                         <Text size="1" style={{ color: `var(--${st.color}-11)`, fontWeight: 700, lineHeight: 1 }}>
-                                                            {rawSt === '√' ? '✓' : rawSt === '▼' ? '✗' : rawSt === '#' ? 'H' : 'L'}
+                                                            {rawSt === '√' ? '✓' : rawSt === '▼' ? '✗' : rawSt === '#' ? 'H' : rawSt === '·' ? '–' : 'L'}
                                                         </Text>
                                                     </Box>
                                                 </Tooltip>
@@ -332,7 +333,7 @@ const MobileEmployeeCard = ({ row, days, month, year, leaveTypes, leaveCounts, w
                                                             lineHeight: 1.2,
                                                         }}
                                                     >
-                                                        {rawSt === '√' ? '✓' : rawSt === '▼' ? '✗' : rawSt === '#' ? 'H' : 'L'}
+                                                        {rawSt === '√' ? '✓' : rawSt === '▼' ? '✗' : rawSt === '#' ? 'H' : rawSt === '·' ? '–' : 'L'}
                                                     </Text>
                                                 </Flex>
                                             </Tooltip>
