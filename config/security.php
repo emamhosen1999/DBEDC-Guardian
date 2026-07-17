@@ -57,4 +57,13 @@ return [
         'nonce_ttl' => (int) env('AUTH_DEVICE_BINDING_NONCE_TTL', 600),
     ],
 
+    'refresh_token' => [
+        // Absolute lifetime of a refresh token, in days, from issuance. Rotation
+        // does not extend it — the chain still dies this long after login.
+        'ttl_days' => (int) env('REFRESH_TOKEN_TTL_DAYS', 30),
+
+        // Bytes of entropy in each refresh token (40 = 320-bit, hex-encoded).
+        'secret_bytes' => (int) env('REFRESH_TOKEN_SECRET_BYTES', 40),
+    ],
+
 ];

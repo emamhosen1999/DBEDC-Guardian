@@ -186,6 +186,9 @@ Route::middleware(['web', 'auth', 'throttle:api'])->prefix('users')->group(funct
 // ============================================================================
 Route::prefix('v1')->middleware('throttle:api')->group(function () {
     Route::post('/auth/login', [MobileAuthController::class, 'login'])->name('api.v1.auth.login');
+    // Public + throttled: the refresh token is the credential, so this must work
+    // once the access token has already expired.
+    Route::post('/auth/refresh', [MobileAuthController::class, 'refresh'])->name('api.v1.auth.refresh');
 });
 
 Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {

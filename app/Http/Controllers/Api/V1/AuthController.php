@@ -8,8 +8,10 @@ use App\Http\Resources\UserResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Services\DeviceAuthService;
+use App\Services\RefreshTokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -19,7 +21,10 @@ class AuthController extends Controller
 {
     use ApiResponse;
 
-    public function __construct(private readonly DeviceAuthService $deviceAuthService) {}
+    public function __construct(
+        private readonly DeviceAuthService $deviceAuthService,
+        private readonly RefreshTokenService $refreshTokenService,
+    ) {}
 
     public function login(MobileLoginRequest $request): JsonResponse
     {
@@ -127,6 +132,15 @@ class AuthController extends Controller
             $this->deviceAuthService->trackApiTokenSession($user, $request, (int) $currentTokenId);
         }
 
+        // Issue a rotating refresh token for this device so the access token can be
+        // short-lived without logging the user out. Mirrors single-device intent:
+        // a new login revokes refresh chains bound to the user's other devices.
+        $refresh = $this->refreshTokenService->issueForLogin($user, $deviceId);
+
+        if ($user->hasSingleDeviceLoginEnabled()) {
+            $this->refreshTokenService->revokeForOtherDevices((int) $user->id, $deviceId);
+        }
+
         $user->loadMissing([
             'department',
             'designation',
@@ -151,6 +165,8 @@ class AuthController extends Controller
             ],
             'device_secret' => $deviceSecret,
             'device_secret_issued_at' => optional($device->device_secret_issued_at)->toIso8601String(),
+            'refresh_token' => $refresh['plain'],
+            'refresh_token_expires_at' => optional($refresh['model']->expires_at)->toIso8601String(),
             'realtime_config' => $this->getRealtimeConfig($user),
         ], 'Login successful.');
     }
@@ -223,14 +239,88 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $accessToken = $request->user()?->currentAccessToken();
+        $user = $request->user();
+        $accessToken = $user?->currentAccessToken();
 
         if ($accessToken instanceof PersonalAccessToken) {
             $this->deviceAuthService->markApiTokenSessionInactive((int) $accessToken->id);
             $accessToken->delete();
         }
 
+        // Kill the refresh chain too, so a stored refresh token can't silently
+        // resurrect the session after an explicit logout.
+        if ($user) {
+            $this->refreshTokenService->revokeChainForUserDevice((int) $user->id, null);
+        }
+
         return $this->successResponse(null, 'Logged out successfully.');
+    }
+
+    /**
+     * Exchange a valid refresh token for a fresh access token, rotating the
+     * refresh token in the process. Public + throttled: the refresh token IS the
+     * credential, so this must work when the access token has already expired.
+     * Presenting an already-revoked token is treated as theft and revokes the
+     * whole chain.
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $plain = trim((string) $request->input('refresh_token'));
+
+        if ($plain === '') {
+            return $this->errorResponse('A refresh token is required.', 'REFRESH_TOKEN_REQUIRED', 422);
+        }
+
+        $token = $this->refreshTokenService->findByPlainText($plain);
+
+        if (! $token) {
+            return $this->errorResponse('Invalid refresh token.', 'REFRESH_TOKEN_INVALID', 401);
+        }
+
+        // Reuse of a rotated/revoked token is a theft signal — burn the chain.
+        if ($token->isRevoked()) {
+            $this->refreshTokenService->revokeChainForUserDevice((int) $token->user_id, $token->device_id);
+
+            return $this->errorResponse('This session has been revoked. Please sign in again.', 'REFRESH_TOKEN_REUSED', 401);
+        }
+
+        if ($token->isExpired()) {
+            return $this->errorResponse('Your session has expired. Please sign in again.', 'REFRESH_TOKEN_EXPIRED', 401);
+        }
+
+        $user = $token->user;
+
+        if (! $user) {
+            return $this->errorResponse('Invalid refresh token.', 'REFRESH_TOKEN_INVALID', 401);
+        }
+
+        $deviceId = (string) ($token->device_id ?? '');
+
+        // Single-device: the refresh token must belong to the user's current
+        // active device. A refresh from a superseded device is rejected + burned.
+        $currentDeviceId = trim((string) User::whereKey($user->id)->value('current_device_id'));
+
+        if ($currentDeviceId !== '' && $deviceId !== '' && $currentDeviceId !== $deviceId) {
+            $this->refreshTokenService->revokeChainForUserDevice((int) $user->id, $deviceId);
+
+            return $this->errorResponse('This account is active on another device. Please sign in again.', 'REFRESH_TOKEN_WRONG_DEVICE', 401);
+        }
+
+        $rotated = $this->refreshTokenService->rotate($token, $user, $deviceId);
+
+        $idleTimeout = (int) config('session.lifetime');
+        $newAccessToken = $user->createToken('mobile-app', ['*'], now()->addMinutes($idleTimeout));
+        $accessTokenId = $newAccessToken->accessToken?->id;
+
+        if ($accessTokenId !== null) {
+            $this->deviceAuthService->trackApiTokenSession($user, $request, (int) $accessTokenId);
+        }
+
+        return $this->successResponse([
+            'token' => $newAccessToken->plainTextToken,
+            'token_type' => 'Bearer',
+            'refresh_token' => $rotated['plain'],
+        ], 'Token refreshed.');
     }
 
     private function getRealtimeConfig(User $user): array
