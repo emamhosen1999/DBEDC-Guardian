@@ -76,3 +76,17 @@ All sections executed on prod (backup `dbedc-erp-preshiftfix-20260716-065605.sql
 6. C4 roster cell fix.
 7. New rotation pattern + anchors effective 2026-07-19 (per `mc_solution_report.md`), regenerate roster Jul 19 onward, verify coverage.
 8. Live UI verification: daily timesheet, roster calendar, team attendance.
+
+## Final decision (2026-07-17, Boss)
+
+The Boss ordered the ORIGINAL roster restored verbatim (Jul 1 → Aug 31, 310 rows
+from the pre-change backup): all his manual cells, all swap materializations
+(incl. approved #14/#15), and the old pattern rows — superseding the pattern-v2
+regeneration and the merge above. Known cost, accepted with eyes open: 41
+violations (6 zero/negative-rest pairs, 7 short-rest, 4 eight-day runs, 1
+five-night run, 23 double/triple-night coverage days) — enumerated in the
+session log and re-surfaced by WorkTimeComplianceService in the UI on any
+roster edit. Shift versioning, punch rebinding, compliance warnings, and all
+UI fixes remain live. Pattern v2 and its assignments remain in the DB
+(assignments effective 2026-07-19 were overwritten row-wise by the restore;
+the pattern record stays for future adoption if wanted).
