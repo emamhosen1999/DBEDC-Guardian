@@ -96,8 +96,8 @@ abstract class BaseAttendanceValidator
      * trusted for a geofence decision. Returns an error response when the value is
      * present and implausible (negative, or worse than the ceiling); returns null
      * when absent/non-numeric so OLDER clients that never send accuracy are never
-     * rejected. This is a conservative, backend-only mitigation — full mock/GPS
-     * spoof detection still needs a client `is_mock` flag the app does not yet send.
+     * rejected. This is a conservative, backend-only mitigation; the complementary
+     * client-reported mock-provider signal is handled by mockLocationError().
      */
     protected function gpsAccuracyError(): ?array
     {
@@ -125,6 +125,49 @@ abstract class BaseAttendanceValidator
 
         return $this->errorResponse(
             'Your device reported an unreliable GPS signal (±'.round($accuracy).'m). Please move to an open area and try again.'
+        );
+    }
+
+    /**
+     * Mock-location (fake GPS) guard.
+     *
+     * Android surfaces whether a fix came from a mock provider
+     * (expo-location LocationObject.mocked); the app forwards it as the `is_mocked`
+     * punch field. Returns an error response only when the client EXPLICITLY reports
+     * a mocked fix and `attendance.reject_mock_location` is on. Returns null when the
+     * field is absent or unparseable, so an older client that cannot report it (and
+     * iOS, which does not expose the signal) is NEVER rejected for this reason — the
+     * control degrades safely during a staged app rollout.
+     *
+     * Note this is a client-asserted signal: a fully compromised device can lie by
+     * omitting the flag. It raises the cost of casual fake-GPS apps, which report
+     * mocked=true honestly; it is not a defence against a determined attacker.
+     */
+    protected function mockLocationError(): ?array
+    {
+        if (! config('attendance.reject_mock_location', true)) {
+            return null;
+        }
+
+        $raw = $this->request->input('is_mocked');
+
+        // Absent/unparseable = no signal. Only an explicit, affirmative "this fix was
+        // mocked" rejects; anything else (null, '', false, 0, 'false') passes through.
+        $isMocked = filter_var($raw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+        if ($isMocked !== true) {
+            return null;
+        }
+
+        $this->logRejection('client reported a mock (fake GPS) location', [
+            'is_mocked' => true,
+            'lat' => $this->request->input('lat'),
+            'lng' => $this->request->input('lng'),
+            'accuracy' => $this->request->input('accuracy'),
+        ]);
+
+        return $this->errorResponse(
+            'Your device reported a simulated (mock) GPS location. Please turn off any fake-location app or developer mock-location setting and try again.'
         );
     }
 

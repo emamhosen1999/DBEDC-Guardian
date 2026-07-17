@@ -33,6 +33,11 @@ class PolygonLocationValidator extends BaseAttendanceValidator
             return $accuracyError;
         }
 
+        // GPS trust: reject a fix the client reports as mock-provider (fake GPS).
+        if ($mockError = $this->mockLocationError()) {
+            return $mockError;
+        }
+
         // Filter active polygons
         $activePolygons = array_filter($polygons, fn ($p) => ($p['is_active'] ?? true));
 
