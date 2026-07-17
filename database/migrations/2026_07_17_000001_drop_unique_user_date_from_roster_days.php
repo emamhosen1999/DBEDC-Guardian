@@ -18,17 +18,25 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // MariaDB/MySQL: the user_id FOREIGN KEY uses the unique index as its
+        // supporting index (error 1553 on drop). Create the replacement plain
+        // index FIRST — in its own statement — so the FK can lean on it, THEN
+        // drop the unique.
+        Schema::table('roster_days', function (Blueprint $table) {
+            $table->index(['user_id', 'date']);
+        });
         Schema::table('roster_days', function (Blueprint $table) {
             $table->dropUnique(['user_id', 'date']);
-            $table->index(['user_id', 'date']);
         });
     }
 
     public function down(): void
     {
         Schema::table('roster_days', function (Blueprint $table) {
-            $table->dropIndex(['user_id', 'date']);
             $table->unique(['user_id', 'date']);
+        });
+        Schema::table('roster_days', function (Blueprint $table) {
+            $table->dropIndex(['user_id', 'date']);
         });
     }
 };
