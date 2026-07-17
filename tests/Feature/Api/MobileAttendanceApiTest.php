@@ -269,12 +269,14 @@ class MobileAttendanceApiTest extends TestCase
         $targetEmployee = User::factory()->create([
             'employee_id' => 'EMP-9001',
             'single_device_login_enabled' => false,
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($targetEmployee, 'Employee');
 
         $otherEmployee = User::factory()->create([
             'employee_id' => 'EMP-9002',
             'single_device_login_enabled' => false,
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($otherEmployee, 'Employee');
 
@@ -415,11 +417,13 @@ class MobileAttendanceApiTest extends TestCase
 
         $presentEmployee = User::factory()->create([
             'employee_id' => 'EMP-1001',
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($presentEmployee, 'Employee');
 
         $absentEmployee = User::factory()->create([
             'employee_id' => 'EMP-1002',
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($absentEmployee, 'Employee');
 
@@ -486,6 +490,7 @@ class MobileAttendanceApiTest extends TestCase
 
         $employee = User::factory()->create([
             'attendance_type_id' => $attendanceType->id,
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($employee, 'Employee');
 
@@ -524,6 +529,7 @@ class MobileAttendanceApiTest extends TestCase
 
         $employee = User::factory()->create([
             'employee_id' => 'EMP-2001',
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($employee, 'Employee');
 
@@ -561,11 +567,13 @@ class MobileAttendanceApiTest extends TestCase
 
         $presentEmployee = User::factory()->create([
             'employee_id' => 'EMP-3001',
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($presentEmployee, 'Employee');
 
         $absentEmployee = User::factory()->create([
             'employee_id' => 'EMP-3002',
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($absentEmployee, 'Employee');
 
@@ -618,6 +626,7 @@ class MobileAttendanceApiTest extends TestCase
 
         $employee = User::factory()->create([
             'attendance_type_id' => $attendanceType->id,
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($employee, 'Employee');
 
@@ -652,6 +661,7 @@ class MobileAttendanceApiTest extends TestCase
         $this->assignRole($manager, 'Project Manager');
 
         $employee = User::factory()->create([
+            'report_to' => $manager->id,
         ]);
         $this->assignRole($employee, 'Employee');
 
