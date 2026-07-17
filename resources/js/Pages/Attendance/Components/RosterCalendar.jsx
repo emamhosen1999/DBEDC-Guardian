@@ -2,11 +2,35 @@ import React from 'react';
 import { Box, Flex, Text, Tooltip } from '@radix-ui/themes';
 import dayjs from 'dayjs';
 import { resolveRosterCellDisplay } from '../rosterCellDisplay';
+import { resolveWorkedDotState, packShiftIntervals } from '../rosterChipLayout';
 
 const NAME_W = 168;
 const CELL_W = 144; // Width of each day cell
 const HEADER_H = 56; // Header height to fit date and hourly labels
 const LINE = '1px solid var(--gray-a5)';
+
+// Small worked/missed indicator painted top-right of a shift chip. Absolute,
+// ~7px, bordered in the panel background for contrast against any chip
+// color. Renders nothing when `state` is null (future date / no shift).
+const StatusDot = ({ state }) => {
+    if (!state) return null;
+    return (
+        <Box
+            style={{
+                position: 'absolute',
+                top: -3,
+                right: -3,
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: state === 'worked' ? 'var(--green-9)' : 'var(--red-9)',
+                border: '1.5px solid var(--color-panel-background)',
+                zIndex: 3,
+                pointerEvents: 'none',
+            }}
+        />
+    );
+};
 
 const parseTimeToHours = (timeStr) => {
     if (!timeStr) return 0;
@@ -226,6 +250,13 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
 
                                 const shift = shifts.find(s => s.code === cell?.code);
 
+                                // Multi-shift cells (contract: cell.shifts = ALL shifts rostered that
+                                // user+date, legacy code/color remain = primary/first shift) fan out
+                                // into one chip per shift below; single/legacy cells keep the old path.
+                                const hasMultiShifts = Array.isArray(cell?.shifts) && cell.shifts.length > 1;
+                                const dotStateToday = resolveWorkedDotState(cell?.worked);
+                                const workedSuffix = dotStateToday === 'worked' ? ' — worked' : dotStateToday === 'missed' ? ' — missed' : '';
+
                                 // Previous day's shift for midnight crossing part2 rendering
                                 const prevDate = dayjs(d).subtract(1, 'day').format('YYYY-MM-DD');
                                 const cellYesterday = row.days?.[prevDate];
@@ -233,6 +264,8 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                 const shiftYesterday = cellYesterday && dispYesterday && (dispYesterday.kind === 'shift' || dispYesterday.kind === 'pending')
                                     ? shifts.find(s => s.code === cellYesterday.code)
                                     : null;
+                                const hasMultiShiftsYesterday = Array.isArray(cellYesterday?.shifts) && cellYesterday.shifts.length > 1;
+                                const dotStateYesterday = resolveWorkedDotState(cellYesterday?.worked);
 
                                 return (
                                     <Box
@@ -247,7 +280,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                             display: 'flex', alignItems: 'stretch'
                                         }}
                                     >
-                                        <Tooltip content={disp.tooltip}>
+                                        <Tooltip content={`${disp.tooltip}${workedSuffix}`}>
                                             <Box style={{
                                                 width: '100%',
                                                 height: '100%',
@@ -297,14 +330,18 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                     // 'left-open' square the side that continues into the adjacent
                                                     // day cell, so a cross-midnight shift reads as ONE bar running
                                                     // through the cell border instead of two spliced chips.
-                                                    const renderChip = (startCol, endCol, color, code, isPending, key, edge = 'both', showLabel = true) => (
+                                                    // heightPx/alignSelf let overlapping multi-shift chips shrink to
+                                                    // half height and stack top/bottom instead of painting over
+                                                    // each other; dotState paints the worked/missed indicator.
+                                                    const renderChip = (startCol, endCol, color, code, isPending, key, edge = 'both', showLabel = true, heightPx = 24, alignSelf = 'center', dotState = null) => (
                                                         <Box
                                                             key={key}
                                                             style={{
                                                                 gridColumn: `${startCol} / ${endCol}`,
                                                                 gridRow: 1,
-                                                                height: '24px',
-                                                                alignSelf: 'center',
+                                                                height: `${heightPx}px`,
+                                                                alignSelf,
+                                                                position: 'relative',
                                                                 background: color || 'var(--accent-9)',
                                                                 borderRadius: edge === 'right-open' ? '4px 0 0 4px'
                                                                     : edge === 'left-open' ? '0 4px 4px 0' : 4,
@@ -314,7 +351,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                                 color: '#fff',
                                                                 boxShadow: 'var(--shadow-2)',
                                                                 zIndex: 1,
-                                                                overflow: 'hidden',
+                                                                overflow: 'visible',
                                                                 whiteSpace: 'nowrap',
                                                                 padding: showLabel ? '0 4px' : 0,
                                                                 border: isPending ? '1px dashed var(--amber-8)' : 'none',
@@ -323,17 +360,86 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                             }}
                                                         >
                                                             {showLabel && (
-                                                                <Text style={{ fontSize: 9, fontWeight: 700 }}>
+                                                                <Text style={{ fontSize: heightPx < 20 ? 7 : 9, fontWeight: 700 }}>
                                                                     {code}
                                                                 </Text>
                                                             )}
+                                                            <StatusDot state={dotState} />
                                                         </Box>
                                                     );
 
                                                     const chips = [];
+                                                    const isPendingCell = disp.kind === 'pending';
 
-                                                    // 1. Today's shift (full or part1)
-                                                    if (shift) {
+                                                    // 1. Today's shift(s) — multi-shift fan-out when cell.shifts has
+                                                    // >1 entry (each looked up in the shifts catalog by id, same as
+                                                    // the legacy single-code lookup); falls back to the legacy
+                                                    // single-chip path when shifts is absent/length<=1.
+                                                    if (hasMultiShifts) {
+                                                        const resolved = cell.shifts.map(e => {
+                                                            const config = shifts.find(s => s.id === e.id);
+                                                            const hStart = config ? Math.round(parseTimeToHours(config.start_time)) : 0;
+                                                            const hEnd = config ? Math.round(parseTimeToHours(config.end_time)) : 0;
+                                                            const crosses = !!(config && (config.crosses_midnight || hEnd < hStart));
+                                                            return { entry: e, config, hStart, hEnd, crosses };
+                                                        });
+
+                                                        const sameDay = resolved.filter(r => !r.crosses);
+                                                        const crossing = resolved.filter(r => r.crosses);
+
+                                                        // Same-window (overlapping) shifts shrink to half-height and
+                                                        // stack top/bottom instead of silently overlapping.
+                                                        const packed = packShiftIntervals(sameDay.map(r => ({ start: r.hStart, end: r.hEnd })));
+                                                        sameDay.forEach((r, i) => {
+                                                            const color = r.entry.color || r.config?.color || null;
+                                                            const overlapping = !!packed[i]?.overlapping;
+                                                            const lane = packed[i]?.lane;
+                                                            chips.push(renderChip(
+                                                                r.hStart + 1, r.hEnd + 1, color, r.entry.code, isPendingCell,
+                                                                `m-${r.entry.id}-${i}`, 'both', true,
+                                                                overlapping ? 12 : 24,
+                                                                overlapping ? (lane === 1 ? 'end' : 'start') : 'center',
+                                                                dotStateToday,
+                                                            ));
+                                                        });
+
+                                                        // Cross-midnight members keep the single-piece overflow
+                                                        // rendering (one absolutely-positioned bar per shift).
+                                                        crossing.forEach((r) => {
+                                                            if (r.hStart >= 24) return;
+                                                            const spanHours = (24 - r.hStart) + r.hEnd;
+                                                            const color = r.entry.color || r.config?.color || null;
+                                                            chips.push(
+                                                                <Box
+                                                                    key={`m-cross-${r.entry.id}`}
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        left: `calc(${(r.hStart / 24) * 100}% + 1px)`,
+                                                                        width: `calc(${(spanHours / 24) * 100}% - 2px)`,
+                                                                        top: '50%',
+                                                                        transform: 'translateY(-50%)',
+                                                                        height: '24px',
+                                                                        background: color || 'var(--accent-9)',
+                                                                        borderRadius: 4,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        color: '#fff',
+                                                                        boxShadow: 'var(--shadow-2)',
+                                                                        zIndex: 2,
+                                                                        whiteSpace: 'nowrap',
+                                                                        padding: '0 4px',
+                                                                        border: isPendingCell ? '1px dashed var(--amber-8)' : 'none',
+                                                                    }}
+                                                                >
+                                                                    <Text style={{ fontSize: 9, fontWeight: 700 }}>
+                                                                        {r.entry.code}
+                                                                    </Text>
+                                                                    <StatusDot state={dotStateToday} />
+                                                                </Box>
+                                                            );
+                                                        });
+                                                    } else if (shift) {
                                                         const hStart = Math.round(parseTimeToHours(shift.start_time));
                                                         const hEnd = Math.round(parseTimeToHours(shift.end_time));
                                                         const crosses = shift.crosses_midnight || hEnd < hStart;
@@ -371,16 +477,30 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                                         <Text style={{ fontSize: 9, fontWeight: 700 }}>
                                                                             {shift.code}
                                                                         </Text>
+                                                                        <StatusDot state={dotStateToday} />
                                                                     </Box>
                                                                 );
                                                             }
                                                         } else {
-                                                            chips.push(renderChip(hStart + 1, hEnd + 1, disp.color, shift.code, disp.kind === 'pending', 'full'));
+                                                            chips.push(renderChip(hStart + 1, hEnd + 1, disp.color, shift.code, disp.kind === 'pending', 'full', 'both', true, 24, 'center', dotStateToday));
                                                         }
                                                     }
 
-                                                    // 2. Yesterday's shift (part2)
-                                                    if (shiftYesterday) {
+                                                    // 2. Yesterday's shift(s) (part2) — same multi-shift fan-out,
+                                                    // falling back to the legacy single-shift path.
+                                                    if (hasMultiShiftsYesterday && dayIndex === 0) {
+                                                        cellYesterday.shifts.forEach((e) => {
+                                                            const config = shifts.find(s => s.id === e.id);
+                                                            if (!config) return;
+                                                            const hStartYes = Math.round(parseTimeToHours(config.start_time));
+                                                            const hEndYes = Math.round(parseTimeToHours(config.end_time));
+                                                            const crossesYes = config.crosses_midnight || hEndYes < hStartYes;
+                                                            if (crossesYes && hEndYes > 0) {
+                                                                const color = e.color || config.color || null;
+                                                                chips.push(renderChip(1, hEndYes + 1, color, e.code, isPendingCell, `m-part2-${e.id}`, 'left-open', true, 24, 'center', dotStateYesterday));
+                                                            }
+                                                        });
+                                                    } else if (shiftYesterday) {
                                                         const hStartYes = Math.round(parseTimeToHours(shiftYesterday.start_time));
                                                         const hEndYes = Math.round(parseTimeToHours(shiftYesterday.end_time));
                                                         const crossesYes = shiftYesterday.crosses_midnight || hEndYes < hStartYes;
@@ -390,7 +510,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                         // already overflows across the boundary as one piece.
                                                         if (crossesYes && hEndYes > 0 && dayIndex === 0) {
                                                             const isPendingYes = dispYesterday?.kind === 'pending';
-                                                            chips.push(renderChip(1, hEndYes + 1, dispYesterday?.color, shiftYesterday.code, isPendingYes, 'part2', 'left-open', true));
+                                                            chips.push(renderChip(1, hEndYes + 1, dispYesterday?.color, shiftYesterday.code, isPendingYes, 'part2', 'left-open', true, 24, 'center', dotStateYesterday));
                                                         }
                                                     }
 
@@ -398,13 +518,14 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                 })()}
 
                                                 {/* Fallback centered chip if shift config is missing */}
-                                                {!shift && (disp.kind === 'shift' || disp.kind === 'pending') && (
+                                                {!shift && !hasMultiShifts && (disp.kind === 'shift' || disp.kind === 'pending') && (
                                                     <Box
                                                         style={{
                                                             gridColumn: '1 / 25',
                                                             gridRow: 1,
                                                             height: '24px',
                                                             alignSelf: 'center',
+                                                            position: 'relative',
                                                             borderRadius: 4,
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -418,6 +539,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                                         }}
                                                     >
                                                         {disp.label}
+                                                        <StatusDot state={dotStateToday} />
                                                     </Box>
                                                 )}
                                             </Box>

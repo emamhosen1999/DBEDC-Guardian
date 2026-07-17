@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\HRM;
 
 use App\Http\Controllers\Controller;
+use App\Models\HRM\Attendance;
 use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\User;
@@ -15,6 +16,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class RosterController extends Controller
@@ -45,11 +47,14 @@ class RosterController extends Controller
                 'user',
                 fn ($uq) => $uq->where('department_id', $departmentId)
             ))
+            ->orderBy('id')
             ->get();
 
+        $userIds = $rows->pluck('user_id')->unique()->values()->all();
+
         return response()->json($this->withOverlay(
-            $this->formatRoster($rows),
-            $rows->pluck('user_id')->unique()->values()->all(),
+            $this->formatRoster($rows, $this->buildWorkedSet($userIds, $data['from'], $data['to'])),
+            $userIds,
             $data['from'],
             $data['to'],
         ));
@@ -68,10 +73,11 @@ class RosterController extends Controller
         $rows = RosterDay::with(['shift:id,code,color,name', 'user:id,name', 'user.media'])
             ->where('user_id', $request->user()->id)
             ->whereBetween('date', [$data['from'], $data['to']])
+            ->orderBy('id')
             ->get();
 
         return response()->json($this->withOverlay(
-            $this->formatRoster($rows),
+            $this->formatRoster($rows, $this->buildWorkedSet([$request->user()->id], $data['from'], $data['to'])),
             [$request->user()->id],
             $data['from'],
             $data['to'],
@@ -80,25 +86,87 @@ class RosterController extends Controller
 
     /**
      * Group roster rows by user and shape them into the standard roster payload.
+     *
+     * A user+date cell may now carry MULTIPLE roster_days rows (double-rostered
+     * nights, day+night doubles). The legacy top-level keys (`code`, `color`,
+     * `off`, `work_location_id`, `updated_at`) always describe the PRIMARY row
+     * (the first row written — lowest id — same precedence as
+     * RosterService::resolveShift()). `shifts` carries every rostered shift
+     * for the cell in insertion order; an OFF cell (no shift row) yields an
+     * empty `shifts` array.
      */
-    private function formatRoster($rows)
+    private function formatRoster(Collection $rows, array $workedSet): Collection
     {
-        return $rows->groupBy('user_id')->map(function ($userRows) {
+        $today = Carbon::today()->toDateString();
+
+        return $rows->groupBy('user_id')->map(function (Collection $userRows) use ($workedSet, $today) {
             $first = $userRows->first();
 
             return [
                 'name' => $first->user?->name,
                 'profile_image_url' => $first->user?->profile_image_url,
-                'days' => $userRows->keyBy(fn ($row) => $row->date->format('Y-m-d'))
-                    ->map(fn ($row) => [
-                        'code' => $row->shift?->code,
-                        'color' => $row->shift?->color,
-                        'off' => $row->shift_id === null,
-                        'work_location_id' => $row->work_location_id,
-                        'updated_at' => $row->updated_at?->toIso8601String(),
-                    ]),
+                'days' => $userRows->groupBy(fn ($row) => $row->date->format('Y-m-d'))
+                    ->map(fn (Collection $dayRows, $date) => $this->formatCell($dayRows, $date, $workedSet, $today)),
             ];
         });
+    }
+
+    /**
+     * @param  Collection<int, RosterDay>  $dayRows
+     * @param  array<string, bool>  $workedSet
+     */
+    private function formatCell(Collection $dayRows, string $date, array $workedSet, string $today): array
+    {
+        $primary = $dayRows->first();
+
+        $shifts = $dayRows
+            ->filter(fn (RosterDay $row) => $row->shift_id !== null)
+            ->map(fn (RosterDay $row) => [
+                'id' => $row->shift_id,
+                'code' => $row->shift?->code,
+                'color' => $row->shift?->color,
+            ])
+            ->values()
+            ->all();
+
+        $worked = null;
+        if ($primary->shift_id !== null && $date <= $today) {
+            $worked = isset($workedSet["{$primary->user_id}|{$date}"]);
+        }
+
+        return [
+            'code' => $primary->shift?->code,
+            'color' => $primary->shift?->color,
+            'off' => $primary->shift_id === null,
+            'work_location_id' => $primary->work_location_id,
+            'updated_at' => $primary->updated_at?->toIso8601String(),
+            'shifts' => $shifts,
+            'worked' => $worked,
+        ];
+    }
+
+    /**
+     * One query for the whole visible range: a set of "userId|Y-m-d" keys
+     * for every (user, date) with a real punch-in whose policy status isn't
+     * rejected. Avoids N+1 lookups per cell.
+     *
+     * @param  array<int, int>  $userIds
+     * @return array<string, bool>
+     */
+    private function buildWorkedSet(array $userIds, string $from, string $to): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        return Attendance::query()
+            ->whereIn('user_id', $userIds)
+            ->whereBetween('date', [$from, $to])
+            ->whereNotNull('punchin')
+            ->where('policy_status', '!=', 'rejected')
+            ->get(['user_id', 'date'])
+            ->mapWithKeys(fn (Attendance $a) => ["{$a->user_id}|{$a->date->format('Y-m-d')}" => true])
+            ->all();
     }
 
     /**
@@ -129,6 +197,7 @@ class RosterController extends Controller
                 if (! isset($roster[$userId]['days'][$date])) {
                     $roster[$userId]['days'][$date] = [
                         'code' => null, 'color' => null, 'off' => true, 'updated_at' => null,
+                        'work_location_id' => null, 'shifts' => [], 'worked' => null,
                     ];
                 }
                 $roster[$userId]['days'][$date]['leave'] = $info;
@@ -190,6 +259,8 @@ class RosterController extends Controller
             'user_id' => 'required|integer|exists:users,id',
             'date' => 'required|date',
             'shift_id' => 'nullable|integer|exists:shifts,id',
+            'shift_ids' => 'nullable|array|max:3',
+            'shift_ids.*' => 'integer|exists:shifts,id|distinct',
             'work_location_id' => 'nullable|integer|exists:work_locations,id',
             'note' => 'nullable|string|max:255',
             'expected_updated_at' => 'nullable|date',
@@ -203,8 +274,12 @@ class RosterController extends Controller
             }
         }
 
+        // Multiple rows may already exist for this user+date (double-rostered
+        // night); the PRIMARY row (first written, lowest id) is what the
+        // concurrency check and the legacy `cell` response key describe.
         $existing = RosterDay::where('user_id', $data['user_id'])
             ->whereDate('date', $data['date'])
+            ->orderBy('id')
             ->first();
 
         if (
@@ -218,11 +293,14 @@ class RosterController extends Controller
             ], 409);
         }
 
+        $shiftIds = $this->resolveShiftIds($data);
+        $primaryShiftId = $shiftIds[0] ?? null;
+
         // Working-time compliance: simulate the ±7 day window AROUND the
-        // affected date with the new shift substituted in, before writing
-        // anything. Enforce mode blocks only a severity=error violation;
-        // warnings are always returned but never block.
-        $complianceViolations = $this->complianceForManualDay((int) $data['user_id'], $data['date'], $data['shift_id'] ?? null);
+        // affected date with the new PRIMARY shift substituted in, before
+        // writing anything. Enforce mode blocks only a severity=error
+        // violation; warnings are always returned but never block.
+        $complianceViolations = $this->complianceForManualDay((int) $data['user_id'], $data['date'], $primaryShiftId);
         $hasBlockingError = collect($complianceViolations)->contains(fn (array $v) => ($v['severity'] ?? null) === 'error');
 
         if (config('attendance.compliance.enforce') && $hasBlockingError) {
@@ -232,10 +310,26 @@ class RosterController extends Controller
             ], 422);
         }
 
-        $cell = RosterDay::updateOrCreate(
-            ['user_id' => $data['user_id'], 'date' => $data['date']],
-            ['shift_id' => $data['shift_id'] ?? null, 'work_location_id' => $data['work_location_id'] ?? null, 'source' => 'manual', 'locked' => true, 'note' => $data['note'] ?? null],
-        );
+        // Replace ALL existing rows for this user+date with the new set: one
+        // row per requested shift id, or a single NULL-shift OFF row when the
+        // set is empty. An OFF row is always the only row for that cell.
+        $cells = DB::transaction(function () use ($data, $shiftIds) {
+            RosterDay::where('user_id', $data['user_id'])
+                ->whereDate('date', $data['date'])
+                ->delete();
+
+            $rowsToInsert = $shiftIds === [] ? [null] : $shiftIds;
+
+            return collect($rowsToInsert)->map(fn (?int $shiftId) => RosterDay::create([
+                'user_id' => $data['user_id'],
+                'date' => $data['date'],
+                'shift_id' => $shiftId,
+                'work_location_id' => $data['work_location_id'] ?? null,
+                'source' => 'manual',
+                'locked' => true,
+                'note' => $data['note'] ?? null,
+            ]))->values();
+        });
 
         // Realtime cross-client signal (from realtime-foundation) + per-employee notification.
         $this->signals->touch('roster', substr($data['date'], 0, 7), $request->user()?->id);
@@ -254,9 +348,30 @@ class RosterController extends Controller
 
         return response()->json([
             'message' => 'Roster updated.',
-            'cell' => $cell->load('shift'),
+            'cell' => $cells->first()->load('shift'),
+            'cells' => $cells->map(fn (RosterDay $c) => $c->load('shift'))->values(),
             'compliance_violations' => $complianceViolations,
         ]);
+    }
+
+    /**
+     * Back-compat shift-id resolution: the new `shift_ids` array (max 3,
+     * distinct) is the primary input; the legacy scalar `shift_id` still
+     * works as a one-element array. An explicit null/empty set = OFF.
+     *
+     * @return array<int, int>
+     */
+    private function resolveShiftIds(array $data): array
+    {
+        if (array_key_exists('shift_ids', $data) && $data['shift_ids'] !== null) {
+            return collect($data['shift_ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+        }
+
+        if (array_key_exists('shift_id', $data) && $data['shift_id'] !== null) {
+            return [(int) $data['shift_id']];
+        }
+
+        return [];
     }
 
     /**

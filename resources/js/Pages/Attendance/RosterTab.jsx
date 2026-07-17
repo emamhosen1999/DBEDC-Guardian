@@ -16,6 +16,7 @@ import CoverageRequirementsDialog from './Components/CoverageRequirementsDialog'
 import RosterCellPopover from './Components/RosterCellPopover';
 import { handleCellConflict } from './rosterCellConflict';
 import { violationsFromResult, groupViolationsByEmployee, keyEmployeesById } from './complianceViolations';
+import { buildOptimisticCell, deriveSelectedShiftIds } from './rosterShiftSelection';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 import TablePagination from '@/Components/TablePagination.jsx';
 
@@ -176,26 +177,21 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
     });
 
     const updateCell = useOptimisticMutation({
-        mutationFn: ({ userId, date, shiftId, workLocationId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
+        mutationFn: ({ userId, date, shiftIds, workLocationId, expectedUpdatedAt }) => requestJson('put', '/attendance/roster/cell', {
             data: {
                 user_id: Number(userId),
                 date,
-                shift_id: shiftId,
+                shift_ids: shiftIds,
+                shift_id: shiftIds?.[0] ?? null, // legacy back-compat
                 work_location_id: workLocationId ?? null,
                 expected_updated_at: expectedUpdatedAt ?? null,
             },
         }),
         queryKey: ['roster', from, to, selectedDepartmentId],
-        updateFn: (oldData, { userId, date, shiftId, workLocationId }) => {
+        updateFn: (oldData, { userId, date, shiftIds, workLocationId }) => {
             if (!oldData || !oldData.roster) return oldData;
 
-            const shift = shifts.find(s => s.id === shiftId);
-            const updatedCell = {
-                code: shift ? shift.code : null,
-                color: shift ? shift.color : null,
-                off: !shiftId,
-                work_location_id: workLocationId ?? null,
-            };
+            const updatedCell = buildOptimisticCell(shiftIds, shifts, workLocationId);
 
             const newRoster = { ...oldData.roster };
             if (newRoster[userId]) {
@@ -244,13 +240,13 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
         setPopoverOpen(true);
     };
 
-    const handlePick = (shiftId, workLocationId) => {
+    const handlePick = (shiftIds, workLocationId) => {
         if (!selectedCell) return;
         setPopoverOpen(false);
         setCellViolations(null);
         const { userId, date } = selectedCell;
         const expectedUpdatedAt = roster?.[userId]?.days?.[date]?.updated_at ?? null;
-        updateCell.mutate({ userId, date, shiftId, workLocationId, expectedUpdatedAt });
+        updateCell.mutate({ userId, date, shiftIds, workLocationId, expectedUpdatedAt });
         setSelectedCell(null);
     };
 
@@ -418,6 +414,7 @@ export default function RosterTab({ month, onMonthChange, departments = [], isAc
                             onOpenChange={(o) => { if (!o) { setPopoverOpen(false); setCellViolations(null); } }}
                             anchor={<span />}
                             shifts={shifts}
+                            selectedShiftIds={selectedCell ? deriveSelectedShiftIds(roster?.[selectedCell.userId]?.days?.[selectedCell.date], shifts) : []}
                             notice={selectedNotice}
                             violations={
                                 selectedCell && cellViolations

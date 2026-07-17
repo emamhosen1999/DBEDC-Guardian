@@ -7,11 +7,10 @@ use App\Models\HRM\AttendanceSetting;
 use App\Models\HRM\Department;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
-use App\Services\Attendance\AttendanceStatusService;
 use App\Services\Attendance\Contracts\PolicyResolver;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use App\Services\Attendance\DTO\DayAttendance;
-use App\Services\Attendance\HolidayService;
+use App\Services\Attendance\DTO\ShiftSchedule;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -189,6 +188,15 @@ class AttendanceReportService
             [$symbol, $remarks] = $this->mapStatusToDisplay(
                 $effective, $ctx['holiday'], $ctx['leave'], $leaveTypes, $date, $worked
             );
+
+            // Hard rule: at least one punch-in that day = Present, regardless of a
+            // missing punch-out or any classification edge. A person who stood at
+            // the machine is never displayed as Absent.
+            $hasPunchIn = $attendancesForDate->contains(fn ($a) => $a->punchin !== null);
+            if ($hasPunchIn && $symbol === '▼') {
+                [$symbol, $remarks] = ['√', $result->is_complete ? 'Present' : 'Present (no punch-out)'];
+                $effective = DayAttendance::PRESENT;
+            }
 
             // A rostered day is only ABSENT once it can no longer be worked. Future
             // days — and today's shift while its window is still open — are
@@ -495,7 +503,9 @@ class AttendanceReportService
             );
 
             $present = $absent = $late = $holidaysWorked = $weeklyOffWorked = $workingDays = 0;
-            $leave = 0.0; $paidLeave = 0.0; $lwp = 0.0;
+            $leave = 0.0;
+            $paidLeave = 0.0;
+            $lwp = 0.0;
             $otMinutes = 0;
 
             foreach ($dayResults as $ctx) {
@@ -553,19 +563,19 @@ class AttendanceReportService
             $denom = $present + $absent;
 
             $rows[] = [
-                'employee_name'        => $user->name,
-                'employee_id'          => $user->employee_id,
-                'department'           => optional($user->department)->name ?? '—',
-                'present'              => $this->numify($present),
-                'absent'               => $this->numify($absent),
-                'leave'                => $this->numify($leave),
-                'paid_leave'           => $this->numify($paidLeave),
-                'lwp'                  => $this->numify($lwp),
-                'ot_hours'             => round($otMinutes / 60, 1),
-                'late'                 => $late,
-                'holidays_worked'      => $holidaysWorked,
-                'weekly_off_worked'    => $weeklyOffWorked,
-                'working_days'         => $workingDays,
+                'employee_name' => $user->name,
+                'employee_id' => $user->employee_id,
+                'department' => optional($user->department)->name ?? '—',
+                'present' => $this->numify($present),
+                'absent' => $this->numify($absent),
+                'leave' => $this->numify($leave),
+                'paid_leave' => $this->numify($paidLeave),
+                'lwp' => $this->numify($lwp),
+                'ot_hours' => round($otMinutes / 60, 1),
+                'late' => $late,
+                'holidays_worked' => $holidaysWorked,
+                'weekly_off_worked' => $weeklyOffWorked,
+                'working_days' => $workingDays,
                 'attendance_percentage' => $denom > 0 ? round($present / $denom * 100, 1) : 0.0,
             ];
         }
@@ -578,9 +588,9 @@ class AttendanceReportService
 
         return [
             'meta' => [
-                'month'          => $startOfMonth->format('F Y'),
-                'generatedAt'    => Carbon::now()->toIso8601String(),
-                'departmentId'   => $departmentId,
+                'month' => $startOfMonth->format('F Y'),
+                'generatedAt' => Carbon::now()->toIso8601String(),
+                'departmentId' => $departmentId,
                 'departmentName' => $departmentName,
             ],
             'rows' => $rows,
@@ -670,7 +680,7 @@ class AttendanceReportService
      * Pass $until (e.g. "today") to stop at a date for current-month stats; pass
      * null for the whole month (grid).
      *
-     * @return array<string, array{result: DayAttendance, holiday: ?object, leave: ?object, schedule: \App\Services\Attendance\DTO\ShiftSchedule, attendances: \Illuminate\Support\Collection, before_join: bool, after_termination: bool}>
+     * @return array<string, array{result: DayAttendance, holiday: ?object, leave: ?object, schedule: ShiftSchedule, attendances: Collection, before_join: bool, after_termination: bool}>
      */
     private function buildMonthlyDayResults(
         $user,

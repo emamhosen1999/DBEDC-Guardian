@@ -7,6 +7,7 @@ use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftAssignment;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -14,8 +15,8 @@ class RosterService
 {
     public function generateRoster(array $userIds, string $fromDate, string $toDate): int
     {
-        $from = \Carbon\Carbon::parse($fromDate)->startOfDay();
-        $to = \Carbon\Carbon::parse($toDate)->startOfDay();
+        $from = Carbon::parse($fromDate)->startOfDay();
+        $to = Carbon::parse($toDate)->startOfDay();
         $written = 0;
 
         DB::transaction(function () use ($userIds, $from, $to, &$written) {
@@ -46,14 +47,23 @@ class RosterService
     {
         $dateStr = $date->copy()->startOfDay()->toDateString();
 
-        // 1. Manual override / approved swap materialized in roster_days wins.
+        // 1. ANY materialized roster row wins — the roster the grid shows IS the
+        // roster people are judged against. (Pattern-source rows used to be
+        // display-only, silently re-derived from assignments at scoring time;
+        // when a pattern/assignment changed after generation, the calendar and
+        // the engine told two different stories.) Manual > swap > pattern when
+        // a day carries several rows; scoring stays single-schedule, so the
+        // first row under that ordering is the deterministic primary.
         $rosterDay = RosterDay::where('user_id', $userId)
             ->whereDate('date', $dateStr)
-            ->whereIn('source', ['manual', 'swap'])
+            ->orderByRaw("CASE source WHEN 'manual' THEN 0 WHEN 'swap' THEN 1 ELSE 2 END")
+            ->orderBy('id')
             ->first();
         if ($rosterDay) {
             return $rosterDay->shift_id ? $rosterDay->shift : null; // null = off day
         }
+
+        // No materialized row at all → fall through to live derivation.
 
         // 2. Effective-dated assignment, highest precedence scope first.
         $assignment = $this->resolveAssignment($userId, $date);
@@ -140,7 +150,7 @@ class RosterService
             return $rosterDay->shift_id;
         }
 
-        return $this->resolveShift($userId, \Carbon\Carbon::parse($date))?->id;
+        return $this->resolveShift($userId, Carbon::parse($date))?->id;
     }
 
     private function writeSwapDay(int $userId, string $date, ?int $shiftId): void
