@@ -255,6 +255,11 @@ class AuthController extends Controller
             'firebase_project_id' => $firebaseProjectId,
             'firebase_database_url' => $firebaseDbUrl,
             'firebase_custom_token' => $firebaseToken,
+            // Native clients cannot use the custom token directly: RTDB only accepts
+            // an ID token, and the Identity Toolkit exchange requires the web API
+            // key. Without it the mobile listener fails closed and realtime is dead.
+            // Public client identifier (already in the web bundle), not a secret.
+            'firebase_api_key' => config('services.firebase.web_api_key'),
             'namespace' => config('realtime.namespace'),
         ];
     }

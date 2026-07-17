@@ -49,6 +49,15 @@ return [
     'firebase' => [
         'credentials' => env('FIREBASE_CREDENTIALS'),
         'project_id' => env('FIREBASE_PROJECT_ID'),
+
+        // Firebase WEB API key. This is a public client identifier, not a secret —
+        // it is already shipped in the web bundle (resources/js/firebase-config.js
+        // reads VITE_FIREBASE_API_KEY). Native clients need it to exchange the
+        // server-issued custom token for an ID token via Identity Toolkit, which is
+        // the only way RTDB will accept them. Access stays gated by that custom
+        // token plus database.rules.json. Falls back to the web var so no new
+        // production env key is required; when unset, realtime simply stays off.
+        'web_api_key' => env('FIREBASE_WEB_API_KEY', env('VITE_FIREBASE_API_KEY')),
     ],
 
 ];
