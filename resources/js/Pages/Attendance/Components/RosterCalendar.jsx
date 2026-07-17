@@ -242,6 +242,7 @@ export default function RosterCalendar({ roster = {}, days = [], holidays = {}, 
                                             width: CELL_W, minWidth: CELL_W, minHeight: 36, height: 'auto',
                                             borderRight: LINE, borderBottom: LINE, padding: '4px 0px',
                                             boxSizing: 'border-box',
+                                            background: disp.holiday ? 'var(--amber-a2)' : undefined,
                                             cursor: onCellClick ? 'pointer' : 'default',
                                             display: 'flex', alignItems: 'stretch'
                                         }}

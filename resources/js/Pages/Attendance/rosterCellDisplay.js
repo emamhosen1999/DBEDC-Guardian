@@ -1,13 +1,28 @@
 /**
  * Pure decision for how a roster cell renders, applying the overlay precedence:
- *   holiday > approved leave > pending-leave hint > scheduled shift > off.
+ *   approved leave > pending-leave hint > scheduled shift (holiday-aware) > holiday > off.
+ * A 24/7 operation still works holidays: a rostered shift on a holiday keeps its
+ * chip (with the holiday carried in `holiday` + tooltip for the amber tint);
+ * the full-width Holiday block only appears when nobody is scheduled.
  * Presentational only — no React, no side effects.
  *
  * cell: { code, color, off, leave?: { type, fraction, session, status } }
  */
 export function resolveRosterCellDisplay(cell, holidayTitle) {
   if (holidayTitle) {
-    return { kind: 'holiday', label: '', color: null, tooltip: `Holiday — ${holidayTitle}`, leaveType: null, session: null };
+    const assignedOnHoliday = cell && !cell.off && !(cell.leave && cell.leave.status === 'approved');
+    if (assignedOnHoliday) {
+      return {
+        kind: 'shift',
+        label: cell.code || '·',
+        color: cell.color || null,
+        tooltip: `${cell.code || 'Assigned'} — works on holiday (${holidayTitle})`,
+        leaveType: null,
+        session: null,
+        holiday: holidayTitle,
+      };
+    }
+    return { kind: 'holiday', label: '', color: null, tooltip: `Holiday — ${holidayTitle}`, leaveType: null, session: null, holiday: holidayTitle };
   }
 
   const leave = cell?.leave;

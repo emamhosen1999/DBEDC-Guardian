@@ -2,11 +2,26 @@ import { describe, it, expect } from 'vitest';
 import { resolveRosterCellDisplay } from '../rosterCellDisplay';
 
 describe('resolveRosterCellDisplay', () => {
-  it('holiday out-ranks everything', () => {
+  it('holiday with an approved leave shows the holiday block', () => {
     const cell = { code: 'D', color: '#123', off: false, leave: { type: 'AL', fraction: 1, session: null, status: 'approved' } };
     const out = resolveRosterCellDisplay(cell, 'Eid');
     expect(out.kind).toBe('holiday');
     expect(out.tooltip).toContain('Eid');
+  });
+
+  it('holiday with a rostered shift keeps the shift chip and carries the holiday', () => {
+    const cell = { code: 'NGT', color: '#123', off: false };
+    const out = resolveRosterCellDisplay(cell, 'Eid');
+    expect(out.kind).toBe('shift');
+    expect(out.label).toBe('NGT');
+    expect(out.holiday).toBe('Eid');
+    expect(out.tooltip).toContain('Eid');
+  });
+
+  it('holiday with no assignment shows the holiday block', () => {
+    const out = resolveRosterCellDisplay({ off: true }, 'Eid');
+    expect(out.kind).toBe('holiday');
+    expect(out.holiday).toBe('Eid');
   });
 
   it('approved full-day leave supersedes the shift', () => {
