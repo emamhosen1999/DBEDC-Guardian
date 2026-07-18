@@ -490,6 +490,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/admin/device-sessions/{device}/revoke', [DeviceSessionController::class, 'revoke'])->name('admin.device-sessions.revoke');
     });
 
+    // Feature flags / remote config. Gated at the SAME level as admin device
+    // sessions on purpose: a flag flip changes fleet-wide behaviour instantly.
+    Route::middleware(['permission:users.view'])->group(function () {
+        Route::get('/admin/feature-flags', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'index'])->name('admin.feature-flags.index');
+    });
+
+    Route::middleware(['permission:users.update'])->group(function () {
+        Route::post('/admin/feature-flags', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'store'])->name('admin.feature-flags.store');
+        Route::put('/admin/feature-flags/{flag}', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'update'])->whereNumber('flag')->name('admin.feature-flags.update');
+        Route::post('/admin/feature-flags/{flag}/toggle', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'toggle'])->whereNumber('flag')->name('admin.feature-flags.toggle');
+        Route::delete('/admin/feature-flags/{flag}', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'destroy'])->whereNumber('flag')->name('admin.feature-flags.destroy');
+    });
+
     // Company settings routes
     Route::middleware(['permission:company.settings'])->group(function () {
         Route::put('/update-company-settings', [CompanySettingController::class, 'update'])->name('update-company-settings');

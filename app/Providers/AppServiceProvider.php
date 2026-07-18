@@ -17,7 +17,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Singleton so the per-request memo actually holds: several call sites
+        // (config endpoint, sync kill switch) may resolve flags in one request
+        // and CACHE_STORE is null in production, i.e. every miss hits the DB.
+        $this->app->singleton(\App\Services\FeatureFlagService::class);
     }
 
     /**

@@ -92,9 +92,33 @@ class SyncController extends Controller
         ]);
     }
 
+    /**
+     * Server-side kill switch for the offline outbox flush.
+     *
+     * If a bad client build starts hammering /sync/push (or a mutation handler
+     * is corrupting data), an admin flips this flag OFF and every device stops
+     * being accepted on its NEXT foreground — no store release, no OTA. The
+     * outbox is designed to hold: a 503 is transient, so queued punches stay
+     * pending and drain once the flag is back on. Nothing is dropped.
+     *
+     * Fail-open: an absent row means enabled, so a missing seed can never brick
+     * attendance sync.
+     */
+    public const OFFLINE_PUSH_FLAG = 'mobile.offline_sync_push_enabled';
+
     public function push(SyncPushRequest $request): JsonResponse
     {
         $user = $request->user();
+
+        if (! app(\App\Services\FeatureFlagService::class)->isEnabled(self::OFFLINE_PUSH_FLAG, $user, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Offline sync is temporarily paused by the administrator. Your queued items are safe and will be sent automatically.',
+                'error_code' => 'SYNC_PUSH_DISABLED',
+                'retry_after_seconds' => 900,
+            ], 503);
+        }
+
         $mutations = collect($request->input('mutations', []));
 
         $results = [];
