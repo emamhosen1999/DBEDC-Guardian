@@ -193,6 +193,10 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
 
 Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {
     Route::get('/auth/me', [MobileAuthController::class, 'me'])->name('api.v1.auth.me');
+    Route::post('/heartbeat', \App\Http\Controllers\Api\V1\HeartbeatController::class)->middleware('throttle:30,1')->name('api.v1.heartbeat');
+    // Runtime remote config: server-controlled flags the app reads after login
+    // and on foreground, so behaviour changes WITHOUT a store release.
+    Route::get('/config', [\App\Http\Controllers\Api\V1\ConfigController::class, 'show'])->name('api.v1.config.show');
     Route::post('/auth/logout', [MobileAuthController::class, 'logout'])->name('api.v1.auth.logout');
     Route::get('/profile', [MobileProfileController::class, 'show'])->name('api.v1.profile.show');
     Route::put('/profile', [MobileProfileController::class, 'update'])->name('api.v1.profile.update');
