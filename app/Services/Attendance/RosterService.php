@@ -29,7 +29,13 @@ class RosterService
                         continue;
                     }
 
-                    $shift = $this->resolveShift($userId, $d);
+                    // Derive straight from the assignment/pattern — NOT via
+                    // resolveShift(), whose first rule returns any existing
+                    // materialized row. Going through resolveShift() here made
+                    // regeneration read each day's own stale value back and
+                    // rewrite it unchanged, so a changed assignment/pattern
+                    // never re-applied to already-generated days.
+                    $shift = $this->resolveFromAssignment($userId, $d);
 
                     RosterDay::updateOrCreate(
                         ['user_id' => $userId, 'date' => $d->toDateString()],
@@ -64,8 +70,20 @@ class RosterService
         }
 
         // No materialized row at all → fall through to live derivation.
+        return $this->resolveFromAssignment($userId, $date);
+    }
 
-        // 2. Effective-dated assignment, highest precedence scope first.
+    /**
+     * The shift a day would carry purely from the effective-dated assignment /
+     * rotation pattern, IGNORING any materialized roster_days row. This is what
+     * generation writes: it must re-derive from the current assignment so a
+     * changed pattern/anchor/shift re-applies to existing days. resolveShift()
+     * layers the materialized-row precedence on top of this for read-time.
+     * null = off / no work.
+     */
+    public function resolveFromAssignment(int $userId, CarbonInterface $date): ?Shift
+    {
+        // 1. Effective-dated assignment, highest precedence scope first.
         $assignment = $this->resolveAssignment($userId, $date);
         if (! $assignment) {
             return null;
@@ -75,7 +93,7 @@ class RosterService
             return $assignment->shift;
         }
 
-        // 3. Rotation pattern → phase by anchor_date.
+        // 2. Rotation pattern → phase by anchor_date.
         $pattern = $assignment->rotationPattern;
         $cycleLength = (int) ($pattern->cycle_length_days ?? 0);
         if (! $pattern || empty($pattern->definition) || $cycleLength < 1 || ! $assignment->anchor_date) {

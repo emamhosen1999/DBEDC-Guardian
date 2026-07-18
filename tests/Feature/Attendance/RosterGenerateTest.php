@@ -47,4 +47,34 @@ class RosterGenerateTest extends TestCase
         $this->assertSame('pattern', $generated->source);
         $this->assertSame($shift->id, $generated->shift_id);
     }
+
+    public function test_regeneration_reapplies_a_changed_assignment_to_existing_pattern_days(): void
+    {
+        $user = User::factory()->create();
+        $shiftA = Shift::factory()->create();
+        $shiftB = Shift::factory()->create();
+        $assignment = ShiftAssignment::factory()->create([
+            'scope_type' => 'user', 'scope_id' => $user->id,
+            'shift_id' => $shiftA->id, 'anchor_date' => '2026-06-01', 'effective_from' => '2026-06-01',
+        ]);
+
+        $svc = app(RosterService::class);
+        $svc->generateRoster([$user->id], '2026-06-01', '2026-06-03');
+
+        $day = RosterDay::where('user_id', $user->id)->whereDate('date', '2026-06-01')->first();
+        $this->assertSame($shiftA->id, $day->shift_id);
+
+        // The assignment is superseded to a different shift, then the roster is
+        // regenerated over the SAME range. Pressing "Generate" must re-derive the
+        // day from the (now changed) assignment — not read back the stale row.
+        $assignment->update(['shift_id' => $shiftB->id]);
+        $svc->generateRoster([$user->id], '2026-06-01', '2026-06-03');
+
+        $day->refresh();
+        $this->assertSame(
+            $shiftB->id,
+            $day->shift_id,
+            'Regeneration must re-apply the changed assignment to already-materialized pattern rows.'
+        );
+    }
 }
