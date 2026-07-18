@@ -2,6 +2,7 @@
 
 namespace App\Services\Leave;
 
+use App\Events\Domain\LeaveApproved;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
@@ -211,6 +212,11 @@ class LeaveApprovalService
 
                 app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
 
+                // Domain bus (additive). Dispatched INSIDE the transaction on
+                // purpose: ShouldDispatchAfterCommit holds it until the commit
+                // below and discards it if the catch block rolls back instead.
+                LeaveApproved::dispatch($approver->id, $leave->id, $currentLevel, false, $leave->user_id);
+
                 DB::commit();
 
                 return [
@@ -241,6 +247,9 @@ class LeaveApprovalService
                 app(LeaveLedgerService::class)->consume($leave->fresh());
 
                 app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
+
+                // Domain bus (additive, after-commit) — final approval.
+                LeaveApproved::dispatch($approver->id, $leave->id, $currentLevel, true, $leave->user_id);
 
                 DB::commit();
                 Log::info("Leave #{$leave->id} fully approved", [

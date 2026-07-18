@@ -26,6 +26,15 @@ class EventServiceProvider extends ServiceProvider
         \Illuminate\Notifications\Events\NotificationSent::class => [
             \App\Listeners\WriteRealtimeNotificationSignal::class,
         ],
+
+        // DOMAIN BUS. Registered against the App\Events\Domain\DomainEvent
+        // INTERFACE, not a concrete class: Laravel's dispatcher resolves
+        // listeners bound to an event's interfaces, so this one entry wires
+        // every current and future domain event to the realtime signal writer.
+        // Add new domain events by implementing the interface — no change here.
+        \App\Events\Domain\DomainEvent::class => [
+            \App\Listeners\Domain\EmitRealtimeSignal::class,
+        ],
     ];
 
     /**

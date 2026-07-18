@@ -2,6 +2,7 @@
 
 namespace App\Services\DailyWork;
 
+use App\Events\Domain\DailyWorkStatusChanged;
 use App\Models\DailyWork;
 use App\Traits\JurisdictionMatcher;
 use Carbon\Carbon;
@@ -91,8 +92,24 @@ class DailyWorkCrudService
                 $validatedData['incharge'] = $jurisdiction->incharge;
             }
 
+            // Capture the pre-update status so we only announce a REAL transition.
+            $previousStatus = $dailyWork->status;
+
             // Update daily work
             $dailyWork->update($validatedData);
+
+            // Domain bus (additive, after-commit). Dispatched inside this
+            // DB::transaction: held until commit, discarded on rollback. Only a
+            // genuine status change is a transition — an edit that leaves the
+            // status untouched emits nothing.
+            if (array_key_exists('status', $validatedData) && $validatedData['status'] !== $previousStatus) {
+                DailyWorkStatusChanged::dispatch(
+                    $request->user()?->id,
+                    $dailyWork->id,
+                    $previousStatus,
+                    (string) $validatedData['status'],
+                );
+            }
 
             return [
                 'message' => 'Daily work updated successfully',

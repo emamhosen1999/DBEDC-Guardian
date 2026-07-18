@@ -2,6 +2,7 @@
 
 namespace App\Services\Attendance;
 
+use App\Events\Domain\AttendancePunched;
 use App\Models\HRM\Attendance;
 use App\Services\Attendance\Contracts\ScheduleResolver;
 use Carbon\Carbon;
@@ -351,6 +352,15 @@ class AttendancePunchService
         // Handle photo upload for polygon/route types
         $this->handlePhotoUpload($attendance, $request, 'punchout_photo', $user);
 
+        // Domain bus (additive, after-commit). When this runs inside the punch
+        // transaction the event is held until commit and dropped on rollback.
+        AttendancePunched::dispatch(
+            $user->id ?? null,
+            $attendance->id,
+            AttendancePunched::ACTION_OUT,
+            $this->businessDateKey($attendance, $punchTime),
+        );
+
         return [
             'status' => 'success',
             'message' => 'Successfully punched out!',
@@ -406,7 +416,40 @@ class AttendancePunchService
             $result['warning'] = $warning;
         }
 
+        // Domain bus (additive, after-commit). punchIn always runs inside
+        // processPunchInTransaction, so a rolled-back capture emits nothing.
+        AttendancePunched::dispatch(
+            $user->id ?? null,
+            $attendance->id,
+            AttendancePunched::ACTION_IN,
+            $this->businessDateKey($attendance, $punchTime),
+        );
+
         return $result;
+    }
+
+    /**
+     * Realtime bucket key for an attendance row: the BUSINESS date the row is
+     * filed under (which for an overnight shift is the prior day), falling back
+     * to the punch moment only when the row somehow carries no date.
+     */
+    private function businessDateKey(Attendance $attendance, Carbon $punchTime): string
+    {
+        $date = $attendance->date;
+
+        if ($date instanceof CarbonInterface) {
+            return $date->format('Y-m-d');
+        }
+
+        if (is_string($date) && $date !== '') {
+            try {
+                return Carbon::parse($date)->format('Y-m-d');
+            } catch (\Throwable) {
+                // fall through to the punch moment
+            }
+        }
+
+        return $punchTime->format('Y-m-d');
     }
 
     /**

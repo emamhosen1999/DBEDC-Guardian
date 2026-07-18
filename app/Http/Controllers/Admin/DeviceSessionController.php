@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Events\Domain\DeviceSessionRevoked;
 use App\Http\Controllers\Controller;
 use App\Models\RefreshToken;
 use App\Models\User;
@@ -218,6 +219,18 @@ class DeviceSessionController extends Controller
                 'unbound_current_device' => $unboundCurrentDevice,
             ];
         });
+
+        // Domain bus (additive). Dispatched after the transaction closure has
+        // returned; ShouldDispatchAfterCommit additionally guarantees that a
+        // revoke rolled back inside that closure announces nothing.
+        DeviceSessionRevoked::dispatch(
+            $request->user()?->id,
+            (int) $userDevice->id,
+            (int) $user->id,
+            $result['access_tokens_revoked'],
+            $result['refresh_tokens_revoked'],
+            $result['unbound_current_device'],
+        );
 
         $message = sprintf(
             'Revoked %s for %s: %d access token(s) and %d refresh token(s) destroyed.',
