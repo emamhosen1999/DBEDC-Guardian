@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Quality\NcrController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DesignationController;
+use App\Http\Controllers\Admin\DeviceSessionController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EducationController;
 use App\Http\Controllers\ExperienceController;
@@ -475,12 +476,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Admin device management
     Route::middleware(['permission:users.view'])->group(function () {
         Route::get('/users/{userId}/devices', [DeviceController::class, 'getUserDevices'])->name('admin.users.devices');
+
+        // Fleet-wide session dashboard (every user's devices in one list)
+        Route::get('/admin/device-sessions', [DeviceSessionController::class, 'index'])->name('admin.device-sessions.index');
     });
 
     Route::middleware(['permission:users.update'])->group(function () {
         Route::post('/users/{userId}/devices/reset', [DeviceController::class, 'resetDevices'])->name('admin.users.devices.reset');
         Route::post('/users/{userId}/devices/toggle', [DeviceController::class, 'toggleSingleDeviceLogin'])->name('admin.users.devices.toggle');
         Route::delete('/users/{userId}/devices/{deviceId}', [DeviceController::class, 'adminDeactivateDevice'])->name('admin.users.devices.deactivate');
+
+        // Revoke a single device session: access tokens + refresh chain + device
+        Route::post('/admin/device-sessions/{device}/revoke', [DeviceSessionController::class, 'revoke'])->name('admin.device-sessions.revoke');
     });
 
     // Company settings routes
