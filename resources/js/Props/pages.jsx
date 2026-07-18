@@ -173,6 +173,18 @@ export const getPages = (roles, permissions, auth = null) => {
             route: 'admin.settings.notifications',
             description: 'Configure notification types, channels, and recipients'
           }] : []),
+          ...(permissions.includes('users.view') ? [{
+            name: 'Device Sessions',
+            icon: <ComputerDesktopIcon className="w-5 h-5" />,
+            route: 'admin.device-sessions.index',
+            description: 'View active device sessions and revoke them per device'
+          }] : []),
+          ...(permissions.includes('users.view') ? [{
+            name: 'Feature Flags',
+            icon: <Cog6ToothIcon className="w-5 h-5" />,
+            route: 'admin.feature-flags.index',
+            description: 'Toggle server-controlled feature flags and remote config'
+          }] : []),
       ]
     }] : []),
   ];
