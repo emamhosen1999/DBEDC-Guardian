@@ -1334,6 +1334,165 @@ class DataSyncService
         ]);
     }
 
+    // ──────────────────────────────────────────────
+    //  Visibility tombstones (scope departures)
+    // ──────────────────────────────────────────────
+
+    /**
+     * Emit per-user tombstones for a daily work that has LEFT a user's visibility
+     * without being deleted from their point of view.
+     *
+     * Why this exists: `pull` returns only currently-visible rows plus deletion
+     * tombstones. A daily work reassigned from user A to user B is not deleted,
+     * so A's next pull simply stops mentioning it — and A's device caches it
+     * forever, showing work that is no longer theirs (and, for a soft delete,
+     * work that no longer exists at all).
+     *
+     * ARRIVALS need no mechanism: the same write bumps `updated_at`, so B's
+     * visibility-scoped ASC cursor pull picks the row up as a normal row. Only
+     * DEPARTURES need an explicit signal, because the departing user's own query
+     * can no longer see the row to report on it.
+     *
+     * Cost: this runs on the (rare) reassignment/removal write, never on pull.
+     * The candidate set is bounded — the old/new owners, the direct reports of
+     * the old/new incharge (they see via `incharge = report_to`), and on removal
+     * the privileged roles that see everything. Each candidate is then filtered
+     * through the REAL visibility predicate (`baseDailyWorksQuery`) so this can
+     * never drift out of step with what `pull` actually returns.
+     *
+     * @param  array{incharge?: int|string|null, assigned?: int|string|null}  $previousOwners
+     * @param  bool  $removed  True when the row left EVERY user's visibility
+     *                         (soft/force delete), not just the old owner's.
+     */
+    public function recordDailyWorkVisibilityDepartures(DailyWork $dailyWork, array $previousOwners, bool $removed = false): void
+    {
+        if (! Schema::hasTable('sync_tombstones')) {
+            return;
+        }
+
+        $candidateIds = $this->dailyWorkVisibilityCandidateIds($dailyWork, $previousOwners, $removed);
+
+        if ($candidateIds === []) {
+            return;
+        }
+
+        // Eager-load roles + designation: baseDailyWorksQuery() consults both, and
+        // Model::preventLazyLoading() (active outside production) throws on a
+        // lazy load from a queried — i.e. not freshly created — model.
+        $relations = ['roles'];
+
+        if (Schema::hasColumn('users', 'designation_id') && Schema::hasTable('designations')) {
+            $relations[] = 'designation';
+        }
+
+        $candidates = User::query()
+            ->with($relations)
+            ->whereIn('id', $candidateIds)
+            ->get();
+
+        $rows = [];
+        $entityId = (int) $dailyWork->id;
+        $now = now();
+
+        foreach ($candidates as $candidate) {
+            if ($this->dailyWorkVisibleTo($candidate, $entityId)) {
+                continue; // Still theirs — an arrival, or unaffected.
+            }
+
+            $rows[] = [
+                'user_id' => (int) $candidate->id,
+                'module' => 'daily_works',
+                'entity_id' => $entityId,
+                'created_at' => $now,
+            ];
+        }
+
+        if ($rows !== []) {
+            DB::table('sync_tombstones')->insert($rows);
+        }
+    }
+
+    /**
+     * Does this daily work still satisfy the user's pull visibility predicate?
+     *
+     * Deliberately reuses baseDailyWorksQuery() — the exact query `pull` pages —
+     * so a tombstone is emitted if and only if the row really has left the pull
+     * result set. A soft-deleted row fails here for everyone (SoftDeletes global
+     * scope), which is what makes deletes tombstone correctly too.
+     */
+    private function dailyWorkVisibleTo(User $user, int $dailyWorkId): bool
+    {
+        return $this->baseDailyWorksQuery($user)
+            ->whereKey($dailyWorkId)
+            ->exists();
+    }
+
+    /**
+     * Bounded set of users whose visibility of this row may have changed.
+     *
+     * @param  array{incharge?: int|string|null, assigned?: int|string|null}  $previousOwners
+     * @return array<int, int>
+     */
+    private function dailyWorkVisibilityCandidateIds(DailyWork $dailyWork, array $previousOwners, bool $includePrivileged): array
+    {
+        $previousIncharge = (int) ($previousOwners['incharge'] ?? 0);
+        $previousAssigned = (int) ($previousOwners['assigned'] ?? 0);
+        $currentIncharge = (int) $dailyWork->incharge;
+        $currentAssigned = (int) $dailyWork->assigned;
+
+        $ids = array_filter([$previousIncharge, $previousAssigned, $currentIncharge, $currentAssigned]);
+
+        // Subordinates see a row through `incharge = their report_to`, so an
+        // incharge change (or a removal) moves the row for the whole team.
+        $inchargeIds = array_values(array_filter([$previousIncharge, $currentIncharge]));
+
+        if ($inchargeIds !== [] && Schema::hasColumn('users', 'report_to')) {
+            $ids = array_merge(
+                $ids,
+                DB::table('users')->whereIn('report_to', $inchargeIds)->pluck('id')->all()
+            );
+        }
+
+        if ($includePrivileged) {
+            $ids = array_merge($ids, $this->privilegedUserIds());
+        }
+
+        return array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    /**
+     * Ids of users who see every daily work (mirrors isPrivilegedUser()).
+     *
+     * Read straight off the Spatie pivot rather than the `role()` scope: an
+     * absent role name makes that scope THROW, and a sync side-effect must never
+     * be able to break the write that triggered it. The morph type is derived via
+     * getMorphClass() so a morph-map alias is honoured.
+     *
+     * @return array<int, int>
+     */
+    private function privilegedUserIds(): array
+    {
+        if (! Schema::hasTable('model_has_roles') || ! Schema::hasTable('roles')) {
+            return [];
+        }
+
+        return DB::table('model_has_roles')
+            ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+            ->where('model_has_roles.model_type', (new User)->getMorphClass())
+            ->whereIn('roles.name', [
+                'Super Admin',
+                'Admin',
+                'HR Manager',
+                'Project Manager',
+                'Consultant',
+                'Super Administrator',
+                'Administrator',
+            ])
+            ->pluck('model_has_roles.model_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
     /**
      * Bound a client-asserted offline capture time. Returns null (⇒ reject) when
      * the timestamp is unparseable, in the future beyond a small skew, or older
