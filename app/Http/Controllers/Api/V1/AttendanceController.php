@@ -517,6 +517,10 @@ class AttendanceController extends Controller
                 return ! $presentUserIds->contains($user->id);
             })->values();
 
+            // Kept before partition() reassigns $absentUsers below: the today-based
+            // summary needs every non-present user, not just the 24h "absent" split.
+            $nonPresentUsers = $absentUsers;
+
             $parsedDate = Carbon::parse($selectedDate);
 
             // The upcoming / absent / off split lives in the service so the web and
@@ -615,6 +619,10 @@ class AttendanceController extends Controller
                 'total_absent' => $serializedAbsentUsers->count(),
                 'total_off' => $serializedOffUsers->count(),
                 'total_upcoming' => $serializedUpcomingUsers->count(),
+                // Today-only headcount for the summary band. Present is added by
+                // the client (it comes from the present endpoint); these three
+                // plus present are mutually exclusive and sum to the whole team.
+                'summary_counts' => $this->upcomingShiftService->todaySummaryCounts($parsedDate, $nonPresentUsers),
             ]);
         } catch (\Throwable $exception) {
             report($exception);

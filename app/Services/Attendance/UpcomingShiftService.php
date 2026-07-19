@@ -94,6 +94,44 @@ class UpcomingShiftService
     }
 
     /**
+     * Strictly TODAY-based headcount for the summary band, mutually exclusive so
+     * present + absent + off + upcoming == the whole team. Unlike partition(),
+     * this never reaches into tomorrow: a working-day shift that has already
+     * started with no punch is Absent even if the employee also has a shift
+     * tomorrow (partition would resurrect them as "upcoming" via the 24h window).
+     *
+     * @param  Collection<int, User>  $nonPresentUsers  in-scope users with no punch-in for the date
+     * @return array{absent: int, off: int, upcoming: int}
+     */
+    public function todaySummaryCounts(CarbonInterface $date, Collection $nonPresentUsers): array
+    {
+        $now = Carbon::now();
+        $absent = 0;
+        $off = 0;
+        $upcoming = 0;
+
+        foreach ($nonPresentUsers as $user) {
+            $schedule = $this->schedules->resolve($user->id, $date);
+
+            if (! $schedule->isWorkingDay) {
+                $off++;
+
+                continue;
+            }
+
+            // Working day today: not yet started → upcoming; already started and
+            // never punched → absent.
+            if ($schedule->start->gt($now)) {
+                $upcoming++;
+            } else {
+                $absent++;
+            }
+        }
+
+        return ['absent' => $absent, 'off' => $off, 'upcoming' => $upcoming];
+    }
+
+    /**
      * Shifts starting inside [now, now + 24h]. Today's shift is checked first,
      * then tomorrow's — that second check is what lets a late-evening window
      * reach across midnight.
