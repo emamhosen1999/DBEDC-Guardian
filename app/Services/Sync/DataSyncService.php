@@ -244,7 +244,21 @@ class DataSyncService
                 return [[], $lastTs, $lastId, false];
             }
 
-            $query = $this->baseDailyWorksQuery($user)->withCount(['activeObjections']);
+            // Project ONLY the six columns transformDailyWorkRecord() emits. `select *`
+            // dragged all 24 columns — including the `description` and
+            // `inspection_details` TEXT blobs — across the wire for every synced row.
+            // NOTE: the select() must precede withCount(), which appends its count
+            // sub-select to an already-set column list rather than replacing it.
+            $query = $this->baseDailyWorksQuery($user)
+                ->select([
+                    'daily_works.id',
+                    'daily_works.number',
+                    'daily_works.date',
+                    'daily_works.status',
+                    'daily_works.type',
+                    'daily_works.updated_at',
+                ])
+                ->withCount(['activeObjections']);
             $this->applyCompositeCursor($query, 'daily_works.updated_at', 'daily_works.id', $ts, $id);
 
             $models = $query

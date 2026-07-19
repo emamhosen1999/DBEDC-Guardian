@@ -906,6 +906,23 @@ class DailyWorkController extends Controller
 
         $assignedByIncharge = [];
 
+        // Resolve every in-charge on this page in ONE query instead of one query per
+        // distinct in-charge. The loop below is unchanged and still calls
+        // getAssigneeCandidatesForIncharge(), but every lookup now hits the primed
+        // per-request cache. Today only ~5 users are ever in charge of a daily work,
+        // so the old shape cost ~5 queries; perPage is client-controlled, so the
+        // ceiling was the number of distinct in-charges on the requested page.
+        $this->primeAssigneeCandidates(
+            collect($dailyWorks)
+                ->filter(fn (DailyWork $dailyWork): bool => $this->canUpdateAssigned($user, $dailyWork))
+                ->pluck('incharge')
+                ->filter()
+                ->map(fn ($inchargeId): int => (int) $inchargeId)
+                ->unique()
+                ->values()
+                ->all()
+        );
+
         foreach ($dailyWorks as $dailyWork) {
             if (! $this->canUpdateAssigned($user, $dailyWork)) {
                 continue;
@@ -1252,6 +1269,47 @@ class DailyWorkController extends Controller
         $this->inchargeCandidatesCache = $candidates;
 
         return $this->inchargeCandidatesCache;
+    }
+
+    /**
+     * Populate the assignee-candidate cache for many in-charges in a single query.
+     *
+     * Produces exactly what getAssigneeCandidatesForIncharge() would have produced
+     * per id — same columns, same `ORDER BY name`, and an explicit empty array for
+     * an in-charge with no reports, so the cache still registers a hit and no
+     * follow-up query is issued.
+     *
+     * @param  array<int, int>  $inchargeUserIds
+     */
+    private function primeAssigneeCandidates(array $inchargeUserIds): void
+    {
+        $missing = array_values(array_filter(
+            $inchargeUserIds,
+            fn (int $id): bool => $id > 0 && ! array_key_exists($id, $this->assigneeCandidatesCache)
+        ));
+
+        if ($missing === []) {
+            return;
+        }
+
+        $grouped = User::query()
+            ->whereNull('deleted_at')
+            ->whereIn('report_to', $missing)
+            ->select(['id', 'name', 'report_to'])
+            ->orderBy('name')
+            ->get()
+            ->groupBy('report_to');
+
+        foreach ($missing as $inchargeUserId) {
+            $this->assigneeCandidatesCache[$inchargeUserId] = $grouped
+                ->get($inchargeUserId, collect())
+                ->map(fn (User $candidate): array => [
+                    'id' => (int) $candidate->id,
+                    'name' => $candidate->name,
+                ])
+                ->values()
+                ->all();
+        }
     }
 
     /**
