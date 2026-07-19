@@ -154,6 +154,9 @@ class UserManagementService
 
             if ($hasRoles) {
                 $user->syncRoles($roles);
+                // Role set is a daily-work visibility input; a change reshapes the
+                // whole scope with no per-row event, so force a device re-bootstrap.
+                $this->bumpSyncEpochSafely($user);
             }
 
             if ($profileImage) {
@@ -193,6 +196,7 @@ class UserManagementService
     public function syncRoles(User $user, array $roles): User
     {
         $user->syncRoles($roles);
+        $this->bumpSyncEpochSafely($user);
 
         return $user->fresh(['department', 'designation', 'roles', 'currentDevice']);
     }
@@ -210,11 +214,33 @@ class UserManagementService
         foreach ($users as $user) {
             if (! $user->hasRole($role)) {
                 $user->assignRole($role);
+                // Only a REAL role change shifts visibility, so the bump sits inside
+                // the guard: re-assigning a role the user already holds is a no-op
+                // and must not cost every one of their devices a re-bootstrap.
+                $this->bumpSyncEpochSafely($user);
             }
             $count++;
         }
 
         return $count;
+    }
+
+    /**
+     * Advance a user's mobile sync epoch after a ROLE change, so their devices
+     * re-bootstrap instead of silently caching daily works they can no longer see.
+     *
+     * Roles live in the Spatie pivot, which fires no model `updated` event — the
+     * UserSyncEpochObserver therefore cannot see a role change, and this service is
+     * the application's role-assignment path. Best-effort: a sync side-effect must
+     * never break the role assignment that triggered it.
+     */
+    private function bumpSyncEpochSafely(User $user): void
+    {
+        try {
+            $user->bumpSyncEpoch();
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**

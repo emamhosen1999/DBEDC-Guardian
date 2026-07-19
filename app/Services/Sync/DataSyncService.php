@@ -45,6 +45,63 @@ class DataSyncService
     }
 
     // ──────────────────────────────────────────────
+    //  Sync epoch (whole-set visibility shifts)
+    // ──────────────────────────────────────────────
+
+    /**
+     * Current monotonic sync epoch for a user.
+     *
+     * WHY THIS EXISTS: per-row tombstones close the case where a ROW leaves a
+     * user's scope (reassignment/delete). They cannot close the mirror case where
+     * the USER'S OWN scope inputs change — report_to, department_id, designation_id
+     * or their role set. Those reshape `baseDailyWorksQuery` wholesale, so the
+     * device's cache both holds rows it may no longer see and misses rows it now
+     * should. Emitting per-row tombstones for a whole-set shift is unbounded, so the
+     * epoch is bumped instead and the device is told to re-bootstrap.
+     *
+     * Floors at 1 and tolerates a pre-migration schema (column absent ⇒ 1, i.e.
+     * nothing is ever considered stale, so the read path can never break on deploy
+     * ordering).
+     */
+    public function currentSyncEpoch(User $user): int
+    {
+        if (! Schema::hasColumn('users', 'sync_epoch')) {
+            return 1;
+        }
+
+        $epoch = $user->getAttribute('sync_epoch');
+
+        if ($epoch === null) {
+            // The instance was hydrated without the column (a partial select, or a
+            // model built in memory that never re-read its DB defaults). Fetch the
+            // authoritative value rather than silently reporting epoch 1, which
+            // would suppress every reset directive for that device.
+            $epoch = DB::table('users')->where('id', $user->getKey())->value('sync_epoch');
+        }
+
+        return max(1, (int) ($epoch ?? 1));
+    }
+
+    /**
+     * Must a pull carrying $clientEpoch discard its cursors/cache and re-bootstrap?
+     *
+     * True only when the client presents an epoch OLDER than the server's, meaning
+     * the user's visibility set shifted wholesale since that device last synced.
+     *
+     * Backward-compatible by design: a legacy client that sends no epoch (null) is
+     * NEVER force-reset — it keeps working exactly as before on the row+tombstone
+     * delta path. A client that sends an epoch >= the server's is also untouched.
+     */
+    public function pullRequiresReset(User $user, ?int $clientEpoch): bool
+    {
+        if ($clientEpoch === null) {
+            return false;
+        }
+
+        return $clientEpoch < $this->currentSyncEpoch($user);
+    }
+
+    // ──────────────────────────────────────────────
     //  Bootstrap payloads
     // ──────────────────────────────────────────────
 

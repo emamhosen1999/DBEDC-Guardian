@@ -48,6 +48,9 @@ class SyncController extends Controller
                 // Per-module continuation token; feed each back to /sync/pull as cursor[module].
                 'cursor' => $cursor,
                 'has_more' => $hasMore,
+                // Store this alongside the cursors and echo it on every pull. The
+                // server bumps it when the user's whole visibility set shifts.
+                'sync_epoch' => $this->syncService->currentSyncEpoch($user),
                 'server_time' => now()->toAtomString(),
                 'modules' => $moduleData,
             ],
@@ -60,6 +63,29 @@ class SyncController extends Controller
         $limit = (int) $request->input('limit', 100);
         $modules = $this->syncService->resolveModules($request->input('modules', []));
         $cursors = $this->resolveCursors($request->input('cursor'));
+
+        $serverEpoch = $this->syncService->currentSyncEpoch($user);
+        $rawEpoch = $request->input('epoch');
+        $clientEpoch = is_numeric($rawEpoch) ? (int) $rawEpoch : null;
+
+        // WHOLE-SET VISIBILITY SHIFT. The user's own scope inputs (report_to,
+        // department, designation, roles) changed since this device last synced, so
+        // its cached rows are no longer a subset of what it may see and no bounded
+        // set of per-row tombstones could reconcile it. Short-circuit the delta and
+        // order a full re-bootstrap: the client drops its cursors + cached rows and
+        // calls /sync/bootstrap. A client that sends no epoch is never reset, so
+        // older builds keep working unchanged.
+        if ($this->syncService->pullRequiresReset($user, $clientEpoch)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'reset' => true,
+                    'must_bootstrap' => true,
+                    'sync_epoch' => $serverEpoch,
+                    'server_time' => now()->toAtomString(),
+                ],
+            ]);
+        }
 
         $changes = [];
         $counts = [];
@@ -87,6 +113,8 @@ class SyncController extends Controller
                 // has_more is true, feeding next_cursor back as cursor[module].
                 'next_cursor' => $nextCursor,
                 'has_more' => $hasMore,
+                'reset' => false,
+                'sync_epoch' => $serverEpoch,
                 'server_time' => now()->toAtomString(),
             ],
         ]);

@@ -23,6 +23,11 @@ class SyncPullRequest extends FormRequest
             'modules' => ['nullable', 'array'],
             'modules.*' => ['string', Rule::in(['attendance', 'leaves', 'daily_works'])],
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+            // Last sync epoch this device bootstrapped against. Optional: a client
+            // that omits it is never force-reset (backward compatible). When it is
+            // older than the server's, the user's whole visibility set has shifted
+            // and the response orders a re-bootstrap instead of a delta.
+            'epoch' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

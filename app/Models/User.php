@@ -12,6 +12,8 @@ use App\Models\HRM\Leave;
 use App\Models\HRM\Offboarding;
 use App\Models\NotificationPreference;
 use App\Models\NotificationToken;
+use App\Observers\UserSyncEpochObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -20,7 +22,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use NotificationChannels\WebPush\HasPushSubscriptions;
@@ -36,6 +40,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @method bool hasAllRoles(array $roles)
  * @method bool hasPermissionTo(string $permission, string $guardName = null)
  */
+#[ObservedBy([UserSyncEpochObserver::class])]
 class User extends Authenticatable implements HasMedia
 {
     use HasApiTokens, HasFactory, HasPushSubscriptions, HasRoles, InteractsWithMedia, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
@@ -145,6 +150,7 @@ class User extends Authenticatable implements HasMedia
         'preferences' => 'array',
         'single_device_login_enabled' => 'boolean',
         'device_reset_at' => 'datetime',
+        'sync_epoch' => 'integer',
     ];
 
     /**
@@ -532,6 +538,41 @@ class User extends Authenticatable implements HasMedia
             'reset_reason' => $this->device_reset_reason,
             'single_device_enabled' => $this->single_device_login_enabled,
         ];
+    }
+
+    /**
+     * Advance this user's monotonic sync epoch, forcing every one of their mobile
+     * devices to RE-BOOTSTRAP on its next pull.
+     *
+     * Called whenever a daily-work scope INPUT changes: report_to / department_id /
+     * designation_id (via UserSyncEpochObserver) and Spatie role assignment/removal
+     * (via UserManagementService). Those inputs reshape the user's whole visibility
+     * window at once, with no per-row event to tombstone — so the device is told to
+     * discard its cursors/cache and start fresh instead.
+     *
+     * Written straight through the query builder rather than a model save so it
+     * neither re-fires the `updated` event (which would recurse through the
+     * observer) nor collides with an in-flight save's dirty tracking. Column-guarded
+     * so it is a no-op on a pre-migration schema.
+     */
+    public function bumpSyncEpoch(): void
+    {
+        if (! $this->exists || ! Schema::hasColumn('users', 'sync_epoch')) {
+            return;
+        }
+
+        DB::table('users')->where('id', $this->getKey())->increment('sync_epoch');
+
+        // Keep THIS instance truthful. The increment above is deliberately a raw
+        // query (so it cannot recurse through the observer), which means the loaded
+        // model would otherwise keep reporting the pre-bump epoch — including when
+        // it is the instance still serving the current request as the authenticated
+        // user. syncOriginalAttribute() re-baselines the value so it is never seen
+        // as dirty and a later save() cannot write the increment a second time.
+        if (array_key_exists('sync_epoch', $this->attributes)) {
+            $this->attributes['sync_epoch'] = (int) $this->attributes['sync_epoch'] + 1;
+            $this->syncOriginalAttribute('sync_epoch');
+        }
     }
 
     protected static function booted()
