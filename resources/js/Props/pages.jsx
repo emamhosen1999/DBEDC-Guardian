@@ -14,6 +14,7 @@ import {
   CubeIcon,
   DocumentDuplicateIcon,
   DocumentTextIcon,
+  ExclamationTriangleIcon,
   FolderIcon,
   HandThumbUpIcon,
   HomeIcon,
@@ -184,6 +185,12 @@ export const getPages = (roles, permissions, auth = null) => {
             icon: <Cog6ToothIcon className="w-5 h-5" />,
             route: 'admin.feature-flags.index',
             description: 'Toggle server-controlled feature flags and remote config'
+          }] : []),
+          ...(permissions.includes('users.view') ? [{
+            name: 'Client Diagnostics',
+            icon: <ExclamationTriangleIcon className="w-5 h-5" />,
+            route: 'admin.client-errors.index',
+            description: 'Mobile app crashes and errors, grouped and triaged'
           }] : []),
       ]
     }] : []),

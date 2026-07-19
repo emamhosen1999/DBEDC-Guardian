@@ -189,6 +189,15 @@ Route::prefix('v1')->middleware('throttle:api')->group(function () {
     // Public + throttled: the refresh token is the credential, so this must work
     // once the access token has already expired.
     Route::post('/auth/refresh', [MobileAuthController::class, 'refresh'])->name('api.v1.auth.refresh');
+
+    // Client Diagnostics ingest. Public + tightly throttled ON PURPOSE: the
+    // authenticated v1 group also runs ApiDeviceAuthMiddleware, and a crash
+    // reporter that only works while auth is healthy cannot report the crashes
+    // that matter most (login, token refresh, cold start). A bearer token is
+    // still honoured when present, attributing the group to a user.
+    Route::post('/client-errors', [\App\Http\Controllers\Api\V1\ClientErrorLogController::class, 'store'])
+        ->middleware('throttle:30,1')
+        ->name('api.v1.client-errors.store');
 });
 
 Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideTokenExpiration::class, ApiDeviceAuthMiddleware::class, 'throttle:api'])->group(function () {

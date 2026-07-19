@@ -503,6 +503,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/admin/feature-flags/{flag}', [\App\Http\Controllers\Admin\FeatureFlagController::class, 'destroy'])->whereNumber('flag')->name('admin.feature-flags.destroy');
     });
 
+    // Client Diagnostics: mobile crash telemetry triage. Gated at the SAME
+    // level as admin device sessions — the payloads carry device ids, app
+    // builds and user attribution for the whole fleet.
+    Route::middleware(['permission:users.view'])->group(function () {
+        Route::get('/admin/client-errors', [\App\Http\Controllers\Admin\ClientErrorController::class, 'index'])->name('admin.client-errors.index');
+        Route::get('/admin/client-errors/{error}', [\App\Http\Controllers\Admin\ClientErrorController::class, 'show'])->whereNumber('error')->name('admin.client-errors.show');
+    });
+
+    Route::middleware(['permission:users.update'])->group(function () {
+        Route::post('/admin/client-errors/{error}/resolve', [\App\Http\Controllers\Admin\ClientErrorController::class, 'resolve'])->whereNumber('error')->name('admin.client-errors.resolve');
+    });
+
     // Company settings routes
     Route::middleware(['permission:company.settings'])->group(function () {
         Route::put('/update-company-settings', [CompanySettingController::class, 'update'])->name('update-company-settings');

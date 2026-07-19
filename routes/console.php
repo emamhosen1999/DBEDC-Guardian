@@ -96,3 +96,14 @@ Schedule::command('biometric:scheduled-log-download')
 
 // Close forgotten open punches at their resolved shift end
 Schedule::command('attendance:auto-punch-out')->hourly()->withoutOverlapping();
+
+// Client Diagnostics retention: drop resolved crash groups after 30 days and
+// anything untouched for 90 days. Off-peak so the chunked deletes never
+// compete with the morning punch traffic.
+Schedule::command('client-errors:prune')
+    ->dailyAt('03:20')->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping()
+    ->onFailure(function () {
+        Log::error('Client error telemetry prune failed');
+    })
+    ->appendOutputTo(storage_path('logs/client-errors-prune.log'));
