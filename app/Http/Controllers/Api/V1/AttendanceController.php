@@ -523,13 +523,17 @@ class AttendanceController extends Controller
 
             $parsedDate = Carbon::parse($selectedDate);
 
-            // The upcoming / absent / off split lives in the service so the web and
-            // the mobile API cannot drift apart again.
+            // Upcoming keeps the 24h window (today + tomorrow) for its own tab.
             $partition = $this->upcomingShiftService->partition($parsedDate, $allUsers, $absentUsers);
-
             $upcomingUsers = $partition['upcoming'];
-            $absentUsers = $partition['absent'];
-            $offUsers = $partition['off'];
+
+            // Absent / Off — and the summary counts — are strictly today-based, so
+            // a member who missed today's shift shows as Absent (and in the Absent
+            // list) even if they are also rostered tomorrow. This keeps the Absent
+            // tab and the Absent stat consistent.
+            $todayPartition = $this->upcomingShiftService->todayPartition($parsedDate, $nonPresentUsers);
+            $absentUsers = $todayPartition['absent'];
+            $offUsers = $todayPartition['off'];
 
             $leaveUserColumn = $this->resolveLeavesUserColumn();
             $todayLeaves = collect();
@@ -622,7 +626,11 @@ class AttendanceController extends Controller
                 // Today-only headcount for the summary band. Present is added by
                 // the client (it comes from the present endpoint); these three
                 // plus present are mutually exclusive and sum to the whole team.
-                'summary_counts' => $this->upcomingShiftService->todaySummaryCounts($parsedDate, $nonPresentUsers),
+                'summary_counts' => [
+                    'absent' => $absentUsers->count(),
+                    'off' => $offUsers->count(),
+                    'upcoming' => $todayPartition['upcoming']->count(),
+                ],
             ]);
         } catch (\Throwable $exception) {
             report($exception);

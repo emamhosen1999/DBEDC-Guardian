@@ -101,20 +101,20 @@ class UpcomingShiftService
      * tomorrow (partition would resurrect them as "upcoming" via the 24h window).
      *
      * @param  Collection<int, User>  $nonPresentUsers  in-scope users with no punch-in for the date
-     * @return array{absent: int, off: int, upcoming: int}
+     * @return array{absent: Collection<int, User>, off: Collection<int, User>, upcoming: Collection<int, User>}
      */
-    public function todaySummaryCounts(CarbonInterface $date, Collection $nonPresentUsers): array
+    public function todayPartition(CarbonInterface $date, Collection $nonPresentUsers): array
     {
         $now = Carbon::now();
-        $absent = 0;
-        $off = 0;
-        $upcoming = 0;
+        $absent = collect();
+        $off = collect();
+        $upcoming = collect();
 
         foreach ($nonPresentUsers as $user) {
             $schedule = $this->schedules->resolve($user->id, $date);
 
             if (! $schedule->isWorkingDay) {
-                $off++;
+                $off->push($user);
 
                 continue;
             }
@@ -122,13 +122,17 @@ class UpcomingShiftService
             // Working day today: not yet started → upcoming; already started and
             // never punched → absent.
             if ($schedule->start->gt($now)) {
-                $upcoming++;
+                $upcoming->push($this->decorate($user, $date, $schedule));
             } else {
-                $absent++;
+                $absent->push($this->decorate($user, $date, $schedule));
             }
         }
 
-        return ['absent' => $absent, 'off' => $off, 'upcoming' => $upcoming];
+        return [
+            'absent' => $this->sortByShiftStart($absent),
+            'off' => $off->sortBy(fn (User $user) => (string) $user->name)->values(),
+            'upcoming' => $this->sortByShiftStart($upcoming),
+        ];
     }
 
     /**
