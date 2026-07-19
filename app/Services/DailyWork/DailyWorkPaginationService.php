@@ -9,7 +9,6 @@ use App\Traits\DailyWorkFilterable;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 class DailyWorkPaginationService
 {
@@ -20,8 +19,6 @@ class DailyWorkPaginationService
      */
     public function getPaginatedDailyWorks(Request $request): LengthAwarePaginator
     {
-        $startTime = microtime(true);
-
         // Load user with designation once to avoid redundant queries
         $user = User::with('designation')->find(Auth::id());
         $userDesignationTitle = $user->designation?->title;
@@ -36,73 +33,15 @@ class DailyWorkPaginationService
         $startDate = $request->get('startDate');
         $endDate = $request->get('endDate');
 
-        // Log the request parameters for debugging
-        Log::info('DailyWork pagination request', [
-            'perPage' => $perPage,
-            'perPage_type' => gettype($perPage),
-            'page' => $page,
-            'is_mobile_mode' => $perPage >= 1000,
-            'date_range' => [$startDate, $endDate],
-            'user_id' => $user->id,
-            'search' => $search,
-            'statusFilter' => $statusFilter,
-            'inChargeFilter' => $inChargeFilter,
-            'jurisdictionFilter' => $jurisdictionFilter,
-        ]);
-
         $query = $this->buildBaseQuery($user, $userDesignationTitle);
-
-        // Log the base query before applying filters
-        $baseCount = $query->count();
-        Log::info('Base query count before filters', [
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'designation' => $userDesignationTitle,
-            'report_to' => $user->report_to,
-            'base_count' => $baseCount,
-        ]);
-
         $query = $this->applyFilters($query, $search, $statusFilter, $inChargeFilter, $jurisdictionFilter, $startDate, $endDate);
-
-        // Practical comparison check for daily works visibility logs (Backend count before pagination)
-        $totalVisibleCount = (clone $query)->count();
-        $managerInchargeCount = $user->report_to ? (clone $query)->where('incharge', $user->report_to)->count() : 0;
-        $ownAssignedCount = (clone $query)->where('assigned', $user->id)->count();
-        $ownInchargeCount = (clone $query)->where('incharge', $user->id)->count();
-
-        Log::info('─── Backend Daily Works Visibility Check ───', [
-            'current_user' => $user->name,
-            'user_id' => $user->id,
-            'report_to' => $user->report_to,
-            'total_visible' => $totalVisibleCount,
-            'manager_incharge_count' => $managerInchargeCount,
-            'own_assigned_count' => $ownAssignedCount,
-            'own_incharge_count' => $ownInchargeCount,
-        ]);
 
         // Mobile mode detection: if perPage is very large (1000+), return all data without pagination
         if ($perPage >= 1000) {
-            Log::info('Mobile mode: fetching all data without pagination', [
-                'startDate' => $startDate,
-                'endDate' => $endDate,
-                'statusFilter' => $statusFilter,
-                'inChargeFilter' => $inChargeFilter,
-                'search' => $search,
-            ]);
-
             // Limit to reasonable number to prevent memory issues (increased for daily work dates)
             $allData = $query->orderBy('date', 'desc')
                 ->limit(2000) // Safety limit for mobile - increased to handle busy work days
                 ->get();
-
-            $endTime = microtime(true);
-            Log::info('DailyWork mobile query completed', [
-                'execution_time' => round(($endTime - $startTime) * 1000, 2).'ms',
-                'records_count' => $allData->count(),
-                'startDate' => $startDate,
-                'endDate' => $endDate,
-                'records' => $allData->pluck('id')->toArray(),
-            ]);
 
             // Create a manual paginator with all data on page 1
             return new LengthAwarePaginator(
@@ -115,13 +54,6 @@ class DailyWorkPaginationService
         }
 
         $result = $query->orderBy('date', 'desc')->paginate($perPage, ['*'], 'page', $page);
-
-        $endTime = microtime(true);
-        Log::info('DailyWork desktop query completed', [
-            'execution_time' => round(($endTime - $startTime) * 1000, 2).'ms',
-            'records_count' => $result->count(),
-            'total_records' => $result->total(),
-        ]);
 
         return $result;
     }
@@ -167,12 +99,6 @@ class DailyWorkPaginationService
             'assignedUser:id,name',  // Load assigned user names
         ])->withCount(['activeObjections']);
 
-        \Log::debug('DailyWorkPaginationService::buildBaseQuery applied constraints', [
-            'user_id' => $user->id,
-            'designation' => $userDesignationTitle,
-            'roles' => $user->roles->pluck('name')->toArray(),
-        ]);
-
         // Super Administrator and Administrator get all data
         if ($user->hasRole('Super Administrator') || $user->hasRole('Administrator')) {
             return $baseQuery;
@@ -207,12 +133,6 @@ class DailyWorkPaginationService
 
         // Employee logic based on jurisdiction incharge
         if ($user->hasRole('Employee')) {
-            Log::info('Employee visibility filter applied', [
-                'user_id' => $user->id,
-                'user_name' => $user->name,
-                'report_to' => $user->report_to,
-            ]);
-
             $hasJurisdiction = Jurisdiction::where('incharge', $user->id)->exists();
 
             if ($hasJurisdiction) {
@@ -228,13 +148,6 @@ class DailyWorkPaginationService
 
         // For other roles (non-employee, non-admin) with a manager: apply report_to visibility
         if ($user->report_to) {
-            Log::info('User with manager - applying universal filter', [
-                'user_id' => $user->id,
-                'user_name' => $user->name,
-                'report_to' => $user->report_to,
-                'designation' => $userDesignationTitle,
-            ]);
-
             return $baseQuery->where(function ($q) use ($user) {
                 $q->where('incharge', $user->id)
                     ->orWhere('assigned', $user->id)

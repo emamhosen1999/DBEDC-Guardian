@@ -37,14 +37,39 @@ return new class extends Migration
         }
 
         if (Schema::hasColumn('leaves', 'user_id')) {
-            try {
+            // Only add the index if NOTHING already covers `user_id` as a leading
+            // column (the FK index `leaves_user_id_foreign` normally does). This
+            // replaces the old catch-all try/catch that swallowed every error —
+            // including real ones — with an explicit, verifiable pre-check so a
+            // genuine failure can no longer masquerade as success.
+            if (! $this->hasIndexLeadingWith('leaves', 'user_id')) {
                 Schema::table('leaves', function (Blueprint $table) {
-                    $table->index('user_id');
+                    $table->index('user_id', 'leaves_user_id_index');
                 });
-            } catch (Throwable $exception) {
-                // Ignore index creation errors for existing indexes.
+
+                // Verify the create actually took effect.
+                if (! $this->hasIndexLeadingWith('leaves', 'user_id')) {
+                    throw new RuntimeException(
+                        'ensure_user_id_on_leaves_table: leaves.user_id index was not created.'
+                    );
+                }
             }
         }
+    }
+
+    /**
+     * Does any index on $table start with $column as its first column?
+     */
+    private function hasIndexLeadingWith(string $table, string $column): bool
+    {
+        foreach (Schema::getIndexes($table) as $index) {
+            $columns = array_map('strtolower', $index['columns'] ?? []);
+            if (($columns[0] ?? null) === strtolower($column)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

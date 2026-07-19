@@ -71,12 +71,23 @@ return new class extends Migration
 
     private function addIndexIfMissing(string $table, string $column, string $indexName): void
     {
-        try {
-            Schema::table($table, function (Blueprint $blueprint) use ($column, $indexName) {
-                $blueprint->index($column, $indexName);
-            });
-        } catch (\Throwable $e) {
-            // Index already exists (partial re-run / prod) — safe to ignore.
+        // Idempotent by NAME rather than by swallowing every exception. The old
+        // catch-all `catch (\Throwable)` hid genuine failures (a bad column, a
+        // key-too-long error) behind the same silence as a benign "already
+        // exists", letting the migration report success while doing nothing.
+        if ($this->hasIndexNamed($table, $indexName)) {
+            return;
+        }
+
+        Schema::table($table, function (Blueprint $blueprint) use ($column, $indexName) {
+            $blueprint->index($column, $indexName);
+        });
+
+        // Verify the index is really there before returning.
+        if (! $this->hasIndexNamed($table, $indexName)) {
+            throw new RuntimeException(
+                "add_sync_engine_tombstones: index [{$indexName}] on [{$table}] was not created."
+            );
         }
     }
 
@@ -86,12 +97,23 @@ return new class extends Migration
             return;
         }
 
-        try {
-            Schema::table($table, function (Blueprint $blueprint) use ($indexName) {
-                $blueprint->dropIndex($indexName);
-            });
-        } catch (\Throwable $e) {
-            // Index absent — safe to ignore.
+        if (! $this->hasIndexNamed($table, $indexName)) {
+            return;
         }
+
+        Schema::table($table, function (Blueprint $blueprint) use ($indexName) {
+            $blueprint->dropIndex($indexName);
+        });
+    }
+
+    private function hasIndexNamed(string $table, string $indexName): bool
+    {
+        foreach (Schema::getIndexes($table) as $index) {
+            if (strtolower((string) $index['name']) === strtolower($indexName)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 };
