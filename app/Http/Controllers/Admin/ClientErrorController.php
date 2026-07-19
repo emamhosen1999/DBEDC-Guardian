@@ -13,9 +13,13 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 /**
- * Admin surface for mobile client crash telemetry ("Client Diagnostics").
+ * Admin surface for crash telemetry ("Diagnostics") — BOTH streams:
+ *   source=mobile  crash reports POSTed by the app (v1 ingest endpoint)
+ *   source=server  Laravel exceptions captured by ServerErrorReporter
+ * They share one board because they are the two halves of one incident; the
+ * `source` filter narrows to either stream without forking the page.
  *
- * Reads the FINGERPRINT GROUPS written by the v1 ingest endpoint: one row per
+ * Reads the FINGERPRINT GROUPS written by those two paths: one row per
  * distinct bug, carrying an occurrence counter and blast-radius aggregates, so
  * this list is a triage queue (bugs) rather than a firehose (occurrences).
  *
@@ -165,11 +169,14 @@ class ClientErrorController extends Controller
     {
         $status = (string) $request->input('status', 'unresolved');
         $severity = (string) $request->input('severity', 'all');
+        $source = (string) $request->input('source', 'all');
 
         return [
             'search' => trim((string) $request->input('search', '')),
             'status' => in_array($status, ['all', 'resolved', 'unresolved'], true) ? $status : 'unresolved',
             'severity' => in_array($severity, ClientErrorLog::SEVERITIES, true) ? $severity : 'all',
+            // all | mobile | server — one board, two streams.
+            'source' => in_array($source, ClientErrorLog::SOURCES, true) ? $source : 'all',
             'platform' => trim((string) $request->input('platform', '')),
             'app_version' => trim((string) $request->input('app_version', '')),
             'screen' => trim((string) $request->input('screen', '')),
@@ -192,6 +199,10 @@ class ClientErrorController extends Controller
 
         if ($filters['severity'] !== 'all') {
             $query->where('severity', $filters['severity']);
+        }
+
+        if ($filters['source'] !== 'all') {
+            $query->where('source', $filters['source']);
         }
 
         if ($filters['platform'] !== '') {
@@ -223,7 +234,13 @@ class ClientErrorController extends Controller
                     ->orWhere('error_type', 'like', "%{$search}%")
                     ->orWhere('screen', 'like', "%{$search}%")
                     ->orWhere('device_id', 'like', "%{$search}%")
-                    ->orWhere('fingerprint', 'like', "%{$search}%");
+                    ->orWhere('fingerprint', 'like', "%{$search}%")
+                    // Server-stream handles: an operator triaging a 500 searches
+                    // by endpoint, route name, throw site or request id.
+                    ->orWhere('path', 'like', "%{$search}%")
+                    ->orWhere('route_name', 'like', "%{$search}%")
+                    ->orWhere('file', 'like', "%{$search}%")
+                    ->orWhere('request_id', 'like', "%{$search}%");
             });
         }
     }
@@ -246,6 +263,16 @@ class ClientErrorController extends Controller
     {
         return [
             'id' => $error->id,
+            'source' => $error->source ?? ClientErrorLog::SOURCE_MOBILE,
+            'is_server' => $error->isServer(),
+            // Server facts. Null on mobile rows — the UI switches on `source`.
+            'file' => $error->file,
+            'line' => $error->line,
+            'http_method' => $error->http_method,
+            'path' => $error->path,
+            'route_name' => $error->route_name,
+            'status_code' => $error->status_code,
+            'request_id' => $error->request_id,
             'fingerprint' => $error->fingerprint,
             'short_fingerprint' => substr((string) $error->fingerprint, 0, 8),
             'message' => $error->message,
@@ -305,6 +332,7 @@ class ClientErrorController extends Controller
     {
         return [
             'severities' => ClientErrorLog::SEVERITIES,
+            'sources' => ClientErrorLog::SOURCES,
             'platforms' => ClientErrorLog::query()
                 ->whereNotNull('platform')
                 ->distinct()
@@ -341,6 +369,16 @@ class ClientErrorController extends Controller
             'fatal_unresolved' => ClientErrorLog::query()
                 ->whereNull('resolved_at')
                 ->where('severity', 'fatal')
+                ->count(),
+            // Per-stream unresolved counts: the header answers "is the pain in
+            // the app or in the API?" before any filter is touched.
+            'mobile_unresolved' => ClientErrorLog::query()
+                ->whereNull('resolved_at')
+                ->where('source', ClientErrorLog::SOURCE_MOBILE)
+                ->count(),
+            'server_unresolved' => ClientErrorLog::query()
+                ->whereNull('resolved_at')
+                ->where('source', ClientErrorLog::SOURCE_SERVER)
                 ->count(),
             'total_occurrences' => (int) ClientErrorLog::query()->sum('count'),
             'groups_last_24h' => ClientErrorLog::query()

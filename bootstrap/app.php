@@ -11,6 +11,7 @@ use App\Http\Middleware\LogRequestMiddleware;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\TrackSecurityActivity;
+use App\Services\Diagnostics\ServerErrorReporter;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -81,6 +82,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // ── Server-side crash telemetry ──────────────────────────────────────
+        // Mirror every GENUINE server fault into the same grouped triage board
+        // the mobile app feeds (/admin/client-errors), because laravel.log on a
+        // shared cPanel host is a place errors go to be forgotten. Expected
+        // client faults (404/401/403/419/422/429) are filtered out inside the
+        // reporter — see ServerErrorReporter::shouldCapture for the full list
+        // and its reasoning.
+        //
+        // This runs IN ADDITION to Laravel's default logging (the callback
+        // returns void, so the log channel still receives the exception) and is
+        // fully self-contained: it can never throw, and it cannot recurse.
+        $exceptions->report(function (Throwable $e) {
+            ServerErrorReporter::capture($e);
+        });
+
         // Standardize all API exception responses
         $exceptions->render(function (Throwable $e, $request) {
             // Only standardize API requests

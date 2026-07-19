@@ -7,7 +7,7 @@ import {
 import {
   MagnifyingGlassIcon, ReloadIcon, ExclamationTriangleIcon,
   CheckCircledIcon, CounterClockwiseClockIcon, MobileIcon,
-  ChevronLeftIcon, ChevronRightIcon, Cross2Icon,
+  ChevronLeftIcon, ChevronRightIcon, Cross2Icon, GlobeIcon,
 } from '@radix-ui/react-icons';
 import axios from 'axios';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -35,6 +35,23 @@ const relative = (value) => {
 };
 
 const SEVERITY_COLOR = { fatal: 'red', error: 'orange', warning: 'amber' };
+
+/* ── stream identity: one board, two sources ── */
+const SOURCE_META = {
+  mobile: { label: 'Mobile', color: 'violet', Icon: MobileIcon },
+  server: { label: 'Server', color: 'cyan', Icon: GlobeIcon },
+};
+
+const SourceBadge = ({ source }) => {
+  const meta = SOURCE_META[source] ?? SOURCE_META.mobile;
+  const { Icon } = meta;
+
+  return (
+    <Badge size="1" variant="soft" color={meta.color}>
+      <Icon width="11" height="11" /> {meta.label}
+    </Badge>
+  );
+};
 
 /* ── header metric ── */
 const Metric = ({ label, value, color = 'gray' }) => (
@@ -79,6 +96,7 @@ const ClientErrors = ({
     search,
     status: filters.status ?? 'unresolved',
     severity: filters.severity ?? 'all',
+    source: filters.source ?? 'all',
     platform: filters.platform ?? '',
     app_version: filters.app_version ?? '',
     screen: filters.screen ?? '',
@@ -159,10 +177,10 @@ const ClientErrors = ({
           {/* ── masthead ── */}
           <Flex align="center" justify="between" gap="3" wrap="wrap" mb="4">
             <Box>
-              <Heading size="6" weight="medium">Client Diagnostics</Heading>
+              <Heading size="6" weight="medium">Diagnostics</Heading>
               <Text as="p" size="2" color="gray" mt="1">
-                Crashes and errors reported by the mobile app, grouped by fingerprint
-                so each row is one bug rather than one occurrence.
+                Mobile app crashes and server exceptions on one board, grouped by
+                fingerprint so each row is one bug rather than one occurrence.
               </Text>
             </Box>
             <Button variant="soft" onClick={() => router.reload({ preserveScroll: true })}>
@@ -171,11 +189,13 @@ const ClientErrors = ({
           </Flex>
 
           {/* ── fleet counters ── */}
-          <Grid columns={{ initial: '2', md: '5' }} gap="3" mb="5">
+          <Grid columns={{ initial: '2', md: '6' }} gap="3" mb="5">
             <Metric label="Error groups" value={summary.total_groups ?? 0} />
             <Metric label="Unresolved" value={summary.unresolved ?? 0} color="orange" />
             <Metric label="Fatal unresolved" value={summary.fatal_unresolved ?? 0} color="red" />
-            <Metric label="Total occurrences" value={summary.total_occurrences ?? 0} />
+            {/* Which half of the stack is bleeding, before any filter is touched. */}
+            <Metric label="Mobile unresolved" value={summary.mobile_unresolved ?? 0} color="violet" />
+            <Metric label="Server unresolved" value={summary.server_unresolved ?? 0} color="cyan" />
             <Metric label="Occurrences (24h)" value={summary.occurrences_last_24h ?? 0} color="blue" />
           </Grid>
 
@@ -201,6 +221,21 @@ const ClientErrors = ({
                     <Select.Item value="unresolved">Unresolved</Select.Item>
                     <Select.Item value="resolved">Resolved</Select.Item>
                     <Select.Item value="all">All statuses</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+
+                <Select.Root
+                  value={filters.source ?? 'all'}
+                  onValueChange={(value) => apply({ source: value })}
+                >
+                  <Select.Trigger placeholder="Source" />
+                  <Select.Content>
+                    <Select.Item value="all">All sources</Select.Item>
+                    {(options.sources ?? ['mobile', 'server']).map((source) => (
+                      <Select.Item key={source} value={source}>
+                        {SOURCE_META[source]?.label ?? source}
+                      </Select.Item>
+                    ))}
                   </Select.Content>
                 </Select.Root>
 
@@ -290,7 +325,7 @@ const ClientErrors = ({
                     <Table.ColumnHeaderCell>Severity</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell align="right">Count</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Affected</Table.ColumnHeaderCell>
-                    <Table.ColumnHeaderCell>Platforms</Table.ColumnHeaderCell>
+                    <Table.ColumnHeaderCell>Breakdown</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell>Seen</Table.ColumnHeaderCell>
                     <Table.ColumnHeaderCell align="right">Action</Table.ColumnHeaderCell>
                   </Table.Row>
@@ -302,7 +337,7 @@ const ClientErrors = ({
                       <Table.Cell colSpan={7}>
                         <Flex direction="column" align="center" gap="2" py="6">
                           <MobileIcon width="22" height="22" color="gray" />
-                          <Text size="2" color="gray">No client errors match these filters.</Text>
+                          <Text size="2" color="gray">No errors match these filters.</Text>
                         </Flex>
                       </Table.Cell>
                     </Table.Row>
@@ -318,10 +353,26 @@ const ClientErrors = ({
                         >
                           {row.message}
                         </Text>
-                        <Text as="div" size="1" color="gray">
-                          {[row.error_type, row.screen, row.app_version ? `v${row.app_version}` : null]
-                            .filter(Boolean).join(' • ') || '—'}
-                        </Text>
+                        <Flex align="center" gap="2" mt="1" wrap="wrap">
+                          <SourceBadge source={row.source} />
+                          <Text as="span" size="1" color="gray">
+                            {/* Server rows are located by endpoint + throw site;
+                                mobile rows by screen + app build. */}
+                            {(row.is_server
+                              ? [
+                                row.error_type,
+                                row.route_name || row.path,
+                                row.status_code ? `HTTP ${row.status_code}` : null,
+                                row.file ? `${row.file}${row.line ? `:${row.line}` : ''}` : null,
+                              ]
+                              : [
+                                row.error_type,
+                                row.screen,
+                                row.app_version ? `v${row.app_version}` : null,
+                              ]
+                            ).filter(Boolean).join(' • ') || '—'}
+                          </Text>
+                        </Flex>
                       </Table.Cell>
 
                       <Table.Cell>
@@ -340,11 +391,16 @@ const ClientErrors = ({
                       </Table.Cell>
 
                       <Table.Cell>
-                        <Text as="div" size="1">{row.affected_devices} device(s)</Text>
+                        {/* The blast-radius "device" slot holds endpoints for
+                            server rows — same question, different axis. */}
+                        <Text as="div" size="1">
+                          {row.affected_devices} {row.is_server ? 'endpoint(s)' : 'device(s)'}
+                        </Text>
                         <Text as="div" size="1" color="gray">{row.affected_users} user(s)</Text>
                       </Table.Cell>
 
                       <Table.Cell>
+                        {/* Platform tally for mobile; HTTP-method tally for server. */}
                         <PlatformBreakdown counts={row.platform_counts} />
                       </Table.Cell>
 
@@ -419,7 +475,8 @@ const ClientErrors = ({
                   <ExclamationTriangleIcon
                     color={`var(--${SEVERITY_COLOR[detail?.severity] ?? 'gray'}-9)`}
                   />
-                  {detail?.error_type || 'Client error'}
+                  {detail?.error_type || (detail?.is_server ? 'Server exception' : 'Client error')}
+                  {detail ? <SourceBadge source={detail.source} /> : null}
                 </Flex>
               </Dialog.Title>
               <Dialog.Close>
@@ -442,7 +499,10 @@ const ClientErrors = ({
               <Panel tinted mb="3">
                 <Grid columns={{ initial: '2', sm: '4' }} gap="3">
                   <Fact label="Occurrences" value={detail?.count} />
-                  <Fact label="Devices" value={detail?.affected_devices} />
+                  <Fact
+                    label={detail?.is_server ? 'Endpoints' : 'Devices'}
+                    value={detail?.affected_devices}
+                  />
                   <Fact label="Users" value={detail?.affected_users} />
                   <Fact
                     label="Severity"
@@ -454,14 +514,34 @@ const ClientErrors = ({
               {/* context */}
               <Panel.Section title="Latest sample" first>
                 <Grid columns={{ initial: '2', sm: '3' }} gap="3">
-                  <Fact label="Screen" value={detail?.screen} />
-                  <Fact label="Platform" value={detail?.platform} />
-                  <Fact label="OS version" value={detail?.os_version} />
-                  <Fact label="Device model" value={detail?.device_model} />
-                  <Fact label="App version" value={detail?.app_version ? `v${detail.app_version}` : null} />
-                  <Fact label="Build" value={detail?.build} />
-                  <Fact label="Device id" value={detail?.device_id} />
-                  <Fact label="Session id" value={detail?.session_id} />
+                  {detail?.is_server ? (
+                    <>
+                      {/* Server rows: where in the app, and on which request. */}
+                      <Fact label="Method" value={detail?.http_method} />
+                      <Fact label="Path" value={detail?.path} />
+                      <Fact label="Route" value={detail?.route_name} />
+                      <Fact label="Status" value={detail?.status_code} />
+                      <Fact
+                        label="Throw site"
+                        value={detail?.file ? `${detail.file}${detail.line ? `:${detail.line}` : ''}` : null}
+                      />
+                      <Fact
+                        label="Request id"
+                        value={detail?.request_id ? <Code size="1">{detail.request_id}</Code> : null}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Fact label="Screen" value={detail?.screen} />
+                      <Fact label="Platform" value={detail?.platform} />
+                      <Fact label="OS version" value={detail?.os_version} />
+                      <Fact label="Device model" value={detail?.device_model} />
+                      <Fact label="App version" value={detail?.app_version ? `v${detail.app_version}` : null} />
+                      <Fact label="Build" value={detail?.build} />
+                      <Fact label="Device id" value={detail?.device_id} />
+                      <Fact label="Session id" value={detail?.session_id} />
+                    </>
+                  )}
                   <Fact label="User" value={detail?.latest_user?.name} />
                   <Fact label="First seen" value={absolute(detail?.first_seen_at)} />
                   <Fact label="Last seen" value={absolute(detail?.last_seen_at)} />
@@ -490,7 +570,19 @@ const ClientErrors = ({
                 )}
               </Panel.Section>
 
-              {/* breadcrumbs */}
+              {/* Server rows carry endpoints instead of breadcrumbs. */}
+              {detail?.is_server ? (
+                (detail?.affected_device_ids ?? []).length > 0 ? (
+                  <Panel.Section title="Affected endpoints">
+                    <Flex gap="2" wrap="wrap">
+                      {detail.affected_device_ids.map((path) => (
+                        <Badge key={path} size="1" variant="soft" color="gray">{path}</Badge>
+                      ))}
+                    </Flex>
+                  </Panel.Section>
+                ) : null
+              ) : (
+              /* breadcrumbs */
               <Panel.Section title="Breadcrumbs">
                 {(detail?.breadcrumbs ?? []).length > 0 ? (
                   <Flex direction="column" gap="2">
@@ -513,6 +605,7 @@ const ClientErrors = ({
                   <Text size="1" color="gray">No breadcrumbs were reported.</Text>
                 )}
               </Panel.Section>
+              )}
 
               {/* affected users */}
               {(detail?.affected_user_list ?? []).length > 0 ? (
