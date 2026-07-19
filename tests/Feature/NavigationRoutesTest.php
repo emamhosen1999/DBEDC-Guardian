@@ -121,11 +121,15 @@ class NavigationRoutesTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_any_authenticated_user_can_access_organization_directory(): void
+    public function test_organization_directory_redirects_authorized_user_to_employees_console(): void
     {
-        $user = User::factory()->create();
+        // The "Master Organization Page" was deliberately (a) gated behind employees.view
+        // (commit 57307ae4f) and (b) turned into a redirect to the Employees console
+        // (commit 7b197b04d). It is no longer an open 200 page for any authenticated user:
+        // a permission-holder is 302-redirected to `employees`; a bare user gets 403.
+        $user = $this->createUserWithPermission('employees.view');
         $response = $this->actingAs($user)->get(route('organization.index'));
-        $response->assertStatus(200);
+        $response->assertRedirect(route('employees'));
     }
 
     public function test_authorized_user_can_access_holidays(): void
@@ -144,9 +148,13 @@ class NavigationRoutesTest extends TestCase
 
     public function test_authorized_user_can_access_users_roles(): void
     {
+        // The /users route was consolidated/refactored into a redirect to the Employees
+        // console (routes/web.php: `Route::get('/users', fn() => redirect()->route('employees'))`
+        // behind permission:users.view). With the permission the middleware passes and the
+        // route intentionally 302-redirects — it no longer renders its own 200 page.
         $user = $this->createUserWithPermission('users.view');
         $response = $this->actingAs($user)->get(route('users'));
-        $response->assertStatus(200);
+        $response->assertRedirect(route('employees'));
     }
 
     public function test_authorized_user_can_access_company_settings(): void

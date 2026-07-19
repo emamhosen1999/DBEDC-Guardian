@@ -54,7 +54,12 @@ class AttendanceTriggerWiringTest extends TestCase
         $rosterMock->method('effectiveShiftId')
             ->willReturnCallback(fn (int $userId, string $date) => $userId === $requester->id ? 1 : null);
 
-        $controller = new ShiftSwapController($rosterMock);
+        // ShiftSwapController gained a WorkTimeComplianceService dependency in commit 0e749ad01
+        // (working-time compliance). Mock returns [] (no violations) for its array-typed methods.
+        $controller = new ShiftSwapController(
+            $rosterMock,
+            $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
+        );
 
         $request = Request::create('/attendance/swaps/'.$swap->id.'/approve', 'POST');
         $request->setUserResolver(fn () => $admin);
@@ -87,7 +92,10 @@ class AttendanceTriggerWiringTest extends TestCase
         ]);
 
         $rosterMock = $this->createMock(\App\Services\Attendance\RosterService::class);
-        $controller = new ShiftSwapController($rosterMock);
+        $controller = new ShiftSwapController(
+            $rosterMock,
+            $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
+        );
 
         $request = Request::create('/attendance/swaps/'.$swap->id.'/reject', 'POST');
         $request->setUserResolver(fn () => $admin);
@@ -134,10 +142,13 @@ class AttendanceTriggerWiringTest extends TestCase
         $employee = User::factory()->create();
 
         // Exercise the real controller path so the wiring (not just the notification) is guarded.
+        // RosterController gained a 4th WorkTimeComplianceService dependency in commit 0e749ad01
+        // (working-time compliance). Mock returns [] for its array-typed methods (no violations).
         $controller = new RosterController(
             $this->createMock(RosterService::class),
             $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
             $this->createMock(\App\Services\Attendance\RosterOverlayService::class),
+            $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
         );
         $request = Request::create('/attendance/roster/cell', 'PUT');
         $request->merge([

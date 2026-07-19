@@ -35,12 +35,16 @@ class SessionTimeoutPolicyTest extends TestCase
         $this->assertSame('lax', config('session.same_site'));
     }
 
-    public function test_sanctum_global_absolute_expiration_stays_null(): void
+    public function test_sanctum_global_absolute_expiration_is_the_30_day_backstop(): void
     {
-        // Idle parity for mobile is enforced via per-token sliding expires_at,
-        // NOT the global absolute-from-creation expiration. Keeping this null
-        // avoids forcing a re-login mid-use regardless of activity.
-        $this->assertNull(config('sanctum.expiration'));
+        // Idle parity for mobile is still enforced via per-token sliding expires_at.
+        // Previously this global value was null (never-expire), but security commit
+        // fca11c068 (AUDIT-02 2.3) added a 30-day ABSOLUTE-from-creation backstop so a
+        // stolen-but-kept-alive token dies at most 30 days after issue. Sanctum ANDs the
+        // global expiration with each token's sliding expires_at, so the 8h idle window
+        // is unchanged — net policy is min(8h idle, 30d absolute). This test was updated
+        // from asserting null to lock in that deliberate 30-day cap (43200 minutes).
+        $this->assertSame(43200, (int) config('sanctum.expiration'));
     }
 
     public function test_unauthenticated_web_request_returns_same_401_shape_as_mobile(): void
