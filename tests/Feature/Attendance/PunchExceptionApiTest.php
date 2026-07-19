@@ -20,13 +20,21 @@ class PunchExceptionApiTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Manager']);
-        Permission::firstOrCreate(['name' => 'attendance.manage']);
+
+        // These routes are guarded by
+        // permission:attendance.correct|attendance.create|attendance.update.
+        // The fixture used to grant only the (unrelated) attendance.manage, so
+        // every manager request 403'd — the permission set drifted after these
+        // tests were written.
+        foreach (['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update'] as $permission) {
+            Permission::firstOrCreate(['name' => $permission]);
+        }
     }
 
     public function test_manager_approves_a_provisional_punch(): void
     {
         $manager = User::factory()->create();
-        $manager->givePermissionTo('attendance.manage');
+        $manager->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
         $att = Attendance::factory()->for($emp)->create([
             'date' => '2026-06-19', 'punchin' => '2026-06-19 06:00:00', 'punchout' => '2026-06-19 14:00:00',
@@ -50,7 +58,7 @@ class PunchExceptionApiTest extends TestCase
     public function test_manager_rejects_a_provisional_punch(): void
     {
         $manager = User::factory()->create();
-        $manager->givePermissionTo('attendance.manage');
+        $manager->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
         $att = Attendance::factory()->for($emp)->create([
             'date' => '2026-06-19', 'punchin' => '2026-06-19 06:00:00', 'punchout' => '2026-06-19 14:00:00',
@@ -69,7 +77,7 @@ class PunchExceptionApiTest extends TestCase
     public function test_reject_without_reason_returns_validation_error(): void
     {
         $manager = User::factory()->create();
-        $manager->givePermissionTo('attendance.manage');
+        $manager->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
         $att = Attendance::factory()->for($emp)->create([
             'date' => '2026-06-19', 'punchin' => '2026-06-19 06:00:00', 'punchout' => '2026-06-19 14:00:00',

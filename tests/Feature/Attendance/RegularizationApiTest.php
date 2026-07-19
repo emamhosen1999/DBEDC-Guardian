@@ -21,7 +21,10 @@ class RegularizationApiTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Employee']);
         Role::firstOrCreate(['name' => 'Manager']);
-        foreach (['attendance.own.view', 'attendance.manage'] as $p) {
+        // The manager approve/reject routes are guarded by
+        // permission:attendance.correct|attendance.create|attendance.update; the
+        // fixture only granted attendance.manage, so the request 403'd (drift).
+        foreach (['attendance.own.view', 'attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update'] as $p) {
             Permission::firstOrCreate(['name' => $p]);
         }
     }
@@ -30,7 +33,7 @@ class RegularizationApiTest extends TestCase
     {
         $manager = User::factory()->create();
         $manager->assignRole('Manager');
-        $manager->givePermissionTo('attendance.manage');
+        $manager->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create(['report_to' => $manager->id]);
         $emp->assignRole('Employee');
         $emp->givePermissionTo('attendance.own.view');
