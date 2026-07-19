@@ -20,7 +20,11 @@ class MarkPresentShiftAwareTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Admin']);
-        Permission::firstOrCreate(['name' => 'attendance.manage']);
+        // mark-as-present is guarded by attendance.correct|create|update, not the
+        // legacy attendance.manage this fixture used to grant alone.
+        foreach (['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update'] as $p) {
+            Permission::firstOrCreate(['name' => $p]);
+        }
     }
 
     public function test_mark_present_punchin_matches_office_start(): void
@@ -32,7 +36,7 @@ class MarkPresentShiftAwareTest extends TestCase
             'weekend_days' => ['friday'], 'auto_punch_out' => false,
         ]);
         $admin = User::factory()->create(); $admin->assignRole('Admin');
-        $admin->givePermissionTo('attendance.manage');
+        $admin->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
         $emp = User::factory()->create();
 
         $this->actingAs($admin)->postJson(route('attendance.mark-as-present'), [

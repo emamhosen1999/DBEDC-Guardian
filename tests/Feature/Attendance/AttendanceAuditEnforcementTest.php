@@ -21,7 +21,7 @@ class AttendanceAuditEnforcementTest extends TestCase
         parent::setUp();
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Role::firstOrCreate(['name' => 'Admin']);
-        foreach (['attendance.correct', 'attendance.manage'] as $p) {
+        foreach (['attendance.correct', 'attendance.create', 'attendance.update', 'attendance.manage'] as $p) {
             Permission::firstOrCreate(['name' => $p]);
         }
     }
@@ -29,7 +29,8 @@ class AttendanceAuditEnforcementTest extends TestCase
     public function test_marking_a_user_present_writes_an_audit_row(): void
     {
         $admin = User::factory()->create(); $admin->assignRole('Admin');
-        $admin->givePermissionTo('attendance.manage');
+        // mark-as-present is guarded by attendance.correct|create|update.
+        $admin->givePermissionTo(['attendance.manage', 'attendance.correct', 'attendance.create', 'attendance.update']);
 
         $user = User::factory()->create();
 
