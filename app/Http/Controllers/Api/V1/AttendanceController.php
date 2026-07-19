@@ -601,6 +601,8 @@ class AttendanceController extends Controller
                     'shift_color' => $user->shift_color ?? null,
                     'shift_start' => $user->shift_start ?? null,
                     'shift_end' => $user->shift_end ?? null,
+                    'shift_date' => $user->shift_date ?? null,
+                    'shift_day_label' => $user->shift_day_label ?? null,
                 ];
             })->values();
 

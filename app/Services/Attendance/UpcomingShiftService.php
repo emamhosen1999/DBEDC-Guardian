@@ -194,6 +194,17 @@ class UpcomingShiftService
             ->setTime($startClock->hour, $startClock->minute)
             ->getTimestamp();
 
+        // The upcoming window spans today AND tomorrow, so a row like "[NGT] 11:00 PM"
+        // is ambiguous without its date. Expose the shift's date plus a relative
+        // label so the client can show "Today" / "Tomorrow" / a short date.
+        $decorated->shift_date = $shiftDate->toDateString();
+        $daysAhead = Carbon::now()->startOfDay()->diffInDays($shiftDate->copy()->startOfDay(), false);
+        $decorated->shift_day_label = match (true) {
+            $daysAhead <= 0 => 'Today',
+            $daysAhead === 1 => 'Tomorrow',
+            default => $shiftDate->format('D, M j'),
+        };
+
         return $decorated;
     }
 
