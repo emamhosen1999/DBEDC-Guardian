@@ -29,26 +29,6 @@ use App\Services\Realtime\RealtimeSignal;
  */
 class EmitRealtimeSignal
 {
-    /**
-     * spl_object_id of every event already signalled in this process.
-     *
-     * WHY: this application registers each EventServiceProvider::$listen entry
-     * TWICE — verified, and pre-existing (BiometricDeviceConnected and
-     * NotificationSent are doubled the same way), so every listener here is
-     * invoked twice per dispatch. touch() is an idempotent marker SET, so the
-     * duplicate is harmless in outcome, but it is a wasted Firebase round-trip
-     * on every punch. This guard collapses it without touching the shared
-     * registration path (fixing that would alter existing listeners' behaviour).
-     *
-     * Bounded: keyed per event OBJECT, cleared whenever it grows past a request-
-     * sized ceiling, so a long-lived queue/octane worker cannot leak.
-     *
-     * @var array<int, true>
-     */
-    private static array $seen = [];
-
-    private const SEEN_CEILING = 1000;
-
     public function __construct(private readonly RealtimeSignal $signal) {}
 
     public function handle(DomainEvent $event): void
@@ -58,18 +38,6 @@ class EmitRealtimeSignal
         if ($entity === null) {
             return; // event has no place in the fixed signal vocabulary
         }
-
-        $key = spl_object_id($event);
-
-        if (isset(self::$seen[$key])) {
-            return;
-        }
-
-        if (count(self::$seen) >= self::SEEN_CEILING) {
-            self::$seen = [];
-        }
-
-        self::$seen[$key] = true;
 
         $bucket = trim($event->realtimeBucket());
 
