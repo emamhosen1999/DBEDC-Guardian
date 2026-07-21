@@ -3,6 +3,8 @@
 namespace Tests\Feature\Api;
 
 use App\Models\HRM\Department;
+use App\Models\HRM\RosterDay;
+use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -142,6 +144,66 @@ class MobileSwapHistoryTest extends TestCase
         // Shift-code decoration is present.
         $this->assertArrayHasKey('requester_shift_code', $res->json('data')[0]);
         $this->assertArrayHasKey('counterparty_shift_code', $res->json('data')[0]);
+    }
+
+    // -------------------------------------------------------------------------
+    // 2b. Snapshot wins over a rewritten roster — the reported bug.
+    // A swap stores the give/take codes at request time; once approved,
+    // applySwap rewrites the roster. The history must still show the ORIGINAL
+    // codes, not the post-swap roster (which would read OFF).
+    // -------------------------------------------------------------------------
+
+    public function test_decided_swap_shows_snapshot_not_rewritten_roster(): void
+    {
+        $manager = $this->manager();
+        $report = $this->employee($manager->id);
+        $mate = $this->employee();
+
+        // Snapshot captured at request time: report gave up NGT, took EVN.
+        $swap = ShiftSwapRequest::create([
+            'type' => 'swap', 'requester_id' => $report->id, 'requester_date' => '2026-07-22',
+            'counterparty_id' => $mate->id, 'counterparty_date' => '2026-08-06',
+            'counterparty_status' => 'accepted', 'status' => 'approved',
+            'requester_shift_code' => 'NGT', 'counterparty_shift_code' => 'EVN',
+        ]);
+
+        // Post-swap roster: applySwap moved both shifts away — a live lookup
+        // would now read OFF for both (exactly the bug).
+        // (no roster_days rows for those cells => effectiveShiftId null => OFF)
+
+        Sanctum::actingAs($manager);
+
+        $res = $this->getJson('/api/v1/attendance/swaps/team-decided')->assertOk();
+        $row = collect($res->json('data'))->firstWhere('id', $swap->id);
+
+        $this->assertSame('NGT', $row['requester_shift_code']);   // not OFF
+        $this->assertSame('EVN', $row['counterparty_shift_code']); // not OFF
+    }
+
+    public function test_legacy_swap_without_snapshot_falls_back_to_live_roster(): void
+    {
+        $manager = $this->manager();
+        $report = $this->employee($manager->id);
+        $mate = $this->employee();
+        $ngt = Shift::factory()->create(['code' => 'NGT']);
+        $evn = Shift::factory()->create(['code' => 'EVN']);
+
+        // Legacy row: no snapshot codes (sentinel null) → derive from roster.
+        $swap = ShiftSwapRequest::create([
+            'type' => 'swap', 'requester_id' => $report->id, 'requester_date' => '2026-07-22',
+            'counterparty_id' => $mate->id, 'counterparty_date' => '2026-08-06',
+            'counterparty_status' => 'accepted', 'status' => 'approved',
+        ]);
+        RosterDay::create(['user_id' => $report->id, 'date' => '2026-07-22', 'shift_id' => $ngt->id, 'source' => 'pattern']);
+        RosterDay::create(['user_id' => $mate->id, 'date' => '2026-08-06', 'shift_id' => $evn->id, 'source' => 'pattern']);
+
+        Sanctum::actingAs($manager);
+
+        $res = $this->getJson('/api/v1/attendance/swaps/team-decided')->assertOk();
+        $row = collect($res->json('data'))->firstWhere('id', $swap->id);
+
+        $this->assertSame('NGT', $row['requester_shift_code']);
+        $this->assertSame('EVN', $row['counterparty_shift_code']);
     }
 
     public function test_team_decided_is_forbidden_for_non_manager(): void

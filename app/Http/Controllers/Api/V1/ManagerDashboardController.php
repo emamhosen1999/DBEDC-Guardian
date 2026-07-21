@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Repositories\AttendanceRepository;
 use App\Repositories\DailyWorkRepository;
 use App\Repositories\LeaveRepository;
+use App\Services\Attendance\UpcomingShiftService;
 use App\Services\Leave\LeaveApprovalService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -41,8 +42,11 @@ class ManagerDashboardController extends Controller
         $this->leaveRepository = $leaveRepository;
     }
 
-    public function summary(Request $request, LeaveApprovalService $approvalService): JsonResponse
-    {
+    public function summary(
+        Request $request,
+        LeaveApprovalService $approvalService,
+        UpcomingShiftService $upcomingShiftService
+    ): JsonResponse {
         $user = $request->user();
 
         if (! $this->isManagerUser($user)) {
@@ -57,13 +61,44 @@ class ManagerDashboardController extends Controller
             ->values()
             ->all();
 
-        $presentToday = 0;
+        // Present = team members with a punch for today. Plucking the ids (not just a
+        // count) lets the today-based split reuse the exact non-present set, so
+        // present + absent + off + upcoming == the whole team, consistent with the
+        // team-attendance screen.
+        $presentUserIds = [];
         if ($teamMemberIds !== []) {
-            $presentToday = Attendance::query()
+            $presentUserIds = Attendance::query()
                 ->whereIn('user_id', $teamMemberIds)
                 ->whereDate('date', $today)
                 ->distinct()
-                ->count('user_id');
+                ->pluck('user_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        $presentToday = count($presentUserIds);
+
+        // Split the non-present remainder into absent / off / upcoming using the same
+        // today partition the team-attendance endpoint uses (read-only call). A member
+        // rostered but not yet started is "upcoming", a non-working day is "off", and a
+        // started-but-unpunched shift is "absent" — this replaces the client's stale
+        // total - present - onLeave derivation that lumped off + upcoming into absent.
+        $absentToday = 0;
+        $offToday = 0;
+        $upcomingToday = 0;
+
+        if ($teamMemberIds !== []) {
+            $presentIdLookup = array_flip($presentUserIds);
+            $nonPresentUsers = User::query()
+                ->whereIn('id', $teamMemberIds)
+                ->get()
+                ->reject(fn (User $member) => isset($presentIdLookup[(int) $member->id]))
+                ->values();
+
+            $todayPartition = $upcomingShiftService->todayPartition(Carbon::parse($today), $nonPresentUsers);
+            $absentToday = $todayPartition['absent']->count();
+            $offToday = $todayPartition['off']->count();
+            $upcomingToday = $todayPartition['upcoming']->count();
         }
 
         $onLeaveToday = $this->countTeamOnLeaveToday($teamMemberIds, $today);
@@ -104,6 +139,9 @@ class ManagerDashboardController extends Controller
                 'total_members' => count($teamMemberIds),
                 'present_today' => $presentToday,
                 'on_leave_today' => $onLeaveToday,
+                'absent_today' => $absentToday,
+                'off_today' => $offToday,
+                'upcoming_today' => $upcomingToday,
             ],
             'approvals' => [
                 'pending_leave_approvals' => $pendingLeaveApprovals,

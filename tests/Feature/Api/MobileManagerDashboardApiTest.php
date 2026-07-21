@@ -3,8 +3,11 @@
 namespace Tests\Feature\Api;
 
 use App\Models\DailyWork;
+use App\Models\HRM\RosterDay;
+use App\Models\HRM\Shift;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
@@ -104,6 +107,87 @@ class MobileManagerDashboardApiTest extends TestCase
             ->assertJsonPath('data.objections.submitted', 1)
             ->assertJsonPath('data.objections.under_review', 1)
             ->assertJsonPath('data.objections.total_active', 2);
+    }
+
+    public function test_team_summary_today_split_matches_the_today_partition(): void
+    {
+        // Freeze at midday so an 08:00 shift has already started (absent) while a
+        // 16:00 shift has not (upcoming) — a deterministic present/absent/off/upcoming
+        // seeded team, mirroring how the team-attendance screen splits the day.
+        Carbon::setTestNow('2026-07-14 12:00:00');
+
+        $manager = User::factory()->create([]);
+        $this->assignRole($manager, 'Project Manager');
+
+        // Present — punched in today.
+        $present = User::factory()->create(['report_to' => $manager->id]);
+        DB::table('attendances')->insert([
+            'user_id' => $present->id,
+            'date' => now()->toDateString(),
+            'punchin' => now()->setTime(9, 0)->format('Y-m-d H:i:s'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Absent — rostered 08:00 shift already started, never punched in.
+        $absent = User::factory()->create(['report_to' => $manager->id]);
+        $this->rosterShift($absent, 'M', '08:00', '16:00', now()->toDateString());
+
+        // Upcoming — rostered 16:00 shift has not started yet.
+        $upcoming = User::factory()->create(['report_to' => $manager->id]);
+        $this->rosterShift($upcoming, 'E', '16:00', '23:00', now()->toDateString());
+
+        // Off — explicit day-off roster row (shift_id null).
+        $off = User::factory()->create(['report_to' => $manager->id]);
+        RosterDay::create([
+            'user_id' => $off->id,
+            'date' => now()->toDateString(),
+            'shift_id' => null,
+            'source' => 'manual',
+        ]);
+
+        Sanctum::actingAs($manager);
+
+        $response = $this->getJson('/api/v1/manager/dashboard-summary');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.team.total_members', 4)
+            ->assertJsonPath('data.team.present_today', 1)
+            ->assertJsonPath('data.team.absent_today', 1)
+            ->assertJsonPath('data.team.off_today', 1)
+            ->assertJsonPath('data.team.upcoming_today', 1);
+
+        // The split must be mutually exclusive and cover the whole team, exactly like
+        // the today partition the team-attendance endpoint renders.
+        $team = $response->json('data.team');
+        $this->assertSame(
+            (int) $team['total_members'],
+            (int) $team['present_today'] + (int) $team['absent_today']
+                + (int) $team['off_today'] + (int) $team['upcoming_today'],
+            'present + absent + off + upcoming must equal the whole team'
+        );
+
+        Carbon::setTestNow();
+    }
+
+    private function rosterShift(User $user, string $code, string $start, string $end, string $date): void
+    {
+        $shift = Shift::factory()->create([
+            'code' => $code,
+            'name' => $code.' shift',
+            'start_time' => $start,
+            'end_time' => $end,
+            'crosses_midnight' => false,
+            'color' => '#123456',
+        ]);
+
+        RosterDay::create([
+            'user_id' => $user->id,
+            'date' => $date,
+            'shift_id' => $shift->id,
+            'source' => 'manual',
+        ]);
     }
 
     private function assignRole(User $user, string $roleName): void

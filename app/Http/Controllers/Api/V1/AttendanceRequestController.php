@@ -394,6 +394,27 @@ class AttendanceRequestController extends Controller
             $data['counterparty_date'] = null; // a cover has no return shift
         }
 
+        // Snapshot the give-up / take shift CODES now, at request time. The
+        // display must never re-derive these from the live roster: once the swap
+        // is approved, applySwap rewrites the roster and a later lookup would
+        // return the POST-swap shift (usually OFF). requester_shift_code is the
+        // "snapshotted" sentinel, so it is always set (OFF when the person is
+        // off / for a pickup where the requester gives up nothing).
+        $shiftCodeById = \App\Models\HRM\Shift::pluck('code', 'id');
+        $codeFor = function (?int $userId, ?string $date) use ($shiftCodeById): string {
+            if (! $userId || ! $date) {
+                return 'OFF';
+            }
+            $shiftId = $this->roster->effectiveShiftId($userId, $date);
+
+            return $shiftId ? ($shiftCodeById[$shiftId] ?? 'OFF') : 'OFF';
+        };
+
+        $requesterShiftCode = $isPickup ? 'OFF' : $codeFor($requester->id, $requesterDate);
+        $counterpartyShiftCode = ($data['type'] === 'cover' || ! $cpDate)
+            ? null
+            : $codeFor($counterparty->id, $cpDate);
+
         $swap = ShiftSwapRequest::create([
             'type'                => $data['type'],
             'requester_id'        => $requester->id,
@@ -404,6 +425,8 @@ class AttendanceRequestController extends Controller
             'requester_date'      => $isPickup ? $cpDate : $data['requester_date'],
             'counterparty_id'     => $counterparty->id,
             'counterparty_date'   => $data['counterparty_date'] ?? null,
+            'requester_shift_code'    => $requesterShiftCode,
+            'counterparty_shift_code' => $counterpartyShiftCode,
             'reason'              => $data['reason'] ?? null,
             'status'              => 'pending',
             'counterparty_status' => 'pending',
@@ -760,6 +783,16 @@ class AttendanceRequestController extends Controller
         $shifts = \App\Models\HRM\Shift::all()->keyBy('id');
 
         $swaps->each(function ($swap) use ($shifts) {
+            // Prefer the snapshot captured at request time. requester_shift_code
+            // is the sentinel: any row created since the snapshot migration has
+            // it set, so a non-null value means "trust the stored codes" and we
+            // must NOT re-derive from the live roster (which applySwap has since
+            // overwritten). Only legacy rows (null sentinel) fall back to a live
+            // lookup.
+            if ($swap->requester_shift_code !== null) {
+                return;
+            }
+
             $reqDateStr = $swap->requester_date->toDateString();
             $reqShiftId = $this->roster->effectiveShiftId($swap->requester_id, $reqDateStr);
             $swap->requester_shift_code = $reqShiftId ? ($shifts[$reqShiftId]?->code ?? null) : 'OFF';

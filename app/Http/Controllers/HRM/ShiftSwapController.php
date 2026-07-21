@@ -70,6 +70,16 @@ class ShiftSwapController extends Controller
             ->orderByDesc('created_at')
             ->get()
             ->map(function ($swap) use ($shifts) {
+                // Prefer the shift codes snapshotted at request time. Once a swap
+                // is approved, applySwap rewrites the roster, so a live lookup
+                // would return the POST-swap shift (usually OFF) instead of what
+                // was actually swapped. requester_shift_code is the sentinel:
+                // a non-null value means "trust the snapshot"; only legacy rows
+                // (null) fall back to a live roster derivation.
+                if ($swap->requester_shift_code !== null) {
+                    return $swap;
+                }
+
                 $reqDateStr = $swap->requester_date->toDateString();
                 $reqShiftId = $this->roster->effectiveShiftId($swap->requester_id, $reqDateStr);
                 $swap->requester_shift_code = $reqShiftId ? ($shifts[$reqShiftId]?->code ?? null) : 'OFF';
@@ -121,12 +131,32 @@ class ShiftSwapController extends Controller
             $data['counterparty_date'] = null; // a cover has no return shift
         }
 
+        // Snapshot the give-up / take shift codes now, at request time — the
+        // display must never re-derive them from the live roster (applySwap
+        // rewrites it on approval). requester_shift_code is always set (OFF when
+        // off) so it can act as the "snapshotted" sentinel on read.
+        $shiftCodeById = Shift::pluck('code', 'id');
+        $codeFor = function (?int $userId, ?string $date) use ($shiftCodeById): string {
+            if (! $userId || ! $date) {
+                return 'OFF';
+            }
+            $shiftId = $this->roster->effectiveShiftId($userId, $date);
+
+            return $shiftId ? ($shiftCodeById[$shiftId] ?? 'OFF') : 'OFF';
+        };
+        $requesterShiftCode = $codeFor($requester->id, Carbon::parse($data['requester_date'])->toDateString());
+        $counterpartyShiftCode = ($data['type'] === 'cover' || ! $cpDate)
+            ? null
+            : $codeFor($counterparty->id, $cpDate);
+
         $swap = DB::transaction(fn () => ShiftSwapRequest::create([
             'type' => $data['type'],
             'requester_id' => $requester->id,
             'requester_date' => $data['requester_date'],
             'counterparty_id' => $counterparty->id,
             'counterparty_date' => $data['counterparty_date'] ?? null,
+            'requester_shift_code' => $requesterShiftCode,
+            'counterparty_shift_code' => $counterpartyShiftCode,
             'reason' => $data['reason'] ?? null,
             'status' => 'pending',
             'counterparty_status' => 'pending',

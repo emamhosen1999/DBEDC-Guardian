@@ -13,7 +13,8 @@ class ShiftSwapRequest extends Model
 
     protected $fillable = [
         'requester_id', 'requester_date', 'type', 'counterparty_id', 'counterparty_date',
-        'counterparty_status', 'requested_shift_id', 'reason', 'status', 'approval_chain', 'approved_by',
+        'counterparty_status', 'requested_shift_id', 'requester_shift_code', 'counterparty_shift_code',
+        'reason', 'status', 'approval_chain', 'approved_by',
     ];
 
     protected $casts = [

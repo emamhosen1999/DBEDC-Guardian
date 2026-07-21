@@ -289,4 +289,10 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::delete('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}', [MobileDailyWorkController::class, 'deleteObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.delete');
     Route::get('/daily-works/{dailyWorkId}/objections/{objectionId}/files/{mediaId}/download', [MobileDailyWorkController::class, 'downloadObjectionFile'])->whereNumber('dailyWorkId')->whereNumber('objectionId')->whereNumber('mediaId')->name('api.v1.daily-works.objections.files.download');
     Route::post('/notifications/token', [NotificationController::class, 'storeToken'])->name('api.v1.notifications.token.store');
+
+    // Self-service account security (scoped to the authenticated user).
+    Route::post('/account/change-password', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'changePassword'])->name('api.v1.account.change-password');
+    Route::get('/account/devices', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'devices'])->name('api.v1.account.devices.index');
+    Route::post('/account/devices/{device}/revoke', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'revokeDevice'])->whereNumber('device')->name('api.v1.account.devices.revoke');
+    Route::post('/account/sign-out-all', [\App\Http\Controllers\Api\V1\AccountSecurityController::class, 'signOutAll'])->name('api.v1.account.sign-out-all');
 });

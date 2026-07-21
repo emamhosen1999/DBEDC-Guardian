@@ -208,5 +208,9 @@ class MobileApiEnvelopeConsistencyTest extends TestCase
     {
         Role::findOrCreate('Project Manager');
         $user->assignRole('Project Manager');
+
+        // Manager-ness is now relationship-based: a role name alone no longer
+        // qualifies, so give the user a real direct report.
+        User::factory()->create(['report_to' => $user->id]);
     }
 }

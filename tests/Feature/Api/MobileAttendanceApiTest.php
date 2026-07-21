@@ -698,6 +698,13 @@ class MobileAttendanceApiTest extends TestCase
         ]);
         $this->assignRole($manager, 'Project Manager');
 
+        // Manager-ness is relationship-based: give the manager a real direct
+        // report so they pass the server-side manager gate (a bare role name no
+        // longer qualifies on its own).
+        User::factory()->create([
+            'report_to' => $manager->id,
+        ]);
+
         Sanctum::actingAs($manager);
 
         $this->getJson('/api/v1/attendance/check-timesheet-updates/07-04-2026/2026-04')

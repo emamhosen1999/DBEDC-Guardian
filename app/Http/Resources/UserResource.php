@@ -2,11 +2,18 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Controllers\Api\V1\Concerns\ResolvesTeamMembers;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
+    // Manager-ness is derived from the SAME server-authoritative relationship/
+    // permission logic the API controllers gate on, so login/me/profile all
+    // carry a trustworthy is_manager flag. This resource is only ever used for
+    // a single user (never in a collection), so the extra lookups are cheap.
+    use ResolvesTeamMembers;
+
     /**
      * Transform the resource into an array.
      *
@@ -17,6 +24,7 @@ class UserResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'is_manager' => $this->isManagerUser($this->resource),
             'email' => $this->email,
             'phone' => $this->phone,
             'employee_id' => $this->employee_id,

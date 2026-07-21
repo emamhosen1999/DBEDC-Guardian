@@ -20,6 +20,20 @@ const formatDate = (dateStr) => {
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// One plain-language sentence describing the trade, mirroring the mobile
+// swap cards word-for-word. Reads the snapshot shift codes (persisted at
+// request time), so it stays correct after an approval rewrites the roster.
+const swapSummary = (s) => {
+    const cp = s.counterparty?.name || (s.counterparty_id ? `#${s.counterparty_id}` : 'a teammate');
+    const reqShift = s.requester_shift_code || 'OFF';
+    const cpShift = s.counterparty_shift_code || 'OFF';
+    const reqDate = formatDate(s.requester_date);
+    const cpDate = formatDate(s.counterparty_date);
+    if (s.type === 'cover') return `Gives up the ${reqShift} shift on ${reqDate} — ${cp} covers it, taking no shift in return.`;
+    if (s.type === 'pickup') return `Picks up the ${cpShift} shift on ${cpDate} from ${cp}, giving up nothing in return.`;
+    return `Gives up the ${reqShift} shift on ${reqDate} to ${cp}, and takes the ${cpShift} shift from them on ${cpDate} in return.`;
+};
+
 const getTimelineEvents = (chain) => {
     if (!chain || !Array.isArray(chain)) return [];
     return chain.map(e => {
@@ -129,8 +143,9 @@ export default function SwapApprovals({ status = 'pending' }) {
                         <Table.Row key={s.id}>
                             {/* Requester Info */}
                             <Table.Cell>
-                                <Flex direction="column">
+                                <Flex direction="column" style={{ minWidth: 220 }}>
                                     <Text weight="semibold">{s.requester?.name || `#${s.requester_id}`}</Text>
+                                    <Text size="1" color="gray" mt="1">{swapSummary(s)}</Text>
                                     {s.reason && <Text size="1" color="gray" italic mt="1">"{s.reason}"</Text>}
                                 </Flex>
                             </Table.Cell>
