@@ -8,59 +8,19 @@ use App\Models\HRM\RosterDay;
 use App\Models\HRM\Shift;
 use App\Models\HRM\ShiftSwapRequest;
 use App\Models\User;
-use App\Notifications\Attendance\ShiftSwapDecidedNotification;
-use App\Notifications\Attendance\ShiftSwapRequestedNotification;
 use App\Services\Attendance\RosterService;
-use App\Services\Attendance\WorkTimeComplianceService;
+use App\Services\Attendance\ShiftSwapService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class ShiftSwapController extends Controller
 {
     public function __construct(
         private readonly RosterService $roster,
-        private readonly WorkTimeComplianceService $compliance,
+        private readonly ShiftSwapService $swaps,
     ) {}
-
-    /**
-     * Roster-availability check shared by store (request time) and approve (apply time).
-     * Validates that both parties are scheduled on their respective dates.
-     * Does NOT restrict based on whether the counterparty is free — any same-department
-     * employee can swap any shift (same day or different day).
-     * Returns [field, message] or null.
-     */
-    private function rosterAvailabilityProblem(string $type, int $requesterId, int $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
-    {
-        if ($this->roster->effectiveShiftId($requesterId, $requesterDate) === null) {
-            return ['requester_date', 'You are not scheduled to work on that date.'];
-        }
-
-        // Counterparty cannot be busy on requester_date (must be off/free to take/cover the requester's shift)
-        if ($this->roster->effectiveShiftId($counterpartyId, $requesterDate) !== null) {
-            $field = $type === 'cover' ? 'counterparty_id' : 'counterparty_date';
-
-            return [$field, 'The counterparty is already scheduled to work on that date.'];
-        }
-
-        if ($type === 'swap') {
-            if (! $counterpartyDate) {
-                return ['counterparty_date', 'Select the shift you will take in return.'];
-            }
-            if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
-                return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
-            }
-            // Requester cannot be busy on counterparty_date (must be off/free to take the counterparty's shift)
-            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
-                return ['counterparty_date', 'You are already scheduled to work on that date.'];
-            }
-        }
-
-        return null;
-    }
 
     public function index(Request $request): JsonResponse
     {
@@ -124,60 +84,20 @@ class ShiftSwapController extends Controller
         }
 
         $cpDate = ($data['counterparty_date'] ?? null) ? Carbon::parse($data['counterparty_date'])->toDateString() : null;
-        if ($problem = $this->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, Carbon::parse($data['requester_date'])->toDateString(), $cpDate)) {
+        if ($problem = $this->swaps->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, Carbon::parse($data['requester_date'])->toDateString(), $cpDate)) {
             $fail($problem[0], $problem[1]);
         }
-        if ($data['type'] === 'cover') {
-            $data['counterparty_date'] = null; // a cover has no return shift
-        }
 
-        // Snapshot the give-up / take shift codes now, at request time — the
-        // display must never re-derive them from the live roster (applySwap
-        // rewrites it on approval). requester_shift_code is always set (OFF when
-        // off) so it can act as the "snapshotted" sentinel on read.
-        $shiftCodeById = Shift::pluck('code', 'id');
-        $codeFor = function (?int $userId, ?string $date) use ($shiftCodeById): string {
-            if (! $userId || ! $date) {
-                return 'OFF';
-            }
-            $shiftId = $this->roster->effectiveShiftId($userId, $date);
-
-            return $shiftId ? ($shiftCodeById[$shiftId] ?? 'OFF') : 'OFF';
-        };
-        $requesterShiftCode = $codeFor($requester->id, Carbon::parse($data['requester_date'])->toDateString());
-        $counterpartyShiftCode = ($data['type'] === 'cover' || ! $cpDate)
-            ? null
-            : $codeFor($counterparty->id, $cpDate);
-
-        $swap = DB::transaction(fn () => ShiftSwapRequest::create([
-            'type' => $data['type'],
-            'requester_id' => $requester->id,
-            'requester_date' => $data['requester_date'],
-            'counterparty_id' => $counterparty->id,
-            'counterparty_date' => $data['counterparty_date'] ?? null,
-            'requester_shift_code' => $requesterShiftCode,
-            'counterparty_shift_code' => $counterpartyShiftCode,
-            'reason' => $data['reason'] ?? null,
-            'status' => 'pending',
-            'counterparty_status' => 'pending',
-            'approval_chain' => [
-                [
-                    'action' => 'requested',
-                    'user_id' => $requester->id,
-                    'user_name' => $requester->name,
-                    'timestamp' => now()->toIso8601String(),
-                ],
-            ],
-        ]));
-
-        // Notify the counterparty (target of the swap request)
-        try {
-            $counterparty->notify(new ShiftSwapRequestedNotification($swap->id, $requester->name));
-        } catch (\Throwable $exception) {
-            Log::warning("ShiftSwapRequestedNotification failed for swap #{$swap->id}", [
-                'error' => $exception->getMessage(),
-            ]);
-        }
+        // ShiftSwapService owns persistence + the shift-code snapshot + the
+        // counterparty notification + the roster/all realtime signal.
+        $swap = $this->swaps->createRequest(
+            $requester,
+            $counterparty,
+            $data['type'],
+            $data['requester_date'],
+            $data['counterparty_date'] ?? null,
+            $data['reason'] ?? null,
+        );
 
         return response()->json([
             'message' => 'Swap request sent to the counterparty for confirmation.',
@@ -384,38 +304,12 @@ class ShiftSwapController extends Controller
         abort_unless($swap->counterparty_id === $request->user()->id, 403, 'Only the counterparty can respond to this swap.');
         abort_if($swap->counterparty_status !== 'pending', 409, 'This swap is not awaiting your response.');
 
-        if ($data['decision'] === 'accept') {
-            $chain = $swap->approval_chain ?? [];
-            $chain[] = [
-                'action' => 'counterparty_accepted',
-                'user_id' => $request->user()->id,
-                'user_name' => $request->user()->name,
-                'timestamp' => now()->toIso8601String(),
-            ];
+        // ShiftSwapService owns the state transition + the roster/all realtime signal.
+        $swap = $this->swaps->respond($swap, $request->user(), $data['decision']);
 
-            $swap->update([
-                'counterparty_status' => 'accepted',
-                'approval_chain' => $chain,
-            ]);
-
-            return response()->json(['message' => 'Swap accepted; sent to your manager for final approval.', 'swap' => $swap->fresh()]);
-        }
-
-        $chain = $swap->approval_chain ?? [];
-        $chain[] = [
-            'action' => 'counterparty_declined',
-            'user_id' => $request->user()->id,
-            'user_name' => $request->user()->name,
-            'timestamp' => now()->toIso8601String(),
-        ];
-
-        $swap->update([
-            'counterparty_status' => 'declined',
-            'status' => 'rejected',
-            'approval_chain' => $chain,
-        ]);
-
-        return response()->json(['message' => 'Swap declined.', 'swap' => $swap->fresh()]);
+        return $data['decision'] === 'accept'
+            ? response()->json(['message' => 'Swap accepted; sent to your manager for final approval.', 'swap' => $swap])
+            : response()->json(['message' => 'Swap declined.', 'swap' => $swap]);
     }
 
     /**
@@ -448,141 +342,42 @@ class ShiftSwapController extends Controller
 
     public function approve(Request $request, int $id): JsonResponse
     {
+        // ShiftSwapService owns the entire approval pipeline: precondition guards,
+        // roster re-check, roster application, working-time compliance, requester
+        // notification and every realtime signal (roster/all + affected months).
         $swap = ShiftSwapRequest::findOrFail($id);
-        abort_if($swap->status !== 'pending', 409, 'This swap request has already been decided.');
-        abort_if($swap->counterparty_status === 'pending', 409, 'Awaiting the counterparty\'s confirmation before approval.');
+        $res = $this->swaps->approve($swap, $request->user());
 
-        if ($swap->counterparty_id && ($problem = $this->rosterAvailabilityProblem($swap->type, $swap->requester_id, $swap->counterparty_id, $swap->requester_date->toDateString(), $swap->counterparty_date?->toDateString()))) {
-            abort(409, 'The roster changed since this request was made: '.$problem[1].' Please ask the employee to resubmit.');
+        if ($res['ok']) {
+            return response()->json([
+                'message' => $res['message'],
+                'swap' => $res['swap'],
+                'compliance_violations' => $res['compliance_violations'],
+            ]);
         }
 
-        $complianceViolations = [];
-        $blockedByCompliance = false;
-
-        try {
-            DB::transaction(function () use ($swap, $request, &$complianceViolations, &$blockedByCompliance) {
-                $chain = $swap->approval_chain ?? [];
-                $chain[] = [
-                    'action' => 'manager_approved',
-                    'user_id' => $request->user()->id,
-                    'user_name' => $request->user()->name,
-                    'timestamp' => now()->toIso8601String(),
-                ];
-
-                $swap->update([
-                    'status' => 'approved',
-                    'approved_by' => $request->user()->id,
-                    'approval_chain' => $chain,
-                ]);
-
-                $this->roster->applySwap($swap->fresh());
-
-                // Working-time compliance: validate every affected party's
-                // surrounding +/-7 day window against the roster as it now
-                // stands (still inside this transaction). Enforce mode rolls
-                // the whole swap back for a severity=error violation;
-                // warnings are always returned but never block.
-                $complianceViolations = $this->evaluateSwapCompliance($swap->fresh());
-                $hasBlockingError = collect($complianceViolations)
-                    ->flatten(1)
-                    ->contains(fn (array $v) => ($v['severity'] ?? null) === 'error');
-
-                if (config('attendance.compliance.enforce') && $hasBlockingError) {
-                    $blockedByCompliance = true;
-                    throw new \RuntimeException('Swap blocked by working-time compliance.');
-                }
-            });
-        } catch (\RuntimeException $exception) {
-            if ($blockedByCompliance) {
-                return response()->json([
-                    'message' => 'This swap violates working-time compliance rules and was not applied.',
-                    'compliance_violations' => $complianceViolations,
-                ], 422);
-            }
-
-            throw $exception;
+        if ($res['code'] === 'compliance_blocked') {
+            return response()->json([
+                'message' => $res['message'],
+                'compliance_violations' => $res['compliance_violations'],
+            ], 422);
         }
 
-        // Notify the requester that their swap was approved
-        $requesterUser = User::find($swap->requester_id);
-        if ($requesterUser) {
-            try {
-                $requesterUser->notify(new ShiftSwapDecidedNotification($swap->id, 'approved'));
-            } catch (\Throwable $exception) {
-                Log::warning("ShiftSwapDecidedNotification(approved) failed for swap #{$swap->id}", [
-                    'error' => $exception->getMessage(),
-                ]);
-            }
-        }
-
-        return response()->json([
-            'message' => 'Swap approved and applied.',
-            'swap' => $swap->fresh(),
-            'compliance_violations' => $complianceViolations,
-        ]);
-    }
-
-    /**
-     * Working-time compliance for both parties of an (already applied) swap,
-     * over each party's surrounding +/-7 day window around the swap dates.
-     *
-     * @return array<int, array<int, array{date: string, rule: string, message: string, severity: string, details: array}>>
-     */
-    private function evaluateSwapCompliance(ShiftSwapRequest $swap): array
-    {
-        $dates = array_filter([
-            $swap->requester_date?->toDateString(),
-            $swap->counterparty_date?->toDateString(),
-        ]);
-        if (empty($dates)) {
-            return [];
-        }
-
-        $from = Carbon::parse(min($dates))->subDays(7)->toDateString();
-        $to = Carbon::parse(max($dates))->addDays(7)->toDateString();
-
-        $violations = [];
-        foreach (array_filter([$swap->requester_id, $swap->counterparty_id]) as $userId) {
-            $userViolations = $this->compliance->evaluate((int) $userId, $from, $to);
-            if ($userViolations) {
-                $violations[$userId] = $userViolations;
-            }
-        }
-
-        return $violations;
+        // Precondition failures (already decided / awaiting counterparty / roster changed).
+        abort(409, $res['message']);
     }
 
     public function reject(Request $request, int $id): JsonResponse
     {
+        // ShiftSwapService owns the rejection transition, the requester
+        // notification and the roster/all realtime signal.
         $swap = ShiftSwapRequest::findOrFail($id);
-        abort_if($swap->status !== 'pending', 409, 'This swap request has already been decided.');
+        $res = $this->swaps->reject($swap, $request->user());
 
-        $chain = $swap->approval_chain ?? [];
-        $chain[] = [
-            'action' => 'manager_rejected',
-            'user_id' => $request->user()->id,
-            'user_name' => $request->user()->name,
-            'timestamp' => now()->toIso8601String(),
-        ];
-
-        $swap->update([
-            'status' => 'rejected',
-            'approved_by' => $request->user()->id,
-            'approval_chain' => $chain,
-        ]);
-
-        // Notify the requester that their swap was rejected
-        $requesterUser = User::find($swap->requester_id);
-        if ($requesterUser) {
-            try {
-                $requesterUser->notify(new ShiftSwapDecidedNotification($swap->id, 'rejected'));
-            } catch (\Throwable $exception) {
-                Log::warning("ShiftSwapDecidedNotification(rejected) failed for swap #{$swap->id}", [
-                    'error' => $exception->getMessage(),
-                ]);
-            }
+        if ($res['ok']) {
+            return response()->json(['message' => $res['message'], 'swap' => $res['swap']]);
         }
 
-        return response()->json(['message' => 'Swap rejected.', 'swap' => $swap->fresh()]);
+        abort(409, $res['message']);
     }
 }

@@ -24,7 +24,7 @@ class NotificationTypeSeederTest extends TestCase
 
         $this->assertNotNull(NotificationType::where('key', 'attendance.missed_punch_in')->first());
 
-        $this->assertSame(11, NotificationType::count());
+        $this->assertSame(14, NotificationType::count());
     }
 
     public function test_seeder_is_idempotent(): void
@@ -32,6 +32,6 @@ class NotificationTypeSeederTest extends TestCase
         $this->seed(NotificationTypeSeeder::class);
         $this->seed(NotificationTypeSeeder::class);
 
-        $this->assertSame(11, NotificationType::count());
+        $this->assertSame(14, NotificationType::count());
     }
 }

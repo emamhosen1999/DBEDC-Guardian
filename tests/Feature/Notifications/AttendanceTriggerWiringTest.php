@@ -54,12 +54,15 @@ class AttendanceTriggerWiringTest extends TestCase
         $rosterMock->method('effectiveShiftId')
             ->willReturnCallback(fn (int $userId, string $date) => $userId === $requester->id ? 1 : null);
 
-        // ShiftSwapController gained a WorkTimeComplianceService dependency in commit 0e749ad01
-        // (working-time compliance). Mock returns [] (no violations) for its array-typed methods.
-        $controller = new ShiftSwapController(
+        // The swap decision side effects now live in ShiftSwapService (single
+        // pipeline). The controller delegates to it, so build it with the same
+        // mocked roster + compliance and a mocked realtime signal.
+        $swapService = new \App\Services\Attendance\ShiftSwapService(
             $rosterMock,
             $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
+            $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
         );
+        $controller = new ShiftSwapController($rosterMock, $swapService);
 
         $request = Request::create('/attendance/swaps/'.$swap->id.'/approve', 'POST');
         $request->setUserResolver(fn () => $admin);
@@ -92,10 +95,12 @@ class AttendanceTriggerWiringTest extends TestCase
         ]);
 
         $rosterMock = $this->createMock(\App\Services\Attendance\RosterService::class);
-        $controller = new ShiftSwapController(
+        $swapService = new \App\Services\Attendance\ShiftSwapService(
             $rosterMock,
             $this->createMock(\App\Services\Attendance\WorkTimeComplianceService::class),
+            $this->createMock(\App\Services\Realtime\RealtimeSignal::class),
         );
+        $controller = new ShiftSwapController($rosterMock, $swapService);
 
         $request = Request::create('/attendance/swaps/'.$swap->id.'/reject', 'POST');
         $request->setUserResolver(fn () => $admin);

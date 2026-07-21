@@ -2,13 +2,13 @@
 
 namespace App\Services\Leave;
 
-use App\Events\Domain\LeaveApproved;
 use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Notifications\LeaveApprovalNotification;
 use App\Notifications\LeaveApprovedNotification;
 use App\Notifications\LeaveRejectedNotification;
+use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -165,18 +165,37 @@ class LeaveApprovalService
     }
 
     /**
-     * Approve leave at current level
+     * Approve a leave request — THE single approval decision path.
+     *
+     * Two modes, decided in one place:
+     *   - NORMAL manager approval: the actor must be the current-level approver
+     *     (canApprove). The chain advances level by level and only finalizes
+     *     (status => approved, ledger consumed, employee notified) at the last
+     *     level. Multi-level approvals therefore still step through each level.
+     *   - ADMIN OVERRIDE: an actor with leaves.manage / Super Admin passing
+     *     $opts['force'] => true may FINALIZE a non-terminal leave regardless of
+     *     the current chain level. The override is RECORDED in the approval_chain
+     *     as an 'admin_override' entry (and any still-pending levels are marked
+     *     'superseded') so history stays honest and the leave leaves EVERY
+     *     approver's pending queue cleanly — no "manager sees 0 pending" orphan.
+     *
+     * Side effects (chain, status, ledger, audit, notification, realtime signal)
+     * all live here and fire exactly once. Realtime is emitted post-commit so a
+     * rolled-back decision never signals.
+     *
+     * @param  array{force?: bool}  $opts
      */
-    public function approve(Leave $leave, User $approver, ?string $comments = null): array
+    public function approve(Leave $leave, User $approver, ?string $comments = null, array $opts = []): array
     {
         DB::beginTransaction();
         try {
-            $approvalChain = $leave->approval_chain;
-            $currentLevel = $leave->current_approval_level;
             $before = $leave->toArray();
+            $isCurrentApprover = $this->canApprove($leave, $approver);
+            $override = ($opts['force'] ?? false)
+                && $this->canOverride($approver)
+                && $this->isNonTerminal($leave);
 
-            // Validate approver
-            if (! $this->canApprove($leave, $approver)) {
+            if (! $isCurrentApprover && ! $override) {
                 DB::rollBack();
 
                 return [
@@ -185,7 +204,37 @@ class LeaveApprovalService
                 ];
             }
 
-            // Update current level in chain
+            // ---- ADMIN OVERRIDE: finalize regardless of chain position --------
+            if ($override) {
+                $chain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'approved', $comments);
+
+                $leave->update([
+                    'approval_chain' => $chain,
+                    'status' => 'approved',
+                    'approved_at' => now(),
+                    'approved_by' => $approver->id,
+                ]);
+
+                $this->notifyEmployeeApproved($leave->fresh());
+                app(LeaveLedgerService::class)->consume($leave->fresh());
+                app(LeaveAuditService::class)->record('admin_override', $leave->id, $before, $leave->fresh()->toArray(), $comments);
+
+                DB::commit();
+                Log::info("Leave #{$leave->id} finalized by admin override", ['actor' => $approver->id]);
+
+                $this->signalLeaveChange($approver->id, 'approve');
+
+                return [
+                    'success' => true,
+                    'message' => 'Leave request finalized by administrator override.',
+                    'status' => 'approved',
+                ];
+            }
+
+            // ---- NORMAL per-level approval ------------------------------------
+            $approvalChain = $leave->approval_chain;
+            $currentLevel = $leave->current_approval_level;
+
             foreach ($approvalChain as &$level) {
                 if ($level['level'] === $currentLevel && $level['approver_id'] === $approver->id) {
                     $level['status'] = 'approved';
@@ -194,74 +243,54 @@ class LeaveApprovalService
                     break;
                 }
             }
+            unset($level);
 
-            // Check if more levels exist
             $hasMoreLevels = collect($approvalChain)
                 ->where('level', '>', $currentLevel)
                 ->isNotEmpty();
 
             if ($hasMoreLevels) {
-                // Move to next level
+                // Move to next level — leave stays pending for the next approver.
                 $leave->update([
                     'approval_chain' => $approvalChain,
                     'current_approval_level' => $currentLevel + 1,
                 ]);
 
-                // Notify next approver
                 $this->notifyCurrentApprover($leave);
-
                 app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
 
-                // Domain bus (additive). Dispatched INSIDE the transaction on
-                // purpose: ShouldDispatchAfterCommit holds it until the commit
-                // below and discards it if the catch block rolls back instead.
-                LeaveApproved::dispatch($approver->id, $leave->id, $currentLevel, false, $leave->user_id);
-
                 DB::commit();
+
+                $this->signalLeaveChange($approver->id, 'approve');
 
                 return [
                     'success' => true,
                     'message' => 'Leave approved. Forwarded to next level.',
                     'status' => 'pending',
                 ];
-            } else {
-                // Final approval - mark as approved
-                $leave->update([
-                    'approval_chain' => $approvalChain,
-                    'status' => 'approved',
-                    'approved_at' => now(),
-                ]);
-
-                // Notify employee
-                if ($leave->employee) {
-                    try {
-                        $leave->employee->notify(new LeaveApprovedNotification($leave));
-                    } catch (\Throwable $exception) {
-                        Log::warning("Leave #{$leave->id} approved but employee notification failed", [
-                            'error' => $exception->getMessage(),
-                        ]);
-                    }
-                }
-
-                // Final approval consumes balance from the ledger.
-                app(LeaveLedgerService::class)->consume($leave->fresh());
-
-                app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
-
-                // Domain bus (additive, after-commit) — final approval.
-                LeaveApproved::dispatch($approver->id, $leave->id, $currentLevel, true, $leave->user_id);
-
-                DB::commit();
-                Log::info("Leave #{$leave->id} fully approved", [
-                    'final_approver' => $approver->id,
-                ]);
-
-                return [
-                    'success' => true,
-                    'message' => 'Leave request approved successfully.',
-                    'status' => 'approved',
-                ];
             }
+
+            // Final level cleared — mark approved.
+            $leave->update([
+                'approval_chain' => $approvalChain,
+                'status' => 'approved',
+                'approved_at' => now(),
+            ]);
+
+            $this->notifyEmployeeApproved($leave->fresh());
+            app(LeaveLedgerService::class)->consume($leave->fresh());
+            app(LeaveAuditService::class)->record('approve', $leave->id, $before, $leave->fresh()->toArray(), $comments);
+
+            DB::commit();
+            Log::info("Leave #{$leave->id} fully approved", ['final_approver' => $approver->id]);
+
+            $this->signalLeaveChange($approver->id, 'approve');
+
+            return [
+                'success' => true,
+                'message' => 'Leave request approved successfully.',
+                'status' => 'approved',
+            ];
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Failed to approve leave #{$leave->id}", [
@@ -277,13 +306,27 @@ class LeaveApprovalService
     }
 
     /**
-     * Reject leave request
+     * Reject a leave request — THE single rejection decision path.
+     *
+     * Normal path: the actor must be the current-level approver. Admin override
+     * ($opts['force'] with leaves.manage / Super Admin) may reject a non-terminal
+     * leave regardless of chain position, recorded as an 'admin_override' entry.
+     * A rejection is terminal at any level, so the leave leaves every approver's
+     * pending queue. Side effects fire exactly once; realtime is post-commit.
+     *
+     * @param  array{force?: bool}  $opts
      */
-    public function reject(Leave $leave, User $approver, string $reason): array
+    public function reject(Leave $leave, User $approver, string $reason, array $opts = []): array
     {
         DB::beginTransaction();
         try {
-            if (! $this->canApprove($leave, $approver)) {
+            $before = $leave->toArray();
+            $isCurrentApprover = $this->canApprove($leave, $approver);
+            $override = ($opts['force'] ?? false)
+                && $this->canOverride($approver)
+                && $this->isNonTerminal($leave);
+
+            if (! $isCurrentApprover && ! $override) {
                 DB::rollBack();
 
                 return [
@@ -292,18 +335,24 @@ class LeaveApprovalService
                 ];
             }
 
-            $approvalChain = $leave->approval_chain;
-            $currentLevel = $leave->current_approval_level;
-            $before = $leave->toArray();
+            if ($override && ! $isCurrentApprover) {
+                // Admin rejects a leave they are not the chain approver for.
+                $approvalChain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'rejected', $reason);
+                $auditAction = 'admin_override';
+            } else {
+                $approvalChain = $leave->approval_chain;
+                $currentLevel = $leave->current_approval_level;
 
-            // Update current level in chain
-            foreach ($approvalChain as &$level) {
-                if ($level['level'] === $currentLevel && $level['approver_id'] === $approver->id) {
-                    $level['status'] = 'rejected';
-                    $level['approved_at'] = now()->toDateTimeString();
-                    $level['comments'] = $reason;
-                    break;
+                foreach ($approvalChain as &$level) {
+                    if ($level['level'] === $currentLevel && $level['approver_id'] === $approver->id) {
+                        $level['status'] = 'rejected';
+                        $level['approved_at'] = now()->toDateTimeString();
+                        $level['comments'] = $reason;
+                        break;
+                    }
                 }
+                unset($level);
+                $auditAction = 'reject';
             }
 
             $leave->update([
@@ -313,27 +362,20 @@ class LeaveApprovalService
                 'rejected_by' => $approver->id,
             ]);
 
-            // Notify employee
-            if ($leave->employee) {
-                try {
-                    $leave->employee->notify(new LeaveRejectedNotification($leave, $reason));
-                } catch (\Throwable $exception) {
-                    Log::warning("Leave #{$leave->id} rejected but employee notification failed", [
-                        'error' => $exception->getMessage(),
-                    ]);
-                }
-            }
+            $this->notifyEmployeeRejected($leave->fresh(), $reason);
 
             // A rejection frees any previously-consumed balance (no-op if never consumed).
             app(LeaveLedgerService::class)->reverseConsumption($leave->id, 'Leave rejected');
 
-            app(LeaveAuditService::class)->record('reject', $leave->id, $before, $leave->fresh()->toArray(), $reason);
+            app(LeaveAuditService::class)->record($auditAction, $leave->id, $before, $leave->fresh()->toArray(), $reason);
 
             DB::commit();
             Log::info("Leave #{$leave->id} rejected", [
                 'rejector' => $approver->id,
                 'reason' => $reason,
             ]);
+
+            $this->signalLeaveChange($approver->id, 'reject');
 
             return [
                 'success' => true,
@@ -350,6 +392,265 @@ class LeaveApprovalService
                 'success' => false,
                 'message' => 'Failed to reject leave request.',
             ];
+        }
+    }
+
+    /**
+     * Admin-only status override for target statuses that are not a plain
+     * approve/reject decision (used by the web-admin updateStatus / bulk status
+     * tools). Approve/reject delegate to the decision pipeline above (with force)
+     * so their side effects stay identical; cancel/reopen are handled here.
+     * Requires leaves.manage / Super Admin.
+     */
+    public function overrideStatus(Leave $leave, User $actor, string $targetStatus, ?string $reason = null): array
+    {
+        $target = strtolower(trim($targetStatus));
+        $canOverride = $this->canOverride($actor);
+
+        // approve/reject targets flow through the decision pipeline. Force is
+        // honoured only for an override-capable actor; a plain current-level
+        // approver still advances/finalizes normally without it.
+        if ($target === 'approved') {
+            $result = $this->approve($leave, $actor, $reason, ['force' => $canOverride]);
+            $result['updated'] = $result['success'] ?? false;
+
+            return $result;
+        }
+
+        if (in_array($target, ['rejected', 'declined'], true)) {
+            $result = $this->reject($leave, $actor, $reason ?: 'Reviewed by an administrator.', ['force' => $canOverride]);
+            $result['updated'] = $result['success'] ?? false;
+
+            return $result;
+        }
+
+        if (! in_array($target, ['pending', 'cancelled'], true)) {
+            return [
+                'success' => false,
+                'updated' => false,
+                'message' => "Unsupported target status '{$target}'.",
+            ];
+        }
+
+        // Re-open / cancel are administrative moves — override-capable actors only.
+        if (! $canOverride) {
+            return [
+                'success' => false,
+                'updated' => false,
+                'message' => 'You are not authorized to override this leave status.',
+            ];
+        }
+
+        if (strtolower((string) $leave->status) === $target) {
+            return [
+                'success' => false,
+                'updated' => false,
+                'message' => 'Leave status remains unchanged.',
+            ];
+        }
+
+        DB::beginTransaction();
+        try {
+            $before = $leave->toArray();
+            $wasApproved = strtolower((string) $leave->status) === 'approved';
+
+            if ($target === 'cancelled') {
+                $chain = $this->recordAdminOverride($leave->approval_chain ?? [], $actor, 'cancelled', $reason);
+                $leave->update([
+                    'approval_chain' => $chain,
+                    'status' => 'cancelled',
+                    'cancelled_at' => now(),
+                    'cancelled_by' => $actor->id,
+                ]);
+
+                if ($wasApproved) {
+                    app(LeaveLedgerService::class)->reverseConsumption($leave->id, $reason ?? 'Cancelled by administrator');
+                }
+
+                $signalAction = 'cancel';
+            } else {
+                // Re-open: hand the leave back to the level-1 approver's queue.
+                $chain = $this->reopenChain($leave->approval_chain ?? [], $actor, $reason);
+                $leave->update([
+                    'approval_chain' => $chain,
+                    'current_approval_level' => 1,
+                    'status' => 'pending',
+                    'approved_at' => null,
+                    'rejection_reason' => null,
+                    'rejected_by' => null,
+                ]);
+
+                if ($wasApproved) {
+                    app(LeaveLedgerService::class)->reverseConsumption($leave->id, $reason ?? 'Re-opened by administrator');
+                }
+
+                $this->notifyCurrentApprover($leave->fresh());
+                $signalAction = 'update';
+            }
+
+            app(LeaveAuditService::class)->record('admin_override', $leave->id, $before, $leave->fresh()->toArray(), $reason);
+
+            DB::commit();
+
+            $this->signalLeaveChange($actor->id, $signalAction);
+
+            return [
+                'success' => true,
+                'updated' => true,
+                'message' => 'Leave status updated to '.$target.'.',
+                'status' => $target,
+            ];
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to override leave #{$leave->id} status", [
+                'error' => $e->getMessage(),
+                'target' => $target,
+            ]);
+
+            return [
+                'success' => false,
+                'updated' => false,
+                'message' => 'Failed to update leave status.',
+            ];
+        }
+    }
+
+    /**
+     * True for a leave that can still be acted on (not already closed).
+     */
+    protected function isNonTerminal(Leave $leave): bool
+    {
+        return ! in_array(strtolower((string) $leave->status), ['approved', 'rejected', 'declined', 'cancelled'], true);
+    }
+
+    /**
+     * May this actor finalize a leave regardless of chain position?
+     * (leaves.manage permission or the Super Admin role.)
+     */
+    public function canOverride(User $actor): bool
+    {
+        return $actor->can('leaves.manage') || $actor->hasRole('Super Admin');
+    }
+
+    /**
+     * Close out an approval chain for an admin override: mark every still-pending
+     * level 'superseded' (so no approver is left waiting) and append a dedicated
+     * 'admin_override' entry recording who acted and to what target. Keeps chain
+     * history honest and guarantees the leave exits every pending queue.
+     *
+     * @param  array<int, array<string, mixed>>  $chain
+     * @return array<int, array<string, mixed>>
+     */
+    protected function recordAdminOverride(array $chain, User $actor, string $action, ?string $reason): array
+    {
+        foreach ($chain as &$level) {
+            if (strtolower((string) ($level['status'] ?? '')) === 'pending') {
+                $level['status'] = 'superseded';
+            }
+        }
+        unset($level);
+
+        $chain[] = [
+            'level' => 'override',
+            'approver_id' => $actor->id,
+            'approver_name' => $actor->name,
+            'status' => 'admin_override',
+            'action' => $action,
+            'approved_at' => now()->toDateTimeString(),
+            'comments' => $reason,
+        ];
+
+        return $chain;
+    }
+
+    /**
+     * Reset a chain so level 1 is pending again (admin re-open), appending an
+     * 'admin_override' reopen marker for the audit trail.
+     *
+     * @param  array<int, array<string, mixed>>  $chain
+     * @return array<int, array<string, mixed>>
+     */
+    protected function reopenChain(array $chain, User $actor, ?string $reason): array
+    {
+        foreach ($chain as &$level) {
+            if (($level['level'] ?? null) === 1) {
+                $level['status'] = 'pending';
+                $level['approved_at'] = null;
+                $level['comments'] = null;
+            }
+        }
+        unset($level);
+
+        $chain[] = [
+            'level' => 'override',
+            'approver_id' => $actor->id,
+            'approver_name' => $actor->name,
+            'status' => 'admin_override',
+            'action' => 'reopen',
+            'approved_at' => now()->toDateTimeString(),
+            'comments' => $reason,
+        ];
+
+        return $chain;
+    }
+
+    /**
+     * Emit the single canonical realtime marker for a leave change. Called
+     * post-commit so a rolled-back decision never signals. The bucket is fixed
+     * at ('leave','all') — the mobile My Leaves screen and the web AdminLeavesPanel
+     * both subscribe there. actorId is the acting user, so their own device
+     * self-suppresses while every other viewer refetches.
+     */
+    protected function signalLeaveChange(?int $actorId, string $action): void
+    {
+        try {
+            app(RealtimeSignal::class)->touch('leave', 'all', $actorId, $action);
+        } catch (\Throwable $e) {
+            // Realtime is best-effort and must never break an already-committed write.
+            Log::warning('Leave realtime signal failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Fail-soft: notify the employee their leave was approved.
+     */
+    protected function notifyEmployeeApproved(Leave $leave): void
+    {
+        // Explicit eager-load: strict mode (preventLazyLoading) would otherwise
+        // turn a lazy `->employee` access into a violation that this method's
+        // catch would silently swallow — dropping the notification.
+        $leave->loadMissing('employee', 'leaveSetting');
+
+        if (! $leave->employee) {
+            return;
+        }
+
+        try {
+            $leave->employee->notify(new LeaveApprovedNotification($leave));
+        } catch (\Throwable $exception) {
+            Log::warning("Leave #{$leave->id} approved but employee notification failed", [
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Fail-soft: notify the employee their leave was rejected.
+     */
+    protected function notifyEmployeeRejected(Leave $leave, string $reason): void
+    {
+        $leave->loadMissing('employee', 'leaveSetting');
+
+        if (! $leave->employee) {
+            return;
+        }
+
+        try {
+            $leave->employee->notify(new LeaveRejectedNotification($leave, $reason));
+        } catch (\Throwable $exception) {
+            Log::warning("Leave #{$leave->id} rejected but employee notification failed", [
+                'error' => $exception->getMessage(),
+            ]);
         }
     }
 

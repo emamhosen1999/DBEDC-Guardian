@@ -15,9 +15,8 @@ use App\Services\Attendance\OvertimeService;
 use App\Services\Attendance\RegularizationService;
 use App\Services\Attendance\RosterOverlayService;
 use App\Services\Attendance\RosterService;
+use App\Services\Attendance\ShiftSwapService;
 use App\Services\Attendance\AttendanceApprovalService;
-use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
-use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +35,7 @@ class AttendanceRequestController extends Controller
         private readonly RosterService $roster,
         private readonly RosterOverlayService $overlay,
         private readonly AttendanceApprovalService $approvals,
+        private readonly ShiftSwapService $swaps,
     ) {}
 
     // -------------------------------------------------------------------------
@@ -52,6 +52,8 @@ class AttendanceRequestController extends Controller
             'reason'             => 'required|string|max:500',
         ]);
 
+        // RegularizationService owns every side effect (approver notification +
+        // attendance/all realtime signal); the controller just delegates.
         $regularization = $this->regularization->request($request->user()->id, $data);
 
         return $this->successResponse($regularization, 'Regularization request submitted.', 201);
@@ -89,6 +91,8 @@ class AttendanceRequestController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
         }
 
+        // RegularizationService owns the state transition, the requester
+        // notification and the attendance/all realtime signal.
         $r = AttendanceRegularization::findOrFail($id);
         $res = $this->regularization->approve($r, $request->user(), $request->input('comments'));
 
@@ -107,19 +111,12 @@ class AttendanceRequestController extends Controller
 
         $data = $request->validate(['reason' => 'required|string|max:500']);
         $r = AttendanceRegularization::findOrFail($id);
-        $res = $this->approvals->reject($r, $request->user(), $data['reason']);
+
+        // RegularizationService owns the rejection transition, the requester
+        // notification and the attendance/all realtime signal.
+        $res = $this->regularization->reject($r, $request->user(), $data['reason']);
 
         if ($res['success'] ?? false) {
-            $requesterUser = User::find($r->user_id);
-            if ($requesterUser) {
-                try {
-                    $requesterUser->notify(new TimeCorrectionDecidedNotification($r->id, 'rejected'));
-                } catch (\Throwable $exception) {
-                    Log::warning("TimeCorrectionDecidedNotification(rejected) failed for regularization #{$r->id}", [
-                        'error' => $exception->getMessage(),
-                    ]);
-                }
-            }
             return $this->successResponse($r, 'Regularization rejected.');
         }
 
@@ -138,6 +135,8 @@ class AttendanceRequestController extends Controller
             'reason'            => 'required|string|max:500',
         ]);
 
+        // OvertimeService owns every side effect (approver notification +
+        // attendance/all realtime signal); the controller just delegates.
         $ot = $this->overtime->request($request->user()->id, $data);
 
         return $this->successResponse($ot, 'Overtime request submitted.', 201);
@@ -175,6 +174,8 @@ class AttendanceRequestController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
         }
 
+        // OvertimeService owns the state transition, the optional comp-off credit,
+        // the requester notification and the attendance/all realtime signal.
         $ot = OvertimeRequest::findOrFail($id);
         $res = $this->overtime->approve(
             $ot,
@@ -198,7 +199,10 @@ class AttendanceRequestController extends Controller
 
         $data = $request->validate(['reason' => 'required|string|max:500']);
         $ot = OvertimeRequest::findOrFail($id);
-        $res = $this->approvals->reject($ot, $request->user(), $data['reason']);
+
+        // OvertimeService owns the rejection transition, the requester
+        // notification and the attendance/all realtime signal.
+        $res = $this->overtime->reject($ot, $request->user(), $data['reason']);
 
         if ($res['success'] ?? false) {
             return $this->successResponse($ot, 'Overtime rejected.');
@@ -301,59 +305,6 @@ class AttendanceRequestController extends Controller
     // Shift swaps (ESS) — request, my list, inbox (awaiting my consent), respond
     // -------------------------------------------------------------------------
 
-    /**
-     * Roster-availability check (mirrors the web ShiftSwapController).
-     * Validates that both parties are scheduled on their respective dates.
-     * Does NOT restrict based on whether the counterparty is free — any same-department
-     * employee can swap any shift (same day or different day).
-     * Returns [field, message] or null.
-     */
-    private function rosterAvailabilityProblem(string $type, int $requesterId, int $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
-    {
-        // Pickup = the mirror of cover: the requester TAKES a counterparty's shift
-        // on counterparty_date (they give nothing up). The counterparty must have a
-        // shift to hand over on that date and the requester must be FREE on it.
-        if ($type === 'pickup') {
-            if (! $counterpartyDate) {
-                return ['counterparty_date', 'Select the shift you want to pick up.'];
-            }
-            if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
-                return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
-            }
-            // Requester cannot be busy on counterparty_date (they take that shift → no double-booking).
-            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
-                return ['counterparty_date', 'You are already scheduled to work on that date.'];
-            }
-
-            return null;
-        }
-
-        if ($this->roster->effectiveShiftId($requesterId, $requesterDate) === null) {
-            return ['requester_date', 'You are not scheduled to work on that date.'];
-        }
-
-        // Counterparty cannot be busy on requester_date (must be off/free to take/cover the requester's shift)
-        if ($this->roster->effectiveShiftId($counterpartyId, $requesterDate) !== null) {
-            $field = $type === 'cover' ? 'counterparty_id' : 'counterparty_date';
-            return [$field, 'The counterparty is already scheduled to work on that date.'];
-        }
-
-        if ($type === 'swap') {
-            if (! $counterpartyDate) {
-                return ['counterparty_date', 'Select the shift you will take in return.'];
-            }
-            if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
-                return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
-            }
-            // Requester cannot be busy on counterparty_date (must be off/free to take the counterparty's shift)
-            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
-                return ['counterparty_date', 'You are already scheduled to work on that date.'];
-            }
-        }
-
-        return null;
-    }
-
     public function storeSwap(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -387,58 +338,20 @@ class AttendanceRequestController extends Controller
         // availability check ignores requester_date for pickup, but we pass a
         // concrete date so the signature stays non-null.
         $requesterDate = $isPickup ? $cpDate : Carbon::parse($data['requester_date'])->toDateString();
-        if ($problem = $this->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, $requesterDate, $cpDate)) {
+        if ($problem = $this->swaps->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, $requesterDate, $cpDate)) {
             $fail($problem[0], $problem[1]);
         }
-        if ($data['type'] === 'cover') {
-            $data['counterparty_date'] = null; // a cover has no return shift
-        }
 
-        // Snapshot the give-up / take shift CODES now, at request time. The
-        // display must never re-derive these from the live roster: once the swap
-        // is approved, applySwap rewrites the roster and a later lookup would
-        // return the POST-swap shift (usually OFF). requester_shift_code is the
-        // "snapshotted" sentinel, so it is always set (OFF when the person is
-        // off / for a pickup where the requester gives up nothing).
-        $shiftCodeById = \App\Models\HRM\Shift::pluck('code', 'id');
-        $codeFor = function (?int $userId, ?string $date) use ($shiftCodeById): string {
-            if (! $userId || ! $date) {
-                return 'OFF';
-            }
-            $shiftId = $this->roster->effectiveShiftId($userId, $date);
-
-            return $shiftId ? ($shiftCodeById[$shiftId] ?? 'OFF') : 'OFF';
-        };
-
-        $requesterShiftCode = $isPickup ? 'OFF' : $codeFor($requester->id, $requesterDate);
-        $counterpartyShiftCode = ($data['type'] === 'cover' || ! $cpDate)
-            ? null
-            : $codeFor($counterparty->id, $cpDate);
-
-        $swap = ShiftSwapRequest::create([
-            'type'                => $data['type'],
-            'requester_id'        => $requester->id,
-            // A pickup has no give-up date; the requester ends up working the
-            // picked-up shift, so persist requester_date = counterparty_date to
-            // satisfy the NOT NULL column and keep downstream shift-code display
-            // (pendingSwaps, approval re-check) coherent.
-            'requester_date'      => $isPickup ? $cpDate : $data['requester_date'],
-            'counterparty_id'     => $counterparty->id,
-            'counterparty_date'   => $data['counterparty_date'] ?? null,
-            'requester_shift_code'    => $requesterShiftCode,
-            'counterparty_shift_code' => $counterpartyShiftCode,
-            'reason'              => $data['reason'] ?? null,
-            'status'              => 'pending',
-            'counterparty_status' => 'pending',
-            'approval_chain'      => [
-                [
-                    'action' => 'requested',
-                    'user_id' => $requester->id,
-                    'user_name' => $requester->name,
-                    'timestamp' => now()->toIso8601String(),
-                ]
-            ],
-        ]);
+        // ShiftSwapService owns persistence + the shift-code snapshot + the
+        // counterparty notification + the roster/all realtime signal.
+        $swap = $this->swaps->createRequest(
+            $requester,
+            $counterparty,
+            $data['type'],
+            $data['requester_date'] ?? null,
+            $data['counterparty_date'] ?? null,
+            $data['reason'] ?? null,
+        );
 
         return $this->successResponse(
             $swap->load(['counterparty:id,name']),
@@ -486,38 +399,12 @@ class AttendanceRequestController extends Controller
         abort_unless($swap->counterparty_id === $request->user()->id, 403, 'Only the counterparty can respond to this swap.');
         abort_if($swap->counterparty_status !== 'pending', 409, 'This swap is not awaiting your response.');
 
-        if ($data['decision'] === 'accept') {
-            $chain = $swap->approval_chain ?? [];
-            $chain[] = [
-                'action' => 'counterparty_accepted',
-                'user_id' => $request->user()->id,
-                'user_name' => $request->user()->name,
-                'timestamp' => now()->toIso8601String(),
-            ];
+        // ShiftSwapService owns the state transition + the roster/all realtime signal.
+        $swap = $this->swaps->respond($swap, $request->user(), $data['decision']);
 
-            $swap->update([
-                'counterparty_status' => 'accepted',
-                'approval_chain' => $chain,
-            ]);
-
-            return $this->successResponse($swap->fresh(), 'Swap accepted; sent to your manager for final approval.');
-        }
-
-        $chain = $swap->approval_chain ?? [];
-        $chain[] = [
-            'action' => 'counterparty_declined',
-            'user_id' => $request->user()->id,
-            'user_name' => $request->user()->name,
-            'timestamp' => now()->toIso8601String(),
-        ];
-
-        $swap->update([
-            'counterparty_status' => 'declined',
-            'status' => 'rejected',
-            'approval_chain' => $chain,
-        ]);
-
-        return $this->successResponse($swap->fresh(), 'Swap declined.');
+        return $data['decision'] === 'accept'
+            ? $this->successResponse($swap, 'Swap accepted; sent to your manager for final approval.')
+            : $this->successResponse($swap, 'Swap declined.');
     }
 
     /**
@@ -817,71 +704,27 @@ class AttendanceRequestController extends Controller
             ], 403);
         }
 
+        // ShiftSwapService owns the entire approval pipeline: precondition guards,
+        // roster re-check, roster application, compliance, requester notification
+        // and every realtime signal (roster/all + affected months).
         $swap = ShiftSwapRequest::findOrFail($id);
-        if ($swap->status !== 'pending') {
+        $res = $this->swaps->approve($swap, $request->user());
+
+        if ($res['ok']) {
             return response()->json([
-                'success' => false,
-                'message' => 'This swap request has already been decided.',
-            ], 409);
-        }
-        if ($swap->counterparty_status === 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Awaiting the counterparty\'s confirmation before approval.',
-            ], 409);
-        }
-
-        if ($swap->counterparty_id) {
-            $problem = $this->rosterAvailabilityProblem(
-                $swap->type,
-                $swap->requester_id,
-                $swap->counterparty_id,
-                $swap->requester_date->toDateString(),
-                $swap->counterparty_date?->toDateString()
-            );
-
-            if ($problem) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'The roster changed since this request was made: ' . $problem[1],
-                ], 409);
-            }
-        }
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($swap, $request) {
-            $chain = $swap->approval_chain ?? [];
-            $chain[] = [
-                'action' => 'manager_approved',
-                'user_id' => $request->user()->id,
-                'user_name' => $request->user()->name,
-                'timestamp' => now()->toIso8601String(),
-            ];
-
-            $swap->update([
-                'status' => 'approved',
-                'approved_by' => $request->user()->id,
-                'approval_chain' => $chain,
+                'success' => true,
+                'message' => $res['message'],
+                'data' => $res['swap'],
             ]);
-
-            $this->roster->applySwap($swap->fresh());
-        });
-
-        $requesterUser = User::find($swap->requester_id);
-        if ($requesterUser) {
-            try {
-                $requesterUser->notify(new \App\Notifications\Attendance\ShiftSwapDecidedNotification($swap->id, 'approved'));
-            } catch (\Throwable $exception) {
-                Log::warning("ShiftSwapDecidedNotification(approved) failed for swap #{$swap->id}", [
-                    'error' => $exception->getMessage(),
-                ]);
-            }
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Swap approved and applied.',
-            'data' => $swap->fresh(),
-        ]);
+        $status = $res['code'] === 'compliance_blocked' ? 422 : 409;
+        $payload = ['success' => false, 'message' => $res['message']];
+        if ($res['code'] === 'compliance_blocked') {
+            $payload['compliance_violations'] = $res['compliance_violations'];
+        }
+
+        return response()->json($payload, $status);
     }
 
     public function rejectSwap(Request $request, int $id): JsonResponse
@@ -894,43 +737,19 @@ class AttendanceRequestController extends Controller
             ], 403);
         }
 
+        // ShiftSwapService owns the rejection transition, the requester
+        // notification and the roster/all realtime signal.
         $swap = ShiftSwapRequest::findOrFail($id);
-        if ($swap->status !== 'pending') {
+        $res = $this->swaps->reject($swap, $request->user());
+
+        if ($res['ok']) {
             return response()->json([
-                'success' => false,
-                'message' => 'This swap request has already been decided.',
-            ], 409);
+                'success' => true,
+                'message' => $res['message'],
+                'data' => $res['swap'],
+            ]);
         }
 
-        $chain = $swap->approval_chain ?? [];
-        $chain[] = [
-            'action' => 'manager_rejected',
-            'user_id' => $request->user()->id,
-            'user_name' => $request->user()->name,
-            'timestamp' => now()->toIso8601String(),
-        ];
-
-        $swap->update([
-            'status' => 'rejected',
-            'approved_by' => $request->user()->id,
-            'approval_chain' => $chain,
-        ]);
-
-        $requesterUser = User::find($swap->requester_id);
-        if ($requesterUser) {
-            try {
-                $requesterUser->notify(new \App\Notifications\Attendance\ShiftSwapDecidedNotification($swap->id, 'rejected'));
-            } catch (\Throwable $exception) {
-                Log::warning("ShiftSwapDecidedNotification(rejected) failed for swap #{$swap->id}", [
-                    'error' => $exception->getMessage(),
-                ]);
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Swap rejected.',
-            'data' => $swap->fresh(),
-        ]);
+        return response()->json(['success' => false, 'message' => $res['message']], 409);
     }
 }

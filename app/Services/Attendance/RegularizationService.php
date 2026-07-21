@@ -7,14 +7,27 @@ use App\Models\HRM\AttendanceRegularization;
 use App\Models\User;
 use App\Notifications\Attendance\TimeCorrectionDecidedNotification;
 use App\Notifications\Attendance\TimeCorrectionRequestedNotification;
+use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * SINGLE PIPELINE for time-correction (regularization) requests/decisions. Every
+ * side effect — state transition (via {@see AttendanceApprovalService}), applying
+ * the approved correction to attendance + audit, the recipient NOTIFICATION
+ * (request → the approver; decision → the requester), and the realtime
+ * {@see RealtimeSignal} marker — lives here so it fires exactly once whether the
+ * call came from the web ({@see \App\Http\Controllers\HRM\RegularizationController})
+ * or the mobile ({@see \App\Http\Controllers\Api\V1\AttendanceRequestController})
+ * controller. Realtime contract (do NOT change): regularization signals
+ * attendance/all; actorId is the ACTING user for self-echo suppression.
+ */
 class RegularizationService
 {
     public function __construct(
         private readonly AttendanceApprovalService $approvals,
         private readonly AttendanceAuditService $audit,
+        private readonly RealtimeSignal $signal,
     ) {}
 
     public function request(int $userId, array $data): AttendanceRegularization
@@ -61,6 +74,10 @@ class RegularizationService
             }
         }
 
+        // Living update: the approver's regularization queue subscribes to
+        // attendance/all — nudge it so a fresh request surfaces without a refresh.
+        $this->signal->touch('attendance', 'all', $userId, 'regularization_apply');
+
         return $r;
     }
 
@@ -70,7 +87,7 @@ class RegularizationService
         if (($res['status'] ?? null) === 'approved') {
             $this->applyApproved($r->fresh());
 
-            // Notify the requester that their time correction was approved
+            // Decision → notify the requester that their time correction was approved.
             $requesterUser = User::find($r->user_id);
             if ($requesterUser) {
                 try {
@@ -81,6 +98,35 @@ class RegularizationService
                     ]);
                 }
             }
+        }
+
+        if ($res['success'] ?? false) {
+            // Living update: employee's My Requests + the approver queue watch attendance/all.
+            $this->signal->touch('attendance', 'all', $approver->id, 'regularization_approve');
+        }
+
+        return $res;
+    }
+
+    public function reject(AttendanceRegularization $r, User $approver, string $reason): array
+    {
+        $res = $this->approvals->reject($r, $approver, $reason);
+
+        if ($res['success'] ?? false) {
+            // Decision → notify the requester that their time correction was rejected.
+            $requesterUser = User::find($r->user_id);
+            if ($requesterUser) {
+                try {
+                    $requesterUser->notify(new TimeCorrectionDecidedNotification($r->id, 'rejected'));
+                } catch (\Throwable $exception) {
+                    Log::warning("TimeCorrectionDecidedNotification(rejected) failed for regularization #{$r->id}", [
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
+
+            // Living update: employee's My Requests + the approver queue watch attendance/all.
+            $this->signal->touch('attendance', 'all', $approver->id, 'regularization_reject');
         }
 
         return $res;

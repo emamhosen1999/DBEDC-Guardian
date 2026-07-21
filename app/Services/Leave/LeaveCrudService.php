@@ -284,7 +284,13 @@ class LeaveCrudService
     }
 
     /**
-     * Update leave status
+     * Pure persistence helper: set a leave's status column and keep the ledger +
+     * audit trail in step. It owns NO decision-level side effects — no approval
+     * chain advancement, no employee notification, no realtime signal. All
+     * approval/rejection/status decisions now flow through
+     * {@see LeaveApprovalService} (approve / reject / overrideStatus), which is the
+     * single place those side effects fire. This method is intentionally kept as a
+     * low-level primitive and is NOT on the approve/reject decision path.
      */
     public function updateLeaveStatus(int $leaveId, string $status, int $approvedBy): array
     {
@@ -310,33 +316,6 @@ class LeaveCrudService
                 }
 
                 $this->audit->record('status_change', $leave->id, $before, $leave->fresh()->toArray(), "status -> {$normalized}");
-
-                // Notify the employee + emit a realtime signal so an admin-side
-                // status change reaches them live (push) and updates any open
-                // screen. The web-admin bulk/status paths previously changed only
-                // the DB row — no notification, and bulkStatusUpdate emitted no
-                // signal at all. Centralised here so every caller is consistent.
-                // Both are fail-soft and must never roll back the status change.
-                $fresh = $leave->fresh();
-                try {
-                    $employee = $fresh->employee;
-                    if ($employee) {
-                        if ($normalized === 'approved') {
-                            $employee->notify(new \App\Notifications\LeaveApprovedNotification($fresh));
-                        } elseif (in_array($normalized, ['rejected', 'declined'], true)) {
-                            $employee->notify(new \App\Notifications\LeaveRejectedNotification($fresh, $fresh->rejection_reason ?: 'Reviewed by an administrator.'));
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::warning("Leave status notify failed for #{$leaveId}: ".$e->getMessage());
-                }
-
-                try {
-                    $action = $normalized === 'approved' ? 'approve' : (in_array($normalized, ['rejected', 'declined'], true) ? 'reject' : 'update');
-                    app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approvedBy, $action);
-                } catch (\Throwable $e) {
-                    // realtime is best-effort
-                }
 
                 return [
                     'success' => true,

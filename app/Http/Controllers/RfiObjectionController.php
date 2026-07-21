@@ -4,14 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\DailyWork;
 use App\Models\RfiObjection;
-use App\Models\User;
 use App\Notifications\RfiObjectionNotification;
+use App\Services\DailyWork\ObjectionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class RfiObjectionController extends Controller
 {
+    public function __construct(
+        private readonly ObjectionService $objectionService
+    ) {}
+
     /**
      * Get all objections for a specific RFI.
      */
@@ -102,9 +106,9 @@ class RfiObjectionController extends Controller
                 'changed_at' => now(),
             ]);
 
-            // If submitted immediately, send notifications
+            // If submitted immediately, send notifications via the shared pipeline
             if ($objection->status === RfiObjection::STATUS_SUBMITTED) {
-                $this->notifyStakeholders($objection, 'submitted');
+                $this->objectionService->notify($objection, RfiObjectionNotification::EVENT_SUBMITTED, auth()->id());
             }
 
             DB::commit();
@@ -195,10 +199,7 @@ class RfiObjectionController extends Controller
         $this->authorize('submit', $objection);
 
         try {
-            $objection->submit('Submitted for review');
-
-            // Send notifications
-            $this->notifyStakeholders($objection, 'submitted');
+            $objection = $this->objectionService->submit($objection, auth()->user());
 
             $objection->load(['createdBy:id,name,email']);
 
@@ -227,7 +228,7 @@ class RfiObjectionController extends Controller
         $this->authorize('review', $objection);
 
         try {
-            $objection->startReview('Review started');
+            $objection = $this->objectionService->startReview($objection, auth()->user());
 
             $objection->load(['createdBy:id,name,email']);
 
@@ -260,10 +261,7 @@ class RfiObjectionController extends Controller
         ]);
 
         try {
-            $objection->resolve($validated['resolution_notes']);
-
-            // Notify the objection creator
-            $this->notifyStakeholders($objection, 'resolved');
+            $objection = $this->objectionService->resolve($objection, $validated['resolution_notes'], auth()->user());
 
             $objection->load(['createdBy:id,name,email', 'resolvedBy:id,name,email']);
 
@@ -301,10 +299,7 @@ class RfiObjectionController extends Controller
         $reason = $validated['resolution_notes'] ?? $validated['rejection_reason'];
 
         try {
-            $objection->reject($reason);
-
-            // Notify the objection creator
-            $this->notifyStakeholders($objection, 'rejected');
+            $objection = $this->objectionService->reject($objection, $reason, auth()->user());
 
             $objection->load(['createdBy:id,name,email', 'resolvedBy:id,name,email']);
 
@@ -675,61 +670,5 @@ class RfiObjectionController extends Controller
         $baseName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $baseName);
 
         return substr($baseName, 0, 100).'_'.time().'_'.uniqid().'.'.$extension;
-    }
-
-    /**
-     * Notify relevant stakeholders about objection events.
-     */
-    protected function notifyStakeholders(RfiObjection $objection, string $event): void
-    {
-        try {
-            // Use many-to-many relationship - get all linked daily works
-            $dailyWorks = $objection->dailyWorks()
-                ->with(['inchargeUser', 'assignedUser'])
-                ->get();
-
-            $usersToNotify = collect();
-
-            // Collect users from all linked daily works
-            foreach ($dailyWorks as $dailyWork) {
-                // Get incharge user
-                if ($dailyWork->incharge && $dailyWork->inchargeUser) {
-                    $usersToNotify->push($dailyWork->inchargeUser);
-                }
-
-                // Get assigned user
-                if ($dailyWork->assigned && $dailyWork->assignedUser && $dailyWork->assigned !== $dailyWork->incharge) {
-                    $usersToNotify->push($dailyWork->assignedUser);
-                }
-            }
-
-            // For submitted events, also notify managers/admins
-            if ($event === 'submitted') {
-                $managers = User::role(['Super Admin', 'Admin', 'Project Manager', 'Consultant'])
-                    ->whereNull('deleted_at')
-                    ->get();
-                $usersToNotify = $usersToNotify->merge($managers);
-            }
-
-            // For resolved/rejected events, notify the objection creator
-            if (in_array($event, ['resolved', 'rejected']) && $objection->createdBy) {
-                $usersToNotify->push($objection->createdBy);
-            }
-
-            // Remove duplicates and the current user
-            $usersToNotify = $usersToNotify
-                ->unique('id')
-                ->filter(fn ($user) => $user->id !== auth()->id());
-
-            foreach ($usersToNotify as $user) {
-                $user->notify(new RfiObjectionNotification($objection, $event));
-            }
-        } catch (\Exception $e) {
-            \Log::error('Failed to send objection notifications', [
-                'objection_id' => $objection->id,
-                'event' => $event,
-                'error' => $e->getMessage(),
-            ]);
-        }
     }
 }

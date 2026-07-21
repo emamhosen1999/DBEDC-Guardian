@@ -310,13 +310,19 @@ class LeaveController extends Controller
             return response()->json(['error' => 'Unauthorized to change leave status'], 403);
         }
 
-        $result = $this->crudService->updateLeaveStatus(
-            $request->input('id'),
-            $request->input('status'),
-            Auth::id()
+        $leave = Leave::findOrFail($request->input('id'));
+
+        // Route through the single pipeline: approve/reject run the chain (with
+        // override for an admin), cancel/reopen are override-only. The service
+        // owns the notification + realtime signal.
+        $result = $this->approvalService->overrideStatus(
+            $leave,
+            Auth::user(),
+            (string) $request->input('status'),
+            $request->input('reason') ?: $request->input('comments')
         );
 
-        return response()->json(['message' => $result['message']]);
+        return response()->json(['message' => $result['message']], ($result['success'] ?? false) ? 200 : 403);
     }
 
     /**
@@ -503,17 +509,26 @@ class LeaveController extends Controller
                 return response()->json(['error' => 'Unauthorized to bulk approve leaves'], 403);
             }
 
+            $approver = Auth::user();
+            $force = $this->approvalService->canOverride($approver);
             $leaveIds = $request->input('leave_ids');
             $updatedCount = 0;
 
+            // Delegate every decision to the single approval pipeline. It advances
+            // a manager's own-queue leaves level by level, finalizes via override
+            // for a leaves.manage admin, and owns the per-leave notification +
+            // realtime signal — no controller-side status writes or signals.
             foreach ($leaveIds as $leaveId) {
-                $result = $this->crudService->updateLeaveStatus($leaveId, 'approved', Auth::id());
-                if ($result['updated']) {
+                $leave = Leave::with(['employee', 'leaveSetting'])->find($leaveId);
+                if (! $leave) {
+                    continue;
+                }
+
+                $result = $this->approvalService->approve($leave, $approver, null, ['force' => $force]);
+                if ($result['success'] ?? false) {
                     $updatedCount++;
                 }
             }
-
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', Auth::id(), 'approve');
 
             return response()->json([
                 'message' => "{$updatedCount} leave(s) approved successfully",
@@ -542,17 +557,25 @@ class LeaveController extends Controller
                 return response()->json(['error' => 'Unauthorized to bulk reject leaves'], 403);
             }
 
+            $approver = Auth::user();
+            $force = $this->approvalService->canOverride($approver);
+            $reason = $request->input('reason') ?: 'Rejected by an administrator.';
             $leaveIds = $request->input('leave_ids');
             $updatedCount = 0;
 
+            // Single rejection pipeline per leave; the service notifies the
+            // employee and emits the realtime signal exactly once per decision.
             foreach ($leaveIds as $leaveId) {
-                $result = $this->crudService->updateLeaveStatus($leaveId, 'rejected', Auth::id());
-                if ($result['updated']) {
+                $leave = Leave::with(['employee', 'leaveSetting'])->find($leaveId);
+                if (! $leave) {
+                    continue;
+                }
+
+                $result = $this->approvalService->reject($leave, $approver, $reason, ['force' => $force]);
+                if ($result['success'] ?? false) {
                     $updatedCount++;
                 }
             }
-
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', Auth::id(), 'reject');
 
             return response()->json([
                 'message' => "{$updatedCount} leave(s) rejected successfully",
@@ -586,14 +609,26 @@ class LeaveController extends Controller
                 return response()->json(['error' => 'Unauthorized to bulk update leave status'], 403);
             }
 
+            $actor = Auth::user();
             $leaveIds = $request->input('leave_ids');
             $targetStatus = $request->input('status');
+            $reason = $request->input('reason') ?: $request->input('comments');
             $updatedCount = 0;
             $skippedCount = 0;
 
+            // Every status change flows through the single pipeline so chain,
+            // ledger, notification and realtime stay consistent — no direct
+            // status writes that would desync a manager's pending queue.
             foreach ($leaveIds as $leaveId) {
-                $result = $this->crudService->updateLeaveStatus($leaveId, $targetStatus, Auth::id());
-                if ($result['updated']) {
+                $leave = Leave::with(['employee', 'leaveSetting'])->find($leaveId);
+                if (! $leave) {
+                    $skippedCount++;
+
+                    continue;
+                }
+
+                $result = $this->approvalService->overrideStatus($leave, $actor, $targetStatus, $reason);
+                if ($result['updated'] ?? false) {
                     $updatedCount++;
                 } else {
                     $skippedCount++;
@@ -684,11 +719,14 @@ class LeaveController extends Controller
             $approver = Auth::user();
             $comments = $request->input('comments');
 
-            $result = $this->approvalService->approve($leave, $approver, $comments);
+            // Delegate to the single approval pipeline. An admin acting outside
+            // the chain finalizes via override; a manager advances level by level.
+            // The service owns the notification + realtime signal (fired once).
+            $result = $this->approvalService->approve(
+                $leave, $approver, $comments, ['force' => $this->approvalService->canOverride($approver)]
+            );
 
             if ($result['success']) {
-                app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver?->id, 'approve');
-
                 return response()->json($result, 200);
             }
 
@@ -717,11 +755,13 @@ class LeaveController extends Controller
             $approver = Auth::user();
             $reason = $request->input('reason');
 
-            $result = $this->approvalService->reject($leave, $approver, $reason);
+            // Single rejection pipeline; admins may reject outside the chain via
+            // override. Notification + realtime signal are emitted by the service.
+            $result = $this->approvalService->reject(
+                $leave, $approver, $reason, ['force' => $this->approvalService->canOverride($approver)]
+            );
 
             if ($result['success']) {
-                app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver?->id, 'reject');
-
                 return response()->json($result, 200);
             }
 

@@ -97,6 +97,17 @@ Schedule::command('biometric:scheduled-log-download')
 // Close forgotten open punches at their resolved shift end
 Schedule::command('attendance:auto-punch-out')->hourly()->withoutOverlapping();
 
+// Proactive shift-lifecycle attendance alerts: shift-start reminder, overdue
+// punch-in (→ employee), and absence escalation (→ manager). Runs every five
+// minutes so each per-shift window is caught; every (user, date, shift, phase)
+// fires at most once via cache markers, so frequent ticks never double-send.
+Schedule::command('attendance:shift-alerts')
+    ->everyFiveMinutes()
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/shift-alerts.log'));
+
 // Client Diagnostics retention: drop resolved crash groups after 30 days and
 // anything untouched for 90 days. Off-peak so the chunked deletes never
 // compete with the morning punch traffic.

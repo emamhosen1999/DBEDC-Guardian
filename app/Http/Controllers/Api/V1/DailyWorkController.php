@@ -20,6 +20,7 @@ use App\Models\RfiObjection;
 use App\Models\User;
 use App\Repositories\DailyWorkRepository;
 use App\Services\DailyWork\DailyWorkQueryService;
+use App\Services\DailyWork\ObjectionService;
 use App\Services\Project\DailyWorkService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -37,6 +38,8 @@ class DailyWorkController extends Controller
 
     protected DailyWorkService $dailyWorkService;
 
+    protected ObjectionService $objectionService;
+
     /**
      * @var array<int, array<int, array{id:int,name:string}>>
      */
@@ -50,11 +53,13 @@ class DailyWorkController extends Controller
     public function __construct(
         DailyWorkRepository $dailyWorkRepository,
         DailyWorkQueryService $dailyWorkQueryService,
-        DailyWorkService $dailyWorkService
+        DailyWorkService $dailyWorkService,
+        ObjectionService $objectionService
     ) {
         $this->dailyWorkRepository = $dailyWorkRepository;
         $this->dailyWorkQueryService = $dailyWorkQueryService;
         $this->dailyWorkService = $dailyWorkService;
+        $this->objectionService = $objectionService;
     }
 
     public function index(ListDailyWorksRequest $request): JsonResponse
@@ -450,7 +455,7 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection = $this->dailyWorkService->storeObjection($dailyWork, $request->all(), $request->user());
+            $objection = $this->objectionService->create($dailyWork, $request->all(), $request->user());
 
             return $this->successResponse($this->transformObjection($objection), 'Objection created successfully.', 201);
         } catch (\Throwable $exception) {
@@ -483,7 +488,7 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection = $this->dailyWorkService->submitObjection($objection);
+            $objection = $this->objectionService->submit($objection, $request->user());
 
             return $this->successResponse($this->transformObjection($objection), 'Objection submitted for review.');
         } catch (\InvalidArgumentException $exception) {
@@ -518,7 +523,7 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection = $this->dailyWorkService->startReviewObjection($objection);
+            $objection = $this->objectionService->startReview($objection, $request->user());
 
             return $this->successResponse($this->transformObjection($objection), 'Objection is now under review.');
         } catch (\InvalidArgumentException $exception) {
@@ -553,7 +558,7 @@ class DailyWorkController extends Controller
         }
 
         try {
-            $objection = $this->dailyWorkService->resolveObjection($objection, $request->input('resolution_notes'));
+            $objection = $this->objectionService->resolve($objection, $request->input('resolution_notes'), $request->user());
 
             return $this->successResponse($this->transformObjection($objection), 'Objection resolved successfully.');
         } catch (\InvalidArgumentException $exception) {
@@ -589,7 +594,7 @@ class DailyWorkController extends Controller
 
         try {
             $reason = $request->input('resolution_notes', $request->input('rejection_reason'));
-            $objection = $this->dailyWorkService->rejectObjection($objection, $reason);
+            $objection = $this->objectionService->reject($objection, $reason, $request->user());
 
             return $this->successResponse($this->transformObjection($objection), 'Objection rejected.');
         } catch (\InvalidArgumentException $exception) {

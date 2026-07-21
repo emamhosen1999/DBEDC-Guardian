@@ -250,16 +250,14 @@ class LeaveController extends Controller
 
         $this->normalizePendingStatus($leave);
 
+        // Normal manager approval from the mobile queue — the service advances the
+        // chain level by level and owns the notification + realtime signal (fired
+        // once, post-commit), so the applicant's My Leaves updates live.
         $result = $approvalService->approve($leave, $request->user(), $request->input('comments'));
 
         if (! ($result['success'] ?? false)) {
             return $this->forbiddenResponse($result['message'] ?? 'Unable to approve leave request.');
         }
-
-        // Realtime: nudge every leave view (the applicant's My Leaves + the
-        // approver queues) so the decision reflects live without a refresh. The
-        // web controller already does this; the mobile API had not.
-        app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'approve');
 
         return $this->successResponse([
             'leave' => $this->transformApprovalLeave($leave->fresh(['employee', 'leaveSetting'])),
@@ -277,13 +275,12 @@ class LeaveController extends Controller
 
         $this->normalizePendingStatus($leave);
 
+        // Service owns the rejection notification + realtime signal (fired once).
         $result = $approvalService->reject($leave, $request->user(), $request->input('reason'));
 
         if (! ($result['success'] ?? false)) {
             return $this->forbiddenResponse($result['message'] ?? 'Unable to reject leave request.');
         }
-
-        app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'reject');
 
         return $this->successResponse([
             'leave' => $this->transformApprovalLeave($leave->fresh(['employee', 'leaveSetting'])),
@@ -352,9 +349,8 @@ class LeaveController extends Controller
             ], 422);
         }
 
-        if (! empty($approvedLeaveIds)) {
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver->id, 'approve');
-        }
+        // Each per-leave approve already emitted its own realtime signal from the
+        // service (once, post-commit) — no extra controller-level touch here.
 
         return $this->successResponse([
             'approved_count' => count($approvedLeaveIds),

@@ -23,6 +23,10 @@ class NotificationTypeSeeder extends Seeder
             ['key' => 'attendance.shift_swap_decided', 'category' => 'attendance', 'label' => 'Shift swap decision', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
             ['key' => 'attendance.time_correction_requested', 'category' => 'attendance', 'label' => 'Time correction requested', 'default_channels' => ['database', 'push', 'mail'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager']],
             ['key' => 'attendance.time_correction_decided', 'category' => 'attendance', 'label' => 'Time correction decision', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
+            // Proactive shift-lifecycle alerts (scheduled: attendance:shift-alerts)
+            ['key' => 'attendance.shift_start_reminder', 'category' => 'attendance', 'label' => 'Shift start reminder', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
+            ['key' => 'attendance.shift_punch_in_overdue', 'category' => 'attendance', 'label' => 'Punch-in overdue', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Employee']],
+            ['key' => 'attendance.shift_absence', 'category' => 'attendance', 'label' => 'Possible absence (manager)', 'default_channels' => ['database', 'push'], 'locked_channels' => ['database'], 'recipient_roles' => ['Manager', 'Super Administrator']],
         ];
 
         foreach ($types as $t) {

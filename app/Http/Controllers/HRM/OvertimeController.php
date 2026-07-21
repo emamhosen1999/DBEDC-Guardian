@@ -62,7 +62,10 @@ class OvertimeController extends Controller
     {
         $data = $request->validate(['reason' => 'required|string|max:500']);
         $ot = OvertimeRequest::findOrFail($id);
-        $res = $this->approvals->reject($ot, $request->user(), $data['reason']);
+
+        // OvertimeService owns the rejection transition, the requester
+        // notification and the attendance/all realtime signal.
+        $res = $this->service->reject($ot, $request->user(), $data['reason']);
 
         return response()->json($res, $res['success'] ? 200 : 422);
     }
