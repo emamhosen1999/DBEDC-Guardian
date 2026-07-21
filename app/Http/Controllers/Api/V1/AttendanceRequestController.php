@@ -85,6 +85,24 @@ class AttendanceRequestController extends Controller
         return $this->successResponse($requests->values());
     }
 
+    /**
+     * Manager regularization HISTORY — decided (approved/rejected) requests this
+     * approver is/was in the chain for. Manager-gated and team-scoped identically
+     * to pendingRegularizations (same forApprover mechanism), same enrichment and
+     * item shape so the mobile screen reuses its card. Newest first.
+     */
+    public function decidedRegularizations(Request $request): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $requests = $this->decidedForApprover($request->user(), AttendanceRegularization::class)
+            ->load(['user:id,name,employee_id', 'user.media']);
+
+        return $this->successResponse($requests->values());
+    }
+
     public function approveRegularization(Request $request, int $id): JsonResponse
     {
         if (! $this->isManagerUser($request->user())) {
@@ -166,6 +184,41 @@ class AttendanceRequestController extends Controller
             ->load(['user:id,name,employee_id', 'user.media']);
 
         return $this->successResponse($requests->values());
+    }
+
+    /**
+     * Manager overtime HISTORY — decided (approved/rejected) requests this
+     * approver is/was in the chain for. Manager-gated and team-scoped identically
+     * to pendingOvertime (same forApprover mechanism), same enrichment and item
+     * shape so the mobile screen reuses its card. Newest first.
+     */
+    public function decidedOvertime(Request $request): JsonResponse
+    {
+        if (! $this->isManagerUser($request->user())) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        $requests = $this->decidedForApprover($request->user(), OvertimeRequest::class)
+            ->load(['user:id,name,employee_id', 'user.media']);
+
+        return $this->successResponse($requests->values());
+    }
+
+    /**
+     * Decided (approved + rejected) requests this user is/was an approver on, for
+     * the given model, newest first. Reuses the same AttendanceApprovalService
+     * chain-membership scoping that pendingOvertime/pendingRegularizations use,
+     * merging both decided statuses (forApprover only takes one at a time).
+     */
+    private function decidedForApprover(User $user, string $modelClass): \Illuminate\Database\Eloquent\Collection
+    {
+        $approved = $this->approvals->forApprover($user, $modelClass, 'approved');
+        $rejected = $this->approvals->forApprover($user, $modelClass, 'rejected');
+
+        return $approved
+            ->concat($rejected)
+            ->sortByDesc(fn ($m) => $m->updated_at)
+            ->values();
     }
 
     public function approveOvertime(Request $request, int $id): JsonResponse

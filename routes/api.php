@@ -228,12 +228,14 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::post('/attendance/regularizations', [MobileAttendanceRequestController::class, 'storeRegularization'])->name('api.v1.attendance.regularizations.store');
     Route::get('/attendance/regularizations/mine', [MobileAttendanceRequestController::class, 'myRegularizations'])->name('api.v1.attendance.regularizations.mine');
     Route::get('/attendance/regularizations/pending', [MobileAttendanceRequestController::class, 'pendingRegularizations'])->name('api.v1.attendance.regularizations.pending');
+    Route::get('/attendance/regularizations/decided', [MobileAttendanceRequestController::class, 'decidedRegularizations'])->name('api.v1.attendance.regularizations.decided');
     Route::post('/attendance/regularizations/{id}/approve', [MobileAttendanceRequestController::class, 'approveRegularization'])->name('api.v1.attendance.regularizations.approve');
     Route::post('/attendance/regularizations/{id}/reject', [MobileAttendanceRequestController::class, 'rejectRegularization'])->name('api.v1.attendance.regularizations.reject');
     
     Route::post('/attendance/overtime', [MobileAttendanceRequestController::class, 'storeOvertime'])->name('api.v1.attendance.overtime.store');
     Route::get('/attendance/overtime/mine', [MobileAttendanceRequestController::class, 'myOvertime'])->name('api.v1.attendance.overtime.mine');
     Route::get('/attendance/overtime/pending', [MobileAttendanceRequestController::class, 'pendingOvertime'])->name('api.v1.attendance.overtime.pending');
+    Route::get('/attendance/overtime/decided', [MobileAttendanceRequestController::class, 'decidedOvertime'])->name('api.v1.attendance.overtime.decided');
     Route::post('/attendance/overtime/{id}/approve', [MobileAttendanceRequestController::class, 'approveOvertime'])->name('api.v1.attendance.overtime.approve');
     Route::post('/attendance/overtime/{id}/reject', [MobileAttendanceRequestController::class, 'rejectOvertime'])->name('api.v1.attendance.overtime.reject');
     
@@ -256,6 +258,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::get('/leaves/analytics', [MobileLeaveController::class, 'analytics'])->name('api.v1.leaves.analytics');
     Route::get('/leaves/calendar', [MobileLeaveController::class, 'calendar'])->name('api.v1.leaves.calendar');
     Route::get('/leaves/pending-approvals', [MobileLeaveController::class, 'pendingApprovals'])->name('api.v1.leaves.pending-approvals');
+    Route::get('/leaves/decided-approvals', [MobileLeaveController::class, 'decidedApprovals'])->name('api.v1.leaves.decided-approvals');
     Route::get('/leaves/{leaveId}', [MobileLeaveController::class, 'show'])->whereNumber('leaveId')->name('api.v1.leaves.show');
     Route::get('/manager/dashboard-summary', [MobileManagerDashboardController::class, 'summary'])->name('api.v1.manager.dashboard.summary');
     Route::get('/manager/team-members', [MobileManagerDashboardController::class, 'teamMembers'])->name('api.v1.manager.team-members');

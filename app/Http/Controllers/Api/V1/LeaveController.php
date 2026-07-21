@@ -240,6 +240,66 @@ class LeaveController extends Controller
         ]);
     }
 
+    /**
+     * Manager approval HISTORY — leaves this approver is/was in the approval
+     * chain for that are now DECIDED (approved or rejected, including leaves an
+     * administrator OVERRODE out of their pending queue). Mirrors the pending
+     * queue's item shape exactly (transformApprovalLeave) so the mobile screen
+     * reuses the same card, and adds decided metadata. Newest first.
+     */
+    public function decidedApprovals(Request $request, LeaveApprovalService $approvalService): JsonResponse
+    {
+        if (! Schema::hasTable('leaves')) {
+            return $this->successResponse([
+                'decided_leaves' => [],
+                'stats' => [
+                    'pending' => 0,
+                    'approved' => 0,
+                    'rejected' => 0,
+                    'total' => 0,
+                ],
+            ]);
+        }
+
+        $approver = $request->user();
+
+        $decidedLeaves = Leave::query()
+            ->with([
+                // Same eager-load contract as pendingApprovals — never select the
+                // non-existent profile_image column; the avatar comes from media.
+                'employee:id,name,employee_id',
+                'employee.media',
+                'leaveSetting:id,type,symbol',
+            ])
+            ->whereNotNull('approval_chain')
+            ->whereRaw('LOWER(status) IN (?, ?)', ['approved', 'rejected'])
+            // Newest decision first. The decision writes the row, so updated_at is
+            // the most reliable "when was this decided" ordering key.
+            ->orderByDesc('updated_at')
+            ->get()
+            // A manager must see items they are/were an approver on at ANY level —
+            // including a level an admin marked 'superseded' when overriding.
+            ->filter(fn (Leave $leave): bool => $this->isApprovalChainMember($leave, (int) $approver->id))
+            ->values();
+
+        // Stats mirror pendingApprovals exactly: the same approver-scoped
+        // approved/rejected tallies plus the live pending count.
+        $stats = $this->buildApprovalStats(
+            (int) $approver->id,
+            $approvalService->getPendingApprovalsForUser($approver)
+        );
+
+        return $this->successResponse([
+            'decided_leaves' => $decidedLeaves->map(function (Leave $leave) {
+                return array_merge(
+                    $this->transformApprovalLeave($leave),
+                    $this->decidedApprovalMeta($leave),
+                );
+            })->values(),
+            'stats' => $stats,
+        ]);
+    }
+
     public function approve(ApproveLeaveRequest $request, int $leaveId, LeaveApprovalService $approvalService): JsonResponse
     {
         $leave = Leave::query()->with(['employee', 'leaveSetting'])->find($leaveId);
@@ -472,6 +532,60 @@ class LeaveController extends Controller
             'rejection_reason' => $leave->rejection_reason,
             'created_at' => $leave->created_at,
             'updated_at' => $leave->updated_at,
+        ];
+    }
+
+    /**
+     * True when the given user appears at ANY level of the leave's approval
+     * chain — the decided-history counterpart to canApprove()'s current-level
+     * check. Includes levels marked 'superseded' by an admin override, so the
+     * manager still sees an item taken out of their hands.
+     */
+    private function isApprovalChainMember(Leave $leave, int $userId): bool
+    {
+        foreach (($leave->approval_chain ?? []) as $level) {
+            if ((int) ($level['approver_id'] ?? 0) === $userId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Decided metadata layered on top of the pending item shape: who finalized
+     * it, when, and whether it was an administrator override.
+     *
+     * @return array{decided_by: ?string, decided_at: mixed, was_admin_override: bool}
+     */
+    private function decidedApprovalMeta(Leave $leave): array
+    {
+        $chain = collect($leave->approval_chain ?? []);
+
+        $override = $chain->first(
+            fn ($level) => strtolower((string) ($level['status'] ?? '')) === 'admin_override'
+        );
+
+        if ($override !== null) {
+            return [
+                'decided_by' => $override['approver_name'] ?? null,
+                'decided_at' => $override['approved_at'] ?? $leave->approved_at,
+                'was_admin_override' => true,
+            ];
+        }
+
+        // Normal decision: the level whose status matches the final outcome,
+        // taking the most recent one as the decisive action.
+        $status = strtolower((string) $leave->status);
+        $decisive = $chain
+            ->filter(fn ($level) => strtolower((string) ($level['status'] ?? '')) === $status)
+            ->sortByDesc(fn ($level) => (string) ($level['approved_at'] ?? ''))
+            ->first();
+
+        return [
+            'decided_by' => $decisive['approver_name'] ?? null,
+            'decided_at' => $decisive['approved_at'] ?? $leave->approved_at ?? $leave->updated_at,
+            'was_admin_override' => false,
         ];
     }
 

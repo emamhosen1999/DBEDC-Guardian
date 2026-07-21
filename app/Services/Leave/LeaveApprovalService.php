@@ -7,6 +7,7 @@ use App\Models\HRM\LeaveSetting;
 use App\Models\User;
 use App\Notifications\LeaveApprovalNotification;
 use App\Notifications\LeaveApprovedNotification;
+use App\Notifications\LeaveOverrideNoticeNotification;
 use App\Notifications\LeaveRejectedNotification;
 use App\Services\Realtime\RealtimeSignal;
 use Illuminate\Database\Eloquent\Collection;
@@ -206,6 +207,10 @@ class LeaveApprovalService
 
             // ---- ADMIN OVERRIDE: finalize regardless of chain position --------
             if ($override) {
+                // Capture who was still waiting BEFORE recordAdminOverride marks
+                // them 'superseded', so we can close their loop post-commit.
+                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (int) $approver->id);
+
                 $chain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'approved', $comments);
 
                 $leave->update([
@@ -223,6 +228,7 @@ class LeaveApprovalService
                 Log::info("Leave #{$leave->id} finalized by admin override", ['actor' => $approver->id]);
 
                 $this->signalLeaveChange($approver->id, 'approve');
+                $this->notifyOverriddenApprovers($leave->fresh(['employee', 'leaveSetting']), $approver, 'approved', $supersededApproverIds);
 
                 return [
                     'success' => true,
@@ -335,8 +341,12 @@ class LeaveApprovalService
                 ];
             }
 
+            $supersededApproverIds = [];
+
             if ($override && ! $isCurrentApprover) {
                 // Admin rejects a leave they are not the chain approver for.
+                // Capture still-pending approvers before they are superseded.
+                $supersededApproverIds = $this->pendingApproverIds($leave->approval_chain ?? [], (int) $approver->id);
                 $approvalChain = $this->recordAdminOverride($leave->approval_chain ?? [], $approver, 'rejected', $reason);
                 $auditAction = 'admin_override';
             } else {
@@ -376,6 +386,7 @@ class LeaveApprovalService
             ]);
 
             $this->signalLeaveChange($approver->id, 'reject');
+            $this->notifyOverriddenApprovers($leave->fresh(['employee', 'leaveSetting']), $approver, 'rejected', $supersededApproverIds);
 
             return [
                 'success' => true,
@@ -561,6 +572,60 @@ class LeaveApprovalService
         ];
 
         return $chain;
+    }
+
+    /**
+     * The approver IDs of every level still 'pending' in a chain, excluding the
+     * acting user. These are the managers an admin override supersedes — the ones
+     * to send a "no action needed" notice to.
+     *
+     * @param  array<int, array<string, mixed>>  $chain
+     * @return array<int, int>
+     */
+    protected function pendingApproverIds(array $chain, int $actorId): array
+    {
+        $ids = [];
+
+        foreach ($chain as $level) {
+            if (strtolower((string) ($level['status'] ?? '')) !== 'pending') {
+                continue;
+            }
+
+            $approverId = (int) ($level['approver_id'] ?? 0);
+
+            if ($approverId > 0 && $approverId !== $actorId) {
+                $ids[$approverId] = true;
+            }
+        }
+
+        return array_keys($ids);
+    }
+
+    /**
+     * Fail-soft: tell each superseded (still-pending at override time) approver
+     * that an administrator finalized the leave, so it does not just vanish from
+     * their pending queue. Best-effort — a notification failure must never break
+     * an already-committed override.
+     *
+     * @param  array<int, int>  $approverIds
+     */
+    protected function notifyOverriddenApprovers(Leave $leave, User $actor, string $action, array $approverIds): void
+    {
+        if ($approverIds === []) {
+            return;
+        }
+
+        try {
+            $approvers = User::whereIn('id', $approverIds)->get();
+
+            foreach ($approvers as $approver) {
+                $approver->notify(new LeaveOverrideNoticeNotification($leave, $actor, $action));
+            }
+        } catch (\Throwable $exception) {
+            Log::warning("Leave #{$leave->id} override notice to superseded approvers failed", [
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     /**
