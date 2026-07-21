@@ -135,11 +135,11 @@ export const useAbsentUsers = (date) => {
  *   → { date, counts:{present,absent,upcoming,off_leave,total},
  *       present:[…], absent:[…], upcoming:[…], off_leave:[…] }
  */
-export const useAttendanceDayPartition = (date, departmentId) => {
+export const useAttendanceDayPartition = (date, departmentId, designationId) => {
   return useQuery({
-    queryKey: ['attendance', 'day-partition', { date, departmentId: departmentId || null }],
+    queryKey: ['attendance', 'day-partition', { date, departmentId: departmentId || null, designationId: designationId || null }],
     queryFn: () => requestJson('get', '/attendance/day-partition', {
-      params: { date, department_id: departmentId || undefined },
+      params: { date, department_id: departmentId || undefined, designation_id: designationId || undefined },
     }),
     enabled: !!date,
     placeholderData: keepPreviousData, // keep prior partition during date/dept changes so tabs never flash empty
@@ -165,12 +165,12 @@ export const useUserLocations = (date) => {
  * Fetch daily timesheet data
  */
 export const useDailyTimesheet = (params = {}) => {
-  const { date, page = 1, perPage = 25, employee } = params;
+  const { date, page = 1, perPage = 25, employee, departmentId, designationId } = params;
 
   return useQuery({
-    queryKey: ['attendance', 'daily-timesheet', { date, page, perPage, employee }],
+    queryKey: ['attendance', 'daily-timesheet', { date, page, perPage, employee, departmentId: departmentId || null, designationId: designationId || null }],
     queryFn: () => requestJson('get', '/admin/daily-timesheet', {
-      params: { date, page, perPage, employee }
+      params: { date, page, perPage, employee, department_id: departmentId || undefined, designation_id: designationId || undefined }
     }),
     enabled: !!date,
     placeholderData: keepPreviousData, // keep prior page during pagination so the pager stays put

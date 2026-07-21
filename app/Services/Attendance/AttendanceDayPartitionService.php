@@ -54,13 +54,13 @@ class AttendanceDayPartitionService
      *                                  manager's team). null = no member filter.
      * @return array the frozen response shape
      */
-    public function partition(string $date, ?int $departmentId = null, ?array $memberIds = null): array
+    public function partition(string $date, ?int $departmentId = null, ?array $memberIds = null, ?int $designationId = null): array
     {
         $day = Carbon::parse($date, config('app.timezone'))->startOfDay();
         $dateStr = $day->toDateString();
         $now = Carbon::now(config('app.timezone'));
 
-        $users = $this->inScopeUsers($departmentId, $memberIds);
+        $users = $this->inScopeUsers($departmentId, $memberIds, $designationId);
         $userIds = $users->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         $attendanceByUser = $this->attendanceForDate($userIds, $dateStr);
@@ -188,7 +188,7 @@ class AttendanceDayPartitionService
      *
      * @return Collection<int, User>
      */
-    private function inScopeUsers(?int $departmentId, ?array $memberIds): Collection
+    private function inScopeUsers(?int $departmentId, ?array $memberIds, ?int $designationId = null): Collection
     {
         $query = User::query()
             ->whereHas('roles', fn ($role) => $role->where('name', 'Employee'))
@@ -202,6 +202,10 @@ class AttendanceDayPartitionService
 
         if ($departmentId !== null) {
             $query->where('department_id', $departmentId);
+        }
+
+        if ($designationId !== null) {
+            $query->where('designation_id', $designationId);
         }
 
         return $query->orderBy('name')->get();

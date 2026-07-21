@@ -1123,16 +1123,18 @@ class AttendanceController extends Controller
         $validated = $request->validate([
             'date' => ['nullable', 'date_format:Y-m-d'],
             'department_id' => ['nullable', 'integer'],
+            'designation_id' => ['nullable', 'integer'],
         ]);
 
         $selectedDate = (string) ($validated['date'] ?? now()->toDateString());
         $departmentId = isset($validated['department_id']) ? (int) $validated['department_id'] : null;
+        $designationId = isset($validated['designation_id']) ? (int) $validated['designation_id'] : null;
 
         try {
             $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
 
             $data = app(AttendanceDayPartitionService::class)
-                ->partition($selectedDate, $departmentId, $teamMemberIds);
+                ->partition($selectedDate, $departmentId, $teamMemberIds, $designationId);
 
             return $this->successResponse($data);
         } catch (\Throwable $exception) {

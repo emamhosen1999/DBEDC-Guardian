@@ -558,6 +558,8 @@ const DailyTimesheetTab = ({
         page: currentPage,
         perPage,
         employee: employeeQuery,
+        departmentId: deptFilter || undefined,
+        designationId: desigFilter || undefined,
     });
 
     // present-users cache is warmed here so useMarkAsPresent's optimistic patch has a
@@ -572,7 +574,8 @@ const DailyTimesheetTab = ({
     const partitionEnabled = isAdminView && !rangeMode;
     const { data: partitionData, isLoading: isLoadingPartition, refetch: refetchPartition } = useAttendanceDayPartition(
         partitionEnabled && selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null,
-        deptFilter || undefined
+        deptFilter || undefined,
+        desigFilter || undefined
     );
 
     // Live updates: when anyone punches (mobile/web) or is marked present for this date,

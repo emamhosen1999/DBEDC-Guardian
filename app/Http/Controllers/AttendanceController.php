@@ -406,6 +406,19 @@ class AttendanceController extends Controller
                 $usersWithAttendanceQuery->where('department_id', $userDeptId);
             }
 
+            // Global admins can narrow the present table by department (matching the
+            // stat band / partition, which is already department-scoped). Non-global
+            // managers stay locked to their own department above.
+            $requestedDeptId = $request->query('department_id');
+            if ($isGlobal && $requestedDeptId !== null && $requestedDeptId !== '') {
+                $usersWithAttendanceQuery->where('department_id', (int) $requestedDeptId);
+            }
+
+            $requestedDesigId = $request->query('designation_id');
+            if ($requestedDesigId !== null && $requestedDesigId !== '') {
+                $usersWithAttendanceQuery->where('designation_id', (int) $requestedDesigId);
+            }
+
             if ($employeeKeyword !== '') {
                 $usersWithAttendanceQuery->where(function ($query) use ($employeeKeyword) {
                     $query->where('name', 'like', '%'.$employeeKeyword.'%')
@@ -908,10 +921,12 @@ class AttendanceController extends Controller
             $validated = $request->validate([
                 'date' => ['nullable', 'date_format:Y-m-d'],
                 'department_id' => ['nullable', 'integer'],
+                'designation_id' => ['nullable', 'integer'],
             ]);
 
             $date = (string) ($validated['date'] ?? now()->toDateString());
             $departmentId = isset($validated['department_id']) ? (int) $validated['department_id'] : null;
+            $designationId = isset($validated['designation_id']) ? (int) $validated['designation_id'] : null;
 
             $user = Auth::user();
             $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
@@ -922,7 +937,7 @@ class AttendanceController extends Controller
             }
 
             $data = app(\App\Services\Attendance\AttendanceDayPartitionService::class)
-                ->partition($date, $departmentId);
+                ->partition($date, $departmentId, null, $designationId);
 
             return response()->json($data);
         } catch (\Illuminate\Validation\ValidationException $e) {
