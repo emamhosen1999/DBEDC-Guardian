@@ -153,6 +153,8 @@ class LeaveController extends Controller
                 $request->input('reason')
             );
 
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'apply');
+
             return $this->successResponse($leave, 'Leave request submitted successfully.', 201);
         } catch (\RuntimeException $e) {
             return $this->mapLeaveRuntimeException($e);
@@ -181,6 +183,8 @@ class LeaveController extends Controller
     {
         try {
             $this->leaveApiService->cancelLeaveForUser($request->user(), $leaveId);
+
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'cancel');
 
             return $this->successResponse(null, 'Leave request cancelled successfully.');
         } catch (\RuntimeException $e) {
@@ -252,6 +256,11 @@ class LeaveController extends Controller
             return $this->forbiddenResponse($result['message'] ?? 'Unable to approve leave request.');
         }
 
+        // Realtime: nudge every leave view (the applicant's My Leaves + the
+        // approver queues) so the decision reflects live without a refresh. The
+        // web controller already does this; the mobile API had not.
+        app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'approve');
+
         return $this->successResponse([
             'leave' => $this->transformApprovalLeave($leave->fresh(['employee', 'leaveSetting'])),
             'status' => $result['status'] ?? null,
@@ -273,6 +282,8 @@ class LeaveController extends Controller
         if (! ($result['success'] ?? false)) {
             return $this->forbiddenResponse($result['message'] ?? 'Unable to reject leave request.');
         }
+
+        app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $request->user()->id, 'reject');
 
         return $this->successResponse([
             'leave' => $this->transformApprovalLeave($leave->fresh(['employee', 'leaveSetting'])),
@@ -339,6 +350,10 @@ class LeaveController extends Controller
                     'failed' => $failed,
                 ],
             ], 422);
+        }
+
+        if (! empty($approvedLeaveIds)) {
+            app(\App\Services\Realtime\RealtimeSignal::class)->touch('leave', 'all', $approver->id, 'approve');
         }
 
         return $this->successResponse([
