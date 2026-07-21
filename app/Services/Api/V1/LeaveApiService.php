@@ -2,8 +2,10 @@
 
 namespace App\Services\Api\V1;
 
+use App\Models\HRM\Leave;
 use App\Models\HRM\LeaveSetting;
 use App\Models\User;
+use App\Services\Leave\LeaveApprovalService;
 use Carbon\Carbon;
 use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Support\Collection;
@@ -751,6 +753,20 @@ class LeaveApiService
         }
 
         $leaveId = DB::table('leaves')->insertGetId($payload);
+
+        // A leave that requires approval is inserted as 'new' with no approval
+        // chain — which the approver queue (whereNotNull('approval_chain') AND
+        // status='pending') filters out, so it reaches nobody. Delegate to the
+        // shared approval service (exactly like the web flow) to build the chain
+        // from the applicant's manager (report_to) + department head and move it
+        // to 'pending' — or auto-approve when there is no approver.
+        if ($status === 'new') {
+            $leave = Leave::find($leaveId);
+
+            if ($leave) {
+                app(LeaveApprovalService::class)->submitForApproval($leave);
+            }
+        }
 
         return $this->fetchLeaveRowById($leaveId, $userColumn);
     }

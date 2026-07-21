@@ -532,7 +532,8 @@ class MobileLeaveApiTest extends TestCase
 
     public function test_authenticated_user_can_apply_leave_via_mobile_api(): void
     {
-        $user = User::factory()->create([]);
+        $manager = User::factory()->create([]);
+        $user = User::factory()->create(['report_to' => $manager->id]);
         $leaveTypeId = $this->createLeaveType([
             'requires_approval' => true,
             'auto_approve' => false,
@@ -549,11 +550,13 @@ class MobileLeaveApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/leaves', $payload);
 
+        // An approval-required leave is submitted into the approval chain and
+        // becomes 'pending' (reaching the manager), never stranded as 'new'.
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'Leave request submitted successfully.')
             ->assertJsonPath('data.leave_type', $leaveTypeId)
-            ->assertJsonPath('data.status', 'new');
+            ->assertJsonPath('data.status', 'pending');
 
         $leaveId = $response->json('data.id');
         $this->assertNotNull($leaveId);
@@ -561,7 +564,7 @@ class MobileLeaveApiTest extends TestCase
         $this->assertDatabaseHas('leaves', [
             'id' => $leaveId,
             'leave_type' => $leaveTypeId,
-            'status' => 'new',
+            'status' => 'pending',
         ]);
 
         $this->assertDatabaseHas('leaves', [

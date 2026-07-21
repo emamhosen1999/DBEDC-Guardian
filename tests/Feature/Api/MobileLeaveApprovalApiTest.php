@@ -235,6 +235,64 @@ class MobileLeaveApprovalApiTest extends TestCase
             ->assertJsonValidationErrors(['leave_ids', 'reason']);
     }
 
+    public function test_applied_leave_reaches_direct_managers_pending_queue(): void
+    {
+        // Regression: a mobile-applied leave used to be inserted as 'new' with
+        // no approval chain, so it was filtered out of every approver's queue.
+        $manager = User::factory()->create([]);
+        $employee = User::factory()->create(['report_to' => $manager->id]);
+        $leaveTypeId = $this->createLeaveType();
+
+        Sanctum::actingAs($employee);
+
+        $this->postJson('/api/v1/leaves', [
+            'leave_type_id' => $leaveTypeId,
+            'from_date' => now()->addDays(3)->toDateString(),
+            'to_date' => now()->addDays(4)->toDateString(),
+            'reason' => 'Family event.',
+        ])->assertCreated()->assertJsonPath('success', true);
+
+        // The leave must be 'pending' with a built chain — not stuck 'new'.
+        $this->assertDatabaseHas('leaves', [
+            'user_id' => $employee->id,
+            'status' => 'pending',
+        ]);
+
+        // And it must surface in the direct manager's pending queue.
+        Sanctum::actingAs($manager);
+        $this->getJson('/api/v1/leaves/pending-approvals')
+            ->assertOk()
+            ->assertJsonPath('data.stats.pending', 1)
+            ->assertJsonCount(1, 'data.pending_leaves')
+            ->assertJsonPath('data.pending_leaves.0.status', 'pending');
+    }
+
+    public function test_applied_leave_auto_approves_when_applicant_has_no_manager(): void
+    {
+        // No report_to and no department head → no approver → auto-approved,
+        // exactly like the web flow (never left silently invisible).
+        $employee = User::factory()->create(['report_to' => null, 'department_id' => null]);
+        $leaveTypeId = $this->createLeaveType();
+
+        Sanctum::actingAs($employee);
+
+        $this->postJson('/api/v1/leaves', [
+            'leave_type_id' => $leaveTypeId,
+            'from_date' => now()->addDays(3)->toDateString(),
+            'to_date' => now()->addDays(4)->toDateString(),
+            'reason' => 'Solo team, no approver.',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('leaves', [
+            'user_id' => $employee->id,
+            'status' => 'approved',
+        ]);
+        $this->assertDatabaseMissing('leaves', [
+            'user_id' => $employee->id,
+            'status' => 'new',
+        ]);
+    }
+
     private function createLeaveType(): int
     {
         return (int) DB::table('leave_settings')->insertGetId([
