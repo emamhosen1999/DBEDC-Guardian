@@ -406,8 +406,8 @@
     "file": "assets/js/rosterCellDisplay-YuvYA731.js",
     "name": "rosterCellDisplay"
   },
-  "_useAttendanceQuery-qcmPenmg.js": {
-    "file": "assets/js/useAttendanceQuery-qcmPenmg.js",
+  "_useAttendanceQuery-DvEqu1z2.js": {
+    "file": "assets/js/useAttendanceQuery-DvEqu1z2.js",
     "name": "useAttendanceQuery",
     "imports": [
       "_reactQueryClient-CIFSkert.js",
@@ -1136,7 +1136,7 @@
     ]
   },
   "resources/js/Pages/Attendance/AttendancePage.jsx": {
-    "file": "assets/js/AttendancePage-DA8N1tcn.js",
+    "file": "assets/js/AttendancePage-DshhaA_c.js",
     "name": "AttendancePage",
     "src": "resources/js/Pages/Attendance/AttendancePage.jsx",
     "isDynamicEntry": true,
@@ -1170,7 +1170,7 @@
       "_DateTimePicker-QshPjVP-.js",
       "_clsx-B-dksMZM.js",
       "_TablePagination-D0jvKICH.js",
-      "_useAttendanceQuery-qcmPenmg.js",
+      "_useAttendanceQuery-DvEqu1z2.js",
       "_useRealtimeSignals-BvcQFY9-.js"
     ],
     "dynamicImports": [
@@ -1461,7 +1461,7 @@
     ]
   },
   "resources/js/Pages/Attendance/SettingsTab.jsx": {
-    "file": "assets/js/SettingsTab-DZV7Dw9U.js",
+    "file": "assets/js/SettingsTab-CTSrn5Qx.js",
     "name": "SettingsTab",
     "src": "resources/js/Pages/Attendance/SettingsTab.jsx",
     "isDynamicEntry": true,
@@ -1471,7 +1471,7 @@
       "_vendor-inertia-BheeDqvO.js",
       "_react-icons.esm-DiP7PXoF.js",
       "resources/js/Pages/Project/Objections/hooks/useObjectionsListState.js",
-      "_useAttendanceQuery-qcmPenmg.js",
+      "_useAttendanceQuery-DvEqu1z2.js",
       "resources/js/Pages/Attendance/Components/PoliciesManager.jsx",
       "_DateTimePicker-QshPjVP-.js",
       "_leaflet-GjjsV4zE.js",
@@ -2573,7 +2573,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/js/app-CA0S7h5D.js",
+    "file": "assets/js/app-E0szPAqs.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
