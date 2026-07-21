@@ -113,6 +113,18 @@ class RosterService
         }
 
         DB::transaction(function () use ($swap) {
+            if ($swap->type === 'pickup') {
+                // Pickup (mirror of cover): the requester TAKES the counterparty's
+                // shift on counterparty_date. Counterparty relinquishes it (goes
+                // off); requester gains it. Nothing on the requester's own day changes.
+                $cpDate = $swap->counterparty_date->toDateString();
+                $counterpartyShiftId = $this->effectiveShiftId($swap->counterparty_id, $cpDate);
+                $this->writeSwapDay($swap->counterparty_id, $cpDate, null);
+                $this->writeSwapDay($swap->requester_id, $cpDate, $counterpartyShiftId);
+
+                return;
+            }
+
             $reqDate = $swap->requester_date->toDateString();
             $requesterShiftId = $this->effectiveShiftId($swap->requester_id, $reqDate);
 

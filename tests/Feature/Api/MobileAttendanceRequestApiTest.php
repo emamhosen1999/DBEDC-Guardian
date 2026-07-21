@@ -277,7 +277,7 @@ class MobileAttendanceRequestApiTest extends TestCase
         $response = $this->getJson('/api/v1/attendance/swaps/eligible?date=2026-07-01');
 
         $response->assertOk()->assertJsonPath('success', true);
-        $this->assertContains($free->id, collect($response->json('data'))->pluck('id')->all());
+        $this->assertContains($free->id, collect($response->json('data.employees'))->pluck('id')->all());
     }
 
     // -------------------------------------------------------------------------

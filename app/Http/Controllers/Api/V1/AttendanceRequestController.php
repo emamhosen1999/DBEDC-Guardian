@@ -310,6 +310,24 @@ class AttendanceRequestController extends Controller
      */
     private function rosterAvailabilityProblem(string $type, int $requesterId, int $counterpartyId, string $requesterDate, ?string $counterpartyDate): ?array
     {
+        // Pickup = the mirror of cover: the requester TAKES a counterparty's shift
+        // on counterparty_date (they give nothing up). The counterparty must have a
+        // shift to hand over on that date and the requester must be FREE on it.
+        if ($type === 'pickup') {
+            if (! $counterpartyDate) {
+                return ['counterparty_date', 'Select the shift you want to pick up.'];
+            }
+            if ($this->roster->effectiveShiftId($counterpartyId, $counterpartyDate) === null) {
+                return ['counterparty_date', 'The counterparty is not scheduled to work on that date.'];
+            }
+            // Requester cannot be busy on counterparty_date (they take that shift → no double-booking).
+            if ($this->roster->effectiveShiftId($requesterId, $counterpartyDate) !== null) {
+                return ['counterparty_date', 'You are already scheduled to work on that date.'];
+            }
+
+            return null;
+        }
+
         if ($this->roster->effectiveShiftId($requesterId, $requesterDate) === null) {
             return ['requester_date', 'You are not scheduled to work on that date.'];
         }
@@ -339,15 +357,18 @@ class AttendanceRequestController extends Controller
     public function storeSwap(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'type'              => 'required|in:swap,cover',
-            'requester_date'    => 'required|date',
+            'type'              => 'required|in:swap,cover,pickup',
+            // A pickup gives up nothing → requester_date is not sent; every other
+            // type still requires it. counterparty_date is the shift being picked up.
+            'requester_date'    => 'nullable|required_unless:type,pickup|date',
             'counterparty_id'   => 'required|integer|exists:users,id',
-            'counterparty_date' => 'nullable|date',
+            'counterparty_date' => 'nullable|required_if:type,pickup|date',
             'reason'            => 'nullable|string|max:500',
         ]);
 
         $requester = $request->user();
         $counterparty = User::findOrFail($data['counterparty_id']);
+        $isPickup = $data['type'] === 'pickup';
 
         $fail = static fn (string $field, string $message) => throw ValidationException::withMessages([$field => $message]);
 
@@ -362,7 +383,11 @@ class AttendanceRequestController extends Controller
         }
 
         $cpDate = ($data['counterparty_date'] ?? null) ? Carbon::parse($data['counterparty_date'])->toDateString() : null;
-        if ($problem = $this->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, Carbon::parse($data['requester_date'])->toDateString(), $cpDate)) {
+        // For a pickup the requester ends up working the picked-up date; the
+        // availability check ignores requester_date for pickup, but we pass a
+        // concrete date so the signature stays non-null.
+        $requesterDate = $isPickup ? $cpDate : Carbon::parse($data['requester_date'])->toDateString();
+        if ($problem = $this->rosterAvailabilityProblem($data['type'], $requester->id, $counterparty->id, $requesterDate, $cpDate)) {
             $fail($problem[0], $problem[1]);
         }
         if ($data['type'] === 'cover') {
@@ -372,7 +397,11 @@ class AttendanceRequestController extends Controller
         $swap = ShiftSwapRequest::create([
             'type'                => $data['type'],
             'requester_id'        => $requester->id,
-            'requester_date'      => $data['requester_date'],
+            // A pickup has no give-up date; the requester ends up working the
+            // picked-up shift, so persist requester_date = counterparty_date to
+            // satisfy the NOT NULL column and keep downstream shift-code display
+            // (pendingSwaps, approval re-check) coherent.
+            'requester_date'      => $isPickup ? $cpDate : $data['requester_date'],
             'counterparty_id'     => $counterparty->id,
             'counterparty_date'   => $data['counterparty_date'] ?? null,
             'reason'              => $data['reason'] ?? null,
@@ -467,19 +496,25 @@ class AttendanceRequestController extends Controller
      * with any eligible colleague. If the requester has no designation,
      * all same-department employees are returned.
      */
-    public function swapEligible(Request $request): JsonResponse
+    /**
+     * Same-department, rank-eligible teammates for the given user — the shared
+     * candidate pool behind both the swap partner picker (swapEligible) and the
+     * reverse pick-up direction (pickup), BEFORE any date-availability filter.
+     *
+     * "Rank-eligible" = same or LOWER designation (hierarchy_level >= the
+     * requester's level), or no designation at all. The requester is excluded.
+     * Roles are pinned to the web guard because this API runs under sanctum
+     * (the default-guard lookup would otherwise throw RoleDoesNotExist).
+     *
+     * @return \Illuminate\Support\Collection<int, User> id + name (+ media) only
+     */
+    private function deptRankEligibleTeammates(User $user): \Illuminate\Support\Collection
     {
-        $data = $request->validate(['date' => 'required|date']);
-        $user = $request->user();
-
-        // Pin to the web guard: roles are registered for 'web', but this API runs
-        // under sanctum, so the scope's default-guard lookup would otherwise throw
-        // RoleDoesNotExist when the app's default guard resolves to 'sanctum'.
         $query = User::role('Employee', 'web')
             ->where('users.id', '!=', $user->id)
             ->where('users.department_id', $user->department_id);
 
-        // Only show teammates with same or lower designation (higher hierarchy_level number)
+        // Only include teammates with same or lower designation (higher hierarchy_level number).
         $requesterLevel = $user->designation_id
             ? \App\Models\HRM\Designation::where('id', $user->designation_id)->value('hierarchy_level')
             : null;
@@ -493,13 +528,27 @@ class AttendanceRequestController extends Controller
                 ->select('users.id', 'users.name');
         }
 
-        // The avatar comes from the media library (profile_image_url accessor), NOT from a
-        // users.profile_image column — that column does not exist in the live schema.
-        $employees = $query
+        // The avatar comes from the media library (profile_image_url accessor), NOT
+        // from a users.profile_image column — that column does not exist in the live schema.
+        return $query
             ->with('media')
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name'])
-            ->filter(fn ($u) => $this->roster->effectiveShiftId($u->id, $data['date']) === null)
+            ->get(['users.id', 'users.name']);
+    }
+
+    public function swapEligible(Request $request): JsonResponse
+    {
+        $data = $request->validate(['date' => 'required|date']);
+        $user = $request->user();
+        $date = Carbon::parse($data['date'])->toDateString();
+
+        // Rank/department pool BEFORE the free-on-date filter.
+        $teammates = $this->deptRankEligibleTeammates($user);
+        $departmentEligibleTotal = $teammates->count();
+
+        // Availability filter: only teammates with NO effective shift that date.
+        $employees = $teammates
+            ->filter(fn ($u) => $this->roster->effectiveShiftId($u->id, $date) === null)
             ->map(fn ($c) => [
                 'id' => $c->id,
                 'name' => $c->name,
@@ -507,7 +556,88 @@ class AttendanceRequestController extends Controller
             ])
             ->values();
 
-        return $this->successResponse($employees);
+        $availableCount = $employees->count();
+
+        // The client reads data.employees (unchanged shape) and data.eligibility so it
+        // can explain the filter ("1 of 5 teammates are free; 4 are already rostered").
+        return $this->successResponse([
+            'employees' => $employees,
+            'eligibility' => [
+                'date' => $date,
+                'department_eligible_total' => $departmentEligibleTotal,
+                'available_count' => $availableCount,
+                'busy_count' => $departmentEligibleTotal - $availableCount,
+            ],
+        ]);
+    }
+
+    /**
+     * Reverse direction of the swap picker — "shifts I could pick up".
+     *
+     * Returns same-department, rank-eligible teammates' WORKING shifts in
+     * [from, to] that the REQUESTER could take, i.e. only on dates the requester
+     * is FREE (no effective shift → no double-booking). The requester is excluded
+     * and the rank/department pool is the SAME as swapEligible. Ordered by date.
+     * Range defaults to the next 14 days and is capped at 31 days.
+     */
+    public function pickup(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'from' => 'nullable|date',
+            'to'   => 'nullable|date|after_or_equal:from',
+        ]);
+
+        $user = $request->user();
+
+        $from = isset($data['from']) ? Carbon::parse($data['from'])->startOfDay() : Carbon::today();
+        $to = isset($data['to']) ? Carbon::parse($data['to'])->startOfDay() : $from->copy()->addDays(13);
+
+        // Cap the range so we never scan an unbounded roster window.
+        if ($from->diffInDays($to) > 31) {
+            throw ValidationException::withMessages([
+                'to' => 'The date range cannot exceed 31 days.',
+            ]);
+        }
+
+        $fromStr = $from->toDateString();
+        $toStr = $to->toDateString();
+
+        $teammates = $this->deptRankEligibleTeammates($user);
+        if ($teammates->isEmpty()) {
+            return $this->successResponse(['shifts' => []]);
+        }
+
+        $names = $teammates->pluck('name', 'id');
+        $fmt = static fn ($t) => $t ? Carbon::parse($t)->format('H:i') : null;
+
+        // Memoize the requester-free check per date (many counterparties can work
+        // the same date; the invariant is one query per unique date).
+        $requesterFree = [];
+        $isRequesterFree = function (string $date) use (&$requesterFree, $user): bool {
+            return $requesterFree[$date] ??= ($this->roster->effectiveShiftId($user->id, $date) === null);
+        };
+
+        $shifts = RosterDay::with('shift:id,code,name,start_time,end_time')
+            ->whereIn('user_id', $teammates->pluck('id'))
+            ->whereNotNull('shift_id')
+            ->whereBetween('date', [$fromStr, $toStr])
+            ->orderBy('date')
+            ->orderBy('user_id')
+            ->get()
+            // Only shifts the requester can actually take (they are free → no double-booking).
+            ->filter(fn ($r) => $isRequesterFree($r->date->toDateString()))
+            ->map(fn ($r) => [
+                'date'             => $r->date->format('Y-m-d'),
+                'counterparty_id'  => $r->user_id,
+                'counterparty_name' => $names[$r->user_id] ?? null,
+                'shift_code'       => $r->shift?->code,
+                'shift_name'       => $r->shift?->name,
+                'start'            => $fmt($r->shift?->start_time),
+                'end'              => $fmt($r->shift?->end_time),
+            ])
+            ->values();
+
+        return $this->successResponse(['shifts' => $shifts]);
     }
 
     /**

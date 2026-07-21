@@ -80,6 +80,37 @@ class RosterApplySwapTest extends TestCase
         $this->assertTrue((bool) $bCovers->locked);
     }
 
+    public function test_pickup_moves_counterparty_shift_to_requester(): void
+    {
+        $requester = User::factory()->create();
+        $counterparty = User::factory()->create();
+        $shiftC = Shift::factory()->create(['code' => 'CCC']);
+
+        // Counterparty works 06-20; requester is free that day.
+        RosterDay::create(['user_id' => $counterparty->id, 'date' => '2026-06-20', 'shift_id' => $shiftC->id, 'source' => 'pattern']);
+
+        // A pickup persists requester_date = counterparty_date (the picked-up date).
+        $swap = ShiftSwapRequest::create([
+            'type' => 'pickup',
+            'requester_id' => $requester->id, 'requester_date' => '2026-06-20',
+            'counterparty_id' => $counterparty->id, 'counterparty_date' => '2026-06-20',
+            'status' => 'approved',
+        ]);
+
+        app(RosterService::class)->applySwap($swap);
+
+        $cpDay = RosterDay::where('user_id', $counterparty->id)->whereDate('date', '2026-06-20')->first();
+        $reqDay = RosterDay::where('user_id', $requester->id)->whereDate('date', '2026-06-20')->first();
+
+        // Counterparty relinquished the shift; requester gained it.
+        $this->assertNull($cpDay->shift_id);
+        $this->assertSame('swap', $cpDay->source);
+        $this->assertTrue((bool) $cpDay->locked);
+        $this->assertSame($shiftC->id, $reqDay->shift_id);
+        $this->assertSame('swap', $reqDay->source);
+        $this->assertTrue((bool) $reqDay->locked);
+    }
+
     public function test_non_approved_swap_is_a_no_op(): void
     {
         $a = User::factory()->create();

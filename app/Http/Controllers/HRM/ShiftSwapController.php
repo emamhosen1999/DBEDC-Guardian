@@ -156,22 +156,24 @@ class ShiftSwapController extends Controller
     }
 
     /**
-     * Same-department Employees — the swap/cover partner picker.
-     * Returns same-department employees with the SAME or LOWER designation
-     * (hierarchy_level >= requester's level) so any shift can be swapped
-     * with any eligible colleague. If the requester has no designation,
-     * all same-department employees are returned.
+     * Same-department, rank-eligible teammates for the given user — the shared
+     * candidate pool behind both the swap partner picker (eligible) and the
+     * reverse pick-up direction (pickup), BEFORE any date-availability filter.
+     *
+     * "Rank-eligible" = same or LOWER designation (hierarchy_level >= the
+     * requester's level), or no designation at all. If the requester has no
+     * designation, all same-department Employees qualify. The requester is
+     * always excluded.
+     *
+     * @return \Illuminate\Support\Collection<int, User> id + name only
      */
-    public function eligible(Request $request): JsonResponse
+    private function deptRankEligibleTeammates(User $user): \Illuminate\Support\Collection
     {
-        $data = $request->validate(['date' => 'required|date']);
-        $user = $request->user();
-
         $query = User::role('Employee')
             ->where('users.id', '!=', $user->id)
             ->where('users.department_id', $user->department_id);
 
-        // Only show teammates with same or lower designation (higher hierarchy_level number)
+        // Only include teammates with same or lower designation (higher hierarchy_level number)
         $requesterLevel = $user->designation_id
             ? Designation::where('id', $user->designation_id)->value('hierarchy_level')
             : null;
@@ -185,14 +187,48 @@ class ShiftSwapController extends Controller
                 ->select('users.id', 'users.name');
         }
 
-        $employees = $query
+        return $query
             ->orderBy('users.name')
-            ->get(['users.id', 'users.name'])
-            ->filter(fn ($u) => $this->roster->effectiveShiftId($u->id, $data['date']) === null)
+            ->get(['users.id', 'users.name']);
+    }
+
+    /**
+     * Same-department Employees — the swap/cover partner picker.
+     * Returns same-department employees with the SAME or LOWER designation
+     * (hierarchy_level >= requester's level) who are FREE on the date, so any
+     * shift can be swapped with any eligible colleague. If the requester has
+     * no designation, all same-department employees are considered.
+     *
+     * Also returns an `eligibility` block so the client can explain the filter
+     * ("1 of 5 teammates are free; 4 are already rostered"). The `employees`
+     * list is unchanged (free-on-date only) and stays top-level for back-compat.
+     */
+    public function eligible(Request $request): JsonResponse
+    {
+        $data = $request->validate(['date' => 'required|date']);
+        $user = $request->user();
+        $date = Carbon::parse($data['date'])->toDateString();
+
+        $teammates = $this->deptRankEligibleTeammates($user);
+        $departmentEligibleTotal = $teammates->count();
+
+        // Availability filter: only teammates with NO effective shift that date.
+        $employees = $teammates
+            ->filter(fn ($u) => $this->roster->effectiveShiftId($u->id, $date) === null)
             ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])
             ->values();
 
-        return response()->json(['employees' => $employees]);
+        $availableCount = $employees->count();
+
+        return response()->json([
+            'employees' => $employees,
+            'eligibility' => [
+                'date' => $date,
+                'department_eligible_total' => $departmentEligibleTotal,
+                'available_count' => $availableCount,
+                'busy_count' => $departmentEligibleTotal - $availableCount,
+            ],
+        ]);
     }
 
     /**
@@ -233,6 +269,77 @@ class ShiftSwapController extends Controller
             ->values();
 
         return response()->json(['days' => $days]);
+    }
+
+    /**
+     * Reverse direction of the swap picker — "shifts I could pick up".
+     *
+     * Returns same-department, rank-eligible teammates' WORKING shifts in
+     * [from, to] that the REQUESTER could take, i.e. only on dates the
+     * requester is FREE (no effective shift → no double-booking). The
+     * requester is excluded and the rank/department pool is the SAME as
+     * eligible() (deptRankEligibleTeammates). Ordered by date.
+     *
+     * Range defaults to the next 14 days and is capped at 31 days.
+     */
+    public function pickup(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+        ]);
+
+        $user = $request->user();
+
+        $from = isset($data['from']) ? Carbon::parse($data['from'])->startOfDay() : Carbon::today();
+        $to = isset($data['to']) ? Carbon::parse($data['to'])->startOfDay() : $from->copy()->addDays(13);
+
+        // Cap the range so we never scan an unbounded roster window.
+        if ($from->diffInDays($to) > 31) {
+            throw ValidationException::withMessages([
+                'to' => 'The date range cannot exceed 31 days.',
+            ]);
+        }
+
+        $fromStr = $from->toDateString();
+        $toStr = $to->toDateString();
+
+        $teammates = $this->deptRankEligibleTeammates($user);
+        if ($teammates->isEmpty()) {
+            return response()->json(['shifts' => []]);
+        }
+
+        $names = $teammates->pluck('name', 'id');
+        $fmt = static fn ($t) => $t ? Carbon::parse($t)->format('H:i') : null;
+
+        // Memoize the requester-free check per date (many counterparties can
+        // work the same date; the invariant is one query per unique date).
+        $requesterFree = [];
+        $isRequesterFree = function (string $date) use (&$requesterFree, $user): bool {
+            return $requesterFree[$date] ??= ($this->roster->effectiveShiftId($user->id, $date) === null);
+        };
+
+        $shifts = RosterDay::with('shift:id,code,name,start_time,end_time')
+            ->whereIn('user_id', $teammates->pluck('id'))
+            ->whereNotNull('shift_id')
+            ->whereBetween('date', [$fromStr, $toStr])
+            ->orderBy('date')
+            ->orderBy('user_id')
+            ->get()
+            // Only shifts the requester can actually take (they are free → no double-booking).
+            ->filter(fn ($r) => $isRequesterFree($r->date->toDateString()))
+            ->map(fn ($r) => [
+                'date' => $r->date->format('Y-m-d'),
+                'counterparty_id' => $r->user_id,
+                'counterparty_name' => $names[$r->user_id] ?? null,
+                'shift_code' => $r->shift?->code,
+                'shift_name' => $r->shift?->name,
+                'start' => $fmt($r->shift?->start_time),
+                'end' => $fmt($r->shift?->end_time),
+            ])
+            ->values();
+
+        return response()->json(['shifts' => $shifts]);
     }
 
     /**

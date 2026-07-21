@@ -248,6 +248,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::post('/attendance/swaps/{id}/respond', [MobileAttendanceRequestController::class, 'respondSwap'])->whereNumber('id')->name('api.v1.attendance.swaps.respond');
     Route::get('/attendance/swaps/eligible', [MobileAttendanceRequestController::class, 'swapEligible'])->name('api.v1.attendance.swaps.eligible');
     Route::get('/attendance/swaps/counterparty-roster', [MobileAttendanceRequestController::class, 'counterpartyRoster'])->name('api.v1.attendance.swaps.counterparty-roster');
+    Route::get('/attendance/swaps/pickup', [MobileAttendanceRequestController::class, 'pickup'])->name('api.v1.attendance.swaps.pickup');
     Route::get('/leave-types', [MobileLeaveController::class, 'types'])->name('api.v1.leave-types.index');
     Route::get('/leaves', [MobileLeaveController::class, 'index'])->name('api.v1.leaves.index');
     Route::get('/leaves/summary', [MobileLeaveController::class, 'summary'])->name('api.v1.leaves.summary');

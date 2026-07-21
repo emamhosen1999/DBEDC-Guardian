@@ -149,6 +149,7 @@ Route::middleware($middlewareStack)->group(function () {
         Route::post('/attendance/swaps/{id}/respond', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'respond'])->name('attendance.swaps.respond');
         Route::get('/attendance/swaps/eligible', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'eligible'])->name('attendance.swaps.eligible');
         Route::get('/attendance/swaps/counterparty-roster', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'counterpartyRoster'])->name('attendance.swaps.counterpartyRoster');
+        Route::get('/attendance/swaps/pickup', [\App\Http\Controllers\HRM\ShiftSwapController::class, 'pickup'])->name('attendance.swaps.pickup');
         Route::post('/attendance/regularizations', [\App\Http\Controllers\HRM\RegularizationController::class, 'store'])->name('attendance.regularizations.store');
         Route::get('/attendance/regularizations/mine', [\App\Http\Controllers\HRM\RegularizationController::class, 'mine'])->name('attendance.regularizations.mine');
         Route::post('/attendance/overtime', [\App\Http\Controllers\HRM\OvertimeController::class, 'store'])->name('attendance.overtime.store');
