@@ -238,6 +238,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::post('/attendance/overtime/{id}/reject', [MobileAttendanceRequestController::class, 'rejectOvertime'])->name('api.v1.attendance.overtime.reject');
     
     Route::get('/attendance/swaps/pending', [MobileAttendanceRequestController::class, 'pendingSwaps'])->name('api.v1.attendance.swaps.pending');
+    Route::get('/attendance/swaps/team-decided', [MobileAttendanceRequestController::class, 'teamDecidedSwaps'])->name('api.v1.attendance.swaps.team-decided');
     Route::post('/attendance/swaps/{id}/approve', [MobileAttendanceRequestController::class, 'approveSwap'])->name('api.v1.attendance.swaps.approve');
     Route::post('/attendance/swaps/{id}/reject', [MobileAttendanceRequestController::class, 'rejectSwap'])->name('api.v1.attendance.swaps.reject');
 

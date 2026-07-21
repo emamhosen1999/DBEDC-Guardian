@@ -426,8 +426,17 @@ class AttendanceRequestController extends Controller
 
     public function mySwaps(Request $request): JsonResponse
     {
-        $swaps = ShiftSwapRequest::with(['counterparty:id,name'])
-            ->where('requester_id', $request->user()->id)
+        // The user's FULL swap involvement — every swap where they are EITHER
+        // the requester OR the counterparty — so decided swaps in which they were
+        // the counterparty stay visible (they previously vanished). The frontend
+        // groups by status, so nothing is excluded here.
+        $userId = $request->user()->id;
+
+        $swaps = ShiftSwapRequest::with(['requester:id,name', 'counterparty:id,name'])
+            ->where(function ($query) use ($userId) {
+                $query->where('requester_id', $userId)
+                    ->orWhere('counterparty_id', $userId);
+            })
             ->orderByDesc('created_at')
             ->get();
 
@@ -692,16 +701,65 @@ class AttendanceRequestController extends Controller
 
         $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
 
+        // The counterparty's acceptance sets counterparty_status = 'accepted'
+        // (never 'approved'); this queue is the manager's stage, which only opens
+        // AFTER the counterparty has accepted. Filtering 'approved' here matched
+        // nothing, so the manager approval queue was always empty on mobile.
         $swaps = ShiftSwapRequest::with(['requester.designation', 'counterparty.designation'])
             ->whereIn('requester_id', $teamMemberIds)
             ->where('status', 'pending')
-            ->where('counterparty_status', 'approved')
+            ->where('counterparty_status', 'accepted')
             ->orderByDesc('created_at')
             ->get();
 
+        $this->decorateSwapShiftCodes($swaps);
+
+        return response()->json([
+            'success' => true,
+            'data' => $swaps,
+        ]);
+    }
+
+    /**
+     * Manager swap-approval HISTORY — team swaps this approver has already
+     * decided (approved or rejected). Manager-gated exactly like pendingSwaps
+     * and scoped to the same team; newest first, same enrichment.
+     */
+    public function teamDecidedSwaps(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! $this->isManagerUser($currentUser)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to access swap requests.',
+            ], 403);
+        }
+
+        $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
+        $swaps = ShiftSwapRequest::with(['requester.designation', 'counterparty.designation'])
+            ->whereIn('requester_id', $teamMemberIds)
+            ->whereIn('status', ['approved', 'rejected'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $this->decorateSwapShiftCodes($swaps);
+
+        return response()->json([
+            'success' => true,
+            'data' => $swaps,
+        ]);
+    }
+
+    /**
+     * Decorate each swap with requester_shift_code / counterparty_shift_code
+     * from the effective roster (shared by pendingSwaps + teamDecidedSwaps).
+     */
+    private function decorateSwapShiftCodes(\Illuminate\Support\Collection $swaps): void
+    {
         $shifts = \App\Models\HRM\Shift::all()->keyBy('id');
 
-        $swaps->map(function ($swap) use ($shifts) {
+        $swaps->each(function ($swap) use ($shifts) {
             $reqDateStr = $swap->requester_date->toDateString();
             $reqShiftId = $this->roster->effectiveShiftId($swap->requester_id, $reqDateStr);
             $swap->requester_shift_code = $reqShiftId ? ($shifts[$reqShiftId]?->code ?? null) : 'OFF';
@@ -713,13 +771,7 @@ class AttendanceRequestController extends Controller
             } else {
                 $swap->counterparty_shift_code = null;
             }
-            return $swap;
         });
-
-        return response()->json([
-            'success' => true,
-            'data' => $swaps,
-        ]);
     }
 
     public function approveSwap(Request $request, int $id): JsonResponse
