@@ -329,7 +329,13 @@ class AuthController extends Controller
         $firebaseDbUrl = config('firebase.database.default_url');
         $firebaseProjectId = config('firebase.project_id');
 
-        if (config('realtime.enabled') && class_exists(\Kreait\Firebase\Contract\Auth::class)) {
+        // NB: Kreait\Firebase\Contract\Auth is an INTERFACE — class_exists() returns
+        // false for interfaces, so the old class_exists() guard was ALWAYS false and
+        // no custom token was ever minted (realtime_config.provider stayed 'none' and
+        // realtime was dead on every platform). Use interface_exists (keep class_exists
+        // as a belt-and-braces fallback).
+        if (config('realtime.enabled')
+            && (interface_exists(\Kreait\Firebase\Contract\Auth::class) || class_exists(\Kreait\Firebase\Contract\Auth::class))) {
             try {
                 if (app()->has(\Kreait\Firebase\Contract\Auth::class)) {
                     $firebaseAuth = app(\Kreait\Firebase\Contract\Auth::class);
