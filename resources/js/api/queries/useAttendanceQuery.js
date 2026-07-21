@@ -128,6 +128,26 @@ export const useAbsentUsers = (date) => {
 };
 
 /**
+ * Fetch the single-day attendance partition (present / absent / upcoming / off-leave)
+ * for the team-attendance style tabbed view.
+ *
+ * Contract: GET /attendance/day-partition?date=YYYY-MM-DD&department_id=<id|omitted>
+ *   → { date, counts:{present,absent,upcoming,off_leave,total},
+ *       present:[…], absent:[…], upcoming:[…], off_leave:[…] }
+ */
+export const useAttendanceDayPartition = (date, departmentId) => {
+  return useQuery({
+    queryKey: ['attendance', 'day-partition', { date, departmentId: departmentId || null }],
+    queryFn: () => requestJson('get', '/attendance/day-partition', {
+      params: { date, department_id: departmentId || undefined },
+    }),
+    enabled: !!date,
+    placeholderData: keepPreviousData, // keep prior partition during date/dept changes so tabs never flash empty
+    staleTime: 3 * 60 * 1000, // 3 minutes - partition shifts through the day
+  });
+};
+
+/**
  * Fetch user locations for a specific date
  */
 export const useUserLocations = (date) => {

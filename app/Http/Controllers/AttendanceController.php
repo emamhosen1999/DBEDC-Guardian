@@ -896,6 +896,44 @@ class AttendanceController extends Controller
         }
     }
 
+    /**
+     * The frozen day-partition shape for the web daily timesheet, rendered from
+     * the single AttendanceDayPartitionService definition so web and mobile show
+     * identical, correct numbers. Department-scoped managers are pinned to their
+     * own department, matching the daily-overview stats endpoint.
+     */
+    public function dayPartition(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'date' => ['nullable', 'date_format:Y-m-d'],
+                'department_id' => ['nullable', 'integer'],
+            ]);
+
+            $date = (string) ($validated['date'] ?? now()->toDateString());
+            $departmentId = isset($validated['department_id']) ? (int) $validated['department_id'] : null;
+
+            $user = Auth::user();
+            $isGlobal = $user->hasRole(['Super Administrator', 'Administrator', 'HR Manager']);
+            $userDeptId = $user->department_id;
+
+            if (! $isGlobal && $userDeptId !== null) {
+                $departmentId = $userDeptId;
+            }
+
+            $data = app(\App\Services\Attendance\AttendanceDayPartitionService::class)
+                ->partition($date, $departmentId);
+
+            return response()->json($data);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Failed to get attendance day partition: '.$e->getMessage());
+
+            return response()->json(['error' => 'Failed to retrieve attendance day partition.'], 500);
+        }
+    }
+
     public function markAsPresent(Request $request): JsonResponse
     {
         try {
@@ -904,23 +942,10 @@ class AttendanceController extends Controller
                 'date' => 'required|date',
             ]);
 
-            $audit = app(AttendanceAuditService::class);
-            $attendance = null;
-
-            DB::transaction(function () use ($validated, $audit, $request, &$attendance) {
-                $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
-                    ->resolve((int) $validated['user_id'], \Carbon\Carbon::parse($validated['date']));
-                $punchin = $shift->start;
-                $punchout = $shift->end;
-                $attendance = Attendance::updateOrCreate(
-                    ['user_id' => $validated['user_id'], 'date' => $validated['date']],
-                    ['symbol' => '√', 'punchin' => $punchin, 'punchout' => $punchout]
-                );
-                $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'punchout', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
-            });
-
-            // Realtime: notify the live attendance dashboard that this date's presence changed.
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', \Carbon\Carbon::parse($validated['date'])->format('Y-m-d'), $request->user()?->id, 'mark_present');
+            // Shift-based, idempotent, audited — the ONE definition, shared with
+            // the mobile mark-present parity endpoint.
+            $attendance = app(\App\Services\Attendance\AttendanceDayPartitionService::class)
+                ->markPresent((int) $validated['user_id'], (string) $validated['date'], $request);
 
             return response()->json([
                 'success' => true,
@@ -944,25 +969,13 @@ class AttendanceController extends Controller
             ]);
 
             $date = Carbon::parse($validated['date'])->format('Y-m-d');
-            $audit = app(AttendanceAuditService::class);
 
+            // Shared, per-user shift-based mark-present (idempotent + audited).
+            $partitionService = app(\App\Services\Attendance\AttendanceDayPartitionService::class);
             $attendances = [];
-            DB::transaction(function () use ($validated, $date, $audit, $request, &$attendances) {
-                foreach ($validated['user_ids'] as $userId) {
-                    $shift = app(\App\Services\Attendance\Contracts\ScheduleResolver::class)
-                        ->resolve((int) $userId, \Carbon\Carbon::parse($date));
-                    $punchin = $shift->start;
-                    $punchout = $shift->end;
-                    $attendance = Attendance::updateOrCreate(
-                        ['user_id' => $userId, 'date' => $date],
-                        ['symbol' => '√', 'punchin' => $punchin, 'punchout' => $punchout]
-                    );
-                    $audit->record('mark_present', $attendance->id, null, $attendance->only(['punchin', 'punchout', 'symbol', 'date', 'user_id']), $request->input('reason'), $request);
-                    $attendances[] = $attendance;
-                }
-            });
-
-            app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', $date, $request->user()?->id, 'mark_present');
+            foreach ($validated['user_ids'] as $userId) {
+                $attendances[] = $partitionService->markPresent((int) $userId, $date, $request);
+            }
 
             return response()->json([
                 'success' => true,

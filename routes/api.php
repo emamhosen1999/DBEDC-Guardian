@@ -214,6 +214,10 @@ Route::prefix('v1')->middleware(['auth:sanctum', \App\Http\Middleware\SlideToken
     Route::get('/attendance/today', [MobileAttendanceController::class, 'today'])->name('api.v1.attendance.today');
     Route::get('/attendance/present-users', [MobileAttendanceController::class, 'presentUsersForDate'])->name('api.v1.attendance.present-users');
     Route::get('/attendance/absent-users', [MobileAttendanceController::class, 'absentUsersForDate'])->name('api.v1.attendance.absent-users');
+    // Single source of truth: the frozen day-partition shape shared with the web
+    // daily timesheet so mobile and web show identical, correct numbers.
+    Route::get('/attendance/team-day', [MobileAttendanceController::class, 'teamDay'])->name('api.v1.attendance.team-day');
+    Route::post('/attendance/mark-present', [MobileAttendanceController::class, 'markPresent'])->middleware('throttle:30,1')->name('api.v1.attendance.mark-present');
     Route::get('/attendance/locations-today', [MobileAttendanceController::class, 'userLocationsForDate'])->name('api.v1.attendance.locations-today');
     Route::get('/attendance/check-user-locations-updates/{date}', [MobileAttendanceController::class, 'checkUserLocationUpdates'])->name('api.v1.attendance.check-user-locations-updates');
     Route::get('/attendance/check-timesheet-updates/{date}/{month?}', [MobileAttendanceController::class, 'checkTimesheetUpdates'])->name('api.v1.attendance.check-timesheet-updates');

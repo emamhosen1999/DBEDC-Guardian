@@ -1,21 +1,18 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
     Box, Flex, Text, Table, Badge, Avatar, Button,
-    TextField, ScrollArea, Skeleton, Tooltip, Select,
+    TextField, Skeleton, Tooltip, Select, Tabs, Spinner,
 } from '@radix-ui/themes';
 import {
     MagnifyingGlassIcon, CalendarIcon, ClockIcon, PersonIcon,
     ExclamationTriangleIcon, CheckCircledIcon, DownloadIcon,
-    MobileIcon,
+    MobileIcon, CrossCircledIcon,
     ReloadIcon, UpdateIcon, TrashIcon, CounterClockwiseClockIcon,
-    ChevronLeftIcon, ChevronRightIcon,
 } from '@radix-ui/react-icons';
 import { usePage } from '@inertiajs/react';
-import { useMediaQuery } from '@/Hooks/useMediaQuery.js';
 import dayjs from 'dayjs';
 import { showToast } from '@/utils/toastUtils';
 import { handleExportResponse } from '@/utils/exportUtils';
-import AbsentSidebar from './AbsentSidebar';
 import AuditHistoryModal from './Components/AuditHistoryModal';
 import UserLocationsCard from '@/Components/UserLocationsCard.jsx';
 import AttendanceTimePicker from '@/Components/AttendanceTimePicker.jsx';
@@ -24,7 +21,7 @@ import TablePagination from '@/Components/TablePagination.jsx';
 import ErrorBoundary from '@/Components/ErrorBoundary/ErrorBoundary';
 import { useAttendanceStore } from '@/store/attendanceStore';
 import { RANGE_PRESETS, resolvePreset, isRangeMode } from './logRange';
-import { useDailyTimesheet, usePresentUsers, useAbsentUsers, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet, useAttendanceLog, useExportAttendanceLog } from '@/api/queries/useAttendanceQuery';
+import { useDailyTimesheet, usePresentUsers, useAttendanceDayPartition, useUpdateTimeCorrection, useMarkAsPresent, useDeleteAttendanceCorrection, useExportDailyTimesheet, useAttendanceLog, useExportAttendanceLog } from '@/api/queries/useAttendanceQuery';
 import { useRealtimeSignals } from '@/api/useRealtimeSignals';
 
 /* ── helpers ──────────────────────────────────────────────── */
@@ -324,6 +321,182 @@ const Cell = ({ attendance, colUid, isAdminView, canCorrect, editingCell, onStar
     }
 };
 
+/* ── stat band ───────────────────────────────────────────────── */
+
+const STAT_META = [
+    { key: 'present',  label: 'Present',   color: 'var(--green-9)'  },
+    { key: 'absent',   label: 'Absent',    color: 'var(--red-9)'    },
+    { key: 'upcoming', label: 'Upcoming',  color: 'var(--indigo-9)' },
+    { key: 'off_leave',label: 'Off / Leave', color: 'var(--gray-8)' },
+    { key: 'total',    label: 'Total',     color: 'var(--accent-9)' },
+];
+
+const StatBand = ({ counts = {}, isLoading = false }) => (
+    <Flex gap="3" mb="4" wrap="wrap">
+        {STAT_META.map(({ key, label, color }) => (
+            <Box
+                key={key}
+                p="3"
+                style={{
+                    flex: '1 1 120px',
+                    minWidth: 120,
+                    borderRadius: 'var(--radius-3)',
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--gray-a4)',
+                    boxShadow: 'var(--shadow-1)',
+                    borderTop: `2px solid ${color}`,
+                }}
+            >
+                <Text size="1" color="gray" style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {label}
+                </Text>
+                {isLoading
+                    ? <Skeleton width="40px" height="24px" style={{ marginTop: 4 }} />
+                    : <Text size="6" weight="bold" style={{ display: 'block', lineHeight: 1.2 }}>{counts[key] ?? 0}</Text>}
+            </Box>
+        ))}
+    </Flex>
+);
+
+/* ── empty state ─────────────────────────────────────────────── */
+
+const EmptyState = ({ icon: Icon = ClockIcon, text }) => (
+    <Flex direction="column" align="center" justify="center" py="9" gap="3">
+        <Icon style={{ color: 'var(--gray-7)', width: 36, height: 36 }} />
+        <Text size="2" color="gray" align="center">{text}</Text>
+    </Flex>
+);
+
+/* ── partition row card (absent / upcoming / off-leave tabs) ──── */
+
+const shiftLabel = (shift) => {
+    if (!shift) return null;
+    const code = shift.code ? `[${shift.code}]` : '';
+    const window = shift.start ? `${shift.start}${shift.end ? ` – ${shift.end}` : ''}` : '';
+    return [code, window].filter(Boolean).join(' ');
+};
+
+const PartitionRow = ({ row, variant, onMarkAsPresent, markingId, canManage }) => {
+    const user = row.user || {};
+    const uid = user.id;
+
+    return (
+        <Box
+            p="3"
+            style={{
+                borderRadius: 'var(--radius-3)',
+                background: 'var(--color-surface)',
+                border: '1px solid var(--gray-a4)',
+                boxShadow: 'var(--shadow-1)',
+                opacity: variant === 'off_leave' ? 0.92 : 1,
+            }}
+        >
+            <Flex align="center" gap="3" wrap="wrap">
+                <Avatar
+                    src={user.profile_image_url || user.profile_image}
+                    fallback={(user.name || '?').charAt(0).toUpperCase()}
+                    size="2"
+                    radius="full"
+                    style={{ flexShrink: 0 }}
+                />
+                <Flex direction="column" gap="1" style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="2" weight="bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {user.name || 'Unknown'}
+                    </Text>
+                    {user.employee_id && (
+                        <Text size="1" color="gray">#{user.employee_id}</Text>
+                    )}
+
+                    {/* variant-specific detail */}
+                    {variant === 'absent' && (
+                        <Flex align="center" gap="1" wrap="wrap">
+                            {row.shift
+                                ? <><CalendarIcon style={{ width: 12, height: 12, color: 'var(--red-9)' }} />
+                                    <Text size="1" color="red" weight="medium">{shiftLabel(row.shift)}</Text></>
+                                : <><PersonIcon style={{ width: 12, height: 12, color: 'var(--gray-8)' }} />
+                                    <Text size="1" color="gray">Rostered, no punch</Text></>}
+                        </Flex>
+                    )}
+                    {variant === 'upcoming' && (
+                        <Flex align="center" gap="1" wrap="wrap">
+                            <ClockIcon style={{ width: 12, height: 12, color: 'var(--indigo-9)' }} />
+                            <Text size="1" color="indigo" weight="medium">
+                                {shiftLabel(row.shift) || 'Scheduled'}
+                            </Text>
+                        </Flex>
+                    )}
+                    {variant === 'off_leave' && (
+                        <Flex align="center" gap="1" wrap="wrap">
+                            {row.kind === 'leave'
+                                ? <Badge color="blue" variant="soft" size="1">
+                                    On Leave{row.leave_type ? ` · ${row.leave_type}` : ''}
+                                  </Badge>
+                                : <Badge color="gray" variant="soft" size="1">Off</Badge>}
+                        </Flex>
+                    )}
+                </Flex>
+
+                {/* Mark present — absent tab only */}
+                {variant === 'absent' && canManage && onMarkAsPresent && (
+                    <Button
+                        size="2"
+                        variant="solid"
+                        color="green"
+                        style={{ cursor: 'pointer', flexShrink: 0 }}
+                        disabled={markingId === uid}
+                        onClick={() => onMarkAsPresent(user)}
+                    >
+                        {markingId === uid ? <Spinner size="1" /> : <CheckCircledIcon width={14} height={14} />}
+                        <Text size="1" weight="bold">{markingId === uid ? 'Marking…' : 'Mark present'}</Text>
+                    </Button>
+                )}
+            </Flex>
+        </Box>
+    );
+};
+
+/* Grid list wrapper for a partition tab (with loading + empty states). */
+const PartitionList = ({ rows, variant, isLoading, emptyIcon, emptyText, onMarkAsPresent, markingId, canManage }) => {
+    if (isLoading) {
+        return (
+            <Flex direction="column" gap="2">
+                {[...Array(5)].map((_, i) => (
+                    <Flex key={i} align="center" gap="3" p="3" style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)' }}>
+                        <Skeleton width="36px" height="36px" style={{ borderRadius: '50%', flexShrink: 0 }} />
+                        <Flex direction="column" gap="1" style={{ flex: 1 }}>
+                            <Skeleton width="40%" height="14px" />
+                            <Skeleton width="25%" height="10px" />
+                        </Flex>
+                    </Flex>
+                ))}
+            </Flex>
+        );
+    }
+    if (!rows || rows.length === 0) {
+        return <EmptyState icon={emptyIcon} text={emptyText} />;
+    }
+    return (
+        <Box
+            style={{
+                display: 'grid',
+                gap: 'var(--space-2)',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            }}
+        >
+            {rows.map((row) => (
+                <PartitionRow
+                    key={row.user?.id ?? Math.random()}
+                    row={row}
+                    variant={variant}
+                    onMarkAsPresent={onMarkAsPresent}
+                    markingId={markingId}
+                    canManage={canManage}
+                />
+            ))}
+        </Box>
+    );
+};
+
 /* ── main ─────────────────────────────────────────────────── */
 
 const DailyTimesheetTab = ({
@@ -340,7 +513,6 @@ const DailyTimesheetTab = ({
     const canCorrect = auth.permissions?.includes('attendance.correct') || auth.permissions?.includes('attendance.delete') || false;
     const canExport  = auth.permissions?.includes('attendance.export') || canManage;
     const isAdminView = canViewAll && url !== '/attendance-employee';
-    const isMobile = useMediaQuery('(max-width: 767px)');
 
     // Zustand store for shared state
     const { employeeQuery, setEmployeeQuery } = useAttendanceStore();
@@ -348,7 +520,7 @@ const DailyTimesheetTab = ({
     /* state */
     const [updateMap,    setUpdateMap]    = useState(false);
     const [downloading,  setDownloading]  = useState('');
-    const [sidebarOpen,  setSidebarOpen]  = useState(true);
+    const [activeTab,    setActiveTab]    = useState('present'); // present | absent | upcoming | offleave
     const [lastChecked,  setLastChecked]  = useState(null);
     const prevUpdateRef = useRef(null);
 
@@ -388,12 +560,19 @@ const DailyTimesheetTab = ({
         employee: employeeQuery,
     });
 
-    const { data: presentUsersData, isLoading: isLoadingPresent, refetch: refetchPresent } = usePresentUsers(
+    // present-users cache is warmed here so useMarkAsPresent's optimistic patch has a
+    // target; we only need its refetcher for the realtime signal.
+    const { refetch: refetchPresent } = usePresentUsers(
         selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null
     );
 
-    const { data: absentUsersData, isLoading: isLoadingAbsent, refetch: refetchAbsent } = useAbsentUsers(
-        selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null
+    // Single-day partition (present / absent / upcoming / off-leave) — powers the
+    // team-attendance style tabs + stat band. Only the department filter is a server
+    // param (frozen contract); it is disabled outside the admin single-day view.
+    const partitionEnabled = isAdminView && !rangeMode;
+    const { data: partitionData, isLoading: isLoadingPartition, refetch: refetchPartition } = useAttendanceDayPartition(
+        partitionEnabled && selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : null,
+        deptFilter || undefined
     );
 
     // Live updates: when anyone punches (mobile/web) or is marked present for this date,
@@ -403,7 +582,7 @@ const DailyTimesheetTab = ({
     useRealtimeSignals({
         path: isActive && signalDate ? `attendance/${signalDate}` : null,
         selfActorId: auth?.user?.id ?? null,
-        onSignal: () => { refetchPresent(); refetchAbsent(); refetchTimesheet(); },
+        onSignal: () => { refetchPresent(); refetchPartition(); refetchTimesheet(); },
     });
 
     const logFilters = {
@@ -428,20 +607,30 @@ const DailyTimesheetTab = ({
     const markAsPresent = useMarkAsPresent();
     const deleteAttendanceCorrection = useDeleteAttendanceCorrection();
     const exportDailyTimesheet = useExportDailyTimesheet();
-    const isMutating = updateTimeCorrection.isPending || markAsPresent.isPending || deleteAttendanceCorrection.isPending || exportDailyTimesheet.isPending;
 
     // Derived state from React Query data
     const attendances = dailyTimesheetData?.attendances || [];
     const totalRows = dailyTimesheetData?.total || 0;
     const lastPage = dailyTimesheetData?.last_page || 1;
-    const presentUsers = presentUsersData?.attendances || [];
-    const absentUsers = absentUsersData?.absent_users || [];
-    const offUsers = absentUsersData?.off_users || [];
-    const upcomingUsers = absentUsersData?.upcoming_users || [];
-    const upcomingVisible = absentUsersData?.upcoming_visible ?? true;
-    const leaves = absentUsersData?.leaves || [];
-    const isWeekend = absentUsersData?.is_weekend || false;
-    const isLoaded = !isLoadingTimesheet && !isLoadingPresent && !isLoadingAbsent;
+    const isLoaded = !isLoadingTimesheet; // present-tab table readiness
+
+    // Partition payload — defensive against a `{ success, data }` envelope (requestJson
+    // already unwraps `success`, but this keeps us safe either way).
+    const partition = (partitionData && partitionData.counts) ? partitionData : (partitionData?.data ?? {});
+    const counts = partition.counts || { present: 0, absent: 0, upcoming: 0, off_leave: 0, total: 0 };
+
+    // Client-side search across the partition tabs (the frozen contract only accepts
+    // date + department_id server-side; department is already applied by the endpoint).
+    const q = (employeeQuery || '').trim().toLowerCase();
+    const matchesSearch = (u) => !q
+        || (u?.name || '').toLowerCase().includes(q)
+        || String(u?.employee_id || '').toLowerCase().includes(q);
+    const filterRows = (rows) => (Array.isArray(rows) ? rows.filter((r) => matchesSearch(r?.user)) : []);
+
+    const absentRows   = filterRows(partition.absent);
+    const upcomingRows = filterRows(partition.upcoming);
+    const offLeaveRows = filterRows(partition.off_leave);
+
     const error = null; // React Query handles errors automatically
 
     /* columns */
@@ -455,17 +644,6 @@ const DailyTimesheetTab = ({
         ...(canCorrect              ? [{ uid: 'actions',         name: 'Actions'    }] : []),
     ], [isAdminView, canCorrect]);
 
-    /* fetch functions using React Query */
-    const fetchPresent = useCallback((page = currentPage, force = false) => {
-        if (force) {
-            refetchTimesheet();
-        }
-    }, [currentPage, refetchTimesheet]);
-
-    const fetchAbsent = useCallback(() => {
-        refetchAbsent();
-    }, [refetchAbsent]);
-
     /* polling */
     const checkUpdates = useCallback(async () => {
         if (!selectedDate || !isActive || document.visibilityState === 'hidden') return;
@@ -477,11 +655,11 @@ const DailyTimesheetTab = ({
             const data = await res.json();
             if (data.success && data.last_updated !== prevUpdateRef.current) {
                 prevUpdateRef.current = data.last_updated;
-                await Promise.all([refetchTimesheet(), refetchAbsent()]);
+                await Promise.all([refetchTimesheet(), refetchPartition()]);
             }
             setLastChecked(new Date());
         } catch { /* silent */ }
-    }, [selectedDate, refetchTimesheet, refetchAbsent]);
+    }, [selectedDate, refetchTimesheet, refetchPartition]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -535,8 +713,6 @@ const DailyTimesheetTab = ({
         setToDate(resolved.to);
         setCurrentPage(1);
     }, [onDateChange]);
-
-    const getUserLeave = (uid) => leaves.find(l => String(l.user_id) === String(uid));
 
     // Handle time correction save
     const handleTimeSave = async (attendanceId, field, time) => {
@@ -592,28 +768,112 @@ const DailyTimesheetTab = ({
 
     /* mark as present */
     const [markingId, setMarkingId] = useState(null);
-    const handleMarkAsPresent = useCallback(async (user, date) => {
+    const handleMarkAsPresent = useCallback(async (user, date = selectedDate) => {
         setMarkingId(user.id);
         try {
             await markAsPresent.mutateAsync({
                 userId: user.id,
                 date: dayjs(date).format('YYYY-MM-DD'),
             });
-            await Promise.all([refetchTimesheet(), refetchAbsent()]);
+            // useMarkAsPresent already patches the daily-timesheet / present-users caches
+            // optimistically; refetch the partition (its own cache key) so the Absent tab
+            // drops the row and the stat band re-counts.
+            await Promise.all([refetchTimesheet(), refetchPartition()]);
         } catch (e) {
             const msg = e.response?.data?.message || 'Failed to mark as present.';
             showToast.error(msg);
         } finally {
             setMarkingId(null);
         }
-    }, [refetchTimesheet, refetchAbsent, markAsPresent]);
+    }, [selectedDate, refetchTimesheet, refetchPartition, markAsPresent]);
+
+    /* Present-tab / self-view table (shared by the admin Present tab and the
+       non-admin single-day view). Full punch / correction / delete / history UI. */
+    const presentTable = (
+        <>
+            <Box className="attn-daily-scroll" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 360px)' }}>
+                <Table.Root size="2" variant="ghost" style={{ minWidth: 520 }}>
+                    <Table.Header>
+                        <Table.Row>
+                            {columns.map(c => (
+                                <Table.ColumnHeaderCell key={c.uid} style={STICKY_HEAD}>
+                                    <Text size="2" weight="medium">{c.name}</Text>
+                                </Table.ColumnHeaderCell>
+                            ))}
+                        </Table.Row>
+                    </Table.Header>
+                    <Table.Body>
+                        {!isLoaded
+                            ? [...Array(6)].map((_, i) => (
+                                <Table.Row key={i}>
+                                    {columns.map(c => (
+                                        <Table.Cell key={c.uid}>
+                                            <Skeleton width="80%" height="16px" />
+                                        </Table.Cell>
+                                    ))}
+                                </Table.Row>
+                              ))
+                            : attendances.length === 0
+                                ? (
+                                    <Table.Row>
+                                        <Table.Cell colSpan={columns.length}>
+                                            <EmptyState text="No attendance records for this date" />
+                                        </Table.Cell>
+                                    </Table.Row>
+                                  )
+                                : attendances.map(a => (
+                                    <Table.Row key={a.id || a.user_id}>
+                                        {columns.map(c => (
+                                            <Cell
+                                                key={c.uid}
+                                                attendance={a}
+                                                colUid={c.uid}
+                                                isAdminView={isAdminView}
+                                                canCorrect={canCorrect}
+                                                editingCell={editingCell}
+                                                onStartEdit={startEdit}
+                                                onCancelEdit={cancelEdit}
+                                                onSaveTime={handleTimeSave}
+                                                onDelete={handleDeleteAttendance}
+                                                onHistory={setHistoryId}
+                                            />
+                                        ))}
+                                    </Table.Row>
+                                  ))
+                        }
+                    </Table.Body>
+                </Table.Root>
+            </Box>
+
+            {(lastPage > 1 || currentPage > 1) && isLoaded && (
+                <TablePagination
+                    pagination={{ currentPage, perPage, total: totalRows }}
+                    onPageChange={setCurrentPage}
+                    onRowsPerPageChange={(v) => setPerPage(v)}
+                    loading={!isLoaded}
+                />
+            )}
+        </>
+    );
+
+    /* Partition tab definitions — counts + badge colour drive the stat band too. */
+    const partitionTabs = [
+        { value: 'present',  label: 'Present',    count: counts.present ?? 0,   color: 'green',  icon: <CheckCircledIcon /> },
+        { value: 'absent',   label: 'Absent',     count: counts.absent ?? 0,    color: 'red',    icon: <CrossCircledIcon /> },
+        { value: 'upcoming', label: 'Upcoming',   count: counts.upcoming ?? 0,  color: 'indigo', icon: <ClockIcon /> },
+        { value: 'offleave', label: 'Off / Leave',count: counts.off_leave ?? 0, color: 'gray',   icon: <CalendarIcon /> },
+    ];
+
+    const tabPanelStyle = { border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' };
+    const listPanelStyle = { border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', padding: 'var(--space-3)', maxHeight: 'calc(100vh - 360px)', overflow: 'auto' };
 
     /* ── render ─────────────────────────────────────────────── */
     return (
         <Box>
             {/* Let our scroll wrapper be the sole scroll container so the sticky header pins correctly */}
             <style>{`.attn-daily-scroll :where(.rt-TableRootTable){overflow:visible}`}</style>
-            {/* Toolbar */}
+
+            {/* ── Shared toolbar (identical for every tab) ─────────────── */}
             <Flex
                 justify="between"
                 align="center"
@@ -621,7 +881,7 @@ const DailyTimesheetTab = ({
                 mb="4"
                 wrap="wrap"
             >
-                {/* left: preset + (custom range) + search + per-page */}
+                {/* left: search + date/preset + department + designation + (status in log mode) */}
                 <Flex gap="3" align="center" wrap="wrap">
                     {isAdminView && (
                         <TextField.Root
@@ -665,45 +925,47 @@ const DailyTimesheetTab = ({
                         />
                     )}
 
-                    {isAdminView && rangeMode && (
-                        <>
-                            <Select.Root value={statusFilter || 'all'} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
-                                <Select.Trigger size="2" placeholder="Status" style={{ width: 130 }} />
-                                <Select.Content>
-                                    <Select.Item value="all">All statuses</Select.Item>
-                                    <Select.Item value="present">Present</Select.Item>
-                                    <Select.Item value="absent">Absent</Select.Item>
-                                    <Select.Item value="on_leave">On Leave</Select.Item>
-                                    <Select.Item value="incomplete">Incomplete</Select.Item>
-                                    <Select.Item value="holiday">Holiday</Select.Item>
-                                    <Select.Item value="day_off">Day Off</Select.Item>
-                                </Select.Content>
-                            </Select.Root>
-
-                            {!isNonGlobalManager && (
-                                <Select.Root value={deptFilter || 'all'} onValueChange={v => { setDeptFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
-                                    <Select.Trigger size="2" placeholder="Department" style={{ width: 150 }} />
-                                    <Select.Content>
-                                        <Select.Item value="all">All departments</Select.Item>
-                                        {departments.map(d => (
-                                            <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
-                                        ))}
-                                    </Select.Content>
-                                </Select.Root>
-                            )}
-
-                            <Select.Root value={desigFilter || 'all'} onValueChange={v => { setDesigFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
-                                <Select.Trigger size="2" placeholder="Designation" style={{ width: 150 }} />
-                                <Select.Content>
-                                    <Select.Item value="all">All designations</Select.Item>
-                                    {designations.map(d => (
-                                        <Select.Item key={d.id} value={String(d.id)}>{d.title}</Select.Item>
-                                    ))}
-                                </Select.Content>
-                            </Select.Root>
-                        </>
+                    {/* Department + Designation: shown for admin in BOTH single-day (tabs)
+                        and range (log) mode. Department drives the partition endpoint. */}
+                    {isAdminView && !isNonGlobalManager && (
+                        <Select.Root value={deptFilter || 'all'} onValueChange={v => { setDeptFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                            <Select.Trigger size="2" placeholder="Department" style={{ width: 150 }} />
+                            <Select.Content>
+                                <Select.Item value="all">All departments</Select.Item>
+                                {departments.map(d => (
+                                    <Select.Item key={d.id} value={String(d.id)}>{d.name}</Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
                     )}
 
+                    {isAdminView && (
+                        <Select.Root value={desigFilter || 'all'} onValueChange={v => { setDesigFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                            <Select.Trigger size="2" placeholder="Designation" style={{ width: 150 }} />
+                            <Select.Content>
+                                <Select.Item value="all">All designations</Select.Item>
+                                {designations.map(d => (
+                                    <Select.Item key={d.id} value={String(d.id)}>{d.title}</Select.Item>
+                                ))}
+                            </Select.Content>
+                        </Select.Root>
+                    )}
+
+                    {/* Status filter is only meaningful for the ranged log table. */}
+                    {isAdminView && rangeMode && (
+                        <Select.Root value={statusFilter || 'all'} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+                            <Select.Trigger size="2" placeholder="Status" style={{ width: 130 }} />
+                            <Select.Content>
+                                <Select.Item value="all">All statuses</Select.Item>
+                                <Select.Item value="present">Present</Select.Item>
+                                <Select.Item value="absent">Absent</Select.Item>
+                                <Select.Item value="on_leave">On Leave</Select.Item>
+                                <Select.Item value="incomplete">Incomplete</Select.Item>
+                                <Select.Item value="holiday">Holiday</Select.Item>
+                                <Select.Item value="day_off">Day Off</Select.Item>
+                            </Select.Content>
+                        </Select.Root>
+                    )}
                 </Flex>
 
                 {/* right: last updated + refresh + export */}
@@ -717,33 +979,12 @@ const DailyTimesheetTab = ({
                         </Text>
                     )}
 
-                    {isAdminView && !rangeMode && (
-                        <Tooltip content={sidebarOpen ? "Hide Absent Sidebar" : "Show Absent Sidebar"}>
-                            <Button
-                                size="2"
-                                variant={sidebarOpen ? "soft" : "solid"}
-                                color="red"
-                                onClick={() => setSidebarOpen(!sidebarOpen)}
-                            >
-                                {sidebarOpen ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-                                <Text size="2" weight="medium">
-                                    {sidebarOpen ? 'Hide Absents' : 'Show Absents'}
-                                </Text>
-                                {isLoaded && absentUsers?.length > 0 && (
-                                    <Badge color="red" variant="solid" size="1" style={{ marginLeft: 4 }}>
-                                        {absentUsers.length}
-                                    </Badge>
-                                )}
-                            </Button>
-                        </Tooltip>
-                    )}
-
                     <Tooltip content="Refresh">
                         <Button
                             size="2"
                             variant="soft"
                             color="gray"
-                            onClick={() => Promise.all([refetchTimesheet(), refetchAbsent()])}
+                            onClick={() => Promise.all([refetchTimesheet(), refetchPartition()])}
                         >
                             <ReloadIcon />
                         </Button>
@@ -776,10 +1017,7 @@ const DailyTimesheetTab = ({
                 </Flex>
             </Flex>
 
-
-
-
-            {/* Body: range log table OR single-day table + sidebar */}
+            {/* Body: (1) ranged log table, (2) non-admin self view, (3) admin tabbed partition */}
             {rangeMode ? (
                 <Box style={{ border: '1px solid var(--gray-a4)', borderRadius: 'var(--radius-3)', overflow: 'hidden' }}>
                     <Box className="attn-daily-scroll" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
@@ -806,10 +1044,7 @@ const DailyTimesheetTab = ({
                                 ) : (logData?.rows?.length ?? 0) === 0 ? (
                                     <Table.Row>
                                         <Table.Cell colSpan={6}>
-                                            <Flex direction="column" align="center" py="9" gap="3">
-                                                <ClockIcon style={{ color: 'var(--gray-7)', width: 36, height: 36 }} />
-                                                <Text size="2" color="gray">No records for this range and filters</Text>
-                                            </Flex>
+                                            <EmptyState text="No records for this range and filters" />
                                         </Table.Cell>
                                     </Table.Row>
                                 ) : (
@@ -841,126 +1076,75 @@ const DailyTimesheetTab = ({
                     <ExclamationTriangleIcon style={{ color: 'var(--red-9)', width: 20, height: 20 }} />
                     <Text size="2" color="red">{error}</Text>
                 </Flex>
+            ) : !isAdminView ? (
+                /* Non-admin: their own single-day timesheet (no partition). */
+                <Box style={tabPanelStyle}>
+                    {presentTable}
+                </Box>
             ) : (
-                <Flex
-                    direction={isMobile ? 'column' : 'row'}
-                    gap="0"
-                    style={{
-                        position: 'relative',
-                        border: '1px solid var(--gray-a4)',
-                        borderRadius: 'var(--radius-3)',
-                        overflow: 'hidden'
-                    }}
-                >
+                /* Admin single-day: stat band + Present / Absent / Upcoming / Off-Leave tabs */
+                <>
+                    <StatBand counts={counts} isLoading={isLoadingPartition} />
 
-                    {/* Present table */}
-                    <Box
-                        style={{
-                            flex: '1 1 0',
-                            minWidth: 0,
-                            overflow: 'hidden',
-                            marginRight: (!isMobile && isAdminView && sidebarOpen) ? '320px' : 0
-                        }}
-                    >
-                        <Box className="attn-daily-scroll" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 300px)' }}>
-                            <Table.Root size="2" variant="ghost" style={{ minWidth: 520 }}>
-                                <Table.Header>
-                                    <Table.Row>
-                                        {columns.map(c => (
-                                            <Table.ColumnHeaderCell key={c.uid} style={STICKY_HEAD}>
-                                                <Text size="2" weight="medium">{c.name}</Text>
-                                            </Table.ColumnHeaderCell>
-                                        ))}
-                                    </Table.Row>
-                                </Table.Header>
-                                <Table.Body>
-                                    {!isLoaded
-                                        ? [...Array(6)].map((_, i) => (
-                                            <Table.Row key={i}>
-                                                {columns.map(c => (
-                                                    <Table.Cell key={c.uid}>
-                                                        <Skeleton width="80%" height="16px" />
-                                                    </Table.Cell>
-                                                ))}
-                                            </Table.Row>
-                                          ))
-                                        : attendances.length === 0
-                                            ? (
-                                                <Table.Row>
-                                                    <Table.Cell colSpan={columns.length}>
-                                                        <Flex direction="column" align="center" py="9" gap="3">
-                                                            <ClockIcon style={{ color: 'var(--gray-7)', width: 36, height: 36 }} />
-                                                            <Text size="2" color="gray">No attendance records for this date</Text>
-                                                        </Flex>
-                                                    </Table.Cell>
-                                                </Table.Row>
-                                              )
-                                            : attendances.map(a => (
-                                                <Table.Row key={a.id || a.user_id}>
-                                                    {columns.map(c => (
-                                                        <Cell
-                                                            key={c.uid}
-                                                            attendance={a}
-                                                            colUid={c.uid}
-                                                            isAdminView={isAdminView}
-                                                            canCorrect={canCorrect}
-                                                            editingCell={editingCell}
-                                                            onStartEdit={startEdit}
-                                                            onCancelEdit={cancelEdit}
-                                                            onSaveTime={handleTimeSave}
-                                                            onDelete={handleDeleteAttendance}
-                                                            onHistory={setHistoryId}
-                                                        />
-                                                    ))}
-                                                </Table.Row>
-                                              ))
-                                    }
-                                </Table.Body>
-                            </Table.Root>
-                        </Box>
+                    <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
+                        <Tabs.List style={{ marginBottom: 'var(--space-3)', overflowX: 'auto' }}>
+                            {partitionTabs.map(t => (
+                                <Tabs.Trigger key={t.value} value={t.value}>
+                                    <Flex align="center" gap="2">
+                                        {t.icon}
+                                        <Text size="2" weight="medium" style={{ whiteSpace: 'nowrap' }}>{t.label}</Text>
+                                        <Badge color={t.color} variant="soft" size="1" radius="full">{t.count}</Badge>
+                                    </Flex>
+                                </Tabs.Trigger>
+                            ))}
+                        </Tabs.List>
 
-                        {(lastPage > 1 || currentPage > 1) && isLoaded && (
-                            <TablePagination
-                                pagination={{ currentPage, perPage, total: totalRows }}
-                                onPageChange={setCurrentPage}
-                                onRowsPerPageChange={(v) => setPerPage(v)}
-                                loading={!isLoaded}
-                            />
-                        )}
-                    </Box>
+                        <Tabs.Content value="present">
+                            <Box style={tabPanelStyle}>
+                                {presentTable}
+                            </Box>
+                        </Tabs.Content>
 
-                    {/* Absent sidebar — admin only */}
-                    {isAdminView && sidebarOpen && (
-                        <Box
-                            style={{
-                                width: isMobile ? '100%' : '320px',
-                                flexShrink: 0,
-                                ...(!isMobile ? {
-                                    position: 'absolute',
-                                    right: 0,
-                                    top: 0,
-                                    bottom: 0,
-                                } : {})
-                            }}
-                        >
-                            <AbsentSidebar
-                                absentUsers={absentUsers}
-                                offUsers={offUsers}
-                                upcomingUsers={upcomingUsers}
-                                upcomingVisible={upcomingVisible}
-                                getUserLeave={getUserLeave}
-                                isLoaded={isLoaded}
-                                onMarkAsPresent={handleMarkAsPresent}
-                                markingId={markingId}
-                                selectedDate={selectedDate}
-                                canManage={canManage}
-                                isWeekend={isWeekend}
-                                presentCount={totalRows}
-                                leavesCount={leaves?.length || 0}
-                            />
-                        </Box>
-                    )}
-                </Flex>
+                        <Tabs.Content value="absent">
+                            <Box style={listPanelStyle}>
+                                <PartitionList
+                                    rows={absentRows}
+                                    variant="absent"
+                                    isLoading={isLoadingPartition}
+                                    emptyIcon={CheckCircledIcon}
+                                    emptyText="No absentees — everyone rostered has punched in."
+                                    onMarkAsPresent={handleMarkAsPresent}
+                                    markingId={markingId}
+                                    canManage={canManage}
+                                />
+                            </Box>
+                        </Tabs.Content>
+
+                        <Tabs.Content value="upcoming">
+                            <Box style={listPanelStyle}>
+                                <PartitionList
+                                    rows={upcomingRows}
+                                    variant="upcoming"
+                                    isLoading={isLoadingPartition}
+                                    emptyIcon={ClockIcon}
+                                    emptyText="No upcoming shifts — no one is scheduled to start later today."
+                                />
+                            </Box>
+                        </Tabs.Content>
+
+                        <Tabs.Content value="offleave">
+                            <Box style={listPanelStyle}>
+                                <PartitionList
+                                    rows={offLeaveRows}
+                                    variant="off_leave"
+                                    isLoading={isLoadingPartition}
+                                    emptyIcon={CalendarIcon}
+                                    emptyText="No one is off or on leave for this date."
+                                />
+                            </Box>
+                        </Tabs.Content>
+                    </Tabs.Root>
+                </>
             )}
 
             {/* ── Map: admin only, single-day mode only ───────── */}

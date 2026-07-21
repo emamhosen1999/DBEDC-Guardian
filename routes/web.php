@@ -535,6 +535,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attendance/locations-today', [AttendanceController::class, 'getUserLocationsForDate'])->name('getUserLocationsForDate');
         Route::get('/admin/get-present-users-for-date', [AttendanceController::class, 'getPresentUsersForDate'])->name('admin.getPresentUsersForDate');
         Route::get('/admin/get-absent-users-for-date', [AttendanceController::class, 'getAbsentUsersForDate'])->name('admin.getAbsentUsersForDate');
+        // Single source of truth: the frozen day-partition shape shared with the
+        // mobile team-attendance screen so web and mobile show identical numbers.
+        Route::get('/attendance/day-partition', [AttendanceController::class, 'dayPartition'])->name('attendance.dayPartition');
         Route::get('/attendance/monthly-stats', [AttendanceController::class, 'getMonthlyAttendanceStats'])->name('attendance.monthlyStats');
         Route::get('/attendance/daily-overview', [AttendanceController::class, 'getDailyOverviewStats'])->name('attendance.dailyOverview');
         Route::get('/attendance/{id}/audit', [AttendanceController::class, 'auditHistory'])->whereNumber('id')->name('attendance.audit.history');

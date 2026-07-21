@@ -11,6 +11,7 @@ use App\Models\HRM\Attendance;
 use App\Models\HRM\AttendanceType;
 use App\Models\User;
 use App\Repositories\AttendanceRepository;
+use App\Services\Attendance\AttendanceDayPartitionService;
 use App\Services\Attendance\AttendancePunchService;
 use App\Services\Attendance\AttendanceQueryService;
 use App\Services\Attendance\AttendanceValidatorFactory;
@@ -626,11 +627,10 @@ class AttendanceController extends Controller
                 // Today-only headcount for the summary band. Present is added by
                 // the client (it comes from the present endpoint); these three
                 // plus present are mutually exclusive and sum to the whole team.
-                'summary_counts' => [
-                    'absent' => $absentUsers->count(),
-                    'off' => $offUsers->count(),
-                    'upcoming' => $todayPartition['upcoming']->count(),
-                ],
+                // Sourced from the single AttendanceDayPartitionService definition
+                // so the mobile summary matches the web timesheet and team-day
+                // exactly (on-leave members count as off_leave, never absent).
+                'summary_counts' => $this->sharedSummaryCounts($selectedDate, $allUsers),
             ]);
         } catch (\Throwable $exception) {
             report($exception);
@@ -1105,6 +1105,103 @@ class AttendanceController extends Controller
         app(\App\Services\Realtime\RealtimeSignal::class)->touch('attendance', now()->format('Y-m-d'), $user->id, 'punch');
 
         return response()->json(array_merge(['success' => true], $result));
+    }
+
+    /**
+     * Mobile team-attendance day partition. Renders the frozen partition shape
+     * from the single AttendanceDayPartitionService definition so the mobile
+     * screen and the web daily timesheet always show identical, correct numbers.
+     */
+    public function teamDay(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return $this->errorResponse('You are not authorized to access team attendance data.', 'FORBIDDEN', 403);
+        }
+
+        $validated = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'department_id' => ['nullable', 'integer'],
+        ]);
+
+        $selectedDate = (string) ($validated['date'] ?? now()->toDateString());
+        $departmentId = isset($validated['department_id']) ? (int) $validated['department_id'] : null;
+
+        try {
+            $teamMemberIds = $this->resolveTeamMemberIds($currentUser);
+
+            $data = app(AttendanceDayPartitionService::class)
+                ->partition($selectedDate, $departmentId, $teamMemberIds);
+
+            return $this->successResponse($data);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return $this->errorResponse('An error occurred while retrieving team attendance data.', 'INTERNAL_SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * Mobile parity for the web "mark as present" action: shift-based, idempotent
+     * and audited via the shared AttendanceDayPartitionService::markPresent().
+     */
+    public function markPresent(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+
+        if (! $this->isManagerUser($currentUser)) {
+            return $this->errorResponse('You are not authorized to mark attendance.', 'FORBIDDEN', 403);
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        try {
+            $attendance = app(AttendanceDayPartitionService::class)
+                ->markPresent((int) $validated['user_id'], (string) $validated['date'], $request);
+
+            return $this->successResponse([
+                'attendance' => [
+                    'id' => (int) $attendance->id,
+                    'user_id' => (int) $attendance->user_id,
+                    'date' => $attendance->date instanceof \Carbon\CarbonInterface
+                        ? $attendance->date->toDateString()
+                        : (string) $attendance->date,
+                    'punch_in' => $attendance->punchin ? Carbon::parse($attendance->punchin)->format('H:i') : null,
+                    'punch_out' => $attendance->punchout ? Carbon::parse($attendance->punchout)->format('H:i') : null,
+                ],
+            ], 'Employee marked as present successfully');
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return $this->errorResponse('Failed to mark employee as present.', 'INTERNAL_SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * Today-based summary counts for the mobile team-attendance band, taken from
+     * the shared partition definition so absent/off/upcoming match the web
+     * timesheet and team-day. Keys are kept back-compatible ('off' carries the
+     * combined off + leave headcount).
+     *
+     * @param  \Illuminate\Support\Collection<int, User>  $scopedUsers
+     * @return array{absent: int, off: int, upcoming: int}
+     */
+    private function sharedSummaryCounts(string $date, $scopedUsers): array
+    {
+        $memberIds = $scopedUsers->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $counts = app(AttendanceDayPartitionService::class)
+            ->partition($date, null, $memberIds)['counts'];
+
+        return [
+            'absent' => (int) $counts['absent'],
+            'off' => (int) $counts['off_leave'],
+            'upcoming' => (int) $counts['upcoming'],
+        ];
     }
 
     private function transformUserForAttendanceCards(?User $user): array
