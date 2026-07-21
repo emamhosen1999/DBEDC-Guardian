@@ -206,7 +206,13 @@ class LeaveController extends Controller
 
         $pendingLeaves = Leave::query()
             ->with([
-                'employee:id,name,employee_id,profile_image',
+                // NB: `profile_image` is NOT a real column in production (it only
+                // exists in the SQLite test schema). Selecting it here threw a
+                // 500 as soon as a pending leave had a real employee row. The
+                // avatar comes from the media library via the profile_image_url
+                // accessor instead, so eager-load media to avoid an N+1.
+                'employee:id,name,employee_id',
+                'employee.media',
                 'leaveSetting:id,type,symbol',
             ])
             ->whereNotNull('approval_chain')
@@ -435,7 +441,10 @@ class LeaveController extends Controller
                 'id' => $leave->employee?->id,
                 'name' => $leave->employee?->name,
                 'employee_id' => $leave->employee?->employee_id,
-                'profile_image' => $leave->employee?->profile_image,
+                // Media-backed URL — the legacy profile_image column does not
+                // exist in production.
+                'profile_image' => $leave->employee?->profile_image_url,
+                'profile_image_url' => $leave->employee?->profile_image_url,
             ],
             'leave_type' => $leave->leave_type,
             'leave_type_name' => $leave->leaveSetting?->type,

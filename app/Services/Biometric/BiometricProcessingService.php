@@ -196,7 +196,7 @@ class BiometricProcessingService
      */
     public function queryAttLogs(?string $search, ?string $status, ?string $deviceId, int $perPage, int $page)
     {
-        $query = BiometricAttLog::with(['user:id,name,employee_id,profile_image', 'device:id,name,serial_number'])
+        $query = BiometricAttLog::with(['user:id,name,employee_id', 'device:id,name,serial_number'])
             ->orderByDesc('punch_time');
 
         if ($search) {
