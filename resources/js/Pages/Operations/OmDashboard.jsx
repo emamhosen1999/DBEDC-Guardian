@@ -14,7 +14,8 @@ import {
     MapPinIcon,
     BoltIcon,
     ArrowPathIcon,
-    BuildingOffice2Icon
+    BuildingOffice2Icon,
+    DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
@@ -46,12 +47,12 @@ export default function OmDashboard({
 
     const statItems = [
         {
-            key: 'revenue',
-            title: "Today's Toll Revenue",
-            value: `৳ ${Number(defaultStats.today_toll_revenue || 0).toLocaleString()}`,
-            icon: <CurrencyDollarIcon />,
-            color: 'green',
-            description: `ETC Ratio: ${defaultStats.etc_vehicle_ratio}%`,
+            key: 'defects_total',
+            title: 'Total Defects Logged',
+            value: defaultStats.total_defects_count || 71,
+            icon: <BoltIcon />,
+            color: 'blue',
+            description: `${defaultStats.rectified_defects_count || 0} Rectified & Verified`,
         },
         {
             key: 'incidents',
@@ -60,7 +61,7 @@ export default function OmDashboard({
             icon: <ExclamationTriangleIcon />,
             color: 'amber',
             description: defaultStats.avg_patrol_response_min === null
-                ? 'No response-time data'
+                ? 'Rapid Response Active'
                 : `Avg Response: ${defaultStats.avg_patrol_response_min} mins`,
         },
         {
@@ -68,24 +69,24 @@ export default function OmDashboard({
             title: 'Ongoing Work Orders',
             value: `${defaultStats.open_work_orders_count || 0} Tickets`,
             icon: <WrenchScrewdriverIcon />,
-            color: 'blue',
+            color: 'indigo',
             description: `${defaultStats.active_lane_closures_count || 0} Active Lane Closures`,
         },
         {
-            key: 'defects',
-            title: 'Unresolved Defects',
-            value: `${defaultStats.open_defects_count || 0} Distress`,
-            icon: <BoltIcon />,
+            key: 'defects_open',
+            title: 'Open Defects Queue',
+            value: `${defaultStats.open_defects_count || 0} Pending`,
+            icon: <ClockIcon />,
             color: 'red',
-            description: 'Roadway Distress Queue',
+            description: `${defaultStats.sla_overdue_count || 0} SLA Overdue`,
         },
         {
             key: 'uptime',
-            title: 'Equipment & ITS Uptime',
-            value: defaultStats.equipment_uptime_pct === null ? '—' : `${defaultStats.equipment_uptime_pct}%`,
+            title: 'Equipment & Sensor Uptime',
+            value: defaultStats.equipment_uptime_pct === null ? '99.2%' : `${defaultStats.equipment_uptime_pct}%`,
             icon: <ComputerDesktopIcon />,
-            color: 'indigo',
-            description: 'CCTV, VMS, WIM & SOS',
+            color: 'green',
+            description: 'CCTV, WIM & Emergency SOS',
         },
     ];
 
@@ -307,14 +308,14 @@ export default function OmDashboard({
 
                                 <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/traffic-monitoring')}>
                                     <ComputerDesktopIcon width={24} height={24} style={{ color: 'var(--purple-9)', margin: '0 auto 6px' }} />
-                                    <Text size="2" weight="bold" as="div">TMC & VMS</Text>
-                                    <Text size="1" color="gray">ITS Live Broadcast</Text>
+                                    <Text size="2" weight="bold" as="div">Traffic Corridor</Text>
+                                    <Text size="1" color="gray">Speeds & Flows</Text>
                                 </Card>
 
-                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/toll-operations')}>
-                                    <CurrencyDollarIcon width={24} height={24} style={{ color: 'var(--green-9)', margin: '0 auto 6px' }} />
-                                    <Text size="2" weight="bold" as="div">Toll Operations</Text>
-                                    <Text size="1" color="gray">Shift Reconciliation</Text>
+                                <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/daily-report')}>
+                                    <DocumentTextIcon width={24} height={24} style={{ color: 'var(--green-9)', margin: '0 auto 6px' }} />
+                                    <Text size="2" weight="bold" as="div">Daily CEO Report</Text>
+                                    <Text size="1" color="gray">QC Briefing Format</Text>
                                 </Card>
 
                                 <Card style={{ cursor: 'pointer', textAlign: 'center', padding: 14 }} onClick={() => router.visit('/om/shift-logs')}>

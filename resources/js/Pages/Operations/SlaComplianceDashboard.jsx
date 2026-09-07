@@ -26,7 +26,7 @@ export default function SlaComplianceDashboard({ auth, dashboard }) {
     }[level] || 'gray');
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="SLA Compliance Dashboard" />
             <Box p="5">
                 <Flex justify="between" align="center" mb="4">

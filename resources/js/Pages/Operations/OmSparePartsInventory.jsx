@@ -87,7 +87,7 @@ export default function OmSparePartsInventory({ auth, inventory = {} }) {
     };
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="Spare Parts & Materials Inventory - DBEDC O&M" />
 
             <Box p="6">

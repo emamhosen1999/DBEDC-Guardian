@@ -74,7 +74,7 @@ export default function PreventiveMaintenanceScheduler({ auth, schedules, stats,
     }[c] || c);
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="Preventive Maintenance Scheduler" />
             <Box p="5">
                 <Flex justify="between" align="center" mb="4">

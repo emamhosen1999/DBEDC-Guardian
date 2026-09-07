@@ -18,7 +18,7 @@ export default function OmAnalytics({ auth, analytics, filters }) {
     };
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="O&M Analytics & Reports" />
             <Box p="5">
                 <Flex justify="between" align="center" mb="4">

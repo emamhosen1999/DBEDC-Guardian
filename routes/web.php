@@ -40,6 +40,7 @@ use App\Http\Controllers\NotificationPreferenceController;
 use App\Http\Controllers\ObjectionController;
 use App\Http\Controllers\OperationsMaintenanceController;
 use App\Http\Controllers\OmRenovationController;
+use App\Http\Controllers\OmLookupController;
 use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProfileImageController;
@@ -991,13 +992,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/om/traffic-monitoring', [OperationsMaintenanceController::class, 'trafficMonitoring'])
         ->middleware('permission:om.traffic.view')->name('om.traffic');
-    Route::post('/om/vms-messages', [OperationsMaintenanceController::class, 'updateVmsMessage'])
-        ->middleware('permission:om.traffic.manage')->name('om.vms.update');
+    Route::get('/om/daily-report', [OperationsMaintenanceController::class, 'dailyMaintenanceReport'])
+        ->middleware('permission:om.dashboard.view')->name('om.daily-report');
 
-    Route::get('/om/toll-operations', [OperationsMaintenanceController::class, 'tollOperations'])
-        ->middleware('permission:om.toll.view')->name('om.toll');
-    Route::post('/om/toll-operations/audit', [OperationsMaintenanceController::class, 'storeShiftAudit'])
-        ->middleware('permission:om.toll.manage')->name('om.toll.audit.store');
+    // Dynamic O&M Lookups & Categories Management (Admin)
+    Route::get('/om/lookups', [OmLookupController::class, 'index'])
+        ->middleware('permission:om.dashboard.view')->name('om.lookups');
+    Route::post('/om/lookups', [OmLookupController::class, 'store'])
+        ->middleware('permission:om.dashboard.view')->name('om.lookups.store');
+    Route::put('/om/lookups/{id}', [OmLookupController::class, 'update'])
+        ->middleware('permission:om.dashboard.view')->name('om.lookups.update');
+    Route::delete('/om/lookups/{id}', [OmLookupController::class, 'destroy'])
+        ->middleware('permission:om.dashboard.view')->name('om.lookups.destroy');
 
     Route::get('/om/equipment', [OperationsMaintenanceController::class, 'equipment'])
         ->middleware('permission:om.equipment.view')->name('om.equipment');
@@ -1096,14 +1102,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/om/its-rcm', [OmRenovationController::class, 'rcmReliability'])
         ->middleware('permission:om.equipment.view')->name('om.its.rcm');
-
-    // AI Edge Vision Distress Queue
-    Route::get('/om/ai-distress-queue', [OmRenovationController::class, 'aiDistressQueue'])
-        ->middleware('permission:om.maintenance.view')->name('om.ai-distress');
-    Route::post('/om/ai-distress/batch-convert', [OmRenovationController::class, 'batchConvertAiDetections'])
-        ->middleware('permission:om.maintenance.manage')->name('om.ai-distress.convert');
-    Route::post('/om/ai-distress/{id}/reject', [OmRenovationController::class, 'rejectAiDetection'])
-        ->middleware('permission:om.maintenance.manage')->name('om.ai-distress.reject');
 });
 
 // Notification Settings Routes (admin)

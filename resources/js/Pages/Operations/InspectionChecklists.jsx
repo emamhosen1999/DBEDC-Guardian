@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Button, Badge, Table, Dialog, Select, TextArea } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Button, Badge, Table, Dialog, Select, TextArea, Separator } from '@radix-ui/themes';
 import { ClipboardDocumentCheckIcon, CheckCircleIcon, ExclamationTriangleIcon, XCircleIcon, EyeIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
@@ -32,18 +32,31 @@ export default function InspectionChecklists({ auth, inspections, stats, templat
     };
 
     return (
-        <App>
-            <Head title="Inspection Checklists" />
-            <Box p="5">
-                <Flex justify="between" align="center" mb="4">
-                    <Box>
-                        <Heading size="6" weight="bold">
-                            <ClipboardDocumentCheckIcon className="inline h-6 w-6 mr-2" />
-                            Inspection Checklists & Condition Surveys
-                        </Heading>
-                        <Text size="2" color="gray">Digital inspections with scoring, auto-defect creation on failure</Text>
-                    </Box>
-                </Flex>
+        <App auth={auth}>
+            <Head title="Inspection Checklists & Condition Surveys" />
+            <Flex justify="center" p="4">
+                <Box style={{ width: '100%', maxWidth: 2000 }}>
+                    <Panel>
+                        {/* ── Page Header ── */}
+                        <Box mb="4">
+                            <Flex direction={{ initial: 'column', sm: 'row' }} align={{ initial: 'start', sm: 'center' }} justify="between" gap="4">
+                                <Flex align="center" gap="3">
+                                    <Box p="3" style={{ background: 'var(--blue-a3)', borderRadius: 12, border: '1px solid var(--blue-a5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <ClipboardDocumentCheckIcon style={{ width: 22, height: 22, color: 'var(--blue-9)' }} />
+                                    </Box>
+                                    <Box>
+                                        <Heading size="5" style={{ fontFamily: `'Space Grotesk', system-ui, sans-serif`, fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                            Inspection Checklists & Condition Surveys
+                                        </Heading>
+                                        <Text size="2" style={{ color: 'var(--aero-color-subtle, var(--gray-9))' }}>
+                                            Digital asset inspections with scoring, auto-defect triggers, and joint QC verification
+                                        </Text>
+                                    </Box>
+                                </Flex>
+                            </Flex>
+                        </Box>
+
+                        <Separator size="4" mb="4" style={{ background: 'var(--dl-border-color, rgba(0,0,0,0.06))' }} />
 
                 {/* KPI Cards */}
                 <StatsCards stats={[
@@ -128,21 +141,23 @@ export default function InspectionChecklists({ auth, inspections, stats, templat
                     </Table.Root>
                 </Panel>
 
-                {/* Review Modal */}
-                <Dialog.Root open={!!reviewModal} onOpenChange={(open) => !open && setReviewModal(null)}>
-                    <Dialog.Content maxWidth="450px">
-                        <Dialog.Title>Review Inspection {reviewModal?.inspection_number}</Dialog.Title>
-                        <Dialog.Description size="2" color="gray" mb="3">
-                            Score: {reviewModal?.total_score} | Result: {reviewModal?.result?.replace(/_/g, ' ')}
-                        </Dialog.Description>
-                        <TextArea placeholder="Review notes (optional)" value={reviewNotes} onChange={e => setReviewNotes(e.target.value)} rows={3} />
-                        <Flex justify="end" gap="2" mt="3">
-                            <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
-                            <Button color="blue" onClick={() => handleReview(reviewModal?.id)}>Mark Reviewed</Button>
-                        </Flex>
-                    </Dialog.Content>
-                </Dialog.Root>
-            </Box>
+                        {/* Review Modal */}
+                        <Dialog.Root open={!!reviewModal} onOpenChange={(open) => !open && setReviewModal(null)}>
+                            <Dialog.Content maxWidth="450px">
+                                <Dialog.Title>Review Inspection {reviewModal?.inspection_number}</Dialog.Title>
+                                <Dialog.Description size="2" color="gray" mb="3">
+                                    Score: {reviewModal?.total_score} | Result: {reviewModal?.result?.replace(/_/g, ' ')}
+                                </Dialog.Description>
+                                <TextArea placeholder="Review notes (optional)" value={reviewNotes} onChange={e => setReviewNotes(e.target.value)} rows={3} />
+                                <Flex justify="end" gap="2" mt="3">
+                                    <Dialog.Close><Button variant="soft" color="gray">Cancel</Button></Dialog.Close>
+                                    <Button color="blue" onClick={() => handleReview(reviewModal?.id)}>Mark Reviewed</Button>
+                                </Flex>
+                            </Dialog.Content>
+                        </Dialog.Root>
+                    </Panel>
+                </Box>
+            </Flex>
         </App>
     );
 }

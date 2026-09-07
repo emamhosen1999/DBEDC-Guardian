@@ -130,7 +130,7 @@ export default function EnvironmentalMonitoring({ auth, logs, stats, filters = {
     };
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="Environmental & Weather Monitoring - DBEDC O&M" />
 
             <Box p="6">

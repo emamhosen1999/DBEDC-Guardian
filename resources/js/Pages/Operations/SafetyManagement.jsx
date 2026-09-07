@@ -65,7 +65,7 @@ export default function SafetyManagement({ auth, incidents, stats, filters }) {
     const typeLabel = (t) => t?.replace(/_/g, ' ');
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="Safety Management" />
             <Box p="5">
                 <Flex justify="between" align="center" mb="4">

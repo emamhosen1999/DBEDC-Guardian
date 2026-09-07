@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Box, Flex, Text, Heading, Button, Badge, Table, TextField, Dialog, Select, Separator, TextArea } from '@radix-ui/themes';
+import { Box, Flex, Text, Heading, Button, Badge, Table, TextField, Dialog, Select, Separator, TextArea, Grid } from '@radix-ui/themes';
 import { BoltIcon, PlusIcon, ClockIcon, WrenchScrewdriverIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import App from '@/Layouts/App.jsx';
 import { Panel } from '@/Components/ui/Panel';
@@ -8,7 +8,7 @@ import StatsCards from '@/Components/StatsCards';
 import { useOperationsRealtimeRefresh } from '@/Hooks/useOperationsRealtimeRefresh';
 import { showOperationMutationErrors } from './mutationFeedback';
 
-export default function DefectsManagement({ auth, defects, stats, filters }) {
+export default function DefectsManagement({ auth, defects, stats, filters, lookups }) {
     useOperationsRealtimeRefresh();
 
     const canManage = auth?.permissions?.includes('om.maintenance.manage') || auth?.roles?.includes('Super Administrator');
@@ -18,7 +18,10 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
     const [distressType, setDistressType] = useState('pothole');
     const [chainage, setChainage] = useState('Ch 14+250');
     const [direction, setDirection] = useState('northbound');
+    const [locationCarriageway, setLocationCarriageway] = useState('Main Carriageway - L');
     const [severity, setSeverity] = useState('medium');
+    const [responsibleParty, setResponsibleParty] = useState('O&M Contractor');
+    const [recommendedAction, setRecommendedAction] = useState('Rectification Required');
     const [description, setDescription] = useState('');
 
     // Convert to Work Order Form States
@@ -38,7 +41,10 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
             distress_type: distressType,
             chainage,
             direction,
+            location_carriageway: locationCarriageway,
             severity,
+            responsible_party: responsibleParty,
+            recommended_action: recommendedAction,
             description,
         }, {
             onSuccess: () => {
@@ -150,13 +156,22 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
                                                     {def.defect_number}
                                                 </Table.Cell>
                                                 <Table.Cell>
-                                                    <Text weight="bold" style={{ display: 'block', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <Text weight="bold" style={{ display: 'block', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {def.title}
                                                     </Text>
-                                                    <Text size="1" color="gray">{def.distress_type.replace(/_/g, ' ').toUpperCase()}</Text>
+                                                    <Flex gap="2" align="center" mt="1">
+                                                        <Text size="1" color="gray">{def.distress_type}</Text>
+                                                        {def.photo_reference && (
+                                                            <Badge size="1" color="indigo" variant="soft">{def.photo_reference}</Badge>
+                                                        )}
+                                                        {def.responsible_party && (
+                                                            <Text size="1" color="gray">• {def.responsible_party}</Text>
+                                                        )}
+                                                    </Flex>
                                                 </Table.Cell>
                                                 <Table.Cell>
-                                                    <Text size="2" style={{ whiteSpace: 'nowrap' }}>{def.chainage} ({def.direction})</Text>
+                                                    <Text size="2" weight="medium" style={{ whiteSpace: 'nowrap' }}>{def.chainage}</Text>
+                                                    <Text size="1" color="gray" style={{ display: 'block' }}>{def.location_carriageway || def.direction}</Text>
                                                 </Table.Cell>
                                                 <Table.Cell>
                                                     {getSeverityBadge(def.severity)}
@@ -165,7 +180,12 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
                                                     {isOverdue ? (
                                                         <Badge color="red" variant="solid" style={{ borderRadius: 999 }}>OVERDUE</Badge>
                                                     ) : (
-                                                        <Text size="2" color="gray">{def.sla_hours}h SLA</Text>
+                                                        <Box>
+                                                            <Text size="2" weight="medium" color="gray">{def.sla_hours}h SLA</Text>
+                                                            {def.target_repair_date && (
+                                                                <Text size="1" color="gray" style={{ display: 'block' }}>Due: {def.target_repair_date.substring(0, 10)}</Text>
+                                                            )}
+                                                        </Box>
                                                     )}
                                                 </Table.Cell>
                                                 <Table.Cell>
@@ -209,31 +229,43 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
 
                             <Grid columns="2" gap="3">
                                 <label>
-                                    <Text as="div" size="2" mb="1" weight="bold">Distress Type</Text>
+                                    <Text as="div" size="2" mb="1" weight="bold">Distress Category</Text>
                                     <Select.Root value={distressType} onValueChange={setDistressType}>
                                         <Select.Trigger style={{ width: '100%' }} />
                                         <Select.Content>
-                                            <Select.Item value="pothole">Pothole (4h SLA)</Select.Item>
-                                            <Select.Item value="guardrail_crash_damage">Guardrail Crash Damage (24h SLA)</Select.Item>
-                                            <Select.Item value="lighting_fixture_outage">Lighting Outage (24h SLA)</Select.Item>
-                                            <Select.Item value="drain_clogged_flooding">Drainage Clogging (12h SLA)</Select.Item>
-                                            <Select.Item value="cable_theft_cut">Cable Theft / Cut (12h SLA)</Select.Item>
-                                            <Select.Item value="fence_breached">Fence Breached (12h SLA)</Select.Item>
-                                            <Select.Item value="debris_illegal_dumping">Debris on Road (1h SLA)</Select.Item>
-                                            <Select.Item value="other">Other Distress</Select.Item>
+                                            {(lookups?.defect_categories?.length ? lookups.defect_categories : [
+                                                { key: 'pothole', label: 'Pothole (Pavement)', sla_hours: 4 },
+                                                { key: 'isolation_barrier', label: 'Isolation Barrier Damage/Cut', sla_hours: 24 },
+                                                { key: 'guardrail_crash_damage', label: 'Guardrail Crash Barrier Damage', sla_hours: 24 },
+                                                { key: 'anti_glare_panel', label: 'Anti-Glare Panel Board Damage/Missing', sla_hours: 48 },
+                                                { key: 'median_delineator', label: 'Central Median Delineator Missing', sla_hours: 48 },
+                                                { key: 'drainage_clogged', label: 'Drainage Pipe Clogged', sla_hours: 12 },
+                                                { key: 'road_marking_faded', label: 'Faded Road Marking', sla_hours: 72 },
+                                                { key: 'vegetation_overgrowth', label: 'Bush/Plant/Grass Sightline', sla_hours: 24 },
+                                                { key: 'debris_illegal_dumping', label: 'Debris on Roadway', sla_hours: 1 },
+                                                { key: 'other', label: 'Other Highway Distress', sla_hours: 48 },
+                                            ]).map((cat) => (
+                                                <Select.Item key={cat.id || cat.key} value={cat.label || cat.key}>
+                                                    {cat.label} {cat.sla_hours ? `(${cat.sla_hours}h SLA)` : ''}
+                                                </Select.Item>
+                                            ))}
                                         </Select.Content>
                                     </Select.Root>
                                 </label>
 
                                 <label>
-                                    <Text as="div" size="2" mb="1" weight="bold">Severity</Text>
+                                    <Text as="div" size="2" mb="1" weight="bold">Severity Level</Text>
                                     <Select.Root value={severity} onValueChange={setSeverity}>
                                         <Select.Trigger style={{ width: '100%' }} />
                                         <Select.Content>
-                                            <Select.Item value="low">Low</Select.Item>
-                                            <Select.Item value="medium">Medium</Select.Item>
-                                            <Select.Item value="high">High</Select.Item>
-                                            <Select.Item value="critical">Critical (Safety Hazard)</Select.Item>
+                                            {(lookups?.severities?.length ? lookups.severities : [
+                                                { key: 'minor', label: 'Minor (72h SLA)' },
+                                                { key: 'moderate', label: 'Moderate (48h SLA)' },
+                                                { key: 'major', label: 'Major (24h SLA)' },
+                                                { key: 'critical', label: 'Critical - Safety Hazard (4h SLA)' },
+                                            ]).map((s) => (
+                                                <Select.Item key={s.id || s.key} value={s.key}>{s.label}</Select.Item>
+                                            ))}
                                         </Select.Content>
                                     </Select.Root>
                                 </label>
@@ -242,26 +274,45 @@ export default function DefectsManagement({ auth, defects, stats, filters }) {
                             <Grid columns="2" gap="3">
                                 <label>
                                     <Text as="div" size="2" mb="1" weight="bold">Chainage (Ch)</Text>
-                                    <TextField.Root placeholder="e.g. Ch 18+400" value={chainage} onChange={(e) => setChainage(e.target.value)} required />
+                                    <TextField.Root placeholder="e.g. K4+120 or Ch 18+400" value={chainage} onChange={(e) => setChainage(e.target.value)} required />
                                 </label>
 
                                 <label>
-                                    <Text as="div" size="2" mb="1" weight="bold">Direction</Text>
-                                    <Select.Root value={direction} onValueChange={setDirection}>
+                                    <Text as="div" size="2" mb="1" weight="bold">Location / Carriageway</Text>
+                                    <Select.Root value={locationCarriageway} onValueChange={setLocationCarriageway}>
                                         <Select.Trigger style={{ width: '100%' }} />
                                         <Select.Content>
-                                            <Select.Item value="northbound">Northbound (Joydevpur to Madanpur)</Select.Item>
-                                            <Select.Item value="southbound">Southbound (Madanpur to Joydevpur)</Select.Item>
-                                            <Select.Item value="median">Median</Select.Item>
-                                            <Select.Item value="ramp">Interchange Ramp</Select.Item>
+                                            {(lookups?.carriageway_locations?.length ? lookups.carriageway_locations : [
+                                                { key: 'Main Carriageway - L', label: 'Main Carriageway - L' },
+                                                { key: 'Main Carriageway - R', label: 'Main Carriageway - R' },
+                                                { key: 'Median', label: 'Central Median' },
+                                                { key: 'Guardrail/Barrier', label: 'Guardrail / Outer Barrier' },
+                                                { key: 'Service Road - Left', label: 'Service Road - Left' },
+                                                { key: 'Service Road - Right', label: 'Service Road - Right' },
+                                                { key: 'Toll Plaza / Ramp', label: 'Toll Plaza / Ramp' },
+                                            ]).map((loc) => (
+                                                <Select.Item key={loc.id || loc.key} value={loc.label || loc.key}>{loc.label}</Select.Item>
+                                            ))}
                                         </Select.Content>
                                     </Select.Root>
                                 </label>
                             </Grid>
 
+                            <Grid columns="2" gap="3">
+                                <label>
+                                    <Text as="div" size="2" mb="1" weight="bold">Responsible Party</Text>
+                                    <TextField.Root placeholder="e.g. O&M Contractor" value={responsibleParty} onChange={(e) => setResponsibleParty(e.target.value)} />
+                                </label>
+
+                                <label>
+                                    <Text as="div" size="2" mb="1" weight="bold">Recommended Action</Text>
+                                    <TextField.Root placeholder="e.g. Rectification Required" value={recommendedAction} onChange={(e) => setRecommendedAction(e.target.value)} />
+                                </label>
+                            </Grid>
+
                             <label>
-                                <Text as="div" size="2" mb="1" weight="bold">Description & Dimensions</Text>
-                                <TextArea placeholder="Describe defect size, lane affected, and immediate hazard..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                                <Text as="div" size="2" mb="1" weight="bold">Description & Site Extent</Text>
+                                <TextArea placeholder="Describe defect size, lane affected, barrier damage, and immediate hazard..." value={description} onChange={(e) => setDescription(e.target.value)} />
                             </label>
 
                             <Flex justify="end" gap="3" mt="3">

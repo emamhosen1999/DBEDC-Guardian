@@ -30,7 +30,7 @@ export default function AssetTimeline({ auth, asset, timeline }) {
     const timelineItems = timeline || [];
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title={`Asset Timeline — ${asset?.asset_code || 'Unknown'}`} />
             <Box p="5">
                 {/* Asset Header */}

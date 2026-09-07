@@ -152,7 +152,7 @@ export default function ContractorScorecards({ auth, contractors, stats, filters
     };
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="Contractor & Vendor Scorecards - DBEDC O&M" />
 
             <Box p="6">

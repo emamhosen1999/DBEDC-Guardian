@@ -107,7 +107,7 @@ export default function ToolboxTalks({ auth, toolboxTalks = {} }) {
     };
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="Toolbox Safety Talks - DBEDC O&M" />
 
             <Box p="6">

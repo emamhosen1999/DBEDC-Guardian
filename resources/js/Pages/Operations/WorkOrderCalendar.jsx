@@ -135,7 +135,7 @@ export default function WorkOrderCalendar({ auth, workOrders = [], currentMonth 
     const todayStr = new Date().toISOString().substring(0, 10);
 
     return (
-        <App>
+        <App auth={auth}>
             <Head title="Work Orders Interactive Calendar - DBEDC O&M" />
 
             <Box p="6">
